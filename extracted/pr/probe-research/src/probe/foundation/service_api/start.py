@@ -85,6 +85,8 @@ ENV_ALLOWLIST = (
     "PROBE_SERVICE_REPORTS",
     "PROBE_SERVICE_WATCH_S",
     "PROBE_SERVICE_TELEMETRY_HOST",
+    # A test's service resumes on the taps its tests name (`handlers.hooks.RELEASE_TAP_ENV`).
+    "PROBE_SERVICE_RELEASE_TAP",
     # The person's opt-out of Probe's entries in each agent's sandbox config (service-only M3).
     "PROBE_SANDBOX_ACCESS",
     # The state root a client named (the SDK's on a read-only home, `paths.SERVICE_ROOT_ENV`):

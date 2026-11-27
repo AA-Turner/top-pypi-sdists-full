@@ -1,8 +1,7 @@
-# fmt: off
-
 from __future__ import annotations
 
 import numpy as np
+import numpy.typing as npt
 from scipy.special import exprel
 
 import ase.units
@@ -39,6 +38,17 @@ class NoseHooverChainNVT(MolecularDynamics):
 
     - [4] M. E. Tuckerman, Statistical Mechanics: Theory and Molecular
           Simulation, 2nd ed. (Oxford University Press, 2009).
+
+    Constraints are applied with the RATTLE algorithm in the velocity-Verlet
+    part of the propagator.  In the notation of Zhang et al. [5], this is the
+    T-C2-p-C1-x-p-T factorization, applied from right to left.
+
+    - [5] Z. Zhang, X. Liu, K. Yan, M. E. Tuckerman, and J. Liu,
+      J. Phys. Chem. A 123, 6056 (2019).
+
+    .. versionadded:: 3.30.0
+        Constraints are applied based on the RATTLE algorithm.
+
     """
 
     def __init__(
@@ -70,6 +80,19 @@ class NoseHooverChainNVT(MolecularDynamics):
         **kwargs : dict, optional
             Additional arguments passed to :class:~ase.md.md.MolecularDynamics
             base class.
+
+        Physical background and limitations
+        -----------------------------------
+
+        In Nosé-Hoover dynamics, an extra term is added to the Hamiltonian
+        representing the coupling to the heat bath.  From a pragmatic point of
+        view one can regard Nosé-Hoover dynamics as adding a friction term to
+        Newton's second law, but dynamically changing the friction coefficient
+        to move the system towards the desired temperature.  Typically the
+        "friction coefficient" will fluctuate around zero.  To give a more
+        stable dynamics, the friction coefficient is itself thermalized in the
+        same way, leading to a chain of thermostats (a **Nosé-Hoover chain**,
+        in ASE by default the chain length is 3).
         """
         super().__init__(
             atoms=atoms,
@@ -78,9 +101,8 @@ class NoseHooverChainNVT(MolecularDynamics):
         )
         assert self.masses.shape == (len(self.atoms), 1)
 
-        num_atoms = self.atoms.get_global_number_of_atoms()
         self._thermostat = NoseHooverChainThermostat(
-            num_atoms_global=num_atoms,
+            ndof=self.atoms.get_number_of_degrees_of_freedom(),
             masses=self.masses,
             temperature_K=temperature_K,
             tdamp=tdamp,
@@ -95,9 +117,9 @@ class NoseHooverChainNVT(MolecularDynamics):
     def step(self) -> None:
         dt2 = self.dt / 2
         self._p = self._thermostat.integrate_nhc(self._p, dt2)
-        self._integrate_p(dt2)
-        self._integrate_q(self.dt)
-        self._integrate_p(dt2)
+        self._integrate_p(dt2, apply_constraint=False)
+        self._integrate_q(self.dt, apply_constraint=True)
+        self._integrate_p(dt2, apply_constraint=True)
         self._p = self._thermostat.integrate_nhc(self._p, dt2)
 
         self._update_atoms()
@@ -115,21 +137,36 @@ class NoseHooverChainNVT(MolecularDynamics):
         return float(conserved_energy)
 
     def _update_atoms(self) -> None:
-        self.atoms.set_positions(self._q)
-        self.atoms.set_momenta(self._p)
+        # Note: Constraints are applied in `_integrate_q` and `_integrate_p`.
+        self.atoms.set_positions(self._q, apply_constraint=False)
+        self.atoms.set_momenta(self._p, apply_constraint=False)
 
     def _get_forces(self) -> np.ndarray:
         self._update_atoms()
         return self.atoms.get_forces(md=True)
 
-    def _integrate_q(self, delta: float) -> None:
+    def _integrate_q(self, delta: float, apply_constraint: bool) -> None:
         """Integrate exp(i * L_1 * delta)"""
+        old_q = self._q.copy()
         self._q += delta * self._p / self.masses
 
-    def _integrate_p(self, delta: float) -> None:
+        # First part of the RATTLE algorithm: constrain the new positions and
+        # update momenta to reproduce it.
+        if apply_constraint and self.atoms.constraints:
+            self.atoms.set_positions(self._q, apply_constraint=True)
+            self._q = self.atoms.get_positions()
+            self._p = (self._q - old_q) * self.masses / delta
+            self.atoms.set_momenta(self._p, apply_constraint=False)
+
+    def _integrate_p(self, delta: float, apply_constraint: bool) -> None:
         """Integrate exp(i * L_2 * delta)"""
         forces = self._get_forces()
         self._p += delta * forces
+
+        # Second part of RATTLE: constrain the new momenta.
+        if apply_constraint and self.atoms.constraints:
+            self.atoms.set_momenta(self._p, apply_constraint=True)
+            self._p = self.atoms.get_momenta()
 
 
 class NoseHooverChainThermostat:
@@ -137,9 +174,11 @@ class NoseHooverChainThermostat:
 
     See `NoseHooverChainNVT` for the references.
     """
+
     def __init__(
         self,
-        num_atoms_global: int,
+        *,
+        ndof: int,
         masses: np.ndarray,
         temperature_K: float,
         tdamp: float,
@@ -147,7 +186,7 @@ class NoseHooverChainThermostat:
         tloop: int = 1,
     ):
         """See `NoseHooverChainNVT` for the parameters."""
-        self._num_atoms_global = num_atoms_global
+        self._ndof = ndof
         self._masses = masses  # (len(atoms), 1)
         self._tdamp = tdamp
         self._tchain = tchain
@@ -157,7 +196,7 @@ class NoseHooverChainThermostat:
 
         assert tchain >= 1
         self._Q = np.zeros(tchain)
-        self._Q[0] = 3 * self._num_atoms_global * self._kT * tdamp**2
+        self._Q[0] = self._ndof * self._kT * tdamp**2
         self._Q[1:] = self._kT * tdamp**2
 
         # The following variables are updated during self.step()
@@ -167,7 +206,7 @@ class NoseHooverChainThermostat:
     def get_thermostat_energy(self) -> float:
         """Return energy-like contribution from the thermostat variables."""
         energy = (
-            3 * self._num_atoms_global * self._kT * self._eta[0]
+            self._ndof * self._kT * self._eta[0]
             + self._kT * np.sum(self._eta[1:])
             + np.sum(0.5 * self._p_eta**2 / self._Q)
         )
@@ -177,22 +216,20 @@ class NoseHooverChainThermostat:
         """Integrate exp(i * L_NHC * delta) and update momenta `p`."""
         for _ in range(self._tloop):
             for coeff in FOURTH_ORDER_COEFFS:
-                p = self._integrate_nhc_loop(
-                    p, coeff * delta / self._tloop
-                )
+                p = self._integrate_nhc_loop(p, coeff * delta / self._tloop)
 
         return p
 
-    def _integrate_p_eta_j(self, p: np.ndarray, j: int,
-                           delta2: float, delta4: float) -> None:
+    def _integrate_p_eta_j(
+        self, p: np.ndarray, j: int, delta2: float, delta4: float
+    ) -> None:
         if j < self._tchain - 1:
             self._p_eta[j] *= np.exp(
                 -delta4 * self._p_eta[j + 1] / self._Q[j + 1]
             )
 
         if j == 0:
-            g_j = np.sum(p**2 / self._masses) \
-                - 3 * self._num_atoms_global * self._kT
+            g_j = np.sum(p**2 / self._masses) - self._ndof * self._kT
         else:
             g_j = self._p_eta[j - 1] ** 2 / self._Q[j - 1] - self._kT
         self._p_eta[j] += delta2 * g_j
@@ -232,6 +269,7 @@ class IsotropicMTKNPT(MolecularDynamics):
     - [1] G. J. Martyna, D. J. Tobias, and M. L. Klein, J. Chem. Phys. 101,
           4177-4189 (1994). https://doi.org/10.1063/1.467468
     """
+
     def __init__(
         self,
         atoms: Atoms,
@@ -284,12 +322,12 @@ class IsotropicMTKNPT(MolecularDynamics):
 
         if len(atoms.constraints) > 0:
             raise NotImplementedError(
-                "Current implementation does not support constraints"
+                'Current implementation does not support constraints'
             )
 
         self._num_atoms_global = self.atoms.get_global_number_of_atoms()
         self._thermostat = NoseHooverChainThermostat(
-            num_atoms_global=self._num_atoms_global,
+            ndof=self.atoms.get_number_of_degrees_of_freedom(),
             masses=self.masses,
             temperature_K=temperature_K,
             tdamp=tdamp,
@@ -371,15 +409,18 @@ class IsotropicMTKNPT(MolecularDynamics):
     def _integrate_q(self, delta: float) -> None:
         """Integrate exp(i * L_1 * delta)"""
         x = delta * self._p_eps / self._barostat.W
-        self._q = (
-            self._q * np.exp(x)
-            + self._p * delta / self.masses * exprel(x)
+        self._q = self._q * np.exp(x) + self._p * delta / self.masses * exprel(
+            x
         )
 
     def _integrate_p(self, delta: float) -> None:
         """Integrate exp(i * L_2 * delta)"""
-        x = (1 + 1 / self._num_atoms_global) * self._p_eps * delta \
-                / self._barostat.W
+        x = (
+            (1 + 1 / self._num_atoms_global)
+            * self._p_eps
+            * delta
+            / self._barostat.W
+        )
         forces = self._get_forces()
         self._p = self._p * np.exp(-x) + delta * forces * exprel(-x)
 
@@ -403,6 +444,7 @@ class IsotropicMTKBarostat:
 
     See `IsotropicMTKNPT` for the references.
     """
+
     def __init__(
         self,
         num_atoms_global: int,
@@ -435,9 +477,8 @@ class IsotropicMTKBarostat:
 
     def get_barostat_energy(self) -> float:
         """Return energy-like contribution from the barostat variables."""
-        energy = (
-            + np.sum(0.5 * self._p_xi**2 / self._R)
-            + self._kT * np.sum(self._xi)
+        energy = +np.sum(0.5 * self._p_xi**2 / self._R) + self._kT * np.sum(
+            self._xi
         )
         return float(energy)
 
@@ -463,15 +504,16 @@ class IsotropicMTKBarostat:
 
         return p_eps
 
-    def _integrate_p_xi_j(self, p_eps: float, j: int,
-                          delta2: float, delta4: float) -> None:
+    def _integrate_p_xi_j(
+        self, p_eps: float, j: int, delta2: float, delta4: float
+    ) -> None:
         if j < self._pchain - 1:
             self._p_xi[j] *= np.exp(
                 -delta4 * self._p_xi[j + 1] / self._R[j + 1]
             )
 
         if j == 0:
-            g_j = p_eps ** 2 / self._W - self._kT
+            g_j = p_eps**2 / self._W - self._kT
         else:
             g_j = self._p_xi[j - 1] ** 2 / self._R[j - 1] - self._kT
         self._p_xi[j] += delta2 * g_j
@@ -485,9 +527,7 @@ class IsotropicMTKBarostat:
         self._xi += delta * self._p_xi / self._R
 
     def _integrate_nhc_p_eps(self, p_eps: float, delta: float) -> float:
-        p_eps_new = p_eps * float(
-            np.exp(-delta * self._p_xi[0] / self._R[0])
-        )
+        p_eps_new = p_eps * float(np.exp(-delta * self._p_xi[0] / self._R[0]))
         return p_eps_new
 
 
@@ -501,6 +541,7 @@ class MTKNPT(MolecularDynamics):
     - [1] G. J. Martyna, D. J. Tobias, and M. L. Klein, J. Chem. Phys. 101,
           4177-4189 (1994). https://doi.org/10.1063/1.467468
     """
+
     def __init__(
         self,
         atoms: Atoms,
@@ -553,12 +594,12 @@ class MTKNPT(MolecularDynamics):
 
         if len(atoms.constraints) > 0:
             raise NotImplementedError(
-                "Current implementation does not support constraints"
+                'Current implementation does not support constraints'
             )
 
         self._num_atoms_global = self.atoms.get_global_number_of_atoms()
         self._thermostat = NoseHooverChainThermostat(
-            num_atoms_global=self._num_atoms_global,
+            ndof=self.atoms.get_number_of_degrees_of_freedom(),
             masses=self.masses,
             temperature_K=temperature_K,
             tdamp=tdamp,
@@ -588,7 +629,7 @@ class MTKNPT(MolecularDynamics):
         self._init_cell_momenta()
 
     @property
-    def mask(self) -> tuple[bool, bool, bool] | None:
+    def mask(self) -> npt.NDArray[np.bool_] | None:
         return None
 
     @mask.setter
@@ -652,9 +693,10 @@ class MTKNPT(MolecularDynamics):
         y = self._p @ U  # (num_atoms, 3-eigvec)
         sol = (
             x * np.exp(eigvals * delta / self._barostat.W)[None, :]
-            + delta * y / self.masses * exprel(
-                eigvals * delta / self._barostat.W
-            )[None, :]
+            + delta
+            * y
+            / self.masses
+            * exprel(eigvals * delta / self._barostat.W)[None, :]
         )  # (num_atoms, 3-eigvec)
         self._q = sol @ U.T
 
@@ -664,14 +706,15 @@ class MTKNPT(MolecularDynamics):
 
         # eigvals: (3-eigvec), U: (3-xyz, 3-eigvec)
         eigvals, U = np.linalg.eigh(self._p_g)
-        kappas = eigvals \
-            + np.trace(self._p_g) / (3 * self._num_atoms_global)  # (3-eigvec)
+        kappas = eigvals + np.trace(self._p_g) / (
+            3 * self._num_atoms_global
+        )  # (3-eigvec)
         y = self._p @ U  # (num_atoms, 3-eigvec)
         sol = (
             y * np.exp(-kappas * delta / self._barostat.W)[None, :]
-            + delta * (forces @ U) * exprel(
-                -kappas * delta / self._barostat.W
-            )[None, :]
+            + delta
+            * (forces @ U)
+            * exprel(-kappas * delta / self._barostat.W)[None, :]
         )  # (num_atoms, 3-eigvec)
         self._p = sol @ U.T
 
@@ -681,9 +724,9 @@ class MTKNPT(MolecularDynamics):
         # eigvals: (3-eigvec), U: (3-xyz, 3-eigvec)
         eigvals, U = np.linalg.eigh(self._p_g)
         n = self._h @ U  # (3-axis, 3-eigvec)
-        sol = n * np.exp(
-            eigvals * delta / self._barostat.W
-        )[None, :]  # (3-axis, 3-eigvec)
+        sol = (
+            n * np.exp(eigvals * delta / self._barostat.W)[None, :]
+        )  # (3-axis, 3-eigvec)
         self._h = sol @ U.T
 
     def _integrate_p_cell(self, delta: float) -> None:
@@ -712,6 +755,7 @@ class MaskedMTKNPT(MTKNPT):
     - [1] G. J. Martyna, D. J. Tobias, and M. L. Klein, J. Chem. Phys. 101,
           4177-4189 (1994). https://doi.org/10.1063/1.467468
     """
+
     def __init__(
         self,
         *args,
@@ -740,12 +784,15 @@ class MaskedMTKNPT(MTKNPT):
         self._p_c = np.zeros(3)  # Cell momenta for axis
 
     @property
-    def mask(self) -> tuple[bool, bool, bool]:
+    def mask(self) -> npt.NDArray[np.bool_]:
         return self._mask
 
     @mask.setter
     def mask(self, mask: tuple[bool, bool, bool]) -> None:
-        self._mask = mask
+        _mask = np.asarray(mask, dtype=bool)
+        if _mask.shape != (3,):
+            raise ValueError('mask must contain exactly three booleans')
+        self._mask = _mask
 
     @property
     def _p_g(self) -> np.ndarray:
@@ -766,9 +813,10 @@ class MaskedMTKNPT(MTKNPT):
         particle_dof = 3 * self._num_atoms_global
         kinetic_term = np.sum(self._p**2 / self.masses) / particle_dof
         pv_tensor = volume * (stress - self._pressure_au * np.eye(3))
-        gc = np.diag(
-            self._h0_basis @ pv_tensor @ self._h0_basis.T
-        ) + kinetic_term
+        gc = (
+            np.diag(self._h0_basis @ pv_tensor @ self._h0_basis.T)
+            + kinetic_term
+        )
         self._p_c[self.mask] += delta * gc[self.mask]
 
     def _integrate_p_cell_by_barostat(self, delta: float) -> None:
@@ -781,14 +829,15 @@ class MTKBarostat:
     See `MTKNPT` for the references.
 
     Note for `mask` keyword argument:
-        If `mask` is None, full 9 DoF cell fluctuations are allowed.
+        If `mask` is None, the symmetric cell momentum has 6 independent DoF.
         If `mask` is a 3-tuple of booleans, only the specified axes are allowed
         to fluctuate, and its DoF is a number of the specified axes. Thus,
         `mask=(True, True, True)` gives 3 DoF cell fluctuations along a, b,
-        and c axes, which is different from the full 9 DoF fluctuations.
+        and c axes, which is different from the full 6 DoF fluctuations.
         Other cell fluctuations such as partially allowed off-diagonal
         components are not supported in the current implementation.
     """
+
     def __init__(
         self,
         num_atoms_global: int,
@@ -796,14 +845,14 @@ class MTKBarostat:
         pdamp: float,
         pchain: int = 3,
         ploop: int = 1,
-        mask: tuple[bool, bool, bool] | None = None,
+        mask: npt.NDArray[np.bool_] | tuple[bool, bool, bool] | None = None,
     ):
         self._num_atoms_global = num_atoms_global
         self._pdamp = pdamp
         self._pchain = pchain
         self._ploop = ploop
 
-        self._cell_dof = 9 if mask is None else sum(mask)
+        self._cell_dof = 6 if mask is None else sum(mask)
 
         self._kT = ase.units.kB * temperature_K
 
@@ -832,8 +881,8 @@ class MTKBarostat:
         return float(energy)
 
     def integrate_nhc_baro(
-            self, p_cell: np.ndarray, delta: float
-        ) -> np.ndarray:
+        self, p_cell: np.ndarray, delta: float
+    ) -> np.ndarray:
         """Integrate exp(i * L_NHC-baro * delta)"""
         for _ in range(self._ploop):
             for coeff in FOURTH_ORDER_COEFFS:

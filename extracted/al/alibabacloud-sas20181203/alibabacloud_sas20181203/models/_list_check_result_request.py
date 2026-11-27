@@ -17,6 +17,8 @@ class ListCheckResultRequest(DaraModel):
         instance_ids: List[str] = None,
         instance_types: List[str] = None,
         lang: str = None,
+        last_check_time_end: int = None,
+        last_check_time_start: int = None,
         operation_types: List[str] = None,
         page_size: int = None,
         region_id: str = None,
@@ -30,135 +32,101 @@ class ListCheckResultRequest(DaraModel):
         types: List[str] = None,
         vendors: List[str] = None,
     ):
-        # The IDs of the check items.
+        # The list of check item IDs.
         self.check_ids = check_ids
-        # The key that you want to use to search for check items in fuzzy match mode.
+        # The keyword for fuzzy search of check items.
         self.check_key = check_key
-        # Source type of the situation awareness check item.
+        # The source type of the Threat Detection Service check item.
         self.check_types = check_types
-        # The page number.
+        # The page number of the current page returned during paging for a paged query.
         self.current_page = current_page
         # Specifies whether the check item supports custom parameters. Valid values:
         # 
-        # - **true**
-        # 
-        # - **false**
+        # - **true**: Supported.
+        # - **false**: Not supported.
         self.custom_param = custom_param
-        # The instance IDs of the cloud services that you want to query. Separate multiple IDs with commas (,).
+        # The instance ID of the cloud services to query. Separate multiple instance IDs with commas (,).
         self.instance_ids = instance_ids
-        # The asset type of the cloud services. Valid values:
+        # The asset types of the cloud services. Valid values:
         # 
-        # - **ECS**: Elastic Compute Service (ECS)
-        # 
-        # - **SLB**: Server Load Balancer (SLB)
-        # 
-        # - **RDS**: ApsaraDB RDS
-        # 
-        # - **MONGODB**: ApsaraDB for MongoDB (MongoDB)
-        # 
-        # - **KVSTORE**: ApsaraDB for Redis (Redis)
-        # 
-        # - **ACR**: Container Registry
-        # 
-        # - **CSK**: Container Service for Kubernetes (ACK)
-        # 
-        # - **VPC**: Virtual Private Cloud (VPC)
-        # 
-        # - **ACTIONTRAIL**: ActionTrail
-        # 
-        # - **CDN**: Alibaba Cloud CDN (CDN)
-        # 
-        # - **CAS**: Certificate Management Service (formerly SSL Certificates Service)
-        # 
-        # - **RDC**: Apsara Devops
-        # 
-        # - **RAM**: Resource Access Management (RAM)
-        # 
-        # - **DDOS**: Anti-DDoS
-        # 
-        # - **WAF**: Web Application Firewall (WAF)
-        # 
-        # - **OSS**: Object Storage Service (OSS)
-        # 
-        # - **POLARDB**: PolarDB
-        # 
-        # - **POSTGRESQL**: ApsaraDB RDS for PostgreSQL
-        # 
-        # - **MSE**: Microservices Engine (MSE)
-        # 
-        # - **NAS**: File Storage NAS (NAS)
-        # 
-        # - **SDDP**: Sensitive Data Discovery and Protection (SDDP)
-        # 
-        # - **EIP**: Elastic IP Address (EIP)
+        # - **ECS**: cloud server.
+        # - **SLB**: load balancing.
+        # - **RDS**: RDS database.
+        # - **MONGODB**: MongoDB database.
+        # - **KVSTORE**: Redis database.
+        # - **ACR**: ACR.
+        # - **CSK**: CSK.
+        # - **VPC**: VPC.
+        # - **ACTIONTRAIL**: ActionTrail.
+        # - **CDN**: CDN.
+        # - **CAS**: Certificate Management Service [formerly SSL Certificates Service].
+        # - **RDC**: Apsara Devops.
+        # - **RAM**: RAM.
+        # - **DDOS**: distributed deny service.
+        # - **WAF**: WAF.
+        # - **OSS**: access control.
+        # - **POLARDB**: PolarDB.
+        # - **POSTGRESQL**: PostgreSQL.
+        # - **MSE**: MSE.
+        # - **NAS**: NAS.
+        # - **SDDP**: SDDP.
+        # - **EIP**: EIP.
         self.instance_types = instance_types
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
-        # 
-        # - **zh**: Chinese
-        # 
-        # - **en**: English
+        # The language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese.
+        # - **en**: English.
         self.lang = lang
-        # Specifies whether fixing is supported. Valid values:
-        # 
-        # - **SUPPORT_REPAIR**
-        # 
-        # - **NOT_SUPPORT_REPAIR**
+        # The end time for the last check filter.
+        self.last_check_time_end = last_check_time_end
+        # The start time for the last check filter.
+        self.last_check_time_start = last_check_time_start
+        # Specifies whether remediation is supported. Valid values:
+        # - **SUPPORT_REPAIR**: Supported.
+        # - **NOT_SUPPORT_REPAIR**: Not supported.
         self.operation_types = operation_types
-        # The number of entries per page. Maximum value: 100.
+        # The maximum number of entries to return on each page during paging for a paged query. Maximum value: 100.
         self.page_size = page_size
         # The region ID of the instance. Valid values:
         # 
-        # - **cn-hangzhou**: International
-        # 
-        # - **ap-southeast-1**: Singapore
+        # - **cn-hangzhou**: China (Hangzhou).
+        # - **ap-southeast-1**: Singapore.
         self.region_id = region_id
-        # The IDs of the requirements.
+        # The list of requirement IDs.
         self.requirement_ids = requirement_ids
-        # The Alibaba Cloud account ID of the member in the resource directory.
-        # 
-        # > You can call the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain the IDs.
+        # The ID of the member accounts in the Resource Directory folder (Alibaba Cloud account).
+        # >You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
-        # The risk levels of check items. Separate multiple risk levels with commas (,). Valid values:
+        # The risk levels of the check items. Separate multiple risk levels with commas (,). Valid values:
         # 
-        # - **HIGH**
-        # 
-        # - **MEDIUM**
-        # 
-        # - **LOW**
+        # - **HIGH**: High.
+        # - **MEDIUM**: Medium.
+        # - **LOW**: Low.
         self.risk_levels = risk_levels
-        # The types of the conditions based on which check items are sorted. Valid values:
+        # The sorting type for check items. Valid values:
         # 
-        # - **RISK_LEVEL**: risk level
-        # 
-        # - **STATUS**: status
+        # - **RISK_LEVEL**: Risk level.
+        # - **STATUS**: Check item status.
         self.sort_types = sort_types
-        # The standard IDs.
+        # The list of standard IDs.
         self.standard_ids = standard_ids
-        # The statuses of check items. Separate multiple statuses with commas (,). Valid values:
+        # The list of check item statuses. Separate multiple statuses with commas (,). Valid values:
         # 
-        # - **PASS**
-        # 
-        # - **NOT_PASS**
-        # 
-        # - **CHECKING**
-        # 
-        # - **NOT_CHECK**
-        # 
-        # - **WHITELIST**
+        # - **PASS**: Passed.
+        # - **NOT_PASS**: Not passed.
+        # - **CHECKING**: Checking.
+        # - **NOT_CHECK**: Not checked.
+        # - **WHITELIST**: Whitelisted.
+        # - **FAILED**: Failed.
         self.statuses = statuses
-        # Delete the custom category in a custom inspection item.
+        # The custom category of the custom check items to delete.
         self.task_sources = task_sources
-        # The types of check standards.
+        # The list of check standard types.
         self.types = types
-        # The cloud service providers. Valid values:
-        # 
-        # - **ALIYUN**: Alibaba Cloud
-        # 
-        # - **TENCENT**: Tencent Cloud
-        # 
-        # - **AWS**: Amazon Web Services (AWS)
-        # 
-        # - **MICROSOFT**: Microsoft Azure
+        # The cloud provider. Valid values:
+        # - **ALIYUN**: Alibaba Cloud.
+        # - **TENCENT**: Other cloud providers.
+        # - **AWS**: Other cloud providers.
+        # - **MICROSOFT**: Other cloud providers.
         self.vendors = vendors
 
     def validate(self):
@@ -192,6 +160,12 @@ class ListCheckResultRequest(DaraModel):
 
         if self.lang is not None:
             result['Lang'] = self.lang
+
+        if self.last_check_time_end is not None:
+            result['LastCheckTimeEnd'] = self.last_check_time_end
+
+        if self.last_check_time_start is not None:
+            result['LastCheckTimeStart'] = self.last_check_time_start
 
         if self.operation_types is not None:
             result['OperationTypes'] = self.operation_types
@@ -256,6 +230,12 @@ class ListCheckResultRequest(DaraModel):
 
         if m.get('Lang') is not None:
             self.lang = m.get('Lang')
+
+        if m.get('LastCheckTimeEnd') is not None:
+            self.last_check_time_end = m.get('LastCheckTimeEnd')
+
+        if m.get('LastCheckTimeStart') is not None:
+            self.last_check_time_start = m.get('LastCheckTimeStart')
 
         if m.get('OperationTypes') is not None:
             self.operation_types = m.get('OperationTypes')

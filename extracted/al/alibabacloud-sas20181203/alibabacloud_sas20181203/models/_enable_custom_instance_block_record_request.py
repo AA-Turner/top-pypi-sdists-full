@@ -12,13 +12,11 @@ class EnableCustomInstanceBlockRecordRequest(DaraModel):
         resource_owner_id: int = None,
         uuid: str = None,
     ):
-        # The IP address for brute-force attacks prevention that you want to enable on the server.
+        # The IP address on the server for which to enable protection against brute-force attacks.
         # 
         # This parameter is required.
         self.block_ip = block_ip
-        # The direction in which the brute-force attacks blocking policy blocks the IP address on the server.
-        # 
-        # Valid values:
+        # The direction of the IP address blocked by the interception policy for brute-force attacks on the server. Valid values:
         # - **in**: inbound
         # - **out**: outbound
         self.bound = bound

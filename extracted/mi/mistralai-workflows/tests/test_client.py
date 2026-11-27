@@ -1,5 +1,6 @@
 import inspect
 import json
+from functools import partial
 from unittest.mock import patch
 
 import httpx
@@ -9,7 +10,7 @@ from pydantic import SecretStr
 
 from mistralai.workflows._version import __version__
 from mistralai.workflows.client import _get_async_client, _get_sync_client
-from mistralai.workflows.core.auth import StaticTokenProvider
+from mistralai.workflows.core.auth import RunAs, StaticTokenProvider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import WorkflowError
@@ -27,13 +28,16 @@ from mistralai.workflows.hooks.token_provider_hook import (
 )
 from mistralai.workflows.models.payload import WorkflowContext
 
+_get_async_deployment_client = partial(_get_async_client, run_as=RunAs.DEPLOYMENT)
+_get_sync_deployment_client = partial(_get_sync_client, run_as=RunAs.DEPLOYMENT)
+
 _CLIENT_FACTORIES = [
     pytest.param(_get_async_client, AsyncExecutorCredentialsHook, id="async"),
     pytest.param(_get_sync_client, SyncExecutorCredentialsHook, id="sync"),
 ]
 
 
-@pytest.mark.parametrize("get_client", [_get_async_client, _get_sync_client])
+@pytest.mark.parametrize("get_client", [_get_async_deployment_client, _get_sync_deployment_client])
 class TestClientUserAgent:
     def test_default_user_agent_is_sent(self, get_client):
         client = get_client(token_provider=StaticTokenProvider("test-key"))
@@ -54,28 +58,28 @@ class TestExecutorCredentials:
         client = get_client(
             token_provider=StaticTokenProvider("test-key"),
             server_url="http://localhost",
-            use_executor_credentials=True,
+            run_as=RunAs.EXECUTOR,
         )
         hooks = client.event_hooks.get("request", [])
         assert any(isinstance(h, expected_hook_cls) for h in hooks)
 
     def test_raises_without_server_url(self, get_client, expected_hook_cls):
         with pytest.raises(WorkflowError, match="server_url"):
-            get_client(token_provider=StaticTokenProvider("test-key"), use_executor_credentials=True)
+            get_client(token_provider=StaticTokenProvider("test-key"), run_as=RunAs.EXECUTOR)
 
     def test_raises_without_token_provider(self, get_client, expected_hook_cls, monkeypatch):
         # No explicit provider and no configured credential → nothing to resolve, so the hook setup fails.
         monkeypatch.setattr(config.common, "mistral_api_key", None)
         monkeypatch.setattr(config.common, "mistral_sa_token_path", None)
         with pytest.raises(WorkflowError, match="token_provider"):
-            get_client(server_url="http://localhost", use_executor_credentials=True)
+            get_client(server_url="http://localhost", run_as=RunAs.EXECUTOR)
 
 
 @pytest.mark.parametrize(
     "get_client,expected_hook_cls",
     [
-        pytest.param(_get_async_client, AsyncTokenProviderHook, id="async"),
-        pytest.param(_get_sync_client, TokenProviderHook, id="sync"),
+        pytest.param(_get_async_deployment_client, AsyncTokenProviderHook, id="async"),
+        pytest.param(_get_sync_deployment_client, TokenProviderHook, id="sync"),
     ],
 )
 class TestImplicitProviderResolution:
@@ -168,8 +172,8 @@ class TestSdkClientUserAgent:
 
 
 _METADATA_HOOK_FACTORIES = [
-    pytest.param(_get_async_client, inject_metadata_async, id="async"),
-    pytest.param(_get_sync_client, inject_metadata, id="sync"),
+    pytest.param(_get_async_deployment_client, inject_metadata_async, id="async"),
+    pytest.param(_get_sync_deployment_client, inject_metadata, id="sync"),
 ]
 
 _PATCH_RETRIEVE = "mistralai.workflows.hooks.metadata_hook.retrieve_context"

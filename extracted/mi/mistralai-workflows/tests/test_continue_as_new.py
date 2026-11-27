@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import time
-from typing import Any
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+from typing import Any, NamedTuple
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic import BaseModel, Field
 from pydantic_core import to_json
-from temporalio.client import WorkflowFailureError
+from temporalio.client import WorkflowFailureError, WorkflowHandle
 from temporalio.converter import DataConverter
 from temporalio.testing import WorkflowEnvironment
 
@@ -20,9 +23,14 @@ from mistralai.workflows.core._registration.execution_registration_interceptor i
 from mistralai.workflows.core._registration.registration_activity import (
     _register_execution,
 )
-from mistralai.workflows.core.definition.workflow_definition import _on_behalf_of_by_name, get_workflow_definition
+from mistralai.workflows.core.definition.workflow_definition import (
+    get_workflow_definition,
+    is_workflow_on_behalf_of,
+    set_workflow_definition,
+)
 from mistralai.workflows.core.temporal.context_handler_interceptor import ContextHandlerInterceptor
 from mistralai.workflows.core.temporal.payload_converter import MistralWorkflowsPayloadConverter
+from mistralai.workflows.exceptions import WorkflowsException
 from mistralai.workflows.models import PayloadWithContext, WorkflowContext
 from mistralai.workflows.worker_client.models import ExecutorIdentityTokenResponse, RegisterExecutionResponse
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
@@ -168,6 +176,87 @@ def _make_jwt(exp: float) -> str:
     return f"{header}.{payload}.signature"
 
 
+class _ReregistrationHarness(NamedTuple):
+    start: Callable[[str], Awaitable[WorkflowHandle[Any, Any]]]
+    assert_ran_as: Callable[[WorkflowHandle[Any, Any], bool], Awaitable[None]]
+
+
+@asynccontextmanager
+async def _reregistration_worker(
+    workflow_cls: type, workflow_name: str, *, server_returns_flag: bool, continues_as_new: bool = False
+) -> AsyncIterator[_ReregistrationHarness]:
+    """Registrations answer like abraxas, keeping an execution on the declaration it first registered with;
+    with server_returns_flag=False, like a server predating the flag."""
+    declared = get_workflow_definition(workflow_cls).on_behalf_of
+    minted: list[str] = []
+    started_with: dict[str, bool] = {}
+
+    def mock_mint(**kwargs: Any) -> ExecutorIdentityTokenResponse:
+        minted.append(kwargs.get("execution_token", ""))
+        return ExecutorIdentityTokenResponse(token=_make_jwt(time.time() + 3600))
+
+    async def mock_register(**kwargs: Any) -> RegisterExecutionResponse:
+        if not server_returns_flag:
+            return RegisterExecutionResponse(execution_id="test-obo-reg", created=True)
+        flag = started_with.setdefault(
+            kwargs["temporal_workflow_id"], is_workflow_on_behalf_of(kwargs["workflow_name"])
+        )
+        return RegisterExecutionResponse(execution_id="test-obo-reg", created=True, on_behalf_of=flag)
+
+    mock_worker_client = AsyncMock(spec=PrivateWorkerClient)
+    mock_worker_client.register_execution_async = AsyncMock(side_effect=mock_register)
+    mock_worker_client.__aenter__ = AsyncMock(return_value=mock_worker_client)
+    payload = to_json(IterationInput(iteration=0).model_dump()) if continues_as_new else b"null"
+
+    try:
+        async with await WorkflowEnvironment.start_time_skipping(
+            data_converter=DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter),
+        ) as env:
+            with (
+                patch.object(PrivateWorkerClient, "executor_identity_token_async", side_effect=mock_mint),
+                patch(
+                    "mistralai.workflows.core._registration.registration_activity.get_worker_client",
+                    return_value=mock_worker_client,
+                ),
+            ):
+                async with create_test_worker(
+                    env,
+                    workflows=[workflow_cls],
+                    activities=[set_obo_flag, api_call_with_credentials, _register_execution],
+                    interceptors=[ContextHandlerInterceptor(), ExecutionRegistrationInterceptor()],
+                ):
+
+                    async def start(label: str) -> WorkflowHandle[Any, Any]:
+                        minted.clear()
+                        context = WorkflowContext(
+                            namespace="test-ns",
+                            execution_id=f"test-obo-{workflow_name}",
+                            execution_token=f"token-{label}",
+                        )
+                        return await env.client.start_workflow(
+                            get_workflow_definition(workflow_cls).name,
+                            PayloadWithContext(payload=payload, empty=not continues_as_new, context=context),
+                            id=f"test-rereg-{workflow_name}-{label}",
+                            task_queue="test-task-queue",
+                        )
+
+                    async def assert_ran_as(handle: WorkflowHandle[Any, Any], on_behalf_of: bool) -> None:
+                        # Only the executor identity can call the API in this setup.
+                        if on_behalf_of:
+                            await handle.result()
+                            assert minted
+                        else:
+                            with pytest.raises(WorkflowFailureError):
+                                await handle.result()
+                            assert not minted
+
+                    yield _ReregistrationHarness(start, assert_ran_as)
+    finally:
+        set_workflow_definition(
+            workflow_cls, get_workflow_definition(workflow_cls).model_copy(update={"on_behalf_of": declared})
+        )
+
+
 class TestContinueAsNewContextPropagation:
     @pytest.mark.asyncio
     async def test_jwt_minting_works_after_continue_as_new(self) -> None:
@@ -181,6 +270,7 @@ class TestContinueAsNewContextPropagation:
         mock_worker_client.register_execution_async = AsyncMock(
             return_value=RegisterExecutionResponse(execution_id="test-can-jwt", created=True)
         )
+        mock_worker_client.__aenter__ = AsyncMock(return_value=mock_worker_client)
 
         interceptors = [ContextHandlerInterceptor(), ExecutionRegistrationInterceptor()]
         data_converter = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
@@ -233,112 +323,97 @@ class TestContinueAsNewContextPropagation:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "workflow_cls, workflow_name, initial_obo, uses_continue_as_new",
+        "workflow_cls, workflow_name, initial_obo",
         [
-            pytest.param(ReregOBOToNonOBOWorkflow, REREG_OBO_TO_NON_OBO, True, False, id="obo-frozen-single-exec"),
-            pytest.param(ReregNonOBOToOBOWorkflow, REREG_NON_OBO_TO_OBO, False, False, id="non-obo-frozen-single-exec"),
-            pytest.param(ReregOBOContinueAsNewWorkflow, REREG_OBO_CAN, True, True, id="obo-preserved-continue-as-new"),
-            pytest.param(
-                ReregNonOBOContinueAsNewWorkflow, REREG_NON_OBO_CAN, False, True, id="non-obo-preserved-continue-as-new"
-            ),
+            pytest.param(ReregOBOToNonOBOWorkflow, REREG_OBO_TO_NON_OBO, True, id="obo"),
+            pytest.param(ReregNonOBOToOBOWorkflow, REREG_NON_OBO_TO_OBO, False, id="non-obo"),
         ],
     )
-    async def test_obo_flag_frozen_on_reregistration(
-        self, workflow_cls: type, workflow_name: str, initial_obo: bool, uses_continue_as_new: bool
+    async def test_obo_reregistration_applies_from_next_execution(
+        self, workflow_cls: type, workflow_name: str, initial_obo: bool
     ) -> None:
-        """Re-registering a workflow's OBO flag mid-execution must not change
-        the in-flight context — whether the flip happens within a single run
-        or across a continue-as-new boundary.
+        """Re-registering a workflow's OBO flag mid-run must not change that run's context; the next execution
+        follows the flipped declaration."""
+        async with _reregistration_worker(workflow_cls, workflow_name, server_returns_flag=True) as harness:
+            await harness.assert_ran_as(await harness.start("exec-1"), initial_obo)
+            await harness.assert_ran_as(await harness.start("exec-2"), not initial_obo)
 
-        Single-exec variants also verify that a *new* execution sees the
-        flipped registry value.
-        """
-        mint_calls: list[dict] = []
-
-        def mock_mint(**kwargs: Any) -> ExecutorIdentityTokenResponse:
-            mint_calls.append({"execution_token": kwargs.get("execution_token", "")})
-            return ExecutorIdentityTokenResponse(token=_make_jwt(time.time() + 3600))
-
-        mock_worker_client = AsyncMock(spec=PrivateWorkerClient)
-        mock_worker_client.register_execution_async = AsyncMock(
-            return_value=RegisterExecutionResponse(execution_id="test-obo-reg", created=True)
-        )
-
-        interceptors = [ContextHandlerInterceptor(), ExecutionRegistrationInterceptor()]
-        data_converter = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
-
-        def _make_arg(token: str) -> PayloadWithContext:
-            if uses_continue_as_new:
-                payload = to_json(IterationInput(iteration=0).model_dump())
-                empty = False
-            else:
-                payload = b"null"
-                empty = True
-            return PayloadWithContext(
-                payload=payload,
-                empty=empty,
-                context=WorkflowContext(
-                    namespace="test-ns",
-                    execution_id=f"test-obo-{workflow_name}",
-                    execution_token=token,
-                ),
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "workflow_cls, workflow_name, initial_obo",
+        [
+            pytest.param(ReregOBOContinueAsNewWorkflow, REREG_OBO_CAN, True, id="obo"),
+            pytest.param(ReregNonOBOContinueAsNewWorkflow, REREG_NON_OBO_CAN, False, id="non-obo"),
+        ],
+    )
+    @pytest.mark.parametrize("server_returns_flag", [True, False], ids=["server-returns-flag", "older-server"])
+    async def test_continue_as_new_keeps_the_flag_its_execution_started_with(
+        self, workflow_cls: type, workflow_name: str, initial_obo: bool, server_returns_flag: bool
+    ) -> None:
+        """The flag is flipped before continuing as new, and only the continued run calls the API. An older server
+        reports no flag, so the continued run then follows the flipped declaration."""
+        async with _reregistration_worker(
+            workflow_cls, workflow_name, server_returns_flag=server_returns_flag, continues_as_new=True
+        ) as harness:
+            await harness.assert_ran_as(
+                await harness.start("exec-1"), initial_obo if server_returns_flag else not initial_obo
             )
 
-        try:
-            async with await WorkflowEnvironment.start_time_skipping(
-                data_converter=data_converter,
-            ) as env:
-                with (
-                    patch.object(
-                        PrivateWorkerClient,
-                        "executor_identity_token_async",
-                        side_effect=mock_mint,
-                    ),
-                    patch(
-                        "mistralai.workflows.core._registration.registration_activity.get_worker_client",
-                        return_value=mock_worker_client,
-                    ),
-                ):
-                    async with create_test_worker(
-                        env,
-                        workflows=[workflow_cls],
-                        activities=[set_obo_flag, api_call_with_credentials, _register_execution],
-                        interceptors=interceptors,
-                    ):
-                        wf = get_workflow_definition(workflow_cls)
 
-                        # --- Execution 1: activity (or CAN) flips the flag ---
-                        handle1 = await env.client.start_workflow(
-                            wf.name,
-                            _make_arg("token-exec-1"),
-                            id=f"test-rereg-{workflow_name}-exec-1",
-                            task_queue="test-task-queue",
-                        )
-                        if initial_obo:
-                            await handle1.result()
-                            assert len(mint_calls) >= 1
-                        else:
-                            with pytest.raises(WorkflowFailureError):
-                                await handle1.result()
-                            assert len(mint_calls) == 0
+class HandlerCounter(BaseModel):
+    count: int = 0
+    continued: bool = False
 
-                        assert _on_behalf_of_by_name[workflow_name] is not initial_obo
 
-                        if not uses_continue_as_new:
-                            # --- Execution 2: new run sees the flipped flag ---
-                            mint_calls.clear()
-                            handle2 = await env.client.start_workflow(
-                                wf.name,
-                                _make_arg("token-exec-2"),
-                                id=f"test-rereg-{workflow_name}-exec-2",
-                                task_queue="test-task-queue",
-                            )
-                            if initial_obo:
-                                with pytest.raises(WorkflowFailureError):
-                                    await handle2.result()
-                                assert len(mint_calls) == 0
-                            else:
-                                await handle2.result()
-                                assert len(mint_calls) >= 1
-        finally:
-            _on_behalf_of_by_name[workflow_name] = initial_obo
+@activity()
+async def slow_increment(value: int) -> int:
+    await asyncio.sleep(0.5)
+    return value + 1
+
+
+@workflow.define(name="test-continue-as-new-waits-for-handlers")
+class WaitForHandlersContinueAsNewWorkflow:
+    def __init__(self) -> None:
+        self.count = 0
+        self.handler_started = False
+
+    @workflow.signal(name="increment")
+    async def increment(self) -> None:
+        self.handler_started = True
+        self.count = await slow_increment(self.count)
+
+    @workflow.entrypoint
+    async def run(self, state: HandlerCounter) -> HandlerCounter:
+        if state.continued:
+            return state
+        await workflow.wait_condition(lambda: self.handler_started)
+        await workflow.wait_for_handlers()
+        workflow.continue_as_new(HandlerCounter(count=state.count + self.count, continued=True))
+
+
+class TestWaitForHandlers:
+    @pytest.mark.asyncio
+    async def test_continue_as_new_keeps_work_of_running_handlers(self, temporal_env: Any) -> None:
+        async with create_test_worker(
+            temporal_env,
+            workflows=[WaitForHandlersContinueAsNewWorkflow],
+            activities=[slow_increment],
+        ):
+            workflow_def = get_workflow_definition(WaitForHandlersContinueAsNewWorkflow)
+            assert workflow_def is not None
+            handle = await temporal_env.client.start_workflow(
+                workflow_def.name,
+                HandlerCounter().model_dump(),
+                id="test-continue-as-new-waits-for-handlers",
+                task_queue="test-task-queue",
+            )
+            await handle.signal("increment")
+
+            result = await handle.result()
+
+            assert result == {"count": 1, "continued": True}
+
+    @pytest.mark.asyncio
+    async def test_raises_outside_workflow(self) -> None:
+        with pytest.raises(WorkflowsException):
+            await workflow.wait_for_handlers()

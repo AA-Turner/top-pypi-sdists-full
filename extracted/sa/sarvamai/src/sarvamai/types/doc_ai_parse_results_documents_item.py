@@ -8,7 +8,16 @@ from .doc_ai_parse_results_documents_item_pages_item import DocAiParseResultsDoc
 
 
 class DocAiParseResultsDocumentsItem(UniversalBaseModel):
-    file_name: typing.Optional[str] = None
+    filename: typing.Optional[str] = None
+    page_count: typing.Optional[int] = None
+    language: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The language the file was processed as, for example `en-IN`, or `indic` when you did not set `language`.
+    """
+
+    status: typing.Optional[str] = None
+    partial: typing.Optional[bool] = None
+    warnings: typing.Optional[typing.List[typing.Any]] = None
     pages: typing.Optional[typing.List[DocAiParseResultsDocumentsItemPagesItem]] = None
 
     if IS_PYDANTIC_V2:

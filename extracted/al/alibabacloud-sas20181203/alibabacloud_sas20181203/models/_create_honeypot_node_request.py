@@ -14,7 +14,7 @@ class CreateHoneypotNodeRequest(DaraModel):
         node_name: str = None,
         security_group_probe_ip_list: List[str] = None,
     ):
-        # Specifies whether to allow the honeypot to access the Internet. Valid values:
+        # Specifies whether to allow honeypots to access the Internet. Valid values:
         # 
         # - **true**: Allowed.
         # - **false**: Not allowed.
@@ -25,7 +25,7 @@ class CreateHoneypotNodeRequest(DaraModel):
         # 
         # This parameter is required.
         self.node_name = node_name
-        # The list of allowed CIDR blocks. This parameter is required. At least one allowed CIDR block must be specified, such as 0.0.0.0/0. If this parameter is not specified, the API returns InvalidParam (400).
+        # The allowed CIDR blocks. This parameter is required. You must specify at least one allowed CIDR block, such as 0.0.0.0/0. If this parameter is not specified, the API returns InvalidParam (400).
         self.security_group_probe_ip_list = security_group_probe_ip_list
 
     def validate(self):

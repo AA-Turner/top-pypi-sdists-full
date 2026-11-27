@@ -1,17 +1,18 @@
-r"""Contains the low and upper bounds for a package dependency."""
+r"""Contain the lower and upper bounds for a package dependency."""
 
 from __future__ import annotations
 
 __all__ = [
     "PackageBounds",
     "get_package_bounds",
-    "normalize_package_name",
     "partition_package_bounds",
 ]
 
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from packaging.utils import canonicalize_name
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -47,7 +48,7 @@ def get_package_bounds(
     """Return the first ``PackageBounds`` matching a given package name.
 
     The name comparison is case-insensitive and treats hyphens and
-    underscores as equivalent, following PEP 508 normalisation rules.
+    underscores as equivalent (see ``packaging.utils.canonicalize_name``).
 
     Args:
         packages: A sequence of ``PackageBounds`` instances to search.
@@ -75,36 +76,12 @@ def get_package_bounds(
 
         ```
     """
-    normalized = normalize_package_name(name)
+    normalized = canonicalize_name(name)
     for bounds in packages:
-        if normalize_package_name(bounds.name) == normalized:
+        if canonicalize_name(bounds.name) == normalized:
             return bounds
     msg = f"Package {name!r} not found in the provided sequence."
     raise ValueError(msg)
-
-
-def normalize_package_name(name: str) -> str:
-    """Normalize a package name per PEP 508.
-
-    Converts the name to lowercase and replaces hyphens with underscores,
-    so that ``"scikit-learn"``, ``"scikit_learn"``, and ``"Scikit_Learn"``
-    all compare as equal.
-
-    Args:
-        name: The package name to normalize.
-
-    Returns:
-        The normalized package name.
-
-    Example:
-        ```pycon
-        >>> from feu.version import normalize_package_name
-        >>> normalize_package_name("Scikit-Learn")
-        'scikit_learn'
-
-        ```
-    """
-    return name.lower().replace("-", "_")
 
 
 def partition_package_bounds(
@@ -145,7 +122,7 @@ def partition_package_bounds(
 
         ```
     """
-    normalized_names = {normalize_package_name(n) for n in names}
-    matched = [p for p in packages if normalize_package_name(p.name) in normalized_names]
-    unmatched = [p for p in packages if normalize_package_name(p.name) not in normalized_names]
+    normalized_names = {canonicalize_name(n) for n in names}
+    matched = [p for p in packages if canonicalize_name(p.name) in normalized_names]
+    unmatched = [p for p in packages if canonicalize_name(p.name) not in normalized_names]
     return matched, unmatched

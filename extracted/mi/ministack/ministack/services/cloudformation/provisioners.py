@@ -5073,7 +5073,8 @@ def _cfn_nested_stack_deploy(logical_id, props, parent_stack_name, *,
         "_resolved_params": param_values,
         "_conditions": _evaluate_conditions(template, param_values),
         "_parent_stack_name": parent_stack_name,
-        "RootId": _cr_stack_id(parent_stack_name),
+        # AWS: ParentId is the direct parent, RootId the top-level stack at every depth.
+        "RootId": _nested_root_id(parent_stack_name),
         "ParentId": _cr_stack_id(parent_stack_name),
         # The parent's acknowledgement covers every level of nesting, so a
         # child of this child reads the same set. Only the check needs it, so
@@ -5404,6 +5405,12 @@ def _stack_set_delete(physical_id, props):
 
 
 # --- CloudFormation Custom Resource ---
+
+def _nested_root_id(parent_stack_name: str) -> str:
+    """The top-level stack's id: the parent's RootId when the parent is itself nested."""
+    from ministack.services.cloudformation import _stacks
+    return (_stacks.get(parent_stack_name) or {}).get("RootId") or _cr_stack_id(parent_stack_name)
+
 
 def _cr_stack_id(stack_name: str) -> str:
     """Return the StackId for stack_name, falling back to a synthesised ARN."""
@@ -7183,7 +7190,7 @@ def _sm_secret_create(logical_id, props, stack_name):
         "Tags": props.get("Tags", []),
         "CreatedDate": int(_time.time()), "LastChangedDate": int(_time.time()),
         "LastAccessedDate": None, "DeletedDate": None,
-        "RotationEnabled": False, "RotationLambdaARN": None,
+        "RotationEnabled": None, "RotationLambdaARN": None,
         "RotationRules": None, "ReplicationStatus": [],
         "KmsKeyId": props.get("KmsKeyId"),
         "Versions": {
@@ -12950,6 +12957,42 @@ def _sm_target_attachment_delete(physical_id, props):
 
 
 # ---------------------------------------------------------------------------
+# SecretsManager RotationSchedule
+# ---------------------------------------------------------------------------
+
+def _sm_rotation_schedule_rotate(props, immediately):
+    if props.get("HostedRotationLambda"):
+        raise ValueError("AWS::SecretsManager::RotationSchedule: HostedRotationLambda is not supported")
+    data = {"SecretId": props.get("SecretId"), "RotateImmediately": immediately}
+    if props.get("RotationLambdaARN"):
+        data["RotationLambdaARN"] = props["RotationLambdaARN"]
+    rules = props.get("RotationRules")
+    if rules:
+        data["RotationRules"] = {k: int(v) if k == "AutomaticallyAfterDays" else v for k, v in rules.items()}
+    status, _headers, body = _sm._rotate_secret(data)
+    if status >= 400:
+        err = json.loads(body)
+        raise ValueError(err.get("message") or err.get("Message") or body)
+    return json.loads(body)["ARN"]
+
+
+def _sm_rotation_schedule_create(logical_id, props, stack_name):
+    return _sm_rotation_schedule_rotate(props, True), {}
+
+
+def _sm_rotation_schedule_update(physical_id, old_props, new_props, stack_name):
+    if old_props.get("SecretId") != new_props.get("SecretId"):
+        # A replacement: the schedule moves to the new secret, and the cleanup cancels the old one.
+        return _sm_rotation_schedule_rotate(new_props, True), {}
+    immediately = str(new_props.get("RotateImmediatelyOnUpdate", True)).lower() != "false"
+    return _sm_rotation_schedule_rotate(new_props, immediately), {}
+
+
+def _sm_rotation_schedule_delete(physical_id, props):
+    _sm._cancel_rotate_secret({"SecretId": physical_id})
+
+
+# ---------------------------------------------------------------------------
 # AutoScaling Group
 # ---------------------------------------------------------------------------
 
@@ -15584,6 +15627,7 @@ _REPLACING_PROPERTIES: dict[str, tuple[str, ...]] = {
     "AWS::RDS::DBParameterGroup": ("DBParameterGroupName", "Description", "Family"),
     "AWS::RDS::DBClusterParameterGroup": ("DBClusterParameterGroupName", "Description", "Family"),
     "AWS::SecretsManager::SecretTargetAttachment": ("SecretId",),
+    "AWS::SecretsManager::RotationSchedule": ("SecretId",),
     "AWS::ElastiCache::CacheCluster": (
         "Port", "SnapshotArns", "SnapshotName", "CacheSubnetGroupName", "ClusterName",
         "Engine", "NetworkType",
@@ -16522,6 +16566,11 @@ _RESOURCE_HANDLERS = {
         "update": _docdb_cluster_param_group_update,
         "update_with_logical_id": True,
         "delete": _rds_cluster_param_group_delete,
+    },
+    "AWS::SecretsManager::RotationSchedule": {
+        "create": _sm_rotation_schedule_create,
+        "update": _sm_rotation_schedule_update,
+        "delete": _sm_rotation_schedule_delete,
     },
     "AWS::SecretsManager::SecretTargetAttachment": {
         "create": _sm_target_attachment_create,

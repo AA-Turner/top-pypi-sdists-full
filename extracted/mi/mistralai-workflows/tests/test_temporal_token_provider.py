@@ -122,7 +122,9 @@ class TestTemporalTokenResolution:
 
 class TestTemporalConnectionErrors:
     @pytest.mark.asyncio
-    async def test_real_bridge_unauthorized_response_is_preserved(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_real_bridge_unauthorized_status_is_preserved_without_raw_error_context(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         server = await asyncio.start_server(_return_http2_unauthorized, "127.0.0.1", 0)
         port = server.sockets[0].getsockname()[1]
         cfg = AppConfig()
@@ -140,7 +142,7 @@ class TestTemporalConnectionErrors:
 
         assert exc_info.value.status == HTTPStatus.UNAUTHORIZED
         assert exc_info.value.code == ErrorCode.TEMPORAL_CONNECTION_ERROR
-        assert "code: Unauthenticated" in exc_info.value.logging_properties["temporal_connection_error"]
+        assert exc_info.value.logging_properties == {}
 
     @pytest.mark.parametrize(
         ("message", "uses_http_connect_proxy", "expected_status"),

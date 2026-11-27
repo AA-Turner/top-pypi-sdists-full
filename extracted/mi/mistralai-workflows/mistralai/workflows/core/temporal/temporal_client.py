@@ -87,30 +87,52 @@ def _get_proxy_basic_auth(
     return None
 
 
-def _resolve_temporal_tls(tls: bool, ca_path: str | None) -> bool | TLSConfig:
-    """Resolve the TLS setting for a Temporal connection, pinning a root CA when one is configured.
+def _resolve_temporal_tls(
+    tls: bool,
+    ca_path: str | None,
+    client_identity: tuple[str, str] | None = None,
+) -> bool | TLSConfig:
+    """Resolve the TLS setting for a Temporal connection, adding a pinned root CA and/or an mTLS
+    client identity when configured.
 
-    The CA only supplies a trust root; ``tls`` stays authoritative over whether TLS is used at all.
-    Callers pass the effective flag: local configuration if it set ``temporal.tls``, else the value
-    config discovery took from whoami.
+    ``tls`` stays authoritative over whether TLS is used at all; a CA only supplies a trust root and
+    a client cert only supplies the worker's identity. Callers pass the effective flag: local
+    configuration if it set ``temporal.tls``, else the value config discovery took from whoami.
 
-    A pinned CA *replaces* the default trust roots, so every failure to honour it raises rather than
-    falling back to plain ``tls``: falling back would connect over the public roots -- or in the
-    clear -- to precisely the endpoint the caller meant to pin.
+    A pinned CA *replaces* the default trust roots, so every failure to honour either the CA or the
+    client identity raises rather than falling back to plain ``tls``: falling back would connect over
+    the public roots -- or in the clear, or without the required identity -- to precisely the
+    endpoint the caller meant to pin.
     """
-    if not ca_path:
-        # No pin configured: TLS, when on, verifies against the default trust roots.
+    if not ca_path and client_identity is None:
         return tls
 
     if not tls:
         raise WorkflowsException(
             code=ErrorCode.TEMPORAL_CONNECTION_ERROR,
             message=(
-                f"Temporal TLS root CA is configured ({ca_path}) but TLS is off; "
-                "set TEMPORAL_TLS=true or unset TEMPORAL_TLS_SERVER_ROOT_CA_CERT_PATH"
+                "Temporal TLS material (root CA or mTLS client certificate) is configured but TLS "
+                "is off; set TEMPORAL_TLS=true or unset the TLS material"
             ),
         )
 
+    server_root_ca_cert = _read_temporal_ca(ca_path) if ca_path else None
+    client_cert, client_private_key = (
+        _read_temporal_client_identity(*client_identity) if client_identity is not None else (None, None)
+    )
+    logger.info(
+        "configuring temporal TLS",
+        pinned_root_ca=server_root_ca_cert is not None,
+        mtls_client_cert=client_cert is not None,
+    )
+    return TLSConfig(
+        server_root_ca_cert=server_root_ca_cert,
+        client_cert=client_cert,
+        client_private_key=client_private_key,
+    )
+
+
+def _read_temporal_ca(ca_path: str) -> bytes:
     try:
         ca_cert = Path(ca_path).read_bytes()
     except (OSError, ValueError) as exc:
@@ -138,8 +160,20 @@ def _resolve_temporal_tls(tls: bool, ca_path: str | None) -> bool | TLSConfig:
             message=f"Temporal TLS root CA at {ca_path} is not a valid PEM certificate: {exc}",
         ) from exc
 
-    logger.info("pinning temporal TLS root CA", ca_path=ca_path)
-    return TLSConfig(server_root_ca_cert=ca_cert)
+    return ca_cert
+
+
+def _read_temporal_client_identity(cert_path: str, key_path: str) -> tuple[bytes, bytes]:
+    # load_cert_chain reads both files and checks the key matches the cert, so a wrong-but-readable
+    # or mismatched pair fails here with a clear error instead of an opaque one from Temporal's core.
+    try:
+        ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT).load_cert_chain(cert_path, key_path)
+    except (ssl.SSLError, OSError, ValueError) as exc:
+        raise WorkflowsException(
+            code=ErrorCode.TEMPORAL_CONNECTION_ERROR,
+            message=f"Cannot load Temporal mTLS client cert/key ({cert_path}, {key_path}): {exc}",
+        ) from exc
+    return Path(cert_path).read_bytes(), Path(key_path).read_bytes()
 
 
 def _resolve_temporal_token() -> TokenProvider | None:
@@ -173,12 +207,17 @@ async def create_temporal_service_client(runtime: Runtime | None = None) -> Temp
     # (self-exporting, no drainer) — metrics for static creds / explicit endpoints, disabled under rotation.
     if runtime is None:
         runtime = build_client_runtime()
-    tls = _resolve_temporal_tls(config.temporal.tls, config.temporal.tls_server_root_ca_cert_path)
+    tls = _resolve_temporal_tls(
+        config.temporal.tls,
+        config.temporal.tls_server_root_ca_cert_path,
+        config.common.mtls_client_identity,
+    )
     logger.info(
         "creating temporal service client",
         url=config.temporal.server_url,
         tls=bool(tls),
-        pinned_root_ca=isinstance(tls, TLSConfig),
+        pinned_root_ca=config.temporal.tls_server_root_ca_cert_path is not None,
+        mtls_client_cert=config.common.mtls_client_identity is not None,
         runtime=runtime,
     )
     provider = _resolve_temporal_token()
@@ -215,7 +254,6 @@ async def create_temporal_service_client(runtime: Runtime | None = None) -> Temp
             code=ErrorCode.TEMPORAL_CONNECTION_ERROR,
             message="Failed to connect to Temporal Service Client",
             status=_connection_error_status(exc, uses_http_connect_proxy=http_connect_proxy_config is not None),
-            logging_properties={"temporal_connection_error": str(exc)},
         ) from exc
     logger.info("connected to temporal service client", url=config.temporal.server_url)
     return service_client
@@ -284,7 +322,7 @@ def _refresh_temporal_api_key_until_stopped(
                 last_pushed = token
                 logger.debug("updated temporal api key from token provider")
         except Exception as exc:
-            logger.warning("failed to refresh temporal token", **extract_error_context(exc), exc_info=exc)
+            logger.warning("failed to refresh temporal token", **extract_error_context(exc))
             stop.wait(delay_seconds)
             continue
         # Event.wait raises OverflowError past TIMEOUT_MAX, e.g. for a token that expires centuries from now.

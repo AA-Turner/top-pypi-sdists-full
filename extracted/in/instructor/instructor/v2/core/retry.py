@@ -6,10 +6,9 @@ instead of v1's process_response.
 
 from __future__ import annotations
 
-import copy
 import json
 import logging
-from numbers import Real
+from collections.abc import Generator
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -23,6 +22,10 @@ from tenacity import (
 
 from instructor.v2.core.mode import Mode
 from instructor.v2.core.providers import Provider
+from instructor.v2.core.budget import (
+    _budget_error as _budget_error,
+    _validate_token_budget as _validate_token_budget,
+)
 from instructor.v2.core.errors import (
     AsyncValidationError,
     FailedAttempt,
@@ -30,14 +33,18 @@ from instructor.v2.core.errors import (
     InstructorRetryException,
     ResponseParsingError,
     TokenBudgetError,
-    TokenBudgetExceeded,
-    TokenUsageUnavailableError,
 )
 from instructor.v2.dsl.iterable import IterableBase
+from instructor.v2.dsl.partial import PartialBase
 from instructor.v2.dsl.response_list import ListResponse
 from instructor.v2.dsl.simple_type import AdapterBase
-from instructor.v2.core.messages import extract_messages
-from instructor.v2.core.usage import has_compatible_usage, update_total_usage
+from instructor.v2.core.messages import extract_messages, isolate_retry_kwargs
+from instructor.v2.core.usage import (
+    _usage_snapshot as _usage_snapshot,
+    _usage_total_tokens as _usage_total_tokens,
+    has_compatible_usage,
+    update_total_usage,
+)
 from instructor.v2.core.exceptions import RegistryValidationMixin
 from instructor.v2.core.registry import mode_registry
 
@@ -74,50 +81,6 @@ def _attempt_metadata(
     }
 
 
-def _usage_snapshot(total_usage: Any) -> Any:
-    if isinstance(total_usage, BaseModel):
-        return total_usage.model_copy(deep=True)
-    return copy.deepcopy(total_usage)
-
-
-def _usage_total_tokens(total_usage: Any) -> int | None:
-    direct_total = getattr(total_usage, "total_tokens", None)
-    if isinstance(direct_total, Real) and not isinstance(direct_total, bool):
-        return int(direct_total)
-
-    token_fields = (
-        "input_tokens",
-        "output_tokens",
-        "cache_creation_input_tokens",
-        "cache_read_input_tokens",
-    )
-    values = [getattr(total_usage, field, None) for field in token_fields]
-    numeric_values = [
-        int(value)
-        for value in values
-        if isinstance(value, Real) and not isinstance(value, bool)
-    ]
-    return sum(numeric_values) if numeric_values else None
-
-
-def _validate_token_budget(
-    token_budget: int | None,
-    *,
-    response_model: object,
-    kwargs: dict[str, Any],
-) -> None:
-    if token_budget is None:
-        return
-    if isinstance(token_budget, bool) or not isinstance(token_budget, int):
-        raise TypeError("token_budget must be a positive integer or None")
-    if token_budget <= 0:
-        raise ValueError("token_budget must be greater than zero")
-    if response_model is None:
-        raise ValueError("token_budget requires a structured response_model")
-    if kwargs.get("stream"):
-        raise ValueError("token_budget is not supported for streaming responses")
-
-
 def _finalize_parsed_response(
     parsed: Any,
     response: Any,
@@ -145,48 +108,15 @@ def _finalize_parsed_response(
     return parsed
 
 
-def _budget_error(
-    *,
-    token_budget: int | None,
-    usage_available: bool,
-    total_usage: Any,
-    attempt_number: int,
-    response: Any,
-    kwargs: dict[str, Any],
-    failed_attempts: list[FailedAttempt],
-) -> TokenBudgetError | None:
-    if token_budget is None:
-        return None
-
-    error_kwargs = {
-        "budget": token_budget,
-        "last_completion": response,
-        "messages": extract_messages(kwargs),
-        "n_attempts": attempt_number,
-        "total_usage": _usage_snapshot(total_usage),
-        "create_kwargs": kwargs,
-        "failed_attempts": failed_attempts,
-    }
-    if not usage_available:
-        return TokenUsageUnavailableError(
-            "Token budget cannot be enforced because the provider response did "
-            "not include compatible usage metadata",
-            **error_kwargs,
-        )
-
-    used_tokens = _usage_total_tokens(total_usage)
-    if used_tokens is None:
-        return TokenUsageUnavailableError(
-            "Token budget cannot be enforced because total token usage is unavailable",
-            **error_kwargs,
-        )
-    if used_tokens >= token_budget:
-        return TokenBudgetExceeded(
-            f"Token budget exhausted after {used_tokens} tokens across "
-            f"{attempt_number} attempts (budget: {token_budget})",
-            **error_kwargs,
-        )
-    return None
+def _replay_first_partial(
+    first: Any, stream: Generator[Any, None, None]
+) -> Generator[Any, None, None]:
+    try:
+        yield None  # The retry loop primes cleanup before returning the stream.
+        yield first
+        yield from stream
+    finally:
+        stream.close()
 
 
 def _initialize_usage(provider: Provider | Mode) -> Any:
@@ -266,6 +196,9 @@ def retry_sync_v2(
         # No structured output, just call the API
         return func(*args, **kwargs)
 
+    # Keep appended retry history out of caller-owned lists.
+    kwargs = isolate_retry_kwargs(kwargs)
+
     # Validate and get handlers from registry
     RegistryValidationMixin.validate_mode_registration(provider, mode)
     handlers = mode_registry.get_handlers(provider, mode)
@@ -286,7 +219,6 @@ def retry_sync_v2(
 
     max_attempts = _max_attempts(max_retries)
     failed_attempts: list[FailedAttempt] = []
-    last_exception: Exception | None = None
     last_attempt_number = 0
     total_usage = _initialize_usage(provider)
     usage_complete = True
@@ -305,7 +237,11 @@ def retry_sync_v2(
                 except IncompleteOutputException:
                     raise
                 except Exception as e:
-                    logger.error(f"API call failed on attempt {attempt_number}: {e}")
+                    logger.error(
+                        "API call failed on attempt %d (%s)",
+                        attempt_number,
+                        type(e).__name__,
+                    )
                     if hooks:
                         hooks.emit_completion_error(
                             e,
@@ -313,10 +249,10 @@ def retry_sync_v2(
                                 attempt_number=attempt_number,
                                 max_attempts=max_attempts,
                                 is_last_attempt=(
-                                    not isinstance(e, ValidationError)
-                                    or (
-                                        max_attempts is not None
-                                        and attempt_number >= max_attempts
+                                    max_attempts is not None
+                                    and (
+                                        not isinstance(e, ValidationError)
+                                        or attempt_number >= max_attempts
                                     )
                                 ),
                             ),
@@ -346,6 +282,23 @@ def retry_sync_v2(
                         stream=stream,
                         is_async=False,
                     )
+                    if (
+                        stream
+                        and isinstance(parsed, Generator)
+                        and isinstance(response_model, type)
+                        and issubclass(response_model, PartialBase)
+                    ):
+                        # Retry before exposing a snapshot. Replaying a stream
+                        # after delivery would duplicate the caller's output.
+                        try:
+                            first = next(parsed)
+                        except StopIteration:
+                            pass
+                        else:
+                            replay = _replay_first_partial(first, parsed)
+                            # Enter cleanup even if closed before iteration.
+                            next(replay)
+                            parsed = replay
                     logger.debug(
                         f"Successfully parsed response on attempt "
                         f"{attempt.retry_state.attempt_number}"
@@ -359,7 +312,11 @@ def retry_sync_v2(
                 except IncompleteOutputException:
                     raise
                 except _RETRYABLE_PARSE_ERRORS as e:
-                    logger.debug(f"Validation error on attempt {attempt_number}: {e}")
+                    logger.debug(
+                        "Validation error on attempt %d (%s)",
+                        attempt_number,
+                        type(e).__name__,
+                    )
                     failed_attempts.append(
                         FailedAttempt(
                             attempt_number=attempt_number,
@@ -367,7 +324,6 @@ def retry_sync_v2(
                             completion=response,
                         )
                     )
-                    last_exception = e
 
                     budget_error = _budget_error(
                         token_budget=token_budget,
@@ -415,15 +371,14 @@ def retry_sync_v2(
         raise
     except Exception as e:
         # Max retries exceeded or non-validation error occurred
-        last_exception = e
-
         logger.error(
-            f"Max retries exceeded. Total attempts: {last_attempt_number}, "
-            f"Last error: {last_exception}"
+            "Max retries exceeded. Total attempts: %d (%s)",
+            last_attempt_number,
+            type(e).__name__,
         )
         if hooks:
             hooks.emit_completion_last_attempt(
-                last_exception,
+                e,
                 **_attempt_metadata(
                     attempt_number=last_attempt_number or len(failed_attempts),
                     max_attempts=max_attempts,
@@ -432,19 +387,19 @@ def retry_sync_v2(
             )
 
         raise InstructorRetryException(
-            str(last_exception),
+            str(e),
             last_completion=failed_attempts[-1].completion if failed_attempts else None,
             n_attempts=last_attempt_number,
             total_usage=total_usage,
             messages=extract_messages(kwargs),
             create_kwargs=kwargs,
             failed_attempts=failed_attempts,
-        ) from last_exception
+        ) from e
 
-    # Should never reach here
+    # A custom retry policy can finish without re-raising its last error.
     logger.error("Unexpected code path in retry_sync_v2")
     raise InstructorRetryException(
-        str(last_exception) if last_exception else "Unknown error",
+        str(failed_attempts[-1].exception) if failed_attempts else "Unknown error",
         last_completion=failed_attempts[-1].completion if failed_attempts else None,
         n_attempts=last_attempt_number,
         total_usage=total_usage,
@@ -562,6 +517,9 @@ async def retry_async_v2(
         # No structured output, just call the API
         return await func(*args, **kwargs)
 
+    # Keep appended retry history out of caller-owned lists.
+    kwargs = isolate_retry_kwargs(kwargs)
+
     # Validate and get handlers from registry
     RegistryValidationMixin.validate_mode_registration(provider, mode)
     handlers = mode_registry.get_handlers(provider, mode)
@@ -582,7 +540,6 @@ async def retry_async_v2(
 
     max_attempts = _max_attempts(max_retries)
     failed_attempts: list[FailedAttempt] = []
-    last_exception: Exception | None = None
     last_attempt_number = 0
     total_usage = _initialize_usage(provider)
     usage_complete = True
@@ -601,7 +558,11 @@ async def retry_async_v2(
                 except IncompleteOutputException:
                     raise
                 except Exception as e:
-                    logger.error(f"API call failed on attempt {attempt_number}: {e}")
+                    logger.error(
+                        "API call failed on attempt %d (%s)",
+                        attempt_number,
+                        type(e).__name__,
+                    )
                     if hooks:
                         hooks.emit_completion_error(
                             e,
@@ -609,10 +570,10 @@ async def retry_async_v2(
                                 attempt_number=attempt_number,
                                 max_attempts=max_attempts,
                                 is_last_attempt=(
-                                    not isinstance(e, ValidationError)
-                                    or (
-                                        max_attempts is not None
-                                        and attempt_number >= max_attempts
+                                    max_attempts is not None
+                                    and (
+                                        not isinstance(e, ValidationError)
+                                        or attempt_number >= max_attempts
                                     )
                                 ),
                             ),
@@ -655,7 +616,11 @@ async def retry_async_v2(
                 except IncompleteOutputException:
                     raise
                 except _RETRYABLE_PARSE_ERRORS as e:
-                    logger.debug(f"Validation error on attempt {attempt_number}: {e}")
+                    logger.debug(
+                        "Validation error on attempt %d (%s)",
+                        attempt_number,
+                        type(e).__name__,
+                    )
                     failed_attempts.append(
                         FailedAttempt(
                             attempt_number=attempt_number,
@@ -663,7 +628,6 @@ async def retry_async_v2(
                             completion=response,
                         )
                     )
-                    last_exception = e
 
                     budget_error = _budget_error(
                         token_budget=token_budget,
@@ -711,15 +675,14 @@ async def retry_async_v2(
         raise
     except Exception as e:
         # Max retries exceeded or non-validation error occurred
-        last_exception = e
-
         logger.error(
-            f"Max retries exceeded. Total attempts: {last_attempt_number}, "
-            f"Last error: {last_exception}"
+            "Max retries exceeded. Total attempts: %d (%s)",
+            last_attempt_number,
+            type(e).__name__,
         )
         if hooks:
             hooks.emit_completion_last_attempt(
-                last_exception,
+                e,
                 **_attempt_metadata(
                     attempt_number=last_attempt_number or len(failed_attempts),
                     max_attempts=max_attempts,
@@ -728,19 +691,19 @@ async def retry_async_v2(
             )
 
         raise InstructorRetryException(
-            str(last_exception),
+            str(e),
             last_completion=failed_attempts[-1].completion if failed_attempts else None,
             n_attempts=last_attempt_number,
             total_usage=total_usage,
             messages=extract_messages(kwargs),
             create_kwargs=kwargs,
             failed_attempts=failed_attempts,
-        ) from last_exception
+        ) from e
 
-    # Should never reach here
+    # A custom retry policy can finish without re-raising its last error.
     logger.error("Unexpected code path in retry_async_v2")
     raise InstructorRetryException(
-        str(last_exception) if last_exception else "Unknown error",
+        str(failed_attempts[-1].exception) if failed_attempts else "Unknown error",
         last_completion=failed_attempts[-1].completion if failed_attempts else None,
         n_attempts=last_attempt_number,
         total_usage=total_usage,

@@ -1,4 +1,6 @@
-# fmt: off
+import tkinter as tk
+import tkinter.ttk as ttk
+from functools import partial
 
 import numpy as np
 
@@ -10,44 +12,47 @@ class Movie:
     def __init__(self, gui):
         self.win = win = ui.Window(_('Movie'), close=self.close)
         win.add(_('Image number:'))
-        self.frame_number = ui.Scale(gui.frame, 0,
-                                     len(gui.images) - 1,
-                                     callback=self.new_frame)
+        self.frame_number = ui.Scale(
+            gui.frame, 0, len(gui.images) - 1, callback=self.new_frame
+        )
         win.add(self.frame_number)
 
-        win.add([ui.Button(_('First'), self.click, -1, True),
-                 ui.Button(_('Back'), self.click, -1),
-                 ui.Button(_('Forward'), self.click, 1),
-                 ui.Button(_('Last'), self.click, 1, True)])
+        win.add(
+            [
+                ui.Button(_('First'), self.click, -1, True),
+                ui.Button(_('Back'), self.click, -1),
+                ui.Button(_('Forward'), self.click, 1),
+                ui.Button(_('Last'), self.click, 1, True),
+            ]
+        )
 
         play = ui.Button(_('Play'), self.play)
         stop = ui.Button(_('Stop'), self.stop)
 
         # TRANSLATORS: This function plays an animation forwards and backwards
         # alternatingly, e.g. for displaying vibrational movement
-        self.rock = ui.CheckButton(_('Rock'), value=gui.config['movie_rock'])
+        self.rock = ui.CheckButton(
+            _('Rock'), value=gui.config.getboolean('movie_rock')
+        )
 
         win.add([play, stop, self.rock])
 
         if len(gui.images) > 150:
             skipdefault = len(gui.images) // 150
-            tdefault = min(max(len(gui.images) / (skipdefault * 5.0),
-                               1.0), 30)
+            tdefault = min(max(len(gui.images) / (skipdefault * 5.0), 1.0), 30)
         else:
             skipdefault = 0
             tdefault = min(max(len(gui.images) / 5.0, 1.0), 30)
-        if gui.config['movie_rate'] != 'auto':
-            tdefault = gui.config['movie_rate']
-        if gui.config['movie_skip'] != 'auto':
-            skipdefault = gui.config['movie_skip']
+        if gui.config.getliteral('movie_rate') != 'auto':
+            tdefault = gui.config.getliteral('movie_rate')
+        if gui.config.getliteral('movie_skip') != 'auto':
+            skipdefault = gui.config.getliteral('movie_skip')
         self.time = ui.SpinBox(tdefault, 1.0, 99, 0.1)
         self.skip = ui.SpinBox(skipdefault, 0, 99, 1)
-        win.add([_(' Frame rate: '), self.time, _(' Skip frames: '),
-                 self.skip])
+        win.add([_(' Frame rate: '), self.time, _(' Skip frames: '), self.skip])
 
         self.gui = gui
         self.direction = 1
-        self.timer = None
         gui.obs.new_atoms.register(self.close)
 
     def close(self):
@@ -74,11 +79,11 @@ class Movie:
     def play(self):
         self.stop()
         t = 1 / self.time.value
-        self.timer = self.gui.window.after(t, self.step)
+        self.gui.movie_timer = self.gui.window.after(t, self.step)
 
     def stop(self):
-        if self.timer is not None:
-            self.timer.cancel()
+        if self.gui.movie_timer is not None:
+            self.gui.movie_timer.cancel()
 
     def step(self):
         i = self.gui.frame
@@ -96,3 +101,176 @@ class Movie:
 
         self.frame_number.value = i
         self.play()
+
+
+class MovieToolbar:
+    def __init__(self, parent, gui):
+        from itertools import count
+
+        self.gui = gui
+        self.direction = 1
+
+        tkframe = ttk.Frame(parent, relief='raised', borderwidth=1)
+        self.tkframe = tkframe
+        self.controls_with_state = []
+
+        columncounter = count()
+
+        def add(widget, **kwargs):
+            widget.grid(row=0, column=next(columncounter), **kwargs)
+            return widget
+
+        self.graphbutton_icon = gui.icons['graph']
+        self.graphbutton = add(
+            tk.Button(
+                tkframe,
+                image=self.graphbutton_icon,
+                bd=0,
+                command=self.gui.plot_graph_standard,
+            )
+        )
+        self.controls_with_state.append(self.graphbutton)
+
+        add(ttk.Separator(tkframe, orient='vertical'), sticky='ns')
+
+        self.moviebutton_icon = gui.icons['movie']
+        self.moviebutton = add(
+            tk.Button(
+                tkframe,
+                image=self.moviebutton_icon,
+                bd=0,
+                command=self.gui.movie,
+            )
+        )
+
+        self.slider = add(
+            tk.Scale(
+                tkframe,
+                from_=0,
+                orient='horizontal',
+                command=self.slidercommand,
+                showvalue=False,
+            ),
+            padx=(4, 2),
+        )
+        self.controls_with_state.append(self.slider)
+        add(tk.Label(tkframe, text=_('Image:')))
+        nlwidth = len(str(len(self.gui.images) - 1))
+        self.numlabel = add(
+            tk.Label(tkframe, text='0', width=nlwidth, anchor='w'), padx=(0, 4)
+        )
+        self._update_number_of_images()
+
+        self.firstbutton_icon = gui.icons['first']
+        self.firstbutton = add(
+            tk.Button(
+                tkframe,
+                image=self.firstbutton_icon,
+                bd=0,
+                command=partial(self.click, -1, True),
+            )
+        )
+        self.controls_with_state.append(self.firstbutton)
+        self.backbutton_icon = gui.icons['back']
+        self.backbutton = add(
+            tk.Button(
+                tkframe,
+                image=self.backbutton_icon,
+                bd=0,
+                command=partial(self.click, -1),
+            )
+        )
+        self.controls_with_state.append(self.backbutton)
+        self.playbutton_icon = gui.icons['play']
+        self.playbutton = add(
+            tk.Button(
+                tkframe, image=self.playbutton_icon, bd=0, command=self.play
+            )
+        )
+        self.controls_with_state.append(self.playbutton)
+        self.pausebutton_icon = gui.icons['pause']
+        self.pausebutton = add(
+            tk.Button(
+                tkframe, image=self.pausebutton_icon, bd=0, command=self.stop
+            )
+        )
+        self.controls_with_state.append(self.pausebutton)
+        self.forwardbutton_icon = gui.icons['forward']
+        self.forwardbutton = add(
+            tk.Button(
+                tkframe,
+                image=self.forwardbutton_icon,
+                bd=0,
+                command=partial(self.click, 1),
+            )
+        )
+        self.controls_with_state.append(self.forwardbutton)
+        self.lastbutton_icon = gui.icons['last']
+        self.lastbutton = add(
+            tk.Button(
+                tkframe,
+                image=self.lastbutton_icon,
+                bd=0,
+                command=partial(self.click, 1, True),
+            )
+        )
+        self.controls_with_state.append(self.lastbutton)
+
+        # "Set" atoms means something (anything) changed including
+        # which frame number we are displaying:
+        gui.obs.set_atoms.register(self._update_atoms)
+        gui.obs.set_atoms.register(self._update_button_states)
+
+        # "New" atoms may change the number of images altogether:
+        gui.obs.new_images.register(self._update_number_of_images)
+        gui.obs.new_images.register(self._update_button_states)
+
+    def click(self, step, firstlast=False):
+        if firstlast and step < 0:
+            framenum = 0
+        elif firstlast:
+            framenum = len(self.gui.images)
+        else:
+            framenum = max(
+                0, min(len(self.gui.images) - 1, self.gui.frame + step)
+            )
+
+        self.slider.set(framenum)
+
+    def play(self):
+        self.stop()
+        t = 1 / 24
+        self.gui.movie_timer = self.gui.window.after(t, self.step)
+
+    def stop(self):
+        if self.gui.movie_timer is not None:
+            self.gui.movie_timer.cancel()
+
+    def step(self):
+        framenum = self.gui.frame
+        nimages = len(self.gui.images)
+
+        framenum = (framenum + self.direction + nimages) % nimages
+
+        self.slider.set(framenum)
+        self.play()
+
+    def _update_number_of_images(self):
+        self.slider['to'] = len(self.gui.images) - 1
+        self.numlabel['width'] = len(str(len(self.gui.images) - 1))
+        self._update_atoms()
+
+    def _update_atoms(self):
+        if self.gui.frame is not None:
+            self.slider.set(self.gui.frame)
+
+    def slidercommand(self, sliderval: str):
+        framenum = int(sliderval)
+        self.numlabel['text'] = sliderval
+        if framenum != self.gui.frame:
+            self.gui.set_frame(framenum)
+
+    def _update_button_states(self):
+        movie_state = tk.NORMAL if len(self.gui.images) > 1 else tk.DISABLED
+        for ctrl in self.controls_with_state:
+            ctrl['state'] = movie_state

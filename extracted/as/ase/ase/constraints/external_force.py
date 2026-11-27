@@ -11,12 +11,12 @@ class ExternalForce(FixConstraint):
     between atom1-2 and atom3-4:
 
     >>> from ase.build import bulk
-
-    >>> atoms = bulk('Cu', 'fcc', a=3.6)
+    >>> from ase.constraints import ExternalForce, FixBondLength
+    >>> atoms = bulk('Cu', 'fcc', a=3.6, cubic = True)
     >>> atom1, atom2, atom3, atom4 = atoms[:4]
-    >>> fext = 1.0
-    >>> con1 = ExternalForce(atom1, atom2, f_ext)
-    >>> con2 = FixBondLength(atom3, atom4)
+    >>> f_ext = 1.0
+    >>> con1 = ExternalForce(0, 1, f_ext)
+    >>> con2 = FixBondLength(2, 3)
     >>> atoms.set_constraint([con1, con2])
 
     see ase/test/external_force.py"""

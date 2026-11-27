@@ -305,6 +305,7 @@ class TestGarminClient:
         ]
 
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
             patch.object(
                 client, "get_workouts", new_callable=AsyncMock
@@ -343,6 +344,112 @@ class TestGarminClient:
         assert data["trainingPlanGoalEvent"]["targetDistanceUnit"] == "kilometer"
         assert data["trainingPlanGoalEvent"]["trainingPlanType"] == "COACH_ATP"
         assert data["trainingPlanGoalEvent"]["projectedRaceTimeDurationSeconds"] == 1829
+
+    async def test_get_dogs_filters_animal_type(self):
+        """get_dogs returns dog profiles only, as id / exclude_physio."""
+        from ha_garmin.const import ANIMAL_URL
+
+        client = GarminClient(_make_auth())
+        animals = [
+            {
+                "animalProfileId": 1001,
+                "animalType": "DOG",
+                "userId": 1,
+                "excludePhysio": False,
+            },
+            {
+                "animalProfileId": 1002,
+                "animalType": "DOG",
+                "userId": 1,
+                "excludePhysio": True,
+            },
+            {
+                "animalProfileId": 1003,
+                "animalType": "CAT",
+                "userId": 1,
+                "excludePhysio": False,
+            },
+        ]
+        with patch.object(
+            client, "_request", new_callable=AsyncMock, return_value=animals
+        ) as mock_request:
+            dogs = await client.get_dogs()
+
+        mock_request.assert_awaited_once_with("GET", ANIMAL_URL)
+        assert dogs == [
+            {"id": 1001, "exclude_physio": False},
+            {"id": 1002, "exclude_physio": True},
+        ]
+
+    async def test_get_dogs_skips_entries_without_a_usable_id(self):
+        """Entries whose animalProfileId is missing, a string or a bool are dropped."""
+        client = GarminClient(_make_auth())
+        animals = [
+            {"animalType": "DOG", "excludePhysio": False},
+            {"animalProfileId": "1001", "animalType": "DOG"},
+            {"animalProfileId": True, "animalType": "DOG"},
+            {"animalProfileId": 1002, "animalType": "DOG", "excludePhysio": False},
+        ]
+        with patch.object(
+            client, "_request", new_callable=AsyncMock, return_value=animals
+        ):
+            dogs = await client.get_dogs()
+
+        assert dogs == [{"id": 1002, "exclude_physio": False}]
+
+    async def test_get_dogs_non_list_response(self):
+        client = GarminClient(_make_auth())
+        with patch.object(client, "_request", new_callable=AsyncMock, return_value={}):
+            assert await client.get_dogs() == []
+
+    async def test_fetch_activity_data_caches_dogs(self):
+        """Dog profiles are fetched once across consecutive polls."""
+        client = GarminClient(_make_auth())
+        get_dogs = AsyncMock(return_value=[{"id": 1001, "exclude_physio": False}])
+        with (
+            patch.object(client, "get_dogs", get_dogs),
+            patch.object(client, "_request", new_callable=AsyncMock, return_value=[]),
+        ):
+            await client.fetch_activity_data()
+            await client.fetch_activity_data()
+
+        assert get_dogs.await_count == 1
+
+    async def test_fetch_activity_data_includes_dogs(self):
+        """fetch_activity_data carries the dog profiles under "dogs"."""
+        client = GarminClient(_make_auth())
+        dogs = [{"id": 1001, "exclude_physio": False}]
+        with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=dogs),
+            patch.object(client, "_request", new_callable=AsyncMock, return_value=[]),
+        ):
+            data = await client.fetch_activity_data()
+
+        assert data["dogs"] == dogs
+
+    async def test_fetch_activity_data_survives_dogs_failure(self):
+        """A failing dog lookup yields [] and leaves the rest of the data."""
+        from ha_garmin.const import ACTIVITIES_URL
+
+        client = GarminClient(_make_auth())
+        activity = {"activityId": 1, "activityType": {"typeKey": "walking"}}
+
+        async def fake_request(method, url, params=None):
+            return [activity] if url == ACTIVITIES_URL else []
+
+        with (
+            patch.object(
+                client,
+                "get_dogs",
+                new_callable=AsyncMock,
+                side_effect=GarminAPIError("boom"),
+            ),
+            patch.object(client, "_request", side_effect=fake_request),
+        ):
+            data = await client.fetch_activity_data()
+
+        assert data["dogs"] == []
+        assert [a["activityId"] for a in data["lastActivities"]] == [1]
 
     @staticmethod
     def _calendar_request_router(
@@ -585,6 +692,7 @@ class TestGarminClient:
         }
 
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
             patch.object(
                 client,
@@ -641,6 +749,7 @@ class TestGarminClient:
         ]
 
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
             patch.object(
                 client,
@@ -692,6 +801,7 @@ class TestGarminClient:
         }
 
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
             patch.object(
                 client,
@@ -755,6 +865,7 @@ class TestGarminClient:
         }
 
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
             patch.object(
                 client,
@@ -814,6 +925,7 @@ class TestGarminClient:
         }
 
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
             patch.object(
                 client,
@@ -850,7 +962,7 @@ class TestGarminClient:
         assert "eBikeBatteryRemaining" not in data["lastActivity"]
         assert mock_summary.await_count == retry_limit
 
-    async def test_get_ebike_fields_concurrent_calls_do_not_race(self):
+    async def test_summary_fields_concurrent_calls_do_not_race(self):
         """Overlapping callers must not let one clobber the other's result.
 
         Regression test: two callers racing on the same activity_id used to
@@ -878,8 +990,8 @@ class TestGarminClient:
 
         with patch.object(client, "get_activity", side_effect=slow_success):
             results = await asyncio.gather(
-                client._get_ebike_fields(1),
-                client._get_ebike_fields(1),
+                client._get_summary_fields(1),
+                client._get_summary_fields(1),
             )
 
         # Second caller waited for the lock and got the cached result instead
@@ -905,6 +1017,7 @@ class TestGarminClient:
         summary = {"activityId": 11, "connectIQMeasurements": _CIQ_MEASUREMENTS}
 
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
             patch.object(
                 client, "get_activity", new_callable=AsyncMock
@@ -975,6 +1088,7 @@ class TestGarminClient:
         }
 
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
             patch.object(
                 client, "get_activity", new_callable=AsyncMock
@@ -1048,6 +1162,7 @@ class TestGarminClient:
         }
 
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
             patch.object(
                 client,
@@ -1167,6 +1282,26 @@ class TestGarminClient:
         assert "eBikeBatteryRemaining" not in trimmed
         assert "eBikeBatteryUsage" not in trimmed
         assert "eBikeMaxAssistModes" not in trimmed
+
+    def test_trim_activity_keeps_dog_fields(self):
+        """Test _trim_activity keeps dog fields only when the activity has them."""
+        from ha_garmin.client import _trim_activity
+
+        trimmed = _trim_activity(
+            {
+                "activityId": 1,
+                "activityName": "Walk",
+                "activityType": {"typeKey": "walking"},
+                "hasDog": True,
+                "dogProfileIds": [1001],
+            }
+        )
+        assert trimmed["hasDog"] is True
+        assert trimmed["dogProfileIds"] == [1001]
+
+        bare = _trim_activity({"activityId": 2, "activityType": {"typeKey": "walking"}})
+        assert "hasDog" not in bare
+        assert "dogProfileIds" not in bare
 
     async def test_get_devices(self):
         """Test get_devices returns list."""
@@ -1786,15 +1921,22 @@ class TestGarminClient:
     @pytest.mark.parametrize(
         ("raw", "expected"),
         [
-            (2177427894000, None),  # ms timestamp seen from a third-party scale
+            (1640960152000, 52.0),  # 52 years in ms, after a FIT upload
+            (2177427894000, 69.0),  # 69 years in ms, from a third-party scale
+            (1656738615000, 52.5),  # half years survive the conversion
             (38, 38),
+            (38.0, 38.0),
+            (150, 150),
+            (0, None),
+            (-5, None),
+            (10**16, None),  # ms, but not a plausible age either
+            ("52", None),
+            (True, None),
             (None, None),
         ],
     )
-    async def test_get_body_composition_drops_impossible_metabolic_age(
-        self, raw, expected
-    ):
-        """metabolicAge is only passed through when it can be an age in years."""
+    async def test_get_body_composition_metabolic_age_in_years(self, raw, expected):
+        """metabolicAge comes back in years; Garmin's milliseconds are converted."""
         auth = _make_auth()
         client = GarminClient(auth)
 
@@ -2500,6 +2642,10 @@ class TestGarminClient:
             ("download_activity", (-5, "fit")),
             ("get_device_solar_data", ("device",)),
             ("get_device_settings", (0,)),
+            ("add_dogs_to_activity", (0, [1001])),
+            ("add_dogs_to_activity", (12345, [])),
+            ("set_activity_dogs", (12345, [-1])),
+            ("remove_dogs_from_activity", (12345, [])),
         ],
     )
     async def test_integer_path_ids_rejected(self, method, args):
@@ -3001,6 +3147,122 @@ class TestWorkoutWrites:
             mock.assert_not_awaited()
 
 
+class TestActivityDogs:
+    """Dogs on an activity are written with a partial metadataDTO PUT."""
+
+    @staticmethod
+    def _client(existing: dict | None = None) -> GarminClient:
+        client = GarminClient(_make_auth())
+        client._request = AsyncMock(
+            return_value={"activityId": 12345, "metadataDTO": existing or {}}
+        )
+        client._put_request = AsyncMock(return_value={})
+        return client
+
+    async def test_set_activity_dogs_sends_partial_body(self):
+        from ha_garmin.const import ACTIVITY_DETAILS_URL
+
+        client = self._client()
+        await client.set_activity_dogs(12345, [1001, 1002])
+        client._put_request.assert_awaited_once_with(
+            f"{ACTIVITY_DETAILS_URL}/12345",
+            {
+                "activityId": 12345,
+                "metadataDTO": {"hasDog": True, "dogProfileIds": [1001, 1002]},
+            },
+        )
+
+    async def test_add_dogs_merges_with_existing(self):
+        client = self._client({"hasDog": True, "dogProfileIds": [1002]})
+        assert await client.add_dogs_to_activity(12345, [1001]) == [1002, 1001]
+        body = client._put_request.call_args.args[1]
+        assert body["metadataDTO"] == {"hasDog": True, "dogProfileIds": [1002, 1001]}
+
+    async def test_add_dogs_treats_absent_keys_as_none(self):
+        client = self._client()
+        assert await client.add_dogs_to_activity(12345, [1001]) == [1001]
+        body = client._put_request.call_args.args[1]
+        assert body["metadataDTO"] == {"hasDog": True, "dogProfileIds": [1001]}
+
+    async def test_add_dogs_noop_when_present(self):
+        client = self._client({"hasDog": True, "dogProfileIds": [1001]})
+        assert await client.add_dogs_to_activity(12345, [1001]) == [1001]
+        client._put_request.assert_not_called()
+
+    async def test_remove_last_dog_clears_has_dog(self):
+        client = self._client({"hasDog": True, "dogProfileIds": [1001]})
+        assert await client.remove_dogs_from_activity(12345, [1001]) == []
+        body = client._put_request.call_args.args[1]
+        assert body["metadataDTO"] == {"hasDog": False, "dogProfileIds": []}
+
+    async def test_remove_keeps_other_dogs(self):
+        client = self._client({"hasDog": True, "dogProfileIds": [1001, 1002]})
+        assert await client.remove_dogs_from_activity(12345, [1001]) == [1002]
+        body = client._put_request.call_args.args[1]
+        assert body["metadataDTO"] == {"hasDog": True, "dogProfileIds": [1002]}
+
+    async def test_remove_dogs_noop_when_absent(self):
+        client = self._client({"hasDog": True, "dogProfileIds": [1002]})
+        assert await client.remove_dogs_from_activity(12345, [1001]) == [1002]
+        client._put_request.assert_not_called()
+
+    async def test_set_activity_dogs_empty_body(self):
+        from ha_garmin.const import ACTIVITY_DETAILS_URL
+
+        client = self._client()
+        await client.set_activity_dogs(12345, [])
+        client._put_request.assert_awaited_once_with(
+            f"{ACTIVITY_DETAILS_URL}/12345",
+            {
+                "activityId": 12345,
+                "metadataDTO": {"hasDog": False, "dogProfileIds": []},
+            },
+        )
+
+    async def test_add_dogs_dedupes_input(self):
+        client = self._client()
+        assert await client.add_dogs_to_activity(12345, [1001, 1001]) == [1001]
+        body = client._put_request.call_args.args[1]
+        assert body["metadataDTO"] == {"hasDog": True, "dogProfileIds": [1001]}
+
+    async def test_add_dogs_refuses_on_empty_get(self):
+        """A 404/204 GET comes back as {}: that is not "no dogs"."""
+        client = self._client()
+        client._request = AsyncMock(return_value={})
+        with pytest.raises(GarminAPIError, match="not found or has no metadata"):
+            await client.add_dogs_to_activity(12345, [1001])
+        client._put_request.assert_not_called()
+
+    async def test_remove_dogs_refuses_on_empty_get(self):
+        client = self._client()
+        client._request = AsyncMock(return_value={})
+        with pytest.raises(GarminAPIError, match="not found or has no metadata"):
+            await client.remove_dogs_from_activity(12345, [1001])
+        client._put_request.assert_not_called()
+
+    async def test_add_dogs_refuses_when_has_dog_without_ids(self):
+        client = self._client({"hasDog": True})
+        with pytest.raises(GarminAPIError, match="dogProfileIds"):
+            await client.add_dogs_to_activity(12345, [1001])
+        client._put_request.assert_not_called()
+
+    async def test_add_dogs_refuses_on_mismatched_activity_id(self):
+        client = self._client()
+        client._request = AsyncMock(
+            return_value={"activityId": 99999, "metadataDTO": {}}
+        )
+        with pytest.raises(GarminAPIError, match="not found or has no metadata"):
+            await client.add_dogs_to_activity(12345, [1001])
+        client._put_request.assert_not_called()
+
+    async def test_set_activity_dogs_non_list_message(self):
+        client = self._client()
+        with pytest.raises(ValueError) as err:
+            await client.set_activity_dogs(12345, 1001)
+        assert "must be a positive integer" in str(err.value)
+        assert "at least one" not in str(err.value)
+
+
 class TestWebAppParity:
     """Requests match what the Garmin Connect web app sends."""
 
@@ -3321,6 +3583,7 @@ class TestCalendarDedup:
             "workoutId": 1731319876,
         }
         with (
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
             patch.object(
                 client, "get_activities", new_callable=AsyncMock, return_value=[]
             ),
@@ -3519,6 +3782,7 @@ class TestScheduledWorkoutSteps:
                 client, "get_upcoming_events", new_callable=AsyncMock, return_value=[]
             ),
             patch.object(client, "get_workout", get_workout),
+            patch.object(client, "get_dogs", new_callable=AsyncMock, return_value=[]),
         ):
             data = await client.fetch_activity_data()
         return data, get_workout

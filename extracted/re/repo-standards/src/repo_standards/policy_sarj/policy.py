@@ -36,9 +36,15 @@ from repo_standards.core.taxonomy import (
 
 from .documentation import (
     ADDED_MARKDOWN_RULE_ID,
+    GENERATED_DOCUMENTATION_RULE_ID,
+    LOCAL_LINKS_RULE_ID,
+    MAKE_TARGETS_RULE_ID,
     MARKDOWN_ONLY_RULE_ID,
     MARKDOWN_WORD_GROWTH_RULE_ID,
     added_markdown_diagnostics,
+    generated_documentation_diagnostics,
+    local_link_diagnostics,
+    make_target_diagnostics,
     markdown_only_diagnostics,
     markdown_word_growth_diagnostics,
 )
@@ -148,11 +154,13 @@ _DERIVED_ENV_BASENAMES = frozenset(
     }
 )
 _DERIVED_BACKEND_BASENAMES = frozenset(f"backend.conf{suffix}" for suffix in _ENV_EXAMPLE_SUFFIXES)
+_MANAGED_BASELINE_BASENAMES = frozenset({"diagnostic-baseline.json", "suppression-baseline.json"})
 _EXECUTABLE_SCRIPT_EXTENSIONS = frozenset(
     {"bash", "cjs", "cts", "jq", "js", "jsx", "mjs", "mts", "py", "sh", "ts", "tsx", "zsh"}
 )
 _PACKAGE_TEST_DIRECTORY_NAMES = frozenset({"spec", "specs", "test", "tests", "__tests__"})
 _SCRIPT_TEST_DIRECTORIES_RULE_ID = RuleId("repository/artifacts/script-test-directories")
+CROSS_PACKAGE_DUPLICATES_RULE_ID = RuleId("repository/artifacts/cross-package-duplicates")
 _CONVENTIONAL_OPERATIONAL_ROOTS = frozenset(
     {
         "cloudbuild",
@@ -329,7 +337,8 @@ RULES = (
             "and .mdx paths, case-insensitively, count toward documentation.maximum_added_pages "
             "(default zero). Only exact addition_exemptions from the base manifest apply; "
             "a candidate cannot authorize its own additions. Renamed and copied destinations "
-            "count as new paths. Existing-page edits, deletions and non-Markdown files pass."
+            "count as new paths. Existing-page edits, deletions, non-Markdown files and paths "
+            "under the base manifest's documentation.generated outputs pass."
         ),
         why=(
             "New notes, reports and duplicated guides increase review and maintenance noise. "
@@ -361,7 +370,8 @@ RULES = (
         title="Keep net tracked Markdown growth within the trusted word budget",
         description=(
             "Compare whitespace-separated words in every tracked .md and .mdx file, "
-            "case-insensitively, with the base tree or HEAD for staged checks. Deletions "
+            "case-insensitively, outside the base manifest's documentation.generated outputs, "
+            "with the base tree or HEAD for staged checks. Deletions "
             "offset additions and unchanged content is neutral wherever it moves. Warn once "
             "when net growth exceeds documentation.maximum_added_words from the base manifest "
             "(default 150); a candidate cannot raise its own budget."
@@ -385,6 +395,110 @@ RULES = (
                 language="json",
                 before='{"added_words":400}',
                 after='{"added_words":40}',
+                expected_severity="warning",
+            ),
+        ),
+    ),
+    Rule(
+        rule_id=GENERATED_DOCUMENTATION_RULE_ID,
+        version=2,
+        default_severity="warning",
+        title="Change generated documentation only through its declared generator",
+        description=(
+            "Each documentation.generated entry names a tracked output path (file or "
+            "directory), the tracked source path that its command regenerates it from, and "
+            "the command. Warn when the source or output is not tracked, or when the Git "
+            "comparison changes the output while nothing under the source changes. Changes "
+            "under any declared output do not count as source changes. Also warn for each "
+            "tracked Markdown file that Git attributes mark linguist-generated outside every "
+            "declared output."
+        ),
+        why=(
+            "A hand edit to generated documentation drifts from its owner and is lost at the "
+            "next regeneration; a declaration whose generator is gone leaves readers trusting "
+            "a page nothing maintains."
+        ),
+        fix=(
+            "Change the declared source and rerun the declared command, committing both. "
+            "Update or remove the entry when the generator moves or the page becomes "
+            "hand-maintained. Declare linguist-generated Markdown or drop the attribute. "
+            "No autofix."
+        ),
+        taxonomy=taxonomy(CHANGE_SAFETY, DOCUMENTATION),
+        examples=(
+            _example(
+                example_id="sarj-documentation-generated-sources",
+                title="Regenerate documentation from its source",
+                language="json",
+                before='{"changed":["docs/api.md"]}',
+                after='{"changed":["docs/api.md","openapi.json"]}',
+                expected_severity="warning",
+            ),
+        ),
+    ),
+    Rule(
+        rule_id=LOCAL_LINKS_RULE_ID,
+        version=3,
+        default_severity="warning",
+        title="Point relative Markdown links at tracked paths",
+        description=(
+            "Read every tracked .md file and resolve each relative inline link and reference "
+            "definition, without its #fragment and ?query, against the file's directory. Warn "
+            "once per file and target that is neither a tracked file nor a directory holding "
+            "one, whose #fragment matches no GitHub heading slug or HTML id/name in its tracked "
+            ".md target, or whose link text is a different .md filename than the target. Code "
+            "blocks, code spans, URLs with a scheme, same-page #fragments and root-relative / "
+            "links are skipped, as are #L line fragments and ?query links for anchors. In a Git "
+            "comparison, also warn once per unchanged file and code span that is a path of two "
+            "or more components ending a removed file's path and no tracked path."
+        ),
+        why=(
+            "Deleting or moving a page leaves links elsewhere pointing nowhere, so readers and "
+            "agents lose the canonical copy the link promised."
+        ),
+        fix=(
+            "Point the link and its text at the page's current tracked path and heading, remove "
+            "it when the target was deleted, or use an absolute URL for content outside the "
+            "repository. No autofix."
+        ),
+        taxonomy=taxonomy(CHANGE_SAFETY, DOCUMENTATION),
+        examples=(
+            _example(
+                example_id="sarj-documentation-local-links",
+                title="Link the page at its tracked path",
+                language="json",
+                before='{"tracked":["docs/guide.md"],"readme":"[Guide](docs/old.md)"}',
+                after='{"tracked":["docs/guide.md"],"readme":"[Guide](docs/guide.md)"}',
+                expected_severity="warning",
+            ),
+        ),
+    ),
+    Rule(
+        rule_id=MAKE_TARGETS_RULE_ID,
+        version=1,
+        default_severity="warning",
+        title="Name existing Make targets in Markdown commands",
+        description=(
+            "Read `make [-C <dir>] <target>` commands in code spans and shell code blocks of "
+            "every tracked .md file. Resolve `-C` against the repository root or the page's "
+            "directory and a bare command against every tracked Makefile, following tracked "
+            "includes and literal variables. Warn when no resolved Makefile defines the target "
+            "as a rule or pattern rule. Commands with -f, placeholders, or Makefiles using "
+            "unresolvable includes, variables or generated rules are skipped."
+        ),
+        why=(
+            "Renaming or deleting a Make target leaves runbooks naming a command that fails, "
+            "so operators and agents stop at the first step."
+        ),
+        fix="Name the current target or remove the stale command. No autofix.",
+        taxonomy=taxonomy(CHANGE_SAFETY, DOCUMENTATION),
+        examples=(
+            _example(
+                example_id="sarj-documentation-make-targets",
+                title="Run a target the Makefile defines",
+                language="json",
+                before='{"makefile":"check:\\n","readme":"`make lint`"}',
+                after='{"makefile":"check:\\n","readme":"`make check`"}',
                 expected_severity="warning",
             ),
         ),
@@ -431,14 +545,14 @@ RULES = (
     ),
     Rule(
         rule_id=LOCAL_RESIDUE_RULE_ID,
-        version=1,
+        version=2,
         default_severity="error",
-        title="Review tracked caches, bytecode, coverage data and OS metadata",
+        title="Review tracked caches, backups, logs, coverage data and OS metadata",
         description=(
-            "Tracked .pyc, .pyo and .tsbuildinfo filenames, and exact .DS_Store and "
-            "Thumbs.db, .eslintcache and .coverage basenames, case-insensitively, need review "
-            "as local residue. "
-            "Only the final filename is matched; directories grant no exemptions."
+            "Tracked .pyc, .pyo, .tsbuildinfo, .bak, .orig, .backup, .log and .err filenames, "
+            "exact .DS_Store, Thumbs.db, .eslintcache and .coverage basenames, and every path "
+            "under a _backups, _chats or .firecrawl directory, case-insensitively, need review "
+            "as local residue. Other directories grant no exemptions."
         ),
         why=(
             "Interpreter bytecode, incremental build or lint state, coverage data and desktop "
@@ -564,6 +678,48 @@ RULES = (
         ),
     ),
     Rule(
+        rule_id=CROSS_PACKAGE_DUPLICATES_RULE_ID,
+        version=1,
+        default_severity="warning",
+        title="Share files copied across packages",
+        description=(
+            "Warn once per Git blob tracked as a script source (the executable-script "
+            "extensions) under two or more package roots, where a package root is the nearest "
+            "directory holding a tracked package manifest. __init__.py, *.config.* and *.d.ts "
+            "basenames are skipped. Size and generated status are not inspected."
+        ),
+        why=(
+            "Byte-identical sources and tests copied between packages must be fixed and "
+            "reviewed once per copy, and the copies drift silently after the first divergent edit."
+        ),
+        fix=(
+            "Move the file to a shared package and import it, deleting duplicated tests once "
+            "the shared suite covers the same contracts. Retain required copies with an existing "
+            "exact, dated fingerprint exception. No autofix."
+        ),
+        taxonomy=taxonomy(CHANGE_SAFETY, ARTIFACTS),
+        examples=(
+            _example(
+                example_id="sarj-artifact-cross-package-duplicates",
+                title="Import one shared helper instead of two copies",
+                language="json",
+                before=_tracked_files_example(
+                    "apps/a/package.json",
+                    "apps/a/src/retry.ts",
+                    "apps/b/package.json",
+                    "apps/b/src/retry.ts",
+                ),
+                after=_tracked_files_example(
+                    "apps/a/package.json",
+                    "apps/b/package.json",
+                    "packages/retry/package.json",
+                    "packages/retry/src/retry.ts",
+                ),
+                expected_severity="warning",
+            ),
+        ),
+    ),
+    Rule(
         rule_id=UNTYPED_JAVASCRIPT_RULE_ID,
         version=2,
         default_severity="error",
@@ -663,6 +819,37 @@ RULES = (
                 before="services/api/.env.local.example",
                 after="services/api/settings.py",
                 expected_severity="error",
+            ),
+        ),
+    ),
+    Rule(
+        rule_id=RuleId("repository/artifacts/unmanaged-lint-baselines"),
+        version=2,
+        default_severity="warning",
+        title="Keep lint baselines in Standards-managed ledgers",
+        description=(
+            "Tracked lint-exempt.json and *-baseline.json, *-baseline-bootstrap.json or "
+            "*-baseline.txt basenames, "
+            "case-insensitively, need review. diagnostic-baseline.json, suppression-baseline.json, "
+            "dot-prefixed native analyzer baselines and coverage baselines are excluded."
+        ),
+        why=(
+            "A consumer-owned ledger and its reader script form a second ratchet that drifts "
+            "from the managed baseline and hides accepted debt from Standards reports."
+        ),
+        fix=(
+            "Fix the recorded findings or record them with the owning Standards baseline command, "
+            "then delete the ledger and its reader. No autofix."
+        ),
+        taxonomy=taxonomy(CHANGE_SAFETY, ARTIFACTS),
+        examples=(
+            _example(
+                example_id="sarj-artifact-unmanaged-lint-baselines",
+                title="Consumer-owned lint baseline",
+                language="text",
+                before="pyright-baseline.json",
+                after="diagnostic-baseline.json",
+                expected_severity="warning",
             ),
         ),
     ),
@@ -945,14 +1132,19 @@ _RULE_CLASSIFICATION: Mapping[RuleId, RuleClassification] = MappingProxyType(
         ADDED_MARKDOWN_RULE_ID: RuleClassification.JUDGMENT,
         MARKDOWN_ONLY_RULE_ID: RuleClassification.JUDGMENT,
         MARKDOWN_WORD_GROWTH_RULE_ID: RuleClassification.JUDGMENT,
+        GENERATED_DOCUMENTATION_RULE_ID: RuleClassification.JUDGMENT,
+        LOCAL_LINKS_RULE_ID: RuleClassification.OBJECTIVE,
+        MAKE_TARGETS_RULE_ID: RuleClassification.OBJECTIVE,
         MIGRATION_CONSOLIDATION_RULE_ID: RuleClassification.JUDGMENT,
         LOCAL_RESIDUE_RULE_ID: RuleClassification.JUDGMENT,
         MODULE_CLUSTER_RULE_ID: RuleClassification.JUDGMENT,
         MODULE_LAYOUT_RULE_ID: RuleClassification.OBJECTIVE,
         UNTYPED_JAVASCRIPT_RULE_ID: RuleClassification.JUDGMENT,
         UNDECLARED_IMAGES_RULE_ID: RuleClassification.OBJECTIVE,
+        CROSS_PACKAGE_DUPLICATES_RULE_ID: RuleClassification.JUDGMENT,
         RuleId("repository/artifacts/terraform-examples"): RuleClassification.OBJECTIVE,
         RuleId("repository/artifacts/schema-derived-config-examples"): RuleClassification.JUDGMENT,
+        RuleId("repository/artifacts/unmanaged-lint-baselines"): RuleClassification.JUDGMENT,
         RuleId("repository/artifacts/bespoke-iac-verifiers"): RuleClassification.OBJECTIVE,
         RuleId("repository/artifacts/operational-script-tests"): RuleClassification.JUDGMENT,
         _SCRIPT_TEST_DIRECTORIES_RULE_ID: RuleClassification.OBJECTIVE,
@@ -967,14 +1159,19 @@ _RULE_PRECEDENCE: Mapping[RuleId, int] = MappingProxyType(
         ADDED_MARKDOWN_RULE_ID: 56,
         MARKDOWN_ONLY_RULE_ID: 57,
         MARKDOWN_WORD_GROWTH_RULE_ID: 60,
+        GENERATED_DOCUMENTATION_RULE_ID: 61,
+        LOCAL_LINKS_RULE_ID: 62,
+        MAKE_TARGETS_RULE_ID: 63,
         MIGRATION_CONSOLIDATION_RULE_ID: 53,
         LOCAL_RESIDUE_RULE_ID: 51,
         MODULE_CLUSTER_RULE_ID: 58,
         MODULE_LAYOUT_RULE_ID: 59,
         UNTYPED_JAVASCRIPT_RULE_ID: 49,
         UNDECLARED_IMAGES_RULE_ID: 54,
+        CROSS_PACKAGE_DUPLICATES_RULE_ID: 65,
         RuleId("repository/artifacts/terraform-examples"): 40,
         RuleId("repository/artifacts/schema-derived-config-examples"): 44,
+        RuleId("repository/artifacts/unmanaged-lint-baselines"): 64,
         RuleId("repository/artifacts/bespoke-iac-verifiers"): 45,
         RuleId("repository/artifacts/operational-script-tests"): 46,
         _SCRIPT_TEST_DIRECTORIES_RULE_ID: 55,
@@ -1045,7 +1242,7 @@ RULE_GOVERNANCE = tuple(
 POLICY_SPEC = PolicySpec(
     schema_version=2,
     policy_id=PolicyId("sarj"),
-    policy_version=42,
+    policy_version=54,
     profile_id=PROFILE_ID,
     title="Sarj repository standard",
     component_kinds=tuple(kind.value for kind in ComponentKind),
@@ -1131,6 +1328,67 @@ def _script_test_directory_diagnostics(
     return tuple(sorted(diagnostics, key=lambda item: item.path))
 
 
+def _cross_package_duplicate_diagnostics(
+    snapshot: RepositorySnapshot, *, rule: Rule
+) -> tuple[Diagnostic, ...]:
+    roots = frozenset(_parent_path(project.path) for project in snapshot.inspection.packages)
+    copies: dict[str, dict[str, str]] = {}
+    for tracked in sorted(snapshot.inspection.tracked_files, key=lambda item: item.path):
+        path = PurePosixPath(tracked.path.casefold())
+        if (
+            path.suffix.lstrip(".") not in _EXECUTABLE_SCRIPT_EXTENSIONS
+            or path.name == "__init__.py"
+            or ".config." in path.name
+            or path.name.endswith(".d.ts")
+        ):
+            continue
+        root = tracked.path
+        while root and root not in roots:
+            root = root.rpartition("/")[0]
+        if root in roots:
+            copies.setdefault(tracked.object_id, {}).setdefault(root, tracked.path)
+    components = ComponentIndex(snapshot.manifest.components)
+    diagnostics: list[Diagnostic] = []
+    for object_id, paths in copies.items():
+        if len(paths) <= 1:
+            continue
+        first_copies = sorted(paths.values())
+        path = first_copies[0]
+        component = components.nearest(path)
+        diagnostics.append(
+            Diagnostic(
+                rule_id=rule.rule_id,
+                rule_version=rule.version,
+                severity=rule.severity,
+                evidence_level="verified",
+                component_id=component.component_id if component else ComponentId("repository"),
+                subject_kind="tracked-cross-package-duplicate",
+                observed=", ".join(first_copies),
+                observed_value={"object_id": object_id},
+                expected="one shared implementation imported by each package",
+                message="identical file content is tracked under several package roots",
+                path=path,
+                manifest_anchor=f"tracked_files.{path}",
+                remediation=Remediation(
+                    summary="Share one implementation instead of tracking copies.",
+                    steps=(
+                        (
+                            "Move the file to a shared package or module and import it from "
+                            "each package."
+                        ),
+                        (
+                            "Delete duplicated tests once the shared copy's suite rejects the "
+                            "same wrong outcomes."
+                        ),
+                        "Retain required copies with an existing exact fingerprint exception.",
+                    ),
+                    validation=("Run each affected package's checks and rerun repo-standards.",),
+                ),
+            )
+        )
+    return tuple(sorted(diagnostics, key=lambda item: item.path))
+
+
 def _tracked_artifact_diagnostics(
     snapshot: RepositorySnapshot,
     path: str,
@@ -1191,6 +1449,7 @@ def _tracked_artifact_diagnostics(
                 ),
             )
         )
+    diagnostics.extend(_unmanaged_lint_baseline_diagnostics(path, basename, component))
     is_terraform_path = _is_terraform_artifact_path(path, artifact_roots.terraform)
     is_github_automation_path = _is_github_automation_path(path)
     is_operational_path = is_terraform_path or _is_operational_path(
@@ -1348,6 +1607,40 @@ def _tracked_artifact_diagnostics(
             )
         )
     return diagnostics
+
+
+def _unmanaged_lint_baseline_diagnostics(
+    path: str, basename: str, component: Component | None
+) -> list[Diagnostic]:
+    if basename != "lint-exempt.json" and (
+        not basename.endswith(("-baseline.json", "-baseline-bootstrap.json", "-baseline.txt"))
+        or basename.startswith(".")
+        or "coverage" in basename
+        or basename in _MANAGED_BASELINE_BASENAMES
+    ):
+        return []
+    return [
+        _repository_diagnostic(
+            rule_id=RuleId("repository/artifacts/unmanaged-lint-baselines"),
+            component=component,
+            subject_kind="tracked-unmanaged-lint-baseline",
+            observed=path,
+            expected="no consumer-owned lint baseline beside the Standards-managed ledgers",
+            message="tracked lint baseline is not a Standards-managed ledger",
+            path=path,
+            remediation=Remediation(
+                summary="Move the debt into the Standards-managed baseline or fix it.",
+                steps=(
+                    (
+                        "Fix the recorded findings, or record them with the owning Standards "
+                        "baseline command."
+                    ),
+                    "Delete the consumer-owned ledger and the script that reads it.",
+                ),
+                validation=("Run the owning lint checks and rerun repo-standards.",),
+            ),
+        )
+    ]
 
 
 def _parent_path(path: str) -> str:
@@ -1755,6 +2048,14 @@ def _documentation_diagnostics(
         diagnostics += markdown_word_growth_diagnostics(
             snapshot, rule=_rule(MARKDOWN_WORD_GROWTH_RULE_ID)
         )
+    if GENERATED_DOCUMENTATION_RULE_ID in enabled:
+        diagnostics += generated_documentation_diagnostics(
+            snapshot, rule=_rule(GENERATED_DOCUMENTATION_RULE_ID)
+        )
+    if LOCAL_LINKS_RULE_ID in enabled:
+        diagnostics += local_link_diagnostics(snapshot, rule=_rule(LOCAL_LINKS_RULE_ID))
+    if MAKE_TARGETS_RULE_ID in enabled:
+        diagnostics += make_target_diagnostics(snapshot, rule=_rule(MAKE_TARGETS_RULE_ID))
     return diagnostics
 
 
@@ -1788,6 +2089,9 @@ class SarjPolicy:
             ADDED_MARKDOWN_RULE_ID,
             MARKDOWN_ONLY_RULE_ID,
             MARKDOWN_WORD_GROWTH_RULE_ID,
+            GENERATED_DOCUMENTATION_RULE_ID,
+            LOCAL_LINKS_RULE_ID,
+            MAKE_TARGETS_RULE_ID,
             MIGRATION_CONSOLIDATION_RULE_ID,
             PULL_REQUEST_TEMPLATE_SECTIONS_RULE_ID,
             UNTYPED_JAVASCRIPT_RULE_ID,
@@ -1797,6 +2101,7 @@ class SarjPolicy:
             MODULE_LAYOUT_RULE_ID,
             MAKEFILE_GROWTH_RULE_ID,
             _SCRIPT_TEST_DIRECTORIES_RULE_ID,
+            CROSS_PACKAGE_DUPLICATES_RULE_ID,
         }
         diagnostics = _repository_artifact_diagnostics(snapshot) if enabled - separate_rules else ()
         diagnostics += _documentation_diagnostics(snapshot, enabled)
@@ -1809,6 +2114,7 @@ class SarjPolicy:
             (MODULE_CLUSTER_RULE_ID, module_cluster_diagnostics),
             (MODULE_LAYOUT_RULE_ID, module_layout_diagnostics),
             (_SCRIPT_TEST_DIRECTORIES_RULE_ID, _script_test_directory_diagnostics),
+            (CROSS_PACKAGE_DUPLICATES_RULE_ID, _cross_package_duplicate_diagnostics),
         ):
             if rule_id in enabled:
                 diagnostics += evaluate(snapshot, rule=_rule(rule_id))

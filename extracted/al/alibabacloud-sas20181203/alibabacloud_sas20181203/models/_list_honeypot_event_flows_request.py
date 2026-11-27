@@ -14,24 +14,24 @@ class ListHoneypotEventFlowsRequest(DaraModel):
         request_id: str = None,
         security_event_id: int = None,
     ):
-        # The page number of the current page in a paged query. Default value: **1**.
+        # The page number of the current page for paging. Default value: **1**.
         self.current_page = current_page
-        # Specifies whether the event has been handled. Valid values:
+        # Specifies whether the event is handled. Valid values:
         # - **y**: Handled. 
         # - **n**: Unhandled. 
         # - **a**: All.
         self.dealed = dealed
         # The language of the request and response. Default value: **zh**. Valid values:
-        # - **zh**: Chinese
+        # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang
-        # The maximum number of entries to return per page in a paged query. Default value: 100. If the PageSize parameter is left empty, 100 entries are returned by default.
-        # > Do not leave PageSize empty.
+        # The maximum number of entries to return on each page for paging. Default value: 100. If this parameter is left empty, 100 entries are returned by default.
+        # > Do not leave this parameter empty.
         self.page_size = page_size
-        # Invalid parameter.
+        # An invalid parameter.
         self.request_id = request_id
         # The ID of the alert event.
-        # >You can call the [ListHoneypotEvents](~~ListHoneypotEvents~~) operation to obtain this parameter.
+        # > You can call the [ListHoneypotEvents](~~ListHoneypotEvents~~) operation to query this parameter.
         self.security_event_id = security_event_id
 
     def validate(self):

@@ -184,6 +184,41 @@ class TestCollectPluginInterceptors:
 
     @patch("mistralai.workflows.plugins._discovery.importlib.import_module")
     @patch("mistralai.workflows.plugins._discovery.list_plugins")
+    def test_plugin_configuration_without_interceptor_hook(self, mock_list: MagicMock, mock_import: MagicMock) -> None:
+        mock_list.return_value = [ContributionInfo("configonly", True, "configonly-dist", "1.0.0")]
+
+        mock_module = ModuleType("mistralai.workflows.plugins.configonly")
+        mock_hook = MagicMock()
+        mock_module.configure_for_worker = mock_hook  # type: ignore[attr-defined]
+        mock_import.return_value = mock_module
+
+        sentinel_workflows: list[type] = [type("FakeWf", (), {})]
+        result = collect_plugin_interceptors(sentinel_workflows)
+
+        assert result == []
+        mock_hook.assert_called_once_with(sentinel_workflows)
+
+    @patch("mistralai.workflows.plugins._discovery.importlib.import_module")
+    @patch("mistralai.workflows.plugins._discovery.list_plugins")
+    def test_plugin_configuration_runs_before_interceptor_hook(
+        self, mock_list: MagicMock, mock_import: MagicMock
+    ) -> None:
+        mock_list.return_value = [ContributionInfo("ordered", True, "ordered-dist", "1.0.0")]
+
+        calls: list[str] = []
+        mock_module = ModuleType("mistralai.workflows.plugins.ordered")
+        mock_module.configure_for_worker = MagicMock(side_effect=lambda _: calls.append("configure"))  # type: ignore[attr-defined]
+        mock_module.get_worker_interceptors = MagicMock(  # type: ignore[attr-defined]
+            side_effect=lambda _: calls.append("interceptors") or []
+        )
+        mock_import.return_value = mock_module
+
+        collect_plugin_interceptors([])
+
+        assert calls == ["configure", "interceptors"]
+
+    @patch("mistralai.workflows.plugins._discovery.importlib.import_module")
+    @patch("mistralai.workflows.plugins._discovery.list_plugins")
     def test_plugin_with_non_callable_hook(self, mock_list: MagicMock, mock_import: MagicMock) -> None:
         """A plugin where get_worker_interceptors exists but is not callable."""
         mock_list.return_value = [ContributionInfo("badhook", True, "badhook-dist", "1.0.0")]

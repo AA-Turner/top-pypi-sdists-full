@@ -17,13 +17,23 @@ class NewToken:
         label (Union[Unset, str]):
         expiration (Union[Unset, datetime.datetime]):
         scopes (Union[Unset, List[str]]):
-        workspace_id (Union[Unset, str]):
+        workspace_id (Union[Unset, str]): Bind the token to this workspace: it is then refused on every other workspace
+            and
+            on instance-level endpoints. Omit for a token that reaches every workspace.
         read_only (Union[Unset, bool]): If true, the token is restricted to read-only HTTP methods
             (GET/HEAD/OPTIONS). Mutating endpoints and job-run actions are
             rejected with 403, regardless of the scopes attached.
-        super_admin (Union[Unset, bool]): For an MCP token (an `mcp:` scope) owned by a superadmin: carry the owner's
-            superadmin rights, reaching every workspace rather than only their
-            memberships. Ignored for other tokens, which always carry them.
+        super_admin (Union[Unset, bool]): Carry the owner's superadmin rights: admin in every workspace, including ones
+            they are not a member of, and the superadmin endpoints. Defaults to false, and
+            is ignored when the owner or the calling token does not hold them.
+        admin (Union[Unset, bool]): Carry the owner's workspace admin rights in the workspaces the token reaches.
+            Defaults to false: the token then acts as a regular member. Ignored when the
+            calling token does not hold them.
+        allowed_ips (Union[Unset, List[str]]): IPs or CIDRs (IPv4 or IPv6) the token may be used from; omit to allow
+            any.
+            A request from elsewhere is refused as unauthenticated. A token that is itself
+            restricted can only create tokens within its own networks, and creates one
+            restricted to them when this is omitted.
     """
 
     label: Union[Unset, str] = UNSET
@@ -32,6 +42,8 @@ class NewToken:
     workspace_id: Union[Unset, str] = UNSET
     read_only: Union[Unset, bool] = UNSET
     super_admin: Union[Unset, bool] = UNSET
+    admin: Union[Unset, bool] = UNSET
+    allowed_ips: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -47,6 +59,10 @@ class NewToken:
         workspace_id = self.workspace_id
         read_only = self.read_only
         super_admin = self.super_admin
+        admin = self.admin
+        allowed_ips: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.allowed_ips, Unset):
+            allowed_ips = self.allowed_ips
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -63,6 +79,10 @@ class NewToken:
             field_dict["read_only"] = read_only
         if super_admin is not UNSET:
             field_dict["super_admin"] = super_admin
+        if admin is not UNSET:
+            field_dict["admin"] = admin
+        if allowed_ips is not UNSET:
+            field_dict["allowed_ips"] = allowed_ips
 
         return field_dict
 
@@ -86,6 +106,10 @@ class NewToken:
 
         super_admin = d.pop("super_admin", UNSET)
 
+        admin = d.pop("admin", UNSET)
+
+        allowed_ips = cast(List[str], d.pop("allowed_ips", UNSET))
+
         new_token = cls(
             label=label,
             expiration=expiration,
@@ -93,6 +117,8 @@ class NewToken:
             workspace_id=workspace_id,
             read_only=read_only,
             super_admin=super_admin,
+            admin=admin,
+            allowed_ips=allowed_ips,
         )
 
         new_token.additional_properties = d

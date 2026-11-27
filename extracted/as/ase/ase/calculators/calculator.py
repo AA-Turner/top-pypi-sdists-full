@@ -831,7 +831,7 @@ class Calculator(BaseCalculator):
         )
 
     def calculate(
-        self, atoms=None, properties=['energy'], system_changes=all_changes
+        self, atoms=None, properties=None, system_changes=all_changes
     ):
         """Do the calculation.
 
@@ -861,6 +861,8 @@ class Calculator(BaseCalculator):
         implementation to set the atoms attribute and create any missing
         directories.
         """
+        if properties is None:
+            properties = ['energy']
         if atoms is not None:
             self.atoms = atoms.copy()
         if not os.path.isdir(self._directory):
@@ -1159,8 +1161,10 @@ class FileIOCalculator(Calculator):
         return OldShellProfile(command)
 
     def calculate(
-        self, atoms=None, properties=['energy'], system_changes=all_changes
+        self, atoms=None, properties=None, system_changes=all_changes
     ):
+        if properties is None:
+            properties = ['energy']
         Calculator.calculate(self, atoms, properties, system_changes)
         self.write_input(self.atoms, properties, system_changes)
         self.execute()

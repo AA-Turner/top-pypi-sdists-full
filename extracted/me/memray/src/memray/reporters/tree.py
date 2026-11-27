@@ -25,6 +25,7 @@ from textual.color import Gradient
 from textual.containers import Grid
 from textual.containers import Horizontal
 from textual.containers import Vertical
+from textual.css.query import NoMatches
 from textual.dom import DOMNode
 from textual.reactive import reactive
 from textual.screen import Screen
@@ -98,7 +99,11 @@ class FrameDetailScreen(Widget):
         if not self.__is_mounted or self.frame is None:
             return
 
-        text = self.query_one("#textarea", TextArea)
+        try:
+            text = self.query_one("#textarea", TextArea)
+        except NoMatches:
+            # At teardown, children are pruned before workers are cancelled.
+            return
 
         if self.frame.location is None or self.frame.location == ROOT_NODE:
             text.clear()
@@ -114,8 +119,8 @@ class FrameDetailScreen(Widget):
 
     def _get_content_by_label_id(self) -> Dict[str, str]:
         common = {
-            "allocs": f"\N{floppy disk} Allocations: {self.frame.n_allocations}",
-            "size": f"\N{package} Size: {size_fmt(self.frame.value)}",
+            "allocs": f"\N{FLOPPY DISK} Allocations: {self.frame.n_allocations}",
+            "size": f"\N{PACKAGE} Size: {size_fmt(self.frame.value)}",
         }
 
         if self.frame.location is None:
@@ -143,16 +148,16 @@ class FrameDetailScreen(Widget):
             }
         return {
             **common,
-            "function": f"\N{compass} Function: {function}",
+            "function": f"\N{COMPASS} Function: {function}",
             "location": (
-                "\N{compass} Location: "
+                "\N{COMPASS} Location: "
                 + (
                     f"{_filename_to_module_name(file)}:{lineno}"
                     if lineno != 0
                     else file
                 )
             ),
-            "thread": f"\N{spool of thread} Thread: {self.frame.thread_id}",
+            "thread": f"\N{SPOOL OF THREAD} Thread: {self.frame.thread_id}",
         }
 
     def watch_frame(self) -> None:
@@ -195,7 +200,7 @@ class FrameDetailScreen(Widget):
         content_by_label_id = self._get_content_by_label_id()
         for label_id in ("function", "location", "allocs", "size", "thread"):
             content = content_by_label_id[label_id]
-            label = Label(content, id=label_id)
+            label = Label(content, id=label_id, markup=False)
             label.styles.display = "block" if content else "none"
             labels.append(label)
 
@@ -251,9 +256,9 @@ class TreeScreen(Screen[None]):
         self.data = data
         self.elided_locations = elided_locations
         self.import_system_filter: Optional[Callable[[Frame], bool]] = None
-        self.uninteresting_filter: Optional[
-            Callable[[Frame], bool]
-        ] = node_is_interesting
+        self.uninteresting_filter: Optional[Callable[[Frame], bool]] = (
+            node_is_interesting
+        )
 
     def expand_first_child(self, node: TreeNode[Frame]) -> None:
         while node.children:
@@ -310,9 +315,10 @@ class TreeScreen(Screen[None]):
             code_position = (
                 f"{_filename_to_module_name(file)}:{lineno}" if lineno != 0 else file
             )
-            ret.append_text(Text.from_markup(f"[bold]{function}[/]"))
+            ret.append(function, style="bold")
             if code_position:
-                ret.append_text(Text.from_markup(f"  [dim cyan]{code_position}[/]"))
+                ret.append("  ")
+                ret.append(code_position, style="dim cyan")
         else:
             ret.append_text(Text("hidden"))
         return ret
@@ -352,7 +358,7 @@ class TreeScreen(Screen[None]):
         percentage = 100 * value / root_data.value
         size_str = f"{size_fmt(value)} ({percentage:.2f} %)"
         size_color = _percentage_to_color(int(percentage))
-        ret = Text.from_markup("\N{black question mark ornament}")
+        ret = Text.from_markup("\N{BLACK QUESTION MARK ORNAMENT}")
         ret.append_text(Text(f" {size_str} ", style=Style(color=size_color.rich_color)))
         ret.append_text(
             Text.from_markup(

@@ -27,7 +27,11 @@ from mistralai.workflows.protocol.v1.events import (
     WorkflowEvent,
     WorkflowEventType,
 )
-from mistralai.workflows.testing import create_capturing_mock_events_client, create_test_worker_with_events
+from mistralai.workflows.testing import (
+    ALL_EVENT_CATEGORIES,
+    create_capturing_mock_event_publisher,
+    create_test_worker_with_events,
+)
 
 from .fixtures_full_encryption import (
     PUBLIC,
@@ -110,9 +114,10 @@ async def _run_encrypted_worker(
         async with (
             await WorkflowEnvironment.start_time_skipping(data_converter=data_converter) as env,
             EventContext(
-                create_capturing_mock_events_client(captured_events),
+                create_capturing_mock_event_publisher(captured_events),
                 payload_encoder=payload_encoding.event_payload_encoder,
                 custom_event_payload_encoder=payload_encoding.custom_event_payload_encoder,
+                emitted_event_categories=ALL_EVENT_CATEGORIES,
             ),
             create_test_worker_with_events(
                 env,

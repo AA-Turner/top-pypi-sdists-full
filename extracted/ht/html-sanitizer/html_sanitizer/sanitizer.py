@@ -4,6 +4,8 @@ from collections import deque
 
 import lxml.html
 import lxml.html.clean
+from lxml import etree
+from lxml.html import defs
 
 
 __all__ = ("Sanitizer",)
@@ -94,6 +96,33 @@ def filter_control_characters(text):
     return re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", text)
 
 
+def drop_tag(element):
+    """
+    Same as lxml's ``element.drop_tag()``, but runs in constant time instead
+    of time proportional to the number of siblings (lxml uses
+    ``parent.index(element)``)
+    """
+    parent = element.getparent()
+    previous = element.getprevious()
+    if element.text and isinstance(element.tag, str):
+        if previous is None:
+            parent.text = (parent.text or "") + element.text
+        else:
+            previous.tail = (previous.tail or "") + element.text
+    if element.tail:
+        if len(element):
+            last = element[-1]
+            last.tail = (last.tail or "") + element.tail
+        elif previous is None:
+            parent.text = (parent.text or "") + element.tail
+        else:
+            previous.tail = (previous.tail or "") + element.tail
+        element.tail = None
+    for child in list(element):
+        element.addprevious(child)
+    parent.remove(element)
+
+
 def normalize_whitespace_in_text_or_tail(
     element,
     *,
@@ -174,10 +203,27 @@ DEFAULT_SETTINGS = {
 }
 
 
+# The tags lxml-html-clean's Cleaner kills (removes including their contents)
+# and removes (keeping their contents) depending on its flags
+CLEANER_TAGS = [
+    ("scripts", {"script"}, set()),
+    ("comments", {etree.Comment}, set()),
+    ("processing_instructions", {etree.ProcessingInstruction}, set()),
+    ("style", {"style"}, set()),
+    ("links", {"link"}, set()),
+    ("meta", {"meta"}, set()),
+    ("page_structure", set(), {"head", "html", "title"}),
+    ("embedded", {"applet"}, {"iframe", "embed", "layer", "object", "param"}),
+    ("frames", defs.frame_tags, set()),
+    ("forms", {"button", "input", "select", "textarea"}, {"form"}),
+    ("annoying_tags", set(), {"blink", "marquee"}),
+]
+
+
 def coerce_to_set(value):
     if isinstance(value, set):
         return value
-    elif isinstance(value, (tuple, list)):
+    elif isinstance(value, tuple | list):
         return set(value)
     raise TypeError(f"Expected a set but got value {value!r} of type {type(value)}")
 
@@ -254,6 +300,164 @@ class Sanitizer:
             normalize_tail=not inside,
         )
 
+    def remove_elements(self, doc, drop, *, normalize=True):
+        """
+        Remove all elements in ``drop`` (see ``unwrap_children``) from the
+        document in linear time
+        """
+        if drop:
+            for parent in reversed([doc, *doc.iterdescendants()]):
+                self.unwrap_children(parent, drop, normalize=normalize)
+
+    def remove_like_cleaner(self, doc, cleaner):
+        """
+        Remove the elements the lxml-html-clean ``Cleaner`` would remove
+        because it does this one by one which takes quadratic time
+
+        This is only an optimization, the cleaner still runs afterwards.
+        """
+        kill = set(cleaner.kill_tags or ())
+        remove = set(cleaner.remove_tags or ())
+        for flag, kill_tags, remove_tags in CLEANER_TAGS:
+            if getattr(cleaner, flag):
+                kill.update(kill_tags)
+                remove.update(remove_tags)
+        if "head" in kill or "head" in remove:
+            kill.add("base")
+
+        drop = {}
+        for element in doc.iterdescendants():
+            if element.tag in kill:
+                mode = "tree"
+            elif element.tag in remove:
+                mode = "tag"
+            else:
+                continue
+            if not cleaner.allow_element(element):
+                drop[element] = mode
+        self.remove_elements(doc, drop, normalize=False)
+
+    def clean(self, doc, **kwargs):
+        cleaner = lxml.html.clean.Cleaner(**kwargs)
+        self.remove_like_cleaner(doc, cleaner)
+        cleaner(doc)
+
+    def unwrap_children(self, parent, drop, *, normalize=True):
+        """
+        Remove the children of ``parent`` which are keys of ``drop``. The
+        value ``"tag"`` keeps the text and the children of the removed
+        element (like lxml's ``drop_tag()``), ``"tree"`` only keeps the tail
+        (like lxml's ``drop_tree()``).
+
+        Removing elements one by one takes quadratic time when there are many
+        of them, because each removal moves the text accumulated so far to
+        the previous sibling. This collects text parts and joins them once.
+        """
+        children = list(parent)
+        if not any(child in drop for child in children):
+            return
+
+        # The text being extended is either parent.text (target is None) or
+        # the tail of the last child which is kept.
+        target = None
+        parts = [parent.text or ""]
+
+        def flush():
+            if len(parts) > 1:
+                text = "".join(parts) or None
+                if target is None:
+                    parent.text = text
+                    if normalize:
+                        self.normalize_whitespace(parent)
+                else:
+                    target.tail = text
+                    if normalize:
+                        self.normalize_whitespace(target)
+
+        for child in children:
+            mode = drop.pop(child, None)
+            if mode is None:
+                flush()
+                target = child
+                parts = [child.tail or ""]
+                continue
+
+            if mode == "tag":
+                if isinstance(child.tag, str):  # Not a comment etc.
+                    parts.append(child.text or "")
+                for grandchild in list(child):
+                    flush()
+                    child.addprevious(grandchild)
+                    target = grandchild
+                    parts = [grandchild.tail or ""]
+            parts.append(child.tail or "")
+            parent.remove(child)
+        flush()
+
+    def merge_adjacent(self, doc):
+        """
+        Merge adjacent elements of the same tag type if there is nothing but
+        whitespace between them, e.g. ``<b>a</b> <b>b</b>`` to ``<b>a b</b>``
+
+        Merges whole runs of elements at once so that the work done is linear
+        in the size of the document.
+        """
+        mergeable = self.tags - self.separate
+        stack = [doc]
+        while stack:
+            children = list(stack.pop())
+            i = 0
+            while i < len(children):
+                element = children[i]
+                i += 1
+                stack.append(element)
+                if element.tag not in mergeable:
+                    continue
+
+                run = []
+                last = element
+                while (
+                    i < len(children)
+                    and self.only_whitespace_re.match(last.tail or "")
+                    and children[i].tag == element.tag
+                    and self.is_mergeable(element, children[i])
+                ):
+                    last = children[i]
+                    run.append(last)
+                    i += 1
+                if run:
+                    self.merge_run(element, run)
+
+    def merge_run(self, element, run):
+        # The text being extended is either element.text (target is None) or
+        # the tail of the last child. Collect its parts and join them once.
+        target = element[-1] if len(element) else None
+        parts = [(element.text if target is None else target.tail) or ""]
+
+        def flush():
+            text = "".join(parts) or None
+            if target is None:
+                element.text = text
+            else:
+                target.tail = text
+
+        between = element.tail
+        for nx in run:
+            parts.extend((between or "", nx.text or ""))
+            for child in list(nx):
+                flush()
+                element.append(child)
+                target = child
+                parts = [child.tail or ""]
+            between = nx.tail
+            nx.getparent().remove(nx)
+        flush()
+        element.tail = between
+
+        self.normalize_whitespace(element)
+        for child in element:
+            self.normalize_whitespace(child)
+
     def sanitize(self, html):  # noqa: C901 -- I know.
         """
         Clean HTML code from ugly copy-pasted CSS and empty elements
@@ -273,12 +477,13 @@ class Sanitizer:
         try:
             doc = lxml.html.fromstring(html)
             lxml.html.tostring(doc, encoding="utf-8")
-        except Exception:  # We could and maybe should be more specific...
+        except Exception:  # noqa: BLE001 -- we could and maybe should be more specific
             from lxml.html import soupparser  # noqa: PLC0415
 
             doc = soupparser.fromstring(html)
 
-        lxml.html.clean.Cleaner(
+        self.clean(
+            doc,
             remove_unknown_tags=False,
             # Remove style *tags* if not explicitly allowed
             style="style" not in self.tags,
@@ -289,7 +494,7 @@ class Sanitizer:
             # Do not strip all form tags; we will filter them below
             forms=False,
             host_whitelist=self.embedded_hosts,
-        )(doc)
+        )
 
         # walk the tree recursively, because we want to be able to remove
         # previously emptied elements completely
@@ -297,17 +502,25 @@ class Sanitizer:
 
         doc = self.normalize_whitespace(doc)
 
+        # Elements to remove, see unwrap_children. Elements are only marked
+        # and removed when processing their parent; removing them right away
+        # takes quadratic time.
+        drop = {}
+
         while True:
             try:
                 element = backlog.pop()
             except IndexError:
                 break
 
+            # All children have been processed already
+            self.unwrap_children(element, drop)
+
             for processor in self.element_preprocessors:
                 element = processor(element)
 
             if self.drop_disallowed_contents and element.tag not in self.tags:
-                element.drop_tree()
+                drop[element] = "tree"
                 continue
 
             element = self.normalize_whitespace(element)
@@ -318,7 +531,7 @@ class Sanitizer:
                 and element.tag not in self.empty
                 and not len(element)
             ):
-                element.drop_tag()
+                drop[element] = "tag"
                 continue
 
             # remove tags which only contain whitespace and/or <br>s
@@ -328,7 +541,7 @@ class Sanitizer:
                 and {e.tag for e in element} <= self.whitespace
                 and all(self.only_whitespace_re.match(e.tail or "") for e in element)
             ):
-                element.drop_tree()
+                drop[element] = "tree"
                 continue
 
             if element.tag in {"li", "p"}:
@@ -336,7 +549,8 @@ class Sanitizer:
                 for p in element.findall("p"):
                     if getattr(p, "text", None):
                         p.text = " " + p.text + " "
-                    p.drop_tag()
+                    drop[p] = "tag"
+                self.unwrap_children(element, drop)
 
                 # remove list markers, maybe copy-pasted from word or whatever
                 if element.text:
@@ -347,58 +561,31 @@ class Sanitizer:
             elif element.tag in self.whitespace:
                 # Drop the next element if
                 # 1. it is a <br> too and 2. there is no content in-between
+                # (siblings marked for removal do not count)
+                only_whitespace = self.only_whitespace_re.match(element.tail or "")
                 nx = element.getnext()
-                if (
-                    nx is not None
-                    and nx.tag == element.tag
-                    and (
-                        not element.tail or self.only_whitespace_re.match(element.tail)
-                    )
-                ):
-                    nx.drop_tag()
+                while only_whitespace and nx is not None and nx in drop:
+                    only_whitespace = (
+                        drop[nx] == "tree"
+                        or self.only_whitespace_re.match(nx.text or "")
+                    ) and self.only_whitespace_re.match(nx.tail or "")
+                    nx = nx.getnext()
+                if only_whitespace and nx is not None and nx.tag == element.tag:
+                    drop[nx] = "tag"
 
-            if not element.text:
-                # No text before first child and first child is a <br>: Drop it
-                first = list(element)[0] if list(element) else None
-                if first is not None and first.tag in self.whitespace:
-                    first.drop_tag()
-                    # Maybe we have more than one <br>
-                    backlog.append(element)
-                    continue
-
-            if element.tag in (self.tags - self.separate):
-                # Check whether we should merge adjacent elements of the same
-                # tag type
-                nx = element.getnext()
-                if (
-                    self.only_whitespace_re.match(element.tail or "")
-                    and nx is not None
-                    and nx.tag == element.tag
-                    and self.is_mergeable(element, nx)
-                ):
-                    # Yes, we should. Tail is empty, that is, no text between
-                    # tags of a mergeable type.
-                    if nx.text:
-                        if len(element):
-                            list(element)[-1].tail = "{}{}".format(
-                                list(element)[-1].tail or "",
-                                nx.text,
-                            )
-                        else:
-                            element.text = "{}{}{}".format(
-                                element.text or "", element.tail or "", nx.text
-                            )
-
-                    for child in nx:
-                        element.append(child)
-
-                    # tail is merged with previous element.
-                    element.tail = nx.tail
-                    nx.getparent().remove(nx)
-
-                    # Process element again
-                    backlog.append(element)
-                    continue
+            # No text before first child and first child is a <br>: Drop it,
+            # and all following <br>s too
+            dropped = False
+            while not element.text:
+                first = next(iter(element), None)
+                if first is None or first.tag not in self.whitespace:
+                    break
+                drop_tag(first)
+                dropped = True
+            if dropped:
+                # Process element again
+                backlog.append(element)
+                continue
 
             for processor in self.element_postprocessors:
                 element = processor(element)
@@ -418,20 +605,35 @@ class Sanitizer:
 
             element = self.normalize_whitespace(element)
 
+        self.unwrap_children(doc, drop)
+        self.merge_adjacent(doc)
+
         if self.autolink is True:
             lxml.html.clean.autolink(doc)
         elif isinstance(self.autolink, dict):
             lxml.html.clean.autolink(doc, **self.autolink)
 
+        # Remove disallowed tags (but keep their contents) here and not in the
+        # cleaner below, because lxml's drop_tag() takes quadratic time
+        self.remove_elements(
+            doc,
+            {
+                element: "tag"
+                for element in doc.iterdescendants()
+                if isinstance(element.tag, str) and element.tag not in self.tags
+            },
+        )
+
         # Run cleaner again, but this time with even more strict settings
-        lxml.html.clean.Cleaner(
+        self.clean(
+            doc,
             allow_tags=self.tags,
             remove_unknown_tags=False,
             safe_attrs_only=False,  # Our attributes allowlist is sufficient.
             add_nofollow=self.add_nofollow,
             forms=False,
             host_whitelist=self.embedded_hosts,
-        )(doc)
+        )
 
         html = lxml.html.tostring(doc, encoding="unicode")
 

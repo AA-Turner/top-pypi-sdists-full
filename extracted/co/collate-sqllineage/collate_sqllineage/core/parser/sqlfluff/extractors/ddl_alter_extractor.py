@@ -1,4 +1,4 @@
-from sqlfluff.core.parser import BaseSegment
+from collate_sqlfluff.core.parser import BaseSegment
 
 from collate_sqllineage.core.holders import (
     StatementLineageHolder,

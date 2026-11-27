@@ -16,7 +16,6 @@ from mistralai.workflows.worker_client.utils.unmarshal_json_response import (
 )
 import sys
 from typing import Any, Dict, List, Mapping, Optional, TYPE_CHECKING, Union, cast
-from typing_extensions import deprecated
 import weakref
 
 if TYPE_CHECKING:
@@ -307,188 +306,6 @@ class PrivateWorkerClient(BaseSDK):
 
         raise errors.SDKDefaultError("Unexpected response received", http_res)
 
-    @deprecated(
-        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
-    )
-    def executor_identity(
-        self,
-        *,
-        execution_token: str,
-        retries: OptionalNullable[utils.RetryConfig] = UNSET,
-        server_url: Optional[str] = None,
-        timeout_ms: Optional[int] = None,
-        http_headers: Optional[Mapping[str, str]] = None,
-    ) -> models.ExecutorIdentityResponse:
-        r"""Get Executor Identity
-
-        :param execution_token:
-        :param retries: Override the default retry configuration for this method
-        :param server_url: Override the default server URL for this method
-        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
-        :param http_headers: Additional headers to set or replace on requests.
-        """
-        base_url = None
-        url_variables = None
-        if timeout_ms is None:
-            timeout_ms = self.sdk_configuration.timeout_ms
-
-        if server_url is not None:
-            base_url = server_url
-        else:
-            base_url = self._get_url(base_url, url_variables)
-
-        request = models.ExecutorIdentityRequest(
-            execution_token=execution_token,
-        )
-
-        req = self._build_request(
-            method="POST",
-            path="/v1/workflows/workers/executor-identity",
-            base_url=base_url,
-            url_variables=url_variables,
-            request=request,
-            request_body_required=True,
-            request_has_path_params=False,
-            request_has_query_params=False,
-            user_agent_header="user-agent",
-            accept_header_value="application/json",
-            http_headers=http_headers,
-            get_serialized_body=lambda: utils.serialize_request_body(
-                request, False, False, "json", models.ExecutorIdentityRequest
-            ),
-            allow_empty_value=None,
-            timeout_ms=timeout_ms,
-        )
-
-        if retries == UNSET:
-            if self.sdk_configuration.retry_config is not UNSET:
-                retries = self.sdk_configuration.retry_config
-
-        retry_config = None
-        if isinstance(retries, utils.RetryConfig):
-            retry_config = (retries, ["429", "500", "502", "503", "504"])
-
-        http_res = self.do_request(
-            hook_ctx=HookContext(
-                config=self.sdk_configuration,
-                base_url=base_url or "",
-                operation_id="get_executor_identity_v1_workflows_workers_executor_identity_post",
-                oauth2_scopes=None,
-                security_source=None,
-            ),
-            request=req,
-            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
-            retry_config=retry_config,
-        )
-
-        response_data: Any = None
-        if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(models.ExecutorIdentityResponse, http_res)
-        if utils.match_response(http_res, "422", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.HTTPValidationErrorData, http_res
-            )
-            raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, "4XX", "*"):
-            http_res_text = utils.stream_to_text(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-        if utils.match_response(http_res, "5XX", "*"):
-            http_res_text = utils.stream_to_text(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-
-        raise errors.SDKDefaultError("Unexpected response received", http_res)
-
-    @deprecated(
-        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
-    )
-    async def executor_identity_async(
-        self,
-        *,
-        execution_token: str,
-        retries: OptionalNullable[utils.RetryConfig] = UNSET,
-        server_url: Optional[str] = None,
-        timeout_ms: Optional[int] = None,
-        http_headers: Optional[Mapping[str, str]] = None,
-    ) -> models.ExecutorIdentityResponse:
-        r"""Get Executor Identity
-
-        :param execution_token:
-        :param retries: Override the default retry configuration for this method
-        :param server_url: Override the default server URL for this method
-        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
-        :param http_headers: Additional headers to set or replace on requests.
-        """
-        base_url = None
-        url_variables = None
-        if timeout_ms is None:
-            timeout_ms = self.sdk_configuration.timeout_ms
-
-        if server_url is not None:
-            base_url = server_url
-        else:
-            base_url = self._get_url(base_url, url_variables)
-
-        request = models.ExecutorIdentityRequest(
-            execution_token=execution_token,
-        )
-
-        req = self._build_request_async(
-            method="POST",
-            path="/v1/workflows/workers/executor-identity",
-            base_url=base_url,
-            url_variables=url_variables,
-            request=request,
-            request_body_required=True,
-            request_has_path_params=False,
-            request_has_query_params=False,
-            user_agent_header="user-agent",
-            accept_header_value="application/json",
-            http_headers=http_headers,
-            get_serialized_body=lambda: utils.serialize_request_body(
-                request, False, False, "json", models.ExecutorIdentityRequest
-            ),
-            allow_empty_value=None,
-            timeout_ms=timeout_ms,
-        )
-
-        if retries == UNSET:
-            if self.sdk_configuration.retry_config is not UNSET:
-                retries = self.sdk_configuration.retry_config
-
-        retry_config = None
-        if isinstance(retries, utils.RetryConfig):
-            retry_config = (retries, ["429", "500", "502", "503", "504"])
-
-        http_res = await self.do_request_async(
-            hook_ctx=HookContext(
-                config=self.sdk_configuration,
-                base_url=base_url or "",
-                operation_id="get_executor_identity_v1_workflows_workers_executor_identity_post",
-                oauth2_scopes=None,
-                security_source=None,
-            ),
-            request=req,
-            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
-            retry_config=retry_config,
-        )
-
-        response_data: Any = None
-        if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(models.ExecutorIdentityResponse, http_res)
-        if utils.match_response(http_res, "422", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.HTTPValidationErrorData, http_res
-            )
-            raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, "4XX", "*"):
-            http_res_text = await utils.stream_to_text_async(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-        if utils.match_response(http_res, "5XX", "*"):
-            http_res_text = await utils.stream_to_text_async(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-
-        raise errors.SDKDefaultError("Unexpected response received", http_res)
-
     def executor_identity_token(
         self,
         *,
@@ -680,6 +497,7 @@ class PrivateWorkerClient(BaseSDK):
                 List[models.WorkflowRegistrationRefInputTypedDict],
             ]
         ] = None,
+        payload_encryption_mode: Optional[models.PayloadEncryptionLevel] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -692,6 +510,7 @@ class PrivateWorkerClient(BaseSDK):
         :param deployment_name: Name of the deployment this worker belongs to
         :param worker_name: Human-readable name of this worker process (hostname or pod name)
         :param workflow_registration_refs: List of workflow registration references to heartbeat
+        :param payload_encryption_mode: How much of a worker's payloads are encrypted, ordered from weakest to strongest.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -714,6 +533,7 @@ class PrivateWorkerClient(BaseSDK):
             ),
             deployment_name=deployment_name,
             worker_name=worker_name,
+            payload_encryption_mode=payload_encryption_mode,
         )
 
         req = self._build_request(
@@ -788,6 +608,7 @@ class PrivateWorkerClient(BaseSDK):
                 List[models.WorkflowRegistrationRefInputTypedDict],
             ]
         ] = None,
+        payload_encryption_mode: Optional[models.PayloadEncryptionLevel] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -800,6 +621,7 @@ class PrivateWorkerClient(BaseSDK):
         :param deployment_name: Name of the deployment this worker belongs to
         :param worker_name: Human-readable name of this worker process (hostname or pod name)
         :param workflow_registration_refs: List of workflow registration references to heartbeat
+        :param payload_encryption_mode: How much of a worker's payloads are encrypted, ordered from weakest to strongest.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -822,6 +644,7 @@ class PrivateWorkerClient(BaseSDK):
             ),
             deployment_name=deployment_name,
             worker_name=worker_name,
+            payload_encryption_mode=payload_encryption_mode,
         )
 
         req = self._build_request_async(
@@ -1547,590 +1370,6 @@ class PrivateWorkerClient(BaseSDK):
 
         raise errors.SDKDefaultError("Unexpected response received", http_res)
 
-    def add_deployment_authorized_credential_v1_workflows_deployments_authorized_credentials_post(
-        self,
-        *,
-        deployment_id: str,
-        credential_id: str,
-        principal_type: Optional[models.PrincipalType] = None,
-        workspace_id: OptionalNullable[str] = UNSET,
-        retries: OptionalNullable[utils.RetryConfig] = UNSET,
-        server_url: Optional[str] = None,
-        timeout_ms: Optional[int] = None,
-        http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Any:
-        r"""Add Deployment Authorized Credential
-
-        :param deployment_id: Deployment identifier
-        :param credential_id: Credential identifier
-        :param principal_type:
-        :param workspace_id: Workspace ID to scope the request to. Defaults to the caller's context.
-        :param retries: Override the default retry configuration for this method
-        :param server_url: Override the default server URL for this method
-        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
-        :param http_headers: Additional headers to set or replace on requests.
-        """
-        base_url = None
-        url_variables = None
-        if timeout_ms is None:
-            timeout_ms = self.sdk_configuration.timeout_ms
-
-        if server_url is not None:
-            base_url = server_url
-        else:
-            base_url = self._get_url(base_url, url_variables)
-
-        request = models.DeploymentAuthorizedCredentialRequest(
-            deployment_id=deployment_id,
-            credential_id=credential_id,
-            principal_type=principal_type,
-            workspace_id=workspace_id,
-        )
-
-        req = self._build_request(
-            method="POST",
-            path="/v1/workflows/deployments/authorized-credentials",
-            base_url=base_url,
-            url_variables=url_variables,
-            request=request,
-            request_body_required=True,
-            request_has_path_params=False,
-            request_has_query_params=False,
-            user_agent_header="user-agent",
-            accept_header_value="application/json",
-            http_headers=http_headers,
-            get_serialized_body=lambda: utils.serialize_request_body(
-                request,
-                False,
-                False,
-                "json",
-                models.DeploymentAuthorizedCredentialRequest,
-            ),
-            allow_empty_value=None,
-            timeout_ms=timeout_ms,
-        )
-
-        if retries == UNSET:
-            if self.sdk_configuration.retry_config is not UNSET:
-                retries = self.sdk_configuration.retry_config
-
-        retry_config = None
-        if isinstance(retries, utils.RetryConfig):
-            retry_config = (retries, ["429", "500", "502", "503", "504"])
-
-        http_res = self.do_request(
-            hook_ctx=HookContext(
-                config=self.sdk_configuration,
-                base_url=base_url or "",
-                operation_id="add_deployment_authorized_credential_v1_workflows_deployments_authorized_credentials_post",
-                oauth2_scopes=None,
-                security_source=None,
-            ),
-            request=req,
-            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
-            retry_config=retry_config,
-        )
-
-        response_data: Any = None
-        if utils.match_response(http_res, "201", "application/json"):
-            return unmarshal_json_response(Any, http_res)
-        if utils.match_response(http_res, "422", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.HTTPValidationErrorData, http_res
-            )
-            raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, ["409", "4XX"], "*"):
-            http_res_text = utils.stream_to_text(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-        if utils.match_response(http_res, "5XX", "*"):
-            http_res_text = utils.stream_to_text(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-
-        raise errors.SDKDefaultError("Unexpected response received", http_res)
-
-    async def add_deployment_authorized_credential_v1_workflows_deployments_authorized_credentials_post_async(
-        self,
-        *,
-        deployment_id: str,
-        credential_id: str,
-        principal_type: Optional[models.PrincipalType] = None,
-        workspace_id: OptionalNullable[str] = UNSET,
-        retries: OptionalNullable[utils.RetryConfig] = UNSET,
-        server_url: Optional[str] = None,
-        timeout_ms: Optional[int] = None,
-        http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Any:
-        r"""Add Deployment Authorized Credential
-
-        :param deployment_id: Deployment identifier
-        :param credential_id: Credential identifier
-        :param principal_type:
-        :param workspace_id: Workspace ID to scope the request to. Defaults to the caller's context.
-        :param retries: Override the default retry configuration for this method
-        :param server_url: Override the default server URL for this method
-        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
-        :param http_headers: Additional headers to set or replace on requests.
-        """
-        base_url = None
-        url_variables = None
-        if timeout_ms is None:
-            timeout_ms = self.sdk_configuration.timeout_ms
-
-        if server_url is not None:
-            base_url = server_url
-        else:
-            base_url = self._get_url(base_url, url_variables)
-
-        request = models.DeploymentAuthorizedCredentialRequest(
-            deployment_id=deployment_id,
-            credential_id=credential_id,
-            principal_type=principal_type,
-            workspace_id=workspace_id,
-        )
-
-        req = self._build_request_async(
-            method="POST",
-            path="/v1/workflows/deployments/authorized-credentials",
-            base_url=base_url,
-            url_variables=url_variables,
-            request=request,
-            request_body_required=True,
-            request_has_path_params=False,
-            request_has_query_params=False,
-            user_agent_header="user-agent",
-            accept_header_value="application/json",
-            http_headers=http_headers,
-            get_serialized_body=lambda: utils.serialize_request_body(
-                request,
-                False,
-                False,
-                "json",
-                models.DeploymentAuthorizedCredentialRequest,
-            ),
-            allow_empty_value=None,
-            timeout_ms=timeout_ms,
-        )
-
-        if retries == UNSET:
-            if self.sdk_configuration.retry_config is not UNSET:
-                retries = self.sdk_configuration.retry_config
-
-        retry_config = None
-        if isinstance(retries, utils.RetryConfig):
-            retry_config = (retries, ["429", "500", "502", "503", "504"])
-
-        http_res = await self.do_request_async(
-            hook_ctx=HookContext(
-                config=self.sdk_configuration,
-                base_url=base_url or "",
-                operation_id="add_deployment_authorized_credential_v1_workflows_deployments_authorized_credentials_post",
-                oauth2_scopes=None,
-                security_source=None,
-            ),
-            request=req,
-            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
-            retry_config=retry_config,
-        )
-
-        response_data: Any = None
-        if utils.match_response(http_res, "201", "application/json"):
-            return unmarshal_json_response(Any, http_res)
-        if utils.match_response(http_res, "422", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.HTTPValidationErrorData, http_res
-            )
-            raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, ["409", "4XX"], "*"):
-            http_res_text = await utils.stream_to_text_async(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-        if utils.match_response(http_res, "5XX", "*"):
-            http_res_text = await utils.stream_to_text_async(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-
-        raise errors.SDKDefaultError("Unexpected response received", http_res)
-
-    def remove_deployment_authorized_credential_v1_workflows_deployments_authorized_credentials_delete(
-        self,
-        *,
-        deployment_id: str,
-        credential_id: str,
-        principal_type: Optional[models.PrincipalType] = None,
-        workspace_id: OptionalNullable[str] = UNSET,
-        retries: OptionalNullable[utils.RetryConfig] = UNSET,
-        server_url: Optional[str] = None,
-        timeout_ms: Optional[int] = None,
-        http_headers: Optional[Mapping[str, str]] = None,
-    ):
-        r"""Remove Deployment Authorized Credential
-
-        :param deployment_id: Deployment identifier
-        :param credential_id: Credential identifier
-        :param principal_type:
-        :param workspace_id: Workspace ID to scope the request to. Defaults to the caller's context.
-        :param retries: Override the default retry configuration for this method
-        :param server_url: Override the default server URL for this method
-        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
-        :param http_headers: Additional headers to set or replace on requests.
-        """
-        base_url = None
-        url_variables = None
-        if timeout_ms is None:
-            timeout_ms = self.sdk_configuration.timeout_ms
-
-        if server_url is not None:
-            base_url = server_url
-        else:
-            base_url = self._get_url(base_url, url_variables)
-
-        request = models.DeploymentAuthorizedCredentialRequest(
-            deployment_id=deployment_id,
-            credential_id=credential_id,
-            principal_type=principal_type,
-            workspace_id=workspace_id,
-        )
-
-        req = self._build_request(
-            method="DELETE",
-            path="/v1/workflows/deployments/authorized-credentials",
-            base_url=base_url,
-            url_variables=url_variables,
-            request=request,
-            request_body_required=True,
-            request_has_path_params=False,
-            request_has_query_params=False,
-            user_agent_header="user-agent",
-            accept_header_value="application/json",
-            http_headers=http_headers,
-            get_serialized_body=lambda: utils.serialize_request_body(
-                request,
-                False,
-                False,
-                "json",
-                models.DeploymentAuthorizedCredentialRequest,
-            ),
-            allow_empty_value=None,
-            timeout_ms=timeout_ms,
-        )
-
-        if retries == UNSET:
-            if self.sdk_configuration.retry_config is not UNSET:
-                retries = self.sdk_configuration.retry_config
-
-        retry_config = None
-        if isinstance(retries, utils.RetryConfig):
-            retry_config = (retries, ["429", "500", "502", "503", "504"])
-
-        http_res = self.do_request(
-            hook_ctx=HookContext(
-                config=self.sdk_configuration,
-                base_url=base_url or "",
-                operation_id="remove_deployment_authorized_credential_v1_workflows_deployments_authorized_credentials_delete",
-                oauth2_scopes=None,
-                security_source=None,
-            ),
-            request=req,
-            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
-            retry_config=retry_config,
-        )
-
-        response_data: Any = None
-        if utils.match_response(http_res, "204", "*"):
-            return
-        if utils.match_response(http_res, "422", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.HTTPValidationErrorData, http_res
-            )
-            raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, "4XX", "*"):
-            http_res_text = utils.stream_to_text(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-        if utils.match_response(http_res, "5XX", "*"):
-            http_res_text = utils.stream_to_text(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-
-        raise errors.SDKDefaultError("Unexpected response received", http_res)
-
-    async def remove_deployment_authorized_credential_v1_workflows_deployments_authorized_credentials_delete_async(
-        self,
-        *,
-        deployment_id: str,
-        credential_id: str,
-        principal_type: Optional[models.PrincipalType] = None,
-        workspace_id: OptionalNullable[str] = UNSET,
-        retries: OptionalNullable[utils.RetryConfig] = UNSET,
-        server_url: Optional[str] = None,
-        timeout_ms: Optional[int] = None,
-        http_headers: Optional[Mapping[str, str]] = None,
-    ):
-        r"""Remove Deployment Authorized Credential
-
-        :param deployment_id: Deployment identifier
-        :param credential_id: Credential identifier
-        :param principal_type:
-        :param workspace_id: Workspace ID to scope the request to. Defaults to the caller's context.
-        :param retries: Override the default retry configuration for this method
-        :param server_url: Override the default server URL for this method
-        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
-        :param http_headers: Additional headers to set or replace on requests.
-        """
-        base_url = None
-        url_variables = None
-        if timeout_ms is None:
-            timeout_ms = self.sdk_configuration.timeout_ms
-
-        if server_url is not None:
-            base_url = server_url
-        else:
-            base_url = self._get_url(base_url, url_variables)
-
-        request = models.DeploymentAuthorizedCredentialRequest(
-            deployment_id=deployment_id,
-            credential_id=credential_id,
-            principal_type=principal_type,
-            workspace_id=workspace_id,
-        )
-
-        req = self._build_request_async(
-            method="DELETE",
-            path="/v1/workflows/deployments/authorized-credentials",
-            base_url=base_url,
-            url_variables=url_variables,
-            request=request,
-            request_body_required=True,
-            request_has_path_params=False,
-            request_has_query_params=False,
-            user_agent_header="user-agent",
-            accept_header_value="application/json",
-            http_headers=http_headers,
-            get_serialized_body=lambda: utils.serialize_request_body(
-                request,
-                False,
-                False,
-                "json",
-                models.DeploymentAuthorizedCredentialRequest,
-            ),
-            allow_empty_value=None,
-            timeout_ms=timeout_ms,
-        )
-
-        if retries == UNSET:
-            if self.sdk_configuration.retry_config is not UNSET:
-                retries = self.sdk_configuration.retry_config
-
-        retry_config = None
-        if isinstance(retries, utils.RetryConfig):
-            retry_config = (retries, ["429", "500", "502", "503", "504"])
-
-        http_res = await self.do_request_async(
-            hook_ctx=HookContext(
-                config=self.sdk_configuration,
-                base_url=base_url or "",
-                operation_id="remove_deployment_authorized_credential_v1_workflows_deployments_authorized_credentials_delete",
-                oauth2_scopes=None,
-                security_source=None,
-            ),
-            request=req,
-            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
-            retry_config=retry_config,
-        )
-
-        response_data: Any = None
-        if utils.match_response(http_res, "204", "*"):
-            return
-        if utils.match_response(http_res, "422", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.HTTPValidationErrorData, http_res
-            )
-            raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, "4XX", "*"):
-            http_res_text = await utils.stream_to_text_async(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-        if utils.match_response(http_res, "5XX", "*"):
-            http_res_text = await utils.stream_to_text_async(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-
-        raise errors.SDKDefaultError("Unexpected response received", http_res)
-
-    def list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_get(
-        self,
-        *,
-        workspace_id: OptionalNullable[str] = UNSET,
-        deployment_id: OptionalNullable[str] = UNSET,
-        retries: OptionalNullable[utils.RetryConfig] = UNSET,
-        server_url: Optional[str] = None,
-        timeout_ms: Optional[int] = None,
-        http_headers: Optional[Mapping[str, str]] = None,
-    ) -> models.DeploymentAuthorizedCredentialListResponse:
-        r"""List Deployment Authorized Credentials
-
-        :param workspace_id: Workspace ID to scope the request to. Defaults to the caller's context.
-        :param deployment_id: Restrict the listing to one deployment, which its owner may also read.
-        :param retries: Override the default retry configuration for this method
-        :param server_url: Override the default server URL for this method
-        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
-        :param http_headers: Additional headers to set or replace on requests.
-        """
-        base_url = None
-        url_variables = None
-        if timeout_ms is None:
-            timeout_ms = self.sdk_configuration.timeout_ms
-
-        if server_url is not None:
-            base_url = server_url
-        else:
-            base_url = self._get_url(base_url, url_variables)
-
-        request = models.ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest(
-            workspace_id=workspace_id,
-            deployment_id=deployment_id,
-        )
-
-        req = self._build_request(
-            method="GET",
-            path="/v1/workflows/deployments/authorized-credentials",
-            base_url=base_url,
-            url_variables=url_variables,
-            request=request,
-            request_body_required=False,
-            request_has_path_params=False,
-            request_has_query_params=True,
-            user_agent_header="user-agent",
-            accept_header_value="application/json",
-            http_headers=http_headers,
-            allow_empty_value=None,
-            timeout_ms=timeout_ms,
-        )
-
-        if retries == UNSET:
-            if self.sdk_configuration.retry_config is not UNSET:
-                retries = self.sdk_configuration.retry_config
-
-        retry_config = None
-        if isinstance(retries, utils.RetryConfig):
-            retry_config = (retries, ["429", "500", "502", "503", "504"])
-
-        http_res = self.do_request(
-            hook_ctx=HookContext(
-                config=self.sdk_configuration,
-                base_url=base_url or "",
-                operation_id="list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_get",
-                oauth2_scopes=None,
-                security_source=None,
-            ),
-            request=req,
-            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
-            retry_config=retry_config,
-        )
-
-        response_data: Any = None
-        if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                models.DeploymentAuthorizedCredentialListResponse, http_res
-            )
-        if utils.match_response(http_res, "422", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.HTTPValidationErrorData, http_res
-            )
-            raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, "4XX", "*"):
-            http_res_text = utils.stream_to_text(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-        if utils.match_response(http_res, "5XX", "*"):
-            http_res_text = utils.stream_to_text(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-
-        raise errors.SDKDefaultError("Unexpected response received", http_res)
-
-    async def list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_get_async(
-        self,
-        *,
-        workspace_id: OptionalNullable[str] = UNSET,
-        deployment_id: OptionalNullable[str] = UNSET,
-        retries: OptionalNullable[utils.RetryConfig] = UNSET,
-        server_url: Optional[str] = None,
-        timeout_ms: Optional[int] = None,
-        http_headers: Optional[Mapping[str, str]] = None,
-    ) -> models.DeploymentAuthorizedCredentialListResponse:
-        r"""List Deployment Authorized Credentials
-
-        :param workspace_id: Workspace ID to scope the request to. Defaults to the caller's context.
-        :param deployment_id: Restrict the listing to one deployment, which its owner may also read.
-        :param retries: Override the default retry configuration for this method
-        :param server_url: Override the default server URL for this method
-        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
-        :param http_headers: Additional headers to set or replace on requests.
-        """
-        base_url = None
-        url_variables = None
-        if timeout_ms is None:
-            timeout_ms = self.sdk_configuration.timeout_ms
-
-        if server_url is not None:
-            base_url = server_url
-        else:
-            base_url = self._get_url(base_url, url_variables)
-
-        request = models.ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest(
-            workspace_id=workspace_id,
-            deployment_id=deployment_id,
-        )
-
-        req = self._build_request_async(
-            method="GET",
-            path="/v1/workflows/deployments/authorized-credentials",
-            base_url=base_url,
-            url_variables=url_variables,
-            request=request,
-            request_body_required=False,
-            request_has_path_params=False,
-            request_has_query_params=True,
-            user_agent_header="user-agent",
-            accept_header_value="application/json",
-            http_headers=http_headers,
-            allow_empty_value=None,
-            timeout_ms=timeout_ms,
-        )
-
-        if retries == UNSET:
-            if self.sdk_configuration.retry_config is not UNSET:
-                retries = self.sdk_configuration.retry_config
-
-        retry_config = None
-        if isinstance(retries, utils.RetryConfig):
-            retry_config = (retries, ["429", "500", "502", "503", "504"])
-
-        http_res = await self.do_request_async(
-            hook_ctx=HookContext(
-                config=self.sdk_configuration,
-                base_url=base_url or "",
-                operation_id="list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_get",
-                oauth2_scopes=None,
-                security_source=None,
-            ),
-            request=req,
-            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
-            retry_config=retry_config,
-        )
-
-        response_data: Any = None
-        if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                models.DeploymentAuthorizedCredentialListResponse, http_res
-            )
-        if utils.match_response(http_res, "422", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.HTTPValidationErrorData, http_res
-            )
-            raise errors.HTTPValidationError(response_data, http_res)
-        if utils.match_response(http_res, "4XX", "*"):
-            http_res_text = await utils.stream_to_text_async(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-        if utils.match_response(http_res, "5XX", "*"):
-            http_res_text = await utils.stream_to_text_async(http_res)
-            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
-
-        raise errors.SDKDefaultError("Unexpected response received", http_res)
-
     def register_workflow_definitions(
         self,
         *,
@@ -2143,6 +1382,7 @@ class PrivateWorkerClient(BaseSDK):
         deployment_location: OptionalNullable[
             Union[models.DeploymentLocation, models.DeploymentLocationTypedDict]
         ] = UNSET,
+        payload_encryption_mode: Optional[models.PayloadEncryptionLevel] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -2156,6 +1396,7 @@ class PrivateWorkerClient(BaseSDK):
         :param deployment_name: Name of the deployment this worker belongs to
         :param worker_name: Human-readable name of this worker process (hostname or pod name)
         :param deployment_location: Metadata about where this deployment is running (local, k8s, etc.)
+        :param payload_encryption_mode: How much of a worker's payloads are encrypted, ordered from weakest to strongest.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -2180,6 +1421,7 @@ class PrivateWorkerClient(BaseSDK):
             deployment_location=utils.get_pydantic_model(
                 deployment_location, OptionalNullable[models.DeploymentLocation]
             ),
+            payload_encryption_mode=payload_encryption_mode,
         )
 
         req = self._build_request(
@@ -2253,6 +1495,7 @@ class PrivateWorkerClient(BaseSDK):
         deployment_location: OptionalNullable[
             Union[models.DeploymentLocation, models.DeploymentLocationTypedDict]
         ] = UNSET,
+        payload_encryption_mode: Optional[models.PayloadEncryptionLevel] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -2266,6 +1509,7 @@ class PrivateWorkerClient(BaseSDK):
         :param deployment_name: Name of the deployment this worker belongs to
         :param worker_name: Human-readable name of this worker process (hostname or pod name)
         :param deployment_location: Metadata about where this deployment is running (local, k8s, etc.)
+        :param payload_encryption_mode: How much of a worker's payloads are encrypted, ordered from weakest to strongest.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -2290,6 +1534,7 @@ class PrivateWorkerClient(BaseSDK):
             deployment_location=utils.get_pydantic_model(
                 deployment_location, OptionalNullable[models.DeploymentLocation]
             ),
+            payload_encryption_mode=payload_encryption_mode,
         )
 
         req = self._build_request_async(

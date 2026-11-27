@@ -1536,6 +1536,80 @@ def test_briefing_test_author_touching_outside_sealed_path_trips_tamper() -> Non
     assert "request-changes is mandatory" in briefing
 
 
+def test_briefing_notes_sealed_amendment_apply_commit_as_expected() -> None:
+    """#4179: a `test-author` diff whose commit list includes a
+    `coord acceptance apply-amendment`-style subject gets the dedicated
+    guidance telling the reviewer a red sealed suite after that commit is a
+    finding on the issue it names, not a defect in this diff."""
+    from coord.commands.acceptance import SEALED_AMENDMENT_APPLY_COMMIT_SUBJECT_PREFIX
+
+    diff = "diff --git a/tests/acceptance/ms37/foo.rs b/tests/acceptance/ms37/foo.rs\n"
+    briefing = build_review_briefing(
+        pr_number=42, pr_url=None, repo_github="acme/coord-tui", repo_name="coord-tui",
+        issue_number=1175, issue_title="X", issue_body="",
+        branch="my-branch", worker_machine="laptop", same_as_worker=False,
+        reviews_cfg=ReviewsConfig(enabled=True), repo_claude_md=None,
+        diff_text=diff,
+        sealed_paths=["tests/acceptance/"],
+        assignment_type="test-author",
+        commit_messages=[
+            f"{SEALED_AMENDMENT_APPLY_COMMIT_SUBJECT_PREFIX}4178\n\n"
+            "Rationale.\n\nApproved-by: alice\nApproved-at: 2026-11-26T00:00:00+00:00\n\n"
+            "Refs #4178",
+        ],
+    )
+    assert "SCOPE VIOLATION" not in briefing
+    assert "TAMPER DETECTED" not in briefing
+    assert "Sealed-amendment apply commit" in briefing
+    assert "finding on the issue it names" in briefing
+
+
+def test_briefing_omits_sealed_amendment_note_without_approval_trailers() -> None:
+    """#4179 review: the detection requires the subject to START WITH the
+    prefix (never just contain it anywhere in the message) AND both
+    `Approved-by:`/`Approved-at:` trailers in the same message — a commit
+    that merely mentions the prefix text, or carries the right subject but
+    no trailers, must not get the stand-down note."""
+    from coord.commands.acceptance import SEALED_AMENDMENT_APPLY_COMMIT_SUBJECT_PREFIX
+
+    diff = "diff --git a/tests/acceptance/ms37/foo.rs b/tests/acceptance/ms37/foo.rs\n"
+    briefing = build_review_briefing(
+        pr_number=42, pr_url=None, repo_github="acme/coord-tui", repo_name="coord-tui",
+        issue_number=1175, issue_title="X", issue_body="",
+        branch="my-branch", worker_machine="laptop", same_as_worker=False,
+        reviews_cfg=ReviewsConfig(enabled=True), repo_claude_md=None,
+        diff_text=diff,
+        sealed_paths=["tests/acceptance/"],
+        assignment_type="test-author",
+        commit_messages=[
+            # Subject carries the prefix, but no Approved-by/Approved-at.
+            f"{SEALED_AMENDMENT_APPLY_COMMIT_SUBJECT_PREFIX}4178\n\nRationale.\n\nRefs #4178",
+            # Prefix text appears, but not as the subject (not startswith).
+            f"edit the slice; see docs note: {SEALED_AMENDMENT_APPLY_COMMIT_SUBJECT_PREFIX}4178"
+            "\n\nApproved-by: alice\nApproved-at: 2026-11-26T00:00:00+00:00",
+        ],
+    )
+    assert "Sealed-amendment apply commit" not in briefing
+
+
+def test_briefing_omits_sealed_amendment_note_without_a_matching_commit() -> None:
+    """The new guidance is scoped to diffs that actually carry a
+    sealed-amendment-apply commit — an ordinary test-author PR with no such
+    commit must not see it (it would be noise, not guidance)."""
+    diff = "diff --git a/tests/acceptance/ms37/foo.rs b/tests/acceptance/ms37/foo.rs\n"
+    briefing = build_review_briefing(
+        pr_number=42, pr_url=None, repo_github="acme/coord-tui", repo_name="coord-tui",
+        issue_number=1175, issue_title="X", issue_body="",
+        branch="my-branch", worker_machine="laptop", same_as_worker=False,
+        reviews_cfg=ReviewsConfig(enabled=True), repo_claude_md=None,
+        diff_text=diff,
+        sealed_paths=["tests/acceptance/"],
+        assignment_type="test-author",
+        commit_messages=["authored ms37 slice from the gate-a contract"],
+    )
+    assert "Sealed-amendment apply commit" not in briefing
+
+
 def test_briefing_mock_author_touching_only_sealed_path_no_tamper() -> None:
     """#1175: mock-author gets the same exemption as test-author (contract.md
     + mocks under the same sealed tree)."""
@@ -2554,18 +2628,26 @@ def test_dispatch_review_uses_feature_branch_for_opted_in_milestone(
     assert payload["branch"] == "feature/ms-42"
 
 
-def test_dispatch_review_milestone_fetcher_not_consulted_when_not_opted_in(
+def test_dispatch_review_milestone_fetcher_not_consulted_for_base_branch_when_not_opted_in(
     two_machine_config: Config,
 ) -> None:
-    """#934: a repo without develop_branch stays on default_branch even if
-    the milestone_fetcher would return one — it must not even be called,
-    since a non-opted-in repo pays zero extra `gh` calls."""
+    """#934: a repo without `develop_branch` stays on `default_branch` for
+    the PR base even if the milestone_fetcher would return one for it — the
+    `develop_branch` fetch itself is still skipped.
+
+    #4189 (fix round): the SAME fetcher IS now called once, for the
+    tranche-convention lookup, which is resolved independently of whether
+    the repo opted into `develop_branch` or has an acceptance driver (see
+    `TestDispatchReviewTrancheConventionWithoutAcceptanceDriver` below) —
+    only the PR-base-branch resolution this test covers stays a no-op."""
     board = Board()
     completed = _completed_assignment(machine="laptop")
     client = _FakeHTTPClient({"id": "review-id-1"})
+    milestone_fetcher_calls = []
 
-    def _boom_fetcher(repo_github, issue_number):
-        raise AssertionError("milestone_fetcher must not be called for a non-opted-in repo")
+    def _fetcher(repo_github, issue_number):
+        milestone_fetcher_calls.append((repo_github, issue_number))
+        return None  # not under any milestone — no tranche lookup to chase
 
     dispatch_review(
         completed, board, two_machine_config,
@@ -2577,11 +2659,13 @@ def test_dispatch_review_milestone_fetcher_not_consulted_when_not_opted_in(
         issue_body_fetcher=lambda repo, num: "",
         now=123.0,
         remote_branch_checker=lambda repo, branch: True,
-        milestone_fetcher=_boom_fetcher,
+        milestone_fetcher=_fetcher,
     )
 
     _, payload = client.calls[0]
     assert payload["branch"] == "main"
+    assert milestone_fetcher_calls == [("acme/api", completed.issue_number)]
+    assert "Epic tranche convention" not in payload["briefing"]
 
 
 def test_dispatch_review_tolerates_repo_stand_in_without_develop_branch(
@@ -3725,8 +3809,50 @@ def test_dispatch_review_captures_patch_id_without_pr(
     assert result.review_patch_id == "patchid-no-pr"
     # The compare diff must be fetched against the branch's own base/head —
     # the same shape `github_ops.get_branch_patch_id` uses at merge time —
-    # not `gh pr diff` (which has no PR number to call with).
-    assert compare_calls and compare_calls[0][2] == completed.branch
+    # not `gh pr diff` (which has no PR number to call with). The "head" is
+    # the already-resolved live sha (`review_head_sha`, from
+    # `branch_sha_fetcher`), not the bare branch ref name — so this diff
+    # and the sha this review is recorded against can't name two different
+    # commits.
+    assert compare_calls and compare_calls[0][2] == "deadbeef1234"
+    assert result.review_head_sha == "deadbeef1234"
+
+
+def test_dispatch_review_without_pr_diffs_resolved_sha_not_branch_ref(
+    two_machine_config: Config,
+) -> None:
+    """The pre-PR compare-diff branch (#2364) must diff against the
+    already-resolved `review_head_sha`, not the bare branch ref name, so a
+    push landing between the sha resolution and the diff fetch can't make
+    the briefed diff disagree with the sha this review is recorded
+    against. A `compare_diff_fetcher` that returns different content for
+    the ref name than for the resolved sha stands in for that race."""
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    client = _FakeHTTPClient({"id": "no-pr-livehead-1"})
+
+    def _compare_diff(repo_github: str, base: str, head: str) -> str | None:
+        if head == "live-head-sha":
+            return "diff --git a/f.py b/f.py\n+resolved-sha-content\n"
+        # The bare ref name must never be queried once a live sha resolves.
+        return "diff --git a/f.py b/f.py\n+STALE-REF-NAME-CONTENT\n"
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: None,  # no PR open yet
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+        branch_sha_fetcher=lambda repo, branch: "live-head-sha",
+        compare_diff_fetcher=_compare_diff,
+    )
+
+    assert result is not None
+    assert result.review_head_sha == "live-head-sha"
+    _, payload = client.calls[0]
+    assert "resolved-sha-content" in payload["briefing"]
+    assert "STALE-REF-NAME-CONTENT" not in payload["briefing"]
 
 
 def test_dispatch_review_tolerates_patch_id_fetch_failure(
@@ -5070,6 +5196,71 @@ def test_dispatch_scoped_review_dispatches_with_delta_in_briefing(
     assert payload["model"] == "sonnet"
     assert "conflict-fix-resolution" in payload["briefing"]
     assert "kept-from-before" in payload["briefing"]
+
+
+def test_dispatch_scoped_review_diffs_the_resolved_sha_not_the_branch_ref(
+    two_machine_config: Config,
+) -> None:
+    """`dispatch_scoped_review` must diff against the branch's resolved live
+    head sha, not the bare ref name, so a push landing between the sha
+    resolution and the diff fetch can never make the diff shown to the
+    reviewer disagree with the sha recorded as `review_head_sha` on the
+    dispatched row. A `diff_fetcher` that returns different content for the
+    ref name than for the resolved sha stands in for that race: if the diff
+    fetch were still keyed on the ref name, the briefing would show the
+    ref-name content and `review_head_sha` would record a different commit
+    entirely — a stale-SHA review with no way to detect it after the fact."""
+    board = Board()
+    entry = _scoped_entry()
+    prior = _scoped_prior_review()
+    client = _FakeHTTPClient({"id": "scoped-livehead"})
+
+    def _diff_fetcher(repo: str, base: str, ref: str) -> str:
+        if ref == "oldsha":
+            return "diff --git a/f.py b/f.py\n@@ -1 +1 @@\n-old\n+kept-from-before\n"
+        if ref == "live-head-sha":
+            return "diff --git a/f.py b/f.py\n@@ -1 +1 @@\n-old\n+resolved-sha-content\n"
+        # The bare ref name must never be queried once a live sha resolves.
+        return "diff --git a/f.py b/f.py\n@@ -1 +1 @@\n-old\n+STALE-REF-NAME-CONTENT\n"
+
+    result = dispatch_scoped_review(
+        entry, prior, board, two_machine_config,
+        http_client=client, diff_fetcher=_diff_fetcher,
+        branch_sha_fetcher=lambda repo, branch: "live-head-sha",
+    )
+
+    assert result is not None
+    assert result.review_head_sha == "live-head-sha"
+    _, payload = client.calls[0]
+    assert "resolved-sha-content" in payload["briefing"]
+    assert "STALE-REF-NAME-CONTENT" not in payload["briefing"]
+
+
+def test_dispatch_scoped_review_falls_back_to_ref_name_when_sha_unresolvable(
+    two_machine_config: Config,
+) -> None:
+    """A `branch_sha_fetcher` failure must stay fail-open — the scoped
+    review still dispatches, diffing against the bare ref name (the
+    pre-existing behaviour), just without the same-commit guarantee a
+    resolved sha would have given it."""
+    board = Board()
+    entry = _scoped_entry()
+    prior = _scoped_prior_review()
+    client = _FakeHTTPClient({"id": "scoped-nosha"})
+
+    def _branch_sha_fetcher(repo: str, branch: str) -> str | None:
+        raise RuntimeError("gh api failure")
+
+    result = dispatch_scoped_review(
+        entry, prior, board, two_machine_config,
+        http_client=client, diff_fetcher=_scoped_diff_fetcher,
+        branch_sha_fetcher=_branch_sha_fetcher,
+    )
+
+    assert result is not None
+    assert result.review_head_sha is None
+    _, payload = client.calls[0]
+    assert "conflict-fix-resolution" in payload["briefing"]
 
 
 def test_dispatch_scoped_review_request_changes_prior_embeds_findings(
@@ -9260,6 +9451,394 @@ class TestExtractBlockingSection:
         out = extract_blocking_section(body)
         assert "HUMAN_REQUIRED never persists" in out
         assert "retry cap not enforced" in out
+
+
+# ── Epic tranche convention (#4189) ──────────────────────────────────────────
+
+
+class TestExtractTrancheConvention:
+    """`extract_tranche_convention` pulls a `## Tranche convention` section
+    verbatim out of an epic/tracking issue's body, same "exact heading,
+    parse section" discipline as every other markdown section this repo
+    parses (`coord.milestone_order`'s `## Work order` / `## Sub-issues`)."""
+
+    def test_extracts_declared_section(self) -> None:
+        from coord.review import extract_tranche_convention
+        body = (
+            "## Problem\n\nSome prose.\n\n"
+            "## Tranche convention\n\n"
+            "Deletion half deferred to #4322 — this issue owns only the "
+            "additive half.\n\n"
+            "## Acceptance\n\n- criterion one\n"
+        )
+        out = extract_tranche_convention(body)
+        assert out is not None
+        assert "Deletion half deferred to #4322" in out
+        assert "criterion one" not in out
+        assert "Problem" not in out
+
+    def test_returns_none_when_no_heading(self) -> None:
+        from coord.review import extract_tranche_convention
+        body = "## Problem\n\nSome prose with #4322 mentioned in passing.\n"
+        assert extract_tranche_convention(body) is None
+
+    def test_returns_none_when_section_empty(self) -> None:
+        from coord.review import extract_tranche_convention
+        body = "## Tranche convention\n\n## Acceptance\n- x\n"
+        assert extract_tranche_convention(body) is None
+
+    def test_heading_match_is_case_insensitive_and_any_level(self) -> None:
+        from coord.review import extract_tranche_convention
+        body = "### TRANCHE CONVENTION\nMigration half is #999.\n"
+        out = extract_tranche_convention(body)
+        assert out is not None
+        assert "Migration half is #999." in out
+
+    def test_empty_body_returns_none(self) -> None:
+        from coord.review import extract_tranche_convention
+        assert extract_tranche_convention("") is None
+
+    def test_section_at_end_of_body_with_no_trailing_heading(self) -> None:
+        from coord.review import extract_tranche_convention
+        body = "## Tranche convention\n\nBackend half deferred to #1000.\n"
+        out = extract_tranche_convention(body)
+        assert out is not None
+        assert "Backend half deferred to #1000." in out
+
+
+class TestFetchTrancheConventionNote:
+    """`_fetch_tranche_convention_note` resolves the milestone's tracking
+    (epic) issue the SAME way `coord.plans.find_tracking_issue` does
+    everywhere else (open issues + closed epics, filtered to the `epic`
+    label under this milestone) and extracts its declared convention."""
+
+    def test_none_when_no_milestone(self) -> None:
+        from coord.review import _fetch_tranche_convention_note
+        repo = Repo(name="api", github="acme/api")
+
+        def _boom(repo_github):
+            raise AssertionError("must not fetch when milestone_number is None")
+
+        assert _fetch_tranche_convention_note(
+            repo, None, open_issue_lister=_boom, closed_epic_lister=_boom,
+        ) is None
+
+    def test_extracts_from_resolved_tracking_issue(self) -> None:
+        from coord.review import _fetch_tranche_convention_note
+        repo = Repo(name="api", github="acme/api")
+        epic_body = (
+            "## Tranche convention\n\nDeletion half deferred to #4322.\n"
+        )
+        epic = {
+            "number": 100, "milestone": {"number": 42},
+            "labels": [{"name": "epic"}], "body": epic_body,
+        }
+        out = _fetch_tranche_convention_note(
+            repo, 42,
+            open_issue_lister=lambda repo_github: [epic],
+            closed_epic_lister=lambda repo_github: [],
+        )
+        assert out is not None
+        assert "Deletion half deferred to #4322." in out
+
+    def test_none_when_no_tracking_issue_found(self) -> None:
+        from coord.review import _fetch_tranche_convention_note
+        repo = Repo(name="api", github="acme/api")
+        assert _fetch_tranche_convention_note(
+            repo, 42,
+            open_issue_lister=lambda repo_github: [],
+            closed_epic_lister=lambda repo_github: [],
+        ) is None
+
+    def test_fails_open_on_lister_exception(self) -> None:
+        from coord.review import _fetch_tranche_convention_note
+        repo = Repo(name="api", github="acme/api")
+
+        def _raise(repo_github):
+            raise RuntimeError("gh unreachable")
+
+        assert _fetch_tranche_convention_note(
+            repo, 42, open_issue_lister=_raise, closed_epic_lister=_raise,
+        ) is None
+
+    def test_checks_closed_epics_too(self) -> None:
+        """A tracking issue closed after the milestone's work shipped is
+        still found (`coord.plans.find_tracking_issue`'s own contract)."""
+        from coord.review import _fetch_tranche_convention_note
+        repo = Repo(name="api", github="acme/api")
+        epic = {
+            "number": 100, "milestone": {"number": 42},
+            "labels": [{"name": "epic"}],
+            "body": "## Tranche convention\n\nBackend half deferred to #1000.\n",
+        }
+        out = _fetch_tranche_convention_note(
+            repo, 42,
+            open_issue_lister=lambda repo_github: [],
+            closed_epic_lister=lambda repo_github: [epic],
+        )
+        assert out is not None
+        assert "Backend half deferred to #1000." in out
+
+
+class TestBuildReviewBriefingTrancheConvention:
+    """End-to-end: `build_review_briefing`'s `tranche_convention_note`
+    renders a dedicated, clearly-labelled section telling the reviewer not
+    to request changes for scope the epic itself already deferred — and
+    the section is entirely absent when there's nothing to say."""
+
+    def _briefing(self, **overrides) -> str:
+        kwargs = dict(
+            pr_number=42,
+            pr_url="https://github.com/acme/api/pull/42",
+            repo_github="acme/api",
+            repo_name="api",
+            issue_number=7,
+            issue_title="Add the additive half",
+            issue_body="Ship the additive half of the migration.",
+            branch="issue-7-additive",
+            worker_machine="laptop",
+            same_as_worker=False,
+            reviews_cfg=ReviewsConfig(),
+            repo_claude_md=None,
+        )
+        kwargs.update(overrides)
+        return build_review_briefing(**kwargs)
+
+    def test_renders_note_when_given(self) -> None:
+        briefing = self._briefing(
+            tranche_convention_note="Deletion half deferred to #4322.",
+        )
+        assert "Epic tranche convention" in briefing
+        assert "Deletion half deferred to #4322." in briefing
+        assert "request-changes" in briefing
+
+    def test_omits_section_when_none(self) -> None:
+        briefing = self._briefing(tranche_convention_note=None)
+        assert "Epic tranche convention" not in briefing
+
+    def test_omits_section_when_empty_string(self) -> None:
+        briefing = self._briefing(tranche_convention_note="")
+        assert "Epic tranche convention" not in briefing
+
+
+class TestDispatchReviewTrancheConvention:
+    """`dispatch_review` wires the resolved tranche-convention note all the
+    way into the posted briefing, using the SAME `find_tracking_issue`
+    reverse lookup `_fetch_tranche_convention_note` uses elsewhere — not a
+    second, independent "which issue is the epic" rule (CLAUDE.md: "one
+    question, one answer")."""
+
+    def test_briefing_includes_tranche_convention_note(
+        self, two_machine_config: Config,
+    ) -> None:
+        from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+        cfg = replace(
+            two_machine_config,
+            acceptance=AcceptanceConfig(drivers={
+                "api": AcceptanceDriverConfig(kind="tui-tuidriver", run="cargo test"),
+            }),
+        )
+        board = Board()
+        completed = _completed_assignment(machine="laptop")
+        client = _FakeHTTPClient({"id": "review-id-1"})
+        epic = {
+            "number": 100, "milestone": {"number": 42},
+            "labels": [{"name": "epic"}],
+            "body": "## Tranche convention\n\nDeletion half deferred to #4322.\n",
+        }
+
+        dispatch_review(
+            completed, board, cfg,
+            http_client=client,
+            pr_lookup=lambda repo_github, **kw: {
+                "number": 42, "url": "https://github.com/acme/api/pull/42",
+                "existed": True,
+            },
+            claude_md_reader=lambda p: None,
+            issue_body_fetcher=lambda repo, num: "",
+            remote_branch_checker=lambda repo, branch: True,
+            milestone_fetcher=lambda repo_github, issue_number: 42,
+            tranche_open_issue_lister=lambda repo_github: [epic],
+            tranche_closed_epic_lister=lambda repo_github: [],
+        )
+
+        _, payload = client.calls[0]
+        assert "Deletion half deferred to #4322." in payload["briefing"]
+
+    def test_briefing_omits_section_when_no_tracking_issue(
+        self, two_machine_config: Config,
+    ) -> None:
+        from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+        cfg = replace(
+            two_machine_config,
+            acceptance=AcceptanceConfig(drivers={
+                "api": AcceptanceDriverConfig(kind="tui-tuidriver", run="cargo test"),
+            }),
+        )
+        board = Board()
+        completed = _completed_assignment(machine="laptop")
+        client = _FakeHTTPClient({"id": "review-id-1"})
+
+        dispatch_review(
+            completed, board, cfg,
+            http_client=client,
+            pr_lookup=lambda repo_github, **kw: {
+                "number": 42, "url": "https://github.com/acme/api/pull/42",
+                "existed": True,
+            },
+            claude_md_reader=lambda p: None,
+            issue_body_fetcher=lambda repo, num: "",
+            remote_branch_checker=lambda repo, branch: True,
+            milestone_fetcher=lambda repo_github, issue_number: 42,
+            tranche_open_issue_lister=lambda repo_github: [],
+            tranche_closed_epic_lister=lambda repo_github: [],
+        )
+
+        _, payload = client.calls[0]
+        assert "Epic tranche convention" not in payload["briefing"]
+
+
+class TestDispatchReviewTrancheConventionWithoutAcceptanceDriver:
+    """#4189 fix round: the tranche-convention lookup must not depend on
+    `config.acceptance.has_driver` — that predicate means "does this repo
+    run the oracle loop", unrelated to whether the epic declared deferred
+    scope. A repo with NO acceptance driver configured at all (ten of the
+    live fleet's sixteen repos) must still see the note, and must still pay
+    only ONE milestone-number `gh` call to get it — never a fetch per
+    advisory."""
+
+    def test_note_surfaces_with_no_acceptance_driver_configured(
+        self, two_machine_config: Config,
+    ) -> None:
+        # `two_machine_config`'s "api" repo has neither `develop_branch` nor
+        # an `acceptance.drivers` entry — the exact gap the review found.
+        board = Board()
+        completed = _completed_assignment(machine="laptop")
+        client = _FakeHTTPClient({"id": "review-id-1"})
+        epic = {
+            "number": 100, "milestone": {"number": 42},
+            "labels": [{"name": "epic"}],
+            "body": "## Tranche convention\n\nDeletion half deferred to #4322.\n",
+        }
+        milestone_fetcher_calls = []
+
+        def _fetcher(repo_github, issue_number):
+            milestone_fetcher_calls.append((repo_github, issue_number))
+            return 42
+
+        dispatch_review(
+            completed, board, two_machine_config,
+            http_client=client,
+            pr_lookup=lambda repo_github, **kw: {
+                "number": 42, "url": "https://github.com/acme/api/pull/42",
+                "existed": True,
+            },
+            claude_md_reader=lambda p: None,
+            issue_body_fetcher=lambda repo, num: "",
+            remote_branch_checker=lambda repo, branch: True,
+            milestone_fetcher=_fetcher,
+            tranche_open_issue_lister=lambda repo_github: [epic],
+            tranche_closed_epic_lister=lambda repo_github: [],
+        )
+
+        _, payload = client.calls[0]
+        assert "Deletion half deferred to #4322." in payload["briefing"]
+        assert milestone_fetcher_calls == [("acme/api", completed.issue_number)]
+
+    def test_no_extra_fetch_when_develop_branch_already_resolved_it(
+        self, two_machine_config: Config,
+    ) -> None:
+        """A repo that opted into `develop_branch` already pays the
+        milestone-number fetch for PR-base-branch routing (#934) — the
+        tranche lookup must reuse that result rather than fetching a
+        second time."""
+        from dataclasses import replace as _replace
+
+        cfg = _replace(
+            two_machine_config,
+            repos=[_replace(two_machine_config.repos[0], develop_branch="develop")],
+        )
+        board = Board()
+        completed = _completed_assignment(machine="laptop")
+        client = _FakeHTTPClient({"id": "review-id-1"})
+        epic = {
+            "number": 100, "milestone": {"number": 42},
+            "labels": [{"name": "epic"}],
+            "body": "## Tranche convention\n\nMigration half deferred to #777.\n",
+        }
+        milestone_fetcher_calls = []
+
+        def _fetcher(repo_github, issue_number):
+            milestone_fetcher_calls.append((repo_github, issue_number))
+            return 42
+
+        dispatch_review(
+            completed, board, cfg,
+            http_client=client,
+            pr_lookup=lambda repo_github, **kw: {
+                "number": 42, "url": "https://github.com/acme/api/pull/42",
+                "existed": True,
+            },
+            claude_md_reader=lambda p: None,
+            issue_body_fetcher=lambda repo, num: "",
+            remote_branch_checker=lambda repo, branch: True,
+            milestone_fetcher=_fetcher,
+            tranche_open_issue_lister=lambda repo_github: [epic],
+            tranche_closed_epic_lister=lambda repo_github: [],
+        )
+
+        _, payload = client.calls[0]
+        assert "Migration half deferred to #777." in payload["briefing"]
+        assert milestone_fetcher_calls == [("acme/api", completed.issue_number)]
+
+    def test_no_extra_fetch_when_gate_a_already_resolved_it(
+        self, two_machine_config: Config,
+    ) -> None:
+        """A repo with an acceptance driver already pays the
+        milestone-number fetch for the Gate-A advisories — the tranche
+        lookup must reuse that result rather than fetching a second time."""
+        from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+        cfg = replace(
+            two_machine_config,
+            acceptance=AcceptanceConfig(drivers={
+                "api": AcceptanceDriverConfig(kind="tui-tuidriver", run="cargo test"),
+            }),
+        )
+        board = Board()
+        completed = _completed_assignment(machine="laptop")
+        client = _FakeHTTPClient({"id": "review-id-1"})
+        epic = {
+            "number": 100, "milestone": {"number": 42},
+            "labels": [{"name": "epic"}],
+            "body": "## Tranche convention\n\nDeletion half deferred to #4322.\n",
+        }
+        milestone_fetcher_calls = []
+
+        def _fetcher(repo_github, issue_number):
+            milestone_fetcher_calls.append((repo_github, issue_number))
+            return 42
+
+        dispatch_review(
+            completed, board, cfg,
+            http_client=client,
+            pr_lookup=lambda repo_github, **kw: {
+                "number": 42, "url": "https://github.com/acme/api/pull/42",
+                "existed": True,
+            },
+            claude_md_reader=lambda p: None,
+            issue_body_fetcher=lambda repo, num: "",
+            remote_branch_checker=lambda repo, branch: True,
+            milestone_fetcher=_fetcher,
+            tranche_open_issue_lister=lambda repo_github: [epic],
+            tranche_closed_epic_lister=lambda repo_github: [],
+        )
+
+        _, payload = client.calls[0]
+        assert "Deletion half deferred to #4322." in payload["briefing"]
+        assert milestone_fetcher_calls == [("acme/api", completed.issue_number)]
 
 
 # ── Flood guard: dispatch_pending_reviews (incident 2026-06-08) ──────────────

@@ -60,7 +60,7 @@ ROUTED_NAMES = (
     "new_tab", "switch_tab", "close_tab", "ensure_active_page",
     # AI helpers
     "vision_query", "textual_query", "vision_wait", "vision_action",
-    "get_vision_coordinates", "textual_analyzer", "smartui_snapshot",
+    "get_vision_coordinates", "textual_analyzer", "smartui_snapshot", "accessibility_scan",
     # execution
     "execute_js", "execute_api", "execute_db", "execute_kane_cli",
     "get_api_call_log", "clear_api_call_log",

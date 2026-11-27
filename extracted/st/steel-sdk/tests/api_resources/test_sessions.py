@@ -56,9 +56,14 @@ class TestSessions:
             concurrency=-9007199254740991,
             credentials={
                 "auto_submit": True,
+                "bindings": ["string"],
                 "blur_fields": True,
+                "credential_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                 "credential_provider": "credentialProvider",
+                "dom_trigger": True,
+                "enabled": True,
                 "exact_origin": True,
+                "lookup": "implicit",
                 "origins": ["string"],
             },
             debug_config={
@@ -326,7 +331,7 @@ class TestSessions:
             },
             after="x",
             observe={
-                "mode": "none",
+                "mode": "snapshot",
                 "base": "x",
                 "compact": True,
                 "depth": 0,
@@ -1326,9 +1331,14 @@ class TestAsyncSessions:
             concurrency=-9007199254740991,
             credentials={
                 "auto_submit": True,
+                "bindings": ["string"],
                 "blur_fields": True,
+                "credential_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                 "credential_provider": "credentialProvider",
+                "dom_trigger": True,
+                "enabled": True,
                 "exact_origin": True,
+                "lookup": "implicit",
                 "origins": ["string"],
             },
             debug_config={
@@ -1596,7 +1606,7 @@ class TestAsyncSessions:
             },
             after="x",
             observe={
-                "mode": "none",
+                "mode": "snapshot",
                 "base": "x",
                 "compact": True,
                 "depth": 0,

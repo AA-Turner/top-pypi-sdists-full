@@ -1,3 +1,4 @@
+import time
 from unittest import TestCase
 
 from .sanitizer import Sanitizer
@@ -82,8 +83,10 @@ class SanitizerTestCase(TestCase):
         entries = (
             ('<a href="/foo">foo</a>', None),
             (
-                '<a href="/foo" name="bar" target="some" title="baz"'
-                ' cookies="yesplease">foo</a>',
+                (
+                    '<a href="/foo" name="bar" target="some" title="baz"'
+                    ' cookies="yesplease">foo</a>'
+                ),
                 '<a href="/foo" name="bar" target="some" title="baz">foo</a>',
             ),
             ('<a href="http://somewhere.else">foo</a>', None),
@@ -115,8 +118,10 @@ class SanitizerTestCase(TestCase):
             ("<li><p>foo</p></li>", "<li> foo </li>"),
             ("<li>&nbsp;<p>foo</p> &#160; </li>", "<li> foo </li>"),
             (
-                "<li>foo<p>bar<strong>xx</strong>rab</p><strong>baz</strong>"
-                "a<p>b</p>c</li>",
+                (
+                    "<li>foo<p>bar<strong>xx</strong>rab</p><strong>baz</strong>"
+                    "a<p>b</p>c</li>"
+                ),
                 "<li>foo bar <strong>xx</strong>rab<strong>baz</strong>a b c</li>",
             ),
         )
@@ -232,8 +237,10 @@ class SanitizerTestCase(TestCase):
             [
                 (
                     "<p>https://github.com/</p>",
-                    '<p><a href="https://github.com/"'
-                    ' rel="nofollow">https://github.com/</a></p>',
+                    (
+                        '<p><a href="https://github.com/"'
+                        ' rel="nofollow">https://github.com/</a></p>'
+                    ),
                 )
             ],
             sanitizer=sanitizer,
@@ -279,8 +286,10 @@ class SanitizerTestCase(TestCase):
                     '<p class="centered">Test <span class="bla">span</span></p>',
                 ),
                 (
-                    '<p class="centered">Test <span class="bla">span</span>'
-                    '<span class="blub">span</span></p>',
+                    (
+                        '<p class="centered">Test <span class="bla">span</span>'
+                        '<span class="blub">span</span></p>'
+                    ),
                     '<p class="centered">Test <span class="bla">spanspan</span></p>',
                 ),
                 ('<h1 class="centered">Test</h1>', '<h1 class="centered">Test</h1>'),
@@ -309,14 +318,20 @@ class SanitizerTestCase(TestCase):
         self.run_tests(
             [
                 (
-                    '<p class="centered">Test <span class="bla">span</span>'
-                    '<span class="blub">span</span></p>',
-                    '<p class="centered">Test <span class="bla">span</span>'
-                    '<span class="blub">span</span></p>',
+                    (
+                        '<p class="centered">Test <span class="bla">span</span>'
+                        '<span class="blub">span</span></p>'
+                    ),
+                    (
+                        '<p class="centered">Test <span class="bla">span</span>'
+                        '<span class="blub">span</span></p>'
+                    ),
                 ),
                 (
-                    '<p class="centered">Test <span class="bla">span</span>'
-                    '<span class="bla">span</span></p>',
+                    (
+                        '<p class="centered">Test <span class="bla">span</span>'
+                        '<span class="bla">span</span></p>'
+                    ),
                     '<p class="centered">Test <span class="bla">spanspan</span></p>',
                 ),
             ],
@@ -423,18 +438,26 @@ Mitarbeitenden folgende geschäftlich bedingten Auslagen ersetzt:</font></p>
         self.run_tests(
             [
                 (
-                    "\u200a\u2001\u202f\u2004\xa0\u2007\u2002\u2000"
-                    "\u2003\u2009\u205f\u2005\u2006\u2008\u3000",
-                    "\u200a\u2003\u202f\u2004\xa0\u2007\u2002\u2002"
-                    "\u2003\u2009\u205f\u2005\u2006\u2008\u3000",
+                    (
+                        "\u200a\u2001\u202f\u2004\xa0\u2007\u2002\u2000"
+                        "\u2003\u2009\u205f\u2005\u2006\u2008\u3000"
+                    ),
+                    (
+                        "\u200a\u2003\u202f\u2004\xa0\u2007\u2002\u2002"
+                        "\u2003\u2009\u205f\u2005\u2006\u2008\u3000"
+                    ),
                 ),
                 (
-                    "Hello This is a paragraph. \n"
-                    "\tHello. This is a tabled line."
-                    "Hello.This is beginning of the end.\r",
-                    "Hello This is a paragraph. \n"
-                    "\tHello. This is a tabled line."
-                    "Hello.This is beginning of the end.\n",
+                    (
+                        "Hello This is a paragraph. \n"
+                        "\tHello. This is a tabled line."
+                        "Hello.This is beginning of the end.\r"
+                    ),
+                    (
+                        "Hello This is a paragraph. \n"
+                        "\tHello. This is a tabled line."
+                        "Hello.This is beginning of the end.\n"
+                    ),
                 ),
                 (
                     "something    <br>somethingelse    ",
@@ -450,8 +473,10 @@ Mitarbeitenden folgende geschäftlich bedingten Auslagen ersetzt:</font></p>
         self.run_tests(
             [
                 (
-                    "\u200a\u2001\u202f\u2004\xa0\u2007\u2002\u2000"
-                    "\u2003\u2009\u205f\u2005\u2006\u2008\u3000",
+                    (
+                        "\u200a\u2001\u202f\u2004\xa0\u2007\u2002\u2000"
+                        "\u2003\u2009\u205f\u2005\u2006\u2008\u3000"
+                    ),
                     " ",
                 )
             ],
@@ -806,3 +831,74 @@ git commit
             ],
             sanitizer=sanitizer,
         )
+
+    def test_merge_keeps_whitespace_between_elements(self):
+        self.run_tests(
+            [
+                (
+                    "<strong>a</strong> <strong><em>b</em></strong>",
+                    "<strong>a <em>b</em></strong>",
+                ),
+                (
+                    "<strong><em>a</em></strong> <strong>b</strong>",
+                    "<strong><em>a</em> b</strong>",
+                ),
+                (
+                    "<strong>a <em>b</em> </strong>  <strong> c</strong>",
+                    "<strong>a <em>b</em> c</strong>",
+                ),
+                (
+                    "<em><strong>a</strong></em><em><strong>b</strong></em>",
+                    "<em><strong>ab</strong></em>",
+                ),
+            ]
+        )
+
+    def test_many_elements(self):
+        n = 1000
+        self.run_tests(
+            [
+                ("<b>x</b>" * n, "<strong>" + "x" * n + "</strong>"),
+                (
+                    "<strong>x</strong> " * n,
+                    "<strong>" + "x " * (n - 1) + "x</strong> ",
+                ),
+                ("<p></p>" * n + "x", "x"),
+                ("<b></b>y" * n, "y" * n),
+                ("<span>x</span>y" * n, "xy" * n),
+                ("<script>x</script>y" * n, "y" * n),
+                ("<marquee>x</marquee>y" * n, "xy" * n),
+                ("<p>x" + "<br>" * n + "</p>", "<p>x<br></p>"),
+                ("<p>" + "<br>" * n + "x</p>", "<p>x</p>"),
+                ("<li>" + "<p>x</p>" * n + "</li>", "<li>" + " x" * n + " </li>"),
+            ]
+        )
+
+    def test_linear_time(self):
+        """Sanitizing many adjacent elements must not take quadratic time"""
+
+        def duration(html):
+            start = time.perf_counter()
+            default_sanitizer.sanitize(html)
+            return time.perf_counter() - start
+
+        n = 4000
+        for pattern in [
+            "<b>x</b>",
+            "<strong>x</strong> ",
+            "<p></p>",
+            "<b></b>y",
+            "<br> ",
+            "<p><br>",
+            "<li><p>x</p>",
+            "<span>x</span>y",
+            "<script>x</script>y",
+            "<marquee>x</marquee>y",
+            "<!--x-->y",
+        ]:
+            with self.subTest(pattern=pattern):
+                small = min(duration(pattern * n) for _ in range(3))
+                large = duration(pattern * 4 * n)
+                # Four times the input should take around four times as long,
+                # not sixteen times.
+                self.assertLess(large, 10 * small)

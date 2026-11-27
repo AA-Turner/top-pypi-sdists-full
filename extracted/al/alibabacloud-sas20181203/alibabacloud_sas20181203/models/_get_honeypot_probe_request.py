@@ -10,13 +10,13 @@ class GetHoneypotProbeRequest(DaraModel):
         lang: str = None,
         probe_id: str = None,
     ):
-        # Specifies the language of the request and response. Default value: **zh**. Valid values:
+        # Specifies the language for the request and response. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
         # - **en**: English
         self.lang = lang
-        # The ID of the probe.
-        # >You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to obtain the value of this parameter.
+        # The probe ID.
+        # >You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to obtain this parameter.
         # 
         # This parameter is required.
         self.probe_id = probe_id

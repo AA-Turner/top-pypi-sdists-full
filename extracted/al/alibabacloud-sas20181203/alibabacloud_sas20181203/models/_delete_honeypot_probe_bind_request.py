@@ -11,16 +11,13 @@ class DeleteHoneypotProbeBindRequest(DaraModel):
         lang: str = None,
         probe_id: str = None,
     ):
-        # The unique ID of the bound service.
+        # The unique ID of the service binding record.
         self.bind_id = bind_id
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
-        # 
-        # *   **zh**: Chinese
-        # *   **en**: English
+        # Specifies the language of the request and response messages. Default value: **zh**. Valid values:
+        # - **zh**: Chinese.
+        # - **en**: English.
         self.lang = lang
-        # The probe ID.
-        # 
-        # >  You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to query the IDs of probes.
+        # The probe ID. >You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to obtain this parameter.
         self.probe_id = probe_id
 
     def validate(self):

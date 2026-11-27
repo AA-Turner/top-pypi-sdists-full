@@ -1,5 +1,3 @@
-# fmt: off
-
 import collections
 from collections.abc import Iterable, Sequence
 from functools import reduce, singledispatch
@@ -22,10 +20,9 @@ class DOSCollection(collections.abc.Sequence):
     def __init__(self, dos_series: Iterable[DOSData]) -> None:
         self._data = list(dos_series)
 
-    def _sample(self,
-                energies: Floats,
-                width: float = 0.1,
-                smearing: str = 'Gauss') -> np.ndarray:
+    def _sample(
+        self, energies: Floats, width: float = 0.1, smearing: str = 'Gauss'
+    ) -> np.ndarray:
         """Sample the DOS data at chosen points, with broadening
 
         This samples the underlying DOS data in the same way as the .sample()
@@ -45,22 +42,27 @@ class DOSCollection(collections.abc.Sequence):
         """
 
         if len(self) == 0:
-            raise IndexError("No data to sample")
+            raise IndexError('No data to sample')
 
         return np.asarray(
-            [data._sample(energies, width=width, smearing=smearing)
-             for data in self])
+            [
+                data._sample(energies, width=width, smearing=smearing)
+                for data in self
+            ]
+        )
 
-    def plot(self,
-             npts: int = 1000,
-             xmin: float | None = None,
-             xmax: float | None = None,
-             width: float = 0.1,
-             smearing: str = 'Gauss',
-             ax: Axes | None = None,
-             show: bool = False,
-             filename: str | None = None,
-             mplargs: dict | None = None) -> Axes:
+    def plot(
+        self,
+        npts: int = 1000,
+        xmin: float | None = None,
+        xmax: float | None = None,
+        width: float = 0.1,
+        smearing: str = 'Gauss',
+        ax: Axes | None = None,
+        show: bool = False,
+        filename: str | None = None,
+        mplargs: dict | None = None,
+    ) -> Axes:
         """Simple plot of collected DOS data, resampled onto a grid
 
         If the special key 'label' is present in self.info, this will be set
@@ -83,23 +85,29 @@ class DOSCollection(collections.abc.Sequence):
         -------
             Plotting axes. If "ax" was set, this is the same object.
         """
-        return self.sample_grid(npts,
-                                xmin=xmin, xmax=xmax,
-                                width=width, smearing=smearing
-                                ).plot(npts=npts,
-                                       xmin=xmin, xmax=xmax,
-                                       width=width, smearing=smearing,
-                                       ax=ax, show=show, filename=filename,
-                                       mplargs=mplargs)
+        return self.sample_grid(
+            npts, xmin=xmin, xmax=xmax, width=width, smearing=smearing
+        ).plot(
+            npts=npts,
+            xmin=xmin,
+            xmax=xmax,
+            width=width,
+            smearing=smearing,
+            ax=ax,
+            show=show,
+            filename=filename,
+            mplargs=mplargs,
+        )
 
-    def sample_grid(self,
-                    npts: int,
-                    xmin: float | None = None,
-                    xmax: float | None = None,
-                    padding: float = 3,
-                    width: float = 0.1,
-                    smearing: str = 'Gauss',
-                    ) -> 'GridDOSCollection':
+    def sample_grid(
+        self,
+        npts: int,
+        xmin: float | None = None,
+        xmax: float | None = None,
+        padding: float = 3,
+        width: float = 0.1,
+        smearing: str = 'Gauss',
+    ) -> 'GridDOSCollection':
         """Sample the DOS data on an evenly-spaced energy grid
 
         Args:
@@ -118,25 +126,33 @@ class DOSCollection(collections.abc.Sequence):
             (energy values, sampled DOS)
         """
         if len(self) == 0:
-            raise IndexError("No data to sample")
+            raise IndexError('No data to sample')
 
         if xmin is None:
-            xmin = (min(min(data.get_energies()) for data in self)
-                    - (padding * width))
+            xmin = min(min(data.get_energies()) for data in self) - (
+                padding * width
+            )
         if xmax is None:
-            xmax = (max(max(data.get_energies()) for data in self)
-                    + (padding * width))
+            xmax = max(max(data.get_energies()) for data in self) + (
+                padding * width
+            )
 
         return GridDOSCollection(
-            [data.sample_grid(npts, xmin=xmin, xmax=xmax, width=width,
-                              smearing=smearing)
-             for data in self])
+            [
+                data.sample_grid(
+                    npts, xmin=xmin, xmax=xmax, width=width, smearing=smearing
+                )
+                for data in self
+            ]
+        )
 
     @classmethod
-    def from_data(cls,
-                  energies: Floats,
-                  weights: Sequence[Floats],
-                  info: Sequence[Info] | None = None) -> 'DOSCollection':
+    def from_data(
+        cls,
+        energies: Floats,
+        weights: Sequence[Floats],
+        info: Sequence[Info] | None = None,
+    ) -> 'DOSCollection':
         """Create a DOSCollection from data sharing a common set of energies
 
         This is a convenience method to be used when all the DOS data in the
@@ -157,24 +173,27 @@ class DOSCollection(collections.abc.Sequence):
 
         info = cls._check_weights_and_info(weights, info)
 
-        return cls(RawDOSData(energies, row_weights, row_info)
-                   for row_weights, row_info in zip(weights, info))
+        return cls(
+            RawDOSData(energies, row_weights, row_info)
+            for row_weights, row_info in zip(weights, info)
+        )
 
     @staticmethod
-    def _check_weights_and_info(weights: Sequence[Floats],
-                                info: Sequence[Info] | None,
-                                ) -> Sequence[Info]:
+    def _check_weights_and_info(
+        weights: Sequence[Floats],
+        info: Sequence[Info] | None,
+    ) -> Sequence[Info]:
         if info is None:
             info = [{} for _ in range(len(weights))]
         else:
             if len(info) != len(weights):
-                raise ValueError("Length of info must match number of rows in "
-                                 "weights")
+                raise ValueError(
+                    'Length of info must match number of rows in weights'
+                )
         return info
 
     @overload
-    def __getitem__(self, item: int) -> DOSData:
-        ...
+    def __getitem__(self, item: int) -> DOSData: ...
 
     @overload  # noqa F811
     def __getitem__(self, item: slice) -> 'DOSCollection':  # noqa F811
@@ -186,8 +205,9 @@ class DOSCollection(collections.abc.Sequence):
         elif isinstance(item, slice):
             return type(self)(self._data[item])
         else:
-            raise TypeError("index in DOSCollection must be an integer or "
-                            "slice")
+            raise TypeError(
+                'index in DOSCollection must be an integer or slice'
+            )
 
     def __len__(self) -> int:
         return len(self._data)
@@ -210,7 +230,7 @@ class DOSCollection(collections.abc.Sequence):
     def sum_all(self) -> DOSData:
         """Sum all the DOSData contained in this Collection"""
         if len(self) == 0:
-            raise IndexError("No data to sum")
+            raise IndexError('No data to sum')
         elif len(self) == 1:
             data = self[0].copy()
         else:
@@ -220,17 +240,25 @@ class DOSCollection(collections.abc.Sequence):
     D = TypeVar('D', bound=DOSData)
 
     @staticmethod
-    def _select_to_list(dos_collection: Sequence[D],         # Bug in flakes
-                        info_selection: dict[str, str],      # misses 'D' def
-                        negative: bool = False) -> list[D]:  # noqa: F821
+    def _select_to_list(
+        dos_collection: Sequence[D],  # Bug in flakes
+        info_selection: dict[str, str],  # misses 'D' def
+        negative: bool = False,
+    ) -> list[D]:  # noqa: F821
         query = set(info_selection.items())
 
         if negative:
-            return [data for data in dos_collection
-                    if not query.issubset(set(data.info.items()))]
+            return [
+                data
+                for data in dos_collection
+                if not query.issubset(set(data.info.items()))
+            ]
         else:
-            return [data for data in dos_collection
-                    if query.issubset(set(data.info.items()))]
+            return [
+                data
+                for data in dos_collection
+                if query.issubset(set(data.info.items()))
+            ]
 
     def select(self, **info_selection: str) -> 'DOSCollection':
         """Narrow DOSCollection to items with specified info
@@ -322,8 +350,9 @@ class DOSCollection(collections.abc.Sequence):
                  then return (('a', 1), ('c': 3))
             """
             matched_keys = set(info_keys) & set(data.info)
-            return tuple(sorted([(key, data.info[key])
-                                 for key in matched_keys]))
+            return tuple(
+                sorted([(key, data.info[key]) for key in matched_keys])
+            )
 
         # Sorting inside info matching helps set() to remove redundant matches;
         # combos are then sorted() to ensure consistent output across sessions.
@@ -332,12 +361,12 @@ class DOSCollection(collections.abc.Sequence):
 
         # For each key/value combination, perform a select() to obtain all
         # the matching entries and sum them together.
-        collection_data = [self.select(**dict(combo)).sum_all()
-                           for combo in unique_combos]
+        collection_data = [
+            self.select(**dict(combo)).sum_all() for combo in unique_combos
+        ]
         return type(self)(collection_data)
 
-    def __add__(self, other: 'DOSCollection | DOSData'
-                ) -> 'DOSCollection':
+    def __add__(self, other: 'DOSCollection | DOSData') -> 'DOSCollection':
         """Join entries between two DOSCollection objects of the same type
 
         It is also possible to add a single DOSData object without wrapping it
@@ -358,16 +387,21 @@ class DOSCollection(collections.abc.Sequence):
 
 
 @singledispatch
-def _add_to_collection(other: DOSData | DOSCollection,
-                       collection: DOSCollection) -> DOSCollection:
+def _add_to_collection(
+    other: DOSData | DOSCollection, collection: DOSCollection
+) -> DOSCollection:
     if isinstance(other, type(collection)):
         return type(collection)(list(collection) + list(other))
     elif isinstance(other, DOSCollection):
-        raise TypeError("Only DOSCollection objects of the same type may "
-                        "be joined with '+'.")
+        raise TypeError(
+            'Only DOSCollection objects of the same type may '
+            "be joined with '+'."
+        )
     else:
-        raise TypeError("DOSCollection may only be joined to DOSData or "
-                        "DOSCollection objects with '+'.")
+        raise TypeError(
+            'DOSCollection may only be joined to DOSData or '
+            "DOSCollection objects with '+'."
+        )
 
 
 @_add_to_collection.register(DOSData)
@@ -381,36 +415,45 @@ class RawDOSCollection(DOSCollection):
         super().__init__(dos_series)
         for dos_data in self:
             if not isinstance(dos_data, RawDOSData):
-                raise TypeError("RawDOSCollection can only store "
-                                "RawDOSData objects.")
+                raise TypeError(
+                    'RawDOSCollection can only store RawDOSData objects.'
+                )
 
 
 class GridDOSCollection(DOSCollection):
-    def __init__(self, dos_series: Iterable[GridDOSData],
-                 energies: Floats | None = None) -> None:
+    def __init__(
+        self, dos_series: Iterable[GridDOSData], energies: Floats | None = None
+    ) -> None:
         dos_list = list(dos_series)
         if energies is None:
             if len(dos_list) == 0:
-                raise ValueError("Must provide energies to create a "
-                                 "GridDOSCollection without any DOS data.")
+                raise ValueError(
+                    'Must provide energies to create a '
+                    'GridDOSCollection without any DOS data.'
+                )
             self._energies = dos_list[0].get_energies()
         else:
             self._energies = np.asarray(energies)
 
         self._weights: np.ndarray = np.empty(
-            (len(dos_list), len(self._energies)), float,
+            (len(dos_list), len(self._energies)),
+            float,
         )
         self._info = []
 
         for i, dos_data in enumerate(dos_list):
             if not isinstance(dos_data, GridDOSData):
-                raise TypeError("GridDOSCollection can only store "
-                                "GridDOSData objects.")
-            if (dos_data.get_energies().shape != self._energies.shape
-                    or not np.allclose(dos_data.get_energies(),
-                                       self._energies)):
-                raise ValueError("All GridDOSData objects in GridDOSCollection"
-                                 " must have the same energy axis.")
+                raise TypeError(
+                    'GridDOSCollection can only store GridDOSData objects.'
+                )
+            if (
+                dos_data.get_energies().shape != self._energies.shape
+                or not np.allclose(dos_data.get_energies(), self._energies)
+            ):
+                raise ValueError(
+                    'All GridDOSData objects in GridDOSCollection'
+                    ' must have the same energy axis.'
+                )
             self._weights[i, :] = dos_data.get_weights()
             self._info.append(dos_data.info)
 
@@ -424,8 +467,7 @@ class GridDOSCollection(DOSCollection):
         return self._weights.shape[0]
 
     @overload  # noqa F811
-    def __getitem__(self, item: int) -> DOSData:
-        ...
+    def __getitem__(self, item: int) -> DOSData: ...
 
     @overload  # noqa F811
     def __getitem__(self, item: slice) -> 'GridDOSCollection':  # noqa F811
@@ -433,19 +475,23 @@ class GridDOSCollection(DOSCollection):
 
     def __getitem__(self, item):  # noqa F811
         if isinstance(item, int):
-            return GridDOSData(self._energies, self._weights[item, :],
-                               info=self._info[item])
+            return GridDOSData(
+                self._energies, self._weights[item, :], info=self._info[item]
+            )
         elif isinstance(item, slice):
             return type(self)([self[i] for i in range(len(self))[item]])
         else:
-            raise TypeError("index in DOSCollection must be an integer or "
-                            "slice")
+            raise TypeError(
+                'index in DOSCollection must be an integer or slice'
+            )
 
     @classmethod
-    def from_data(cls,
-                  energies: Floats,
-                  weights: Sequence[Floats],
-                  info: Sequence[Info] | None = None) -> 'GridDOSCollection':
+    def from_data(
+        cls,
+        energies: Floats,
+        weights: Sequence[Floats],
+        info: Sequence[Info] | None = None,
+    ) -> 'GridDOSCollection':
         """Create a GridDOSCollection from data with a common set of energies
 
         This convenience method may also be more efficient as it limits
@@ -464,11 +510,11 @@ class GridDOSCollection(DOSCollection):
 
         weights_array = np.asarray(weights, dtype=float)
         if len(weights_array.shape) != 2:
-            raise IndexError("Weights must be a 2-D array or nested sequence")
+            raise IndexError('Weights must be a 2-D array or nested sequence')
         if weights_array.shape[0] < 1:
-            raise IndexError("Weights cannot be empty")
+            raise IndexError('Weights cannot be empty')
         if weights_array.shape[1] != len(energies):
-            raise IndexError("Length of weights rows must equal size of x")
+            raise IndexError('Length of weights rows must equal size of x')
 
         info = cls._check_weights_and_info(weights, info)
 
@@ -541,16 +587,18 @@ class GridDOSCollection(DOSCollection):
         else:
             return type(self)(matches)
 
-    def plot(self,
-             npts: int = 0,
-             xmin: float | None = None,
-             xmax: float | None = None,
-             width: float | None = None,
-             smearing: str = 'Gauss',
-             ax: Axes | None = None,
-             show: bool = False,
-             filename: str | None = None,
-             mplargs: dict | None = None) -> Axes:
+    def plot(
+        self,
+        npts: int = 0,
+        xmin: float | None = None,
+        xmax: float | None = None,
+        width: float | None = None,
+        smearing: str = 'Gauss',
+        ax: Axes | None = None,
+        show: bool = False,
+        filename: str | None = None,
+        mplargs: dict | None = None,
+    ) -> Axes:
         """Simple plot of collected DOS data, resampled onto a grid
 
         If the special key 'label' is present in self.info, this will be set
@@ -585,9 +633,9 @@ class GridDOSCollection(DOSCollection):
 
         if npts:
             assert isinstance(width, float)
-            dos = self.sample_grid(npts,
-                                   xmin=xmin, xmax=xmax,
-                                   width=width, smearing=smearing)
+            dos = self.sample_grid(
+                npts, xmin=xmin, xmax=xmax, width=width, smearing=smearing
+            )
         else:
             dos = self
 
@@ -601,11 +649,13 @@ class GridDOSCollection(DOSCollection):
         return ax
 
     @staticmethod
-    def _plot_broadened(ax: Axes,
-                        energies: Floats,
-                        all_y: np.ndarray,
-                        all_labels: Sequence[str],
-                        mplargs: dict | None):
+    def _plot_broadened(
+        ax: Axes,
+        energies: Floats,
+        all_y: np.ndarray,
+        all_labels: Sequence[str],
+        mplargs: dict | None,
+    ):
         """Plot DOS data with labels to axes
 
         This is separated into another function so that subclasses can

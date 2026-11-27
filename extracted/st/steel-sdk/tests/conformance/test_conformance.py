@@ -129,6 +129,7 @@ def test_credentials_create_full() -> None:
     def call(client: Steel) -> object:
         return client.credentials.create(
             value={"foo": "string"},
+            additional_origins=["x"],
             label="label",
             namespace="namespace",
             origin="origin",
@@ -155,6 +156,7 @@ def test_credentials_create_nulls() -> None:
 def test_credentials_update_full() -> None:
     def call(client: Steel) -> object:
         return client.credentials.update(
+            additional_origins=["x"],
             label="label",
             namespace="namespace",
             origin="origin",
@@ -580,6 +582,43 @@ def test_profiles_list_escaped() -> None:
     conform("profiles.list/escaped", make, call)
 
 
+def test_profiles_delete_full() -> None:
+    def call(client: Steel) -> object:
+        return client.profiles.delete(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("profiles.delete/full", make, call)
+
+
+def test_profiles_delete_required() -> None:
+    def call(client: Steel) -> object:
+        return client.profiles.delete("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("profiles.delete/required", make, call)
+
+
+def test_profiles_delete_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.profiles.delete("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("profiles.delete/nulls", make, call)
+
+
+def test_profiles_delete_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.profiles.delete("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("profiles.delete/unknown", make, call)
+
+
+def test_profiles_delete_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.profiles.delete("a b/c?d#e%f+g&h=i é", project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("profiles.delete/escaped", make, call)
+
+
 def test_profiles_get_full() -> None:
     def call(client: Steel) -> object:
         return client.profiles.get(
@@ -666,6 +705,230 @@ def test_projects_list_nulls() -> None:
     conform("projects.list/nulls", make, call)
 
 
+def test_secret_connections_create_full() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.create(
+            auth={
+                "token": "x",
+                "mount": "x",
+                "role_id": "x",
+                "secret_id": "x",
+                "service_account_token": "x",
+                "type": "token",
+            },
+            name="x",
+            provider="1password",
+            config={
+                "address": "x",
+                "ca_pem": "x",
+                "namespace": "x",
+            },
+            project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            token_budget={
+                "burst": 2,
+                "refill_per_second": 0.001,
+            },
+        )
+
+    conform("secret_connections.create/full", make, call)
+
+
+def test_secret_connections_create_required() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.create(auth={}, name="x", provider="1password")
+
+    conform("secret_connections.create/required", make, call)
+
+
+def test_secret_connections_create_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.create(auth={}, name="x", provider="1password")
+
+    conform("secret_connections.create/nulls", make, call)
+
+
+def test_secret_connections_create_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.create(auth={}, name="x", provider="1password")
+
+    conform("secret_connections.create/unknown", make, call)
+
+
+def test_secret_connections_retrieve_full() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.retrieve(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("secret_connections.retrieve/full", make, call)
+
+
+def test_secret_connections_retrieve_required() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.retrieve("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("secret_connections.retrieve/required", make, call)
+
+
+def test_secret_connections_retrieve_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.retrieve("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("secret_connections.retrieve/nulls", make, call)
+
+
+def test_secret_connections_retrieve_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.retrieve("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("secret_connections.retrieve/unknown", make, call)
+
+
+def test_secret_connections_retrieve_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.retrieve("a b/c?d#e%f+g&h=i é", project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("secret_connections.retrieve/escaped", make, call)
+
+
+def test_secret_connections_update_full() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.update(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            auth={
+                "token": "x",
+                "mount": "x",
+                "role_id": "x",
+                "secret_id": "x",
+                "service_account_token": "x",
+                "type": "token",
+            },
+            config={
+                "address": "x",
+                "ca_pem": "x",
+                "namespace": "x",
+            },
+            enabled=True,
+            name="x",
+            token_budget={
+                "burst": 2,
+                "refill_per_second": 0.001,
+            },
+        )
+
+    conform("secret_connections.update/full", make, call)
+
+
+def test_secret_connections_update_required() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.update("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("secret_connections.update/required", make, call)
+
+
+def test_secret_connections_update_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.update("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("secret_connections.update/nulls", make, call)
+
+
+def test_secret_connections_update_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.update("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("secret_connections.update/unknown", make, call)
+
+
+def test_secret_connections_update_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.update("a b/c?d#e%f+g&h=i é", project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("secret_connections.update/escaped", make, call)
+
+
+def test_secret_connections_list_full() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.list(project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("secret_connections.list/full", make, call)
+
+
+def test_secret_connections_list_required() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.list()
+
+    conform("secret_connections.list/required", make, call)
+
+
+def test_secret_connections_list_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.list()
+
+    conform("secret_connections.list/nulls", make, call)
+
+
+def test_secret_connections_list_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.list()
+
+    conform("secret_connections.list/unknown", make, call)
+
+
+def test_secret_connections_list_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.list(project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("secret_connections.list/escaped", make, call)
+
+
+def test_secret_connections_delete_full() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.delete(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("secret_connections.delete/full", make, call)
+
+
+def test_secret_connections_delete_required() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.delete("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("secret_connections.delete/required", make, call)
+
+
+def test_secret_connections_delete_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.delete("a b/c?d#e%f+g&h=i é", project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("secret_connections.delete/escaped", make, call)
+
+
+def test_secret_connections_test_full() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.test(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("secret_connections.test/full", make, call)
+
+
+def test_secret_connections_test_required() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.test("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("secret_connections.test/required", make, call)
+
+
+def test_secret_connections_test_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.secret_connections.test("a b/c?d#e%f+g&h=i é", project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("secret_connections.test/escaped", make, call)
+
+
 def test_sessions_create_full() -> None:
     def call(client: Steel) -> object:
         return client.sessions.create(
@@ -674,9 +937,14 @@ def test_sessions_create_full() -> None:
             concurrency=-9007199254740991,
             credentials={
                 "auto_submit": True,
+                "bindings": ["string"],
                 "blur_fields": True,
+                "credential_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                 "credential_provider": "credentialProvider",
+                "dom_trigger": True,
+                "enabled": True,
                 "exact_origin": True,
+                "lookup": "implicit",
                 "origins": ["string"],
             },
             debug_config={
@@ -931,7 +1199,7 @@ def test_sessions_commands_full() -> None:
             },
             after="x",
             observe={
-                "mode": "none",
+                "mode": "snapshot",
                 "base": "x",
                 "compact": True,
                 "depth": 0,
@@ -2270,6 +2538,234 @@ def test_sessions_command_executions_cancel_escaped() -> None:
     conform("sessions.command_executions.cancel/escaped", make, call)
 
 
+def test_sessions_credentials_list_full() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.list("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.list/full", make, call)
+
+
+def test_sessions_credentials_list_required() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.list("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.list/required", make, call)
+
+
+def test_sessions_credentials_list_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.list("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.list/nulls", make, call)
+
+
+def test_sessions_credentials_list_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.list("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.list/unknown", make, call)
+
+
+def test_sessions_credentials_list_variant_0_1() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.list("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.list/variant-0-1", make, call)
+
+
+def test_sessions_credentials_list_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.list("a b/c?d#e%f+g&h=i é")
+
+    conform("sessions.credentials.list/escaped", make, call)
+
+
+def test_sessions_credentials_attach_full() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.attach(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            bindings=["string"],
+            credential_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+        )
+
+    conform("sessions.credentials.attach/full", make, call)
+
+
+def test_sessions_credentials_attach_required() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.attach("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.attach/required", make, call)
+
+
+def test_sessions_credentials_attach_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.attach("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.attach/nulls", make, call)
+
+
+def test_sessions_credentials_attach_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.attach("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.attach/unknown", make, call)
+
+
+def test_sessions_credentials_attach_variant_0_1() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.attach("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.attach/variant-0-1", make, call)
+
+
+def test_sessions_credentials_attach_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.attach("a b/c?d#e%f+g&h=i é")
+
+    conform("sessions.credentials.attach/escaped", make, call)
+
+
+def test_sessions_credentials_detach_full() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("sessions.credentials.detach/full", make, call)
+
+
+def test_sessions_credentials_detach_required() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("sessions.credentials.detach/required", make, call)
+
+
+def test_sessions_credentials_detach_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("sessions.credentials.detach/nulls", make, call)
+
+
+def test_sessions_credentials_detach_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("sessions.credentials.detach/unknown", make, call)
+
+
+def test_sessions_credentials_detach_variant_0_1() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("sessions.credentials.detach/variant-0-1", make, call)
+
+
+def test_sessions_credentials_detach_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach("a b/c?d#e%f+g&h=i é", id="a b/c?d#e%f+g&h=i é")
+
+    conform("sessions.credentials.detach/escaped", make, call)
+
+
+def test_sessions_credentials_detach_binding_full() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach_binding("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", reference="reference")
+
+    conform("sessions.credentials.detach_binding/full", make, call)
+
+
+def test_sessions_credentials_detach_binding_required() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach_binding("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", reference="reference")
+
+    conform("sessions.credentials.detach_binding/required", make, call)
+
+
+def test_sessions_credentials_detach_binding_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach_binding("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", reference="reference")
+
+    conform("sessions.credentials.detach_binding/nulls", make, call)
+
+
+def test_sessions_credentials_detach_binding_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach_binding("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", reference="reference")
+
+    conform("sessions.credentials.detach_binding/unknown", make, call)
+
+
+def test_sessions_credentials_detach_binding_variant_0_1() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach_binding("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", reference="reference")
+
+    conform("sessions.credentials.detach_binding/variant-0-1", make, call)
+
+
+def test_sessions_credentials_detach_binding_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.detach_binding("a b/c?d#e%f+g&h=i é", reference="a b/c?d#e%f+g&h=i é")
+
+    conform("sessions.credentials.detach_binding/escaped", make, call)
+
+
+def test_sessions_credentials_replace_full() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.replace(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            bindings=["string"],
+            credential_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+        )
+
+    conform("sessions.credentials.replace/full", make, call)
+
+
+def test_sessions_credentials_replace_required() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.replace("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.replace/required", make, call)
+
+
+def test_sessions_credentials_replace_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.replace("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.replace/nulls", make, call)
+
+
+def test_sessions_credentials_replace_unknown() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.replace("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.replace/unknown", make, call)
+
+
+def test_sessions_credentials_replace_variant_0_1() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.replace("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("sessions.credentials.replace/variant-0-1", make, call)
+
+
+def test_sessions_credentials_replace_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.sessions.credentials.replace("a b/c?d#e%f+g&h=i é")
+
+    conform("sessions.credentials.replace/escaped", make, call)
+
+
 def test_sessions_files_list_full() -> None:
     def call(client: Steel) -> object:
         return client.sessions.files.list("sessionId")
@@ -2412,3 +2908,140 @@ def test_sessions_files_upload_escaped() -> None:
         return client.sessions.files.upload("a b/c?d#e%f+g&h=i é", file=b"Example data")
 
     conform("sessions.files.upload/escaped", make, call)
+
+
+def test_vaults_create_full() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.create(
+            name="name", description="description", project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("vaults.create/full", make, call)
+
+
+def test_vaults_create_required() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.create(name="name")
+
+    conform("vaults.create/required", make, call)
+
+
+def test_vaults_create_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.create(name="name")
+
+    conform("vaults.create/nulls", make, call)
+
+
+def test_vaults_retrieve_full() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.retrieve(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("vaults.retrieve/full", make, call)
+
+
+def test_vaults_retrieve_required() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.retrieve("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("vaults.retrieve/required", make, call)
+
+
+def test_vaults_retrieve_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.retrieve("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("vaults.retrieve/nulls", make, call)
+
+
+def test_vaults_retrieve_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.retrieve("a b/c?d#e%f+g&h=i é", project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("vaults.retrieve/escaped", make, call)
+
+
+def test_vaults_update_full() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.update(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            description="description",
+            name="name",
+        )
+
+    conform("vaults.update/full", make, call)
+
+
+def test_vaults_update_required() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.update("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("vaults.update/required", make, call)
+
+
+def test_vaults_update_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.update("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("vaults.update/nulls", make, call)
+
+
+def test_vaults_update_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.update("a b/c?d#e%f+g&h=i é", project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("vaults.update/escaped", make, call)
+
+
+def test_vaults_list_full() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.list(project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("vaults.list/full", make, call)
+
+
+def test_vaults_list_required() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.list()
+
+    conform("vaults.list/required", make, call)
+
+
+def test_vaults_list_nulls() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.list()
+
+    conform("vaults.list/nulls", make, call)
+
+
+def test_vaults_list_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.list(project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("vaults.list/escaped", make, call)
+
+
+def test_vaults_delete_full() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.delete(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"
+        )
+
+    conform("vaults.delete/full", make, call)
+
+
+def test_vaults_delete_required() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.delete("182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e")
+
+    conform("vaults.delete/required", make, call)
+
+
+def test_vaults_delete_escaped() -> None:
+    def call(client: Steel) -> object:
+        return client.vaults.delete("a b/c?d#e%f+g&h=i é", project_id="a b/c?d#e%f+g&h=i é")
+
+    conform("vaults.delete/escaped", make, call)

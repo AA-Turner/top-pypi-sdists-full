@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, cast
 
 from rosbags.interfaces import Nodetype
 
-from .utils import SIZEMAP, align, align_after, compile_lines, ndtype
+from .utils import SIZEMAP, align, align_after, compile_lines, ndtype, ros1_min_size
 
 if TYPE_CHECKING:
     from typing import TypeVar
@@ -63,10 +63,11 @@ def generate_ros1_to_cdr(
         'import sys',
         'import numpy',
         'from rosbags.serde import SerdeError',
-        'from rosbags.serde.utils import check_string, check_sequence',
+        'from rosbags.serde.utils import check_string, check_sequence, consume_zero_size',
         'from rosbags.serde.primitives import pack_uint32_le',
         'from rosbags.serde.primitives import unpack_uint32_le',
-        f'def {funcname}(input, ipos, output, opos, typestore):',
+        f'def {funcname}(input, ipos, output, opos, typestore, budget=None):',
+        '  if budget is None: budget = [typestore.max_ros1_zero_size_elements]',
     ]
 
     if typename == 'std_msgs/msg/Header':
@@ -80,8 +81,10 @@ def generate_ros1_to_cdr(
             aligned = 1
 
         elif desc[0] == Nodetype.NAME:
+            if ros1_min_size(desc, typestore) == 0:
+                lines.append('  consume_zero_size(budget, 1)')
             lines.append(f'  func = typestore.get_msgdef("{desc[1]}").{funcname}')
-            lines.append('  ipos, opos = func(input, ipos, output, opos, typestore)')
+            lines.append('  ipos, opos = func(input, ipos, output, opos, typestore, budget)')
             aligned = align_after(desc, typestore)
 
         elif desc[0] == Nodetype.BASE:
@@ -134,6 +137,8 @@ def generate_ros1_to_cdr(
                     aligned = SIZEMAP[subdesc[1][0]]
 
             if subdesc[0] == Nodetype.NAME:
+                if ros1_min_size(subdesc, typestore) == 0:
+                    lines.append(f'  consume_zero_size(budget, {length})')
                 anext_before = align(subdesc, typestore)
                 anext_after = align_after(subdesc, typestore)
 
@@ -141,7 +146,9 @@ def generate_ros1_to_cdr(
                 for _ in range(length):
                     if anext_before > anext_after:
                         lines.append(f'  opos = (opos + {anext_before} - 1) & -{anext_before}')
-                    lines.append('  ipos, opos = func(input, ipos, output, opos, typestore)')
+                    lines.append(
+                        '  ipos, opos = func(input, ipos, output, opos, typestore, budget)',
+                    )
                 aligned = anext_after
         else:
             assert desc[0] == Nodetype.SEQUENCE
@@ -151,16 +158,12 @@ def generate_ros1_to_cdr(
             lines.append('  ipos += 4')
             lines.append('  opos += 4')
             subdesc = desc[1][0]
-            minimum = (
-                4
-                if subdesc[0] == Nodetype.BASE and subdesc[1][0] == 'string'
-                else SIZEMAP[subdesc[1][0]]
-                if subdesc[0] == Nodetype.BASE
-                else 0
-            )
+            minimum = ros1_min_size(subdesc, typestore)
             lines.append(
                 f'  check_sequence(input, ipos, size, {minimum}, typestore.max_sequence_length)'
             )
+            if minimum == 0:
+                lines.append('  consume_zero_size(budget, size)')
             aligned = 4
 
             if subdesc[0] == Nodetype.BASE:
@@ -197,7 +200,7 @@ def generate_ros1_to_cdr(
                 lines.append(f'  func = typestore.get_msgdef("{subdesc[1]}").{funcname}')
                 lines.append('  for _ in range(size):')
                 lines.append(f'    opos = (opos + {anext_before} - 1) & -{anext_before}')
-                lines.append('    ipos, opos = func(input, ipos, output, opos, typestore)')
+                lines.append('    ipos, opos = func(input, ipos, output, opos, typestore, budget)')
                 aligned = align_after(subdesc, typestore)
 
             aligned = min([aligned, 4])
@@ -608,12 +611,11 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
         Deserializer function.
 
     """
-    _ = typestore
     lines = [
         'import sys',
         'import numpy',
         'from rosbags.serde import SerdeError',
-        'from rosbags.serde.utils import check_string, check_sequence',
+        'from rosbags.serde.utils import check_string, check_sequence, consume_zero_size',
         'from rosbags.serde.primitives import unpack_bool_le',
         'from rosbags.serde.primitives import unpack_byte_le',
         'from rosbags.serde.primitives import unpack_char_le',
@@ -627,7 +629,8 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
         'from rosbags.serde.primitives import unpack_uint64_le',
         'from rosbags.serde.primitives import unpack_float32_le',
         'from rosbags.serde.primitives import unpack_float64_le',
-        'def deserialize_ros1(rawdata, pos, cls, typestore):',
+        'def deserialize_ros1(rawdata, pos, cls, typestore, budget=None):',
+        '  if budget is None: budget = [typestore.max_ros1_zero_size_elements]',
     ]
 
     be_syms = ('>',) if sys.byteorder == 'little' else ('=', '>')
@@ -641,8 +644,12 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
             continue
 
         if desc[0] == Nodetype.NAME:
+            if ros1_min_size(desc, typestore) == 0:
+                lines.append('  consume_zero_size(budget, 1)')
             lines.append(f'  msgdef = typestore.get_msgdef("{desc[1]}")')
-            lines.append(f'  obj, pos = msgdef.{funcname}(rawdata, pos, msgdef.cls, typestore)')
+            lines.append(
+                f'  obj, pos = msgdef.{funcname}(rawdata, pos, msgdef.cls, typestore, budget)',
+            )
             lines.append('  values.append(obj)')
 
         elif desc[0] == Nodetype.BASE:
@@ -684,11 +691,14 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
                     lines.append(f'  pos += {size}')
             else:
                 assert subdesc[0] == Nodetype.NAME
+                if ros1_min_size(subdesc, typestore) == 0:
+                    lines.append(f'  consume_zero_size(budget, {length})')
                 lines.append(f'  msgdef = typestore.get_msgdef("{subdesc[1]}")')
                 lines.append('  value = []')
                 for _ in range(length):
                     lines.append(
-                        f'  obj, pos = msgdef.{funcname}(rawdata, pos, msgdef.cls, typestore)',
+                        f'  obj, pos = msgdef.{funcname}('
+                        'rawdata, pos, msgdef.cls, typestore, budget)',
                     )
                     lines.append('  value.append(obj)')
                 lines.append('  values.append(value)')
@@ -698,16 +708,12 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
             lines.append('  size = unpack_uint32_le(rawdata, pos)[0]')
             lines.append('  pos += 4')
             subdesc = desc[1][0]
-            minimum = (
-                4
-                if subdesc[0] == Nodetype.BASE and subdesc[1][0] == 'string'
-                else SIZEMAP[subdesc[1][0]]
-                if subdesc[0] == Nodetype.BASE
-                else 0
-            )
+            minimum = ros1_min_size(subdesc, typestore)
             lines.append(
                 f'  check_sequence(rawdata, pos, size, {minimum}, typestore.max_sequence_length)'
             )
+            if minimum == 0:
+                lines.append('  consume_zero_size(budget, size)')
 
             if subdesc[0] == Nodetype.BASE:
                 if subdesc[1][0] == 'string':
@@ -738,7 +744,8 @@ def generate_deserialize_ros1(fields: Fielddefs, typestore: Typestore) -> CDRDes
                 lines.append('  value = []')
                 lines.append('  for _ in range(size):')
                 lines.append(
-                    f'    obj, pos = msgdef.{funcname}(rawdata, pos, msgdef.cls, typestore)',
+                    f'    obj, pos = msgdef.{funcname}('
+                    'rawdata, pos, msgdef.cls, typestore, budget)',
                 )
                 lines.append('    value.append(obj)')
                 lines.append('  values.append(value)')

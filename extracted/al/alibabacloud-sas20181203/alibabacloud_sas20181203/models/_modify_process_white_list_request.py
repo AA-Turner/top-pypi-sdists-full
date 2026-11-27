@@ -25,12 +25,12 @@ class ModifyProcessWhiteListRequest(DaraModel):
         # The source IP address of the request. You do not need to specify this parameter. The system automatically retrieves the value.
         self.source_ip = source_ip
         # Specifies the whitelist status of the process. Valid values:
-        # - **1**: remove from the whitelist
-        # - **2**: add to the whitelist
+        # - **1**: remove from whitelist
+        # - **2**: add to whitelist
         # 
         # This parameter is required.
         self.status = status
-        # The ID of the policy.
+        # The policy ID.
         # > You can call the [DescribeWhiteListStrategyList](~~DescribeWhiteListStrategyList~~) operation to query the ID.
         # 
         # This parameter is required.

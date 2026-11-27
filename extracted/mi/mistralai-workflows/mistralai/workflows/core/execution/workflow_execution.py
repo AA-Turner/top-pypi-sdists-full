@@ -1,5 +1,6 @@
 import inspect
 from datetime import timedelta
+from http import HTTPStatus
 from types import NoneType
 from typing import TYPE_CHECKING, Any, Literal, Type, overload
 
@@ -106,6 +107,17 @@ def get_execution_id() -> str | None:
         return None
 
 
+def _raise_if_outside_workflow(function_name: str) -> None:
+    if not temporalio.workflow.in_workflow():
+        # A caller's mistake, not a server failure: 400 keeps it out of 5xx alerting and retries.
+        raise WorkflowsException(
+            code=ErrorCode.CHILD_WORKFLOW_OUTSIDE_WORKFLOW,
+            status=HTTPStatus.BAD_REQUEST,
+            message=f"{function_name} can only be called from workflow code: SDK v4 removed running workflows "
+            'directly (see "Migrating from v3 to v4" in the SDK migration guide).',
+        )
+
+
 @overload
 async def execute_workflow(
     workflow: Type,
@@ -147,28 +159,28 @@ async def execute_workflow(
     wait: bool = True,
     parent_close_policy: ParentClosePolicy | None = None,
 ) -> Any:
-    """Execute a workflow. If called from within a workflow, it will execute the workflow as a child workflow.
+    """Execute a workflow as a child workflow of the current workflow. Must be called from workflow code.
 
     Args:
-        workflow (Type): The workflow class to execute. (must be decorated with @define)
-        params (BaseModel): The parameters to pass to the workflow. (must be a BaseModel)
-        execution_timeout (timedelta | None, optional): The maximum time the workflow can run.
+        workflow (Type): The child workflow class to execute. (must be decorated with @define)
+        params (BaseModel): The parameters to pass to the child workflow. (must be a BaseModel)
+        execution_timeout (timedelta | None, optional): The maximum time the child workflow can run.
                                                  Defaults to the workflow's declared execution_timeout
                                                  from @workflow.define (itself 1 hour if unset).
-        execution_id (str | None, optional): The workflow id to use. If None, a random id will be generated.
+        execution_id (str | None, optional): The child workflow id to use. If None, a random id will be generated.
         wait (bool, optional): If True (default), wait for the child workflow to complete and return the result.
-                               If False, return a ChildWorkflowHandle immediately (only inside a workflow).
+                               If False, return a ChildWorkflowHandle immediately.
         parent_close_policy (ParentClosePolicy | None, optional): Policy for the child when the parent closes.
                              Defaults to TERMINATE when wait=True, ABANDON when wait=False.
 
     Returns:
-        Any: The return value of the workflow (wait=True), or a ChildWorkflowHandle (wait=False).
+        Any: The return value of the child workflow (wait=True), or a ChildWorkflowHandle (wait=False).
+
+    Raises:
+        WorkflowsException: With code ``CHILD_WORKFLOW_OUTSIDE_WORKFLOW`` when called outside workflow code,
+            including from inside an activity.
     """
-    if not wait and not temporalio.workflow.in_workflow():
-        raise WorkflowsException(
-            code=ErrorCode.WORKFLOW_DEFINITION_ERROR,
-            message="execute_workflow with wait=False can only be called from within a workflow",
-        )
+    _raise_if_outside_workflow(f"execute_workflow() to start '{workflow.__name__}' as a child workflow")
 
     workflow_definition = get_workflow_definition(workflow)
     if not workflow_definition:
@@ -190,44 +202,39 @@ async def execute_workflow(
     if parent_close_policy is None:
         parent_close_policy = ParentClosePolicy.TERMINATE if wait else ParentClosePolicy.ABANDON
 
-    if temporalio.workflow.in_workflow():
-        # Ensure old and new child workflow batching strategies are used consistently:
-        # - workflows started under the old (ungated) code replay through
-        #   the old path and still match their history (all starts in one task)
-        # - new runs split large payloads in chunks (and ONLY run that new path)
-        # See https://ruby.temporal.io/Temporalio/Workflow.html#patched-class_method
-        if temporalio.workflow.patched("child-start-cumulative-budget"):
-            # Charge the pre-codec serialized size so safety does not depend on worker codec
-            # configuration. A single oversized input consumes the full budget and runs alone.
-            charge = charge_for(len(params.model_dump_json().encode()))
-            budget = child_start_budget_var.get()
-            if budget is not None:
-                await budget.acquire(charge)
-        else:
-            charge = 0
-            budget = None
-        try:
-            handle = await temporalio.workflow.start_child_workflow(
-                workflow_definition.name,
-                params.model_dump(),
-                execution_timeout=execution_timeout,
-                result_type=dict,
-                id=execution_id,
-                parent_close_policy=parent_close_policy,
-            )
-        finally:
-            if budget is not None:
-                budget.release(charge)
-        if not wait:
-            _patch_child_workflow_handle(handle, entrypoint_method)
-            return handle
-
-        return_value = await handle
-
-        _, return_value = unwrap_contextual_result(return_value)
+    # Ensure old and new child workflow batching strategies are used consistently:
+    # - workflows started under the old (ungated) code replay through
+    #   the old path and still match their history (all starts in one task)
+    # - new runs split large payloads in chunks (and ONLY run that new path)
+    # See https://ruby.temporal.io/Temporalio/Workflow.html#patched-class_method
+    if temporalio.workflow.patched("child-start-cumulative-budget"):
+        # Charge the pre-codec serialized size so safety does not depend on worker codec
+        # configuration. A single oversized input consumes the full budget and runs alone.
+        charge = charge_for(len(params.model_dump_json().encode()))
+        budget = child_start_budget_var.get()
+        if budget is not None:
+            await budget.acquire(charge)
     else:
-        workflow_instance = workflow()
-        params_dict = params.model_dump()
-        return_value = await entrypoint_method(workflow_instance, params_dict)
+        charge = 0
+        budget = None
+    try:
+        handle = await temporalio.workflow.start_child_workflow(
+            workflow_definition.name,
+            params.model_dump(),
+            execution_timeout=execution_timeout,
+            result_type=dict,
+            id=execution_id,
+            parent_close_policy=parent_close_policy,
+        )
+    finally:
+        if budget is not None:
+            budget.release(charge)
+    if not wait:
+        _patch_child_workflow_handle(handle, entrypoint_method)
+        return handle
+
+    return_value = await handle
+
+    _, return_value = unwrap_contextual_result(return_value)
 
     return _coerce_workflow_result(return_value, entrypoint_method)

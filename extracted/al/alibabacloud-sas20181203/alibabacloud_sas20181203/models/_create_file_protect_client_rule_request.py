@@ -25,14 +25,11 @@ class CreateFileProtectClientRuleRequest(DaraModel):
         # The alert notification level. Valid values:
         # 
         # - 0: No alert.
-        # 
         # - 1: Reminder.
-        # 
         # - 2: Suspicious.
-        # 
         # - 3: High-risk.
         self.alert_level = alert_level
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must ensure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
         # The list of excluded users.
         self.exclude_users = exclude_users
@@ -51,15 +48,15 @@ class CreateFileProtectClientRuleRequest(DaraModel):
         # - **windows**: Windows.
         # - **linux**: Linux.
         self.platform = platform
-        # The list of process monitoring paths. Wildcards are supported.
+        # The list of paths monitored by processes. Wildcards are supported.
         # 
         # This parameter is required.
         self.proc_paths = proc_paths
-        # The action to take when the policy is hit. Valid values:
+        # The action to perform when the rule is matched. Valid values:
         # 
-        # - **monitor**: Alert.
-        # - **block**: Block.
-        # - **pass**: Allow.
+        # - **monitor**: Generates an alert.
+        # - **block**: Blocks the operation.
+        # - **pass**: Allows the operation.
         # 
         # This parameter is required.
         self.rule_action = rule_action
@@ -67,14 +64,14 @@ class CreateFileProtectClientRuleRequest(DaraModel):
         # 
         # This parameter is required.
         self.rule_name = rule_name
-        # The rule status. Valid values:
+        # The status of the rule. Valid values:
         # 
         # - **0**: Disabled.
         # - **1**: Enabled.
         # 
         # This parameter is required.
         self.status = status
-        # The switch ID that corresponds to the rule.
+        # The ID of the switch associated with the rule.
         self.switch_id = switch_id
 
     def validate(self):

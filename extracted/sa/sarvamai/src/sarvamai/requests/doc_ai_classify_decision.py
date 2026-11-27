@@ -9,12 +9,12 @@ from .doc_ai_suggested_type import DocAiSuggestedTypeParams
 
 class DocAiClassifyDecisionParams(typing_extensions.TypedDict):
     """
-    One Classify decision, for a whole document or a single page.
+    The Classify decision for a whole document.
     """
 
     input_page: typing_extensions.NotRequired[int]
     """
-    Page number, on per-page decisions.
+    Not set. Classify returns one decision for the whole document.
     """
 
     type: typing_extensions.NotRequired[str]
@@ -46,7 +46,7 @@ class DocAiClassifyDecisionParams(typing_extensions.TypedDict):
     suggested_type: typing_extensions.NotRequired[DocAiSuggestedTypeParams]
     evidence: typing_extensions.NotRequired[typing.Sequence[DocAiEvidenceParams]]
     """
-    Present on per-page decisions when `output.include_evidence` is `true`.
+    Supporting evidence for the decision (the OCR blocks and page regions it was read from). Present when the request set `output.include_evidence` to `true`.
     """
 
     classification_status: typing_extensions.NotRequired[str]

@@ -1476,6 +1476,8 @@ DAEMON_AGENT_WRITES = frozenset(
         "run token",
         # Control of a live run the agent launched (agentic W&B C.1): checkpoint, a setting, stop.
         "run send",
+        # Declaring a metric range on the agent's own run (the profile admits it, DAEMON_PROFILE_ALLOWED).
+        "run expect",
         # ...and of its RL samples (rl-next W34): stop or rerun one; the rollout proxy sidecar (W35) a
         # launch starts beside its harness.
         "samples cancel",
@@ -1503,6 +1505,10 @@ DAEMON_AGENT_WRITES = frozenset(
     }
 )
 
+#: The agent's writes (`DAEMON_AGENT_WRITES`) that name a run: inside a run (`PROBE_RUN_ID`) they are
+#: its own work only on that run (`write_gate._refuse_records`).
+AGENT_WRITES_NAMING_A_RUN = frozenset({"run send", "run expect"})
+
 #: Writes that are the run's OWN data only when a run makes them: inside a
 #: `probe exec` job or an SDK script (`PROBE_RUN_ID` set), a `probe artifact add`
 #: attaches the run's file, the same write the SDK's `log_artifact` makes there
@@ -1520,7 +1526,7 @@ DIRECTED_FLAG = "--directed"
 
 #: What a refusal tells the agent about `DIRECTED_FLAG`: the `daemon` state's
 #: (`DENY_REASON_DAEMON`) and the daemon profile's, for a write
-#: (`DAEMON_PROFILE_DENY_WRITE`).
+#: (`DAEMON_PROFILE_DENY_WRITE`) or a `DAEMON_PROFILE_DIRECTED` workspace change.
 DIRECTED_RETRY = "If the researcher asked for exactly this, run it again with `--directed`."
 #: ...and the daemon-profile agent's other way to a write (Richard's approved
 #: text, 2026-10-13): a request to the daemon's writer (`probe ask --writer`).
@@ -1663,9 +1669,9 @@ def daemon_allows_agent(matched: str) -> bool:
 #: The daemon's, though the classifier says neither: what moves the key, account,
 #: server or folder the daemon records with (`login` -- `PROBE_BASE_URL` in the
 #: environment moves the server, out of the guard's sight -- `logout`, `context
-#: use|delete`, `workspace use`, `project use`, `token revoke`, `session
+#: use|delete`, `project use`, `token revoke`, `session
 #: initialize`), what drops, holds or releases queued writes (`outbox
-#: discard|pause|resume`), the team's permissions and workspaces, printed
+#: discard|pause|resume`), the team's permissions, printed
 #: secrets (`mcp headers|env`, `token create`), the researcher's agent settings
 #: (`statusline install|uninstall`), and the daemon's own ledger and install.
 #: `session send` messages one of the researcher's own sessions (an orchestrator
@@ -1683,12 +1689,15 @@ def daemon_allows_agent(matched: str) -> bool:
 #: the CLI's gate still asks `pin add` and `pin rm` for `--directed` (DIRECTED_ONLY).
 #: `client check` runs the agent's own client against a stand-in on this computer: nothing reaches Probe.
 #: `compute nodes|node|clusters` read the team's GPU machines and who is on each GPU (probe-node).
+#: `workspace create|use|icon|rename` and a bare `workspace limit` (shows it): workspaces are the person's
+#: own setup, which the daemon never manages.
 DAEMON_PROFILE_ALLOWED = frozenset(
     {"ask", "session status", "session send", "run expect", "paper find",
      "docs", "cli search", "feedback send", "approvals", "outbox status", "run check", "sync", "artifact download",
      "daemon status", "context list", "flush", "service check-now",
      "token list", "context show", "outbox drain", "outbox retry", "outbox watch", "statusline status",
      "statusline show", "mcp status", "workspace list", "workspace get", "workspace writers show",
+     "workspace create", "workspace use", "workspace icon", "workspace rename", "workspace limit",
      "access-group list", "notes sync", "agent-rules refresh", "draft edit",
      "file preview", "feedback flush", "feedback install", "capy sync", "capy disconnect", "session owed", "session home show",
      "pin add", "pin list", "pin rm", "client check",
@@ -1697,6 +1706,20 @@ DAEMON_PROFILE_ALLOWED = frozenset(
      # directive allows -- frees a GPU held by a job of THIS session, nothing else.
      "compute job stop", "compute job show", "compute job save", "compute reply"}
 )
+
+#: Workspace changes the main agent runs in the daemon profile only with `--directed` (the
+#: person asked): `delete` (an empty workspace) and `writers set` (who may write). Still
+#: plumbing, so `off` and `read` keep running them.
+DAEMON_PROFILE_DIRECTED = frozenset({"workspace delete", "workspace writers set"})
+#: ...and admitted ones these flags make such a change: `use --clear` leaves creates with no
+#: workspace (`workspace_required` on a team with several, the daemon's filing too), and `limit`
+#: with `--team`, `--team-items` or a workspace sets or clears what Probe reads on this computer.
+DAEMON_PROFILE_DIRECTED_FLAGS = {
+    "workspace use": frozenset({"--clear"}),
+    "workspace limit": frozenset({"--team", "--team-items"}),
+}
+#: The admitted command whose argument (a workspace) sets it: bare, it only shows.
+_SETS_BY_ARGUMENT = "workspace limit"
 
 #: Reads of ONE run, named by its id: the agent looks at the runs it launched
 #: (is the loss falling, did the checkpoint land) without waiting on `probe ask`
@@ -1870,6 +1893,12 @@ _INLINE_TAIL_AUTO = "If you need to do it yourself, run `probe session state inl
 DAEMON_PROFILE_DENY = _DAEMON_PROFILE_DENY_HEAD + _INLINE_TAIL
 DAEMON_PROFILE_DENY_AUTO = _DAEMON_PROFILE_DENY_HEAD + _INLINE_TAIL_AUTO
 
+#: A daemon-profile chat set `off`: what the profile reserves (`daemon_profile_allows`) stays refused,
+#: in off words (`get_off_profile_refusal`), then `DIRECTED_RETRY` or the inline tail.
+OFF_PROFILE_DENY_HEAD = (
+    "Probe is off for this chat, and agents don't run `{matched}` on their own here, so it was refused before it ran. "
+)
+
 #: A table read the agent runs, refused for a flag that reads every page
 #: (`DAEMON_PROFILE_TABLE_UNBOUNDED`): `{offender}` names it (Richard's approved
 #: text, 2026-11-17), then the inline tail.
@@ -1931,7 +1960,8 @@ def daemon_profile_allows(args: "list[str]", session_id: "str | None" = None) ->
     switch runs only as `session state <target> --directed` (`switch_refusal`).
     Probe's own upkeep runs with its own flags (`upkeep_command`), and what
     records less only with `--directed` (`records_less`); the agent's own
-    commands are `DAEMON_PROFILE_ALLOWED`. Anything else -- a word the guard
+    commands are `DAEMON_PROFILE_ALLOWED`, and `DAEMON_PROFILE_DIRECTED` runs
+    only with `--directed`. Anything else -- a word the guard
     cannot read included -- is refused.
     """
     words = command_words(args)
@@ -1946,6 +1976,9 @@ def daemon_profile_allows(args: "list[str]", session_id: "str | None" = None) ->
         return (needs_directed(args) is None, "probe " + upkeep)
     if head in DAEMON_PROFILE_PLAIN_FLAGS:
         return (_runs_plainly(args, head), "probe " + head)
+    directed = _directed_workspace_change(args)
+    if directed is not None:
+        return (carries_directed(args), "probe " + directed)
     for key in (" ".join(words[:3]), two, head):
         if key in DAEMON_PROFILE_ALLOWED:
             return (True, "probe " + key)
@@ -1960,6 +1993,20 @@ def daemon_profile_allows(args: "list[str]", session_id: "str | None" = None) ->
     if matched[len("probe "):] in DAEMON_PROFILE_ALLOWED:
         return (True, matched)  # `pane push --pin` is `pin add` (WRITES_ALSO): the CLI's gate asks
     return (daemon_allows_agent(matched), matched)
+
+
+def _directed_workspace_change(args: "list[str]") -> "str | None":
+    """The workspace change (`DAEMON_PROFILE_DIRECTED`, or a `DAEMON_PROFILE_DIRECTED_FLAGS`
+    flag or a `_SETS_BY_ARGUMENT` argument) these args make, else None."""
+    words = command_words(args)
+    two = " ".join(words[:2])
+    for key in (" ".join(words[:3]), two):
+        if key in DAEMON_PROFILE_DIRECTED:
+            return key
+    flags = DAEMON_PROFILE_DIRECTED_FLAGS.get(two)
+    if flags is not None and (_flag_writes(args, flags) or (two == _SETS_BY_ARGUMENT and len(words) > 2)):
+        return two
+    return None
 
 
 def _runs_plainly(args: "list[str]", head: str) -> bool:
@@ -2039,7 +2086,8 @@ def daemon_profile_deny(args: "list[str]", matched: str, session_id: "str | None
     first (`DIRECTED_REQUIRED_DENY`), upkeep with a flag it may not pass which
     one (`UPKEEP_FLAG_DENY`, never `/probe inline`), a table read for every page
     at once which flag did it (`DAEMON_PROFILE_EVERY_PAGE_DENY`), a write that
-    `--directed` runs it (`DAEMON_PROFILE_DENY_WRITE`)."""
+    `--directed` runs it (`DAEMON_PROFILE_DENY_WRITE`), and so a
+    `DAEMON_PROFILE_DIRECTED` workspace change (`DIRECTED_RETRY`)."""
     switch = switch_refusal(args, RESEARCHER_SWITCH_DENY, session_id)
     if switch is not None:
         return switch
@@ -2052,8 +2100,29 @@ def daemon_profile_deny(args: "list[str]", matched: str, session_id: "str | None
     every_page = _every_page_flag(args, read) if read is not None else None
     if every_page is not None:
         return get_every_page_deny(session_id).format(matched="probe " + read, offender=every_page)
+    if _directed_workspace_change(args) is not None:
+        return (get_daemon_profile_deny(session_id) + "\n\n" + DIRECTED_RETRY).format(matched=matched)
     kind, _matched = classify_probe_args(args)
     return get_daemon_profile_deny(session_id, is_write=kind == "write").format(matched=matched)
+
+
+def get_off_profile_refusal(args: "list[str]", session_id: "str | None" = None) -> "str | None":
+    """The refusal for args after `probe` in a daemon-profile chat set `off`, or None. Both gates call it
+    (the hook's off branch, the CLI's `_refuse_records`), so they refuse the same commands. The team's
+    records (a kind from `classify_probe_args`) are the off rule's, so None; so is what
+    `daemon_profile_allows` admits. Anything else (a removal, a secret printer, a workspace change)
+    stays refused: `OFF_PROFILE_DENY_HEAD`, then `DIRECTED_RETRY` for a workspace change, else the
+    inline tail."""
+    if classify_probe_args(args)[0] is not None:
+        return None
+    allowed, matched = daemon_profile_allows(args, session_id)
+    if allowed:
+        return None
+    if _directed_workspace_change(args) is not None:
+        tail = DIRECTED_RETRY
+    else:
+        tail = _INLINE_TAIL_AUTO if session_id and is_auto_chat(session_id) else _INLINE_TAIL
+    return OFF_PROFILE_DENY_HEAD.format(matched=matched) + tail
 
 
 # ---------------------------------------------------------------------------

@@ -103,6 +103,44 @@ def test_invalid_sequence_counts(field: str, *, cdr: bool) -> None:
         _ = store.deserialize_cdr(data, name) if cdr else store.deserialize_ros1(data, name)
 
 
+@pytest.mark.parametrize('convert', [False, True])
+def test_ros1_zero_size_sequence_budget(*, convert: bool) -> None:
+    """Test the shared budget for zero-size message sequences."""
+    store = get_typestore(Stores.ROS1_NOETIC)
+    name = 'x/msg/X'
+    store.register(
+        {
+            **get_types_from_msg('x/Inner first\nx/Inner second', name),
+            **get_types_from_msg('std_msgs/Empty[] items', 'x/msg/Inner'),
+        }
+    )
+    store.max_ros1_zero_size_elements = 3
+    process = store.ros1_to_cdr if convert else store.deserialize_ros1
+    process(struct.pack('<II', 1, 2), name)
+    with pytest.raises(SerdeError, match='zero-size'):
+        process(struct.pack('<II', 2, 2), name)
+    with pytest.raises(SerdeError, match='zero-size'):
+        process(struct.pack('<I', 2**32 - 1), name)
+
+
+@pytest.mark.parametrize('convert', [False, True])
+def test_ros1_zero_size_array_budget(*, convert: bool) -> None:
+    """Test the budget for fixed arrays of zero-size messages inside sequences."""
+    store = get_typestore(Stores.ROS1_NOETIC)
+    name = 'x/msg/X'
+    store.register(
+        {
+            **get_types_from_msg('x/Child[] items', name),
+            **get_types_from_msg('std_msgs/Empty[2] items', 'x/msg/Child'),
+        }
+    )
+    store.max_ros1_zero_size_elements = 5
+    process = store.ros1_to_cdr if convert else store.deserialize_ros1
+    process(struct.pack('<I', 1), name)
+    with pytest.raises(SerdeError, match='zero-size'):
+        process(struct.pack('<I', 2), name)
+
+
 @pytest.mark.parametrize('header', [b'', b'\x00', b'\x00\x01', b'\x00\x03\x00\x00'])
 def test_invalid_cdr_encapsulation(header: bytes) -> None:
     """Test invalid cdr encapsulation throws error."""

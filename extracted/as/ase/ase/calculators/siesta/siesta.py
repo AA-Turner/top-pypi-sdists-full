@@ -1,5 +1,3 @@
-# fmt: off
-
 """
 This module defines the ASE interface to SIESTA.
 
@@ -39,15 +37,16 @@ def parse_siesta_version(output: bytes) -> str:
     match = re.search(rb'Version\s*:\s*(\S+)', output)
 
     if match is None:
-        raise RuntimeError('Could not get Siesta version info from output '
-                           '{!r}'.format(output))
+        raise RuntimeError(
+            'Could not get Siesta version info from output {!r}'.format(output)
+        )
 
     string = match.group(1).decode('ascii')
     return string
 
 
 def get_siesta_version(executable: str) -> str:
-    """ Return SIESTA version number.
+    """Return SIESTA version number.
 
     Run the command, for instance 'siesta' and
     then parse the output in order find the
@@ -60,11 +59,10 @@ def get_siesta_version(executable: str) -> str:
     temp_dirname = tempfile.mkdtemp(prefix='siesta-version-check-')
     try:
         from subprocess import PIPE, Popen
-        proc = Popen([executable],
-                     stdin=PIPE,
-                     stdout=PIPE,
-                     stderr=PIPE,
-                     cwd=temp_dirname)
+
+        proc = Popen(
+            [executable], stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=temp_dirname
+        )
         output, _ = proc.communicate()
         # We are not providing any input, so Siesta will give us a failure
         # saying that it has no Chemical_species_label and exit status 1
@@ -85,51 +83,66 @@ def format_block(name, block):
 
 
 def bandpath2bandpoints(path):
-    return '\n'.join([
-        'BandLinesScale ReciprocalLatticeVectors',
-        format_block('BandPoints', path.kpts)])
+    return '\n'.join(
+        [
+            'BandLinesScale ReciprocalLatticeVectors',
+            format_block('BandPoints', path.kpts),
+        ]
+    )
 
 
 class SiestaParameters(Parameters):
     def __init__(
-            self,
-            label='siesta',
-            mesh_cutoff=200 * Ry,
-            energy_shift=100 * meV,
-            kpts=None,
-            xc='LDA',
-            basis_set='DZP',
-            spin='non-polarized',
-            species=(),
-            pseudo_qualifier=None,
-            pseudo_path=None,
-            symlink_pseudos=None,
-            atoms=None,
-            restart=None,
-            fdf_arguments=None,
-            atomic_coord_format='xyz',
-            bandpath=None):
+        self,
+        label='siesta',
+        mesh_cutoff=200 * Ry,
+        energy_shift=100 * meV,
+        kpts=None,
+        xc='LDA',
+        basis_set='DZP',
+        spin='non-polarized',
+        species=(),
+        pseudo_qualifier=None,
+        pseudo_path=None,
+        symlink_pseudos=None,
+        atoms=None,
+        restart=None,
+        fdf_arguments=None,
+        atomic_coord_format='xyz',
+        bandpath=None,
+    ):
         kwargs = locals()
         kwargs.pop('self')
         Parameters.__init__(self, **kwargs)
 
 
 def _nonpolarized_alias(_: list, kwargs: dict[str, Any]) -> bool:
-    if kwargs.get("spin", None) == "UNPOLARIZED":
-        kwargs["spin"] = "non-polarized"
+    if kwargs.get('spin', None) == 'UNPOLARIZED':
+        kwargs['spin'] = 'non-polarized'
         return True
     return False
 
 
 class Siesta(FileIOCalculator):
-    """Calculator interface to the SIESTA code.
-    """
+    """Calculator interface to the SIESTA code."""
+
     allowed_xc = {
         'LDA': ['PZ', 'CA', 'PW92'],
-        'GGA': ['PW91', 'PBE', 'revPBE', 'RPBE',
-                'WC', 'AM05', 'PBEsol', 'PBEJsJrLO',
-                'PBEGcGxLO', 'PBEGcGxHEG', 'BLYP'],
-        'VDW': ['DRSLL', 'LMKLL', 'KBM', 'C09', 'BH', 'VV']}
+        'GGA': [
+            'PW91',
+            'PBE',
+            'revPBE',
+            'RPBE',
+            'WC',
+            'AM05',
+            'PBEsol',
+            'PBEJsJrLO',
+            'PBEGcGxLO',
+            'PBEGcGxHEG',
+            'BLYP',
+        ],
+        'VDW': ['DRSLL', 'LMKLL', 'KBM', 'C09', 'BH', 'VV'],
+    }
 
     name = 'siesta'
     _legacy_default_command = 'siesta < PREFIX.fdf > PREFIX.out'
@@ -141,7 +154,8 @@ class Siesta(FileIOCalculator):
         'dipole',
         'eigenvalues',
         'density',
-        'fermi_energy']
+        'fermi_energy',
+    ]
 
     # Dictionary of valid input vaiables.
     default_parameters = SiestaParameters()
@@ -154,7 +168,8 @@ class Siesta(FileIOCalculator):
     fileio_rules = FileIOCalculator.ruleset(
         configspec=dict(pseudo_path=None),
         stdin_name='{prefix}.fdf',
-        stdout_name='{prefix}.out')
+        stdout_name='{prefix}.out',
+    )
 
     def __init__(self, command=None, profile=None, directory='.', **kwargs):
         """ASE interface to the SIESTA code.
@@ -223,7 +238,8 @@ class Siesta(FileIOCalculator):
             command=command,
             profile=profile,
             directory=directory,
-            **parameters)
+            **parameters,
+        )
 
     def __getitem__(self, key):
         """Convenience method to retrieve a parameter as
@@ -243,7 +259,8 @@ class Siesta(FileIOCalculator):
                 - atoms : An Atoms object.
         """
         return SiestaInput.get_species(
-            atoms, list(self['species']), self['basis_set'])
+            atoms, list(self['species']), self['basis_set']
+        )
 
     @deprecated(
         "The keyword 'UNPOLARIZED' has been deprecated,"
@@ -326,21 +343,21 @@ class Siesta(FileIOCalculator):
             kwargs['fdf_arguments'] = {}
 
         if not isinstance(kwargs['fdf_arguments'], dict):
-            raise TypeError("fdf_arguments must be a dictionary.")
+            raise TypeError('fdf_arguments must be a dictionary.')
 
         # Call baseclass.
         FileIOCalculator.set(self, **kwargs)
 
     def set_fdf_arguments(self, fdf_arguments):
-        """ Set the fdf_arguments after the initialization of the
-            calculator.
+        """Set the fdf_arguments after the initialization of the
+        calculator.
         """
         self.validate_fdf_arguments(fdf_arguments)
         FileIOCalculator.set(self, fdf_arguments=fdf_arguments)
 
     def validate_fdf_arguments(self, fdf_arguments):
-        """ Raises error if the fdf_argument input is not a
-            dictionary of allowed keys.
+        """Raises error if the fdf_argument input is not a
+        dictionary of allowed keys.
         """
         # None is valid
         if fdf_arguments is None:
@@ -348,7 +365,7 @@ class Siesta(FileIOCalculator):
 
         # Type checking.
         if not isinstance(fdf_arguments, dict):
-            raise TypeError("fdf_arguments must be a dictionary.")
+            raise TypeError('fdf_arguments must be a dictionary.')
 
     def write_input(self, atoms, properties=None, system_changes=None):
         """Write input (fdf)-file.
@@ -362,9 +379,8 @@ class Siesta(FileIOCalculator):
         """
 
         super().write_input(
-            atoms=atoms,
-            properties=properties,
-            system_changes=system_changes)
+            atoms=atoms, properties=properties, system_changes=system_changes
+        )
 
         filename = self.getpath(ext='fdf')
 
@@ -372,11 +388,11 @@ class Siesta(FileIOCalculator):
 
         # Use the saved density matrix if only 'cell' and 'positions'
         # have changed.
-        if (system_changes is None or
-            ('numbers' not in system_changes and
-             'initial_magmoms' not in system_changes and
-             'initial_charges' not in system_changes)):
-
+        if system_changes is None or (
+            'numbers' not in system_changes
+            and 'initial_magmoms' not in system_changes
+            and 'initial_charges' not in system_changes
+        ):
             more_fdf_args['DM.UseSaveDM'] = True
 
         if 'density' in properties:
@@ -384,19 +400,23 @@ class Siesta(FileIOCalculator):
 
         species, species_numbers = self.species(atoms)
 
-        pseudo_path = (self['pseudo_path']
-                       or self.profile.configvars.get('pseudo_path')
-                       or self.cfg.get('SIESTA_PP_PATH'))
+        pseudo_path = (
+            self['pseudo_path']
+            or self.profile.configvars.get('pseudo_path')
+            or self.cfg.get('SIESTA_PP_PATH')
+        )
 
         if not pseudo_path:
             raise Exception(
-                'Please configure pseudo_path or SIESTA_PP_PATH envvar')
+                'Please configure pseudo_path or SIESTA_PP_PATH envvar'
+            )
 
         species_info = SpeciesInfo(
             atoms=atoms,
             pseudo_path=Path(pseudo_path),
             pseudo_qualifier=self.pseudo_qualifier(),
-            species=species)
+            species=species,
+        )
 
         writer = FDFWriter(
             name=self.prefix,
@@ -418,12 +438,13 @@ class Siesta(FileIOCalculator):
 
         writer.link_pseudos_into_directory(
             symlink_pseudos=self['symlink_pseudos'],
-            directory=Path(self.directory))
+            directory=Path(self.directory),
+        )
 
     def read(self, filename):
         """Read structural parameters from file .XV file
-           Read other results from other files
-           filename : siesta.XV
+        Read other results from other files
+        filename : siesta.XV
         """
 
         fname = self.getpath(filename)
@@ -434,7 +455,7 @@ class Siesta(FileIOCalculator):
         self.read_results()
 
     def getpath(self, fname=None, ext=None):
-        """ Returns the directory/fname string """
+        """Returns the directory/fname string"""
         if fname is None:
             fname = self.prefix
         if ext is not None:
@@ -455,9 +476,12 @@ class Siesta(FileIOCalculator):
     def read_results(self):
         """Read the results."""
         from ase.io.siesta_output import OutputReader
-        reader = OutputReader(prefix=self.prefix,
-                              directory=Path(self.directory),
-                              bandpath=self['bandpath'])
+
+        reader = OutputReader(
+            prefix=self.prefix,
+            directory=Path(self.directory),
+            bandpath=self['bandpath'],
+        )
         results = reader.read_results()
         self.results.update(results)
 
@@ -478,15 +502,15 @@ class Siesta(FileIOCalculator):
                 if self.pseudo_qualifier() == '':
                     label = symbol
                 else:
-                    label = f"{symbol}.{self.pseudo_qualifier()}"
+                    label = f'{symbol}.{self.pseudo_qualifier()}'
                 pseudopotential = self.getpath(label, 'psf')
             else:
                 pseudopotential = Path(spec['pseudopotential'])
                 label = pseudopotential.stem
 
-            name = f"{label}.{species_number}"
+            name = f'{label}.{species_number}'
             if spec['ghost']:
-                name = f"{name}.ghost"
+                name = f'{name}.ghost'
                 atomic_number = -atomic_number
 
             if name not in ion_results:
@@ -515,8 +539,9 @@ class Siesta(FileIOCalculator):
         return self.results['eigenvalues'].shape[0]
 
 
-def generate_atomic_coordinates(atoms: Atoms, species_numbers,
-                                atomic_coord_format: str):
+def generate_atomic_coordinates(
+    atoms: Atoms, species_numbers, atomic_coord_format: str
+):
     """Write atomic coordinates.
 
     Parameters
@@ -532,7 +557,8 @@ def generate_atomic_coordinates(atoms: Atoms, species_numbers,
         return generate_atomic_coordinates_zmatrix(atoms, species_numbers)
     else:
         raise RuntimeError(
-            f'Unknown atomic_coord_format: {atomic_coord_format}')
+            f'Unknown atomic_coord_format: {atomic_coord_format}'
+        )
 
 
 def generate_atomic_coordinates_zmatrix(atoms: Atoms, species_numbers):
@@ -550,14 +576,15 @@ def generate_atomic_coordinates_zmatrix(atoms: Atoms, species_numbers):
     yield '%block Zmatrix\n'
     yield '  cartesian\n'
 
-    fstr = "{:5d}" + "{:20.10f}" * 3 + "{:3d}" * 3 + "{:7d} {:s}\n"
+    fstr = '{:5d}' + '{:20.10f}' * 3 + '{:3d}' * 3 + '{:7d} {:s}\n'
     a2constr = SiestaInput.make_xyz_constraints(atoms)
     a2p, a2s = atoms.get_positions(), atoms.symbols
     for ia, (sp, xyz, ccc, sym) in enumerate(
-            zip(species_numbers, a2p, a2constr, a2s)):
+        zip(species_numbers, a2p, a2constr, a2s)
+    ):
         yield fstr.format(
-            sp, xyz[0], xyz[1], xyz[2], ccc[0],
-            ccc[1], ccc[2], ia + 1, sym)
+            sp, xyz[0], xyz[1], xyz[2], ccc[0], ccc[1], ccc[2], ia + 1, sym
+        )
     yield '%endblock Zmatrix\n'
 
     # origin = tuple(-atoms.get_celldisp().flatten())
@@ -576,9 +603,13 @@ def generate_atomic_coordinates_xyz(atoms: Atoms, species_numbers):
     """
     yield '\n'
     yield var('AtomicCoordinatesFormat', 'Ang')
-    yield block('AtomicCoordinatesAndAtomicSpecies',
-                [[*atom.position, number]
-                 for atom, number in zip(atoms, species_numbers)])
+    yield block(
+        'AtomicCoordinatesAndAtomicSpecies',
+        [
+            [*atom.position, number]
+            for atom, number in zip(atoms, species_numbers)
+        ],
+    )
     yield '\n'
 
     # origin = tuple(-atoms.get_celldisp().flatten())
@@ -606,15 +637,15 @@ class SpeciesInfo:
                 if self.pseudo_qualifier == '':
                     label = symbol
                 else:
-                    label = f"{symbol}.{self.pseudo_qualifier}"
-                src_path = self.pseudo_path / f"{label}.psf"
+                    label = f'{symbol}.{self.pseudo_qualifier}'
+                src_path = self.pseudo_path / f'{label}.psf'
             else:
                 src_path = Path(spec['pseudopotential'])
 
             if not src_path.is_absolute():
                 src_path = self.pseudo_path / src_path
             if not src_path.exists():
-                src_path = self.pseudo_path / f"{symbol}.psml"
+                src_path = self.pseudo_path / f'{symbol}.psml'
 
             name = src_path.name
             name = name.split('.')
@@ -632,13 +663,17 @@ class SpeciesInfo:
             pseudo_name = ''
             if src_path.suffix != '.psf':
                 pseudo_name = f'{label}{src_path.suffix}'
-            string = '    %d %d %s %s' % (species_number, atomic_number, label,
-                                          pseudo_name)
+            string = '    %d %d %s %s' % (
+                species_number,
+                atomic_number,
+                label,
+                pseudo_name,
+            )
             chemical_labels.append(string)
             if isinstance(spec['basis_set'], PAOBasisBlock):
                 pao_basis.append(spec['basis_set'].script(label))
             else:
-                basis_sizes.append(("    " + label, spec['basis_set']))
+                basis_sizes.append(('    ' + label, spec['basis_set']))
 
         self.file_instructions = file_instructions
         self.chemical_labels = chemical_labels
@@ -698,7 +733,7 @@ class FDFWriter:
     def generate_text(self):
         yield var('SystemName', self.name)
         yield var('SystemLabel', self.name)
-        yield "\n"
+        yield '\n'
 
         # Write explicitly given options first to
         # allow the user to override anything.
@@ -758,15 +793,18 @@ class FDFWriter:
         yield '\n'
 
         if cell.rank in [1, 2]:
-            raise ValueError('Expected 3D unit cell or no unit cell.  You may '
-                             'wish to add vacuum along some directions.')
+            raise ValueError(
+                'Expected 3D unit cell or no unit cell.  You may '
+                'wish to add vacuum along some directions.'
+            )
 
         if np.any(cell):
             yield var('LatticeConstant', '1.0 Ang')
             yield block('LatticeVectors', cell)
 
         yield from generate_atomic_coordinates(
-            atoms, self.species_numbers, self.atomic_coord_format)
+            atoms, self.species_numbers, self.atomic_coord_format
+        )
 
         # Write magnetic moments.
         magmoms = atoms.get_initial_magnetic_moments()
@@ -782,8 +820,10 @@ class FDFWriter:
         if len(magmoms) != 0 and isinstance(magmoms[0], np.ndarray):
             for n, M in enumerate(magmoms):
                 if M[0] != 0:
-                    yield ('    %d %.14f %.14f %.14f \n'
-                           % (n + 1, M[0], M[1], M[2]))
+                    yield (
+                        '    %d %.14f %.14f %.14f \n'
+                        % (n + 1, M[0], M[1], M[2])
+                    )
         elif len(magmoms) != 0 and isinstance(magmoms[0], float):
             for n, M in enumerate(magmoms):
                 if M != 0:

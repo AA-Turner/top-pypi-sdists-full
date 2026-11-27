@@ -3,23 +3,18 @@ import os
 import pathlib
 import sys
 import threading
-from collections import defaultdict
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from functools import total_ordering
 from math import ceil
 from typing import Any
-from typing import DefaultDict
 from typing import Dict
-from typing import Iterable
 from typing import List
 from typing import Optional
-from typing import Set
 from typing import Tuple
 from typing import cast
 
-from rich.markup import escape
 from rich.segment import Segment
 from rich.style import Style
 from rich.text import Text
@@ -50,22 +45,11 @@ from memray._memray import size_fmt
 from memray.reporters._textual_hacks import Bindings
 from memray.reporters._textual_hacks import redraw_footer
 from memray.reporters._textual_hacks import update_key_description
+from memray.reporters.common import AllocationEntry
+from memray.reporters.common import Location
+from memray.reporters.common import aggregate_allocations
 
 MAX_MEMORY_RATIO = 0.95
-
-
-@dataclass(frozen=True)
-class Location:
-    function: str
-    file: str
-
-
-@dataclass
-class AllocationEntry:
-    own_memory: int
-    total_memory: int
-    n_allocations: int
-    thread_ids: Set[int]
 
 
 @dataclass(frozen=True, eq=False)
@@ -137,7 +121,7 @@ class MemoryGraph(Widget):
         if self._maxval > 1:
             self.border_subtitle = (
                 f"{size_fmt(int(value))}"
-                f" ({int(round(value * 100/self._maxval, 0))}%"
+                f" ({int(round(value * 100 / self._maxval, 0))}%"
                 f" of {size_fmt(int(self._maxval))} max)"
             )
         self.refresh()
@@ -179,69 +163,19 @@ class SortableText(Text):
         )
 
     def __lt__(self, other: Any) -> bool:
-        if type(other) != SortableText:
+        if type(other) is not SortableText:
             return NotImplemented
         return cast(bool, self.value < other.value)
 
     def __gt__(self, other: Any) -> bool:
-        if type(other) != SortableText:
+        if type(other) is not SortableText:
             return NotImplemented
         return cast(bool, self.value > other.value)
 
     def __eq__(self, other: Any) -> bool:
-        if type(other) != SortableText:
+        if type(other) is not SortableText:
             return NotImplemented
         return cast(bool, self.value == other.value)
-
-
-def aggregate_allocations(
-    allocations: Iterable[AllocationRecord],
-    memory_threshold: float = float("inf"),
-    native_traces: Optional[bool] = False,
-) -> Dict[Location, AllocationEntry]:
-    """Take allocation records and for each frame contained, record "own"
-    allocations which happened on the frame, and sum up allocations on
-    all of the child frames to calculate "total" allocations."""
-
-    processed_allocations: DefaultDict[Location, AllocationEntry] = defaultdict(
-        lambda: AllocationEntry(
-            own_memory=0, total_memory=0, n_allocations=0, thread_ids=set()
-        )
-    )
-
-    current_total = 0
-    for allocation in allocations:
-        if current_total >= memory_threshold:
-            break
-        current_total += allocation.size
-
-        stack_trace = list(
-            allocation.hybrid_stack_trace()
-            if native_traces
-            else allocation.stack_trace()
-        )
-        if not stack_trace:
-            frame = processed_allocations[Location(function="???", file="???")]
-            frame.total_memory += allocation.size
-            frame.own_memory += allocation.size
-            frame.n_allocations += allocation.n_allocations
-            frame.thread_ids.add(allocation.tid)
-            continue
-
-        # Walk upwards and sum totals
-        visited = set()
-        for i, (function, file_name, _) in enumerate(stack_trace):
-            location = Location(function=function, file=file_name)
-            frame = processed_allocations[location]
-            if location in visited:
-                continue
-            visited.add(location)
-            if i == 0:
-                frame.own_memory += allocation.size
-            frame.total_memory += allocation.size
-            frame.n_allocations += allocation.n_allocations
-            frame.thread_ids.add(allocation.tid)
-    return processed_allocations
 
 
 class TimeDisplay(Static):
@@ -286,7 +220,7 @@ class AllocationTable(Widget):
     sort_column_id = reactive(default_sort_column_id)
     snapshot = reactive(_EMPTY_SNAPSHOT)
     current_thread = reactive(0)
-    merge_threads = reactive(False, init=False)
+    merge_threads = reactive(True, init=False)
 
     columns = [
         "Location",
@@ -477,13 +411,17 @@ class Header(Widget):
         self.pid = str(pid) if pid is not None else "???"
         if not cmd_line:
             cmd_line = "???"
-        self.command_line = escape(cmd_line)
+        self.command_line = cmd_line
 
     def compose(self) -> ComposeResult:
         header_metadata = HorizontalScroll(
             Container(
                 Label(f"[b]PID[/]: {self.pid}", id="pid"),
-                Label(f"[b]CMD[/]: {self.command_line}", shrink=False, id="cmd"),
+                Label(
+                    Text.assemble(("CMD", "bold"), f": {self.command_line}"),
+                    shrink=False,
+                    id="cmd",
+                ),
                 Label(id="tid"),
                 Label(id="thread"),
                 Label(id="samples"),
@@ -571,13 +509,15 @@ class TUI(Screen[None]):
     def _populate_header_thread_labels(self, thread_idx: int) -> None:
         if self._merge_threads:
             tid_label = "[b]TID[/]: *"
-            thread_label = "[b]All threads[/]"
+            thread_label = Text("All threads", style="bold")
         else:
             tid_label = f"[b]TID[/]: {hex(self.current_thread)}"
-            thread_label = f"[b]Thread[/] {thread_idx + 1} of {len(self.threads)}"
+            thread_label = Text.assemble(
+                ("Thread", "bold"), f" {thread_idx + 1} of {len(self.threads)}"
+            )
             thread_name = self._name_by_tid.get(self.current_thread)
             if thread_name:
-                thread_label += f" ({thread_name})"
+                thread_label.append(f" ({thread_name})")
 
         self.query_one("#tid", Label).update(tid_label)
         self.query_one("#thread", Label).update(thread_label)
@@ -641,7 +581,7 @@ class TUI(Screen[None]):
             TimeDisplay(id="head_time_display"),
             id="head",
         )
-        yield Header(pid=self.pid, cmd_line=escape(self.cmd_line or ""))
+        yield Header(pid=self.pid, cmd_line=self.cmd_line)
         yield AllocationTable()
         yield Footer()
 
@@ -720,6 +660,9 @@ class UpdateThread(threading.Thread):
                 return
             self._update_requested.clear()
 
+            # Read once, before fetching: the reader stops only after processing
+            # every record, so a snapshot fetched once it's inactive is final.
+            reader_active = self._reader.is_active
             records = list(self._reader.get_current_snapshot(merge_threads=False))
             heap_size = sum(record.size for record in records)
             records_by_location = aggregate_allocations(
@@ -731,14 +674,9 @@ class UpdateThread(threading.Thread):
                 records_by_location=records_by_location,
             )
 
-            self._app.post_message(
-                SnapshotFetched(
-                    snapshot,
-                    not self._reader.is_active,
-                )
-            )
+            self._app.post_message(SnapshotFetched(snapshot, not reader_active))
 
-            if not self._reader.is_active:
+            if not reader_active:
                 return
 
     def cancel(self) -> None:

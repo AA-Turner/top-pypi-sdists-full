@@ -10,7 +10,7 @@ from .doc_ai_page_range import DocAiPageRange
 class DocAiSplitConstraints(UniversalBaseModel):
     must_keep_together: typing.Optional[typing.List[DocAiPageRange]] = pydantic.Field(default=None)
     """
-    Page runs that stay in one document.
+    Page runs that stay in one document. Not enabled for every account: a request that uses it returns `422 UNSUPPORTED_CAPABILITY` when it is off.
     """
 
     must_split_before: typing.Optional[typing.List[int]] = pydantic.Field(default=None)

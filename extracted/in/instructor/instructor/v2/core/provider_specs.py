@@ -8,6 +8,7 @@ from types import MappingProxyType
 
 from instructor.v2.core.mode import Mode
 from instructor.v2.core.providers import Provider
+from instructor.v2.core.openai_endpoints import OPENAI_ENDPOINTS
 
 
 @dataclass(frozen=True)
@@ -83,14 +84,27 @@ def _openai_compat_spec(
     *,
     alias: str,
     from_function: str,
+    supported_modes: tuple[Mode, ...] = _OPENAI_COMPAT_SUPPORTED_MODES,
+    legacy_modes: dict[Mode, Mode] | None = None,
 ) -> ProviderSpec:
     return _spec(
         provider,
         aliases=(alias,),
         handler_module="instructor.v2.providers.openai.handlers",
-        supported_modes=_OPENAI_COMPAT_SUPPORTED_MODES,
-        unsupported_modes=_OPENAI_COMPAT_UNSUPPORTED_MODES,
-        legacy_modes=_OPENAI_COMPAT_LEGACY_MODES,
+        supported_modes=supported_modes,
+        unsupported_modes=tuple(
+            m
+            for m in (
+                *_OPENAI_COMPAT_SUPPORTED_MODES,
+                *_OPENAI_COMPAT_UNSUPPORTED_MODES,
+            )
+            if m not in supported_modes
+        ),
+        legacy_modes={
+            k: v
+            for k, v in {**_OPENAI_COMPAT_LEGACY_MODES, **(legacy_modes or {})}.items()
+            if v in supported_modes
+        },
         from_function=from_function,
         client_module="instructor.v2.providers.openai.client",
         sdk_module="openai",
@@ -99,6 +113,25 @@ def _openai_compat_spec(
 
 PROVIDER_SPECS: Mapping[Provider, ProviderSpec] = MappingProxyType(
     {
+        **{
+            provider: _openai_compat_spec(
+                provider,
+                alias=provider.value,
+                from_function=f"from_{provider.value}",
+                supported_modes=endpoint.modes,
+                legacy_modes={
+                    Provider.SARVAM: {
+                        Mode.SARVAM_TOOLS: Mode.TOOLS,
+                        Mode.SARVAM_JSON: Mode.MD_JSON,
+                    },
+                    Provider.MINIMAX: {
+                        Mode.MINIMAX_TOOLS: Mode.TOOLS,
+                        Mode.MINIMAX_JSON: Mode.MD_JSON,
+                    },
+                }.get(provider),
+            )
+            for provider, endpoint in OPENAI_ENDPOINTS.items()
+        },
         Provider.OPENAI: _spec(
             Provider.OPENAI,
             aliases=("openai",),
@@ -121,7 +154,7 @@ PROVIDER_SPECS: Mapping[Provider, ProviderSpec] = MappingProxyType(
             from_function="from_openai",
             client_module="instructor.v2.providers.openai.client",
             sdk_module="openai",
-            provider_string="openai/gpt-4o-mini",
+            provider_string="openai/gpt-6-luna",
             basic_modes=(Mode.TOOLS, Mode.JSON_SCHEMA, Mode.MD_JSON),
             async_modes=(Mode.TOOLS, Mode.JSON_SCHEMA, Mode.MD_JSON),
         ),
@@ -186,7 +219,7 @@ PROVIDER_SPECS: Mapping[Provider, ProviderSpec] = MappingProxyType(
             from_function="from_anthropic",
             client_module="instructor.v2.providers.anthropic.client",
             sdk_module="anthropic",
-            provider_string="anthropic/claude-sonnet-4-6",
+            provider_string="anthropic/claude-haiku-5-5",
             basic_modes=(Mode.TOOLS, Mode.JSON_SCHEMA),
             async_modes=(Mode.TOOLS, Mode.JSON_SCHEMA),
         ),
@@ -436,15 +469,23 @@ PROVIDER_SPECS: Mapping[Provider, ProviderSpec] = MappingProxyType(
         ),
         Provider.AZURE_OPENAI: _spec(
             Provider.AZURE_OPENAI,
-            aliases=("azure_openai",),
+            aliases=("azure", "azure_openai"),
             canonical_provider=Provider.OPENAI,
-            handler_module=None,
-            supported_modes=(),
+            handler_module="instructor.v2.providers.openai.handlers",
+            supported_modes=(*_OPENAI_COMPAT_SUPPORTED_MODES, Mode.RESPONSES_TOOLS),
             unsupported_modes=(),
-            legacy_modes={},
-            from_function=None,
-            client_module=None,
+            legacy_modes={
+                **_OPENAI_COMPAT_LEGACY_MODES,
+                Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS: Mode.RESPONSES_TOOLS,
+                Mode.AZURE_TOOLS: Mode.TOOLS,
+                Mode.AZURE_JSON: Mode.JSON,
+            },
+            from_function="from_azure",
+            client_module="instructor.v2.providers.azure.client",
             sdk_module="openai",
+            provider_string="azure_openai/gpt-4o-mini",
+            basic_modes=(Mode.TOOLS, Mode.JSON_SCHEMA, Mode.MD_JSON),
+            async_modes=(Mode.TOOLS, Mode.JSON_SCHEMA, Mode.MD_JSON),
         ),
         Provider.OLLAMA: _spec(
             Provider.OLLAMA,

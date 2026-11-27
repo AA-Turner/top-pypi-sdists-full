@@ -10,9 +10,7 @@ class GetAttackEventDetailRequest(DaraModel):
         id: str = None,
         lang: str = None,
     ):
-        # The unique ID of the alert event.
-        # 
-        # Note: This parameter is required. If this parameter is not specified, the API returns a 400 error.
+        # The unique identifier of the alert event. Note: This parameter is required. If it is not provided, the API returns a 400 error.
         self.id = id
         # The language of the request and response. Valid values:
         # - **zh**: Chinese.

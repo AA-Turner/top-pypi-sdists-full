@@ -21,17 +21,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Base implementation and active-session context manager for Fluent sessions.
+"""Base implementation for Fluent sessions.
 
 :class:`~ansys.fluent.core.execution.session.session.BaseSession` is an internal base class; use the concrete session classes
-exposed by :mod:`ansys.fluent.core.execution.session`. The module-level
-:func:`using` context manager makes a session active for top-level settings
-objects and is re-exported as ``ansys.fluent.core.using`` for compatibility.
+exposed by :mod:`ansys.fluent.core.execution.session`.
 """
 
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
-from contextvars import ContextVar
+from collections.abc import Callable
 from enum import Enum
 from functools import cached_property
 import json
@@ -46,6 +42,7 @@ from deprecated.sphinx import deprecated
 from typing_extensions import Unpack
 
 from ansys.fluent.core._types import PathType
+from ansys.fluent.core.execution import using
 from ansys.fluent.core.execution.launcher.launch_options import FluentMode
 from ansys.fluent.core.fields.field_data.abstract_field_data import (
     AbstractFieldData,
@@ -57,36 +54,6 @@ from ansys.fluent.core.fields.field_data.live_field_data import (
     _FieldInfo,
 )
 
-_active_session: ContextVar["BaseSession | None"] = ContextVar(
-    "active_session", default=None
-)
-
-
-def _get_active_session():
-    return _active_session.get()
-
-
-@contextmanager
-def using(session: "BaseSession") -> Iterator[None]:
-    """Make a Fluent session active within a ``with`` block.
-
-    Top-level settings objects use this session when no ``settings_source`` is
-    provided. The previous active session is restored when the block exits,
-    including when an exception is raised.
-
-    Examples
-    --------
-    >>> from ansys.fluent.core import using
-    >>> with using(solver_session):
-    ...     Viscous().model.set_state("laminar")
-    """
-    token = _active_session.set(session)
-    try:
-        yield
-    finally:
-        _active_session.reset(token)
-
-
 if TYPE_CHECKING:
     from ansys.fluent.core.execution.launcher.standalone_launcher import (
         StandaloneArgsWithoutDryRunMode,
@@ -95,6 +62,7 @@ if TYPE_CHECKING:
         ContainerArgsWithoutDryRunMode,
     )
     from ansys.fluent.core.execution.launcher.pim_launcher import PIMArgsWithoutMode
+    from ansys.fluent.core.resilient import ResilientConfig
 
 from ansys.fluent.core.connectivity.file_transfer_service import FileTransferStrategy
 from ansys.fluent.core.connectivity.fluent_connection import FluentConnection
@@ -683,6 +651,13 @@ class BaseSession:
             GUI-less Fluent sessions started by PyFluent are properly closed when the current Python process ends.
         file_transfer_service : Any
             Service for uploading/downloading files to/from the server.
+        resilient_mode : bool, optional
+            Whether to enable resilient mode on the launched solver session. The
+            default is ``False``. See :ref:`ref_resilient_guide`.
+        resilient_config : ResilientConfig, optional
+            Resilient-mode configuration. Only used when ``resilient_mode`` is
+            ``True``. The default is ``None``, in which case the default
+            configuration is used.
 
         Raises
         ------
@@ -702,10 +677,14 @@ class BaseSession:
             StandaloneLauncher,
         )
 
+        resilient_mode = kwargs.pop("resilient_mode", False)
+        resilient_config = kwargs.pop("resilient_config", None)
         launcher = StandaloneLauncher(
             **kwargs, dry_run=dry_run, mode=FluentMode.from_session_class(cls)
         )
-        return launcher()
+        return _apply_resilient_mode(
+            launcher(), resilient_mode and not dry_run, resilient_config, launched=True
+        )
 
     @overload
     @classmethod
@@ -793,6 +772,13 @@ class BaseSession:
             If True, Fluent's gRPC server will be started in insecure mode without TLS.
             This mode is not recommended. For more details on the implications
             and usage of insecure mode, refer to the Fluent documentation.
+        resilient_mode : bool, optional
+            Whether to enable resilient mode on the launched solver session. The
+            default is ``False``. See :ref:`ref_resilient_guide`.
+        resilient_config : ResilientConfig, optional
+            Resilient-mode configuration. Only used when ``resilient_mode`` is
+            ``True``. The default is ``None``, in which case the default
+            configuration is used.
 
         Returns
         -------
@@ -817,10 +803,14 @@ class BaseSession:
             DockerLauncher,
         )
 
+        resilient_mode = kwargs.pop("resilient_mode", False)
+        resilient_config = kwargs.pop("resilient_config", None)
         launcher = DockerLauncher(
             **kwargs, dry_run=dry_run, mode=FluentMode.from_session_class(cls)
         )
-        return launcher()
+        return _apply_resilient_mode(
+            launcher(), resilient_mode and not dry_run, resilient_config, launched=True
+        )
 
     @classmethod
     def from_pim(  # pylint: disable=missing-param-doc
@@ -873,6 +863,13 @@ class BaseSession:
             GUI-less Fluent sessions started by PyFluent are properly closed when the current Python process ends.
         file_transfer_service : Any, optional
             Service for uploading/downloading files to/from the server.
+        resilient_mode : bool, optional
+            Whether to enable resilient mode on the launched solver session. The
+            default is ``False``. See :ref:`ref_resilient_guide`.
+        resilient_config : ResilientConfig, optional
+            Resilient-mode configuration. Only used when ``resilient_mode`` is
+            ``True``. The default is ``None``, in which case the default
+            configuration is used.
 
         Returns
         -------
@@ -891,8 +888,13 @@ class BaseSession:
         """
         from ansys.fluent.core.execution.launcher.pim_launcher import PIMLauncher
 
+        resilient_mode = kwargs.pop("resilient_mode", False)
+        resilient_config = kwargs.pop("resilient_config", None)
+        dry_run = kwargs.get("dry_run", False)
         launcher = PIMLauncher(**kwargs, mode=FluentMode.from_session_class(cls))
-        return launcher()
+        return _apply_resilient_mode(
+            launcher(), resilient_mode and not dry_run, resilient_config, launched=True
+        )
 
     @classmethod
     def from_connection(
@@ -960,6 +962,21 @@ class BaseSession:
             )
 
         return session
+
+
+def _apply_resilient_mode(
+    session: Any,
+    resilient_mode: bool,
+    resilient_config: "ResilientConfig | None",
+    *,
+    launched: bool,
+) -> Any:
+    """Enable resilient mode on a new session when ``resilient_mode`` is set."""
+    if not resilient_mode:
+        return session
+    from ansys.fluent.core.resilient import _enable_on_new_session
+
+    return _enable_on_new_session(session, resilient_config, launched=launched)
 
 
 class Fields:

@@ -11,6 +11,7 @@ class UpdateFileProtectClientRuleStatusRequest(DaraModel):
         self,
         alert_level: int = None,
         exclude_id_list: List[int] = None,
+        file_name: str = None,
         id_list: List[int] = None,
         platform: str = None,
         rule_action: str = None,
@@ -26,18 +27,20 @@ class UpdateFileProtectClientRuleStatusRequest(DaraModel):
         # 
         # - 2: Suspicious.
         # 
-        # - 3: High-risk.
+        # - 3: High risk.
         self.alert_level = alert_level
         # The list of excluded rule IDs.
         self.exclude_id_list = exclude_id_list
+        # The name of the file.
+        self.file_name = file_name
         # The list of rule IDs.
         self.id_list = id_list
-        # The operating system type. Valid values:
+        # The type of the operating system. Valid values:
         # 
         # - **windows**: Windows.
         # - **linux**: Linux.
         self.platform = platform
-        # The rule action. Valid values:
+        # The action of the rule. Valid values:
         # 
         # - **block**: Block.
         # 
@@ -45,9 +48,9 @@ class UpdateFileProtectClientRuleStatusRequest(DaraModel):
         # 
         # - **pass**: Allow.
         self.rule_action = rule_action
-        # The rule name.
+        # The name of the rule.
         self.rule_name = rule_name
-        # Specifies whether to select all rules.
+        # Specifies whether to select all.
         # 
         # This parameter is required.
         self.select_all = select_all
@@ -71,6 +74,9 @@ class UpdateFileProtectClientRuleStatusRequest(DaraModel):
 
         if self.exclude_id_list is not None:
             result['ExcludeIdList'] = self.exclude_id_list
+
+        if self.file_name is not None:
+            result['FileName'] = self.file_name
 
         if self.id_list is not None:
             result['IdList'] = self.id_list
@@ -99,6 +105,9 @@ class UpdateFileProtectClientRuleStatusRequest(DaraModel):
 
         if m.get('ExcludeIdList') is not None:
             self.exclude_id_list = m.get('ExcludeIdList')
+
+        if m.get('FileName') is not None:
+            self.file_name = m.get('FileName')
 
         if m.get('IdList') is not None:
             self.id_list = m.get('IdList')

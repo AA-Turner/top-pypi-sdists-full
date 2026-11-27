@@ -137,7 +137,7 @@ class ListUnknownThreatDetectMachineResponseBodyData(DaraModel):
         study_start_time: int = None,
         uuid: str = None,
     ):
-        # The duration for which the policy has been in effect, in days.
+        # The number of days the policy has been in effect.
         self.effect_days = effect_days
         # The name of the instance.
         self.instance_name = instance_name
@@ -163,8 +163,8 @@ class ListUnknownThreatDetectMachineResponseBodyData(DaraModel):
         self.status = status
         # The whitelist mode. Valid values:
         # 
-        # - **hash**: the hash of the process
-        # - **path**: the path of the process
+        # - **hash**: process hash
+        # - **path**: process path
         self.study_mode = study_mode
         # The remaining learning time, in days.
         self.study_remain_days = study_remain_days

@@ -11,13 +11,13 @@ class DescribeAssetDetailByUuidRequest(DaraModel):
         source_ip: str = None,
         uuid: str = None,
     ):
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
         # The IP address of the access source.
         self.source_ip = source_ip
-        # The UUID of the asset that you want to query.
+        # The UUID of the asset to query.
         # > Call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain this parameter.
         # 
         # This parameter is required.

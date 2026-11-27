@@ -14,13 +14,13 @@ class UpdateCheckScopeConfigResponseBody(DaraModel):
         request_id: str = None,
         success: bool = None,
     ):
-        # The result code. A value of **200** indicates success. Any other value indicates failure. You can use this field to determine the cause of the failure.
+        # The result code. A value of **200** indicates success. Other values indicate failure. You can use this field to determine the cause of the failure.
         self.code = code
         # The returned data.
         self.data = data
-        # The returned message of the request result.
+        # The message returned for the request.
         self.message = message
-        # The request ID.
+        # The unique ID of the request.
         self.request_id = request_id
         # Indicates whether the request was successful. Valid values:
         # - **true**: The request was successful.
@@ -83,21 +83,21 @@ class UpdateCheckScopeConfigResponseBodyData(DaraModel):
         gmt_modified: str = None,
         type: int = None,
     ):
-        # The JSON string of the automatic scan configuration. The following fields are included:
+        # The JSON string for the automatic scan configuration. Fields:
         # 
-        # - **autoInclude**: specifies whether to enable automatic scanning. Valid values: **true**: enabled. **false**: disabled.
-        # - **autoRule**: the configuration for enabling automatic scanning.
-        # - **ruleOperator**: the rule operator for the configuration. Set the value to **include**.
-        # - **operator**: the logical operator. Set the value to **or**.
+        # - **autoInclude**: specifies whether to enable automatic scanning. Valid values: **true** (enabled) and **false** (disabled).
+        # - **autoRule**: the enablement configuration.
+        # - **ruleOperator**: the enablement configuration rule. Valid value: **include**.
+        # - **operator**: the logical operator. Valid value: **or**.
         # - **rule**: the rule.
-        # - **condition**: the rule condition. Valid values: **vendor**: vendor, **assetType**: primary asset type, **assetSubType**: secondary asset type.
-        # > For specific meanings, refer to the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
+        # - **condition**: the rule condition. Valid values: **vendor** (vendor), **assetType** (primary asset type), and **assetSubType** (secondary asset type).
+        # > For more information about the specific meanings, refer to the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
         self.auto_config = auto_config
         # The type of the automatic scan configuration. Valid values:
-        # - **0**: Automatic scan is disabled.
-        # - **1**: Automatically scan newly added cloud assets.
+        # - **0**: disable automatic scanning
+        # - **1**: automatically scan new cloud assets
         self.auto_type = auto_type
-        # The ID of the configuration.
+        # The configuration ID.
         self.config_id = config_id
         # The creation time.
         self.gmt_create = gmt_create

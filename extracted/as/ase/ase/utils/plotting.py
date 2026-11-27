@@ -35,5 +35,3 @@ class SimplePlottingAxes:
                 self.figure.show()
             if self.filename is not None:
                 self.figure.savefig(self.filename)
-
-        return

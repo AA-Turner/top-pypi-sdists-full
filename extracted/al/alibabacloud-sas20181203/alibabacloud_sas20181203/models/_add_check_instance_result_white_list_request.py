@@ -14,6 +14,9 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
         check_id: int = None,
         client_token: str = None,
         dry_run: bool = None,
+        effect_end_time: int = None,
+        effect_start_time: int = None,
+        effect_type: str = None,
         instance_ids: List[str] = None,
         instance_list: List[main_models.AddCheckInstanceResultWhiteListRequestInstanceList] = None,
         remark: str = None,
@@ -24,15 +27,24 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
         # The ID of the check item.
         # > Call the [ListCheckResult](~~ListCheckResult~~) operation to obtain this parameter.
         self.check_id = check_id
-        # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You can use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies whether to perform only a dry run. A value of true indicates that only a dry run is performed and the actual operation is not performed. A value of false indicates that the actual operation is performed. Default value: false.
+        # Specifies whether to only precheck the request. A value of true indicates that only the request is checked and no actual operations are performed. A value of false indicates that the request is normally executed. Default value: false.
         self.dry_run = dry_run
+        # The end time when the whitelist rule expires. The value is a UNIX timestamp in milliseconds. This parameter is required when EffectType is set to CUSTOM. The whitelist rule automatically expires after this time.
+        self.effect_end_time = effect_end_time
+        # The start time when the whitelist rule takes effect. The value is a UNIX timestamp in milliseconds. This parameter is required when EffectType is set to CUSTOM, and the value must be less than or equal to the value of EffectEndTime.
+        self.effect_start_time = effect_start_time
+        # The pattern of the whitelist rule. Valid values:
+        # - PERMANENT: Permanently effective. This is the default value.
+        # - CUSTOM: Custom effective period.
+        # If you set this parameter to CUSTOM, you must specify both EffectStartTime and EffectEndTime.
+        self.effect_type = effect_type
         # The instance IDs of the assets.
         self.instance_ids = instance_ids
         # The information about the asset instances.
         self.instance_list = instance_list
-        # The remarks. The value can be up to 65,535 bytes in length.
+        # The remarks. The maximum size is 65,535 bytes.
         self.remark = remark
         # The type of the rule. Default value: **WHITE**. Valid values:
         # - WHITE: Adds the instances to the whitelist.
@@ -60,6 +72,15 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
 
         if self.dry_run is not None:
             result['DryRun'] = self.dry_run
+
+        if self.effect_end_time is not None:
+            result['EffectEndTime'] = self.effect_end_time
+
+        if self.effect_start_time is not None:
+            result['EffectStartTime'] = self.effect_start_time
+
+        if self.effect_type is not None:
+            result['EffectType'] = self.effect_type
 
         if self.instance_ids is not None:
             result['InstanceIds'] = self.instance_ids
@@ -90,6 +111,15 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
 
         if m.get('DryRun') is not None:
             self.dry_run = m.get('DryRun')
+
+        if m.get('EffectEndTime') is not None:
+            self.effect_end_time = m.get('EffectEndTime')
+
+        if m.get('EffectStartTime') is not None:
+            self.effect_start_time = m.get('EffectStartTime')
+
+        if m.get('EffectType') is not None:
+            self.effect_type = m.get('EffectType')
 
         if m.get('InstanceIds') is not None:
             self.instance_ids = m.get('InstanceIds')

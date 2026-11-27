@@ -61,8 +61,7 @@ class Client(OpenApiClient):
             'cn-zhangjiakou-na62-a01': 'vpc.cn-zhangjiakou.aliyuncs.com',
             'cn-zhengzhou-nebula-1': 'vpc-nebula.cn-qingdao-nebula.aliyuncs.com',
             'eu-west-1-oxs': 'vpc-nebula.cn-shenzhen-cloudstone.aliyuncs.com',
-            'rus-west-1-pop': 'vpc.aliyuncs.com',
-            'cn-nanjing': 'vpc-smarthosting.cn-hangzhou-cloudstone.aliyuncs.com'
+            'rus-west-1-pop': 'vpc.aliyuncs.com'
         }
         self.check_config(config)
         self._endpoint = self.get_endpoint('vpc', self._region_id, self._endpoint_rule, self._network, self._suffix, self._endpoint_map, self._endpoint)
@@ -7291,6 +7290,8 @@ class Client(OpenApiClient):
         Utils.convert(tmp_req, request)
         if not DaraCore.is_null(tmp_req.access_mode):
             request.access_mode_shrink = Utils.array_to_string_with_specified_style(tmp_req.access_mode, 'AccessMode', 'json')
+        if not DaraCore.is_null(tmp_req.ipv_6config):
+            request.ipv_6config_shrink = Utils.array_to_string_with_specified_style(tmp_req.ipv_6config, 'Ipv6Config', 'json')
         query = {}
         if not DaraCore.is_null(request.access_mode_shrink):
             query['AccessMode'] = request.access_mode_shrink
@@ -7314,6 +7315,8 @@ class Client(OpenApiClient):
             query['InternetChargeType'] = request.internet_charge_type
         if not DaraCore.is_null(request.ipv_4prefix):
             query['Ipv4Prefix'] = request.ipv_4prefix
+        if not DaraCore.is_null(request.ipv_6config_shrink):
+            query['Ipv6Config'] = request.ipv_6config_shrink
         if not DaraCore.is_null(request.name):
             query['Name'] = request.name
         if not DaraCore.is_null(request.nat_ip):
@@ -7375,6 +7378,8 @@ class Client(OpenApiClient):
         Utils.convert(tmp_req, request)
         if not DaraCore.is_null(tmp_req.access_mode):
             request.access_mode_shrink = Utils.array_to_string_with_specified_style(tmp_req.access_mode, 'AccessMode', 'json')
+        if not DaraCore.is_null(tmp_req.ipv_6config):
+            request.ipv_6config_shrink = Utils.array_to_string_with_specified_style(tmp_req.ipv_6config, 'Ipv6Config', 'json')
         query = {}
         if not DaraCore.is_null(request.access_mode_shrink):
             query['AccessMode'] = request.access_mode_shrink
@@ -7398,6 +7403,8 @@ class Client(OpenApiClient):
             query['InternetChargeType'] = request.internet_charge_type
         if not DaraCore.is_null(request.ipv_4prefix):
             query['Ipv4Prefix'] = request.ipv_4prefix
+        if not DaraCore.is_null(request.ipv_6config_shrink):
+            query['Ipv6Config'] = request.ipv_6config_shrink
         if not DaraCore.is_null(request.name):
             query['Name'] = request.name
         if not DaraCore.is_null(request.nat_ip):
@@ -8666,6 +8673,10 @@ class Client(OpenApiClient):
             query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.config_mode):
             query['ConfigMode'] = request.config_mode
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.ip_version):
+            query['IpVersion'] = request.ip_version
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.resource_group_id):
@@ -8710,6 +8721,10 @@ class Client(OpenApiClient):
             query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.config_mode):
             query['ConfigMode'] = request.config_mode
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.ip_version):
+            query['IpVersion'] = request.ip_version
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.resource_group_id):
@@ -8956,6 +8971,8 @@ class Client(OpenApiClient):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.eip_affinity):
             query['EipAffinity'] = request.eip_affinity
+        if not DaraCore.is_null(request.match_type):
+            query['MatchType'] = request.match_type
         if not DaraCore.is_null(request.network_interface_id):
             query['NetworkInterfaceId'] = request.network_interface_id
         if not DaraCore.is_null(request.owner_account):
@@ -9010,6 +9027,8 @@ class Client(OpenApiClient):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.eip_affinity):
             query['EipAffinity'] = request.eip_affinity
+        if not DaraCore.is_null(request.match_type):
+            query['MatchType'] = request.match_type
         if not DaraCore.is_null(request.network_interface_id):
             query['NetworkInterfaceId'] = request.network_interface_id
         if not DaraCore.is_null(request.owner_account):
@@ -15338,6 +15357,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.force_delete):
             query['ForceDelete'] = request.force_delete
         if not DaraCore.is_null(request.region_id):
@@ -15374,6 +15395,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.force_delete):
             query['ForceDelete'] = request.force_delete
         if not DaraCore.is_null(request.region_id):
@@ -30202,6 +30225,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.ip_version):
+            query['IpVersion'] = request.ip_version
         if not DaraCore.is_null(request.max_results):
             query['MaxResults'] = request.max_results
         if not DaraCore.is_null(request.member_id):
@@ -30246,6 +30271,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.ip_version):
+            query['IpVersion'] = request.ip_version
         if not DaraCore.is_null(request.max_results):
             query['MaxResults'] = request.max_results
         if not DaraCore.is_null(request.member_id):
@@ -34357,6 +34384,8 @@ class Client(OpenApiClient):
         tmp_req.validate()
         request = main_models.ModifyNatGatewayAttributeShrinkRequest()
         Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.ipv_6config):
+            request.ipv_6config_shrink = Utils.array_to_string_with_specified_style(tmp_req.ipv_6config, 'Ipv6Config', 'json')
         if not DaraCore.is_null(tmp_req.log_delivery):
             request.log_delivery_shrink = Utils.array_to_string_with_specified_style(tmp_req.log_delivery, 'LogDelivery', 'json')
         query = {}
@@ -34368,6 +34397,8 @@ class Client(OpenApiClient):
             query['EnableSessionLog'] = request.enable_session_log
         if not DaraCore.is_null(request.icmp_reply_enabled):
             query['IcmpReplyEnabled'] = request.icmp_reply_enabled
+        if not DaraCore.is_null(request.ipv_6config_shrink):
+            query['Ipv6Config'] = request.ipv_6config_shrink
         if not DaraCore.is_null(request.log_delivery_shrink):
             query['LogDelivery'] = request.log_delivery_shrink
         if not DaraCore.is_null(request.name):
@@ -34411,6 +34442,8 @@ class Client(OpenApiClient):
         tmp_req.validate()
         request = main_models.ModifyNatGatewayAttributeShrinkRequest()
         Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.ipv_6config):
+            request.ipv_6config_shrink = Utils.array_to_string_with_specified_style(tmp_req.ipv_6config, 'Ipv6Config', 'json')
         if not DaraCore.is_null(tmp_req.log_delivery):
             request.log_delivery_shrink = Utils.array_to_string_with_specified_style(tmp_req.log_delivery, 'LogDelivery', 'json')
         query = {}
@@ -34422,6 +34455,8 @@ class Client(OpenApiClient):
             query['EnableSessionLog'] = request.enable_session_log
         if not DaraCore.is_null(request.icmp_reply_enabled):
             query['IcmpReplyEnabled'] = request.icmp_reply_enabled
+        if not DaraCore.is_null(request.ipv_6config_shrink):
+            query['Ipv6Config'] = request.ipv_6config_shrink
         if not DaraCore.is_null(request.log_delivery_shrink):
             query['LogDelivery'] = request.log_delivery_shrink
         if not DaraCore.is_null(request.name):
@@ -36260,6 +36295,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.description):
             query['Description'] = request.description
+        if not DaraCore.is_null(request.enable_dns_64):
+            query['EnableDns64'] = request.enable_dns_64
         if not DaraCore.is_null(request.enable_ipv_6):
             query['EnableIPv6'] = request.enable_ipv_6
         if not DaraCore.is_null(request.ipv_6cidr_block):
@@ -36310,6 +36347,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.description):
             query['Description'] = request.description
+        if not DaraCore.is_null(request.enable_dns_64):
+            query['EnableDns64'] = request.enable_dns_64
         if not DaraCore.is_null(request.enable_ipv_6):
             query['EnableIPv6'] = request.enable_ipv_6
         if not DaraCore.is_null(request.ipv_6cidr_block):
@@ -40450,6 +40489,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.route_target_group_id):
@@ -40484,6 +40525,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.route_target_group_id):
@@ -42954,6 +42997,10 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.ip_version):
+            query['IpVersion'] = request.ip_version
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.route_target_group_description):
@@ -42992,6 +43039,10 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.ip_version):
+            query['IpVersion'] = request.ip_version
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.route_target_group_description):

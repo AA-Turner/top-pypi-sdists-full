@@ -958,7 +958,8 @@ paths:
         be asked it is empty and `installationsUnavailable` is true.
         Repository counts come from the last refresh of the board, and
         `refreshed` says whether one has finished since this process started,
-        so zero before that means "not known yet", not "none".
+        so zero before that means "not known yet", not "none". It is also
+        false while a forge's first read is still running.
       tags: [settings]
       security: [{ bearerAuth: [] }]
       responses:
@@ -2575,11 +2576,15 @@ paths:
         /api/v1/dashboard's snapshot: comments and reactions for every row would
         spend the forge's budget on rows nobody opens.
 
+        Review comments on lines of code are not listed, only counted
+        (`reviewCommentCount`).
+
         GitHub answers with one GraphQL query. Forgejo costs one call for the
         pull request, one for its comments, one for the description's
-        reactions and one for each comment's reactions (up to 50), so the
-        reaction calls run at most eight at a time and stop at the first rate
-        limit.
+        reactions, one for each comment's reactions (up to 50) and one for
+        each page of the pull request's reviews, whose line comment counts
+        are added up. The reaction calls run at most eight at a time and stop
+        at the first rate limit.
 
         Every text is Markdown exactly as the forge stores it (`format` is
         always `markdown`). The server neither converts nor sanitises it, so
@@ -3414,8 +3419,9 @@ paths:
         Replaces the set of pull requests and default branches whose job
         lists the stream named by `streamId` sends as `run` events.
         The server lists a subject when it is newly watched, when its row
-        in a new snapshot changed (CI state, check counts, or a branch's
-        run), and when `refresh` is true. Nothing else costs a forge
+        in a new snapshot changed (CI state, check counts, a branch's run,
+        or a Forgejo pull request's head commit getting a newer status),
+        and when `refresh` is true. Nothing else costs a forge
         request. A failed listing is sent as an event with `error` set,
         and every snapshot after it tries again, changed or not, until a
         listing works.
@@ -4159,7 +4165,8 @@ paths:
 
         `kind` says why the request was made: `full` (a whole-account
         refresh), `scoped_webhook` (one repository, after a webhook),
-        `ci_poll` (one repository, waiting on a running check),
+        `ci_poll` (one repository, waiting on a running check or looking
+        for a rerun of a failed one),
         `auto_merge_poll` (one repository, waiting on an armed auto-merge),
         `details` (a dialog or check list opened), `hook_maintenance`
         (checking, adding or upgrading webhooks), `advisories` (reading a
@@ -5128,7 +5135,10 @@ components:
           $ref: "#/components/schemas/SetupForgejo"
         refreshed:
           type: boolean
-          description: Whether the board has finished a refresh since the process started.
+          description: |
+            Whether the board has finished a refresh since the process started.
+            False while a forge's first read is still running, since its
+            repositories can't be counted yet.
     ThemeResponse:
       type: object
       description: See GET /api/v1/settings/theme's own description.
@@ -6091,7 +6101,15 @@ components:
     PullRequestDetails:
       type: object
       required:
-        [description, comments, commentCount, commentsTruncated, releaseNotes]
+        [
+          description,
+          comments,
+          commentCount,
+          commentsTruncated,
+          reviewCommentCount,
+          reviewCommentsTruncated,
+          releaseNotes,
+        ]
       description: What the pull request dialog shows.
       properties:
         description:
@@ -6109,6 +6127,25 @@ components:
         commentsTruncated:
           type: boolean
           description: True when `commentCount` is more than the comments returned.
+        reviewCommentCount:
+          type: integer
+          minimum: 0
+          description: |
+            How many review comments the pull request has, the ones on a line
+            of code, replies included. Only the number: the comments
+            themselves are not in `comments`, and `commentCount` leaves them
+            out too. A client says how many there are and links to the forge.
+            It counts what the row's `reviewComments` counts, but the two can
+            differ. On GitHub the row reads the first 30 review threads and
+            this reads the first 100, so the row can report fewer with nothing
+            new written. A Forgejo draft's row reports 0. This is also read
+            live, so it can be newer than the row.
+        reviewCommentsTruncated:
+          type: boolean
+          description: |
+            True when the forge has more review threads than were counted, so
+            `reviewCommentCount` is a lower bound. GitHub only, past the first
+            100 threads; always false on Forgejo, where every review is read.
         releaseNotes:
           oneOf:
             - type: "null"
@@ -6490,26 +6527,62 @@ components:
           type: boolean
           description: |
             True while the rows shown for this forge are the ones the last run
-            saved and no refresh has asked the forge since the app started.
-            The forge is then neither reachable nor in error (errorKind is
-            absent); it has not been checked yet. The first refresh that
-            reaches it replaces this entry. A client says "starting up,
-            showing data from 3 minutes ago", and never "unreachable".
+            saved and no fetch from the forge has answered in time since the
+            app started. `reachable` is then false and errorKind is absent: it
+            is not in error, it has not been heard from. A first fetch that
+            passes the scheduled deadline of three minutes, and a pass skipped
+            behind it, leave this entry as it is, and the late answer is
+            dropped. A refresh a person asked for stops waiting after one
+            minute, but the fetch runs on and this entry stays until it
+            answers. The first fetch that answers within the scheduled deadline
+            replaces it. When three passes in a row have
+            gone unanswered, counting deadline and skipped passes together,
+            the flag and the "starting" cause go, and errorKind is
+            "unreachable", with the saved rows and staleSince kept. While it is
+            true a client says "starting up, showing data from 3 minutes ago",
+            and never "unreachable".
         cause:
           type: string
           enum: [starting, slow]
           description: |
             Why the rows shown for this forge are not from the latest read,
             while the forge is not down. "starting" is the same fact as
-            the `starting` flag: the rows are the ones the last run saved and no
-            refresh has asked the forge since the app started. "slow" means
-            the latest pass gave no answer in time (it hit its deadline, or
-            was skipped because the last fetch was still running) and the
-            last good rows are held, with the forge still reachable, until
-            three passes in a row have missed. A good read clears it. Absent
-            when the rows are current, and when the forge is shown as down
-            (see errorKind). A client words it, "slow to answer" or
-            "starting up", and does not call the rows live.
+            the `starting` flag, and goes when that flag does: the rows are the
+            ones the last run saved and no fetch from the forge has answered in
+            time since the app started.
+            "slow" means the forge has not answered yet and is not counted as
+            down. Either a refresh a person asked for stopped waiting after one
+            minute and the fetch is still running, which counts as no miss, or
+            a fetch hit the scheduled deadline of three minutes and the forge
+            is held until three passes in a row have missed. The last good rows
+            are held and the forge is still reachable. A forge never read
+            before can be "slow" with no rows while its first fetch runs on.
+            It then has no `rowsReadAt`, and a client must not read the
+            missing rows as closed or gone, or offer actions for it.
+            A fetch that runs on is applied as soon as it answers. Otherwise
+            any later pass that does not miss clears the cause, including one
+            that holds a 5xx or does not ask
+            because the rate limit is spent or at its reserve. Absent when the
+            rows are current, and when the forge is shown as down (see
+            errorKind). A client words it, "slow to answer" or "starting up",
+            and does not call the rows live.
+        rowsReadAt:
+          type: string
+          format: date-time
+          description: |
+            Present only while `cause` is "slow": about when the held rows
+            were read. It is normally the time of the last full read that
+            answered, including one that could not read some repositories,
+            whose rows are older. When webhook refreshes have made every
+            repository current after a failed full refresh or a restart, it is
+            the time of the last of those, and rows refreshed before it are
+            older. A webhook may also have refreshed single repositories since,
+            so some rows can be newer. `staleSince` is worked out the same way,
+            with the same limits. `rowsReadAt` stays the same through further
+            missed and skipped passes, and goes when `cause` does. `rowsReadAt`
+            is not `staleSince`: the forge is still reachable, and nothing is
+            locked. A client can say "slow to answer, showing data from 3
+            minutes ago".
         staleSince:
           type: string
           format: date-time
@@ -6522,12 +6595,12 @@ components:
             webhook refresh has made every repo of the forge current, even
             while full refreshes keep failing. Absent when the data
             is current, and for a forge that has never fetched successfully,
-            which has nothing to show. A forge that has not answered counts
-            as failed, so a hung forge does not hold back the others: after
-            three minutes in a scheduled refresh, after one minute in a
-            refresh a person asked for. A forge still answering the last
-            refresh is not asked again, and counts as failed too. A client
-            can say "unreachable, showing
+            which has nothing to show. A hung forge does not hold back the
+            others: a scheduled refresh waits three minutes for it and a
+            refresh a person asked for waits one. Only the three minutes count
+            against the forge. A fetch the person's refresh stopped waiting for
+            runs on up to that limit, and the forge is not asked again
+            meanwhile. A client can say "unreachable, showing
             data from 3 minutes ago".
         error:
           type: string
@@ -8166,6 +8239,9 @@ components:
             refresh does not flip it. A client shows a loading state instead
             of empty lists while it is false; a failed first refresh is
             reported through forge health, not by keeping this false. It is
+            false again while there are no pull requests to show and a forge's
+            first read is still running ("slow" with no `rowsReadAt`), since
+            that is not an empty board. It is
             also true when the server started from the snapshot saved by its
             last run: those rows are on the page, and their forge reports
             `reachable: false` with `staleSince` until the first refresh

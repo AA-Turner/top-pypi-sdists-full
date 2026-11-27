@@ -3,7 +3,11 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from mistralai.workflows import Depends, activity, workflow
-from mistralai.workflows.core.definition.workflow_definition import _on_behalf_of_by_name
+from mistralai.workflows.core.definition.workflow_definition import (
+    get_mounted_workflow,
+    get_workflow_definition,
+    set_workflow_definition,
+)
 
 REREG_OBO_TO_NON_OBO = "test-rereg-obo-to-non-obo"
 REREG_NON_OBO_TO_OBO = "test-rereg-non-obo-to-obo"
@@ -46,12 +50,20 @@ class JWTPropagationContinueAsNewWorkflow:
 
 @activity()
 async def set_obo_flag(workflow_name: str, value: bool) -> None:
-    _on_behalf_of_by_name[workflow_name] = value
+    set_obo_declaration(workflow_name, value)
 
 
-# enforce_determinism=False disables the Temporal sandbox, which otherwise
-# re-imports this module on every execution and resets _on_behalf_of_by_name
-# back to the decorator value, preventing the test from simulating a mid-flight re-registration.
+def set_obo_declaration(workflow_name: str, value: bool) -> None:
+    """Simulate a re-registration that changes the mounted workflow's on_behalf_of declaration."""
+    workflow_type = get_mounted_workflow(workflow_name)
+    assert workflow_type is not None, f"{workflow_name!r} is not served by a running worker"
+    definition = get_workflow_definition(workflow_type)
+    set_workflow_definition(workflow_type, definition.model_copy(update={"on_behalf_of": value}))
+
+
+# enforce_determinism=False disables the Temporal sandbox, which otherwise re-imports
+# this module on every execution and redefines the workflow class with its decorator value,
+# preventing the test from simulating a mid-flight re-registration.
 
 
 @workflow.define(name=REREG_OBO_TO_NON_OBO, on_behalf_of=True, enforce_determinism=False)

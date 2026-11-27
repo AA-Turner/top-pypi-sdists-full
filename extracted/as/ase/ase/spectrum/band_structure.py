@@ -1,5 +1,3 @@
-# fmt: off
-
 import numpy as np
 
 import ase  # Annotations
@@ -7,8 +5,14 @@ from ase.calculators.calculator import PropertyNotImplementedError
 from ase.utils import jsonable
 
 
-def calculate_band_structure(atoms, path=None, scf_kwargs=None,
-                             bs_kwargs=None, kpts_tol=1e-6, cell_tol=1e-6):
+def calculate_band_structure(
+    atoms,
+    path=None,
+    scf_kwargs=None,
+    bs_kwargs=None,
+    kpts_tol=1e-6,
+    cell_tol=1e-6,
+):
     """Calculate band structure.
 
     The purpose of this function is to abstract a band structure calculation
@@ -24,16 +28,21 @@ def calculate_band_structure(atoms, path=None, scf_kwargs=None,
         path = atoms.cell.bandpath()
 
     from ase.lattice import celldiff  # Should this be a method on cell?
+
     if any(path.cell.any(1) != atoms.pbc):
-        raise ValueError('The band path\'s cell, {}, does not match the '
-                         'periodicity {} of the atoms'
-                         .format(path.cell, atoms.pbc))
+        raise ValueError(
+            "The band path's cell, {}, does not match the "
+            'periodicity {} of the atoms'.format(path.cell, atoms.pbc)
+        )
     cell_err = celldiff(path.cell, atoms.cell.uncomplete(atoms.pbc))
     if cell_err > cell_tol:
-        raise ValueError('Atoms and band path have different unit cells.  '
-                         'Please reduce atoms to standard form.  '
-                         'Cell lengths and angles are {} vs {}'
-                         .format(atoms.cell.cellpar(), path.cell.cellpar()))
+        raise ValueError(
+            'Atoms and band path have different unit cells.  '
+            'Please reduce atoms to standard form.  '
+            'Cell lengths and angles are {} vs {}'.format(
+                atoms.cell.cellpar(), path.cell.cellpar()
+            )
+        )
 
     calc = atoms.calc
     if calc is None:
@@ -80,9 +89,11 @@ def calculate_band_structure(atoms, path=None, scf_kwargs=None,
     ibzkpts = calc.get_ibz_k_points()
     kpts_err = np.abs(path.kpts - ibzkpts).max()
     if kpts_err > kpts_tol:
-        raise RuntimeError('Kpoints of calculator differ from those '
-                           'of the band path we just used; '
-                           'err={} > tol={}'.format(kpts_err, kpts_tol))
+        raise RuntimeError(
+            'Kpoints of calculator differ from those '
+            'of the band path we just used; '
+            'err={} > tol={}'.format(kpts_err, kpts_tol)
+        )
 
     bs = get_band_structure(atoms, path=path, reference=eref)
     return bs
@@ -104,8 +115,9 @@ def get_band_structure(atoms=None, calc=None, path=None, reference=None):
 
     energies = []
     for s in range(calc.get_number_of_spins()):
-        energies.append([calc.get_eigenvalues(kpt=k, spin=s)
-                         for k in range(len(kpts))])
+        energies.append(
+            [calc.get_eigenvalues(kpt=k, spin=s) for k in range(len(kpts))]
+        )
     energies = np.array(energies)
 
     if path is None:
@@ -114,6 +126,7 @@ def get_band_structure(atoms=None, calc=None, path=None, reference=None):
             find_bandpath_kinks,
             resolve_custom_points,
         )
+
         standard_path = atoms.cell.bandpath(npoints=0)
         # Kpoints are already evaluated, we just need to put them into
         # the path (whether they fit our idea of what the path is, or not).
@@ -130,11 +143,14 @@ def get_band_structure(atoms=None, calc=None, path=None, reference=None):
         # TODO: Make it available as a proper (documented) bandpath method.
         kinks = find_bandpath_kinks(atoms.cell, kpts, eps=1e-5)
         pathspec, special_points = resolve_custom_points(
-            kpts[kinks], standard_path.special_points, eps=1e-5)
-        path = BandPath(standard_path.cell,
-                        kpts=kpts,
-                        path=pathspec,
-                        special_points=special_points)
+            kpts[kinks], standard_path.special_points, eps=1e-5
+        )
+        path = BandPath(
+            standard_path.cell,
+            kpts=kpts,
+            path=pathspec,
+            special_points=special_points,
+        )
 
     # XXX If we *did* get the path, now would be a good time to check
     # that it matches the cell!  Although the path can only be passed
@@ -151,9 +167,7 @@ def get_band_structure(atoms=None, calc=None, path=None, reference=None):
         # level wasn't available, so we should fix that.
         reference = 0.0
 
-    return BandStructure(path=path,
-                         energies=energies,
-                         reference=reference)
+    return BandStructure(path=path, energies=energies, reference=reference)
 
 
 class BandStructurePlot:
@@ -162,12 +176,29 @@ class BandStructurePlot:
         self.ax = None
         self.xcoords = None
 
-    def plot(self, ax=None, *, spin=None, emin=-10, emax=5, filename=None,
-             show=False, ylabel=None, colors=None, point_colors=None,
-             label=None, loc=None,
-             cmap=None, cmin=-1.0, cmax=1.0, sortcolors=False,
-             colorbar=True, clabel='$s_z$', cax=None,
-             **plotkwargs):
+    def plot(
+        self,
+        ax=None,
+        *,
+        spin=None,
+        emin=-10,
+        emax=5,
+        filename=None,
+        show=False,
+        ylabel=None,
+        colors=None,
+        point_colors=None,
+        label=None,
+        loc=None,
+        cmap=None,
+        cmin=-1.0,
+        cmax=1.0,
+        sortcolors=False,
+        colorbar=True,
+        clabel='$s_z$',
+        cax=None,
+        **plotkwargs,
+    ):
         """Plot band-structure.
 
         ax: Axes
@@ -237,7 +268,7 @@ class BandStructurePlot:
         if spin is None:
             e_skn = self.bs.energies
         elif spin not in [0, 1]:
-            raise ValueError(f"spin should be 0 or 1, not {spin}")
+            raise ValueError(f'spin should be 0 or 1, not {spin}')
         else:
             # Select only one spin channel.
             e_skn = self.bs.energies[spin, np.newaxis]
@@ -251,9 +282,9 @@ class BandStructurePlot:
                     colors = 'g'
                 else:
                     colors = 'yb'
-            elif (len(colors) != nspins):
+            elif len(colors) != nspins:
                 raise ValueError(
-                    f"colors should be a sequence of {nspins} colors"
+                    f'colors should be a sequence of {nspins} colors'
                 )
 
             # Default values for label
@@ -271,7 +302,7 @@ class BandStructurePlot:
             for spin, e_kn in enumerate(e_skn):
                 kwargs = dict(color=colors[spin])
                 kwargs.update(plotkwargs)
-                lbl = None   # Retain lbl=None if label=False
+                lbl = None  # Retain lbl=None if label=False
                 if label:
                     lbl = label[spin]
                 ax.plot(self.xcoords, e_kn[:, 0], label=lbl, **kwargs)
@@ -309,6 +340,7 @@ class BandStructurePlot:
 
     def prepare_plot(self, ax=None, emin=-10, emax=5, ylabel=None):
         import matplotlib.pyplot as plt
+
         if ax is None:
             ax = plt.figure().add_subplot(111)
 
@@ -396,16 +428,17 @@ class BandStructure:
 
     def subtract_reference(self) -> 'BandStructure':
         """Return new band structure with reference energy subtracted."""
-        return BandStructure(self.path, self.energies - self.reference,
-                             reference=0.0)
+        return BandStructure(
+            self.path, self.energies - self.reference, reference=0.0
+        )
 
     def todict(self):
-        return dict(path=self.path,
-                    energies=self.energies,
-                    reference=self.reference)
+        return dict(
+            path=self.path, energies=self.energies, reference=self.reference
+        )
 
     def get_labels(self, eps=1e-5):
-        """"See :func:`ase.dft.kpoints.labels_from_kpts`."""
+        """ "See :func:`ase.dft.kpoints.labels_from_kpts`."""
         return self.path.get_linear_kpoint_axis(eps=eps)
 
     def plot(self, *args, **kwargs):
@@ -414,7 +447,9 @@ class BandStructure:
         return bsp.plot(*args, **kwargs)
 
     def __repr__(self):
-        return ('{}(path={!r}, energies=[{} values], reference={})'
-                .format(self.__class__.__name__, self.path,
-                        '{}x{}x{}'.format(*self.energies.shape),
-                        self.reference))
+        return '{}(path={!r}, energies=[{} values], reference={})'.format(
+            self.__class__.__name__,
+            self.path,
+            '{}x{}x{}'.format(*self.energies.shape),
+            self.reference,
+        )

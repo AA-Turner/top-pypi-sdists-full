@@ -1,7 +1,10 @@
+# Shared backend request, policy, and pipeline hooks remain in this base class.
+# pylint: disable=too-many-lines
 from __future__ import annotations
 
 import base64
 import inspect
+import re
 import time
 import warnings
 from contextlib import contextmanager
@@ -9,6 +12,7 @@ from contextvars import ContextVar
 from email.errors import HeaderParseError
 from email.headerregistry import Address
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeAlias, TypeVar, cast
+from urllib.parse import urlsplit
 
 import requests
 
@@ -44,7 +48,7 @@ HttpResponseProtocol: TypeAlias = _HttpResponseProtocol
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
 
-    from requests import Response
+    from requests import PreparedRequest, Request, Response
     from requests.auth import AuthBase
 
     from social_core.storage import (
@@ -57,6 +61,45 @@ if TYPE_CHECKING:
 
 
 ResponseT_co = TypeVar("ResponseT_co", covariant=True)
+
+
+class SecureRedirectSession(requests.Session):
+    """Requests session which does not follow a redirect out of HTTPS.
+
+    Requests follows a redirect from ``https://`` to any other scheme and,
+    for 307 and 308, repeats the body there. Certificate verification covers
+    only the encrypted hops, so the client secret, code or access token would
+    be sent in cleartext and whoever answers would be taken for the provider.
+    """
+
+    @contextmanager
+    def _without_netrc(self) -> Generator[None, None, None]:
+        # Requests consults .netrc in these two methods. Keep environment
+        # proxy and CA settings available for the rest of the request.
+        trust_env, self.trust_env = self.trust_env, False
+        try:
+            yield
+        finally:
+            self.trust_env = trust_env
+
+    def prepare_request(self, request: Request) -> PreparedRequest:
+        with self._without_netrc():
+            return super().prepare_request(request)
+
+    def rebuild_auth(
+        self, prepared_request: PreparedRequest, response: Response
+    ) -> None:
+        # Requests calls this for every redirect it follows, once the next
+        # request is resolved and before it is sent.
+        if (
+            urlsplit(response.url).scheme == "https"
+            and urlsplit(prepared_request.url).scheme != "https"
+        ):
+            raise requests.exceptions.SSLError(
+                "Refusing redirect from HTTPS to an insecure URL", response=response
+            )
+        with self._without_netrc():
+            super().rebuild_auth(prepared_request, response)
 
 
 class BaseAuth(Generic[ResponseT_co]):
@@ -238,12 +281,36 @@ class BaseAuth(Generic[ResponseT_co]):
             )
         kwargs[key] = str(user.id)
 
+    def _bind_pipeline_user(
+        self, kwargs: dict[str, Any], pipeline_type: str = "authentication"
+    ) -> None:
+        """Save the authenticated initiator before pipeline steps may change user."""
+        if self.ASSOCIATION_ONLY:
+            self._bind_association_user(kwargs, pipeline_type)
+            return
+        user = kwargs.get("user")
+        kwargs.setdefault(
+            self.association_user_id_key(pipeline_type),
+            None if user is None else str(user.id),
+        )
+
     def start(self) -> ResponseT_co:
         if self.ASSOCIATION_ONLY:
             self.get_association_state()
         if self.uses_redirect():
             return self.strategy.redirect(self.auth_url())
         return self.strategy.html(self.auth_html())
+
+    def answers_pending_request(self, data: dict[str, Any]) -> bool:
+        """Return whether data is a new authentication response.
+
+        That is a callback answering a request pending in this session or, for
+        protocols that keep no request in the session, one carrying the
+        provider response itself. Such a callback belongs to a newly started
+        authentication and is completed on its own instead of resuming a
+        paused partial pipeline.
+        """
+        return False
 
     def complete(self, *args, **kwargs) -> ResponseT_co | UserProtocol | None:
         return self.auth_complete(*args, **kwargs)
@@ -338,8 +405,7 @@ class BaseAuth(Generic[ResponseT_co]):
             )
         self.redirect_uri = kwargs.get("redirect_uri") or self.redirect_uri
         self.data = self.strategy.request_data()
-        if self.ASSOCIATION_ONLY:
-            self._bind_association_user(kwargs)
+        self._bind_pipeline_user(kwargs)
         kwargs.setdefault("is_new", False)
         pipeline = self.strategy.get_pipeline(self)
         args, kwargs = self.strategy.clean_authenticate_args(*args, **kwargs)
@@ -363,8 +429,7 @@ class BaseAuth(Generic[ResponseT_co]):
         return user
 
     def disconnect(self, *args, **kwargs) -> dict[str, Any] | ResponseT_co:
-        if self.ASSOCIATION_ONLY:
-            self._bind_association_user(kwargs, "disconnect")
+        self._bind_pipeline_user(kwargs, "disconnect")
         pipeline = self.strategy.get_disconnect_pipeline(self)
         kwargs["name"] = self.name
         kwargs["user_storage"] = self.strategy.storage.user
@@ -422,16 +487,17 @@ class BaseAuth(Generic[ResponseT_co]):
             # store the last time authentication took place
             "auth_time": int(time.time())
         }
-        extra_data_entries: (
-            list[str] | list[str | tuple[str, str] | tuple[str, str, bool]]
-        ) = []
-        if self.GET_ALL_EXTRA_DATA or self.setting("GET_ALL_EXTRA_DATA", False):
-            extra_data_entries = list(response.keys())
-        else:
-            extra_data_entries = (self.EXTRA_DATA or []) + cast(
+        extra_data_entries: list[str | tuple[str, str] | tuple[str, str, bool]] = [
+            *(self.EXTRA_DATA or []),
+            *cast(
                 "list[str | tuple[str, str] | tuple[str, str, bool]]",
                 self.setting("EXTRA_DATA", []),
-            )
+            ),
+        ]
+        if self.GET_ALL_EXTRA_DATA or self.setting("GET_ALL_EXTRA_DATA", False):
+            # Store the whole response in addition to the declared entries,
+            # which backends read back by alias; declared entries win.
+            extra_data_entries = [*response.keys(), *extra_data_entries]
         for entry in extra_data_entries:
             if isinstance(entry, list):
                 entry = tuple(cast("list[str]", entry))
@@ -485,8 +551,17 @@ class BaseAuth(Generic[ResponseT_co]):
                 allowed = bool(
                     address.username
                     and address.domain
+                    and re.sub(r"\\([ -~])", r"\1", email)
+                    in (
+                        f"{address.username}@{address.domain}",
+                        f'"{address.username}"@{address.domain}',
+                    )
                     and (email in emails or address.domain in domains)
                 )
+            # An address the provider reports as unverified says nothing about
+            # who is signing in, so it cannot satisfy an allowlist.
+            if allowed and self.get_email_verified(response) is False:
+                allowed = False
         allow_groups = self.get_group_setting("ALLOW_GROUPS", response, [])
         if not isinstance(allow_groups, (list, tuple, set)) or any(
             not isinstance(group, str) or not group for group in allow_groups
@@ -507,6 +582,11 @@ class BaseAuth(Generic[ResponseT_co]):
                 )
             allowed = allowed and bool(set(groups).intersection(allow_groups))
         return allowed
+
+    def get_email_verified(self, response: Any) -> bool | None:
+        """Return whether the provider verified the e-mail address, or None
+        when the provider does not report it."""
+        return None
 
     def get_user_groups(self, response) -> list[str] | None:
         """Return normalized external memberships, or None when disabled."""
@@ -589,9 +669,37 @@ class BaseAuth(Generic[ResponseT_co]):
         """Find a backend-specific legacy association with verified evidence."""
         return None
 
+    def validate_social_auth(self, social: UserMixin, response: dict[str, Any]) -> None:
+        """Reject a stored association that this response must not use.
+
+        The pipeline calls this on every association it looks up, before it
+        adopts the association's user, migrates it, or updates its data.
+        """
+
     def get_stored_user_id_keys(self, id_key: str) -> tuple[str, ...]:
-        """Return stored evidence fields, including backend-specific aliases."""
-        return (id_key,)
+        """Return stored identifier fields and configured storage aliases."""
+        keys = [id_key]
+        keys.extend(
+            entry[1]
+            for entry in (
+                *(self.EXTRA_DATA or []),
+                *(self.setting("EXTRA_DATA", []) or []),
+            )
+            if isinstance(entry, (list, tuple))
+            and len(entry) in {2, 3}
+            and entry[0] == id_key
+        )
+        return tuple(dict.fromkeys(keys))
+
+    def get_nested_stored_user_ids(
+        self, extra_data: dict[str, Any], id_key: str
+    ) -> tuple[object, ...]:
+        """Return identifiers an earlier login stored inside other fields.
+
+        They cannot prove ownership, but one that differs from the
+        authenticating identifier is conflicting evidence.
+        """
+        return ()
 
     def allow_unverified_legacy_uid_migration(
         self, old_id_key: str, id_key: str
@@ -735,10 +843,27 @@ class BaseAuth(Generic[ResponseT_co]):
     def validate_partial_pipeline(
         self, partial: PartialMixin, user: UserProtocol | None = None
     ) -> None:
-        """Validate backend-specific requirements before resuming a pipeline."""
+        """Keep an authenticated initiator bound to every resumed pipeline."""
+        key = self.association_user_id_key(partial.pipeline_type)
+        if key not in partial.kwargs:
+            raise AuthSessionError(
+                self,
+                "Pipeline initiator missing",
+                code="session_context_missing",
+                stage="callback",
+            )
+        initiating_user_id = partial.kwargs[key]
+        if initiating_user_id is not None and (
+            user is None or str(user.id) != initiating_user_id
+        ):
+            raise AuthSessionError(
+                self,
+                "Pipeline initiator mismatch",
+                code="user_mismatch",
+                stage="callback",
+            )
         if self.ASSOCIATION_ONLY:
             user = self.require_association_user(user, stage="callback")
-            key = self.association_user_id_key(partial.pipeline_type)
             if partial.kwargs.get(key) != str(user.id):
                 raise AuthSessionError(
                     self,
@@ -802,18 +927,19 @@ class BaseAuth(Generic[ResponseT_co]):
             headers["User-Agent"] = self.setting("USER_AGENT") or user_agent()
 
         try:
-            response = requests.request(
-                method,
-                url,
-                headers=headers,
-                data=data,
-                json=json,
-                auth=auth,
-                params=params,
-                timeout=timeout,
-                proxies=proxies,
-                verify=verify,
-            )
+            with SecureRedirectSession() as session:
+                response = session.request(
+                    method,
+                    url,
+                    headers=headers,
+                    data=data,
+                    json=json,
+                    auth=auth,
+                    params=params,
+                    timeout=timeout,
+                    proxies=proxies,
+                    verify=verify,
+                )
         except requests.exceptions.SSLError as error:
             redact_request_error(error, request_url=url)
             raise AuthProviderError(self, code="tls_error", stage=stage) from error

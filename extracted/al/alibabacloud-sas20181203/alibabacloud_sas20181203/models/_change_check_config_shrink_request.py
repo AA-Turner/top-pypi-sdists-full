@@ -37,34 +37,29 @@ class ChangeCheckConfigShrinkRequest(DaraModel):
         # The list of check items to be added to the policy.
         # <notice> If the ConfigStandardIds or ConfigRequirementIds parameter is configured, this parameter does not take effect. </notice>
         self.added_check = added_check
-        # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You must use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
         # The policy ID.
         self.config_id = config_id
-        # Configures the check policy by using the IDs of the specified regulations.
+        # Configures the check policy by using the IDs of the passed requirements.
         # 
-        # > You can call the [ListCheckResult](~~ListCheckResult~~) operation to obtain the regulation IDs. If the ConfigStandardIds parameter is configured, this parameter does not take effect.
+        # > You can call the [ListCheckResult](~~ListCheckResult~~) operation to obtain the requirement IDs. If the ConfigStandardIds parameter is configured, this parameter does not take effect.
         self.config_requirement_ids_shrink = config_requirement_ids_shrink
-        # Configures the check policy by using the IDs of the specified standards.
+        # Configures the check policy by using the IDs of the passed standards.
         # 
         # > You can call the [ListCheckResult](~~ListCheckResult~~) operation to obtain the standard IDs.
         self.config_standard_ids_shrink = config_standard_ids_shrink
         # The field configuration. Valid values:
         # 
-        # - **all**: Adds all check items.
+        # - **all**: Add all check items.
         self.configure = configure
         # The periodic check time.
         self.cycle_days = cycle_days
-        # The list of days of the month when the policy cycle is monthly.
+        # The list of days of the month when the policy cycle is set to monthly.
         self.days_of_month = days_of_month
-        # Specifies whether to only precheck the request. Valid values:
-        # 
-        # - true: Only checks the request without performing the actual operation.
-        # - false: Executes the request normally.
-        # 
-        # Default value: false.
+        # Specifies whether to only precheck the request. A value of true indicates that only the request is checked and no actual operations are performed. A value of false indicates that the request is normally executed. Default value: false.
         self.dry_run = dry_run
-        # Specifies whether to check new check items by default when new check items are added to the selected regulations. Valid values:
+        # Specifies whether to check new check items by default when new check items are added to the selected requirements. Valid values:
         # 
         # - **true**: Enabled.
         # - **false**: Disabled.
@@ -74,21 +69,16 @@ class ChangeCheckConfigShrinkRequest(DaraModel):
         # - **true**: Enabled.
         # - **false**: Disabled.
         self.enable_auto_check = enable_auto_check
-        # The end time of the check time period, which indicates the hour of the day. The start time and end time must be selected from the following time intervals. Valid values: 6, 12, 18, and 24.
+        # The end time of the check time period, which indicates the hour of the day. The start time and end time can only be selected from the following time intervals. Valid values: 6, 12, 18, and 24.
         # 
-        # - **0~6**: If the start time is 0, the end time must be set to 6 on the same day.
-        # - **6~12**: If the start time is 6, the end time must be set to 12 on the same day.
-        # - **12~18**: If the start time is 12, the end time must be set to 18 on the same day.
-        # - **18~24**: If the start time is 18, the end time must be set to 24 on the same day.
+        # - **0 to 6**: If the start time is 0, the end time must be set to 6 on the same day.
+        # - **6 to 12**: If the start time is 6, the end time must be set to 12 on the same day.
+        # - **12 to 18**: If the start time is 12, the end time must be set to 18 on the same day.
+        # - **18 to 24**: If the start time is 18, the end time must be set to 24 on the same day.
         self.end_time = end_time
-        # The end time of the check, in seconds from 00:00:00 of the current day. Valid values: 1 to 86400, where 86400 indicates 00:00:00 of the next day. This parameter is optional. If this parameter is not provided, the current value of the policy is retained. This parameter must be paired with StartTimeSeconds. If only one of them is provided, the system returns IllegalParam (paramName=scheduleTime). If both this parameter and StartTime/EndTime are provided, the second-level parameters take precedence, and the hour-level parameters are ignored. The time window span must not be less than 60 seconds. This parameter is not accepted for the system default policy (ConfigId=default) and will be rejected if provided.
+        # The end time of policy execution.
         self.end_time_seconds = end_time_seconds
-        # The frequency type. Valid values:
-        # 
-        # - DAILY: Daily.
-        # - WEEKLY: Weekly.
-        # - MONTHLY: Monthly.
-        # - 6HOURLY: Every 6 hours.
+        # The frequency type. Valid values: DAILY, WEEKLY, MONTHLY, and 6HOURLY (every 6 hours).
         self.frequency = frequency
         # The region of the Security Center instance. Valid values:
         # 
@@ -98,28 +88,27 @@ class ChangeCheckConfigShrinkRequest(DaraModel):
         # The list of check items to be removed from the policy.
         # <notice> If the ConfigStandardIds or ConfigRequirementIds parameter is configured, this parameter does not take effect. </notice>
         self.removed_check = removed_check
-        # The ID of the member accounts in the resource folder, which is an Alibaba Cloud account ID.
+        # The ID of the member accounts (Alibaba Cloud account) in the resource folder.
         # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
         # This parameter is deprecated and can be ignored.
         self.standard_ids = standard_ids
-        # The start time of the check time period, which indicates the hour of the day. The start time and end time must be selected from the following time intervals. Valid values: 0, 6, 12, and 18.
+        # The start time of the check time period, which indicates the hour of the day. The start time and end time can only be selected from the following time intervals. Valid values: 0, 6, 12, and 18.
         # 
-        # - **0~6**: If the start time is 0, the end time must be set to 6 on the same day.
-        # - **6~12**: If the start time is 6, the end time must be set to 12 on the same day.
-        # - **12~18**: If the start time is 12, the end time must be set to 18 on the same day.
-        # - **18~24**: If the start time is 18, the end time must be set to 24 on the same day.
+        # - **0 to 6**: If the start time is 0, the end time must be set to 6 on the same day.
+        # - **6 to 12**: If the start time is 6, the end time must be set to 12 on the same day.
+        # - **12 to 18**: If the start time is 12, the end time must be set to 18 on the same day.
+        # - **18 to 24**: If the start time is 18, the end time must be set to 24 on the same day.
         self.start_time = start_time
-        # The start time of the check, in seconds from 00:00:00 of the current day. Valid values: 0 to 86399, which correspond to 00:00:00 to 23:59:59. This parameter is optional. If this parameter is not provided, the current value of the policy is retained. This parameter must be paired with EndTimeSeconds. If only one of them is provided, the system returns IllegalParam (paramName=scheduleTime). If both this parameter and StartTime/EndTime are provided, the second-level parameters take precedence, and the hour-level parameters are ignored. If the two sets of parameters are inconsistent, the server records a WARN log. The time window span must not be less than 60 seconds. The frequency of the system default policy (ConfigId=default) is always 6HOURLY. This parameter is not accepted for the default policy and will be rejected if provided. Under a multi-policy frequency, the actual scan execution time is exactly the second specified by this parameter.
+        # The start time of policy execution.
         self.start_time_seconds = start_time_seconds
         # The policy name.
         self.strategy_name = strategy_name
         # Specifies whether to use the automatically generated system configuration. Valid values:
-        # 
         # - **true**: Yes.
         # - **false**: No.
         self.system_config = system_config
-        # The list of cloud providers.
+        # The list of cloud service providers.
         self.vendors = vendors
 
     def validate(self):

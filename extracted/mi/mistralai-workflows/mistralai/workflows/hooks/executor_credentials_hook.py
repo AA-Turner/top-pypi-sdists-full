@@ -5,7 +5,7 @@ import base64
 import json
 import threading
 import time
-import warnings
+from collections.abc import Mapping
 from functools import cached_property
 from typing import OrderedDict
 
@@ -14,7 +14,7 @@ import httpx
 from mistralai.workflows._version import USER_AGENT
 from mistralai.workflows.core import _http_transport as http_transport
 from mistralai.workflows.core._logger import get_logger
-from mistralai.workflows.core.auth import RunAs, StaticTokenProvider, TokenProvider
+from mistralai.workflows.core.auth import RunAs, TokenProvider
 from mistralai.workflows.core.auth.header_files import get_deployment_headers, get_header_files
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.exceptions import WorkflowError
@@ -28,21 +28,7 @@ from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 logger = get_logger(__name__)
 
-_EXECUTOR_POLICY = "run_as=EXECUTOR (or use_executor_credentials=True)"
-
-
-def _resolve_hook_token_provider(api_key: str | None, token_provider: TokenProvider | None) -> TokenProvider | None:
-    """Resolve the hook's credential, accepting the deprecated ``api_key`` for back compatibility."""
-    if token_provider is not None:
-        return token_provider
-    if api_key is not None:
-        warnings.warn(
-            "Passing `api_key` to the executor-credentials hook is deprecated; pass `token_provider` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return StaticTokenProvider(api_key)
-    return None
+_MISSING_USER_DETAIL = "missing user_id or organization_id"
 
 
 class ExecutorCredentialsHook(abc.ABC):
@@ -58,19 +44,20 @@ class ExecutorCredentialsHook(abc.ABC):
     def __init__(
         self,
         server_url: str,
-        api_key: str | None = None,
-        token_provider: TokenProvider | None = None,
         *,
+        token_provider: TokenProvider | None = None,
         run_as: RunAs | None = None,
         headers: dict[str, str] | None = None,
+        deployment_headers: Mapping[str, str] | None = None,
     ) -> None:
         self._run_as = RunAs(run_as) if run_as is not None else RunAs.EXECUTOR
         self._server_url = server_url.rstrip("/")
-        self._headers = dict(headers if headers is not None else get_deployment_headers())
-        self._token_provider = _resolve_hook_token_provider(api_key, token_provider)
-        if self._run_as == RunAs.EXECUTOR and self._token_provider is None and not self._headers:
+        self._exchange_headers = dict(headers if headers is not None else get_deployment_headers())
+        self._deployment_headers = dict(deployment_headers or {})
+        self._token_provider = token_provider
+        if self._run_as == RunAs.EXECUTOR and self._token_provider is None and not self._exchange_headers:
             raise WorkflowError(
-                f"{_EXECUTOR_POLICY} requires a token_provider or authentication headers (or the deprecated api_key)",
+                "Executor identity requires a token_provider or authentication headers",
                 non_retryable=True,
             )
         # execution_token -> (jwt, expiration_timestamp)
@@ -81,8 +68,8 @@ class ExecutorCredentialsHook(abc.ABC):
             context = retrieve_context()
             if context is None:
                 raise WorkflowError(
-                    "run_as=AUTO requires a workflow context; "
-                    "use run_as=DEPLOYMENT for requests outside a workflow execution",
+                    "run_as=AUTO requires a workflow context (AUTO is get_mistral_client()'s default); "
+                    "pass run_as=RunAs.DEPLOYMENT for requests outside a workflow execution",
                     non_retryable=True,
                 )
             use_executor = bool(context.on_behalf_of)
@@ -95,25 +82,42 @@ class ExecutorCredentialsHook(abc.ABC):
         return self._run_as == RunAs.EXECUTOR
 
     def _authenticate_deployment(self, request: httpx.Request) -> None:
+        for name, value in self._deployment_headers.items():
+            request.headers.setdefault(name, value)
         if self._token_provider is not None:
             request.headers["Authorization"] = f"Bearer {self._token_provider.get_token()}"
-        else:
-            request.headers.pop("Authorization", None)
 
     def _require_executor_provider(self) -> TokenProvider | None:
-        if not self._server_url or (self._token_provider is None and not self._headers):
+        if not self._server_url or (self._token_provider is None and not self._exchange_headers):
             raise WorkflowError(
-                f"{_EXECUTOR_POLICY} requires server_url and a token_provider or authentication headers",
+                "Executor identity requires server_url and a token_provider or authentication headers",
                 non_retryable=True,
             )
-        return None if self._headers else self._token_provider
+        return None if self._exchange_headers else self._token_provider
+
+    @staticmethod
+    def _raise_if_non_retryable(exc: SDKError) -> None:
+        if exc.status_code == 400 and _MISSING_USER_DETAIL in exc.body:
+            raise WorkflowError(
+                "This workflow runs on behalf of a user, but this run has no user identity. "
+                "This can happen when a parent without a user, such as a scheduled workflow, starts it.",
+                non_retryable=True,
+            ) from exc
+        if exc.status_code in (400, 403):
+            raise WorkflowError(str(exc), non_retryable=True) from exc
 
     @staticmethod
     def _decode_jwt_exp(token: str) -> float:
-        payload_segment = token.split(".")[1]
-        padded = payload_segment + "=" * (-len(payload_segment) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(padded))
-        return float(payload["exp"])
+        try:
+            payload_segment = token.split(".")[1]
+            padded = payload_segment + "=" * (-len(payload_segment) % 4)
+            payload = json.loads(base64.urlsafe_b64decode(padded))
+            return float(payload["exp"])
+        except (IndexError, KeyError, TypeError, ValueError) as exc:
+            raise WorkflowError(
+                "Executor identity token is not a JWT with an 'exp' claim",
+                non_retryable=True,
+            ) from exc
 
     def _is_jwt_cached_for(self, execution_token: str) -> bool:
         jwt_with_exp = self._jwt_cache.get(execution_token)
@@ -130,13 +134,13 @@ class ExecutorCredentialsHook(abc.ABC):
         context = retrieve_context()
         if not context or not context.execution_token:
             raise WorkflowError(
-                f"{_EXECUTOR_POLICY} requires a workflow context with an execution_token; "
+                "Executor identity requires a workflow context with an execution_token; "
                 "ensure the call is made from within an activity or workflow execution",
                 non_retryable=True,
             )
         if not context.on_behalf_of:
             raise WorkflowError(
-                f"{_EXECUTOR_POLICY} requires on_behalf_of=True on the @workflow.define decorator",
+                "Executor identity requires on_behalf_of=True on the @workflow.define decorator",
                 non_retryable=True,
             )
         return context.execution_token
@@ -144,7 +148,7 @@ class ExecutorCredentialsHook(abc.ABC):
     @property
     def _client_headers(self) -> dict[str, str]:
         return {
-            **self._headers,
+            **self._exchange_headers,
             "User-Agent": USER_AGENT,
         }
 
@@ -182,7 +186,6 @@ class AsyncExecutorCredentialsHook(ExecutorCredentialsHook):
         return PrivateWorkerClient(
             server_url=self._server_url,
             async_client=httpx.AsyncClient(
-                verify=http_transport.verify(),
                 headers=self._client_headers,
                 event_hooks={
                     "request": self._exchange_request_hooks(
@@ -190,9 +193,7 @@ class AsyncExecutorCredentialsHook(ExecutorCredentialsHook):
                     )
                 },
                 follow_redirects=False,
-                transport=http_transport.async_transport(),
-                mounts=http_transport.async_mounts(),
-                limits=http_transport.limits(),
+                **http_transport.async_client_options(),
             ),
         )
 
@@ -206,8 +207,7 @@ class AsyncExecutorCredentialsHook(ExecutorCredentialsHook):
         try:
             response = await self._worker_client.executor_identity_token_async(execution_token=execution_token)
         except SDKError as exc:
-            if exc.status_code == 403:
-                raise WorkflowError(str(exc), non_retryable=True) from exc
+            self._raise_if_non_retryable(exc)
             raise
         return self._cache_jwt(response.token, execution_token)
 
@@ -225,13 +225,19 @@ class SyncExecutorCredentialsHook(ExecutorCredentialsHook):
     def __init__(
         self,
         server_url: str,
-        api_key: str | None = None,
-        token_provider: TokenProvider | None = None,
         *,
+        token_provider: TokenProvider | None = None,
         run_as: RunAs | None = None,
         headers: dict[str, str] | None = None,
+        deployment_headers: Mapping[str, str] | None = None,
     ) -> None:
-        super().__init__(server_url, api_key, token_provider, run_as=run_as, headers=headers)
+        super().__init__(
+            server_url,
+            token_provider=token_provider,
+            run_as=run_as,
+            headers=headers,
+            deployment_headers=deployment_headers,
+        )
         self._request_lock = threading.Lock()
 
     @cached_property
@@ -240,15 +246,12 @@ class SyncExecutorCredentialsHook(ExecutorCredentialsHook):
         return PrivateWorkerClient(
             server_url=self._server_url,
             client=httpx.Client(
-                verify=http_transport.verify(),
                 headers=self._client_headers,
                 event_hooks={
                     "request": self._exchange_request_hooks(provider, TokenProviderHook, RefreshHeaderFilesHook)
                 },
                 follow_redirects=False,
-                transport=http_transport.sync_transport(),
-                mounts=http_transport.sync_mounts(),
-                limits=http_transport.limits(),
+                **http_transport.sync_client_options(),
             ),
         )
 
@@ -262,8 +265,7 @@ class SyncExecutorCredentialsHook(ExecutorCredentialsHook):
         try:
             response = self._worker_client.executor_identity_token(execution_token=execution_token)
         except SDKError as exc:
-            if exc.status_code == 403:
-                raise WorkflowError(str(exc), non_retryable=True) from exc
+            self._raise_if_non_retryable(exc)
             raise
         return self._cache_jwt(response.token, execution_token)
 

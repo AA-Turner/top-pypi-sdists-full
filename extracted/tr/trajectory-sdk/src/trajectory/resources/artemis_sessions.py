@@ -31,6 +31,7 @@ class ArtemisSessions(APIResource):
     *,
     message: str,
     idempotency_key: str | Omit = omit,
+    queue: bool | Omit = omit,
     session_id: str | None | Omit = omit,
     write_handoff: bool | Omit = omit,
     extra_headers: Headers | None = None,
@@ -48,6 +49,9 @@ class ArtemisSessions(APIResource):
       idempotency_key: Optional. Without a key, repeated submissions are treated as separate actions. A
         blank or over-long key is rejected. Reuse this key when retrying a submission; the
         SDK generates one per call and reuses it across automatic retries.
+
+      queue: Keep the message for the next turn instead of letting a running turn take it at
+        its next step.
 
       session_id: A session to continue; omit it to start a new session.
 
@@ -69,6 +73,7 @@ class ArtemisSessions(APIResource):
       body=maybe_transform(
         {
           "message": message,
+          "queue": queue,
           "session_id": session_id,
           "write_handoff": write_handoff,
         },

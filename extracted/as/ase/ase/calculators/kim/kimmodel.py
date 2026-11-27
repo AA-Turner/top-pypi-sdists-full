@@ -1,5 +1,3 @@
-# fmt: off
-
 """
 ASE Calculator for interatomic models compatible with the Knowledgebase
 of Interatomic Models (KIM) application programming interface (API).
@@ -9,6 +7,7 @@ Mingjian Wen
 Daniel S. Karls
 University of Minnesota
 """
+
 import numpy as np
 
 from ase.calculators.calculator import Calculator, compare_atoms
@@ -126,8 +125,9 @@ class KIMModelData:
             species_map[spec] = codes[i]
             if self.debug:
                 print(
-                    "Species {} is supported and its code is: {}".format(
-                        spec, codes[i])
+                    'Species {} is supported and its code is: {}'.format(
+                        spec, codes[i]
+                    )
                 )
 
         return species_map
@@ -154,11 +154,11 @@ class KIMModelData:
 
     @property
     def kim_initialized(self):
-        return hasattr(self, "kim_model")
+        return hasattr(self, 'kim_model')
 
     @property
     def _neigh_initialized(self):
-        return hasattr(self, "neigh")
+        return hasattr(self, 'neigh')
 
     @property
     def _get_model_supported_species_and_codes(self):
@@ -198,9 +198,9 @@ class KIMModelCalculator(Calculator):
       False)
     """
 
-    implemented_properties = ["energy", "free_energy", "forces", "stress"]
+    implemented_properties = ['energy', 'free_energy', 'forces', 'stress']
 
-    ignored_changes = {"initial_charges", "initial_magmoms"}
+    ignored_changes = {'initial_charges', 'initial_magmoms'}
 
     def __init__(
         self,
@@ -210,7 +210,7 @@ class KIMModelCalculator(Calculator):
         release_GIL=False,
         debug=False,
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
 
@@ -243,13 +243,13 @@ class KIMModelCalculator(Calculator):
         pass
 
     def __repr__(self):
-        return f"KIMModelCalculator(model_name={self.model_name})"
+        return f'KIMModelCalculator(model_name={self.model_name})'
 
     def calculate(
         self,
         atoms=None,
-        properties=["energy", "forces", "stress"],
-        system_changes=["positions", "numbers", "cell", "pbc"],
+        properties=None,
+        system_changes=None,
     ):
         """
         Inherited method from the ase Calculator class that is called by
@@ -270,13 +270,16 @@ class KIMModelCalculator(Calculator):
             and 'pbc'.
         """
 
+        if system_changes is None:
+            system_changes = ['positions', 'numbers', 'cell', 'pbc']
+        if properties is None:
+            properties = ['energy', 'forces', 'stress']
         super().calculate(atoms, properties, system_changes)
 
         if self._parameters_changed:
             self._parameters_changed = False
 
         if system_changes:
-
             # Ask model to update all of its parameters and the parameters
             # related to the neighbor list(s). This update is necessary to do
             # here since the user will generally have made changes the model
@@ -303,15 +306,16 @@ class KIMModelCalculator(Calculator):
         try:
             volume = atoms.get_volume()
             stress = self._compute_virial_stress(
-                self.forces, self._coords, volume)
+                self.forces, self._coords, volume
+            )
         except ValueError:  # Volume cannot be computed
             stress = None
 
         # Quantities passed back to ASE
-        self.results["energy"] = energy
-        self.results["free_energy"] = energy
-        self.results["forces"] = forces
-        self.results["stress"] = stress
+        self.results['energy'] = energy
+        self.results['free_energy'] = energy
+        self.results['forces'] = forces
+        self.results['stress'] = stress
 
     def check_state(self, atoms, tol=1e-15):
         # Check for change in atomic configuration (positions or pbc)
@@ -321,7 +325,7 @@ class KIMModelCalculator(Calculator):
 
         # Check if model parameters were changed
         if self._parameters_changed:
-            system_changes.append("calculator")
+            system_changes.append('calculator')
 
         return system_changes
 
@@ -346,10 +350,10 @@ class KIMModelCalculator(Calculator):
             Total forces on contributing atoms.
         """
 
-        total_forces = np.array(self.forces[:self._num_contributing_particles])
+        total_forces = np.array(self.forces[: self._num_contributing_particles])
 
         if self._padding_image_of.size != 0:
-            pad_forces = self.forces[self._num_contributing_particles:]
+            pad_forces = self.forces[self._num_contributing_particles :]
             for f, org_index in zip(pad_forces, self._padding_image_of):
                 total_forces[org_index] += f
 

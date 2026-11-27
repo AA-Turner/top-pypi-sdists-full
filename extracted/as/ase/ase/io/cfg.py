@@ -1,5 +1,3 @@
-# fmt: off
-
 import numpy as np
 
 import ase
@@ -12,7 +10,7 @@ cfg_default_fields = np.array(['positions', 'momenta', 'numbers', 'magmoms'])
 @writer
 def write_cfg(fd, atoms):
     """Write atomic configuration to a CFG-file (native AtomEye format).
-       See: http://mt.seas.upenn.edu/Archive/Graphics/A/
+    See: http://mt.seas.upenn.edu/Archive/Graphics/A/
     """
 
     fd.write('Number of particles = %i\n' % len(atoms))
@@ -47,14 +45,17 @@ def write_cfg(fd, atoms):
             else:
                 if aux.shape[1] == 3:
                     for j in range(3):
-                        fd.write('auxiliary[%i] = %s_%s [a.u.]\n' %
-                                 (i, name, chr(ord('x') + j)))
+                        fd.write(
+                            'auxiliary[%i] = %s_%s [a.u.]\n'
+                            % (i, name, chr(ord('x') + j))
+                        )
                         i += 1
 
                 else:
                     for j in range(aux.shape[1]):
-                        fd.write('auxiliary[%i] = %s_%1.1i [a.u.]\n' %
-                                 (i, name, j))
+                        fd.write(
+                            'auxiliary[%i] = %s_%1.1i [a.u.]\n' % (i, name, j)
+                        )
                         i += 1
 
     # Distinct elements
@@ -85,15 +86,16 @@ def write_cfg(fd, atoms):
 default_color = {
     'H': [0.800, 0.800, 0.800],
     'C': [0.350, 0.350, 0.350],
-    'O': [0.800, 0.200, 0.200]}
+    'O': [0.800, 0.200, 0.200],
+}
 
 default_radius = {'H': 0.435, 'C': 0.655, 'O': 0.730}
 
 
 def write_clr(fd, atoms):
     """Write extra color and radius code to a CLR-file (for use with AtomEye).
-       Hit F12 in AtomEye to use.
-       See: http://mt.seas.upenn.edu/Archive/Graphics/A/
+    Hit F12 in AtomEye to use.
+    See: http://mt.seas.upenn.edu/Archive/Graphics/A/
     """
     color = None
     radius = None
@@ -112,7 +114,7 @@ def write_clr(fd, atoms):
         for a in atoms:
             radius[a.index] = default_radius[a.symbol]
 
-    radius.shape = (-1, 1)
+    radius = radius.reshape((-1, 1))
 
     for c1, c2, c3, r in np.append(color, radius, axis=1):
         fd.write(f'{c1:f} {c2:f} {c3:f} {r:f}\n')
@@ -121,7 +123,7 @@ def write_clr(fd, atoms):
 @reader
 def read_cfg(fd):
     """Read atomic configuration from a CFG-file (native AtomEye format).
-       See: http://mt.seas.upenn.edu/Archive/Graphics/A/
+    See: http://mt.seas.upenn.edu/Archive/Graphics/A/
     """
     nat = None
     naux = 0
@@ -193,8 +195,9 @@ def read_cfg(fd):
                         spos[current_atom, :] = [float(x) for x in s[2:5]]
                         vels[current_atom, :] = [float(x) for x in s[5:8]]
                         current_atom += 1
-                    elif (current_symbol is not None and
-                          current_mass is not None):
+                    elif (
+                        current_symbol is not None and current_mass is not None
+                    ):
                         # Extended CFG format
                         masses[current_atom] = current_mass
                         syms[current_atom] = current_symbol
@@ -210,13 +213,17 @@ def read_cfg(fd):
 
     # Sanity check
     if current_atom != nat:
-        raise RuntimeError('Number of atoms reported for CFG file (={}) and '
-                           'number of atoms actually read (={}) differ.'
-                           .format(nat, current_atom))
+        raise RuntimeError(
+            'Number of atoms reported for CFG file (={}) and '
+            'number of atoms actually read (={}) differ.'.format(
+                nat, current_atom
+            )
+        )
 
     if np.any(eta != 0):
-        raise NotImplementedError('eta != 0 not yet implemented for CFG '
-                                  'reader.')
+        raise NotImplementedError(
+            'eta != 0 not yet implemented for CFG reader.'
+        )
     cell = np.dot(cell, transform)
 
     if vels is None:
@@ -225,7 +232,8 @@ def read_cfg(fd):
             masses=masses,
             scaled_positions=spos,
             cell=cell,
-            pbc=True)
+            pbc=True,
+        )
     else:
         a = ase.Atoms(
             symbols=syms,
@@ -233,13 +241,14 @@ def read_cfg(fd):
             scaled_positions=spos,
             momenta=masses.reshape(-1, 1) * vels,
             cell=cell,
-            pbc=True)
+            pbc=True,
+        )
 
     i = 0
     while i < naux:
         auxstr = auxstrs[i]
         if auxstr[-2:] == '_x':
-            a.set_array(auxstr[:-2], aux[:, i:i + 3])
+            a.set_array(auxstr[:-2], aux[:, i : i + 3])
             i += 3
         else:
             a.set_array(auxstr, aux[:, i])

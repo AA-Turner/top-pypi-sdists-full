@@ -10,6 +10,7 @@ call is pending iff no handoff follows it in the batch.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from conftest import make_context
 from mistralai.client import models as mistralai_models
 
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
@@ -18,8 +19,6 @@ from mistralai.workflows.plugins.mistralai.connectors import connector
 from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.plugins.mistralai.session import remote_session
 from mistralai.workflows.plugins.mistralai.session.remote_session import RemoteSession
-
-from .conftest import make_context
 
 
 def _function_call(

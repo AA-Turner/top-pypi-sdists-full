@@ -29,6 +29,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 from databaas_utils.errors import ConfigurationError, ConnectionNotConfigured
 from databaas_utils.settings import DEFAULT_WAREHOUSE, LakehouseSettings
@@ -94,8 +95,6 @@ def _from_env(conn_id: str) -> ConnectionData | None:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        from urllib.parse import parse_qsl, unquote, urlsplit
-
         parsed = urlsplit(raw)
         query = dict(parse_qsl(parsed.query))
         extra_raw = query.pop("__extra__", None)
@@ -185,6 +184,71 @@ def _coerce_verify(value: Any) -> bool | str:
     return text  # a CA bundle path
 
 
+def _token_endpoint(value: Any) -> str | None:
+    """A Zitadel origin with no path becomes its token endpoint.
+
+    Anything with a path is taken as given.
+    """
+    if not value:
+        return None
+    url = str(value).strip()
+    if urlsplit(url).path in ("", "/"):
+        return f"{url.rstrip('/')}/oauth/v2/token"
+    return url
+
+
+def _inherit_platform_defaults(conn: ConnectionData) -> ConnectionData:
+    """Fill what `conn` leaves empty from the platform's `databaas_lakehouse`.
+
+    Only the shared, non-secret settings are inherited: the Lakekeeper host, the
+    warehouse, the token endpoint and the project. The credentials always
+    belong to `conn` itself. If the platform connection does not exist, `conn`
+    is returned as it is and the usual missing-field errors apply.
+    """
+    if conn.conn_id in (DEFAULT_CONN_ID, LEGACY_CONN_ID):
+        return conn
+    extra = dict(conn.extra or {})
+    own_token_url = extra.get("token_url") or extra.get("oauth2_server_uri")
+    own_project = (
+        extra.get("project_id") or extra.get("scope") or extra.get("oauth2_scope")
+    )
+    has_oauth = bool(conn.login or extra.get("service_account_key"))
+    missing = (
+        not (conn.host or "").strip()
+        or not (conn.schema or extra.get("warehouse"))
+        or (has_oauth and not (own_token_url and own_project))
+    )
+    if not missing:
+        return conn
+    try:
+        base = resolve_connection(DEFAULT_CONN_ID)
+    except ConnectionNotConfigured:
+        return conn
+    base_extra = base.extra or {}
+
+    host, port = conn.host, conn.port
+    if not (host or "").strip():
+        host, port = base.host, base.port
+    if has_oauth:
+        if not own_token_url:
+            extra["token_url"] = base_extra.get("token_url") or base_extra.get(
+                "oauth2_server_uri"
+            )
+        if not own_project:
+            for key in ("project_id", "scope", "oauth2_scope"):
+                if base_extra.get(key):
+                    extra[key] = base_extra[key]
+    return ConnectionData(
+        conn_id=conn.conn_id,
+        host=host,
+        schema=conn.schema or extra.get("warehouse") or base.schema,
+        login=conn.login,
+        password=conn.password,
+        port=port,
+        extra=extra,
+    )
+
+
 def settings_from_connection(
     conn: ConnectionData, *, namespace: str | None = None
 ) -> LakehouseSettings:
@@ -195,12 +259,21 @@ def settings_from_connection(
     every other data connection uses. `extra.warehouse` stays accepted for
     compatibility, and `schema` wins. With neither, it is `databaas-lakehouse`.
 
+    `token_url` may be the bare Zitadel origin; the `/oauth/v2/token` path is
+    added. The project audience scope is derived from `project_id`, so `scope`
+    is only an override.
+
+    A connection other than `databaas_lakehouse` may leave the host, warehouse,
+    token URL and project empty: they are taken from `databaas_lakehouse`, so an
+    extra account needs only its own client id and secret.
+
     Setting up the connection is described at
     https://docs.databaas.eu/pipelines/service-account.
 
     Raises:
         ConfigurationError: If the host or token settings are missing.
     """
+    conn = _inherit_platform_defaults(conn)
     extra = conn.extra or {}
     host = (conn.host or "").strip()
     if not host:
@@ -220,7 +293,9 @@ def settings_from_connection(
         "region": extra.get("region"),
         "endpoint": extra.get("endpoint"),
         "verify": _coerce_verify(extra.get("verify")),
-        "token_url": extra.get("token_url") or extra.get("oauth2_server_uri"),
+        "token_url": _token_endpoint(
+            extra.get("token_url") or extra.get("oauth2_server_uri")
+        ),
         "project_id": extra.get("project_id"),
         "scope": extra.get("scope") or extra.get("oauth2_scope"),
         # Some Zitadel consoles only offer a downloadable JSON key for a

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from typing_extensions import override
 
 import numpy as np
@@ -17,6 +17,7 @@ from tabpfn.preprocessing.steps.add_fingerprint_features_step import (
 from tabpfn.preprocessing.steps.add_svd_features_step import get_svd_n_components
 from tabpfn.preprocessing.torch.pipeline_interface import (
     IN_PLACE_BLOCK_BYTES,
+    BlockFit,
     TorchPreprocessingStep,
     TorchPreprocessingStepResult,
 )
@@ -26,6 +27,7 @@ from tabpfn.preprocessing.torch.torch_quantile_transformer import (
 from tabpfn.preprocessing.torch.torch_robust_scaler import TorchRobustScaler
 from tabpfn.preprocessing.torch.torch_safe_power_transformer import (
     TorchSafePowerTransformer,
+    fit_chunk_columns,
 )
 from tabpfn.preprocessing.torch.torch_soft_clip_outliers import TorchSoftClipOutliers
 from tabpfn.preprocessing.torch.torch_squashing_scaler import TorchSquashingScaler
@@ -35,6 +37,9 @@ from tabpfn.preprocessing.torch.torch_svd import (
     TorchTruncatedSVD,
 )
 from tabpfn.utils import infer_random_state
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class TorchSelectiveStep(TorchPreprocessingStep):
@@ -104,6 +109,30 @@ class TorchRandomSignFlipStep(TorchPreprocessingStep):
             start = end
 
         return TorchPreprocessingStepResult(x=transformed, fitted_cache=fitted_cache)
+
+    @property
+    @override
+    def fits_by_blocks(self) -> bool:
+        return True
+
+    @override
+    def fit_by_blocks(
+        self,
+        read_train: Callable[[slice], torch.Tensor],
+        num_columns: int,
+        num_rows: int,
+        num_train_rows: int,
+        *,
+        cell_bytes: int,
+        staged: bool,
+    ) -> BlockFit:
+        # The signs depend on the number of columns only.
+        signs = self._fit(torch.empty((0, 1, num_columns)))["signs"].reshape(-1)
+
+        def transform(x: torch.Tensor, positions: np.ndarray) -> torch.Tensor:
+            return x.mul_(signs[positions].to(x))
+
+        return BlockFit(transform)
 
     @override
     def _fit(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
@@ -329,6 +358,10 @@ class TorchSelectiveSafePowerStep(TorchSelectiveStep):
         self._target_column_indices = target_column_indices
 
     @override
+    def _fit_column_group(self, num_train_rows: int) -> int:
+        return fit_chunk_columns(num_train_rows)
+
+    @override
     def _fit(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         # The transformer flattens the batch into the columns; the block runners
         # slice and join the cache by columns, along its last dimension.
@@ -429,6 +462,26 @@ class TorchShuffleFeaturesStep(TorchPreprocessingStep):
             fitted_cache=fitted_cache,
             schema_permutation=perm.tolist(),
         )
+
+    @property
+    @override
+    def fits_by_blocks(self) -> bool:
+        return True
+
+    @override
+    def fit_by_blocks(
+        self,
+        read_train: Callable[[slice], torch.Tensor],
+        num_columns: int,
+        num_rows: int,
+        num_train_rows: int,
+        *,
+        cell_bytes: int,
+        staged: bool,
+    ) -> BlockFit:
+        # The permutation depends on the number of columns only.
+        permutation = self._fit(torch.empty((0, 1, num_columns)))["permutation"]
+        return BlockFit(None, permutation.tolist())
 
     @override
     def _fit(self, x: torch.Tensor) -> dict[str, torch.Tensor]:

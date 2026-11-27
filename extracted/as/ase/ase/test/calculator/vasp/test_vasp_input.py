@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from ase.build import bulk
+from ase.calculators.vasp import Vasp
 from ase.calculators.vasp.create_input import (
     GenerateVaspInput,
     _args_without_comment,
@@ -95,7 +96,7 @@ def magmoms_factory(rng, request):
     elif kind == 'binaries':
         # Array of 0's and 1's
         def rand_binary(x):
-            return rng.randint(2, size=x)
+            return rng.randint(2, size=x).astype(float)
 
         func = rand_binary
     else:
@@ -234,11 +235,11 @@ def test_vasp_xc(vaspinput_factory):
     assert calc_vdw.bool_params['luse_vdw'] is True
 
     calc_hse = vaspinput_factory(
-        xc='hse06', hfscreen=0.1, gga='RE', encut=400, sigma=0.5
+        xc='hse06', hfscreen=0.1, gga='RE', encut=400.0, sigma=0.5
     )
 
     assert dict_is_subset(
-        {'hfscreen': 0.1, 'encut': 400, 'sigma': 0.5}, calc_hse.float_params
+        {'hfscreen': 0.1, 'encut': 400.0, 'sigma': 0.5}, calc_hse.float_params
     )
     assert calc_hse.bool_params['lhfcalc'] is True
     assert dict_is_subset({'gga': 'RE'}, calc_hse.string_params)
@@ -304,43 +305,37 @@ def test_non_registered_keys(vaspinput_factory) -> None:
     assert calc.int_params['libxc2'] == 267
 
 
-def test_bool(tmp_path, vaspinput_factory):
+# '.T' and 'tbob' are also parsed as True in VASP for boolean keys,
+# but ASE does not distinguish them from string now.
+@pytest.mark.parametrize(
+    'bool_str',
+    ['t', 'T', 'true', 'TRUE', 'TrUe', '.true.'],
+)
+def test_bool_true(tmp_path, vaspinput_factory, bool_str):
     """Test that INCAR parser behaves similarly to Vasp, which uses
     default fortran 'read' parsing
     """
+    with open(tmp_path / 'INCAR', 'w') as fout:
+        fout.write('ENCUT = 100\n')
+        fout.write(f'LCHARG = {bool_str}\n')
+    calc = vaspinput_factory(encut=100)
+    calc.read_incar(tmp_path / 'INCAR')
+    assert calc.bool_params['lcharg']
 
-    for bool_str in ['t', 'T', 'true', 'TRUE', 'TrUe', '.true.', '.T', 'tbob']:
-        with open(tmp_path / 'INCAR', 'w') as fout:
-            fout.write('ENCUT = 100\n')
-            fout.write(f'LCHARG = {bool_str}\n')
-        calc = vaspinput_factory(encut=100)
-        calc.read_incar(tmp_path / 'INCAR')
-        assert calc.bool_params['lcharg']
 
-    for bool_str in [
-        'f',
-        'F',
-        'false',
-        'FALSE',
-        'FaLSe',
-        '.false.',
-        '.F',
-        'fbob',
-    ]:
-        with open(tmp_path / 'INCAR', 'w') as fout:
-            fout.write('ENCUT = 100\n')
-            fout.write(f'LCHARG = {bool_str}\n')
-        calc = vaspinput_factory(encut=100)
-        calc.read_incar(tmp_path / 'INCAR')
-        assert not calc.bool_params['lcharg']
-
-    for bool_str in ['x', '..true.', '1']:
-        with open(tmp_path / 'INCAR', 'w') as fout:
-            fout.write('ENCUT = 100\n')
-            fout.write(f'LCHARG = {bool_str}\n')
-        calc = vaspinput_factory(encut=100)
-        with pytest.raises(ValueError):
-            calc.read_incar(tmp_path / 'INCAR')
+# '.F' and 'fbob' are also parsed as False in VASP for boolean keys,
+# but ASE does not distinguish them from string now.
+@pytest.mark.parametrize(
+    'bool_str',
+    ['f', 'F', 'false', 'FALSE', 'FaLSe', '.false.'],
+)
+def test_bool_false(tmp_path, vaspinput_factory, bool_str):
+    with open(tmp_path / 'INCAR', 'w') as fout:
+        fout.write('ENCUT = 100\n')
+        fout.write(f'LCHARG = {bool_str}\n')
+    calc = vaspinput_factory(encut=100)
+    calc.read_incar(tmp_path / 'INCAR')
+    assert not calc.bool_params['lcharg']
 
 
 def test_read_potcar_numbers_of_electrons() -> None:
@@ -374,8 +369,8 @@ def test_first_instance(tmp_path, vaspinput_factory):
         ('KGAMMA', 'bool', (True, False)),
         ('IBAND', 'list_int', ([1, 2], [2, 3])),
         ('LRCTYPE', 'list_bool', ([True, False], [False, True])),
-        ('DIPOL', 'list_float', ([1, 1, 1], [2, 2, 2])),
-        ('LREAL', 'special', ('auto', 'off')),
+        ('DIPOL', 'list_float', ([1.0, 1.0, 1.0], [2.0, 2.0, 2.0])),
+        ('LREAL', 'string', ('auto', 'off')),
     ]:
         with open(tmp_path / 'INCAR', 'w') as fout:
             for val in vals:
@@ -387,3 +382,20 @@ def test_first_instance(tmp_path, vaspinput_factory):
         calc = vaspinput_factory()
         calc.read_incar(tmp_path / 'INCAR')
         assert getattr(calc, dict_name + '_params')[key.lower()] == vals[0]
+
+
+@pytest.mark.parametrize(
+    ('key', 'value'), [('encut', 520), ('npar', 4), ('magmom', [1, -1])]
+)
+def test_clear_parameter(key, value):
+    calc = Vasp(**{key: value})
+    assert key in calc.asdict()['inputs']
+    calc.set(**{key: None})
+    assert key not in calc.asdict()['inputs']
+
+
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+def test_numpy_float(dtype):
+    calc = Vasp(encut=dtype(520), new_list=np.array([1.0, 2.0], dtype=dtype))
+    assert calc.encut == 520
+    np.testing.assert_array_equal(calc.list_float_params['new_list'], [1, 2])

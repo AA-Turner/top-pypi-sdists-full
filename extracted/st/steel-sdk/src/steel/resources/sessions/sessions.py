@@ -55,6 +55,14 @@ from ..._response import (
     async_to_custom_raw_response_wrapper,
     async_to_custom_streamed_response_wrapper,
 )
+from .credentials import (
+    CredentialsResource,
+    AsyncCredentialsResource,
+    CredentialsResourceWithRawResponse,
+    AsyncCredentialsResourceWithRawResponse,
+    CredentialsResourceWithStreamingResponse,
+    AsyncCredentialsResourceWithStreamingResponse,
+)
 from ...pagination import SyncSessionsCursor, AsyncSessionsCursor
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.session import Session as TypesSession
@@ -92,6 +100,10 @@ class SessionsResource(SyncAPIResource):
     @cached_property
     def command_executions(self) -> CommandExecutionsResource:
         return CommandExecutionsResource(self._client)
+
+    @cached_property
+    def credentials(self) -> CredentialsResource:
+        return CredentialsResource(self._client)
 
     @cached_property
     def files(self) -> FilesResource:
@@ -159,14 +171,17 @@ class SessionsResource(SyncAPIResource):
         Creates a new session with the provided configuration.
 
         Args:
-          block_ads: Block ads in the browser session. Default is false.
+          block_ads: Block ads in the browser session. Default is true.
 
           ca_certificates: PEM-encoded root CA certificates to trust in this session. THIS IS CURRENTLY AN
               EXPERIMENTAL FEATURE.
 
           concurrency: Number of sessions to create concurrently (check your plan limit)
 
-          credentials: Configuration for session credentials
+          credentials: Configuration for session credentials. Set enabled to false to disable
+              credentials, including those inherited from a profile. Credentials are opt-in at
+              creation; only credentials-enabled sessions can have credentials attached later
+              (otherwise 409 `credentials_not_enabled`).
 
           debug_config: Configuration for the debug URL and session viewer. Controls interaction
               capabilities, cursor visibility, and other debug-related settings.
@@ -218,7 +233,8 @@ class SessionsResource(SyncAPIResource):
 
           proxy_url: Custom proxy URL for the browser session. Overrides useProxy, disabling
               Steel-provided proxies in favor of your specified proxy. Format:
-              http(s)://username:password@hostname:port
+              http(s)://username:password@hostname:port or
+              socks5://username:password@hostname:port
 
           recording: Record the headful session for playback after it ends. Default is true.
               Disabling recording does not affect live WHEP viewing.
@@ -230,13 +246,17 @@ class SessionsResource(SyncAPIResource):
           session_context: Session context data to be used in the created session. Sessions will start with
               an empty context by default.
 
-          session_id: Optional custom UUID for the session
+          session_id: Deprecated. A session ID of your choice. Steel will reject it in a future
+              release, because the ID that Steel generates records where the session runs.
+              Omit it, use the `id` in the response, and put your own ID in `metadata`.
 
           solve_captcha: Enable automatic captcha solving. Default is false.
 
           stealth_config: Stealth configuration for the session
 
-          api_timeout: Session timeout duration in milliseconds. Default is 300000 (5 minutes).
+          api_timeout: Session timeout duration in milliseconds. Default is 300000 (5 minutes). On
+              Launch and Scale, a value over the plan's maximum runs at the maximum; the
+              response's `timeout` shows the value used.
 
           use_proxy: Simple boolean to enable/disable Steel proxies
 
@@ -1367,6 +1387,10 @@ class AsyncSessionsResource(AsyncAPIResource):
         return AsyncCommandExecutionsResource(self._client)
 
     @cached_property
+    def credentials(self) -> AsyncCredentialsResource:
+        return AsyncCredentialsResource(self._client)
+
+    @cached_property
     def files(self) -> AsyncFilesResource:
         return AsyncFilesResource(self._client)
 
@@ -1432,14 +1456,17 @@ class AsyncSessionsResource(AsyncAPIResource):
         Creates a new session with the provided configuration.
 
         Args:
-          block_ads: Block ads in the browser session. Default is false.
+          block_ads: Block ads in the browser session. Default is true.
 
           ca_certificates: PEM-encoded root CA certificates to trust in this session. THIS IS CURRENTLY AN
               EXPERIMENTAL FEATURE.
 
           concurrency: Number of sessions to create concurrently (check your plan limit)
 
-          credentials: Configuration for session credentials
+          credentials: Configuration for session credentials. Set enabled to false to disable
+              credentials, including those inherited from a profile. Credentials are opt-in at
+              creation; only credentials-enabled sessions can have credentials attached later
+              (otherwise 409 `credentials_not_enabled`).
 
           debug_config: Configuration for the debug URL and session viewer. Controls interaction
               capabilities, cursor visibility, and other debug-related settings.
@@ -1491,7 +1518,8 @@ class AsyncSessionsResource(AsyncAPIResource):
 
           proxy_url: Custom proxy URL for the browser session. Overrides useProxy, disabling
               Steel-provided proxies in favor of your specified proxy. Format:
-              http(s)://username:password@hostname:port
+              http(s)://username:password@hostname:port or
+              socks5://username:password@hostname:port
 
           recording: Record the headful session for playback after it ends. Default is true.
               Disabling recording does not affect live WHEP viewing.
@@ -1503,13 +1531,17 @@ class AsyncSessionsResource(AsyncAPIResource):
           session_context: Session context data to be used in the created session. Sessions will start with
               an empty context by default.
 
-          session_id: Optional custom UUID for the session
+          session_id: Deprecated. A session ID of your choice. Steel will reject it in a future
+              release, because the ID that Steel generates records where the session runs.
+              Omit it, use the `id` in the response, and put your own ID in `metadata`.
 
           solve_captcha: Enable automatic captcha solving. Default is false.
 
           stealth_config: Stealth configuration for the session
 
-          api_timeout: Session timeout duration in milliseconds. Default is 300000 (5 minutes).
+          api_timeout: Session timeout duration in milliseconds. Default is 300000 (5 minutes). On
+              Launch and Scale, a value over the plan's maximum runs at the maximum; the
+              response's `timeout` shows the value used.
 
           use_proxy: Simple boolean to enable/disable Steel proxies
 
@@ -2702,6 +2734,10 @@ class SessionsResourceWithRawResponse:
         return CommandExecutionsResourceWithRawResponse(self._sessions.command_executions)
 
     @cached_property
+    def credentials(self) -> CredentialsResourceWithRawResponse:
+        return CredentialsResourceWithRawResponse(self._sessions.credentials)
+
+    @cached_property
     def files(self) -> FilesResourceWithRawResponse:
         return FilesResourceWithRawResponse(self._sessions.files)
 
@@ -2770,6 +2806,10 @@ class AsyncSessionsResourceWithRawResponse:
     @cached_property
     def command_executions(self) -> AsyncCommandExecutionsResourceWithRawResponse:
         return AsyncCommandExecutionsResourceWithRawResponse(self._sessions.command_executions)
+
+    @cached_property
+    def credentials(self) -> AsyncCredentialsResourceWithRawResponse:
+        return AsyncCredentialsResourceWithRawResponse(self._sessions.credentials)
 
     @cached_property
     def files(self) -> AsyncFilesResourceWithRawResponse:
@@ -2842,6 +2882,10 @@ class SessionsResourceWithStreamingResponse:
         return CommandExecutionsResourceWithStreamingResponse(self._sessions.command_executions)
 
     @cached_property
+    def credentials(self) -> CredentialsResourceWithStreamingResponse:
+        return CredentialsResourceWithStreamingResponse(self._sessions.credentials)
+
+    @cached_property
     def files(self) -> FilesResourceWithStreamingResponse:
         return FilesResourceWithStreamingResponse(self._sessions.files)
 
@@ -2910,6 +2954,10 @@ class AsyncSessionsResourceWithStreamingResponse:
     @cached_property
     def command_executions(self) -> AsyncCommandExecutionsResourceWithStreamingResponse:
         return AsyncCommandExecutionsResourceWithStreamingResponse(self._sessions.command_executions)
+
+    @cached_property
+    def credentials(self) -> AsyncCredentialsResourceWithStreamingResponse:
+        return AsyncCredentialsResourceWithStreamingResponse(self._sessions.credentials)
 
     @cached_property
     def files(self) -> AsyncFilesResourceWithStreamingResponse:

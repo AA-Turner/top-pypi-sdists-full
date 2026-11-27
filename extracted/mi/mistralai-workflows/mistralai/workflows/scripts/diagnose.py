@@ -18,6 +18,18 @@ from temporalio.runtime import Runtime, TelemetryConfig
 from temporalio.service import ConnectConfig, HttpConnectProxyConfig, TLSConfig
 from temporalio.service import ServiceClient as TemporalServiceClient
 
+from mistralai.workflows.core.config.config import (
+    AppConfig,
+    WorkerConfig,
+    WorkflowDecoratorConfig,
+    get_workflow_decorator_config,
+    resolve_worker_config,
+)
+from mistralai.workflows.core.definition._workflow_preparation import (
+    WorkflowDecoratorMetadata,
+    registered_identity,
+)
+
 _SECRET_HEADER_NAMES = {"authorization", "x-api-key", "api-key", "x-auth-token", "x-api-secret"}
 
 _SECRET_ENV_VARS = {
@@ -117,7 +129,7 @@ def _load_sdk() -> tuple[Any, list]:
     buf = io.StringIO()
     with redirect_stdout(buf), redirect_stderr(buf):
         try:
-            from mistralai.workflows.core.config.config import config
+            config = resolve_worker_config(None)
         except Exception as exc:
             return exc, []
         try:
@@ -183,10 +195,6 @@ def _print_config(config: Any) -> None:
     from mistralai.workflows.core.config.config import _loggable_config
 
     dump = _safe_serialize(_loggable_config(config))
-    try:
-        dump["_effective_task_queue"] = config.get_effective_task_queue()
-    except Exception as exc:
-        dump["_effective_task_queue"] = f"ERROR: {exc}"
     for line in json.dumps(dump, indent=2).splitlines():
         print(f"  {line}")
 
@@ -201,16 +209,18 @@ def _print_plugins(plugins: list) -> None:
         print(f"  {line}")
 
 
-# Pollers opened per internal Temporal worker (5 workflow + 5 activity).
-_POLLERS_PER_WORKER = 10
-
 _NOT_REGISTERED_NOTE = (
     "  Note: pass your worker module to see registered workflows and activities:\n    wf-diagnose my_package.worker"
 )
 
 
-def _print_workflows() -> None:
+def _print_workflows(config: AppConfig | Exception) -> None:
     _header("REGISTERED WORKFLOWS")
+    if isinstance(config, AppConfig):
+        worker_config: WorkerConfig | WorkflowDecoratorConfig = config.worker
+    else:
+        print("  Configuration failed to load: names and determinism are SDK defaults, not what a worker registers.")
+        worker_config = get_workflow_decorator_config()
     try:
         from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
         from mistralai.workflows.core.workflow import get_all_registered_workflows
@@ -226,12 +236,15 @@ def _print_workflows() -> None:
             continue
         if spec.is_technical:
             continue
+        metadata = getattr(cls, "__workflows_decorator_metadata", None)
+        if not isinstance(metadata, WorkflowDecoratorMetadata):
+            continue
+        identity = registered_identity(metadata, worker_config)
         rows.append(
             {
-                "name": spec.name,
+                "name": identity.name,
                 "execution_timeout_seconds": spec.execution_timeout.total_seconds(),
-                "enforce_determinism": spec.enforce_determinism,
-                "schedules": [expr for s in spec.schedules for expr in s.cron_expressions] if spec.schedules else [],
+                "enforce_determinism": identity.enforce_determinism,
                 "signals": [s.name for s in spec.signals],
                 "queries": [q.name for q in spec.queries],
                 "updates": [u.name for u in spec.updates],
@@ -248,11 +261,20 @@ def _print_workflows() -> None:
         print(f"  {line}")
 
 
-def _print_activities() -> None:
+def _print_activities(config: Any) -> None:
     _header("REGISTERED ACTIVITIES")
     try:
         from mistralai.workflows.core.activity import get_all_temporal_activities
+        from mistralai.workflows.core.execution.sticky_session.sticky_worker_session import (
+            check_activity_is_sticky_to_worker,
+        )
         from mistralai.workflows.core.rate_limiting.rate_limit import get_rate_limit
+        from mistralai.workflows.core.worker_polls import (
+            distinct_rate_limit_keys,
+            estimate_connection_polls,
+            format_poll_warning,
+            group_activities_by_worker_config,
+        )
     except Exception as exc:
         print(f"  ERROR: could not import activity registry: {exc}")
         return
@@ -265,16 +287,12 @@ def _print_activities() -> None:
         return
 
     rows = []
-    rate_limit_keys: set[str] = set()
-    has_sticky = False
 
     for fn in activities:
         params: dict[str, Any] = getattr(fn, "__wf_activity_params__", {})
         rl = get_rate_limit(fn)
 
-        sticky = params.get("sticky_to_worker", False)
-        if sticky:
-            has_sticky = True
+        sticky = check_activity_is_sticky_to_worker(fn)
 
         entry: dict[str, Any] = {
             "name": fn.__name__,
@@ -286,15 +304,8 @@ def _print_activities() -> None:
             "rate_limit": None,
         }
         if rl is not None:
-            effective_key = rl.key if rl.key is not None else fn.__name__
-            # Sticky activities are routed to the sticky worker before the
-            # rate-limit check in _create_temporal_workers (elif branch), so
-            # they never create a separate rate-limit worker. Exclude them from
-            # the count to avoid inflating internal workers and estimated pollers.
-            if not sticky:
-                rate_limit_keys.add(effective_key)
             entry["rate_limit"] = {
-                "key": effective_key,
+                "key": rl.key if rl.key is not None else fn.__name__,
                 "max_execution": rl.max_execution,
                 "time_window_in_sec": rl.time_window_in_sec,
             }
@@ -303,34 +314,59 @@ def _print_activities() -> None:
     for line in json.dumps(rows, indent=2).splitlines():
         print(f"  {line}")
 
-    n_rl_workers = len(rate_limit_keys)
-    n_sticky_workers = 1 if has_sticky else 0
-    total_workers = 1 + n_sticky_workers + n_rl_workers
-    total_pollers = total_workers * _POLLERS_PER_WORKER
+    main_task_queue = "<main>" if isinstance(config, Exception) else config.get_effective_task_queue()
+    try:
+        activity_groups = group_activities_by_worker_config(
+            activities, main_task_queue, f"{main_task_queue}-sticky-worker-session"
+        )
+    except Exception as exc:
+        print(f"  ERROR: could not split activities into workers: {exc}")
+        return
+
+    n_sticky_workers = sum(1 for g in activity_groups if g.is_sticky)
+    n_rl_workers = sum(1 for g in activity_groups if not g.is_main and not g.is_sticky)
+    rate_limit_keys = distinct_rate_limit_keys(activity_groups)
+    total_workers = len(activity_groups)
 
     print()
     print("  Summary:")
     print(f"    total activities        : {len(activities)}")
-    print(f"    distinct rate-limit keys: {n_rl_workers}  {sorted(rate_limit_keys)}")
-    print(f"    sticky activities       : {has_sticky}")
+    print(f"    distinct rate-limit keys: {len(rate_limit_keys)}  {rate_limit_keys}")
+    print(f"    rate-limit workers      : {n_rl_workers}")
+    print(f"    sticky activities       : {n_sticky_workers > 0}")
     print(
         f"    internal workers        : {total_workers}  (1 main + {n_sticky_workers} sticky + {n_rl_workers} rate-limited)"
     )
-    print(
-        f"    estimated pollers       : {total_pollers}  ({total_workers} workers × {_POLLERS_PER_WORKER} pollers each)"
+    if isinstance(config, Exception):
+        print("    min poll streams        : unknown (worker config unavailable)")
+        return
+
+    estimate = estimate_connection_polls(
+        activity_groups,
+        activity_polls_per_worker=config.worker.max_activity_task_pollers,
+        workflow_polls=config.worker.max_workflow_task_pollers,
+        connection_stream_limit=config.worker.connection_stream_limit,
     )
-    if total_pollers >= 100:
+    print(
+        f"    min poll streams        : {estimate.total_polls}  "
+        f"({total_workers} workers × {estimate.activity_polls_per_worker} activity + "
+        f"1 main × {estimate.main_workflow_polls} workflow; respond/heartbeat streams not included)"
+    )
+    if estimate.headroom is None:
+        print("    stream headroom         : no connection stream limit configured")
+    else:
+        print(f"    stream headroom         : {estimate.headroom} of {estimate.connection_stream_limit}")
+    if poll_warning := format_poll_warning(estimate):
         print()
-        print(f"  WARNING: {total_pollers} pollers may exhaust the namespace concurrent-poller quota.")
-        print("  Reduce rate-limit key cardinality: share one key across activities")
-        print("  that hit the same external resource.")
+        print(f"  WARNING: {poll_warning}")
 
 
 async def _check_mistral_api(mistral_server: str, mistral_api_key: str | None) -> None:
     try:
         from mistralai.workflows.client import _get_async_client
+        from mistralai.workflows.core.auth import RunAs
 
-        async with _get_async_client(timeout=10, api_key=mistral_api_key) as client:
+        async with _get_async_client(timeout=10, api_key=mistral_api_key, run_as=RunAs.DEPLOYMENT) as client:
             resp = await client.get(f"{mistral_server}/v1/models")
         status = "OK" if resp.status_code < 500 else "FAIL"
         print(f"  [{status}]   Mistral API ({mistral_server}): HTTP {resp.status_code}")
@@ -361,8 +397,17 @@ async def _check_temporal(
     temporal_api_key: str | None,
     http_connect_proxy_config: HttpConnectProxyConfig | None = None,
 ) -> None:
-    # A TLSConfig repr would dump the whole PEM into the report, so label it instead.
-    tls_label = "pinned-ca" if isinstance(temporal_tls, TLSConfig) else str(bool(temporal_tls))
+    # A TLSConfig repr would dump the whole PEM into the report, so label what it carries instead
+    # (it can hold a pinned root CA, an mTLS client identity, or both).
+    if isinstance(temporal_tls, TLSConfig):
+        carried = [
+            label
+            for label, present in (("pinned-ca", temporal_tls.server_root_ca_cert), ("mtls", temporal_tls.client_cert))
+            if present
+        ]
+        tls_label = "+".join(carried) or "on"
+    else:
+        tls_label = str(bool(temporal_tls))
     try:
         await TemporalServiceClient.connect(
             ConnectConfig(
@@ -404,10 +449,10 @@ async def _check_connectivity(config: Any) -> None:
         temporal_tls = False
 
     temporal_tls_setting: bool | TLSConfig = temporal_tls
-    ca_failed = False
+    tls_failed = False
     if not isinstance(config, Exception):
         temporal_api_key = config.temporal.api_key.get_secret_value() if config.temporal.api_key else mistral_api_key
-        if config.temporal.tls_server_root_ca_cert_path:
+        if config.temporal.tls_server_root_ca_cert_path or config.common.mtls_client_identity is not None:
             from mistralai.workflows.core.config.config import adopt_remote_default
             from mistralai.workflows.core.temporal.temporal_client import _resolve_temporal_tls
 
@@ -416,11 +461,13 @@ async def _check_connectivity(config: Any) -> None:
             adopt_remote_default(config.temporal, "tls", temporal_tls)
             try:
                 temporal_tls_setting = _resolve_temporal_tls(
-                    config.temporal.tls, config.temporal.tls_server_root_ca_cert_path
+                    config.temporal.tls,
+                    config.temporal.tls_server_root_ca_cert_path,
+                    config.common.mtls_client_identity,
                 )
             except Exception as exc:
-                print(f"  [FAIL] Temporal TLS root CA: {exc}")
-                ca_failed = True
+                print(f"  [FAIL] Temporal TLS setup: {exc}")
+                tls_failed = True
         http_connect_proxy_config: HttpConnectProxyConfig | None = None
         if config.temporal.http_proxy_target_host:
             from mistralai.workflows.core.temporal.temporal_client import _get_proxy_basic_auth
@@ -437,10 +484,10 @@ async def _check_connectivity(config: Any) -> None:
         temporal_api_key = os.environ.get("TEMPORAL_API_KEY") or mistral_api_key
         http_connect_proxy_config = None
 
-    if ca_failed:
+    if tls_failed:
         # Connecting anyway would use the default trust roots and could report [OK] for a
         # configuration a worker refuses to start with.
-        print(f"  [SKIP] Temporal ({temporal_server}): unusable TLS root CA, a worker would fail to start")
+        print(f"  [SKIP] Temporal ({temporal_server}): unusable TLS setup, a worker would fail to start")
         return
 
     await _check_temporal(temporal_server, temporal_tls_setting, temporal_api_key, http_connect_proxy_config)
@@ -467,8 +514,8 @@ def main() -> None:
     _print_system_info()
     _print_sdk_versions()
 
-    config, plugins = _load_sdk()
-
+    # The user module may load a dotenv file or set environment variables, so import it before
+    # resolving configuration, as run_worker would.
     if args.module:
         _header("IMPORTING USER MODULE")
         try:
@@ -477,11 +524,13 @@ def main() -> None:
         except Exception as exc:
             print(f"  [FAIL] {args.module}: {exc}")
 
+    config, plugins = _load_sdk()
+
     _print_env_vars()
     _print_config(config)
     _print_plugins(plugins)
-    _print_workflows()
-    _print_activities()
+    _print_workflows(config)
+    _print_activities(config)
     asyncio.run(_check_connectivity(config))
 
     print(f"\n{'=' * width}")

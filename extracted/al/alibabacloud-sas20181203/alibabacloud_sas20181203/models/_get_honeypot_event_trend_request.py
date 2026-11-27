@@ -15,20 +15,19 @@ class GetHoneypotEventTrendRequest(DaraModel):
         src_ip: str = None,
         start_time_stamp: int = None,
     ):
-        # End time, timestamp format.
+        # The end time in timestamp format.
         self.end_time_stamp = end_time_stamp
-        # The language of the content within the request and response. Valid values:
-        # 
-        # *   **zh**: Chinese
-        # *   **en**: English
+        # The language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
-        # The risk levels of the alert events.
+        # The list of risk levels.
         self.risk_level_list = risk_level_list
-        # The source IP address of the attack.
+        # The IP address of the attack source.
         # 
         # This parameter is required.
         self.src_ip = src_ip
-        # Start time, timestamp format.
+        # The start time in timestamp format.
         self.start_time_stamp = start_time_stamp
 
     def validate(self):

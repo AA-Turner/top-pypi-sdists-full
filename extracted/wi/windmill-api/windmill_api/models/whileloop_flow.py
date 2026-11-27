@@ -7,6 +7,9 @@ from ..models.whileloop_flow_type import WhileloopFlowType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.whileloop_flow_failure_threshold_type_0 import WhileloopFlowFailureThresholdType0
+    from ..models.whileloop_flow_failure_threshold_type_1 import WhileloopFlowFailureThresholdType1
+    from ..models.whileloop_flow_failure_threshold_type_2 import WhileloopFlowFailureThresholdType2
     from ..models.whileloop_flow_modules_item import WhileloopFlowModulesItem
     from ..models.whileloop_flow_parallelism_type_0 import WhileloopFlowParallelismType0
     from ..models.whileloop_flow_parallelism_type_1 import WhileloopFlowParallelismType1
@@ -41,6 +44,9 @@ class WhileloopFlow:
                 after each iteration. A running iteration is not interrupted, so the loop can exceed the limit by up to one
                 iteration; the timeout of the body's steps caps an iteration. When reached and stop_after_if did not stop the
                 loop, the loop fails with an error named 'LoopExhausted'
+            failure_threshold (Union['WhileloopFlowFailureThresholdType0', 'WhileloopFlowFailureThresholdType1',
+                'WhileloopFlowFailureThresholdType2', Unset]): Maps input parameters for a step. Can be a static value or a
+                JavaScript expression that references previous results or flow inputs
     """
 
     modules: List["WhileloopFlowModulesItem"]
@@ -53,9 +59,17 @@ class WhileloopFlow:
     squash: Union[Unset, bool] = UNSET
     max_iterations: Union[Unset, int] = UNSET
     max_duration_secs: Union[Unset, int] = UNSET
+    failure_threshold: Union[
+        "WhileloopFlowFailureThresholdType0",
+        "WhileloopFlowFailureThresholdType1",
+        "WhileloopFlowFailureThresholdType2",
+        Unset,
+    ] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        from ..models.whileloop_flow_failure_threshold_type_0 import WhileloopFlowFailureThresholdType0
+        from ..models.whileloop_flow_failure_threshold_type_1 import WhileloopFlowFailureThresholdType1
         from ..models.whileloop_flow_parallelism_type_0 import WhileloopFlowParallelismType0
         from ..models.whileloop_flow_parallelism_type_1 import WhileloopFlowParallelismType1
 
@@ -91,6 +105,24 @@ class WhileloopFlow:
         squash = self.squash
         max_iterations = self.max_iterations
         max_duration_secs = self.max_duration_secs
+        failure_threshold: Union[Dict[str, Any], Unset]
+        if isinstance(self.failure_threshold, Unset):
+            failure_threshold = UNSET
+
+        elif isinstance(self.failure_threshold, WhileloopFlowFailureThresholdType0):
+            failure_threshold = UNSET
+            if not isinstance(self.failure_threshold, Unset):
+                failure_threshold = self.failure_threshold.to_dict()
+
+        elif isinstance(self.failure_threshold, WhileloopFlowFailureThresholdType1):
+            failure_threshold = UNSET
+            if not isinstance(self.failure_threshold, Unset):
+                failure_threshold = self.failure_threshold.to_dict()
+
+        else:
+            failure_threshold = UNSET
+            if not isinstance(self.failure_threshold, Unset):
+                failure_threshold = self.failure_threshold.to_dict()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -111,11 +143,16 @@ class WhileloopFlow:
             field_dict["max_iterations"] = max_iterations
         if max_duration_secs is not UNSET:
             field_dict["max_duration_secs"] = max_duration_secs
+        if failure_threshold is not UNSET:
+            field_dict["failure_threshold"] = failure_threshold
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.whileloop_flow_failure_threshold_type_0 import WhileloopFlowFailureThresholdType0
+        from ..models.whileloop_flow_failure_threshold_type_1 import WhileloopFlowFailureThresholdType1
+        from ..models.whileloop_flow_failure_threshold_type_2 import WhileloopFlowFailureThresholdType2
         from ..models.whileloop_flow_modules_item import WhileloopFlowModulesItem
         from ..models.whileloop_flow_parallelism_type_0 import WhileloopFlowParallelismType0
         from ..models.whileloop_flow_parallelism_type_1 import WhileloopFlowParallelismType1
@@ -187,6 +224,55 @@ class WhileloopFlow:
 
         max_duration_secs = d.pop("max_duration_secs", UNSET)
 
+        def _parse_failure_threshold(
+            data: object,
+        ) -> Union[
+            "WhileloopFlowFailureThresholdType0",
+            "WhileloopFlowFailureThresholdType1",
+            "WhileloopFlowFailureThresholdType2",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _failure_threshold_type_0 = data
+                failure_threshold_type_0: Union[Unset, WhileloopFlowFailureThresholdType0]
+                if isinstance(_failure_threshold_type_0, Unset):
+                    failure_threshold_type_0 = UNSET
+                else:
+                    failure_threshold_type_0 = WhileloopFlowFailureThresholdType0.from_dict(_failure_threshold_type_0)
+
+                return failure_threshold_type_0
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _failure_threshold_type_1 = data
+                failure_threshold_type_1: Union[Unset, WhileloopFlowFailureThresholdType1]
+                if isinstance(_failure_threshold_type_1, Unset):
+                    failure_threshold_type_1 = UNSET
+                else:
+                    failure_threshold_type_1 = WhileloopFlowFailureThresholdType1.from_dict(_failure_threshold_type_1)
+
+                return failure_threshold_type_1
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _failure_threshold_type_2 = data
+            failure_threshold_type_2: Union[Unset, WhileloopFlowFailureThresholdType2]
+            if isinstance(_failure_threshold_type_2, Unset):
+                failure_threshold_type_2 = UNSET
+            else:
+                failure_threshold_type_2 = WhileloopFlowFailureThresholdType2.from_dict(_failure_threshold_type_2)
+
+            return failure_threshold_type_2
+
+        failure_threshold = _parse_failure_threshold(d.pop("failure_threshold", UNSET))
+
         whileloop_flow = cls(
             modules=modules,
             skip_failures=skip_failures,
@@ -196,6 +282,7 @@ class WhileloopFlow:
             squash=squash,
             max_iterations=max_iterations,
             max_duration_secs=max_duration_secs,
+            failure_threshold=failure_threshold,
         )
 
         whileloop_flow.additional_properties = d

@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import os
 from typing import Any, TypeVar, TYPE_CHECKING, cast
 
 from openai.types.chat import ChatCompletion
@@ -49,17 +50,21 @@ from instructor.v2.dsl.iterable import IterableBase
 from instructor.v2.dsl.parallel import ParallelBase
 from instructor.v2.dsl.partial import PartialBase
 from instructor.v2.dsl.response_list import ListResponse
-from instructor.v2.dsl.simple_type import AdapterBase
+from instructor.v2.dsl.simple_type import AdapterBase, unwrap_adapter
 
 if TYPE_CHECKING:
     from instructor.v2.core.function_calls import ResponseSchema
+from instructor.v2.core.messages import isolate_retry_kwargs
 from instructor.v2.core.mode import Mode
 from instructor.v2.core.providers import (
     Provider,
     normalize_mode_for_provider,
     provider_from_mode,
 )
-from instructor.v2.core.response_model import prepare_response_model
+from instructor.v2.core.response_model import (
+    is_typed_dict as is_typed_dict,
+    prepare_response_model,
+)
 from instructor.v2.core.registry import mode_registry
 
 logger = logging.getLogger("instructor")
@@ -69,39 +74,10 @@ T_Retval = TypeVar("T_Retval")
 T_ParamSpec = ParamSpec("T_ParamSpec")
 T = TypeVar("T")
 
-_SENSITIVE_KEYS: frozenset[str] = frozenset(
-    {
-        "access_token",
-        "api_key",
-        "api_secret",
-        "authorization",
-        "client_secret",
-        "refresh_token",
-        "token",
-        "x_api_key",
-        "x_goog_api_key",
-    }
-)
 
-
-def _redact_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Return a redacted copy of kwargs suitable for debug logging."""
-
-    def redact(value: Any) -> Any:
-        if isinstance(value, dict):
-            return {
-                key: "[redacted]"
-                if key.lower().replace("-", "_") in _SENSITIVE_KEYS
-                else redact(item)
-                for key, item in value.items()
-            }
-        if isinstance(value, list):
-            return [redact(item) for item in value]
-        if isinstance(value, tuple):
-            return tuple(redact(item) for item in value)
-        return value
-
-    return redact(kwargs)
+def _log_raw_response(response: object) -> None:
+    if os.getenv("INSTRUCTOR_LOG_RAW_RESPONSES") == "1":
+        logger.debug("Instructor Raw Response: %s", response)
 
 
 def _ensure_registry_loaded() -> None:
@@ -113,6 +89,42 @@ def _ensure_registry_loaded() -> None:
     except Exception:
         # Best-effort: allow downstream KeyError to surface if registry is empty.
         return
+
+
+def _finalize_response(model: Any, response_model: Any, response: Any) -> Any:
+    if isinstance(model, IterableBase):
+        logger.debug(f"Returning takes from IterableBase")
+        return ListResponse.from_list(  # type: ignore[return-value]
+            [unwrap_adapter(task) for task in cast(Any, model).tasks],
+            raw_response=response,
+        )
+    if isinstance(model, list) and not isinstance(model, ListResponse):
+        logger.debug("Wrapping list response with ListResponse")
+        return ListResponse.from_list(model, raw_response=response)
+
+    if isinstance(response_model, ParallelBase):
+        logger.debug(f"Returning model from ParallelBase")
+        object.__setattr__(model, "_raw_response", response)
+        return model
+
+    if isinstance(model, AdapterBase):
+        logger.debug(f"Returning model from AdapterBase")
+        return cast(Any, model).content
+
+    if isinstance(model, BaseModel):
+        object.__setattr__(model, "_raw_response", response)
+    return model
+
+
+def _provider_kwarg(from_response: Any, provider: Any) -> dict[str, Any]:
+    """Pass ``provider`` only to ``from_response`` overrides that accept it."""
+    parameters = inspect.signature(from_response).parameters.values()
+    if any(
+        p.name == "provider" or p.kind is inspect.Parameter.VAR_KEYWORD
+        for p in parameters
+    ):
+        return {"provider": provider}
+    return {}
 
 
 async def process_response_async(
@@ -166,9 +178,7 @@ async def process_response_async(
         Parallel, Adapter) and applies appropriate processing logic for each.
     """
 
-    logger.debug(
-        f"Instructor Raw Response: {response}",
-    )
+    _log_raw_response(response)
     from instructor.v2.validation.async_validators import reject_async_validators
 
     reject_async_validators(response_model)
@@ -191,11 +201,10 @@ async def process_response_async(
             validation_context=validation_context,
             strict=strict,
             mode=mode,
+            **_provider_kwarg(dynamic_response_model.from_response, provider),
         )
-        return ListResponse.from_list(
-            list(model.tasks),
-            raw_response=response,
-        )
+        # Provider parsers may return the IterableBase or its finalized task list.
+        return _finalize_response(model, response_model, response)
 
     _ensure_registry_loaded()
     handlers = mode_registry.get_handlers(provider, mode)
@@ -221,30 +230,7 @@ async def process_response_async(
     ):
         return model
 
-    # ? This really hints at the fact that we need a better way of
-    # ? attaching usage data and the raw response to the model we return.
-    if isinstance(model, IterableBase):
-        logger.debug(f"Returning takes from IterableBase")
-        return ListResponse.from_list(  # type: ignore[return-value]
-            list(cast(Any, model).tasks),
-            raw_response=response,
-        )
-    if isinstance(model, list) and not isinstance(model, ListResponse):
-        logger.debug("Wrapping list response with ListResponse")
-        return ListResponse.from_list(model, raw_response=response)
-
-    if isinstance(response_model, ParallelBase):
-        logger.debug(f"Returning model from ParallelBase")
-        object.__setattr__(model, "_raw_response", response)
-        return model
-
-    if isinstance(model, AdapterBase):
-        logger.debug(f"Returning model from AdapterBase")
-        return cast(Any, model).content
-
-    if isinstance(model, BaseModel):
-        object.__setattr__(model, "_raw_response", response)
-    return model
+    return _finalize_response(model, response_model, response)
 
 
 def process_response(
@@ -306,9 +292,7 @@ def process_response(
         as `_raw_response`. This allows access to metadata like token usage, model
         info, and other provider-specific fields after parsing.
     """
-    logger.debug(
-        f"Instructor Raw Response: {response}",
-    )
+    _log_raw_response(response)
 
     from instructor.v2.validation.async_validators import reject_async_validators
 
@@ -333,11 +317,10 @@ def process_response(
             validation_context=validation_context,
             strict=strict,
             mode=mode,
+            **_provider_kwarg(dynamic_response_model.from_response, provider),
         )
-        return ListResponse.from_list(
-            list(model.tasks),
-            raw_response=response,
-        )
+        # Provider parsers may return the IterableBase or its finalized task list.
+        return _finalize_response(model, response_model, response)
 
     _ensure_registry_loaded()
     handlers = mode_registry.get_handlers(provider, mode)
@@ -363,38 +346,7 @@ def process_response(
     ):
         return model
 
-    # ? This really hints at the fact that we need a better way of
-    # ? attaching usage data and the raw response to the model we return.
-    if isinstance(model, IterableBase):
-        logger.debug(f"Returning takes from IterableBase")
-        return ListResponse.from_list(  # type: ignore[return-value]
-            list(cast(Any, model).tasks),
-            raw_response=response,
-        )
-    if isinstance(model, list) and not isinstance(model, ListResponse):
-        logger.debug("Wrapping list response with ListResponse")
-        return ListResponse.from_list(model, raw_response=response)
-
-    if isinstance(response_model, ParallelBase):
-        logger.debug(f"Returning model from ParallelBase")
-        object.__setattr__(model, "_raw_response", response)
-        return model
-
-    if isinstance(model, AdapterBase):
-        logger.debug(f"Returning model from AdapterBase")
-        return cast(Any, model).content
-
-    if isinstance(model, BaseModel):
-        object.__setattr__(model, "_raw_response", response)
-    return model
-
-
-def is_typed_dict(cls) -> bool:
-    return (
-        isinstance(cls, type)
-        and issubclass(cls, dict)
-        and hasattr(cls, "__annotations__")
-    )
+    return _finalize_response(model, response_model, response)
 
 
 def handle_response_model(
@@ -442,18 +394,12 @@ def handle_response_model(
             autodetect_images=autodetect_images,
         )
 
-    redacted_kwargs = _redact_kwargs(new_kwargs)
+    model_name = getattr(response_model, "__name__", None)
     logger.debug(
-        f"Instructor Request: {mode.value=}, {response_model=}, {redacted_kwargs=}",
-        extra={
-            "mode": mode.value,
-            "response_model": (
-                response_model.__name__
-                if response_model is not None and hasattr(response_model, "__name__")
-                else str(response_model)
-            ),
-            "new_kwargs": redacted_kwargs,
-        },
+        "Instructor Request: mode=%s, response_model=%s",
+        mode.value,
+        model_name,
+        extra={"mode": mode.value, "response_model": model_name},
     )
     return response_model, new_kwargs
 
@@ -562,8 +508,8 @@ def handle_reask_kwargs(
     Note:
         Provider-specific formatting still lives on each registered mode handler.
     """
-    # Create a shallow copy of kwargs to avoid modifying the original
-    kwargs_copy = kwargs.copy()
+    # Reask handlers append to request history lists.
+    kwargs_copy = isolate_retry_kwargs(kwargs)
 
     exception = InstructorError.from_exception(
         exception, failed_attempts=failed_attempts

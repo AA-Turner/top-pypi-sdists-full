@@ -2,12 +2,20 @@ import logging
 import os
 import socket
 from collections.abc import Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated, Any, Callable, Self, TypedDict
+from threading import Lock
+from types import MappingProxyType
+from typing import Annotated, Any, Callable, Iterator, Self, TypedDict, cast
 from urllib.parse import urlsplit, urlunsplit
 
 import structlog
+import temporalio.exceptions
+import temporalio.workflow
 from mistralai.extra.workflows.encoding.config import (
     BlobStorageConfig as BlobStorageConfigBase,
 )
@@ -23,8 +31,18 @@ from mistralai.extra.workflows.encoding.config import (
 from mistralai.extra.workflows.encoding.config import (
     PayloadOffloadingConfig as PayloadOffloadingConfigBase,
 )
-from pydantic import AliasChoices, Field, SecretStr, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    BeforeValidator,
+    Field,
+    SecretStr,
+    ValidatorFunctionWrapHandler,
+    field_validator,
+    model_validator,
+)
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, EnvSettingsSource, InitSettingsSource, NoDecode, SettingsConfigDict
 from pydantic_settings.main import PydanticBaseSettingsSource
 
 from mistralai.workflows.core._logger import get_logger
@@ -37,6 +55,8 @@ from mistralai.workflows.core.logging import (
 )
 from mistralai.workflows.core.rate_limiting.rate_limit import RateLimit
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
+from mistralai.workflows.protocol.v1.events import WorkflowEventCategory
+from mistralai.workflows.protocol.v1.worker import PayloadEncryptionLevel
 from mistralai.workflows.protocol.v1.workflow import DeploymentName, LocationType
 
 logger = get_logger(__name__)
@@ -44,16 +64,145 @@ logger = get_logger(__name__)
 env_file = ".env" if os.environ.get("PYTEST_VERSION") is None else ".env.test"
 
 
+def _split_comma_separated(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    items = [item.strip() for item in value.split(",") if item.strip()]
+    # An empty value is usually a template that rendered to "", not a request for an empty list.
+    if not items:
+        raise ValueError("must list at least one value")
+    return items
+
+
+# Pair with NoDecode, so pydantic-settings hands over the raw environment string instead of parsing it as JSON.
+CommaSeparated = BeforeValidator(_split_comma_separated)
+
+
+class _DelegatingSettingsSource(PydanticBaseSettingsSource):
+    """Wrap a settings source while keeping the name and state pydantic-settings records for it."""
+
+    def __init__(self, source: PydanticBaseSettingsSource) -> None:
+        super().__init__(source.settings_cls)
+        self.source = source
+        self.__name__ = getattr(source, "__name__", type(source).__name__)
+
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+        return self.source.get_field_value(field, field_name)
+
+    def _read_source(self) -> dict[str, Any]:
+        self.source._set_current_state(self.current_state)
+        self.source._set_settings_sources_data(self.settings_sources_data)
+        return self.source()
+
+    def __call__(self) -> dict[str, Any]:
+        return self._read_source()
+
+
+class _FieldNameInitSource(_DelegatingSettingsSource):
+    """Accept a field's Python name in code without making it an environment variable name.
+
+    Adding the name to ``AliasChoices`` would also read a bare environment variable of that name.
+    """
+
+    def __init__(self, source: PydanticBaseSettingsSource, aliases: Mapping[str, str]) -> None:
+        super().__init__(source)
+        self._aliases = aliases
+
+    def __call__(self) -> dict[str, Any]:
+        data = self._read_source()
+        renamed = {name: alias for name, alias in self._aliases.items() if name in data and alias not in data}
+        if not renamed:
+            return data
+        return {renamed.get(key, key): value for key, value in data.items()}
+
+
+_ignored_foreign_env_vars: set[str] = set()
+
+
+def _ignore_foreign_bare_model_values(source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
+    """Drop a bare variable named after a non-optional nested model unless its value is a JSON object.
+
+    Other software exports such names: coding agents set ``AGENT=claude-code``, which would otherwise fail
+    ``WorkerConfig`` with a ``SettingsError``. ``AGENT__<FIELD>`` is a separate key and still applies, and a
+    value starting with ``{`` is meant as configuration, so a malformed one still fails. Optional models such
+    as ``TEMPORAL_PAYLOAD_ENCRYPTION`` are left alone, so a mistyped encryption setting keeps failing.
+    Classes with an env prefix never read bare names.
+    """
+    if not isinstance(source, EnvSettingsSource) or source.env_prefix:
+        return source
+    env_vars = dict(source.env_vars)
+    for name, field in source.settings_cls.model_fields.items():
+        if not (isinstance(field.annotation, type) and issubclass(field.annotation, BaseModel)):
+            continue
+        key = name if source.case_sensitive else name.lower()
+        value = env_vars.get(key)
+        if value is None or value.lstrip().startswith("{"):
+            continue
+        del env_vars[key]
+        if key not in _ignored_foreign_env_vars:
+            _ignored_foreign_env_vars.add(key)
+            logger.warning(
+                "Ignoring an environment variable that is not a JSON object, set nested fields as <VARIABLE>__<FIELD>",
+                env_variable=key.upper(),
+            )
+    source.env_vars = env_vars
+    return source
+
+
+class _SdkSettings(BaseSettings):
+    """Base for SDK settings classes that adjust their settings sources.
+
+    Override ``_wrap_init_source`` or ``_extra_sources`` rather than ``settings_customise_sources``.
+    """
+
+    @classmethod
+    def _wrap_init_source(cls, source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
+        return source
+
+    @classmethod
+    def _extra_sources(cls, settings_cls: type[BaseSettings]) -> tuple[PydanticBaseSettingsSource, ...]:
+        return ()
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            cls._wrap_init_source(init_settings),
+            _ignore_foreign_bare_model_values(env_settings),
+            _ignore_foreign_bare_model_values(dotenv_settings),
+            file_secret_settings,
+            *cls._extra_sources(settings_cls),
+        )
+
+
+class _NestedSettings(_SdkSettings):
+    """Settings that take values only from code or from the parent's nested names, such as
+    ``TEMPORAL_PAYLOAD_ENCRYPTION__MAIN_KEY``.
+
+    These classes have no env prefix, so their own sources would read bare names like ``MAIN_KEY`` or
+    ``BUCKET_NAME`` and fill fields the parent left unset.
+    """
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (cls._wrap_init_source(init_settings), *cls._extra_sources(settings_cls))
+
+
 class DetectEnvConflict:
     """Annotation marker to enable env/dotenv conflict detection on a field."""
-
-
-def _mask_value(value: str | None) -> str | None:
-    if value is None:
-        return None
-    if len(value) <= 4:
-        return "..."
-    return "..." + value[-4:]
 
 
 class _EnvDotenvConflictDetector(PydanticBaseSettingsSource):
@@ -97,19 +246,15 @@ class _EnvDotenvConflictDetector(PydanticBaseSettingsSource):
                     "Value mismatch between .env file and environment variable, "
                     "the environment variable value will take precedence",
                     env_variable=env_key,
-                    env_variable_value=_mask_value(env_val),
                     dotenv_variable=dotenv_key,
-                    dotenv_variable_value=_mask_value(dotenv_val),
                     env_file=env_file,
                 )
         return {}
 
 
-class _ConflictDetectionMixin:
+class _ConflictDetectionMixin(_SdkSettings):
     @classmethod
     def _get_conflict_detection_fields(cls) -> list[str]:
-        if not issubclass(cls, BaseSettings):
-            raise TypeError(f"{cls.__name__} must be a subclass of BaseSettings")
         fields: list[str] = []
         for name, field_info in cls.model_fields.items():
             for meta in field_info.metadata:
@@ -119,52 +264,28 @@ class _ConflictDetectionMixin:
         return fields
 
     @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
+    def _extra_sources(cls, settings_cls: type[BaseSettings]) -> tuple[PydanticBaseSettingsSource, ...]:
         return (
-            init_settings,
-            env_settings,
-            dotenv_settings,
-            file_secret_settings,
+            *super()._extra_sources(settings_cls),
             _EnvDotenvConflictDetector(settings_cls, cls._get_conflict_detection_fields()),
         )
 
 
 class OtelRedactionMode(StrEnum):
-    """Client-side redaction policy applied to spans before OTLP export.
+    """Client-side redaction policy applied to spans and log records before OTLP export.
 
-    - DEFAULT: content-oriented regex policy; scans string values and redacts
-      matched secrets/PII substrings while preserving keys and structure.
-    - STRICT: key-oriented policy; redacts whole values for sensitive keys and
-      non-primitive values (destructive, high recall).
+    - DEFAULT: content-oriented regex policy; scans string values (including log
+      bodies) and redacts matched secrets/PII substrings while preserving keys
+      and structure.
+    - STRICT: key-oriented policy; redacts whole values for sensitive keys
+      (including `wf.arguments` and `wf.result`), non-primitive values and whole
+      log bodies (destructive, high recall).
     - NONE: no redaction.
     """
 
     DEFAULT = auto()
     NONE = auto()
     STRICT = auto()
-
-
-class EventsApiVersion(StrEnum):
-    """Which event route the worker publishes over.
-
-    - V1: legacy event route.
-    - V2: v2 event route, falling back to v1 when a v2 publish is not possible.
-    - V2_ONLY: v2 event route with no fallback — any v1 emit raises (for v2 integration tests).
-    """
-
-    V1 = "v1"
-    V2 = "v2"
-    V2_ONLY = "v2-only"
-
-
-DEFAULT_EVENTS_API_VERSION = EventsApiVersion.V2
 
 
 class CommonConfig(_ConflictDetectionMixin, BaseSettings):
@@ -178,8 +299,6 @@ class CommonConfig(_ConflictDetectionMixin, BaseSettings):
     mistral_workflows_otel_traces_export: bool = True
     mistral_workflows_otel_metrics_export: bool = True
     mistral_workflows_otel_logs_export: bool = True
-    # For backward compatibility; will be deprecated
-    otel_endpoint: str | None = None
     otel_traces_endpoint: str | None = None
     otel_metrics_endpoint: str | None = None
     otel_logs_endpoint: str | None = None
@@ -189,7 +308,7 @@ class CommonConfig(_ConflictDetectionMixin, BaseSettings):
     temporal_runtime_metrics_drain_interval_s: float = 5.0
     otel_local: bool = False
     otel_inject_logs: bool = True
-    # Client-side redaction applied to all spans before OTLP export.
+    # Client-side redaction applied to all spans and log records before OTLP export.
     otel_redaction: OtelRedactionMode = OtelRedactionMode.DEFAULT
 
     ca_bundle: str | None = Field(  # type: ignore[pydantic-alias]
@@ -207,12 +326,46 @@ class CommonConfig(_ConflictDetectionMixin, BaseSettings):
         ),
     )
 
+    mtls_client_cert_path: str | None = Field(
+        default=None,
+        description=(
+            "Path to a PEM client certificate chain the worker presents for mTLS on the transport "
+            "layer of all worker traffic -- control-plane HTTP, the SDK Mistral clients, and the "
+            "Temporal connection. This is independent of the bearer/API-key sent on top of it. Must "
+            "be set together with mtls_client_key_path."
+        ),
+    )
+    mtls_client_key_path: str | None = Field(
+        default=None,
+        description=(
+            "Path to the unencrypted PEM private key for mtls_client_cert_path. Temporal's TLSConfig "
+            "takes raw key bytes with no passphrase, so an encrypted key is not supported. Must be "
+            "set together with mtls_client_cert_path."
+        ),
+    )
+
     model_config = SettingsConfigDict(
         env_file=env_file,
         env_file_encoding="utf-8",
         extra="ignore",
         env_parse_none_str="null",
     )
+
+    @model_validator(mode="after")
+    def _validate_mtls_client_pair(self) -> Self:
+        if bool(self.mtls_client_cert_path) != bool(self.mtls_client_key_path):
+            raise ValueError(
+                "mtls_client_cert_path and mtls_client_key_path must be set together "
+                "(a client certificate is useless without its private key, and vice versa)"
+            )
+        return self
+
+    @property
+    def mtls_client_identity(self) -> tuple[str, str] | None:
+        """The (cert, key) pair the worker presents for mTLS, or None when mTLS is off."""
+        if self.mtls_client_cert_path and self.mtls_client_key_path:
+            return self.mtls_client_cert_path, self.mtls_client_key_path
+        return None
 
 
 # Hardcoded reserved workflow names that conflict with API endpoints
@@ -255,7 +408,6 @@ class TemporalConfig(_ConflictDetectionMixin, BaseSettings):
     api_key: Annotated[SecretStr | None, DetectEnvConflict()] = Field(
         default=None,
     )
-    task_queue: str = Field(default="default")  # Allow override
     tls: bool = False
     tls_server_root_ca_cert_path: str | None = Field(
         default=None,
@@ -288,20 +440,15 @@ class TemporalConfig(_ConflictDetectionMixin, BaseSettings):
     )
 
 
-class BlobStorageConfig(BlobStorageConfigBase, BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=env_file,
-        env_file_encoding="utf-8",
-        extra="ignore",
-        env_parse_none_str="null",
-    )
+class BlobStorageConfig(BlobStorageConfigBase, _NestedSettings):
+    model_config = SettingsConfigDict(extra="ignore")
 
 
-class PayloadOffloadingConfig(PayloadOffloadingConfigBase, BaseSettings):
+class PayloadOffloadingConfig(PayloadOffloadingConfigBase, _NestedSettings):
     storage_config: BlobStorageConfig | None = None
 
 
-class PayloadEncryptionConfig(PayloadEncryptionConfigBase, BaseSettings):
+class PayloadEncryptionConfig(PayloadEncryptionConfigBase, _NestedSettings):
     # Event payloads use `mode` by default. `custom_event_mode` overrides it for custom task events only,
     # e.g. `partial` on top of `mode=full` so readers without the key can still read their unmarked fields.
     custom_event_mode: PayloadEncryptionMode | None = None
@@ -314,7 +461,7 @@ class PayloadEncryptionConfig(PayloadEncryptionConfigBase, BaseSettings):
         return self.model_copy(update={"mode": self.custom_event_mode, "custom_event_mode": None})
 
 
-class PayloadCompressionConfig(PayloadCompressionConfigBase, BaseSettings):
+class PayloadCompressionConfig(PayloadCompressionConfigBase, _NestedSettings):
     pass
 
 
@@ -337,7 +484,7 @@ class AgentConfig(_ConflictDetectionMixin, BaseSettings):
     )
 
 
-class WorkerVersioningConfig(BaseSettings):
+class WorkerVersioningConfig(_SdkSettings):
     enabled: bool = Field(default=False)
     # Temporal deployment name used for WorkerDeploymentVersion. This is the name that
     # Temporal uses to match pollers to registered versions. In controller mode it comes
@@ -353,6 +500,11 @@ class WorkerVersioningConfig(BaseSettings):
         default=None,
         validation_alias="WORKER_AUTO_REGISTER_AS_CURRENT",
     )
+
+    @classmethod
+    def _wrap_init_source(cls, source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
+        source = super()._wrap_init_source(source)
+        return _FieldNameInitSource(source, {"auto_register_as_current": "WORKER_AUTO_REGISTER_AS_CURRENT"})
 
     @model_validator(mode="after")
     def configure_versioning(self) -> "WorkerVersioningConfig":
@@ -419,6 +571,33 @@ class WorkerVersioningConfig(BaseSettings):
     )
 
 
+class WorkflowDecoratorConfig(BaseSettings):
+    """SDK defaults for workflow definitions before a worker resolves its configuration.
+
+    Only the module-level instance below is used, built without reading the environment. The class
+    keeps its settings base because it is part of the public API surface.
+    """
+
+    workflow_name_prefix: str = ""
+    default_enforce_determinism: bool = True
+    versioning: WorkerVersioningConfig = Field(default_factory=WorkerVersioningConfig)
+
+    model_config = SettingsConfigDict(
+        env_file=env_file,
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_parse_none_str="null",
+        env_nested_delimiter="__",
+    )
+
+
+_workflow_decorator_config = WorkflowDecoratorConfig.model_construct(
+    versioning=WorkerVersioningConfig.model_construct(
+        enabled=False, deployment_name=None, build_id=None, auto_register_as_current=False
+    ),
+)
+
+
 def _detect_location_type() -> LocationType:
     if os.environ.get("KUBERNETES_SERVICE_HOST"):
         return LocationType.k8s
@@ -432,7 +611,7 @@ def _detect_k8s_namespace() -> str | None:
         return None
 
 
-class DeploymentLocationConfig(BaseSettings):
+class DeploymentLocationConfig(_SdkSettings):
     location_type: LocationType = Field(
         default_factory=_detect_location_type,
         description="Where this deployment is running: 'local', 'k8s', or 'managed'. "
@@ -503,6 +682,8 @@ def apply_remote_defaults(root: BaseSettings, values: Mapping[str, Any]) -> dict
     assigns to `self`. A settings class holding a `RemotelyOverridable` field must therefore never
     self-assign it, or the server value becomes permanently inert.
     """
+    if not isinstance(root, BaseSettings):
+        root = cast(Any, root).get()
     targets = _collect_remotely_overridable(root)
     effective: dict[str, Any] = {}
     for field, value in values.items():
@@ -518,7 +699,7 @@ def apply_remote_defaults(root: BaseSettings, values: Mapping[str, Any]) -> dict
     return effective
 
 
-class GraphConfig(BaseSettings):
+class GraphConfig(_SdkSettings):
     # upload_graph is remotely defaulted: never assign it in a validator.
     upload_graph: Annotated[bool, RemotelyOverridable()] = Field(
         default=False,
@@ -548,7 +729,79 @@ class GraphConfig(BaseSettings):
     )
 
 
-class WorkerConfig(BaseSettings):
+_EXPLICIT_HEADER_FIELDS = ("mistral_api_headers", "mistral_api_header_files")
+_INIT_SOURCE_NAME = InitSettingsSource.__name__
+# Set while AppConfig validates its worker: the parent has already marked which header mappings came
+# from code, and the nested WorkerConfig cannot tell them apart from mappings inherited through WORKER.
+_resolving_nested_worker_config: ContextVar[bool] = ContextVar("resolving_nested_worker_config", default=False)
+
+
+def _mark_explicit_headers(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Mark header mappings set in code so lower-priority sources replace them instead of merging.
+
+    Pydantic-settings deep-merges plain dictionaries only. Validation turns the proxies back into dictionaries.
+    """
+    return {
+        key: MappingProxyType(value) if key in _EXPLICIT_HEADER_FIELDS and isinstance(value, dict) else value
+        for key, value in values.items()
+    }
+
+
+def _section(data: Mapping[str, Any], key: str | None) -> Mapping[str, Any] | None:
+    values = data if key is None else data.get(key)
+    return values if isinstance(values, Mapping) else None
+
+
+class _ExplicitHeadersSource(_DelegatingSettingsSource):
+    """Mark the header mappings set in code, at the top level or under ``key``."""
+
+    def __init__(self, source: PydanticBaseSettingsSource, key: str | None = None) -> None:
+        super().__init__(source)
+        self._key = key
+
+    def __call__(self) -> dict[str, Any]:
+        data = self._read_source()
+        values = _section(data, self._key)
+        if values is None:
+            return data
+        if self._key is None:
+            return _mark_explicit_headers(values)
+        return {**data, self._key: _mark_explicit_headers(values)}
+
+
+class _DroppedHeadersWarningSource(PydanticBaseSettingsSource):
+    """Log the inherited header names that a mapping set in code drops, at the top level or under ``key``."""
+
+    def __init__(self, settings_cls: type[BaseSettings], key: str | None = None) -> None:
+        super().__init__(settings_cls)
+        self._key = key
+
+    def get_field_value(self, field: Any, field_name: str) -> tuple[Any, str, bool]:
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        explicit_values = _section(self.settings_sources_data.get(_INIT_SOURCE_NAME, {}), self._key) or {}
+        for field_name in _EXPLICIT_HEADER_FIELDS:
+            # A plain dictionary here was inherited through WORKER rather than set in code.
+            if field_name not in explicit_values or isinstance(explicit_values[field_name], dict):
+                continue
+            explicit = explicit_values[field_name] or {}
+            inherited = set()
+            for source_name, data in self.settings_sources_data.items():
+                values = _section(data, self._key) if source_name != _INIT_SOURCE_NAME else None
+                if values is not None and isinstance(values.get(field_name), Mapping):
+                    inherited.update(values[field_name])
+            dropped = sorted(inherited - set(explicit))
+            if dropped:
+                logger.warning(
+                    "Headers set in code replace inherited headers; these inherited headers are not sent",
+                    field=field_name,
+                    discarded_headers=dropped,
+                )
+        return {}
+
+
+class WorkerConfig(_SdkSettings):
     retry_policy_max_attempts: int = 3
     retry_policy_backoff_coefficient: float = 2.0
     # Wait multiplier for the client-side retry `@activity` applies outside a workflow; `None`
@@ -568,8 +821,6 @@ class WorkerConfig(BaseSettings):
         default="https://api.mistral.ai",
         validation_alias=AliasChoices("SERVER_URL", "server_url"),
     )
-    # Remotely defaulted: never assign in a validator.
-    events_api_version: Annotated[EventsApiVersion, RemotelyOverridable()] = DEFAULT_EVENTS_API_VERSION
     allow_multiple_workers: bool = True
     enable_config_discovery: bool = True
     mistral_api_headers: dict[str, str] | None = None
@@ -606,7 +857,28 @@ class WorkerConfig(BaseSettings):
 
     max_workflow_task_pollers: int = Field(default=5, ge=2)
     max_activity_task_pollers: int = Field(default=5, ge=1)
+    # Concurrent gRPC streams the network path to Temporal allows per connection (100 at Cloudflare's
+    # edge). Workers warn when their poll streams approach it; set to null where no such limit applies.
+    connection_stream_limit: int | None = Field(default=100, gt=0)
     max_concurrent_activities: int = Field(default=100, gt=0)
+    # 0 would disable the cache and replay every workflow from history on each task.
+    max_cached_workflows: int = Field(default=1000, gt=0)
+    # On shutdown the worker stops polling, then gives running activities this long to finish before it
+    # cancels them; 0 cancels them at once. Keep it below the platform's SIGTERM-to-SIGKILL delay (30 s
+    # by default on Kubernetes), leaving room for the telemetry flush.
+    graceful_shutdown_timeout_seconds: float = Field(default=25, ge=0)
+
+    # Comma-separated in the environment, e.g. EMITTED_EVENT_CATEGORIES=WORKFLOW,CUSTOM_TASK,ACTIVITY. The list is
+    # exactly what the worker sends, so it must name CUSTOM_TASK. An empty value is rejected rather than read as
+    # "no category", which would silently turn WORKFLOW events off.
+    emitted_event_categories: Annotated[list[WorkflowEventCategory], NoDecode, CommaSeparated] = Field(
+        default_factory=lambda: [WorkflowEventCategory.WORKFLOW, WorkflowEventCategory.CUSTOM_TASK],
+        description=(
+            "Event categories the worker sends to the Workflows API. CUSTOM_TASK is always sent: consumers such as "
+            "Vibe rely on it. ACTIVITY is off by default: its events make every activity wait on publish calls, "
+            "and no internal consumer reads them."
+        ),
+    )
 
     health_server_host: str = "localhost"
     health_server_port: int | None = None
@@ -619,6 +891,15 @@ class WorkerConfig(BaseSettings):
         env_nested_delimiter="__",
     )
 
+    @classmethod
+    def _wrap_init_source(cls, source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
+        source = super()._wrap_init_source(source)
+        return source if _resolving_nested_worker_config.get() else _ExplicitHeadersSource(source)
+
+    @classmethod
+    def _extra_sources(cls, settings_cls: type[BaseSettings]) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (*super()._extra_sources(settings_cls), _DroppedHeadersWarningSource(settings_cls))
+
     @model_validator(mode="after")
     def default_agent_server_url(self) -> "WorkerConfig":
         if not self.agent.mistral_client_server_url:
@@ -626,11 +907,26 @@ class WorkerConfig(BaseSettings):
         return self
 
     @property
+    def payload_encryption_level(self) -> PayloadEncryptionLevel:
+        if self.temporal_payload_encryption is None:
+            return PayloadEncryptionLevel.NONE
+        return PayloadEncryptionLevel(self.temporal_payload_encryption.mode.value)
+
+    @property
     def encrypts_payloads_fully(self) -> bool:
         return (
             self.temporal_payload_encryption is not None
             and self.temporal_payload_encryption.mode == PayloadEncryptionMode.FULL
         )
+
+    @model_validator(mode="after")
+    def always_emit_custom_task_events(self) -> "WorkerConfig":
+        # Rejected rather than added, so the setting reads as exactly what the worker sends.
+        if WorkflowEventCategory.CUSTOM_TASK not in self.emitted_event_categories:
+            raise ValueError(
+                "emitted_event_categories must include CUSTOM_TASK: consumers such as Vibe rely on its events"
+            )
+        return self
 
     @model_validator(mode="after")
     def warn_determinism_disabled(self) -> "WorkerConfig":
@@ -649,7 +945,7 @@ class HttpRoute(TypedDict, total=False):
     verify: bool | None
 
 
-class HttpConfig(BaseSettings):
+class HttpConfig(_SdkSettings):
     """Settings for the httpx clients the SDK builds."""
 
     proxy: str | None = Field(
@@ -686,7 +982,10 @@ class HttpConfig(BaseSettings):
         default=None,
         exclude=True,
         repr=False,
-        description="Builds the transport for a given client class, replacing the one derived above",
+        description=(
+            "Builds the transport for a given client class, replacing the one derived above. The factory owns "
+            "TLS: common.ca_bundle and the mTLS client identity are not applied to the transport it returns"
+        ),
     )
 
     model_config = SettingsConfigDict(
@@ -722,7 +1021,7 @@ class HttpConfig(BaseSettings):
         return self
 
 
-class AppConfig(BaseSettings):
+class AppConfig(_SdkSettings):
     common: CommonConfig = Field(default_factory=CommonConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
     temporal: TemporalConfig = Field(default_factory=TemporalConfig)
@@ -735,6 +1034,23 @@ class AppConfig(BaseSettings):
         env_parse_none_str="null",
     )
 
+    @classmethod
+    def _wrap_init_source(cls, source: PydanticBaseSettingsSource) -> PydanticBaseSettingsSource:
+        return _ExplicitHeadersSource(super()._wrap_init_source(source), key="worker")
+
+    @classmethod
+    def _extra_sources(cls, settings_cls: type[BaseSettings]) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (*super()._extra_sources(settings_cls), _DroppedHeadersWarningSource(settings_cls, key="worker"))
+
+    @field_validator("worker", mode="wrap")
+    @classmethod
+    def _resolve_nested_worker(cls, value: Any, handler: ValidatorFunctionWrapHandler) -> Any:
+        token = _resolving_nested_worker_config.set(True)
+        try:
+            return handler(value)
+        finally:
+            _resolving_nested_worker_config.reset(token)
+
     @property
     def otel_headers(self) -> str | None:
         """Generate OTEL headers with Mistral API key as bearer token if available."""
@@ -743,7 +1059,7 @@ class AppConfig(BaseSettings):
         return None
 
     def validate_for_worker_startup(self) -> None:
-        if not self.worker.deployment_name and self.get_effective_task_queue() == "default":
+        if not self.worker.deployment_name:
             raise ValueError(
                 "DEPLOYMENT_NAME is required. "
                 "Set it to a stable identifier for this deployment (e.g. 'invoice-parser')."
@@ -751,27 +1067,11 @@ class AppConfig(BaseSettings):
         if self.worker.deployment_name == "default":
             logger.warning(
                 "DEPLOYMENT_NAME is set to 'default'; this is valid but may conflict with other "
-                "deployments that rely on the default task queue"
+                "deployments using the same name"
             )
 
-    def get_effective_task_queue(self, raise_on_conflict: bool = False) -> str:
-        deployment_name = self.worker.deployment_name
-        task_queue = self.temporal.task_queue
-
-        if not deployment_name:
-            return task_queue
-        if task_queue == "default" or task_queue == deployment_name:
-            return deployment_name
-        if not raise_on_conflict:
-            return deployment_name
-        raise WorkflowsException(
-            code=ErrorCode.WORKER_RUNTIME_CONFIG_ERROR,
-            message=(
-                f"TEMPORAL_TASK_QUEUE ({task_queue!r}) conflicts with DEPLOYMENT_NAME ({deployment_name!r}). "
-                "They must be the same value, or leave TEMPORAL_TASK_QUEUE unset "
-                "to let it be derived from DEPLOYMENT_NAME."
-            ),
-        )
+    def get_effective_task_queue(self) -> str:
+        return self.worker.deployment_name or "default"
 
     @model_validator(mode="after")
     def inject_defaults(self) -> Self:
@@ -792,9 +1092,12 @@ def _redact_proxy_url(url: str) -> str:
 
 
 def _loggable_config(config: AppConfig) -> dict[str, Any]:
-    """A config dump safe to log: proxy credentials are stripped from the config.http proxy URLs.
-    ``SecretStr`` fields are already masked by ``model_dump``."""
+    """A config dump safe to log: proxy credentials are stripped. ``SecretStr`` fields are already
+    masked by ``model_dump``."""
     data = config.model_dump()
+    worker = data.get("worker") or {}
+    if worker.get("mistral_api_headers"):
+        worker["mistral_api_headers"] = {name: "***" for name in worker["mistral_api_headers"]}
     http = data.get("http") or {}
     if http.get("proxy"):
         http["proxy"] = _redact_proxy_url(http["proxy"])
@@ -804,26 +1107,334 @@ def _loggable_config(config: AppConfig) -> dict[str, Any]:
     return data
 
 
+def get_config_from_env() -> AppConfig:
+    """Resolve a fresh workflow configuration from environment variables and dotenv."""
+    return AppConfig()
+
+
+_active_config: ContextVar[AppConfig | None] = ContextVar("mistral_workflows_config", default=None)
+# Temporal workflow activations and Replayer executions run in executor contexts that do not inherit
+# the worker's ContextVar. This module is passed through the sandbox, so workflow code can safely select
+# the snapshot registered before polling starts without touching Temporal's internal workflow definition.
+
+
+@dataclass
+class _WorkflowConfigRegistration:
+    task_queue: str
+    deployment_version: tuple[str, str] | None
+    config: AppConfig
+    reference_count: int = 1
+    replay_namespaces: dict[str, int] = dataclass_field(default_factory=dict)
+
+
+_WorkflowConfigKey = tuple[str, str, tuple[str, str] | None]
+_WorkflowConfigReadCacheKey = tuple[str | None, str | None, _WorkflowConfigKey]
+
+
+@dataclass(frozen=True)
+class _WorkflowConfigRegistrySnapshot:
+    registrations: Mapping[_WorkflowConfigKey, _WorkflowConfigRegistration]
+    queue_fallbacks: Mapping[tuple[str, str], _WorkflowConfigRegistration | None]
+    workflow_fallbacks: Mapping[str, _WorkflowConfigRegistration | None]
+    replay_fallbacks: Mapping[tuple[str, str], _WorkflowConfigRegistration | None]
+    managed_workflow_types: frozenset[str]
+
+
+_workflow_configs: dict[_WorkflowConfigKey, _WorkflowConfigRegistration] = {}
+_workflow_config_queue_fallbacks: dict[tuple[str, str], _WorkflowConfigRegistration | None] = {}
+_workflow_config_fallbacks: dict[str, _WorkflowConfigRegistration | None] = {}
+_workflow_config_replay_fallbacks: dict[tuple[str, str], _WorkflowConfigRegistration | None] = {}
+_workflow_config_registry_snapshot = _WorkflowConfigRegistrySnapshot(
+    registrations=MappingProxyType({}),
+    queue_fallbacks=MappingProxyType({}),
+    workflow_fallbacks=MappingProxyType({}),
+    replay_fallbacks=MappingProxyType({}),
+    managed_workflow_types=frozenset(),
+)
+# Keep configured names after their registration closes so an SDK workflow cannot silently
+# fall back to environment config, while raw Temporal workflows retain their legacy fallback.
+_managed_workflow_types: set[str] = set()
+_workflow_configs_lock = Lock()
+_workflow_config_read_cache: ContextVar[tuple[_WorkflowConfigReadCacheKey, AppConfig] | None] = ContextVar(
+    "mistral_workflows_config_read_cache",
+    default=None,
+)
+
+
+def _publish_workflow_config_registry_snapshot() -> None:
+    global _workflow_config_registry_snapshot
+    _workflow_config_registry_snapshot = _WorkflowConfigRegistrySnapshot(
+        registrations=MappingProxyType(dict(_workflow_configs)),
+        queue_fallbacks=MappingProxyType(dict(_workflow_config_queue_fallbacks)),
+        workflow_fallbacks=MappingProxyType(dict(_workflow_config_fallbacks)),
+        replay_fallbacks=MappingProxyType(dict(_workflow_config_replay_fallbacks)),
+        managed_workflow_types=frozenset(_managed_workflow_types),
+    )
+
+
+def _single_config_registration(
+    registrations: list[_WorkflowConfigRegistration],
+) -> _WorkflowConfigRegistration | None:
+    """Return a registration when every candidate carries the same config, else None.
+
+    An unversioned worker registers its config twice (without a version and under its synthetic
+    version), so counting registrations would wrongly treat one config as ambiguous.
+    """
+    if not registrations:
+        return None
+    first = registrations[0]
+    first_dump = first.config.model_dump(round_trip=True)
+    if all(registration.config.model_dump(round_trip=True) == first_dump for registration in registrations[1:]):
+        return first
+    return None
+
+
+def _refresh_workflow_config_fallbacks(workflow_type: str, task_queue: str) -> None:
+    matching_registrations = [
+        registration
+        for (registered_workflow_type, _, _), registration in _workflow_configs.items()
+        if registered_workflow_type == workflow_type
+    ]
+    _workflow_config_fallbacks[workflow_type] = _single_config_registration(matching_registrations)
+    matching_queue_registrations = [
+        registration
+        for (registered_workflow_type, registered_task_queue, _), registration in _workflow_configs.items()
+        if registered_workflow_type == workflow_type and registered_task_queue == task_queue
+    ]
+    _workflow_config_queue_fallbacks[(workflow_type, task_queue)] = _single_config_registration(
+        matching_queue_registrations
+    )
+    for key in [key for key in _workflow_config_replay_fallbacks if key[0] == workflow_type]:
+        del _workflow_config_replay_fallbacks[key]
+    replay_namespaces = {
+        namespace
+        for registration in matching_registrations
+        for namespace, reference_count in registration.replay_namespaces.items()
+        if reference_count > 0
+    }
+    for namespace in replay_namespaces:
+        replay_registrations = [
+            registration
+            for registration in matching_registrations
+            if registration.replay_namespaces.get(namespace, 0) > 0
+        ]
+        _workflow_config_replay_fallbacks[(workflow_type, namespace)] = (
+            replay_registrations[0] if len(replay_registrations) == 1 else None
+        )
+
+
+def _workflow_deployment_version(config: AppConfig) -> tuple[str, str] | None:
+    versioning = config.worker.versioning
+    if not versioning.enabled or not versioning.deployment_name or not versioning.build_id:
+        return None
+    return versioning.deployment_name, versioning.build_id
+
+
+def _register_workflow_config(
+    workflow_type: str,
+    task_queue: str,
+    config: AppConfig,
+    *,
+    replay_namespace: str | None = None,
+    deployment_version_override: tuple[str, str] | None = None,
+) -> _WorkflowConfigKey:
+    """Register an isolated config snapshot visible to one Temporal workflow definition."""
+    config_snapshot = config.model_copy(deep=True)
+    deployment_version = deployment_version_override or _workflow_deployment_version(config_snapshot)
+    registration_key = (workflow_type, task_queue, deployment_version)
+    with _workflow_configs_lock:
+        _managed_workflow_types.add(workflow_type)
+        existing = _workflow_configs.get(registration_key)
+        if existing is not None:
+            if existing.config.model_dump(round_trip=True) != config_snapshot.model_dump(round_trip=True):
+                raise WorkflowsException(
+                    code=ErrorCode.WORKFLOW_DEFINITION_ERROR,
+                    message=(
+                        f"Workflow type {workflow_type!r} is already configured on task queue {task_queue!r} "
+                        f"for deployment version {deployment_version!r} with a different workflow configuration. "
+                        "A workflow type, task queue, and deployment version can only have one complete "
+                        "workflow-visible configuration per process. Use a different task queue or deployment "
+                        "version, or run differently configured workers in separate processes."
+                    ),
+                )
+            existing.reference_count += 1
+            if replay_namespace is not None:
+                existing.replay_namespaces[replay_namespace] = existing.replay_namespaces.get(replay_namespace, 0) + 1
+                _refresh_workflow_config_fallbacks(workflow_type, task_queue)
+                _publish_workflow_config_registry_snapshot()
+            return registration_key
+        _workflow_configs[registration_key] = _WorkflowConfigRegistration(
+            task_queue,
+            deployment_version,
+            config_snapshot,
+            replay_namespaces={replay_namespace: 1} if replay_namespace is not None else {},
+        )
+        _refresh_workflow_config_fallbacks(workflow_type, task_queue)
+        _publish_workflow_config_registry_snapshot()
+        return registration_key
+
+
+def _unregister_workflow_config(
+    registration_key: _WorkflowConfigKey,
+    *,
+    replay_namespace: str | None = None,
+) -> None:
+    """Release one matching workflow config registration."""
+    with _workflow_configs_lock:
+        existing = _workflow_configs.get(registration_key)
+        if existing is None:
+            return
+        if existing.reference_count == 1:
+            del _workflow_configs[registration_key]
+            _refresh_workflow_config_fallbacks(registration_key[0], registration_key[1])
+            _publish_workflow_config_registry_snapshot()
+        else:
+            existing.reference_count -= 1
+            if replay_namespace is not None:
+                replay_reference_count = existing.replay_namespaces[replay_namespace]
+                if replay_reference_count == 1:
+                    del existing.replay_namespaces[replay_namespace]
+                else:
+                    existing.replay_namespaces[replay_namespace] = replay_reference_count - 1
+                _refresh_workflow_config_fallbacks(registration_key[0], registration_key[1])
+                _publish_workflow_config_registry_snapshot()
+
+
+@contextmanager
+def _use_workflow_config(
+    workflow_type: str,
+    task_queue: str,
+    config: AppConfig,
+    *,
+    replay_namespace: str | None = None,
+    deployment_version_override: tuple[str, str] | None = None,
+) -> Iterator[None]:
+    registration_key = _register_workflow_config(
+        workflow_type,
+        task_queue,
+        config,
+        replay_namespace=replay_namespace,
+        deployment_version_override=deployment_version_override,
+    )
+    try:
+        yield
+    finally:
+        _unregister_workflow_config(registration_key, replay_namespace=replay_namespace)
+
+
+def _get_registered_workflow_config() -> AppConfig | None:
+    if not temporalio.workflow.in_workflow():
+        return None
+
+    try:
+        info = temporalio.workflow.info()
+    except (RuntimeError, temporalio.exceptions.TemporalError):
+        return None
+    deployment = info.get_current_deployment_version()
+    deployment_version = (
+        (deployment.deployment_name, deployment.build_id)
+        if deployment is not None and deployment.deployment_name
+        else None
+    )
+    registry = _workflow_config_registry_snapshot
+    registered = None
+    workflow_namespace = getattr(info, "namespace", None)
+    if workflow_namespace is not None:
+        # A Replayer runs under its own namespace. Prefer the config prepared for that replay,
+        # even when a live worker in this process serves the same workflow and task queue.
+        registered = registry.replay_fallbacks.get((info.workflow_type, workflow_namespace))
+    if registered is None:
+        registered = registry.registrations.get((info.workflow_type, info.task_queue, deployment_version))
+    if registered is None:
+        # A run can report a deployment version this worker did not register: a v2 worker continuing
+        # a v1 run after an upgrade, recovery, or versioning override. When the task queue has exactly
+        # one config, that config is the only one this worker can run the workflow with.
+        registered = registry.queue_fallbacks.get((info.workflow_type, info.task_queue))
+    if registered is None and deployment_version is None:
+        registered = registry.workflow_fallbacks.get(info.workflow_type)
+    if registered is None:
+        if info.workflow_type not in registry.managed_workflow_types:
+            return None
+        raise WorkflowsException(
+            code=ErrorCode.WORKFLOW_DEFINITION_ERROR,
+            message=(
+                f"No workflow configuration is registered for workflow type {info.workflow_type!r} "
+                f"on task queue {info.task_queue!r} for deployment version {deployment_version!r}. "
+                "Start it with run_worker() or keep prepare_workflows() open while running a Temporal "
+                "Worker or Replayer."
+            ),
+        )
+    registration_key = (info.workflow_type, registered.task_queue, registered.deployment_version)
+    cache_key = (
+        getattr(info, "workflow_id", None),
+        getattr(info, "run_id", None),
+        registration_key,
+    )
+    cached = _workflow_config_read_cache.get()
+    if cached is not None and cached[0] == cache_key:
+        return cached[1]
+    workflow_config = registered.config.model_copy(deep=True)
+    _workflow_config_read_cache.set((cache_key, workflow_config))
+    return workflow_config
+
+
+@contextmanager
+def use_config(config: AppConfig) -> Iterator[None]:
+    """Make a resolved config available to legacy runtime dependencies in this async context."""
+    token = _active_config.set(config)
+    try:
+        yield
+    finally:
+        _active_config.reset(token)
+
+
+class _LazyConfig:
+    """Backward-compatible lazy facade for the deprecated mutable config singleton."""
+
+    def __init__(self) -> None:
+        object.__setattr__(self, "_value", None)
+        object.__setattr__(self, "_lock", Lock())
+
+    def get(self) -> AppConfig:
+        if workflow_config := _get_registered_workflow_config():
+            return workflow_config
+        if active_config := _active_config.get():
+            return active_config
+
+        value = cast(AppConfig | None, object.__getattribute__(self, "_value"))
+        if value is not None:
+            return value
+
+        lock = cast(Lock, object.__getattribute__(self, "_lock"))
+        with lock:
+            value = cast(AppConfig | None, object.__getattribute__(self, "_value"))
+            if value is None:
+                value = get_config_from_env()
+                object.__setattr__(self, "_value", value)
+        return value
+
+    def get_if_loaded(self) -> AppConfig | None:
+        return cast(AppConfig | None, object.__getattribute__(self, "_value"))
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.get(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        setattr(self.get(), name, value)
+
+
+_lazy_config = _LazyConfig()
+
+
 def _get_or_load_config() -> AppConfig:
-    """Read and initialize the application configuration."""
-    # Load configuration from environment/file
-    config = AppConfig()
-
-    # Set OTEL_EXPORTER_OTLP_CERTIFICATE if CA_BUNDLE is set to enable TLS verification for OpenTelemetry
-    if config.common.ca_bundle is not None:
-        os.environ["OTEL_EXPORTER_OTLP_CERTIFICATE"] = config.common.ca_bundle
-
-    # Set OTEL_EXPORTER_OTLP_HEADERS if Mistral API key is available
-    if config.otel_headers is not None:
-        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = config.otel_headers
-
-    return config
+    """Return the lazy compatibility facade without resolving its environment."""
+    return cast(AppConfig, _lazy_config)
 
 
 config = _get_or_load_config()
 
 
-def setup_default_logging() -> None:
+def setup_default_logging(app_config: AppConfig | None = None) -> None:
     """Set up the SDK's console logging for a process the SDK runs, such as a worker or the SDK CLIs.
 
     The host's own logging setup wins. If the host configured structlog, this does nothing, and
@@ -835,14 +1446,15 @@ def setup_default_logging() -> None:
     """
     if structlog.is_configured():
         return
-    inject_otel_trace = config.common.otel_enabled and config.common.otel_inject_logs
+    resolved_config = app_config if app_config is not None else config
+    inject_otel_trace = resolved_config.common.otel_enabled and resolved_config.common.otel_inject_logs
     if logging.getLogger().handlers:
         route_logs_to_host_logging(inject_otel_trace=inject_otel_trace)
         return
     setup_logging(
-        log_level=config.common.log_level,
-        log_format=config.common.log_format,
-        app_version=config.common.app_version,
+        log_level=resolved_config.common.log_level,
+        log_format=resolved_config.common.log_format,
+        app_version=resolved_config.common.app_version,
         inject_otel_trace=inject_otel_trace,
         extra_config=[
             # noisy
@@ -855,6 +1467,55 @@ def setup_default_logging() -> None:
     )
 
 
-def log_configuration() -> None:
+def log_configuration(app_config: AppConfig | None = None) -> None:
     """Log the loaded configuration, with secrets masked. Called when a worker starts."""
-    logger.info("Configuration loaded", config=_loggable_config(config))
+    resolved_config = app_config if app_config is not None else config
+    logger.info("Configuration loaded", config=_loggable_config(resolved_config))
+
+
+class _DeploymentNameEnvironment(BaseSettings):
+    deployment_name: str | None = None
+
+    model_config = SettingsConfigDict(
+        env_file=env_file,
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_parse_none_str="null",
+    )
+
+
+def resolve_worker_config(explicit_config: AppConfig | None) -> AppConfig:
+    """Resolve configuration for one worker startup.
+
+    Explicit configuration is copied so the caller's object remains isolated. Without an explicit
+    configuration, environment and dotenv values are resolved fresh for every worker startup unless
+    the deprecated mutable ``config`` facade was already loaded, in which case its compatibility
+    value remains authoritative.
+    """
+    if explicit_config is not None:
+        environment_deployment_name = _DeploymentNameEnvironment().deployment_name
+        explicit_deployment_name = explicit_config.worker.deployment_name
+        if environment_deployment_name is not None and explicit_deployment_name != environment_deployment_name:
+            logger.warning(
+                "Explicit worker deployment name overrides DEPLOYMENT_NAME from the environment",
+                explicit_deployment_name=explicit_deployment_name,
+                environment_deployment_name=environment_deployment_name,
+            )
+        resolved = explicit_config.model_copy(deep=True)
+    else:
+        resolved = _lazy_config.get_if_loaded() or get_config_from_env()
+    return resolved
+
+
+def get_workflow_decorator_config() -> WorkerConfig | WorkflowDecoratorConfig:
+    """Resolve only settings that affect class decoration.
+
+    A worker being prepared or running takes precedence, so Temporal sandbox re-imports reproduce the
+    definitions registered by that worker. Otherwise decoration uses SDK defaults, without reading the
+    environment or the legacy ``config`` facade, so a definition never depends on import order.
+    """
+    if workflow_config := _get_registered_workflow_config():
+        return workflow_config.worker
+    if active_config := _active_config.get():
+        return active_config.worker
+    return _workflow_decorator_config

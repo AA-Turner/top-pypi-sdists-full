@@ -1,3 +1,5 @@
+import os
+import ssl
 from typing import Any, Callable, cast
 
 import httpx
@@ -7,10 +9,45 @@ from mistralai.workflows._mistral_http import HttpBackend
 from mistralai.workflows.core.config.config import HttpRoute, config
 
 
-def verify(route: HttpRoute | None = None) -> bool | str:
-    if not config.http.route_verify(route):
-        return False
-    return config.common.ca_bundle or True
+def sync_client_options(http: HttpBackend = httpx) -> dict[str, Any]:
+    transport = sync_transport(http)
+    return {
+        # httpx only reads the client-level `verify` when it builds the default transport itself.
+        "verify": verify() if transport is None else True,
+        "transport": transport,
+        "mounts": sync_mounts(http),
+        "limits": limits(http),
+    }
+
+
+def async_client_options(http: HttpBackend = httpx) -> dict[str, Any]:
+    transport = async_transport(http)
+    return {
+        "verify": verify() if transport is None else True,
+        "transport": transport,
+        "mounts": async_mounts(http),
+        "limits": limits(http),
+    }
+
+
+def verify(route: HttpRoute | None = None) -> ssl.SSLContext | bool:
+    verifies = config.http.route_verify(route)
+    client_identity = config.common.mtls_client_identity
+    if client_identity is None and not (verifies and config.common.ca_bundle):
+        return verifies
+    context = _verifying_ssl_context() if verifies else httpx.create_ssl_context(verify=False)
+    if client_identity is not None:
+        context.load_cert_chain(*client_identity)
+    return context
+
+
+def _verifying_ssl_context() -> ssl.SSLContext:
+    ca_bundle = config.common.ca_bundle
+    if ca_bundle is None:
+        return httpx.create_ssl_context()
+    if os.path.isdir(ca_bundle):
+        return ssl.create_default_context(capath=ca_bundle)
+    return ssl.create_default_context(cafile=ca_bundle)
 
 
 def limits(http: HttpBackend = httpx) -> httpx.Limits:
@@ -67,17 +104,19 @@ def _sdk_resolves_proxies() -> bool:
     return bool(config.http.proxy or config.http.routes or config.http.transport_factory)
 
 
-def _sync_http_transport(*, proxy: str | None, verify: bool | str, http: HttpBackend = httpx) -> httpx.HTTPTransport:
+def _sync_http_transport(
+    *, proxy: str | None, verify: ssl.SSLContext | bool, http: HttpBackend = httpx
+) -> httpx.HTTPTransport:
     return http.HTTPTransport(**_transport_kwargs(proxy=proxy, verify=verify, http=http))
 
 
 def _async_http_transport(
-    *, proxy: str | None, verify: bool | str, http: HttpBackend = httpx
+    *, proxy: str | None, verify: ssl.SSLContext | bool, http: HttpBackend = httpx
 ) -> httpx.AsyncHTTPTransport:
     return http.AsyncHTTPTransport(**_transport_kwargs(proxy=proxy, verify=verify, http=http))
 
 
-def _transport_kwargs(*, proxy: str | None, verify: bool | str, http: HttpBackend = httpx) -> dict[str, Any]:
+def _transport_kwargs(*, proxy: str | None, verify: ssl.SSLContext | bool, http: HttpBackend = httpx) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"verify": verify, "limits": limits(http)}
     if proxy is not None:
         kwargs["proxy"] = proxy

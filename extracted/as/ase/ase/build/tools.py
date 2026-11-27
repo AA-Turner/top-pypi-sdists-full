@@ -550,13 +550,13 @@ def sort(atoms, tags=None):
     >>> # Two unit cells of NaCl:
     >>> a = 5.64
     >>> nacl = bulk('NaCl', 'rocksalt', a=a) * (2, 1, 1)
-    >>> nacl.get_chemical_symbols()
+    >>> list(nacl.symbols)
     ['Na', 'Cl', 'Na', 'Cl']
     >>> nacl_sorted = sort(nacl)
-    >>> nacl_sorted.get_chemical_symbols()
+    >>> list(nacl_sorted.symbols)
     ['Cl', 'Cl', 'Na', 'Na']
     >>> np.all(nacl_sorted.cell == nacl.cell)
-    True
+    np.True_
     """
     if tags is None:
         tags = atoms.get_chemical_symbols()

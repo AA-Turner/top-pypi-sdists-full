@@ -1,5 +1,3 @@
-# fmt: off
-
 import os
 import random
 import string
@@ -10,9 +8,25 @@ import numpy as np
 
 from ase.calculators.calculator import KPoints, kpts2kpts
 
-_special_kws = ['center', 'autosym', 'autoz', 'theory', 'basis', 'xc', 'task',
-                'set', 'symmetry', 'label', 'geompar', 'basispar', 'kpts',
-                'bandpath', 'restart_kw', 'pretasks', 'charge']
+_special_kws = [
+    'center',
+    'autosym',
+    'autoz',
+    'theory',
+    'basis',
+    'xc',
+    'task',
+    'set',
+    'symmetry',
+    'label',
+    'geompar',
+    'basispar',
+    'kpts',
+    'bandpath',
+    'restart_kw',
+    'pretasks',
+    'charge',
+]
 
 _system_type = {1: 'polymer', 2: 'surface', 3: 'crystal'}
 
@@ -69,8 +83,11 @@ def _render_geom(atoms, params: dict) -> list[str]:
         geom.append('  end')
 
     for i, atom in enumerate(atoms):
-        geom.append('  {:<2} {:20.16e} {:20.16e} {:20.16e}'
-                    ''.format(atom.symbol, *outpos[i]))
+        geom.append(
+            '  {:<2} {:20.16e} {:20.16e} {:20.16e}'.format(
+                atom.symbol, *outpos[i]
+            )
+        )
     symm = params.get('symmetry')
     if symm is not None:
         geom.append(f'  symmetry {symm}')
@@ -117,11 +134,12 @@ def _render_basis(theory, params: dict) -> list[str]:
     return basis_out
 
 
-_special_keypairs = [('nwpw', 'simulation_cell'),
-                     ('nwpw', 'carr-parinello'),
-                     ('nwpw', 'brillouin_zone'),
-                     ('tddft', 'grad'),
-                     ]
+_special_keypairs = [
+    ('nwpw', 'simulation_cell'),
+    ('nwpw', 'carr-parinello'),
+    ('nwpw', 'brillouin_zone'),
+    ('tddft', 'grad'),
+]
 
 
 def _render_brillouin_zone(array, name=None) -> list[str]:
@@ -140,9 +158,7 @@ def _render_bandpath(bp) -> list[str]:
         return []
     out = ['nwpw']
     out += _render_brillouin_zone(bp.kpts, name=bp.path)
-    out += [f'  zone_structure_name {bp.path}',
-            'end',
-            'task band structure']
+    out += [f'  zone_structure_name {bp.path}', 'end', 'task band structure']
     return out
 
 
@@ -173,8 +189,9 @@ def _format_block(key, val, nindent=0) -> list[str]:
                 out += _format_block(subkey, subval, nindent + 1)
         else:
             if isinstance(subval, dict):
-                subval = ' '.join([_format_line(a, b)
-                                   for a, b in subval.items()])
+                subval = ' '.join(
+                    [_format_line(a, b) for a, b in subval.items()]
+                )
             out.append(prefix2 + ' '.join([_format_line(subkey, subval)]))
     out.append(prefix + 'end')
     return out
@@ -217,8 +234,16 @@ def _render_set(set_params) -> list[str]:
     return ['set ' + _format_line(key, val) for key, val in set_params.items()]
 
 
-_gto_theories = ['tce', 'ccsd', 'tddft', 'scf', 'dft',
-                 'direct_mp2', 'mp2', 'rimp2']
+_gto_theories = [
+    'tce',
+    'ccsd',
+    'tddft',
+    'scf',
+    'dft',
+    'direct_mp2',
+    'mp2',
+    'rimp2',
+]
 _pw_theories = ['band', 'pspw', 'paw']
 _all_theories = _gto_theories + _pw_theories
 
@@ -266,12 +291,13 @@ def _get_theory(params: dict) -> str:
     return 'dft'
 
 
-_xc_conv = dict(lda='slater pw91lda',
-                pbe='xpbe96 cpbe96',
-                revpbe='revpbe cpbe96',
-                rpbe='rpbe cpbe96',
-                pw91='xperdew91 perdew91',
-                )
+_xc_conv = dict(
+    lda='slater pw91lda',
+    pbe='xpbe96 cpbe96',
+    revpbe='revpbe cpbe96',
+    rpbe='rpbe cpbe96',
+    pw91='xperdew91 perdew91',
+)
 
 
 def _update_mult(magmom_tot: int, params: dict) -> None:
@@ -296,8 +322,17 @@ def _update_mult(magmom_tot: int, params: dict) -> None:
 
     # Adjust the kwargs for each type of theory
     if 'scf' in params:
-        for kw in ['nopen', 'singlet', 'doublet', 'triplet', 'quartet',
-                   'quintet', 'sextet', 'septet', 'octet']:
+        for kw in [
+            'nopen',
+            'singlet',
+            'doublet',
+            'triplet',
+            'quartet',
+            'quintet',
+            'sextet',
+            'septet',
+            'octet',
+        ]:
             if kw in params['scf']:
                 break
         else:
@@ -335,7 +370,7 @@ def _update_kpts(atoms, params) -> None:
     nwpw = params.get('nwpw', {})
 
     if 'monkhorst-pack' in nwpw or 'brillouin_zone' in nwpw:
-        raise ValueError("Redundant k-points specified!")
+        raise ValueError('Redundant k-points specified!')
 
     if isinstance(kpts, KPoints):
         nwpw['brillouin_zone'] = kpts.kpts
@@ -353,10 +388,10 @@ def _update_kpts(atoms, params) -> None:
 
 
 def _render_pretask(
-        this_step: dict,
-        previous_basis: list[str] | None,
-        wfc_path: str,
-        next_steps: list[dict],
+    this_step: dict,
+    previous_basis: list[str] | None,
+    wfc_path: str,
+    next_steps: list[dict],
 ) -> tuple[list[str], list[str]]:
     """Generate input file lines that perform a cheaper method first
 
@@ -422,19 +457,23 @@ def _render_pretask(
     else:
         # Check for known limitations of NWChem
         if this_theory != next_theory:
-            msg = 'Theories must be the same if basis are different. ' \
-                  f'This step: {this_theory}//{this_basis} ' \
-                  f'Next step: {next_theory}//{next_basis}'
+            msg = (
+                'Theories must be the same if basis are different. '
+                f'This step: {this_theory}//{this_basis} '
+                f'Next step: {next_theory}//{next_basis}'
+            )
             if 'basis' not in this_step:
-                msg += f". Consider specifying basis in {this_step}"
+                msg += f'. Consider specifying basis in {this_step}'
             raise ValueError(msg)
         if not any('* library' in x for x in this_basis):
-            raise ValueError('We can only support projecting from systems '
-                             'where all atoms share the same basis')
+            raise ValueError(
+                'We can only support projecting from systems '
+                'where all atoms share the same basis'
+            )
 
         # Append a new name to this basis function by
         #  appending it as the first argument of the basis block
-        proj_from = f"smb_{len(next_steps)}"
+        proj_from = f'smb_{len(next_steps)}'
         this_basis[0] = f'basis {proj_from} {this_basis[0][6:]}'
         out.append('\n'.join(this_basis))
 
@@ -449,17 +488,24 @@ def _render_pretask(
     this_step[this_theory]['vectors']['output'] = wfc_path
 
     # Check if the initial theory changes
-    if this_theory != next_theory and \
-            'lindep:n_dep' not in this_step.get('set', {}):
-        warnings.warn('Loading initial guess may fail if you do not specify'
-                      ' the number of linearly-dependent basis functions.'
-                      ' Consider adding {"set": {"lindep:n_dep": 0}} '
-                      f' to the step: {this_step}.')
+    if this_theory != next_theory and 'lindep:n_dep' not in this_step.get(
+        'set', {}
+    ):
+        warnings.warn(
+            'Loading initial guess may fail if you do not specify'
+            ' the number of linearly-dependent basis functions.'
+            ' Consider adding {"set": {"lindep:n_dep": 0}} '
+            f' to the step: {this_step}.'
+        )
 
     # Add this to the input file along with a "task * ignore" command
-    out.extend(['\n'.join(_render_other(this_step)),
-                '\n'.join(_render_set(this_step.get('set', {}))),
-                f'task {this_theory} ignore'])
+    out.extend(
+        [
+            '\n'.join(_render_other(this_step)),
+            '\n'.join(_render_set(this_step.get('set', {}))),
+            f'task {this_theory} ignore',
+        ]
+    )
 
     # Command to read the wavefunctions in the next step
     #  Theory used to get the wavefunctions may be different (mp2 uses SCF)
@@ -475,8 +521,9 @@ def _render_pretask(
         next_step[wfc_theory]['vectors']['input'] = wfc_path
     else:
         # Define that we should project from our basis set
-        next_step[wfc_theory]['vectors']['input'] \
-            = f'project {proj_from} {wfc_path}'
+        next_step[wfc_theory]['vectors']['input'] = (
+            f'project {proj_from} {wfc_path}'
+        )
 
         # Replace the name of the basis set to the default
         out.append('set "ao basis" "ao basis"')
@@ -557,8 +604,7 @@ def write_nwchem_in(fd, atoms, properties=None, echo=False, **params):
     scratch = os.path.abspath(params.pop('scratch', label))
     restart_kw = params.get('restart_kw', 'start')
     if restart_kw not in ('start', 'restart'):
-        raise ValueError("Unrecognised restart keyword: {}!"
-                         .format(restart_kw))
+        raise ValueError('Unrecognised restart keyword: {}!'.format(restart_kw))
     short_label = label.rsplit('/', 1)[-1]
     if echo:
         out = ['echo']
@@ -566,12 +612,16 @@ def write_nwchem_in(fd, atoms, properties=None, echo=False, **params):
         out = []
 
     # Defines the geometry and global options
-    out.extend([f'title "{short_label}"',
-                f'permanent_dir {perm}',
-                f'scratch_dir {scratch}',
-                f'{restart_kw} {short_label}',
-                '\n'.join(_render_set(params.get('set', {}))),
-                '\n'.join(_render_geom(atoms, params))])
+    out.extend(
+        [
+            f'title "{short_label}"',
+            f'permanent_dir {perm}',
+            f'scratch_dir {scratch}',
+            f'{restart_kw} {short_label}',
+            '\n'.join(_render_set(params.get('set', {}))),
+            '\n'.join(_render_geom(atoms, params)),
+        ]
+    )
 
     # Add the charge if provided
     if 'charge' in params:
@@ -593,14 +643,18 @@ def write_nwchem_in(fd, atoms, properties=None, echo=False, **params):
                 this_step,
                 previous_basis,
                 wfc_path,
-                pretasks[this_ind + 1:] + [params]
+                pretasks[this_ind + 1 :] + [params],
             )
             out.extend(new_out)
 
     # Finish output file with the commands to perform the desired computation
-    out.extend(['\n'.join(_render_basis(theory, params)),
-                '\n'.join(_render_other(params)),
-                f'task {theory} {task}',
-                '\n'.join(_render_bandpath(params.get('bandpath', None)))])
+    out.extend(
+        [
+            '\n'.join(_render_basis(theory, params)),
+            '\n'.join(_render_other(params)),
+            f'task {theory} {task}',
+            '\n'.join(_render_bandpath(params.get('bandpath', None))),
+        ]
+    )
 
     fd.write('\n\n'.join(out))

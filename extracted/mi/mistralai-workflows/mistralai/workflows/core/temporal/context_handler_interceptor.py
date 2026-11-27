@@ -2,22 +2,31 @@ import inspect
 import typing
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Callable, NoReturn, Sequence, Tuple, Type
+from types import MappingProxyType
+from typing import Any, Callable, Iterator, Mapping, NoReturn, Sequence, Tuple, Type
 
+import temporalio.api.common.v1
 import temporalio.client
 import temporalio.worker
 import temporalio.workflow
 from pydantic import TypeAdapter
 from pydantic_core import to_json
 from temporalio import workflow
+from temporalio.converter import PayloadConverter
 
-from mistralai.workflows.constants import OBO_PARALLEL_EXECUTION_WORKFLOW_NAME, PARALLEL_EXECUTION_WORKFLOW_NAME
+from mistralai.workflows.constants import (
+    CALL_CONTEXT_HEADER,
+    OBO_PARALLEL_EXECUTION_WORKFLOW_NAME,
+    PARALLEL_EXECUTION_WORKFLOW_NAME,
+)
 from mistralai.workflows.core._logger import get_logger
+from mistralai.workflows.core.execution.call_context import CallContextScalar, call_context_var
 from mistralai.workflows.core.execution.child_start_budget import ChildStartBudget, child_start_budget_var
 from mistralai.workflows.core.temporal.utils import TEMPORAL_SCHEDULE_ID_SEARCH_KEY
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 from mistralai.workflows.core.utils.type_hints import get_type_hints
 from mistralai.workflows.models import PayloadWithContext, WorkflowContext
+from mistralai.workflows.protocol.v1.workflow import CallContextMapping
 
 logger = get_logger(__name__)
 
@@ -92,6 +101,32 @@ def define_context(workflow_context: WorkflowContext | None) -> Any:
     finally:
         if token:
             reset_contextvar(workflow_context_var, token)
+
+
+_call_context_adapter: TypeAdapter[dict[str, CallContextScalar]] = TypeAdapter(CallContextMapping)
+
+
+def _read_call_context(headers: Mapping[str, temporalio.api.common.v1.Payload]) -> Mapping[str, CallContextScalar]:
+    payload = headers.get(CALL_CONTEXT_HEADER)
+    if payload is None:
+        return MappingProxyType({})
+    try:
+        call_context = _call_context_adapter.validate_python(PayloadConverter.default.from_payload(payload))
+    except Exception as exc:
+        # Only a client that bypassed the API validation can send one.
+        logger.warning("Ignoring an invalid call context header", error=str(exc))
+        return MappingProxyType({})
+    return MappingProxyType(call_context)
+
+
+@contextmanager
+def _define_call_context(headers: Mapping[str, temporalio.api.common.v1.Payload]) -> Iterator[None]:
+    """Expose the call context sent with this start, signal or update to the code that call runs."""
+    token = call_context_var.set(_read_call_context(headers))
+    try:
+        yield
+    finally:
+        reset_contextvar(call_context_var, token)
 
 
 def retrieve_context() -> WorkflowContext | None:
@@ -235,8 +270,6 @@ class WorkflowContextWorkflowInboundInterceptor(temporalio.worker.WorkflowInboun
                 updates["execution_token"] = incoming_context.execution_token
             if incoming_context.extensions is not None:
                 updates["extensions"] = incoming_context.extensions
-            if incoming_context.on_behalf_of is not None:
-                updates["on_behalf_of"] = incoming_context.on_behalf_of
             # Trust this worker-only data only for an actual SDK fan-out child.
             if (
                 incoming_context.trusted_extensions
@@ -258,7 +291,7 @@ class WorkflowContextWorkflowInboundInterceptor(temporalio.worker.WorkflowInboun
         )
 
         # Execute with context set for activities and streaming
-        with define_context(workflow_context):
+        with define_context(workflow_context), _define_call_context(input.headers):
             budget_token = child_start_budget_var.set(self._get_child_start_budget())
             try:
                 result = await super().execute_workflow(input)
@@ -271,7 +304,7 @@ class WorkflowContextWorkflowInboundInterceptor(temporalio.worker.WorkflowInboun
     async def handle_signal(self, input: temporalio.worker.HandleSignalInput) -> None:
         _, input.args = unwrap_contextual_args(input.args)
         workflow_context = _create_workflow_context_with_token()
-        with define_context(workflow_context):
+        with define_context(workflow_context), _define_call_context(input.headers):
             budget_token = child_start_budget_var.set(self._get_child_start_budget())
             try:
                 await self.next.handle_signal(input)
@@ -289,13 +322,13 @@ class WorkflowContextWorkflowInboundInterceptor(temporalio.worker.WorkflowInboun
     def handle_update_validator(self, input: temporalio.worker.HandleUpdateInput) -> None:
         _, input.args = unwrap_contextual_args(input.args)
         workflow_context = _create_workflow_context_with_token()
-        with define_context(workflow_context):
+        with define_context(workflow_context), _define_call_context(input.headers):
             self.next.handle_update_validator(input)
 
     async def handle_update_handler(self, input: temporalio.worker.HandleUpdateInput) -> Any:
         _, input.args = unwrap_contextual_args(input.args)
         workflow_context = _create_workflow_context_with_token()
-        with define_context(workflow_context):
+        with define_context(workflow_context), _define_call_context(input.headers):
             budget_token = child_start_budget_var.set(self._get_child_start_budget())
             try:
                 result = await self.next.handle_update_handler(input)

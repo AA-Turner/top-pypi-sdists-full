@@ -32,13 +32,6 @@ class TestFileProcessorsApi(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    def test_file_v1alpha_file_processors_process_post(self) -> None:
-        """Test case for file_v1alpha_file_processors_process_post
-
-        Process a file into chunks ready for vector database storage.
-        """
-        pass
-
     def test_process_file_job_v1alpha_file_processors_jobs_job_id_cancel_post(self) -> None:
         """Test case for process_file_job_v1alpha_file_processors_jobs_job_id_cancel_post
 

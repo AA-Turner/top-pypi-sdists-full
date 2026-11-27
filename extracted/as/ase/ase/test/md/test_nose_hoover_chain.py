@@ -8,6 +8,7 @@ import pytest
 import ase.build
 import ase.units
 from ase import Atoms
+from ase.constraints import FixAtoms, FixBondLengths, FixConstraint
 from ase.md import thermalize_momenta
 from ase.md.nose_hoover_chain import (
     MTKNPT,
@@ -36,7 +37,7 @@ def test_thermostat_round_trip(hcp_Cu: Atoms, tchain: int, tloop: int):
 
     timestep = 1.0 * ase.units.fs
     thermostat = NoseHooverChainThermostat(
-        num_atoms_global=len(atoms),
+        ndof=atoms.get_number_of_degrees_of_freedom(),
         masses=atoms.get_masses()[:, None],
         temperature_K=1000,
         tdamp=100 * timestep,
@@ -88,7 +89,7 @@ def test_thermostat_truncation_error(hcp_Cu: Atoms, tchain: int, tloop: int):
     for i in range(m):
         delta = delta0 * (2**-i)
         thermostat = NoseHooverChainThermostat(
-            num_atoms_global=len(atoms),
+            ndof=atoms.get_number_of_degrees_of_freedom(),
             masses=atoms.get_masses()[:, None],
             temperature_K=1000,
             tdamp=100 * delta0,
@@ -229,9 +230,38 @@ def test_anisotropic_barostat(
     assert np.allclose(barostat._p_xi, p_xi_start, atol=1e-6)
 
 
+def test_symmetric_barostat_thermal_kinetic_energy():
+    """The barostat thermostat must balance six independent quadratic modes."""
+    kT = ase.units.kB * 300
+    barostat = MTKBarostat(
+        num_atoms_global=108,
+        temperature_K=300,
+        pdamp=200 * ase.units.fs,
+        pchain=1,
+    )
+    # Each diagonal entry contributes kT/2 to the cell kinetic energy.
+    # Each off-diagonal pair (e.g. xy and yx) shares a contribution of kT/2.
+    # The total is 3*kT, so the single-link thermostat, initially at rest,
+    # must leave the cell momenta unchanged.
+    p_cell = np.full((3, 3), np.sqrt(barostat.W * kT / 2))
+    np.fill_diagonal(p_cell, np.sqrt(barostat.W * kT))
+    initial = p_cell.copy()
+    result = barostat.integrate_nhc_baro(p_cell, ase.units.fs)
+    np.testing.assert_allclose(result, initial, rtol=1e-12, atol=0)
+    assert barostat.get_barostat_energy() == pytest.approx(0, abs=1e-14)
+
+
+@pytest.mark.parametrize(
+    'constraints',
+    [None, FixAtoms([0, 1, 2, 3]), FixBondLengths([[0, 1], [2, 3]])],
+    ids=lambda val: type(val),
+)
 @pytest.mark.parametrize('tchain', [1, 3])
-def test_nose_hoover_chain_nvt(asap3, tchain: int):
+def test_nose_hoover_chain_nvt(asap3, tchain: int, constraints: FixConstraint):
     atoms = ase.build.bulk('Cu').repeat((2, 2, 2))
+    atoms_ref = atoms.copy()  # for comparision later
+
+    atoms.constraints = constraints
     atoms.calc = asap3.EMT()
 
     temperature_K = 300
@@ -250,8 +280,20 @@ def test_nose_hoover_chain_nvt(asap3, tchain: int):
     conserved_energy1 = md.get_conserved_energy()
     md.run(100)
     conserved_energy2 = md.get_conserved_energy()
-    assert np.allclose(np.sum(atoms.get_momenta(), axis=0), 0.0)
     assert np.isclose(conserved_energy1, conserved_energy2, atol=1e-3)
+
+    if constraints is None:
+        assert np.allclose(np.sum(atoms.get_momenta(), axis=0), 0.0)
+    elif isinstance(constraints, FixAtoms):
+        mask = np.zeros(len(atoms), dtype=bool)
+        mask[constraints.index] = True
+        np.all(atoms_ref.positions[mask] == atoms.positions[mask])
+        np.all(atoms_ref.positions[~mask] != atoms.positions[~mask])
+    elif isinstance(constraints, FixBondLengths):
+        for pair in constraints.pairs:
+            d_ref = atoms_ref.get_distance(pair[0], pair[1], mic=True)
+            d = atoms.get_distance(pair[0], pair[1], mic=True)
+            assert d == pytest.approx(d_ref)
 
 
 @pytest.mark.parametrize('tchain', [1, 3])
@@ -361,3 +403,5 @@ def test_masked_npt(
     assert np.allclose(np.sum(atoms.get_momenta(), axis=0), 0.0)
     assert np.isclose(conserved_energy1, conserved_energy2, atol=1e-3)
     assert not np.allclose(atoms.get_positions(), positions1, atol=1e-6)
+    assert np.allclose(md._p_c[~np.asarray(mask)], 0.0)
+    assert not np.allclose(md._p_c[np.asarray(mask)], 0.0)

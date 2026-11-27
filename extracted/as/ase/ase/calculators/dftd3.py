@@ -1,5 +1,3 @@
-# fmt: off
-
 import os
 import subprocess
 from pathlib import Path
@@ -19,34 +17,38 @@ from ase.units import Bohr, Hartree
 
 
 def dftd3_defaults():
-    default_parameters = {'xc': None,  # PBE if no custom damping parameters
-                          'grad': True,  # calculate forces/stress
-                          'abc': False,  # ATM 3-body contribution
-                          'cutoff': 95 * Bohr,  # Cutoff for 2-body calcs
-                          'cnthr': 40 * Bohr,  # Cutoff for 3-body and CN calcs
-                          'old': False,  # use old DFT-D2 method instead
-                          'damping': 'zero',  # Default to zero-damping
-                          'tz': False,  # 'triple zeta' alt. parameters
-                          's6': None,  # damping parameters start here
-                          'sr6': None,
-                          's8': None,
-                          'sr8': None,
-                          'alpha6': None,
-                          'a1': None,
-                          'a2': None,
-                          'beta': None}
+    default_parameters = {
+        'xc': None,  # PBE if no custom damping parameters
+        'grad': True,  # calculate forces/stress
+        'abc': False,  # ATM 3-body contribution
+        'cutoff': 95 * Bohr,  # Cutoff for 2-body calcs
+        'cnthr': 40 * Bohr,  # Cutoff for 3-body and CN calcs
+        'old': False,  # use old DFT-D2 method instead
+        'damping': 'zero',  # Default to zero-damping
+        'tz': False,  # 'triple zeta' alt. parameters
+        's6': None,  # damping parameters start here
+        'sr6': None,
+        's8': None,
+        'sr8': None,
+        'alpha6': None,
+        'a1': None,
+        'a2': None,
+        'beta': None,
+    }
     return default_parameters
 
 
 class DFTD3(BaseCalculator):
     """Grimme DFT-D3 calculator"""
 
-    def __init__(self,
-                 label='ase_dftd3',  # Label for dftd3 output files
-                 command=None,  # Command for running dftd3
-                 dft=None,  # DFT calculator
-                 comm=world,
-                 **kwargs):
+    def __init__(
+        self,
+        label='ase_dftd3',  # Label for dftd3 output files
+        command=None,  # Command for running dftd3
+        dft=None,  # DFT calculator
+        comm=world,
+        **kwargs,
+    ):
 
         # Convert from 'func' keyword to 'xc'. Internally, we only store
         # 'xc', but 'func' is also allowed since it is consistent with the
@@ -54,12 +56,14 @@ class DFTD3(BaseCalculator):
         func = kwargs.pop('func', None)
         if func is not None:
             if kwargs.get('xc') is not None:
-                raise RuntimeError('Both "func" and "xc" were provided! '
-                                   'Please provide at most one of these '
-                                   'two keywords. The preferred keyword '
-                                   'is "xc"; "func" is allowed for '
-                                   'consistency with the CLI dftd3 '
-                                   'interface.')
+                raise RuntimeError(
+                    'Both "func" and "xc" were provided! '
+                    'Please provide at most one of these '
+                    'two keywords. The preferred keyword '
+                    'is "xc"; "func" is allowed for '
+                    'consistency with the CLI dftd3 '
+                    'interface.'
+                )
             kwargs['xc'] = func
 
         # If the user did not supply an XC functional, but did attach a
@@ -120,6 +124,7 @@ class DFTD3(BaseCalculator):
         # dictionary instead of only getting the requested properties.
 
         import copy
+
         for name in properties:
             calc.get_property(name, atoms)
             assert name in calc.results
@@ -143,21 +148,21 @@ class PureDFTD3(FileIOCalculator):
     damping_methods = {'zero', 'bj', 'zerom', 'bjm'}
     _legacy_default_command = 'dftd3'
 
-    def __init__(self,
-                 *,
-                 label='ase_dftd3',  # Label for dftd3 output files
-                 command=None,  # Command for running dftd3
-                 comm=world,
-                 **kwargs):
+    def __init__(
+        self,
+        *,
+        label='ase_dftd3',  # Label for dftd3 output files
+        command=None,  # Command for running dftd3
+        comm=world,
+        **kwargs,
+    ):
 
         # FileIOCalculator would default to self.name to get the envvar
         # which determines the command.
         # We'll have to overrule that if we want to keep scripts working:
         command = command or self.cfg.get('ASE_DFTD3_COMMAND')
 
-        super().__init__(label=label,
-                         command=command,
-                         **kwargs)
+        super().__init__(label=label, command=command, **kwargs)
 
         # TARP: This is done because the calculator does not call
         # FileIOCalculator.calculate, but Calculator.calculate and does not
@@ -171,8 +176,7 @@ class PureDFTD3(FileIOCalculator):
         # user know that we don't understand what they're asking for.
         unknown_kwargs = set(kwargs) - set(self.default_parameters)
         if unknown_kwargs:
-            warn('WARNING: Ignoring the following unknown keywords: {}'
-                 ''.format(', '.join(unknown_kwargs)))
+            raise TypeError(f'Unknown keywords: {unknown_kwargs}')
 
         changed_parameters.update(FileIOCalculator.set(self, **kwargs))
 
@@ -185,18 +189,24 @@ class PureDFTD3(FileIOCalculator):
 
         # d2 only is valid with 'zero' damping
         elif self.parameters['old'] and damping != 'zero':
-            raise ValueError('Only zero-damping can be used with the D2 '
-                             'dispersion correction method!')
+            raise ValueError(
+                'Only zero-damping can be used with the D2 '
+                'dispersion correction method!'
+            )
 
         # If cnthr (cutoff for three-body and CN calculations) is greater
         # than cutoff (cutoff for two-body calculations), then set the former
         # equal to the latter, since that doesn't make any sense.
         if self.parameters['cnthr'] > self.parameters['cutoff']:
-            warn('WARNING: CN cutoff value of {cnthr} is larger than '
-                 'regular cutoff value of {cutoff}! Reducing CN cutoff '
-                 'to {cutoff}.'
-                 ''.format(cnthr=self.parameters['cnthr'],
-                           cutoff=self.parameters['cutoff']))
+            warn(
+                'WARNING: CN cutoff value of {cnthr} is larger than '
+                'regular cutoff value of {cutoff}! Reducing CN cutoff '
+                'to {cutoff}.'
+                ''.format(
+                    cnthr=self.parameters['cnthr'],
+                    cutoff=self.parameters['cutoff'],
+                )
+            )
             self.parameters['cnthr'] = self.parameters['cutoff']
 
         # If you only care about the energy, gradient calculations (forces,
@@ -232,12 +242,14 @@ class PureDFTD3(FileIOCalculator):
             # dftd3 executable & depend on XC functional.
             missing_damppars = valid_damppars - damppars
             if missing_damppars and missing_damppars != valid_damppars:
-                raise ValueError('An incomplete set of custom damping '
-                                 'parameters for the {} damping method was '
-                                 'provided! Expected: {}; got: {}'
-                                 ''.format(damping,
-                                           ', '.join(valid_damppars),
-                                           ', '.join(damppars)))
+                raise ValueError(
+                    'An incomplete set of custom damping '
+                    'parameters for the {} damping method was '
+                    'provided! Expected: {}; got: {}'
+                    ''.format(
+                        damping, ', '.join(valid_damppars), ', '.join(damppars)
+                    )
+                )
 
             # If a user provides damping parameters that are not used in the
             # selected damping method, let them know that we're ignoring them.
@@ -246,18 +258,21 @@ class PureDFTD3(FileIOCalculator):
             # the previous check will raise an error, so we don't need to
             # worry about that here.
             if damppars - valid_damppars:
-                warn('WARNING: The following damping parameters are not '
-                     'valid for the {} damping method and will be ignored: {}'
-                     ''.format(damping,
-                               ', '.join(damppars)))
+                warn(
+                    'WARNING: The following damping parameters are not '
+                    'valid for the {} damping method and will be ignored: {}'
+                    ''.format(damping, ', '.join(damppars))
+                )
 
         # The default XC functional is PBE, but this is only set if the user
         # did not provide their own value for xc or any custom damping
         # parameters.
         if self.parameters['xc'] and self.custom_damp:
-            warn('WARNING: Custom damping parameters will be used '
-                 'instead of those parameterized for {}!'
-                 ''.format(self.parameters['xc']))
+            warn(
+                'WARNING: Custom damping parameters will be used '
+                'instead of those parameterized for {}!'
+                ''.format(self.parameters['xc'])
+            )
 
         if changed_parameters:
             self.results.clear()
@@ -280,8 +295,12 @@ class PureDFTD3(FileIOCalculator):
         self.write_input(self.atoms, properties, system_changes)
         # command = self._generate_command()
 
-        inputs = DFTD3Inputs(command=self.command, prefix=self.label,
-                             atoms=self.atoms, parameters=self.parameters)
+        inputs = DFTD3Inputs(
+            command=self.command,
+            prefix=self.label,
+            atoms=self.atoms,
+            parameters=self.parameters,
+        )
         command = inputs.get_argv(custom_damp=self.custom_damp)
 
         # Finally, call dftd3 and parse results.
@@ -290,20 +309,23 @@ class PureDFTD3(FileIOCalculator):
         errorcode = 0
         if self.comm.rank == 0:
             with open(self.label + '.out', 'w') as fd:
-                errorcode = subprocess.call(command,
-                                            cwd=self.directory, stdout=fd)
+                errorcode = subprocess.call(
+                    command, cwd=self.directory, stdout=fd
+                )
 
         errorcode = self.comm.sum_scalar(errorcode)
 
         if errorcode:
-            raise RuntimeError('%s returned an error: %d' %
-                               (self.name, errorcode))
+            raise RuntimeError(
+                '%s returned an error: %d' % (self.name, errorcode)
+            )
 
         self.read_results()
 
     def write_input(self, atoms, properties=None, system_changes=None):
-        FileIOCalculator.write_input(self, atoms, properties=properties,
-                                     system_changes=system_changes)
+        FileIOCalculator.write_input(
+            self, atoms, properties=properties, system_changes=system_changes
+        )
         # dftd3 can either do fully 3D periodic or non-periodic calculations.
         # It cannot do calculations that are only periodic in 1 or 2
         # dimensions. If the atoms object is periodic in only 1 or 2
@@ -317,12 +339,17 @@ class PureDFTD3(FileIOCalculator):
 
         if self.comm.rank == 0:
             self._actually_write_input(
-                directory=Path(self.directory), atoms=atoms,
-                properties=properties, prefix=self.label,
-                damppars=damppars, pbc=any(atoms.pbc))
+                directory=Path(self.directory),
+                atoms=atoms,
+                properties=properties,
+                prefix=self.label,
+                damppars=damppars,
+                pbc=any(atoms.pbc),
+            )
 
-    def _actually_write_input(self, directory, prefix, atoms, properties,
-                              damppars, pbc: bool):
+    def _actually_write_input(
+        self, directory, prefix, atoms, properties, damppars, pbc: bool
+    ):
         if pbc:
             fname = directory / f'{prefix}.POSCAR'
             # We sort the atoms so that the atomtypes list becomes as
@@ -345,11 +372,14 @@ class PureDFTD3(FileIOCalculator):
 
     def _read_and_broadcast_results(self):
         from ase.parallel import broadcast
+
         if self.comm.rank == 0:
-            output = DFTD3Output(directory=self.directory,
-                                 stdout_path=self._outname())
-            dct = output.read(atoms=self.atoms,
-                              read_forces=bool(self.parameters['grad']))
+            output = DFTD3Output(
+                directory=self.directory, stdout_path=self._outname()
+            )
+            dct = output.read(
+                atoms=self.atoms, read_forces=bool(self.parameters['grad'])
+            )
         else:
             dct = None
 
@@ -466,15 +496,19 @@ class DFTD3Output:
         for line in fd:
             if line.startswith(' program stopped'):
                 if 'functional name unknown' in line:
-                    message = ('Unknown DFTD3 functional name. '
-                               'Please check the dftd3.f source file '
-                               'for the list of known functionals '
-                               'and their spelling.')
+                    message = (
+                        'Unknown DFTD3 functional name. '
+                        'Please check the dftd3.f source file '
+                        'for the list of known functionals '
+                        'and their spelling.'
+                    )
                 else:
-                    message = ('dftd3 failed! Please check the {} '
-                               'output file and report any errors '
-                               'to the ASE developers.'
-                               ''.format(outname))
+                    message = (
+                        'dftd3 failed! Please check the {} '
+                        'output file and report any errors '
+                        'to the ASE developers.'
+                        ''.format(outname)
+                    )
                 raise RuntimeError(message)
 
             if line.startswith(' Edisp'):
@@ -488,8 +522,11 @@ class DFTD3Output:
                 e_dftd3 = float(parts[index]) * Hartree
                 return e_dftd3
 
-        raise RuntimeError('Could not parse energy from dftd3 '
-                           'output, see file {}'.format(outname))
+        raise RuntimeError(
+            'Could not parse energy from dftd3 output, see file {}'.format(
+                outname
+            )
+        )
 
     def parse_forces(self, fd):
         forces = []

@@ -32,7 +32,7 @@ class ListClusterCheckResultRequest(DaraModel):
         # 
         # This parameter is required.
         self.lang = lang
-        # The Settings for paging in a paged query. Specifies the number of records to display on each page. Default value: **20**, which indicates that 20 records are displayed on each page.
+        # The Settings for paging specify the number of records to return on each page in a paged query. Default value: **20**, which indicates that 20 records are displayed on each page.
         self.page_size = page_size
         # The list of risk levels.
         self.risk_levels = risk_levels

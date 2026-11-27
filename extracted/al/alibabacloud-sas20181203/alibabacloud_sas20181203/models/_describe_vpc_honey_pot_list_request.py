@@ -14,22 +14,22 @@ class DescribeVpcHoneyPotListRequest(DaraModel):
         vpc_name: str = None,
         vpc_region_id: str = None,
     ):
-        # The page number. Pages start from page 1.
+        # Specifies the page number of the current page during paging for a paged query.
         self.current_page = current_page
-        # Specifies whether the VPCs to query have cloud honeypot enabled. Valid values:
-        # - **true**: enabled
-        # - **false**: disabled
+        # Specifies whether the cloud honeypot feature is enabled for the VPCs to be queried. Valid values:
+        # - **true**: Enabled.
+        # - **false**: Disabled.
         self.honey_pot_existence = honey_pot_existence
-        # The number of entries per page. Default value: 20. If you leave this parameter empty, 20 entries are returned per page.
-        # > We recommend that you specify this parameter.
+        # Specifies the maximum number of entries to return on each page during paging for a paged query. Default value: 20. If this parameter is left empty, 20 entries are returned by default.
+        # > Specify a value for PageSize.
         self.page_size = page_size
-        # The ID of the VPC in which the honeypot instance that you want to query resides.
+        # The ID of the VPC where the honeypot instance resides.
         # > You can call the [DescribeVpcList](~~DescribeVpcList~~) operation to obtain the VPC ID.
         self.vpc_id = vpc_id
-        # The name of the VPC in which the honeypot instance that you want to query resides.
+        # The name of the VPC where the honeypot instance resides.
         # > You can call the [DescribeVpcList](~~DescribeVpcList~~) operation to obtain the VPC name.
         self.vpc_name = vpc_name
-        # The region ID of the VPC in which the honeypot instance that you want to query resides.
+        # The region ID of the VPC where the honeypot instance resides.
         # > You can call the [DescribeVpcList](~~DescribeVpcList~~) operation to obtain the region ID of the VPC.
         self.vpc_region_id = vpc_region_id
 

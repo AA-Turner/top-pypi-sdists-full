@@ -12,8 +12,8 @@ class GetCheckScopeConfigRequest(DaraModel):
     ):
         # The ID of the configuration. This parameter is optional. If you do not specify this parameter, an ID is automatically generated.
         self.config_id = config_id
-        # The ID of the member accounts in the resource directory.
-        # >Invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        # The ID of the Alibaba Cloud account to which the member accounts in the resource folder belong.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
 
     def validate(self):

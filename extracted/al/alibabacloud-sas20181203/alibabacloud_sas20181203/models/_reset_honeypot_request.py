@@ -12,14 +12,13 @@ class ResetHoneypotRequest(DaraModel):
     ):
         # The ID of the honeypot.
         # 
-        # >  You can call the [ListHoneypot](~~ListHoneypot~~) operation to query the IDs of honeypots.
+        # > You can call the [ListHoneypot](~~ListHoneypot~~) operation to retrieve this value.
         # 
         # This parameter is required.
         self.honeypot_id = honeypot_id
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
-        # 
-        # *   **zh**: Chinese
-        # *   **en**: English
+        # The language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese.
+        # - **en**: English.
         self.lang = lang
 
     def validate(self):

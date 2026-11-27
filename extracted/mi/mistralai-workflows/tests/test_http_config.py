@@ -5,7 +5,7 @@ import pytest
 from pydantic import SecretStr
 
 from mistralai.workflows.client import _get_async_client, _get_sync_client, get_mistral_client
-from mistralai.workflows.core.auth import StaticTokenProvider
+from mistralai.workflows.core.auth import RunAs, StaticTokenProvider
 from mistralai.workflows.core.config.config import AppConfig, HttpConfig, _loggable_config, config
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.hooks.executor_credentials_hook import (
@@ -28,7 +28,7 @@ def reset_http_config():
 
 
 def _client(get_client) -> httpx.Client | httpx.AsyncClient:
-    return get_client(server_url="http://localhost")
+    return get_client(server_url="http://localhost", run_as=RunAs.DEPLOYMENT)
 
 
 def _proxy_origin(transport) -> tuple[bytes, bytes, int] | None:
@@ -166,7 +166,7 @@ class TestTransportOptions:
     def test_an_explicit_timeout_still_wins(self, get_client):
         config.http.timeout = 7.0
 
-        assert get_client(timeout=1.0, server_url="http://localhost").timeout.connect == 1.0
+        assert get_client(timeout=1.0, server_url="http://localhost", run_as=RunAs.DEPLOYMENT).timeout.connect == 1.0
 
     def test_the_mistral_client_honours_it(self):
         config.http.timeout = 7.0
@@ -226,6 +226,52 @@ class TestTransportOptions:
         _client(get_client)
 
         assert loaded == [str(ca_bundle)]
+
+    @pytest.mark.parametrize("get_client", _CLIENT_FACTORIES)
+    def test_the_client_cert_reaches_the_transport_we_build(self, get_client, monkeypatch, tmp_path):
+        loaded: list[tuple[str, str | None]] = []
+        monkeypatch.setattr(
+            "ssl.SSLContext.load_cert_chain",
+            lambda self, certfile, keyfile=None, password=None: loaded.append((certfile, keyfile)),
+        )
+        monkeypatch.setattr(config.common, "mtls_client_cert_path", str(tmp_path / "client.crt"))
+        monkeypatch.setattr(config.common, "mtls_client_key_path", str(tmp_path / "client.key"))
+        config.http.proxy = "http://corp-proxy:3128"
+
+        _client(get_client)
+
+        assert loaded == [(str(tmp_path / "client.crt"), str(tmp_path / "client.key"))]
+
+    @pytest.mark.parametrize("get_client", _CLIENT_FACTORIES)
+    def test_the_client_cert_reaches_the_default_transport(self, get_client, monkeypatch, tmp_path):
+        # No proxy/routes means transport=None, so the cert must ride the client-level argument.
+        loaded: list[tuple[str, str | None]] = []
+        monkeypatch.setattr(
+            "ssl.SSLContext.load_cert_chain",
+            lambda self, certfile, keyfile=None, password=None: loaded.append((certfile, keyfile)),
+        )
+        monkeypatch.setattr(config.common, "mtls_client_cert_path", str(tmp_path / "client.crt"))
+        monkeypatch.setattr(config.common, "mtls_client_key_path", str(tmp_path / "client.key"))
+
+        _client(get_client)
+
+        assert loaded == [(str(tmp_path / "client.crt"), str(tmp_path / "client.key"))]
+
+    @pytest.mark.parametrize("get_client", _CLIENT_FACTORIES)
+    def test_the_client_cert_is_presented_without_verification(self, get_client, monkeypatch, tmp_path):
+        loaded: list[tuple[str, str | None]] = []
+        monkeypatch.setattr(
+            "ssl.SSLContext.load_cert_chain",
+            lambda self, certfile, keyfile=None, password=None: loaded.append((certfile, keyfile)),
+        )
+        monkeypatch.setattr(config.common, "mtls_client_cert_path", str(tmp_path / "client.crt"))
+        monkeypatch.setattr(config.common, "mtls_client_key_path", str(tmp_path / "client.key"))
+        config.http.verify = False
+
+        client = _client(get_client)
+
+        assert loaded == [(str(tmp_path / "client.crt"), str(tmp_path / "client.key"))]
+        assert not _verifies(client._transport)
 
 
 class TestRoutes:
@@ -442,3 +488,12 @@ class TestLoggableConfig:
         cfg.common.mistral_api_key = SecretStr("supersecret")
 
         assert "supersecret" not in str(_loggable_config(cfg))
+
+
+class TestHeaderConfigRedaction:
+    def test_arbitrary_header_values_are_masked_without_mutating_runtime(self):
+        cfg = AppConfig()
+        cfg.worker.mistral_api_headers = {"x-private-access": "fake-private-value", "X-Custom": "fake-custom"}
+        data = _loggable_config(cfg)
+        assert data["worker"]["mistral_api_headers"] == {"x-private-access": "***", "X-Custom": "***"}
+        assert cfg.worker.mistral_api_headers["x-private-access"] == "fake-private-value"

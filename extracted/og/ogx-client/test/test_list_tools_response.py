@@ -43,7 +43,6 @@ class TestListToolsResponse(unittest.TestCase):
             return ListToolsResponse(
                 data = [
                     ogx_client.models.tool_def.ToolDef(
-                        toolgroup_id = '', 
                         name = '', 
                         description = '', 
                         input_schema = { }, 
@@ -55,7 +54,6 @@ class TestListToolsResponse(unittest.TestCase):
             return ListToolsResponse(
                 data = [
                     ogx_client.models.tool_def.ToolDef(
-                        toolgroup_id = '', 
                         name = '', 
                         description = '', 
                         input_schema = { }, 

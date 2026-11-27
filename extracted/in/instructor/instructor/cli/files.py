@@ -1,8 +1,7 @@
-# type: ignore - stub mismatched
-
+import builtins
 import time
 from datetime import datetime
-from typing import Literal, cast
+from typing import Literal, Optional, cast
 
 import openai
 import typer
@@ -10,13 +9,20 @@ from openai import OpenAI
 from rich.console import Console
 from rich.table import Table
 
-client = OpenAI()
+client: Optional[OpenAI] = None
 app = typer.Typer()
 console = Console()
 
 
+def _get_client() -> OpenAI:
+    global client
+    if client is None:
+        client = OpenAI()
+    return client
+
+
 # Sample response data
-def generate_file_table(files: list[openai.types.FileObject]) -> Table:
+def generate_file_table(files: builtins.list[openai.types.FileObject]) -> Table:
     table = Table(
         title="OpenAI Files",
     )
@@ -38,14 +44,14 @@ def generate_file_table(files: list[openai.types.FileObject]) -> Table:
     return table
 
 
-def get_files() -> list[openai.types.FileObject]:
-    files = client.files.list()
-    files = files.data
+def get_files() -> builtins.list[openai.types.FileObject]:
+    # Iterating the page follows the cursor across every page.
+    files = [file for file in _get_client().files.list()]
     return sorted(files, key=lambda x: x.created_at, reverse=True)
 
 
 def get_file_status(file_id: str) -> str:
-    response = client.files.retrieve(file_id)
+    response = _get_client().files.retrieve(file_id)
     return response.status
 
 
@@ -60,7 +66,7 @@ def upload(
     # Literals aren't supported by Typer yet.
     file_purpose = cast(Literal["fine-tune", "assistants"], purpose)
     with open(filepath, "rb") as file:
-        response = client.files.create(file=file, purpose=file_purpose)
+        response = _get_client().files.create(file=file, purpose=file_purpose)
     file_id = response.id
     with console.status(f"Monitoring upload: {file_id}...") as status:
         status.spinner_style = "dots"
@@ -69,6 +75,9 @@ def upload(
             if file_status == "processed":
                 console.log(f"[bold green]File {file_id} uploaded successfully!")
                 break
+            if file_status == "error":
+                console.log(f"[bold red]File {file_id} failed processing.")
+                raise typer.Exit(1)
             time.sleep(poll)
 
 
@@ -80,9 +89,8 @@ def download(
     output: str = typer.Argument(help="Output path for the downloaded file"),
 ) -> None:
     with console.status(f"[bold green]Downloading file {file_id}...", spinner="dots"):
-        content = client.files.download(file_id)
-        with open(output, "wb") as file:
-            file.write(content)
+        response = _get_client().files.content(file_id)
+        response.write_to_file(output)
         console.log(f"[bold green]File {file_id} downloaded successfully!")
 
 
@@ -90,13 +98,14 @@ def download(
     help="Delete a file from OpenAI's servers",
 )
 def delete(file_id: str = typer.Argument(help="ID of the file to delete")) -> None:
+    active_client = _get_client()
     with console.status(f"[bold red]Deleting file {file_id}...", spinner="dots"):
         try:
-            client.files.delete(file_id)
+            active_client.files.delete(file_id)
             console.log(f"[bold red]File {file_id} deleted successfully!")
         except Exception as e:
             console.log(f"[bold red]Error deleting file {file_id}: {e}")
-            return
+            raise typer.Exit(1) from e
 
 
 @app.command(
@@ -111,6 +120,9 @@ def status(
             status.update(f"File status: {file_status}")
             if file_status in ["pending", "processed"]:
                 break
+            if file_status == "error":
+                console.log(f"[bold red]File {file_id} failed processing.")
+                raise typer.Exit(1)
             time.sleep(5)
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-calamine
-Version: 0.9.1
+Version: 0.10.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: 3.11
@@ -67,6 +67,21 @@ workbook = CalamineWorkbook.from_path("file.xlsx").get_sheet_by_name("Sheet1").t
 # ["1",  "2",  "3",  "4",  "5",  "6",  "7"],
 # ["1",  "2",  "3",  "4",  "5",  "6",  "7"],
 # ]
+```
+
+Workbook document properties, such as the author, are available for xlsx, xlsb, xls and ods files.
+```python
+from python_calamine import CalamineWorkbook
+
+properties = CalamineWorkbook.from_path("file.xlsx").workbook_properties
+properties.creator
+# "John"
+properties.last_modified_by
+# "Jane"
+properties.modified
+# datetime.datetime(2024, 6, 20, 14, 22, tzinfo=datetime.timezone.utc)
+properties.custom_properties
+# {"Department": "Finance"}
 ```
 
 Pandas 2.2 and above have built-in support of python-calamine.

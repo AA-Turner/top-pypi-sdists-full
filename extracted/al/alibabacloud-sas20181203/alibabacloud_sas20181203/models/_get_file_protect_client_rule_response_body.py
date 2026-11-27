@@ -65,12 +65,9 @@ class GetFileProtectClientRuleResponseBodyData(DaraModel):
         # The alert notification level. Valid values:
         # 
         # - 0: no alert
-        # 
         # - 1: reminder
-        # 
         # - 2: suspicious
-        # 
-        # - 3: high-risk.
+        # - 3: high-risk
         self.alert_level = alert_level
         # The list of excluded users.
         self.exclude_users = exclude_users
@@ -85,26 +82,24 @@ class GetFileProtectClientRuleResponseBodyData(DaraModel):
         # The operating system type. Valid values:
         # 
         # - **windows**: Windows
-        # - **linux**: Linux.
+        # - **linux**: Linux
         self.platform = platform
         # The process paths. Wildcards are supported.
         self.proc_paths = proc_paths
-        # The action that the rule takes on the client. Valid values:
+        # The behavior of the rule on the client. Valid values:
         # 
         # - monitor: alert
-        # 
         # - block: block
-        # 
-        # - pass: allow.
+        # - pass: allow
         self.rule_action = rule_action
         # The rule name.
         self.rule_name = rule_name
         # The rule status. Valid values:
         # 
-        # - **0**: disabled.
-        # - **1**: enabled.
+        # - **0**: disabled
+        # - **1**: enabled
         self.status = status
-        # The switch ID that corresponds to the rule.
+        # The ID of the switch associated with the rule.
         self.switch_id = switch_id
 
     def validate(self):

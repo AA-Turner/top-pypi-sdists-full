@@ -14,6 +14,7 @@ class DescribeVSwitchAttributesResponseBody(DaraModel):
         cidr_block: str = None,
         creation_time: str = None,
         description: str = None,
+        enable_dns_64: bool = None,
         enabled_ipv_6: bool = None,
         ipv_6cidr_block: str = None,
         ipv_6only: bool = None,
@@ -39,6 +40,7 @@ class DescribeVSwitchAttributesResponseBody(DaraModel):
         self.creation_time = creation_time
         # The description of the vSwitch.
         self.description = description
+        self.enable_dns_64 = enable_dns_64
         # Specifies whether the IPv6 CIDR block is enabled and configured for the vSwitch. Valid values:
         # - **true**: Enabled.
         # - **false**: Disabled.
@@ -112,6 +114,9 @@ class DescribeVSwitchAttributesResponseBody(DaraModel):
         if self.description is not None:
             result['Description'] = self.description
 
+        if self.enable_dns_64 is not None:
+            result['EnableDns64'] = self.enable_dns_64
+
         if self.enabled_ipv_6 is not None:
             result['EnabledIpv6'] = self.enabled_ipv_6
 
@@ -175,6 +180,9 @@ class DescribeVSwitchAttributesResponseBody(DaraModel):
 
         if m.get('Description') is not None:
             self.description = m.get('Description')
+
+        if m.get('EnableDns64') is not None:
+            self.enable_dns_64 = m.get('EnableDns64')
 
         if m.get('EnabledIpv6') is not None:
             self.enabled_ipv_6 = m.get('EnabledIpv6')

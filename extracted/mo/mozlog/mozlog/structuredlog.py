@@ -61,6 +61,8 @@ Allowed actions, and subfields:
       extra - Dictionary of harness-specific extra information e.g. debug info
       known_intermittent - List of known intermittent statuses that should
                            not fail a test. eg. ['FAIL', 'TIMEOUT']
+      will_retry - True when the harness will retry the test and this
+                   result does not count (optional)
       subsuite - Name of the subsuite to which test belongs (optional)
       group - Name of the test group for the incoming test (optional)
 
@@ -73,6 +75,8 @@ Allowed actions, and subfields:
                                  or absent if the subtest got the expected status
       known_intermittent - List of known intermittent statuses that should
                            not fail a test. eg. ['FAIL', 'TIMEOUT']
+      will_retry - True when the harness will retry the test and this
+                   result does not count (optional)
       subsuite - Name of the subsuite to which test belongs (optional)
       group - Name of the test group for the incoming test (optional)
 
@@ -90,7 +94,12 @@ Allowed actions, and subfields:
       subsuite - Name of the subsuite for the tests that ran (optional)
 
   lsan_leak
-      frames - List of stack frames from the leak report
+      frames - List of stack frame function names from the leak report
+      kind - Leak kind ("Direct" or "Indirect")
+      bytes - Bytes leaked at this allocation site
+      objects - Number of objects leaked at this allocation site
+      stack - Structured stack frames (list of dicts with function/module/file/line/
+              column/offset fields, suitable for the profiler stack format) (optional)
       scope - An identifier for the set of tests run during the browser session
               (e.g. a directory name)
       allowed_match - A stack frame in the list that matched a rule meaning the
@@ -103,10 +112,79 @@ Allowed actions, and subfields:
       allowed - Boolean indicating whether all detected leaks matched allow rules
       subsuite - Name of the subsuite for the tests that ran (optional)
 
+  tsan_error
+      kind - ThreadSanitizer report kind (e.g. "data race",
+             "lock-order-inversion (potential deadlock)")
+      signature - The SUMMARY location (e.g. "Mutex_posix.cpp:91:3 in mutexLock")
+      pid - PID of the process the report is about (optional)
+      description - Extra context line such as the lock-order cycle graph (optional)
+      stacks - List of the report's labeled stacks, each a dict with a "label"
+               (the stack's role, e.g. "Mutex M1 acquired here while holding M0")
+               and a "stack" (list of profiler-format frame dicts)
+      scope - An identifier for the set of tests run during the browser session
+              (e.g. a directory name) (optional)
+
+  assertion_failure
+      kind - "MOZ_ASSERT", "MOZ_CRASH", "NS_ASSERTION" or "NS_ABORT"
+      message - The asserted condition, crash reason, or NS_DebugBreak message
+      file - Source file of the assertion (optional)
+      lineno - Source line of the assertion (optional)
+      pid - PID of the process that asserted (optional)
+      process_type - Process type printed by NS_DebugBreak, e.g. "Parent" (optional)
+      thread - Name of the thread that asserted (optional)
+      fatal - Boolean indicating whether the process aborts as a result
+      stack - Native stack printed after the assertion (list of profiler-format
+              frame dicts with function/file/line or module/module_offset) (optional)
+      test - ID of the test that was running (optional)
+      subsuite - Name of the subsuite for the tests that ran (optional)
+
+  ubsan_error
+      kind - UndefinedBehaviorSanitizer check kind from the SUMMARY line
+             ("undefined-behavior" unless the runtime reports error types)
+      message - The "runtime error:" message (e.g. "applying non-zero offset
+                96 to null pointer")
+      file - Source file of the offending operation (optional)
+      lineno - Source line of the offending operation (optional)
+      column - Source column of the offending operation (optional)
+      stack - Stack printed after the report (list of profiler-format frame
+              dicts with function/file/line/column or module/module_offset)
+              (optional)
+      scope - An identifier for the set of tests run during the browser session
+              (e.g. a directory name) (optional)
+      test - ID of the test that was running (optional)
+      subsuite - Name of the subsuite for the tests that ran (optional)
+
+  asan_error
+      kind - AddressSanitizer error kind from the SUMMARY line (e.g. "SEGV",
+             "heap-use-after-free"), derived from the header when the
+             process died before printing one
+      message - The header text after "ERROR: AddressSanitizer: " (e.g.
+                "SEGV on unknown address 0x0000000000b (pc ... T0)")
+      pid - PID of the process the report is about (optional)
+      file - Source file of the SUMMARY location (optional)
+      lineno - Source line of the SUMMARY location (optional)
+      column - Source column of the SUMMARY location (optional)
+      function - Function of the SUMMARY location (optional)
+      stack - Stack of the faulting access (list of profiler-format frame
+              dicts with function/file/line/column or module/module_offset)
+              (optional)
+      stacks - The report's other labeled stacks, each a dict with a "label"
+               (e.g. "freed by thread T0 here") and a "stack" (optional)
+      scope - An identifier for the set of tests run during the browser session
+              (e.g. a directory name) (optional)
+      test - ID of the test that was running (optional)
+      quiet - Boolean indicating that the report belongs to a test run that
+              will be retried, so it should not fail the test group
+      subsuite - Name of the subsuite for the tests that ran (optional)
+
   mozleak_object
      process - Process that leaked
-     bytes - Number of bytes that leaked
+     count - Number of instances that leaked
      name - Name of the object that leaked
+     bytes_per_inst - Per-instance size in bytes
+     bytes_leaked - Total bytes leaked for this class
+     total_instances - Total instances allocated
+     bytes - Legacy alias of count, copied from count for out-of-tree consumers
      scope - An identifier for the set of tests run during the browser session
              (e.g. a directory name)
      allowed - Boolean indicating whether the leak was permitted
@@ -475,6 +553,7 @@ class StructuredLogger:
         Unicode("stack", default=None, optional=True),
         Dict(Any, "extra", default=None, optional=True),
         List(SubStatus, "known_intermittent", default=None, optional=True),
+        Boolean("will_retry", default=False, optional=True),
         Unicode("subsuite", default=None, optional=True),
         Unicode("group", default=None, optional=True),
     )
@@ -491,6 +570,8 @@ class StructuredLogger:
         :param stack: Optional stack trace encountered during test execution.
         :param extra: Optional suite-specific data associated with the test result.
         :param known_intermittent: Optional list of string expected intermittent statuses
+        :param will_retry: Optional flag set when the harness will retry the test,
+                           so that this result does not count.
         :param subsuite: Optional name of the subsuite to which the test belongs.
         :param group: Optional name of the test group or manifest name (useful
                      when running in paralle)
@@ -517,6 +598,7 @@ class StructuredLogger:
         Unicode("stack", default=None, optional=True),
         Dict(Any, "extra", default=None, optional=True),
         List(Status, "known_intermittent", default=None, optional=True),
+        Boolean("will_retry", default=False, optional=True),
         Unicode("subsuite", default=None, optional=True),
         Unicode("group", default=None, optional=True),
     )
@@ -533,6 +615,8 @@ class StructuredLogger:
         :param message: Optonal string containing a message associated with the result.
         :param stack: Optional stack trace encountered during test execution.
         :param extra: Optional suite-specific data associated with the test result.
+        :param will_retry: Optional flag set when the harness will retry the test,
+                           so that this result does not count.
         :param subsuite: Optional name of the subsuite to which the test belongs.
         :param group: Optional name of the test group or manifest name (useful
                      when running in paralle)
@@ -587,6 +671,7 @@ class StructuredLogger:
         List(Any, "crashing_thread_stack", default=None, optional=True),
         Unicode("subsuite", default=None, optional=True),
         Boolean("quiet", default=False, optional=True),
+        Unicode("group", default=None, optional=True),
     )
     def crash(self, data):
         if data["stackwalk_errors"] is None:
@@ -657,6 +742,10 @@ class StructuredLogger:
 
     @log_action(
         List(Unicode, "frames"),
+        Unicode("kind"),
+        Int("bytes"),
+        Int("objects"),
+        List(Dict(Any), "stack", optional=True, default=None),
         Unicode("scope", optional=True, default=None),
         Unicode("allowed_match", optional=True, default=None),
         Unicode("subsuite", default=None, optional=True),
@@ -674,14 +763,78 @@ class StructuredLogger:
         self._log_data("lsan_summary", data)
 
     @log_action(
+        Unicode("kind"),
+        Unicode("signature"),
+        List(Dict(Any), "stacks"),
+        Int("pid", optional=True, default=None),
+        Unicode("description", optional=True, default=None),
+        Unicode("scope", optional=True, default=None),
+    )
+    def tsan_error(self, data):
+        self._log_data("tsan_error", data)
+
+    @log_action(
+        Unicode("kind"),
+        Unicode("message"),
+        Unicode("file", optional=True, default=None),
+        Int("lineno", optional=True, default=None),
+        Int("pid", optional=True, default=None),
+        Unicode("process_type", optional=True, default=None),
+        Unicode("thread", optional=True, default=None),
+        Boolean("fatal", optional=True, default=False),
+        List(Dict(Any), "stack", optional=True, default=None),
+        TestId("test", default=None, optional=True),
+        Unicode("subsuite", default=None, optional=True),
+    )
+    def assertion_failure(self, data):
+        self._log_data("assertion_failure", data)
+
+    @log_action(
+        Unicode("kind"),
+        Unicode("message"),
+        Unicode("file", optional=True, default=None),
+        Int("lineno", optional=True, default=None),
+        Int("column", optional=True, default=None),
+        List(Dict(Any), "stack", optional=True, default=None),
+        Unicode("scope", optional=True, default=None),
+        TestId("test", default=None, optional=True),
+        Unicode("subsuite", default=None, optional=True),
+    )
+    def ubsan_error(self, data):
+        self._log_data("ubsan_error", data)
+
+    @log_action(
+        Unicode("kind"),
+        Unicode("message"),
+        Int("pid", optional=True, default=None),
+        Unicode("file", optional=True, default=None),
+        Int("lineno", optional=True, default=None),
+        Int("column", optional=True, default=None),
+        Unicode("function", optional=True, default=None),
+        List(Dict(Any), "stack", optional=True, default=None),
+        List(Dict(Any), "stacks", optional=True, default=None),
+        Unicode("scope", optional=True, default=None),
+        TestId("test", default=None, optional=True),
+        Boolean("quiet", optional=True, default=False),
+        Unicode("subsuite", default=None, optional=True),
+    )
+    def asan_error(self, data):
+        self._log_data("asan_error", data)
+
+    @log_action(
         Unicode("process"),
-        Int("bytes"),
+        Int("count"),
         Unicode("name"),
+        Int("bytes_per_inst"),
+        Int("bytes_leaked"),
+        Int("total_instances"),
         Unicode("scope", optional=True, default=None),
         Boolean("allowed", optional=True, default=False),
         Unicode("subsuite", default=None, optional=True),
     )
     def mozleak_object(self, data):
+        # 'bytes' is a legacy alias of 'count' kept for out-of-tree consumers.
+        data["bytes"] = data["count"]
         self._log_data("mozleak_object", data)
 
     @log_action(

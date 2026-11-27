@@ -36,8 +36,9 @@ def test_bandstructure(bs_cu, testdir, plt):
     print(labels)
     assert ''.join(labels) == 'GXWKGLUWLKUX'
     bs_cu.plot(emax=10, filename='bs.png')
-    cols = np.linspace(-1.0, 1.0, bs_cu.energies.size)
-    cols.shape = bs_cu.energies.shape
+    cols = np.linspace(-1.0, 1.0, bs_cu.energies.size).reshape(
+        bs_cu.energies.shape
+    )
     bs_cu.plot(emax=10, point_colors=cols, filename='bs2.png')
 
 

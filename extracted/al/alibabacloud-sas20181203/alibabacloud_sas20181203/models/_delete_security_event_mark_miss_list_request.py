@@ -15,7 +15,7 @@ class DeleteSecurityEventMarkMissListRequest(DaraModel):
     ):
         # The list of alert whitelist rule IDs.
         self.ids = ids
-        # The Alibaba Cloud account ID of the member accounts in the resource folder.
+        # The ID of the Alibaba Cloud account to which the member account in the resource directory belongs.
         # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
         self.resource_owner_id = resource_owner_id

@@ -5,7 +5,6 @@ from typing import (
 )
 
 import temporalio
-import temporalio.activity
 import temporalio.client
 import temporalio.common
 import temporalio.workflow
@@ -14,8 +13,25 @@ from opentelemetry.trace import format_trace_id
 
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.config.config import config
-from mistralai.workflows.core.temporal.utils import require_activity_context_value
 from mistralai.workflows.core.tracing._otel_config import _get_calling_module_name
+
+# Re-exported for backwards compatibility: these public helpers moved to workflow_context,
+# but they remain importable from this module's public API surface.
+from mistralai.workflows.core.tracing.workflow_context import (
+    GEN_AI_WORKFLOW_NAME_ATTRIBUTE as GEN_AI_WORKFLOW_NAME_ATTRIBUTE,
+)
+from mistralai.workflows.core.tracing.workflow_context import (
+    TEMPORAL_WORKFLOW_ID_ATTRIBUTE as TEMPORAL_WORKFLOW_ID_ATTRIBUTE,
+)
+from mistralai.workflows.core.tracing.workflow_context import (
+    WORKFLOW_EXECUTION_ID_ATTRIBUTE as WORKFLOW_EXECUTION_ID_ATTRIBUTE,
+)
+from mistralai.workflows.core.tracing.workflow_context import (
+    workflow_context_span_attributes,
+)
+from mistralai.workflows.core.tracing.workflow_context import (
+    workflow_execution_span_attributes as workflow_execution_span_attributes,
+)
 from mistralai.workflows.models import (
     EventAttributes,
     EventSpanType,
@@ -28,8 +44,6 @@ tracer = trace.get_tracer(_get_calling_module_name())
 
 
 CUSTOM_TRACING_ATTRIBUTES = "custom_tracing_attributes"
-WORKFLOW_EXECUTION_ID_ATTRIBUTE = EventAttributes.workflow_execution_id.value
-TEMPORAL_WORKFLOW_ID_ATTRIBUTE = "temporalWorkflowID"
 
 # Temporal workflow header set by the API when the caller supplied an explicit traceparent.
 # Its presence tells the worker to reuse the caller's trace/sampling as-is instead of forcing sampling.
@@ -73,13 +87,6 @@ def _get_event_id() -> str:
     return uuid.uuid4().hex
 
 
-def workflow_execution_span_attributes(workflow_execution_id: str) -> dict[str, str]:
-    return {
-        WORKFLOW_EXECUTION_ID_ATTRIBUTE: workflow_execution_id,
-        TEMPORAL_WORKFLOW_ID_ATTRIBUTE: workflow_execution_id,
-    }
-
-
 def get_span_attributes(
     event_type: str,
     span_type: EventSpanType,
@@ -94,27 +101,13 @@ def get_span_attributes(
         EventAttributes.internal: internal,
     }
 
-    if temporalio.activity.in_activity():
-        activity_info = temporalio.activity.info()
-        workflow_execution_id = require_activity_context_value(
-            activity_info.workflow_id,
-            field_name="workflow_id",
-        )
-        attributes[EventAttributes.workflow_type] = require_activity_context_value(
-            activity_info.workflow_type,
-            field_name="workflow_type",
-        )
-        attributes.update(workflow_execution_span_attributes(workflow_execution_id))
-        attributes[EventAttributes.activity_execution_id] = activity_info.activity_id
-        attributes[EventAttributes.activity_attempt] = activity_info.attempt
-        attributes[EventAttributes.activity_max_attempts] = config.worker.retry_policy_max_attempts
-        attributes["temporalRunID"] = activity_info.workflow_run_id
-
-    if temporalio.workflow.in_workflow():
-        workflow_info = temporalio.workflow.info()
-        attributes[EventAttributes.workflow_type] = workflow_info.workflow_type
-        attributes.update(workflow_execution_span_attributes(workflow_info.workflow_id))
-        attributes["temporalRunID"] = workflow_info.run_id
+    context_attributes = workflow_context_span_attributes()
+    if context_attributes:
+        attributes.update(context_attributes)
+        if EventAttributes.workflow_run_id in context_attributes:
+            attributes["temporalRunID"] = context_attributes[EventAttributes.workflow_run_id]
+        if EventAttributes.activity_execution_id in context_attributes:
+            attributes[EventAttributes.activity_max_attempts] = config.worker.retry_policy_max_attempts
 
     if custom_attributes:
         for key, value in custom_attributes.items():
@@ -152,7 +145,7 @@ def _record_event(
         attributes = {}
 
     with tracer.start_as_current_span(f"CustomEvent:{event_name}") as span:
-        logger.debug("Recording event", event_name=event_name, attributes=attributes)
+        logger.debug("Recording event", event_name=event_name)
         span.add_event(
             event_name,
             {

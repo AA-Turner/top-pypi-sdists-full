@@ -21,6 +21,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.agentic_apps_first_dashboard import AgenticAppsFirstDashboard
+from arthur_client.api_bindings.models.supported_currency import SupportedCurrency
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -33,7 +34,8 @@ class Organization(BaseModel):
     id: StrictStr = Field(description="ID of the organization.")
     name: StrictStr = Field(description="Name of the organization. Must be globally unique across all Arthur organizations.")
     agentic_apps_first_dashboard: Optional[AgenticAppsFirstDashboard] = Field(default=None, description="Dashboard applications with both agentic_trace and arthur_shield data open first. The other stays available in the application's dashboard selector.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "name", "agentic_apps_first_dashboard"]
+    default_currency: Optional[SupportedCurrency] = Field(default=None, description="Currency the organization's LLM costs are shown in. Costs are stored and reported in USD; the platform converts them for display.")
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "name", "agentic_apps_first_dashboard", "default_currency"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -90,7 +92,8 @@ class Organization(BaseModel):
             "updated_at": obj.get("updated_at"),
             "id": obj.get("id"),
             "name": obj.get("name"),
-            "agentic_apps_first_dashboard": obj.get("agentic_apps_first_dashboard")
+            "agentic_apps_first_dashboard": obj.get("agentic_apps_first_dashboard"),
+            "default_currency": obj.get("default_currency")
         })
         return _obj
 

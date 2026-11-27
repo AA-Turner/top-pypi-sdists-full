@@ -36,6 +36,7 @@ from tqdm.auto import tqdm
 from tabpfn.base import (
     GROUPED_PRESET,
     ModelSpecs,
+    clean_predict_input,
     create_inference_engine,
     determine_precision,
     estimator_to_device,
@@ -49,6 +50,7 @@ from tabpfn.base import (
     resolved_n_estimators,
     resolved_softmax_temperature,
     transform_columns,
+    validate_and_clean_fit_input,
 )
 from tabpfn.constants import (
     PROBABILITY_EPSILON_ROUND_ZERO,
@@ -89,10 +91,8 @@ from tabpfn.preprocessing import (
     FeatureSubsamplingMethod,
     PreprocessorConfig,
     SampleSubsamplingMethod,
-    clean_data,
     generate_classification_ensemble_configs,
 )
-from tabpfn.preprocessing.clean import clean_data_transform, may_overwrite_fit_input
 from tabpfn.preprocessing.datamodel import Feature, FeatureModality, FeatureSchema
 from tabpfn.preprocessing.datetimes import DateTransformer
 from tabpfn.preprocessing.ensemble import (
@@ -102,11 +102,9 @@ from tabpfn.preprocessing.ensemble import (
 from tabpfn.preprocessing.group_aggregates import GroupAggregator, pool_rows
 from tabpfn.preprocessing.group_ids import (
     GroupIdEncoder,
-    as_group_feature,
     reject_group_col,
 )
 from tabpfn.preprocessing.label_encoder import TabPFNLabelEncoder
-from tabpfn.preprocessing.modality_detection import detect_feature_modalities
 from tabpfn.preprocessing.row_weights import (
     classes_with_zero_weight,
     resolve_sample_weight_mode,
@@ -123,8 +121,6 @@ from tabpfn.utils import (
 )
 from tabpfn.validation import (
     check_input_shape_matches,
-    ensure_compatible_fit_inputs,
-    ensure_compatible_predict_input_sklearn,
     extract_input_shape,
     validate_dataset_size,
     validate_num_classes,
@@ -143,7 +139,9 @@ if TYPE_CHECKING:
     )
     from tabpfn.constants import MemorySavingMode
     from tabpfn.inference_config import InferenceConfig
+    from tabpfn.preprocessing.clean import ColumnRangeEncoders
     from tabpfn.preprocessing.row_weights import SampleWeightMode
+    from tabpfn.preprocessing.source_decisions import SourceDecisions
     from tabpfn.preprocessing.steps.preprocessing_helpers import (
         OrderPreservingColumnTransformer,
     )
@@ -237,8 +235,9 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
     label_encoder_: TabPFNLabelEncoder
     """The label encoder used to encode the target variable."""
 
-    ordinal_encoder_: OrderPreservingColumnTransformer
-    """The column transformer used to preprocess categorical data to be numeric."""
+    ordinal_encoder_: OrderPreservingColumnTransformer | ColumnRangeEncoders
+    """The fitted cleaning that makes categorical data numeric.
+    `clean_data_transform` applies it to predict input."""
 
     date_transformer_: DateTransformer
     """The transformer that converted every temporal column before validation."""
@@ -319,6 +318,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         enable_torch_compile: bool = False,
         keep_cache_on_device: bool = True,
         kv_cache_precision: Literal["auto", "int8", "fp8", "adaptive"] | None = None,
+        kv_cache_on_host: bool | None = None,
         random_state: int | np.random.RandomState | np.random.Generator | None = 0,
         n_jobs: Annotated[int | None, deprecated("Use n_preprocessing_jobs")] = None,
         n_preprocessing_jobs: int = 1,
@@ -582,6 +582,14 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 quantized precision on an architecture that cannot quantize
                 warns and falls back to `"auto"`.
 
+            kv_cache_on_host:
+                Only relevant when `fit_mode="fit_with_cache"`. Whether the
+                key-value cache keeps its keys and values in host memory, from
+                where a prediction copies to the inference device only what it
+                reads. `None` (default) lets the model architecture decide. An
+                architecture whose cache cannot be read from host memory ignores
+                this option.
+
             random_state:
                 Controls the randomness of the model. Pass an int for reproducible
                 results and see the scikit-learn glossary for more information. If
@@ -683,6 +691,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         self.enable_torch_compile = enable_torch_compile
         self.keep_cache_on_device = keep_cache_on_device
         self.kv_cache_precision = kv_cache_precision
+        self.kv_cache_on_host = kv_cache_on_host
         self.random_state = random_state
         self.inference_config = inference_config
         self.presets = presets
@@ -901,7 +910,30 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         y: YType,
         random_state: int | np.random.Generator,
     ) -> tuple[list[ClassifierEnsembleConfig], np.ndarray, np.ndarray]:
-        """Initialize the model for standard input."""
+        """Initialize the model for standard input.
+
+        The table is float64: the caller gets no decisions to pass to the ensemble.
+        """
+        ensemble_configs, X, y, _ = (
+            self._initialize_dataset_preprocessing_with_decisions(
+                X=X, y=y, random_state=random_state, may_cast_to_float32=False
+            )
+        )
+        return ensemble_configs, X, y
+
+    def _initialize_dataset_preprocessing_with_decisions(
+        self,
+        X: XType,
+        y: YType,
+        random_state: int | np.random.Generator,
+        *,
+        may_cast_to_float32: bool,
+    ) -> tuple[
+        list[ClassifierEnsembleConfig], np.ndarray, np.ndarray, SourceDecisions | None
+    ]:
+        """`_initialize_dataset_preprocessing`, and the decisions the ensemble takes
+        on the fit input before it is cast to float32.
+        """
         # feature_names_in_/n_features_in_ have to describe what the caller passed,
         # not the wider frame expansion can make of it, so they come off the raw
         # input here, before any conversion.
@@ -940,43 +972,20 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         if feature_names is not None:
             feature_names = [*feature_names, *self.group_aggregator_.names_]
 
-        # Data validation and cleaning
-        X, y, original_y_name = ensure_compatible_fit_inputs(
-            X,
-            y,
-            estimator=self,
-            max_num_samples=self.inference_config_.MAX_NUMBER_OF_SAMPLES,
-            max_num_features=self.inference_config_.MAX_NUMBER_OF_FEATURES,
-            max_cpu_samples=self.inference_config_.MAX_CPU_SAMPLES,
-            ignore_pretraining_limits=self.ignore_pretraining_limits,
-            ensure_y_numeric=False,
-            devices=self.devices_,
-        )
-
-        feature_schema = detect_feature_modalities(
-            X=X,
-            feature_names=feature_names,
-            provided_categorical_indices=categorical_indices,
-            min_samples_for_inference=self.inference_config_.MIN_NUMBER_SAMPLES_FOR_CATEGORICAL_INFERENCE,
-            max_unique_for_category=self.inference_config_.MAX_UNIQUE_FOR_CATEGORICAL_FEATURES,
-            min_unique_for_numerical=self.inference_config_.MIN_UNIQUE_FOR_NUMERICAL_FEATURES,
-            min_cardinality_for_text=self.inference_config_.MIN_CARDINALITY_FOR_TEXT,
-        )
-        # Numerical through cleaning, so neither the ordinal encoder nor the
-        # constant-column restore rewrites an unseen group's NaN; categorical
-        # after it, whatever the number of groups.
         self.group_feature_index_ = self.group_encoder_.feature_index(feature_names)
-        feature_schema = as_group_feature(
-            feature_schema, self.group_feature_index_, FeatureModality.NUMERICAL
-        )
-        X, ordinal_encoder, feature_schema = clean_data(
-            X=X,
-            feature_schema=feature_schema,
-            passthrough_inf=self.get_inference_config().PASSTHROUGH_INF,
-            overwrite_input=may_overwrite_fit_input(X, X_given),
-        )
-        feature_schema = as_group_feature(
-            feature_schema, self.group_feature_index_, FeatureModality.CATEGORICAL
+        X, y, original_y_name, feature_schema, ordinal_encoder, decisions = (
+            validate_and_clean_fit_input(
+                self,
+                X,
+                y,
+                X_given=X_given,
+                feature_names=feature_names,
+                categorical_indices=categorical_indices,
+                group_feature_index=self.group_feature_index_,
+                ensure_y_numeric=False,
+                random_state=random_state,
+                may_cast_to_float32=may_cast_to_float32,
+            )
         )
         self.inferred_feature_schema_ = feature_schema
         self.ordinal_encoder_ = ordinal_encoder
@@ -1019,7 +1028,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         )
         assert len(ensemble_configs) == self.n_estimators_
 
-        return ensemble_configs, X, y
+        return ensemble_configs, X, y, decisions
 
     def _compute_downsample_correction(self, *, y_encoded: np.ndarray) -> None:
         """Set `downsample_correction_weights_` from the fitted row sampler.
@@ -1159,8 +1168,10 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
 
         static_seed, _ = infer_random_state(self.random_state)
         byte_size = self._initialize_model_variables()
-        ensemble_configs, X, y = self._initialize_dataset_preprocessing(
-            X=X, y=y, random_state=static_seed
+        ensemble_configs, X, y, source_decisions = (
+            self._initialize_dataset_preprocessing_with_decisions(
+                X=X, y=y, random_state=static_seed, may_cast_to_float32=True
+            )
         )
         self.ensemble_configs_ = ensemble_configs
         row_weights, sample_weight_mode = self._resolve_row_weights(
@@ -1191,6 +1202,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             task_type=self.estimator_type,
             row_weights=row_weights,
             sample_weight_mode=sample_weight_mode,
+            source_decisions=source_decisions,
         )
 
         # Needs the row sampler's context prior, and must precede the tuning
@@ -1216,6 +1228,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             inference_mode=True,
             keep_cache_on_device=self.keep_cache_on_device,
             kv_cache_precision=self.kv_cache_precision,
+            kv_cache_on_host=self.kv_cache_on_host,
         )
 
         return self
@@ -1459,14 +1472,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             # inputs (DataFrames, categoricals, NaNs) are handled identically.
             check_input_shape_matches(X_test, estimator=worker)
             X_test, _ = transform_columns(worker, X_test)  # noqa: PLW2901
-            X_test = ensure_compatible_predict_input_sklearn(X_test, worker)  # noqa: PLW2901
-            X_test = clean_data_transform(  # noqa: PLW2901
-                X_test,
-                cat_indices=worker.inferred_feature_schema_.indices_for(
-                    FeatureModality.CATEGORICAL
-                ),
-                ord_encoder=getattr(worker, "ordinal_encoder_", None),
-            )
+            X_test = clean_predict_input(worker, X_test)  # noqa: PLW2901
             members = worker.executor_.ensemble_members
             x_context, x_query, cat_indices = [], [], []
             y_context = [
@@ -1878,15 +1884,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         if not self.differentiable_input:
             check_input_shape_matches(X, estimator=self)
             X, groups = transform_columns(self, X)
-            X = ensure_compatible_predict_input_sklearn(X, self)
-            X = clean_data_transform(
-                X,
-                cat_indices=self.inferred_feature_schema_.indices_for(
-                    FeatureModality.CATEGORICAL
-                ),
-                ord_encoder=getattr(self, "ordinal_encoder_", None),
-                passthrough_inf=self.get_inference_config().PASSTHROUGH_INF,
-            )
+            X = clean_predict_input(self, X)
 
         with handle_oom_errors(
             self.devices_,

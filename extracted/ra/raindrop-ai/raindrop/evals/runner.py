@@ -301,12 +301,14 @@ class EvalSuiteRunSession:
             evaluator = entry.evaluator
             if isinstance(evaluator, LocalEvaluator) and evaluator.requires_reference:
                 if any(
-                    not (r.reference_trace_sha256 or r.reference_capture)
+                    r.output is None
+                    and not (r.reference_trace_sha256 or r.reference_capture)
                     for r in self.dataset.rows
                     if r.id in self.row_ids
                 ):
                     raise ValueError(
-                        f"Evaluator {evaluator.slug} requires recorded reference traces before replay"
+                        f"Evaluator {evaluator.slug} requires a reference answer "
+                        "or recorded reference trace before replay"
                     )
         git_fields = await self.client.git_fields()
         if self.queued_run_id:

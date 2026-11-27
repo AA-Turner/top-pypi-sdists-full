@@ -20,20 +20,20 @@ class ListInterceptionHistoryRequest(DaraModel):
     ):
         # The ID of the container cluster to query.
         self.cluster_id = cluster_id
-        # The page number of the current page in a paged query.
+        # The page number of the current page in a paging query.
         self.current_page = current_page
         # The end timestamp of the query.
         self.end_time = end_time
         # The alert name.
         self.history_name = history_name
-        # The types of exception events.
+        # The type of the unusual event.
         self.interception_types = interception_types
-        # The language type for the request and response messages. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
-        # The maximum number of entries per page for a paged query.
+        # The maximum number of entries to return on each page in a paging query.
         self.page_size = page_size
         # The start timestamp of the query.
         self.start_time = start_time

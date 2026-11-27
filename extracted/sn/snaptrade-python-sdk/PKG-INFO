@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 13.4.12
+Version: 13.4.13
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -87,7 +87,7 @@ See https://docs.snaptrade.com/docs/ratelimiting.
 
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v13.4.12-blue)](https://pypi.org/project/snaptrade-python-sdk/13.4.12)
+[![PyPI](https://img.shields.io/badge/PyPI-v13.4.13-blue)](https://pypi.org/project/snaptrade-python-sdk/13.4.13)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -186,7 +186,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==13.4.12
+pip install snaptrade-python-sdk==13.4.13
 ```
 
 ## Authentication<a id="authentication"></a>
@@ -652,6 +652,18 @@ get_account_balances_v2_response = (
 
 The client identifies the user in this mode. Do not pass `user_id` `user_secret` to this method.
 
+##### OAuth Auth<a id="oauth-auth"></a>
+
+```python
+get_account_balances_v2_response = (
+    oauth_client.account_information.get_account_balances_v2(
+        account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
+    )
+)
+```
+
+The client identifies the user in this mode. Do not pass `user_id` `user_secret` to this method.
+
 
 #### ⚙️ Parameters<a id="⚙️-parameters"></a>
 
@@ -786,6 +798,17 @@ get_account_order_response = (
 
 The client identifies the user in this mode. Do not pass `user_id` `user_secret` to this method.
 
+##### OAuth Auth<a id="oauth-auth"></a>
+
+```python
+get_account_order_response = oauth_client.account_information.get_account_order(
+    account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
+    brokerage_order_id="66a033fa-da74-4fcf-b527-feefdec9257e",
+)
+```
+
+The client identifies the user in this mode. Do not pass `user_id` `user_secret` to this method.
+
 
 #### ⚙️ Parameters<a id="⚙️-parameters"></a>
 
@@ -844,6 +867,23 @@ Required credentials for this mode:
 ```python
 get_account_transactions_response = (
     personal_api_key_client.account_information.get_account_transactions(
+        account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
+        start_date="2022-01-24",
+        end_date="2022-01-24",
+        type="BUY,DIVIDEND",
+        offset=0,
+        limit=1000,
+    )
+)
+```
+
+The client identifies the user in this mode. Do not pass `user_id` `user_secret` to this method.
+
+##### OAuth Auth<a id="oauth-auth"></a>
+
+```python
+get_account_transactions_response = (
+    oauth_client.account_information.get_account_transactions(
         account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
         start_date="2022-01-24",
         end_date="2022-01-24",
@@ -931,6 +971,20 @@ Required credentials for this mode:
 ```python
 get_all_account_orders_response = (
     personal_api_key_client.account_information.get_all_account_orders(
+        account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
+        state="all",
+        days=30,
+    )
+)
+```
+
+The client identifies the user in this mode. Do not pass `user_id` `user_secret` to this method.
+
+##### OAuth Auth<a id="oauth-auth"></a>
+
+```python
+get_all_account_orders_response = (
+    oauth_client.account_information.get_all_account_orders(
         account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
         state="all",
         days=30,
@@ -1075,6 +1129,19 @@ Required credentials for this mode:
 ```python
 get_all_account_recent_orders_response = (
     personal_api_key_client.account_information.get_all_account_recent_orders(
+        account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
+        only_executed=True,
+    )
+)
+```
+
+The client identifies the user in this mode. Do not pass `user_id` `user_secret` to this method.
+
+##### OAuth Auth<a id="oauth-auth"></a>
+
+```python
+get_all_account_recent_orders_response = (
+    oauth_client.account_information.get_all_account_recent_orders(
         account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
         only_executed=True,
     )

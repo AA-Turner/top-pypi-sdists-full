@@ -22,9 +22,15 @@ class Conversation(BaseModel):
     origin: Optional[Origin] = None
 
 class Pricing(BaseModel):
-    billable: bool
+    """`pricing` of a status of Meta (per-message pricing since 2025-07-01). `billable` is optional: Meta announced it
+    will drop it, and a required field would reject the whole status webhook the day it does. `type` (`regular`,
+    `free_customer_service`, `free_entry_point`…) and `subtype` (`free_tier`…) say whether the message is charged and,
+    if not, why (api-chatty `docs/meta-gastos/tdd.md`)."""
+    billable: Optional[bool] = None
     pricing_model: str
     category: str
+    type: Optional[str] = None
+    subtype: Optional[str] = None
 
 class ErrorData(BaseModel):
     details: str

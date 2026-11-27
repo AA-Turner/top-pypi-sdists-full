@@ -1,10 +1,15 @@
 import hashlib
 import json
+import warnings
 from io import StringIO
 from unittest import mock
 
 from pylxd import exceptions, models
 from pylxd.tests import testing
+
+FINGERPRINT = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+IMAGES_URL = "http://pylxd.test/1.0/images"
+IMAGES2_URL = "http://pylxd2.test/1.0/images"
 
 
 class TestImage(testing.PyLXDTestCase):
@@ -120,6 +125,8 @@ class TestImage(testing.PyLXDTestCase):
 
         self.assertIsInstance(a_image, models.Image)
         self.assertEqual(fingerprint, a_image.fingerprint)
+        request = self.last_matching_request("POST", "http://pylxd.test/1.0/images")
+        self.assertEqual("application/octet-stream", request.headers["Content-Type"])
 
     def test_create_with_metadata(self):
         """An image with metadata is created."""
@@ -128,6 +135,10 @@ class TestImage(testing.PyLXDTestCase):
 
         self.assertIsInstance(a_image, models.Image)
         self.assertEqual(fingerprint, a_image.fingerprint)
+        request = self.last_matching_request("POST", "http://pylxd.test/1.0/images")
+        self.assertTrue(
+            request.headers["Content-Type"].startswith("multipart/form-data; boundary=")
+        )
 
     def test_create_with_metadata_streamed(self):
         """An image with metadata is created."""
@@ -329,6 +340,20 @@ class TestImage(testing.PyLXDTestCase):
         client2 = Client(endpoint="http://pylxd2.test")
         copied_image = a_image.copy(client2, wait=True)
         self.assertEqual(a_image.fingerprint, copied_image.fingerprint)
+        # The legacy body names this server and pins its certificate.
+        body = self.last_matching_request("POST", IMAGES2_URL).json()
+        self.assertEqual(
+            {
+                "type": "image",
+                "mode": "pull",
+                "server": "http://pylxd.test",
+                "protocol": "lxd",
+                "fingerprint": FINGERPRINT,
+                "secret": "abcdefg",
+                "certificate": "an-pem-cert",
+            },
+            body["source"],
+        )
 
     def test_copy_public(self):
         """Try to copy a public image."""
@@ -376,6 +401,10 @@ class TestImage(testing.PyLXDTestCase):
         client2 = Client(endpoint="http://pylxd2.test")
         copied_image = a_image.copy(client2, wait=True)
         self.assertEqual(a_image.fingerprint, copied_image.fingerprint)
+        # A public image needs neither a secret nor a certificate.
+        body = self.last_matching_request("POST", IMAGES2_URL).json()
+        self.assertNotIn("secret", body["source"])
+        self.assertNotIn("certificate", body["source"])
 
     def test_copy_no_wait(self):
         """Try to copy and don't wait."""
@@ -387,21 +416,248 @@ class TestImage(testing.PyLXDTestCase):
         a_image.copy(client2, public=False, auto_update=False)
 
     def test_create_from_simplestreams(self):
-        """Try to create an image from simplestreams."""
-        image = self.client.images.create_from_simplestreams(
-            "https://cloud-images.ubuntu.com/releases", "trusty/amd64"
-        )
+        """Without image_registries the simplestreams source is not deprecated."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            image = self.client.images.create_from_simplestreams(
+                "https://cloud-images.ubuntu.com/releases", "trusty/amd64"
+            )
+
+        self.assertEqual(FINGERPRINT, image.fingerprint)
+        self.assertFalse([w for w in caught if w.category is DeprecationWarning])
+        body = self.last_matching_request("POST", IMAGES_URL).json()
+        self.assertEqual("simplestreams", body["source"]["protocol"])
+
+    def test_create_from_simplestreams_warns_with_extension(self):
+        """With image_registries the simplestreams source is deprecated."""
+        testing.add_api_extension_helper(self, ["image_registries"])
+
+        with self.assertWarns(DeprecationWarning):
+            image = self.client.images.create_from_simplestreams(
+                "https://cloud-images.ubuntu.com/releases", "trusty/amd64"
+            )
+
+        self.assertEqual(FINGERPRINT, image.fingerprint)
+        # The request itself is unchanged.
+        body = self.last_matching_request("POST", IMAGES_URL).json()
         self.assertEqual(
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            image.fingerprint,
+            {
+                "type": "image",
+                "mode": "pull",
+                "server": "https://cloud-images.ubuntu.com/releases",
+                "protocol": "simplestreams",
+                "fingerprint": "trusty/amd64",
+            },
+            body["source"],
         )
 
     def test_create_from_url(self):
-        """Try to create an image from an URL."""
-        image = self.client.images.create_from_url("https://dl.stgraber.org/lxd")
+        """create_from_url is deprecated but still sends the request."""
+        with self.assertWarns(DeprecationWarning):
+            image = self.client.images.create_from_url("https://dl.stgraber.org/lxd")
+
+        self.assertEqual(FINGERPRINT, image.fingerprint)
+        body = self.last_matching_request("POST", IMAGES_URL).json()
+        self.assertEqual("url", body["source"]["type"])
+
+    def test_create_from_registry(self):
+        """An image is copied from an image registry."""
+        with self.assertRaises(exceptions.LXDAPIExtensionNotAvailable):
+            self.client.images.create_from_registry("images", "alpine/edge")
+        testing.add_api_extension_helper(self, ["image_registries"])
+
+        image = self.client.images.create_from_registry(
+            "images", "alpine/edge", public=True, copy_aliases=True
+        )
+
+        self.assertEqual(FINGERPRINT, image.fingerprint)
+        body = self.last_matching_request("POST", IMAGES_URL).json()
         self.assertEqual(
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            image.fingerprint,
+            {
+                "public": True,
+                "auto_update": False,
+                "source": {
+                    "type": "image",
+                    "mode": "pull",
+                    "image_registry": "images",
+                    "fingerprint": "alpine/edge",
+                    "copy_aliases": True,
+                },
+            },
+            body,
+        )
+
+    def test_create_from_registry_image_type(self):
+        """image_type is sent only when given."""
+        testing.add_api_extension_helper(self, ["image_registries"])
+
+        self.client.images.create_from_registry(
+            "images", "alpine/edge", image_type="virtual-machine"
+        )
+
+        body = self.last_matching_request("POST", IMAGES_URL).json()
+        self.assertEqual("virtual-machine", body["source"]["image_type"])
+
+    def test_copy_registry(self):
+        """A private image is copied through a registry on the destination."""
+        from pylxd.client import Client
+
+        a_image = self.client.images.all()[0]
+        client2 = Client(endpoint="http://pylxd2.test")
+        with self.assertRaises(exceptions.LXDAPIExtensionNotAvailable):
+            a_image.copy(client2, image_registry="source-lxd")
+        client2.host_info["api_extensions"].append("image_registries")
+
+        copied_image = a_image.copy(
+            client2, wait=True, image_registry="source-lxd", copy_aliases=True
+        )
+
+        self.assertEqual(a_image.fingerprint, copied_image.fingerprint)
+        body = self.last_matching_request("POST", IMAGES2_URL).json()
+        self.assertEqual(
+            {
+                "type": "image",
+                "mode": "pull",
+                "image_registry": "source-lxd",
+                "fingerprint": FINGERPRINT,
+                "copy_aliases": True,
+                "secret": "abcdefg",
+            },
+            body["source"],
+        )
+
+    def test_copy_registry_public_image(self):
+        """A public image needs no secret, and its project is passed on."""
+        from pylxd.client import Client
+
+        self.add_rule(
+            {
+                "json": {
+                    "type": "sync",
+                    "metadata": {
+                        "fingerprint": FINGERPRINT,
+                        "public": True,
+                        "project": "p1",
+                        "aliases": [],
+                        "properties": {},
+                        "filename": "a_image.tar.bz2",
+                        "auto_update": False,
+                    },
+                },
+                "method": "GET",
+                "url": rf"^{IMAGES_URL}/{FINGERPRINT}$",
+            }
+        )
+        a_image = self.client.images.get(FINGERPRINT)
+        client2 = Client(endpoint="http://pylxd2.test")
+        client2.host_info["api_extensions"].append("image_registries")
+
+        a_image.copy(client2, image_registry="source-lxd")
+
+        body = self.last_matching_request("POST", IMAGES2_URL).json()
+        self.assertEqual(
+            {
+                "type": "image",
+                "mode": "pull",
+                "image_registry": "source-lxd",
+                "fingerprint": FINGERPRINT,
+                "copy_aliases": False,
+                "project": "p1",
+            },
+            body["source"],
+        )
+
+    def test_copy_copy_aliases(self):
+        """copy_aliases is gated and sent with the legacy body too."""
+        from pylxd.client import Client
+
+        a_image = self.client.images.all()[0]
+        client2 = Client(endpoint="http://pylxd2.test")
+        with self.assertRaises(exceptions.LXDAPIExtensionNotAvailable):
+            a_image.copy(client2, copy_aliases=True)
+        client2.host_info["api_extensions"].append("image_registries")
+
+        a_image.copy(client2, copy_aliases=True)
+
+        body = self.last_matching_request("POST", IMAGES2_URL).json()
+        self.assertTrue(body["source"]["copy_aliases"])
+        self.assertEqual("http://pylxd.test", body["source"]["server"])
+        self.assertEqual("an-pem-cert", body["source"]["certificate"])
+
+    def test_copy_copy_aliases_public_image(self):
+        """The legacy body with copy_aliases carries the certificate even for
+        a public image: servers with image_registries match it to a registry's
+        cluster link by certificate."""
+        from pylxd.client import Client
+
+        self.add_rule(
+            {
+                "json": {
+                    "type": "sync",
+                    "metadata": {
+                        "fingerprint": FINGERPRINT,
+                        "public": True,
+                        "aliases": [],
+                        "properties": {},
+                        "filename": "a_image.tar.bz2",
+                        "auto_update": False,
+                    },
+                },
+                "method": "GET",
+                "url": rf"^{IMAGES_URL}/{FINGERPRINT}$",
+            }
+        )
+        a_image = self.client.images.get(FINGERPRINT)
+        client2 = Client(endpoint="http://pylxd2.test")
+        client2.host_info["api_extensions"].append("image_registries")
+
+        a_image.copy(client2, copy_aliases=True)
+
+        body = self.last_matching_request("POST", IMAGES2_URL).json()
+        self.assertTrue(body["source"]["copy_aliases"])
+        self.assertEqual("an-pem-cert", body["source"]["certificate"])
+        self.assertNotIn("secret", body["source"])
+
+    def test_copy_with_project(self):
+        """The legacy copy payload includes the source image's project when set."""
+        from pylxd.client import Client
+
+        self.add_rule(
+            {
+                "json": {
+                    "type": "sync",
+                    "metadata": {
+                        "fingerprint": FINGERPRINT,
+                        "public": False,
+                        "project": "p1",
+                        "aliases": [],
+                        "properties": {},
+                        "filename": "a_image.tar.bz2",
+                        "auto_update": False,
+                    },
+                },
+                "method": "GET",
+                "url": rf"^{IMAGES_URL}/{FINGERPRINT}$",
+            }
+        )
+        a_image = self.client.images.get(FINGERPRINT)
+        client2 = Client(endpoint="http://pylxd2.test")
+
+        a_image.copy(client2, wait=True)
+
+        body = self.last_matching_request("POST", IMAGES2_URL).json()
+        self.assertEqual(
+            {
+                "type": "image",
+                "mode": "pull",
+                "server": "http://pylxd.test",
+                "protocol": "lxd",
+                "fingerprint": FINGERPRINT,
+                "project": "p1",
+                "secret": "abcdefg",
+                "certificate": "an-pem-cert",
+            },
+            body["source"],
         )
 
     def test_eq_same_fingerprint_no_project(self):

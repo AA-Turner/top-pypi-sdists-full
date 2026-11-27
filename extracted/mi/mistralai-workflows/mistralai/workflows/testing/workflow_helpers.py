@@ -39,7 +39,8 @@ _T = TypeVar("_T")
 
 def _is_transient_poll_error(exc: Exception) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
-        return exc.response.is_server_error
+        # A freshly created execution 404s until it is visible through the gateway.
+        return exc.response.is_server_error or exc.response.status_code == 404
     return isinstance(exc, httpx.TransportError)
 
 
@@ -476,18 +477,28 @@ async def submit_workflow_update(
     update_response.raise_for_status()
 
 
+def _execution_request_body(
+    input_data: dict[str, Any], *, task_queue: str | None, deployment_name: str | None
+) -> dict[str, Any]:
+    body: dict[str, Any] = {"input": input_data}
+    # Sent together, some API versions route on task_queue and skip the deployment lookup.
+    if deployment_name is not None:
+        body["deployment_name"] = deployment_name
+    elif task_queue is not None:
+        body["task_queue"] = task_queue
+    return body
+
+
 async def execute_workflow(
     client: httpx.AsyncClient,
     workflow_name: str,
     input_data: dict[str, Any],
     task_queue: str | None = TEST_TASK_QUEUE,
+    deployment_name: str | None = None,
 ) -> str:
-    body: dict[str, Any] = {"input": input_data}
-    if task_queue is not None:
-        body["task_queue"] = task_queue
     response = await client.post(
         f"/v1/workflows/{workflow_name}/execute",
-        json=body,
+        json=_execution_request_body(input_data, task_queue=task_queue, deployment_name=deployment_name),
     )
     response.raise_for_status()
     data = response.json()
@@ -619,13 +630,11 @@ async def execute_workflow_and_wait(
     input_data: dict[str, Any],
     timeout_seconds: int = 30,
     task_queue: str | None = TEST_TASK_QUEUE,
+    deployment_name: str | None = None,
 ) -> dict[str, Any]:
-    body: dict[str, Any] = {"input": input_data}
-    if task_queue is not None:
-        body["task_queue"] = task_queue
     response = await client.post(
         f"/v1/workflows/{workflow_name}/execute",
-        json=body,
+        json=_execution_request_body(input_data, task_queue=task_queue, deployment_name=deployment_name),
     )
     response.raise_for_status()
     data = response.json()

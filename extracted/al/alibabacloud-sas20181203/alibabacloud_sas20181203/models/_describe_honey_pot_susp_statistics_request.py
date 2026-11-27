@@ -24,7 +24,7 @@ class DescribeHoneyPotSuspStatisticsRequest(DaraModel):
         # 
         # This parameter is required.
         self.statistics_days = statistics_days
-        # Specifies the asset type to query. Valid values:
+        # Specifies the Asset Type to query. Valid values:
         # - **vpcInstanceId**: VPC-connected instance
         # - **uuid**: server
         # 

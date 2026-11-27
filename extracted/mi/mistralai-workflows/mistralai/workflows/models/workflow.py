@@ -68,6 +68,8 @@ class WorkflowSpec(WorkflowCodeDefinition):
     display_name: str | None = Field(default=None, description="Display name of the workflow")
     description: str | None = Field(default=None, description="Description of the workflow")
     is_technical: bool = Field(default=False, description="Whether the workflow is technical (e.g. SDK-managed)")
+    # Worker-declared schedules, sent only by SDK v3 workers. The API still parses their registrations with
+    # this model; v4 workers omit the field.
     schedules: List[ScheduleDefinition] = Field(default_factory=list, description="Schedules defined by the workflow")
 
     @field_validator("name")
@@ -90,7 +92,11 @@ class WorkflowSpec(WorkflowCodeDefinition):
 
 
 class WorkflowSpecWithTaskQueue(WorkflowSpec):
-    task_queue: str = Field(description="Task queue name for the workflow")
+    task_queue: str | None = Field(
+        default=None,
+        description="Deprecated. Use deployment_name instead.",
+        deprecated="Deprecated. Use deployment_name instead.",
+    )
 
 
 class Workflow(BaseModel):

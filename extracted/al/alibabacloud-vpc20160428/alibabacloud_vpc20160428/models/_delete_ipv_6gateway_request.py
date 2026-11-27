@@ -16,17 +16,15 @@ class DeleteIpv6GatewayRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The client token that is used to ensure the idempotence of the request.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters.
         # 
-        # You can use the client to generate the token, but you must make sure that the token is unique among different requests. The ClientToken value can contain only ASCII characters.
-        # 
-        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may be different for each API request.
+        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request may be different.
         self.client_token = client_token
-        # Specifies whether to perform a dry run. Valid values:
+        # Specifies whether to perform only a dry run. Valid values:
         # 
-        # - **true**: performs a dry run. The system checks the required parameters, request syntax, and business restrictions. If the request fails the dry run, an error message is returned. If the request passes the dry run, `DryRunOperation` is returned.
+        # - **true**: performs only a dry run and does not delete the IPv6 gateway. The system checks whether the required parameters are specified, the request format is valid, and the service limits are met. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
         # 
-        # - **false** (default): performs a dry run and sends the request. If the request passes the dry run, the IPv6 gateway is deleted.
+        # - **false** (default): sends the request and deletes the IPv6 gateway if the request passes the dry run.
         self.dry_run = dry_run
         # The instance ID of the IPv6 gateway that you want to delete.
         # 
@@ -34,7 +32,7 @@ class DeleteIpv6GatewayRequest(DaraModel):
         self.ipv_6gateway_id = ipv_6gateway_id
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region ID of the IPv6 gateway. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
+        # The region ID of the IPv6 gateway. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from copy import copy
+from types import MemberDescriptorType
 from typing import (
     TYPE_CHECKING,
-    TypeVar,
+    Generic,
     Callable,
     Literal,
     Any,
@@ -22,12 +24,24 @@ from tenacity import (
     Retrying,
 )
 from collections.abc import Generator, Iterable, Awaitable, AsyncGenerator, Coroutine
-from typing_extensions import Self, overload
+from typing_extensions import Self, TypeVar, overload
+from pydantic_core import PydanticUndefined, PydanticUndefinedType
 from instructor.v2.dsl.partial import Partial
 from instructor.v2.core.hooks import Hooks, HookName
 
 
 T = TypeVar("T")
+
+
+def _strict_kwargs(
+    strict: bool | PydanticUndefinedType, create: Callable[..., Any] | None = None
+) -> dict[str, bool]:
+    if isinstance(strict, bool):
+        return {"strict": strict}
+    if create is None or getattr(create, "_instructor_patched_create", False) is True:
+        return {}
+    # User-supplied create callables historically receive strict=True by default.
+    return {"strict": True}
 
 
 class _ResponseBase:
@@ -53,7 +67,7 @@ class Response(_ResponseBase):
 
     def __init__(
         self,
-        client: Instructor,
+        client: Instructor[Any],
     ):
         self.client = client
 
@@ -87,7 +101,7 @@ class Response(_ResponseBase):
         response_model: type[T] | None = None,
         max_retries: int | Retrying = 3,
         context: dict[str, Any] | None = None,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         token_budget: int | None = None,
         **kwargs,
     ) -> T | Any:
@@ -100,7 +114,7 @@ class Response(_ResponseBase):
             response_model=response_model,
             context=context,
             max_retries=max_retries,
-            strict=strict,
+            **_strict_kwargs(strict),
             messages=messages,
             **kwargs,
         )
@@ -251,7 +265,7 @@ class AsyncResponse(_ResponseBase):
         response_model: type[T] | None = None,
         max_retries: int | AsyncRetrying = 3,
         context: dict[str, Any] | None = None,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         token_budget: int | None = None,
         **kwargs,
     ) -> T | Any:
@@ -264,7 +278,7 @@ class AsyncResponse(_ResponseBase):
             response_model=response_model,
             context=context,
             max_retries=max_retries,
-            strict=strict,
+            **_strict_kwargs(strict),
             messages=messages,
             **kwargs,
         )
@@ -382,7 +396,19 @@ class AsyncResponse(_ResponseBase):
         )
 
 
-class Instructor:
+_ResponseT = TypeVar("_ResponseT", bound=_ResponseBase, default=Response)
+
+
+def _uses_responses_api(client: Any, mode: Mode) -> bool:
+    if mode not in (Mode.RESPONSES_TOOLS, Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS):
+        return False
+    import openai
+
+    assert isinstance(client, (openai.OpenAI, openai.AsyncOpenAI))
+    return True
+
+
+class Instructor(Generic[_ResponseT]):
     """Sync client wrapper that adds structured output support."""
 
     client: Any | None
@@ -411,14 +437,8 @@ class Instructor:
         self.provider = provider
         self.hooks = hooks or Hooks()
 
-        if mode in {
-            Mode.RESPONSES_TOOLS,
-            Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
-        }:
-            import openai as _openai
-
-            assert isinstance(client, (_openai.OpenAI, _openai.AsyncOpenAI))
-            self.responses = Response(client=self)
+        if _uses_responses_api(client, mode):
+            self.responses: _ResponseT = cast(_ResponseT, Response(client=self))
 
     def on(
         self,
@@ -541,7 +561,7 @@ class Instructor:
         messages: list[ChatCompletionMessageParam],
         max_retries: int | Retrying | AsyncRetrying = 3,
         context: dict[str, Any] | None = None,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         hooks: Hooks | None = None,
         token_budget: int | None = None,
         **kwargs: Any,
@@ -563,7 +583,7 @@ class Instructor:
             messages=messages,
             max_retries=max_retries,
             context=context,
-            strict=strict,
+            **_strict_kwargs(strict, self.create_fn),
             hooks=combined_hooks,
             **kwargs,
         )
@@ -598,7 +618,7 @@ class Instructor:
         messages: list[ChatCompletionMessageParam],
         max_retries: int | Retrying | AsyncRetrying = 3,
         context: dict[str, Any] | None = None,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Generator[T, None, None] | AsyncGenerator[T, None]:
@@ -620,7 +640,7 @@ class Instructor:
             response_model=response_model,
             max_retries=max_retries,
             context=context,
-            strict=strict,
+            **_strict_kwargs(strict, self.create_fn),
             hooks=combined_hooks,
             **kwargs,
         )
@@ -655,7 +675,7 @@ class Instructor:
         response_model: type[T],
         max_retries: int | Retrying | AsyncRetrying = 3,
         context: dict[str, Any] | None = None,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> Generator[T, None, None] | AsyncGenerator[T, None]:
@@ -676,7 +696,7 @@ class Instructor:
             response_model=response_model,
             max_retries=max_retries,
             context=context,
-            strict=strict,
+            **_strict_kwargs(strict, self.create_fn),
             hooks=combined_hooks,
             **kwargs,
         )
@@ -705,16 +725,40 @@ class Instructor:
         **kwargs: Any,
     ) -> tuple[T, Any]: ...
 
+    @overload
     def create_with_completion(
-        self,
+        self: AsyncInstructor,
         messages: list[ChatCompletionMessageParam],
-        response_model: type[T],
-        max_retries: int | Retrying | AsyncRetrying = 3,
+        response_model: None,
+        max_retries: int | AsyncRetrying = 3,
         context: dict[str, Any] | None = None,
         strict: bool = True,
         hooks: Hooks | None = None,
         **kwargs: Any,
-    ) -> tuple[T, Any] | Awaitable[tuple[T, Any]]:
+    ) -> Awaitable[tuple[Any, Any]]: ...
+
+    @overload
+    def create_with_completion(
+        self: Self,
+        messages: list[ChatCompletionMessageParam],
+        response_model: None,
+        max_retries: int | Retrying = 3,
+        context: dict[str, Any] | None = None,
+        strict: bool = True,
+        hooks: Hooks | None = None,
+        **kwargs: Any,
+    ) -> tuple[Any, Any]: ...
+
+    def create_with_completion(
+        self,
+        messages: list[ChatCompletionMessageParam],
+        response_model: type[T] | None,
+        max_retries: int | Retrying | AsyncRetrying = 3,
+        context: dict[str, Any] | None = None,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
+        hooks: Hooks | None = None,
+        **kwargs: Any,
+    ) -> tuple[Any, Any] | Awaitable[tuple[Any, Any]]:
         from instructor.v2.validation.async_validators import reject_async_validators
 
         reject_async_validators(response_model)
@@ -730,10 +774,13 @@ class Instructor:
             response_model=response_model,
             max_retries=max_retries,
             context=context,
-            strict=strict,
+            **_strict_kwargs(strict, self.create_fn),
             hooks=combined_hooks,
             **kwargs,
         )
+        if response_model is None:
+            # No response model: create_fn returns the raw provider completion.
+            return model, model
         return model, model._raw_response
 
     def handle_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -748,14 +795,37 @@ class Instructor:
                 kwargs[key] = value
         return kwargs
 
+    def __copy__(self) -> Self:
+        copied = object.__new__(type(self))
+        copied.__dict__.update(self.__dict__)
+        for cls in type(self).__mro__:
+            for descriptor in vars(cls).values():
+                if isinstance(descriptor, MemberDescriptorType):
+                    try:
+                        value = descriptor.__get__(self, type(self))
+                    except AttributeError:
+                        continue
+                    descriptor.__set__(copied, value)
+        try:
+            responses = object.__getattribute__(self, "responses")
+        except AttributeError:
+            responses = None
+        if (
+            isinstance(responses, (Response, AsyncResponse))
+            and responses.client is self
+        ):
+            copied.responses = copy(responses)
+            copied.responses.client = copied
+        return copied
+
     def __getattr__(self, attr: str) -> Any:
         if attr not in {"create", "chat", "messages"}:
-            return getattr(self.client, attr)
+            return getattr(object.__getattribute__(self, "client"), attr)
 
         return getattr(self, attr)
 
 
-class AsyncInstructor(Instructor):
+class AsyncInstructor(Instructor[AsyncResponse]):
     """Async client wrapper that adds structured output support."""
 
     client: Any | None
@@ -781,13 +851,7 @@ class AsyncInstructor(Instructor):
         self.provider = provider
         self.hooks = hooks or Hooks()
 
-        if mode in {
-            Mode.RESPONSES_TOOLS,
-            Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
-        }:
-            import openai as _openai
-
-            assert isinstance(client, (_openai.OpenAI, _openai.AsyncOpenAI))
+        if _uses_responses_api(client, mode):
             self.responses = AsyncResponse(client=self)
 
     async def create(  # type: ignore[override]  # ty: ignore[invalid-method-override]
@@ -796,7 +860,7 @@ class AsyncInstructor(Instructor):
         messages: list[ChatCompletionMessageParam],
         max_retries: int | AsyncRetrying = 3,
         context: dict[str, Any] | None = None,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         hooks: Hooks | None = None,
         token_budget: int | None = None,
         **kwargs: Any,
@@ -825,7 +889,7 @@ class AsyncInstructor(Instructor):
                 response_model=get_args(response_model)[0],
                 max_retries=max_retries,
                 context=context,
-                strict=strict,
+                **_strict_kwargs(strict),
                 hooks=hooks,  # Pass the per-call hooks to create_iterable
                 **kwargs,
             )
@@ -835,7 +899,7 @@ class AsyncInstructor(Instructor):
             context=context,
             max_retries=max_retries,
             messages=messages,
-            strict=strict,
+            **_strict_kwargs(strict, self.create_fn),
             hooks=combined_hooks,
             **kwargs,
         )
@@ -846,7 +910,7 @@ class AsyncInstructor(Instructor):
         messages: list[ChatCompletionMessageParam],
         max_retries: int | AsyncRetrying = 3,
         context: dict[str, Any] | None = None,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> AsyncGenerator[T, None]:
@@ -861,16 +925,22 @@ class AsyncInstructor(Instructor):
         if hooks is not None:
             combined_hooks = self.hooks + hooks
 
-        async for item in await self.create_fn(
+        response = await self.create_fn(
             response_model=Partial[response_model],  # type: ignore
             context=context,
             max_retries=max_retries,
             messages=messages,
-            strict=strict,
+            **_strict_kwargs(strict, self.create_fn),
             hooks=combined_hooks,
             **kwargs,
-        ):
-            yield item
+        )
+        try:
+            async for item in response:
+                yield item
+        finally:
+            close = getattr(response, "aclose", None)
+            if callable(close):
+                await close()
 
     async def create_iterable(  # type: ignore[override]  # ty: ignore[invalid-method-override]
         self,
@@ -878,7 +948,7 @@ class AsyncInstructor(Instructor):
         response_model: type[T],
         max_retries: int | AsyncRetrying = 3,
         context: dict[str, Any] | None = None,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         hooks: Hooks | None = None,
         **kwargs: Any,
     ) -> AsyncGenerator[T, None]:
@@ -894,27 +964,33 @@ class AsyncInstructor(Instructor):
             combined_hooks = self.hooks + hooks
 
         iterable_model: Any = Iterable
-        async for item in await self.create_fn(
+        response = await self.create_fn(
             response_model=iterable_model[response_model],
             context=context,
             max_retries=max_retries,
             messages=messages,
-            strict=strict,
+            **_strict_kwargs(strict, self.create_fn),
             hooks=combined_hooks,
             **kwargs,
-        ):
-            yield item
+        )
+        try:
+            async for item in response:
+                yield item
+        finally:
+            close = getattr(response, "aclose", None)
+            if callable(close):
+                await close()
 
     async def create_with_completion(  # type: ignore[override]  # ty: ignore[invalid-method-override]
         self,
         messages: list[ChatCompletionMessageParam],
-        response_model: type[T],
+        response_model: type[T] | None,
         max_retries: int | AsyncRetrying = 3,
         context: dict[str, Any] | None = None,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         hooks: Hooks | None = None,
         **kwargs: Any,
-    ) -> tuple[T, Any]:
+    ) -> tuple[Any, Any]:
         from instructor.v2.validation.async_validators import reject_async_validators
 
         reject_async_validators(response_model)
@@ -930,10 +1006,13 @@ class AsyncInstructor(Instructor):
             context=context,
             max_retries=max_retries,
             messages=messages,
-            strict=strict,
+            **_strict_kwargs(strict, self.create_fn),
             hooks=combined_hooks,
             **kwargs,
         )
+        if response_model is None:
+            # No response model: create_fn returns the raw provider completion.
+            return response, response
         return response, response._raw_response
 
 

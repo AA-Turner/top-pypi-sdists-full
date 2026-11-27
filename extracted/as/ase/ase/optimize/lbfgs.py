@@ -1,25 +1,24 @@
-# fmt: off
-
 from typing import IO
 
 import numpy as np
 
 from ase import Atoms
 from ase._4.optimize.lbfgs import LBFGSMethod
-from ase._4.optimize.optimizable import initial_inverse_position_hessian
 from ase.optimize.optimize import Optimizer
+from ase.utils import deprecate_positionals
 from ase.utils.linesearch import LineSearch
 
 
 class LBFGS(Optimizer):
     """Limited memory BFGS optimizer.
 
-    A limited memory version of the bfgs algorithm. Unlike the bfgs algorithm
+    A limited memory version of the BFGS algorithm. Unlike the BFGS algorithm
     used in bfgs.py, the inverse of Hessian matrix is updated.  The inverse
     Hessian is represented only as a diagonal matrix to save memory
 
     """
 
+    @deprecate_positionals(2)
     def __init__(
         self,
         atoms: Atoms,
@@ -75,9 +74,32 @@ class LBFGS(Optimizer):
             Extra arguments passed to
             :class:`~ase.optimize.optimize.Optimizer`.
 
+
+        Examples
+        --------
+
+        >>> from ase import Atoms
+        >>> from ase.optimize import LBFGS
+        >>> from ase.calculators.emt import EMT
+        ...
+        >>> system = Atoms(
+        ... 'N2',
+        ... positions = [(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        ... calculator=EMT()
+        ... )
+        >>> dyn = LBFGS(system)
+        >>> dyn.run(fmax=0.05) # doctest:+ELLIPSIS
+               Step     Time          Energy          fmax
+        LBFGS:    0 ...        0.440344        3.251800
+        LBFGS:    1 ...        0.264361        0.347497
+        LBFGS:    2 ...        0.262860        0.080535
+        LBFGS:    3 ...        0.262777        0.001453
+        ...
         """
         # Initial approximation of inverse Hessian 1./70. is to emulate the
         # behaviour of BFGS. Note that this is never changed!
+        from ase._4.optimize.optimizable import initial_inverse_position_hessian
+
         H0 = initial_inverse_position_hessian(0, alpha)
         self.state = LBFGSMethod(memory=memory, initial_inverse_hessian=H0)
 
@@ -92,9 +114,10 @@ class LBFGS(Optimizer):
             self.maxstep = self.defaults['maxstep']
 
         if self.maxstep > 1.0:
-            raise ValueError('You are using a much too large value for ' +
-                             'the maximum step size: %.1f Angstrom' %
-                             self.maxstep)
+            raise ValueError(
+                'You are using a much too large value for '
+                + 'the maximum step size: %.1f Angstrom' % self.maxstep
+            )
 
         self.damping = damping
         self.use_line_search = use_line_search
@@ -198,12 +221,21 @@ class LBFGS(Optimizer):
     def line_search(self, r, g, e):
         p_size = np.sqrt((self.p**2).sum())
         if p_size <= np.sqrt(self.optimizable.ndofs() / 3 * 1e-10):
-            self.p /= (p_size / np.sqrt(self.optimizable.ndofs() / 3 * 1e-10))
+            self.p /= p_size / np.sqrt(self.optimizable.ndofs() / 3 * 1e-10)
         ls = LineSearch(get_gradient_norm=self.optimizable.gradient_norm)
-        self.alpha_k, e, self.e0, self.no_update = \
-            ls._line_search(self.func, self.fprime, r, self.p, g, e, self.e0,
-                            maxstep=self.maxstep, c1=.23,
-                            c2=.46, stpmax=50.)
+        self.alpha_k, e, self.e0, self.no_update = ls._line_search(
+            self.func,
+            self.fprime,
+            r,
+            self.p,
+            g,
+            e,
+            self.e0,
+            maxstep=self.maxstep,
+            c1=0.23,
+            c2=0.46,
+            stpmax=50.0,
+        )
         if self.alpha_k is None:
             raise RuntimeError('LineSearch failed!')
 

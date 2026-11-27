@@ -1,10 +1,24 @@
 import numpy as np
 
+from ase.utils import deprecated
+
+
+def asetransport_deprecated(func):
+    return deprecated(
+        'The ase.transport package is deprecated in ase-3.30.0 '
+        'and will be removed in a future version.  If you use any '
+        'features in ase.transport, and believe that they are worth '
+        'conserving, please open an issue on the ASE issue tracker.'
+    )(func)
+
 
 class GreenFunction:
     """Equilibrium retarded Green function."""
 
-    def __init__(self, H, S=None, selfenergies=[], eta=1e-4):
+    @asetransport_deprecated
+    def __init__(self, H, S=None, selfenergies=None, eta=1e-4):
+        if selfenergies is None:
+            selfenergies = []
         self.H = H
         self.S = S
         self.selfenergies = selfenergies

@@ -1,21 +1,39 @@
+# Keep this shared module cohesive for protocol regression review.
+# OpenID policy, flow, PAPE, discovery, and identity regressions share one fixture.
+# pylint: disable=too-many-lines
 from __future__ import annotations
 
 import copy
+import time
+from http.client import HTTPMessage
+from io import BytesIO
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib.parse import urlencode
+from urllib.request import Request
 
+from openid import fetchers
 from openid.consumer.consumer import CancelResponse, FailureResponse, SuccessResponse
-from openid.consumer.discover import OpenIDServiceEndpoint
-from openid.extensions import ax, sreg
+from openid.consumer.discover import DiscoveryFailure, OpenIDServiceEndpoint
+from openid.extensions import ax, pape, sreg
+from openid.fetchers import HTTPResponse
 from openid.message import OPENID1_NS, OPENID2_NS, Message
 
 from social_core.backends.belgiumeid import BelgiumEIDOpenId
 from social_core.backends.fedora import FedoraOpenId
 from social_core.backends.launchpad import LaunchpadOpenId
 from social_core.backends.livejournal import LiveJournalOpenId
-from social_core.backends.open_id import OpenIdAuth
+from social_core.backends.open_id import (
+    OpenIdAuth,
+    _discover_over_https,
+    _fetch_over_https,
+    _HTTPSCurlFetcher,
+    _HTTPSDiscoveryFetcher,
+    _HTTPSRedirectHandler,
+    _InsecureRedirect,
+    _is_https_url,
+)
 from social_core.backends.openinfra import OpenInfraOpenId
 from social_core.backends.openstack import OpenStackOpenId
 from social_core.backends.steam import SteamOpenId
@@ -26,6 +44,7 @@ from social_core.exceptions import (
     AuthCanceled,
     AuthConfigurationError,
     AuthInputError,
+    AuthPolicyError,
     AuthProviderError,
     AuthResponseError,
     AuthSessionError,
@@ -34,10 +53,10 @@ from social_core.pipeline.social_auth import social_names
 from social_core.store import OpenIdSessionWrapper
 from social_core.tests.exception_helpers import assert_auth_error
 from social_core.tests.models import TestUserSocialAuth, User
-from social_core.utils import PARTIAL_TOKEN_SESSION_NAME
+from social_core.utils import PARTIAL_TOKEN_SESSION_NAME, partial_pipeline_result
 
 from .base import BaseBackendTest
-from .open_id import OpenIdTest
+from .open_id import OpenIdTest, OpenIdTestFetcher
 
 if TYPE_CHECKING:
     from social_core.strategy import HttpResponseProtocol
@@ -73,6 +92,8 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
         local_id=None,
         return_to=None,
         namespace=OPENID2_NS,
+        pape_auth_time: int | None = None,
+        signed_pape=True,
     ):
         endpoint = OpenIDServiceEndpoint()
         endpoint.claimed_id = claimed_id
@@ -99,10 +120,17 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
                 )
             attributes.addValue(DEPARTMENT, "Engineering")
             attributes.toMessage(message)
+        if pape_auth_time is not None:
+            pape.Response(
+                auth_time=time.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime(pape_auth_time)
+                )
+            ).toMessage(message)
         signed_fields = [
             key
             for key in message.toPostArgs()
-            if signed_ax or not key.startswith("openid.ax.")
+            if (signed_ax or not key.startswith("openid.ax."))
+            and (signed_pape or not key.startswith("openid.pape."))
         ]
         return SuccessResponse(endpoint, message, signed_fields)
 
@@ -214,7 +242,7 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
         self.assertEqual(normalized["first_name"], "Prince")
         self.assertIsNone(normalized["last_name"])
 
-    def start_partial(self, response, *, early=True):
+    def start_partial(self, response, *, early=True, user: User | None = None):
         self.pipeline_settings()
         self.set_openid_context(response.endpoint)
         if early:
@@ -224,7 +252,7 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
             self.strategy.set_settings({"SOCIAL_AUTH_PIPELINE": pipeline})
         with patch.object(self.backend, "consumer") as consumer:
             consumer.return_value.complete.return_value = response
-            result = self.backend.complete()
+            result = self.backend.complete(user=user)
         consumer.return_value.complete.assert_called_once()
         return result
 
@@ -305,6 +333,37 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
         self.assertEqual(self.backend.data, previous_data)
         self.assertEqual(self.strategy.request_data(), self.strategy.get_request_data())
 
+    def test_pending_association_callback_state_is_recognized(self) -> None:
+        self.strategy.session_set(
+            "livejournal_state", {"state": "new-callback", "user_id": "7"}
+        )
+        backend = LiveJournalOpenId(self.strategy, redirect_uri=self.complete_url)
+        self.assertTrue(
+            backend.answers_pending_request({"redirect_state": "new-callback"})
+        )
+        self.assertFalse(
+            backend.answers_pending_request({"redirect_state": "other-callback"})
+        )
+
+    def test_fresh_livejournal_callback_does_not_resume_saved_partial(self) -> None:
+        backend = LiveJournalOpenId(self.strategy, redirect_uri=self.complete_url)
+        partial = self.strategy.storage.partial.prepare(
+            backend.name, 0, {"args": [], "kwargs": {}}
+        )
+        self.strategy.storage.partial.store(partial)
+        self.assertIsNotNone(self.strategy.storage.partial.load(partial.token))
+        self.strategy.session_set(PARTIAL_TOKEN_SESSION_NAME, partial.token)
+        self.strategy.session_set(
+            "livejournal_state", {"state": "fresh-callback", "user_id": "7"}
+        )
+        self.strategy.set_request_data(
+            {"redirect_state": "fresh-callback", "openid.mode": "id_res"}, backend
+        )
+
+        result = partial_pipeline_result(backend)
+
+        self.assertIsNone(result.partial)
+
     def test_unsigned_extension_data_stays_excluded(self) -> None:
         result = self.start_partial(self.verified_response(signed_ax=False))
 
@@ -313,10 +372,12 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
         self.assertEqual(user.email, "user@example.com")
         self.assertNotIn("department", user.social[0].extra_data)
 
-    def test_livejournal_identity_username_survives_partial(self) -> None:
+    def test_livejournal_association_survives_partial(self) -> None:
         endpoint = "https://www.livejournal.com/openid/server.bml"
         response = self.verified_response(profile=False, server_url=endpoint)
         self.backend = LiveJournalOpenId(self.strategy, redirect_uri=self.complete_url)
+        existing = User("existing")
+        self.backend.prepare_auth(existing)
         # The strategy only authenticates with configured backend classes.
         self.strategy.set_settings(
             {
@@ -334,11 +395,12 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
         self.strategy.openid_session_dict("openid")[BACKEND_SESSION_KEY] = (
             self.backend.name
         )
-        result = self.start_partial(response)
+        result = self.start_partial(response, user=existing)
 
         user = self.finish_partial(result)
 
-        self.assertEqual(user.username, "foobar")
+        self.assertIs(user, existing)
+        self.assertEqual(user.username, "existing")
         self.assertEqual(user.social[0].uid, IDENTITY)
 
     def test_missing_or_malformed_snapshot_requires_restart(self) -> None:
@@ -456,6 +518,62 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
             self.backend.validate_state()
         self.assertEqual(self.backend.data["redirect_state"], state)
 
+    def test_association_only_state_is_bound_to_user(self) -> None:
+        response = self.verified_response()
+        user = User("existing")
+        for current_user, code in (
+            (None, "session_context_missing"),
+            (User("other"), "user_mismatch"),
+            (user, None),
+        ):
+            with (
+                self.subTest(user=current_user),
+                patch.object(self.backend, "ASSOCIATION_ONLY", True),
+                patch.object(
+                    self.backend, "_complete_generic_response", return_value=response
+                ),
+                patch.object(self.strategy, "authenticate") as authenticate,
+            ):
+                self.backend.prepare_auth(user)
+                context = self.strategy.session_get("openid_state")
+                assert isinstance(context, dict)
+                self.set_openid_context(response.endpoint)
+                self.strategy.set_request_data({"openid.mode": "id_res"}, self.backend)
+                # The prepared user-bound state is reused rather than replaced.
+                self.assertEqual(self.strategy.session_get("openid_state"), context)
+                self.assertEqual(self.backend.data["redirect_state"], context["state"])
+                if code:
+                    with assert_auth_error(self, AuthSessionError, code):
+                        self.backend.complete(user=current_user)
+                    authenticate.assert_not_called()
+                    self.assertEqual(self.strategy.session_get("openid_state"), context)
+                else:
+                    self.backend.complete(user=current_user)
+                    authenticate.assert_called_once()
+                    self.assertIsNone(self.strategy.session_get("openid_state"))
+
+    def test_association_only_callback_requires_prepared_state(self) -> None:
+        response = self.verified_response()
+        user = User("existing")
+        with patch.object(self.backend, "ASSOCIATION_ONLY", True):
+            with assert_auth_error(self, AuthSessionError, "session_context_missing"):
+                self.backend.create_state()
+            self.backend.prepare_auth(user)
+            self.set_openid_context(response.endpoint)
+            self.strategy.set_request_data(
+                {"openid.mode": "id_res", "redirect_state": "attacker-state"},
+                self.backend,
+            )
+            with (
+                patch.object(
+                    self.backend, "_complete_generic_response", return_value=response
+                ),
+                patch.object(self.strategy, "authenticate") as authenticate,
+                assert_auth_error(self, AuthSessionError, "state_mismatch"),
+            ):
+                self.backend.complete(user=user)
+            authenticate.assert_not_called()
+
     def test_generic_callback_requires_matching_backend(self) -> None:
         response = self.verified_response()
         self.set_openid_context(response.endpoint)
@@ -555,6 +673,180 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
             self.backend.complete()
         authenticate.assert_called_once()
         self.assertEqual(self.strategy.session_get("openid"), {})
+
+    def test_pape_max_auth_age_requires_recent_signed_auth_time(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_OPENID_PAPE_MAX_AUTH_AGE": "300"})
+        requested_at = int(time.time()) - 600
+        cases = (
+            (None, True, "missing_claim"),
+            (requested_at, False, "missing_claim"),
+            (requested_at - 301, True, "response_expired"),
+            (requested_at - 300, True, None),
+            (requested_at + 500, True, None),
+        )
+        for pape_auth_time, signed_pape, code in cases:
+            with self.subTest(pape_auth_time=pape_auth_time, signed_pape=signed_pape):
+                response = self.verified_response(
+                    pape_auth_time=pape_auth_time, signed_pape=signed_pape
+                )
+                self.set_openid_context(response.endpoint)
+                self.strategy.session_set("openid_pape_requested_at", requested_at)
+                self.strategy.set_request_data({"openid.mode": "id_res"}, self.backend)
+                with (
+                    patch.object(
+                        self.backend,
+                        "_complete_generic_response",
+                        return_value=response,
+                    ),
+                    patch.object(self.strategy, "authenticate") as authenticate,
+                ):
+                    if code is None:
+                        self.backend.complete()
+                        authenticate.assert_called_once()
+                    else:
+                        with assert_auth_error(self, AuthResponseError, code):
+                            self.backend.complete()
+                        authenticate.assert_not_called()
+                self.assertIsNone(self.strategy.session_get("openid_pape_requested_at"))
+
+    def test_pape_max_auth_age_without_request_time_uses_now(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_OPENID_PAPE_MAX_AUTH_AGE": 300})
+        now = int(time.time())
+        for auth_time, code in (
+            (now - 600, "response_expired"),
+            (now - 60, None),
+            (now + 1, None),
+            (now + 2, "response_not_yet_valid"),
+        ):
+            with self.subTest(auth_time=auth_time):
+                response = self.verified_response(pape_auth_time=auth_time)
+                self.set_openid_context(response.endpoint)
+                self.strategy.set_request_data({"openid.mode": "id_res"}, self.backend)
+                with (
+                    patch("social_core.backends.open_id._pape_now", return_value=now),
+                    patch.object(
+                        self.backend,
+                        "_complete_generic_response",
+                        return_value=response,
+                    ),
+                    patch.object(self.strategy, "authenticate") as authenticate,
+                ):
+                    if code is None:
+                        self.backend.complete()
+                        authenticate.assert_called_once()
+                    else:
+                        with assert_auth_error(self, AuthResponseError, code):
+                            self.backend.complete()
+                        authenticate.assert_not_called()
+
+    def test_pape_zero_max_auth_age_accepts_request_time_only(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_OPENID_PAPE_MAX_AUTH_AGE": 0})
+        now = int(time.time())
+        for auth_time, code in ((now, None), (now - 2, "response_expired")):
+            with self.subTest(auth_time=auth_time):
+                response = self.verified_response(pape_auth_time=auth_time)
+                self.set_openid_context(response.endpoint)
+                self.strategy.set_request_data({"openid.mode": "id_res"}, self.backend)
+                with (
+                    patch("social_core.backends.open_id._pape_now", return_value=now),
+                    patch.object(
+                        self.backend,
+                        "_complete_generic_response",
+                        return_value=response,
+                    ),
+                    patch.object(self.strategy, "authenticate") as authenticate,
+                ):
+                    if code is None:
+                        self.backend.complete()
+                        authenticate.assert_called_once()
+                    else:
+                        with assert_auth_error(self, AuthResponseError, code):
+                            self.backend.complete()
+                        authenticate.assert_not_called()
+
+    def test_pape_future_auth_time_uses_configured_leeway(self) -> None:
+        now = int(time.time())
+        self.strategy.set_settings(
+            {
+                "SOCIAL_AUTH_OPENID_PAPE_MAX_AUTH_AGE": 300,
+                "SOCIAL_AUTH_OPENID_PAPE_AUTH_TIME_LEEWAY": 10,
+            }
+        )
+        for auth_time, code in ((now + 5, None), (now + 20, "response_not_yet_valid")):
+            with self.subTest(auth_time=auth_time):
+                response = self.verified_response(pape_auth_time=auth_time)
+                self.strategy.session_set("openid_pape_requested_at", now)
+                if code is None:
+                    with patch(
+                        "social_core.backends.open_id._pape_now", return_value=now
+                    ):
+                        self.backend.validate_pape_auth_time(response)
+                else:
+                    with (
+                        patch(
+                            "social_core.backends.open_id._pape_now", return_value=now
+                        ),
+                        assert_auth_error(self, AuthResponseError, code),
+                    ):
+                        self.backend.validate_pape_auth_time(response)
+
+    def test_pape_rejects_malformed_auth_time_and_invalid_leeway(self) -> None:
+        now = int(time.time())
+        response = self.verified_response(pape_auth_time=now)
+        self.strategy.set_settings({"SOCIAL_AUTH_OPENID_PAPE_MAX_AUTH_AGE": 300})
+        pape.Response(auth_time="2026-99-99T00:00:00Z").toMessage(response.message)
+        self.strategy.session_set("openid_pape_requested_at", now)
+        with assert_auth_error(self, AuthResponseError, "invalid_claim"):
+            self.backend.validate_pape_auth_time(response)
+
+        response = self.verified_response(pape_auth_time=now)
+        for leeway in (-1, True, "invalid"):
+            with self.subTest(leeway=leeway):
+                self.strategy.set_settings(
+                    {"SOCIAL_AUTH_OPENID_PAPE_AUTH_TIME_LEEWAY": leeway}
+                )
+                self.strategy.session_set("openid_pape_requested_at", now)
+                with assert_auth_error(self, AuthConfigurationError, "invalid_setting"):
+                    self.backend.validate_pape_auth_time(response)
+
+    def test_invalid_pape_max_auth_age_fails_closed(self) -> None:
+        for value in ("invalid", -1, True):
+            with self.subTest(value=value):
+                self.strategy.set_settings(
+                    {"SOCIAL_AUTH_OPENID_PAPE_MAX_AUTH_AGE": value}
+                )
+                with assert_auth_error(self, AuthConfigurationError, "invalid_setting"):
+                    self.backend.pape_max_auth_age()
+
+    def test_openstack_family_requests_pape_when_max_age_enabled(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_OPENID_PAPE_MAX_AUTH_AGE": 30})
+        for backend_class in (OpenStackOpenId, OpenInfraOpenId):
+            with self.subTest(backend=backend_class.name):
+                backend = backend_class(self.strategy)
+                request = Mock()
+                with (
+                    patch.object(backend, "openid_request", return_value=request),
+                    patch("social_core.backends.open_id._pape_now", return_value=1000),
+                ):
+                    backend.setup_request()
+                self.assertEqual(
+                    self.strategy.session_get(f"{backend.name}_pape_requested_at"),
+                    1000,
+                )
+                self.assertEqual(request.addExtension.call_count, 2)
+
+    def test_pape_auth_time_is_ignored_without_max_auth_age(self) -> None:
+        response = self.verified_response(pape_auth_time=int(time.time()) - 86400)
+        self.set_openid_context(response.endpoint)
+        self.strategy.set_request_data({"openid.mode": "id_res"}, self.backend)
+        with (
+            patch.object(
+                self.backend, "_complete_generic_response", return_value=response
+            ),
+            patch.object(self.strategy, "authenticate") as authenticate,
+        ):
+            self.backend.complete()
+        authenticate.assert_called_once()
 
     def test_generic_callback_does_not_use_unsigned_session_id(self) -> None:
         response = self.verified_response()
@@ -928,6 +1220,43 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
                 backend.openid_request()
             self.assertEqual(self.strategy.session_get("openid"), {})
 
+    def test_generic_discovery_requires_web_endpoint(self) -> None:
+        self.strategy.set_request_data(
+            {"openid_identifier": "https://example.com/user"}, self.backend
+        )
+        for server_url in (
+            None,
+            "javascript:alert(document.domain)//",
+            "data:text/html,content",
+            "//example.com/openid",
+            "https:openid",
+            "https://user@example.com/openid",
+            "https://[",
+            "https://example.com\\@evil.example/openid",
+            "https://example.com/openid\tunsafe",
+        ):
+            with (
+                self.subTest(server_url=server_url),
+                patch.object(self.backend, "consumer") as consumer,
+                assert_auth_error(self, AuthProviderError, "malformed_response"),
+            ):
+                consumer.return_value.begin.return_value = SimpleNamespace(
+                    endpoint=SimpleNamespace(server_url=server_url)
+                )
+                self.backend.openid_request()
+            self.assertEqual(self.strategy.session_get("openid"), {})
+
+        # The generic backend follows user-selected discovery, so a cleartext
+        # provider endpoint is still accepted.
+        with patch.object(self.backend, "consumer") as consumer:
+            consumer.return_value.begin.return_value = SimpleNamespace(
+                endpoint=SimpleNamespace(server_url="http://example.com/openid")
+            )
+            self.backend.openid_request()
+        self.assertEqual(
+            self.strategy.openid_session_dict("openid")[BACKEND_SESSION_KEY], "openid"
+        )
+
     def test_fixed_provider_requires_secure_configured_url(self) -> None:
         class InsecureOpenId(OpenIdAuth):
             URL = "http://provider.example/openid"
@@ -939,6 +1268,396 @@ class OpenIdPartialTest(BaseBackendTest[OpenIdAuth]):
         ):
             backend.openid_request()
         consumer.assert_not_called()
+
+    def test_selected_provider_email_cannot_satisfy_allowlists(self) -> None:
+        details = {"email": "user@example.com"}
+        fixed_backends = (
+            UbuntuOpenId(self.strategy),
+            LiveJournalOpenId(self.strategy),
+        )
+        self.assertTrue(self.backend.auth_allowed(None, details))
+        for name, value in (
+            ("WHITELISTED_EMAILS", ["user@example.com"]),
+            ("WHITELISTED_DOMAINS", ["example.com"]),
+        ):
+            with self.subTest(setting=name):
+                self.strategy.set_settings({f"SOCIAL_AUTH_{name}": value})
+                self.assertFalse(self.backend.auth_allowed(None, details))
+                for backend in fixed_backends:
+                    self.assertTrue(backend.auth_allowed(None, details))
+                self.strategy.set_settings({f"SOCIAL_AUTH_{name}": []})
+        self.assertEqual(details, {"email": "user@example.com"})
+
+    def test_selected_provider_login_denied_with_domain_allowlist(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_WHITELISTED_DOMAINS": ["example.com"]})
+        response = self.verified_response()
+        self.set_openid_context(response.endpoint)
+        self.strategy.set_request_data({"openid.mode": "id_res"}, self.backend)
+        with (
+            patch.object(
+                self.backend, "_complete_generic_response", return_value=response
+            ),
+            assert_auth_error(self, AuthPolicyError, "authentication_disallowed"),
+        ):
+            self.backend.complete()
+        self.assertEqual(User.cache, {})
+
+    def test_fixed_provider_login_allowed_with_domain_allowlist(self) -> None:
+        self.strategy.set_settings(
+            {
+                "SOCIAL_AUTH_AUTHENTICATION_BACKENDS": (
+                    "social_core.backends.ubuntu.UbuntuOpenId",
+                ),
+                "SOCIAL_AUTH_WHITELISTED_DOMAINS": ["example.com"],
+            }
+        )
+        endpoint = "https://login.ubuntu.com/+openid"
+        backend = self.bound_backend(expected_endpoint=endpoint)
+        response = self.verified_response(server_url=endpoint)
+        with patch.object(backend, "consumer") as consumer:
+            consumer.return_value.complete.return_value = response
+            user = backend.complete()
+        self.assertEqual(cast("User", user).email, "user@example.com")
+
+    def test_fixed_provider_discovery_stays_on_https(self) -> None:
+        journal = "https://foobar.livejournal.com/"
+        moved = "https://foobar.livejournal.com/profile"
+        secure = "https://foobar.livejournal.com/data/yadis"
+        insecure = "http://foobar.livejournal.com/data/yadis"
+        endpoint = "https://www.livejournal.com/openid/server.bml"
+        xrds = f"""<xrds:XRDS xmlns:xrds="xri://$xrds" xmlns="xri://$xrd*($v*2.0)">
+            <XRD><Service priority="0">
+                <Type>http://specs.openid.net/auth/2.0/signon</Type>
+                <URI>{endpoint}</URI>
+            </Service></XRD>
+        </xrds:XRDS>"""
+
+        def page(url: str, **headers: str) -> HTTPResponse:
+            return HTTPResponse(url, 200, headers, "<html></html>")
+
+        def document(url: str) -> HTTPResponse:
+            return HTTPResponse(
+                url, 200, {"content-type": "application/xrds+xml"}, xrds
+            )
+
+        def page_fetcher(pages, requested):
+            def fetch(url, body=None, headers=None):
+                requested.append(url)
+                return pages[url]
+
+            return fetch
+
+        for name, pages, fetched, code in (
+            (
+                "HTTPS throughout",
+                {
+                    journal: page(journal, **{"x-xrds-location": secure}),
+                    secure: document(secure),
+                },
+                [journal, secure],
+                None,
+            ),
+            (
+                "identifier redirected over HTTPS",
+                {
+                    journal: page(moved, **{"x-xrds-location": secure}),
+                    secure: document(secure),
+                },
+                [journal, secure],
+                None,
+            ),
+            (
+                "cleartext Yadis location",
+                {journal: page(journal, **{"x-xrds-location": insecure})},
+                [journal],
+                "tls_error",
+            ),
+            (
+                "cleartext Yadis location in the page",
+                {
+                    journal: HTTPResponse(
+                        journal,
+                        200,
+                        {"content-type": "text/html"},
+                        '<html><head><meta http-equiv="X-XRDS-Location" '
+                        f'content="{insecure}"></head></html>',
+                    )
+                },
+                [journal],
+                "tls_error",
+            ),
+            (
+                "identifier redirected to cleartext",
+                {journal: document("http://foobar.livejournal.com/")},
+                [journal],
+                "tls_error",
+            ),
+            (
+                "Yadis document redirected to cleartext",
+                {
+                    journal: page(journal, **{"x-xrds-location": secure}),
+                    secure: document(insecure),
+                },
+                [journal, secure],
+                "tls_error",
+            ),
+            (
+                # A redirected XRDS must not be accepted as the original.
+                "Yadis document redirected",
+                {
+                    journal: page(journal, **{"x-xrds-location": secure}),
+                    secure: document("https://attacker.example/xrds"),
+                },
+                [journal, secure],
+                "tls_error",
+            ),
+        ):
+            requested: list[str] = []
+
+            backend = LiveJournalOpenId(self.strategy, redirect_uri=self.complete_url)
+            self.strategy.session_set("openid", {})
+            self.strategy.set_request_data({"openid_lj_user": "foobar"}, backend)
+            with (
+                self.subTest(name),
+                patch(
+                    "social_core.backends.open_id._HTTPSDiscoveryFetcher.fetch",
+                    side_effect=page_fetcher(pages, requested),
+                ),
+                patch(
+                    "openid.consumer.consumer.Consumer.beginWithoutDiscovery",
+                    side_effect=lambda service, _: SimpleNamespace(endpoint=service),
+                ),
+            ):
+                if code is None:
+                    request = backend.openid_request()
+                    self.assertEqual(request.endpoint.server_url, endpoint)
+                    self.assertEqual(
+                        request.endpoint.claimed_id, pages[journal].final_url
+                    )
+                else:
+                    with assert_auth_error(self, AuthProviderError, code):
+                        backend.openid_request()
+                self.assertEqual(requested, fetched)
+
+    def test_fixed_provider_callback_discovery_stays_on_https(self) -> None:
+        endpoint = "https://login.ubuntu.com/+openid"
+        identity = "https://login.ubuntu.com/+id/foobar"
+        backend = self.bound_backend(expected_endpoint=endpoint)
+        return_to = backend.get_return_to()
+        with patch(
+            "social_core.backends.open_id._HTTPSDiscoveryFetcher.fetch",
+            return_value=HTTPResponse(
+                identity,
+                200,
+                {"x-xrds-location": "http://login.ubuntu.com/+id/foobar/+xrds"},
+                "<html></html>",
+            ),
+        ) as fetch:
+            response = backend.consumer().complete(
+                {
+                    "openid.ns": OPENID2_NS,
+                    "openid.mode": "id_res",
+                    "openid.op_endpoint": endpoint,
+                    "openid.claimed_id": identity,
+                    "openid.identity": identity,
+                    "openid.return_to": return_to,
+                    "openid.response_nonce": "2026-01-01T00:00:00Zunique",
+                    "openid.assoc_handle": "handle",
+                    "openid.signed": "op_endpoint,claimed_id,identity,return_to,"
+                    "response_nonce,assoc_handle",
+                    "openid.sig": "signature",
+                },
+                return_to,
+            )
+        self.assertIsInstance(response, FailureResponse)
+        self.assertIn("insecure URL", str(response.message))
+        self.assertEqual([call.args[0] for call in fetch.call_args_list], [identity])
+
+    def test_fixed_provider_rejects_cleartext_redirect_before_fetching_it(self) -> None:
+        # A final HTTPS URL would be too late to notice this intermediate hop.
+        handler = _HTTPSRedirectHandler()
+        request = Request("https://trusted.example/openid")
+        headers = HTTPMessage()
+        next_request = handler.redirect_request(
+            request,
+            BytesIO(),
+            302,
+            "Found",
+            headers,
+            "https://trusted.example/discovery",
+        )
+        assert next_request is not None
+        with self.assertRaises(_InsecureRedirect):
+            handler.redirect_request(
+                next_request,
+                BytesIO(),
+                302,
+                "Found",
+                headers,
+                "http://attacker.example/discovery",
+            )
+
+    def test_curl_discovery_rejects_cleartext_redirect_before_fetch(self) -> None:
+        # The library exposes redirect validation only through this hook.
+        # pylint: disable=protected-access
+        fetcher = object.__new__(_HTTPSCurlFetcher)
+        self.assertTrue(fetcher._checkURL("https://trusted.example/discovery"))
+        with self.assertRaises(_InsecureRedirect):
+            fetcher._checkURL("http://attacker.example/discovery")
+
+    def test_discovery_network_error_is_structured(self) -> None:
+        with (
+            patch(
+                "openid.fetchers.getDefaultFetcher",
+                return_value=object.__new__(fetchers.Urllib2Fetcher),
+            ),
+            patch.object(_HTTPSDiscoveryFetcher, "fetch", side_effect=OSError("down")),
+            self.assertRaises(DiscoveryFailure),
+        ):
+            _fetch_over_https("https://trusted.example/discovery")
+
+    def test_discovery_rejects_ambiguous_https_urls(self) -> None:
+        for url in (
+            "https://trusted.example:invalid/openid",
+            "https://trusted.example\\@attacker.example/openid",
+            "https://trusted.example\n.evil/openid",
+        ):
+            with self.subTest(url=url):
+                self.assertFalse(_is_https_url(url))
+
+    def test_discovery_rejects_cleartext_redirect_and_bad_status(self) -> None:
+        url = "https://trusted.example/discovery"
+        fetcher = OpenIdTestFetcher()
+        for error in (
+            _InsecureRedirect("http://attacker.example/"),
+            fetchers.HTTPFetchingError(_InsecureRedirect("http://attacker.example/")),
+        ):
+            with (
+                self.subTest(error=type(error)),
+                patch("openid.fetchers.getDefaultFetcher", return_value=fetcher),
+                patch("openid.fetchers.fetch", side_effect=error),
+                self.assertRaises(DiscoveryFailure),
+            ):
+                _fetch_over_https(url)
+        with (
+            patch("openid.fetchers.getDefaultFetcher", return_value=fetcher),
+            patch(
+                "openid.fetchers.fetch",
+                return_value=HTTPResponse(url, 302, {}, "redirect"),
+            ),
+            self.assertRaises(DiscoveryFailure),
+        ):
+            _fetch_over_https(url)
+
+    def test_fixed_discovery_rejects_cleartext_identifier(self) -> None:
+        with self.assertRaises(DiscoveryFailure):
+            _discover_over_https("http://trusted.example/openid")
+
+    def test_default_curl_fetcher_uses_https_guard(self) -> None:
+        current = object.__new__(fetchers.CurlHTTPFetcher)
+        url = "https://trusted.example/discovery"
+        response = HTTPResponse(
+            final_url=url,
+            status=200,
+            headers={},
+            body="ok",
+        )
+        with (
+            patch("openid.fetchers.getDefaultFetcher", return_value=current),
+            patch("openid.fetchers.pycurl"),
+            patch.object(_HTTPSCurlFetcher, "fetch", return_value=response) as fetch,
+        ):
+            self.assertIs(_fetch_over_https(url), response)
+        fetch.assert_called_once()
+
+    def test_httplib2_discovery_fails_closed(self) -> None:
+        with (
+            patch(
+                "openid.fetchers.getDefaultFetcher",
+                return_value=object.__new__(fetchers.HTTPLib2Fetcher),
+            ),
+            patch("openid.fetchers.fetch") as fetch,
+            self.assertRaises(DiscoveryFailure),
+        ):
+            _fetch_over_https("https://trusted.example/discovery")
+        fetch.assert_not_called()
+
+    def test_empty_discovery_final_url_is_rejected(self) -> None:
+        url = "https://trusted.example/discovery"
+        test_fetcher = OpenIdTestFetcher()
+        test_fetcher.add_response("GET", url, body="ok", final_url="")
+        with (
+            patch("openid.fetchers.getDefaultFetcher", return_value=test_fetcher),
+            patch("openid.fetchers.fetch", side_effect=test_fetcher.fetch),
+            self.assertRaises(DiscoveryFailure),
+        ):
+            _fetch_over_https(url)
+
+    def test_fixed_provider_ignores_discovery_saved_in_session(self) -> None:
+        journal = "https://foobar.livejournal.com"
+        endpoint = "https://www.livejournal.com/openid/server.bml"
+
+        def xrds(*urls: str) -> str:
+            services = "".join(
+                "<Service><Type>http://specs.openid.net/auth/2.0/signon</Type>"
+                f"<URI>{url}</URI></Service>"
+                for url in urls
+            )
+            return (
+                '<xrds:XRDS xmlns:xrds="xri://$xrds" xmlns="xri://$xrd*($v*2.0)">'
+                f"<XRD>{services}</XRD></xrds:XRDS>"
+            )
+
+        def begin(backend, data, document):
+            self.strategy.set_request_data(data, backend)
+            fetched = HTTPResponse(
+                f"{journal}/",
+                200,
+                {"content-type": "application/xrds+xml"},
+                document,
+            )
+            with (
+                patch("openid.fetchers.fetch", return_value=fetched),
+                patch(
+                    "social_core.backends.open_id._HTTPSDiscoveryFetcher.fetch",
+                    return_value=fetched,
+                ),
+                patch(
+                    "openid.consumer.consumer.Consumer.beginWithoutDiscovery",
+                    side_effect=lambda service, _: SimpleNamespace(endpoint=service),
+                ),
+            ):
+                return backend.openid_request().endpoint.server_url
+
+        # The visitor's provider leaves untried services for the same URL.
+        evil = [f"https://evil.example/{number}" for number in range(3)]
+        selected = begin(self.backend, {"openid_identifier": journal}, xrds(*evil))
+        self.assertIn(selected, evil)
+        saved = self.strategy.session_get("openid")
+        assert isinstance(saved, dict)
+        backend = LiveJournalOpenId(self.strategy, redirect_uri=self.complete_url)
+        # Nor are they trusted when the session says this backend saved them.
+        for saved_by in (self.backend.name, backend.name):
+            with self.subTest(saved_by=saved_by):
+                self.strategy.session_set(
+                    "openid", {**saved, BACKEND_SESSION_KEY: saved_by}
+                )
+                fixed = begin(backend, {"openid_lj_user": "foobar"}, xrds(endpoint))
+                self.assertEqual(fixed, endpoint)
+                session = self.strategy.openid_session_dict("openid")
+                self.assertEqual(len(session[OpenIdSessionWrapper.manager_key]), 0)
+
+    def test_selected_provider_discovery_is_unchanged(self) -> None:
+        self.strategy.set_request_data({"openid_identifier": IDENTITY}, self.backend)
+        with (
+            patch(
+                "openid.consumer.consumer.Consumer._discover",
+                return_value=(IDENTITY, []),
+            ) as discover,
+            assert_auth_error(self, AuthProviderError, "http_error"),
+        ):
+            self.backend.openid_request()
+        discover.assert_called_once_with(IDENTITY)
 
 
 class UbuntuForeignProviderTest(OpenIdTest):
@@ -978,3 +1697,46 @@ class UbuntuForeignProviderTest(OpenIdTest):
 
         self.assertEqual(social.uid, "alice")
         self.assertEqual(social.id_key, "")
+
+    def test_aborted_generic_begin_does_not_inherit_backend_marker(self) -> None:
+        attacker_discovery = self.discovery_body.replace(
+            "https://login.ubuntu.com/+openid", "https://attacker.example/openid"
+        )
+        self.add_openid_response(
+            "GET",
+            self.openid_url(),
+            body=self.discovery_body,
+            content_type="application/xrds+xml",
+        )
+        self.add_openid_response(
+            "POST", "https://login.ubuntu.com/+openid", status=400, body="error:no\n"
+        )
+        self.backend.start()
+
+        # start() discovers twice; the identifier host fails the second fetch,
+        # which aborts the generic begin after its endpoint is stored.
+        self.add_openid_response(
+            "GET",
+            "https://attacker.example/",
+            body=attacker_discovery,
+            content_type="application/xrds+xml",
+        )
+        self.add_openid_response("GET", "https://attacker.example/", status=503)
+        self.add_openid_response(
+            "POST", "https://attacker.example/openid", status=400, body="error:no\n"
+        )
+        strategy = self.strategy.new_request()
+        generic = OpenIdAuth(strategy, redirect_uri="/complete/openid/")
+        strategy.set_request_data(
+            {"openid_identifier": "https://attacker.example/"}, generic
+        )
+        with assert_auth_error(self, AuthProviderError, "http_error"):
+            generic.start()
+
+        session = strategy.session_get("openid")
+        assert isinstance(session, dict)
+        self.assertEqual(session.get(BACKEND_SESSION_KEY), "openid")
+        self.assertEqual(
+            session[OpenIdSessionWrapper.endpoint_key]["data"]["server_url"],
+            "https://attacker.example/openid",
+        )

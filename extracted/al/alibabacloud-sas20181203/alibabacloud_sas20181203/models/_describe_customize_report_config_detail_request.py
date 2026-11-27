@@ -16,7 +16,7 @@ class DescribeCustomizeReportConfigDetailRequest(DaraModel):
         # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang
-        # The report ID.\\
+        # The report ID.\
         # Call the [DescribeCustomizeReportList](https://help.aliyun.com/document_detail/271655.html) operation to obtain the value of ReportId from the response.
         # 
         # This parameter is required.

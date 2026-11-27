@@ -1,5 +1,3 @@
-# fmt: off
-
 import functools
 import re
 from collections import Counter
@@ -15,14 +13,14 @@ from ase.units import kB
 
 CONST = kB * np.log(10)  # Nernst constant
 
-PREDEF_ENERGIES = {      # Default chemical potentials
-    'H+': 0.0,           # for water, protons and electrons
+PREDEF_ENERGIES = {  # Default chemical potentials
+    'H+': 0.0,  # for water, protons and electrons
     'e-': 0.0,
-    'H2O': -2.4583
+    'H2O': -2.4583,
 }
 
 U_STD_AGCL = 0.222  # Standard redox potential of AgCl electrode
-U_STD_SCE = 0.244   # Standard redox potential of SCE electrode
+U_STD_SCE = 0.244  # Standard redox potential of SCE electrode
 
 
 def parse_formula(formula: str, fmt: str = 'metal'):
@@ -61,23 +59,21 @@ def get_product_combos(reactant, refs):
 
 def get_phases(reactant, refs, T, conc, reference, tol=1e-3):
     """Obtain all the possible decomposition pathways
-       for a given reactant as a collection of RedOx objects.
+    for a given reactant as a collection of RedOx objects.
     """
     phases = []
     phase_matrix = []
 
     for products in get_product_combos(reactant, refs):
-        phase = RedOx.from_species(
-            reactant, products, T, conc, reference, tol
-        )
+        phase = RedOx.from_species(reactant, products, T, conc, reference, tol)
         if phase is not None:
             phases.append(phase)
             phase_matrix.append(phase._vector)
 
     if len(phase_matrix) == 0:
         raise ValueError(
-            "No valid decomposition pathways have been found" +
-            " given this set of references."
+            'No valid decomposition pathways have been found'
+            + ' given this set of references.'
         )
 
     return phases, np.array(phase_matrix).astype('float64')
@@ -85,10 +81,13 @@ def get_phases(reactant, refs, T, conc, reference, tol=1e-3):
 
 def get_main_products(count):
     """Obtain the reaction products excluded protons,
-       water and electrons.
+    water and electrons.
     """
-    return [spec for spec, coef in count.items()
-            if coef > 0 and spec not in ['H+', 'H2O', 'e-']]
+    return [
+        spec
+        for spec, coef in count.items()
+        if coef > 0 and spec not in ['H+', 'H2O', 'e-']
+    ]
 
 
 def format_label(count) -> str:
@@ -118,23 +117,24 @@ def make_coeff_nice(coeff, max_denom) -> str:
 def add_numbers(ax, text) -> None:
     """Add number identifiers to the different domains of a Pourbaix diagram."""
     import matplotlib.patheffects as pfx
+
     for i, (x, y, _) in enumerate(text):
-        txt = ax.text(
-            y, x, f'{i}',
-            fontsize=20,
-            horizontalalignment='center'
-        )
+        txt = ax.text(y, x, f'{i}', fontsize=20, horizontalalignment='center')
         txt.set_path_effects([pfx.withStroke(linewidth=2.0, foreground='w')])
 
 
 def add_labels(ax, text) -> None:
     """Add phase labels to the different domains of a Pourbaix diagram."""
     import matplotlib.patheffects as pfx
+
     for i, (x, y, species) in enumerate(text):
         label = format_label(species)
         annotation = ax.annotate(
-            label, xy=(y, x), color='w',
-            fontsize=16, horizontalalignment='center'
+            label,
+            xy=(y, x),
+            color='w',
+            fontsize=16,
+            horizontalalignment='center',
         )
         annotation.set_path_effects(
             [pfx.withStroke(linewidth=2.0, foreground='k')]
@@ -151,9 +151,7 @@ def wrap_text(text) -> str:
         label = format_label(species)
         textlines.append(
             textwrap.fill(
-                f'({i})  {label}',
-                width=40,
-                subsequent_indent='      '
+                f'({i})  {label}', width=40, subsequent_indent='      '
             )
         )
     return '\n'.join(textlines)
@@ -163,11 +161,8 @@ def add_phase_labels(fig, text, offset=0.0):
     """Add phase labels to the right of the diagram"""
 
     fig.text(
-        0.75 + offset, 0.5,
-        wrap_text(text),
-        fontsize=16,
-        va='center',
-        ha='left')
+        0.75 + offset, 0.5, wrap_text(text), fontsize=16, va='center', ha='left'
+    )
 
 
 def add_redox_lines(axes, pH, reference, color='k') -> None:
@@ -180,11 +175,7 @@ def add_redox_lines(axes, pH, reference, color='k') -> None:
         'AgCl': -U_STD_AGCL,
         'SCE': -U_STD_SCE,
     }
-    kwargs = {
-        'c': color,
-        'ls': '--',
-        'zorder': 2
-    }
+    kwargs = {'c': color, 'ls': '--', 'zorder': 2}
     if reference in ['SHE', 'AgCl', 'SCE']:
         slope = -59.2e-3
         axes.plot(pH, slope * pH + corr[reference], **kwargs)
@@ -218,12 +209,10 @@ class Species:
     energy: float
         the chemical potential of the species
     """
-    def __init__(self,
-                 name: str,
-                 formula: Formula,
-                 charge: int,
-                 aq: bool,
-                 energy: float):
+
+    def __init__(
+        self, name: str, formula: Formula, charge: int, aq: bool, energy: float
+    ):
 
         self.name = name
         self.formula = formula
@@ -248,8 +237,9 @@ class Species:
         return self.name < other.name
 
     @classmethod
-    def from_string(cls, string: str, energy: float,
-                    reduce: bool = True, fmt: str = 'metal'):
+    def from_string(
+        cls, string: str, energy: float, reduce: bool = True, fmt: str = 'metal'
+    ):
         """Initialize the class provided a formula and an energy.
 
         string: str
@@ -288,21 +278,20 @@ class Species:
 
     def get_chemsys(self):
         """Get the possible combinations of elements based
-           on the stoichiometry. Useful for database queries.
+        on the stoichiometry. Useful for database queries.
         """
         elements = set(self.count.keys())
         elements.update(['H', 'O'])
         chemsys = list(
             chain.from_iterable(
-                [combinations(elements, i + 1)
-                 for i in range(len(elements))]
+                [combinations(elements, i + 1) for i in range(len(elements))]
             )
         )
         return chemsys
 
     def balance_electrochemistry(self):
         """Obtain number of H2O, H+, e- "carried" by the species
-           in electrochemical reactions.
+        in electrochemical reactions.
         """
         n_H2O = -self.count.get('O', 0)
         n_H = -2 * n_H2O - self.count.get('H', 0)
@@ -326,9 +315,7 @@ class Species:
 
 
 class RedOx:
-    def __init__(self, species, coeffs,
-                 T=298.15, conc=1e-6,
-                 reference='SHE'):
+    def __init__(self, species, coeffs, T=298.15, conc=1e-6, reference='SHE'):
         """RedOx class representing an (electro)chemical reaction.
 
         Initialization
@@ -375,7 +362,7 @@ class RedOx:
         self.reference = reference
         self.count = Counter()
 
-        alpha = CONST * T   # 0.059 eV @ T=298.15K
+        alpha = CONST * T  # 0.059 eV @ T=298.15K
         const_term = 0
         pH_term = 0
         U_term = 0
@@ -387,8 +374,8 @@ class RedOx:
             const_term += coef * (
                 spec.energy + alpha * (spec.aq * np.log10(conc))
             )
-            pH_term += - coef * alpha * amounts[1]
-            U_term += - coef * amounts[2]
+            pH_term += -coef * alpha * amounts[1]
+            U_term += -coef * amounts[2]
 
             for name, n in zip(['H2O', 'H+', 'e-'], amounts):
                 const_term += coef * n * PREDEF_ENERGIES[name]
@@ -398,19 +385,25 @@ class RedOx:
         self._vector = [
             float(const_term + const_corr),
             float(U_term),
-            float(pH_term + pH_corr)
+            float(pH_term + pH_corr),
         ]
 
     @classmethod
-    def from_species(cls, reactant, products,
-                     T: float = 298.15, conc: float = 1e-6,
-                     reference: str = 'SHE', tol: float = 1e-3):
+    def from_species(
+        cls,
+        reactant,
+        products,
+        T: float = 298.15,
+        conc: float = 1e-6,
+        reference: str = 'SHE',
+        tol: float = 1e-3,
+    ):
         """Initialize the class from a combination of
-           reactant and products. The stoichiometric
-           coefficients are automatically determined.
+        reactant and products. The stoichiometric
+        coefficients are automatically determined.
 
-           reactant: Species
-           products: list[Species]
+        reactant: Species
+        products: list[Species]
         """
         reac_elem = reactant._main_elements
         reac_count = [-reactant._count_array(reac_elem)]
@@ -427,11 +420,12 @@ class RedOx:
 
         return None
 
-    def get_ref_correction(self, reference: str,
-                           alpha: float) -> tuple[float, float]:
+    def get_ref_correction(
+        self, reference: str, alpha: float
+    ) -> tuple[float, float]:
         """Correct the constant and pH contributions to the reaction free energy
-           based on the reference electrode of choice and the temperature
-           (alpha=k_B*T*ln(10))
+        based on the reference electrode of choice and the temperature
+        (alpha=k_B*T*ln(10))
         """
         n_e = self.count['e-']
         gibbs_corr = 0.0
@@ -462,11 +456,11 @@ class RedOx:
             else:
                 reactants.append(substr)
 
-        return "  ➜  ".join([" + ".join(reactants), " + ".join(products)])
+        return '  ➜  '.join([' + '.join(reactants), ' + '.join(products)])
 
     def get_free_energy(self, U: float, pH: float) -> float:
         """Evaluate the reaction free energy
-           at a given applied potential U and pH"""
+        at a given applied potential U and pH"""
         return self._vector[0] + self._vector[1] * U + self._vector[2] * pH
 
 
@@ -521,12 +515,15 @@ class Pourbaix:
         into its competing phases as a list of RedOx objects.
 
     """
-    def __init__(self,
-                 material_name: str,
-                 refs_dct: dict,
-                 T: float = 298.15,
-                 conc: float = 1.0e-6,
-                 reference: str = 'SHE'):
+
+    def __init__(
+        self,
+        material_name: str,
+        refs_dct: dict,
+        T: float = 298.15,
+        conc: float = 1.0e-6,
+        reference: str = 'SHE',
+    ):
 
         self.material_name = material_name
         self.refs = refs_dct
@@ -544,8 +541,19 @@ class Pourbaix:
 
     def _decompose(self, U, pH):
         """Evaluate the reaction energy for decomposing
-           the target material into each of the available products
-           at a given pH and applied potential.
+        the target material into each of the available products
+        at a given pH and applied potential.
+
+        Example:
+        --------
+        >>> from ase.phasediagram import solvated
+        >>> from ase.pourbaix import Pourbaix
+        >>> refs = solvated('CoO') + [
+        ...     ('Co', 0.0),
+        ...     ('CoO', -2.509),
+        ...     ('Co3O4', -9.402)]
+        >>> pb = Pourbaix('CoO',dict(refs))
+        >>> energy = pb._decompose(U=1.5, pH=0)
         """
         return self._const + np.dot(self._var, [U, pH])
 
@@ -620,7 +628,7 @@ class Pourbaix:
 
         # Identifying the region where the target material
         # is stable and updating the diagram accordingly
-        where_stable = (meta <= 0)
+        where_stable = meta <= 0
         pour[where_stable] = -1
 
         text = []
@@ -630,7 +638,7 @@ class Pourbaix:
                 where = where_stable
                 txt = {self.material.name: 1}
             else:
-                where = (pour == phase_id)
+                where = pour == phase_id
                 phase = self.phases[int(phase_id)]
                 txt = phase.count
             x = np.dot(where.sum(1), U) / where.sum()
@@ -652,10 +660,12 @@ class Pourbaix:
         from itertools import combinations
 
         # Planes identifying the diagram frame
-        planes = [(np.array([0.0, 1.0, 0.0]), umin, 'bottom'),
-                  (np.array([0.0, 1.0, 0.0]), umax, 'top'),
-                  (np.array([1.0, 0.0, 0.0]), phmin, 'left'),
-                  (np.array([1.0, 0.0, 0.0]), phmax, 'right')]
+        planes = [
+            (np.array([0.0, 1.0, 0.0]), umin, 'bottom'),
+            (np.array([0.0, 1.0, 0.0]), umax, 'top'),
+            (np.array([1.0, 0.0, 0.0]), phmin, 'left'),
+            (np.array([1.0, 0.0, 0.0]), phmax, 'right'),
+        ]
 
         # Planes associated with the stable domains of the diagram.
         # Given x=pH, y=U, z=E_pbx=-DeltaG, each plane has expression:
@@ -677,8 +687,9 @@ class Pourbaix:
         # matches the corresponding pourbaix energy,
         # then the point is a simplex.
         simplices = []
-        for (p1, c1, id1), (p2, c2, id2), (p3, c3, id3) in \
-                combinations(planes, 3):
+        for (p1, c1, id1), (p2, c2, id2), (p3, c3, id3) in combinations(
+            planes, 3
+        ):
             A = np.vstack((p1, p2, p3))
             c = np.array([c1, c2, c3])
             ids = (id1, id2, id3)
@@ -692,10 +703,12 @@ class Pourbaix:
 
             pt = np.dot(invA, c)
             Epbx = self._get_pourbaix_energy(pt[1], pt[0])[0]
-            if pt[2] >= -tol and \
-               np.isclose(Epbx, pt[2], rtol=0, atol=tol) and \
-               phmin - tol <= pt[0] <= phmax + tol and \
-               umin - tol <= pt[1] <= umax + tol:
+            if (
+                pt[2] >= -tol
+                and np.isclose(Epbx, pt[2], rtol=0, atol=tol)
+                and phmin - tol <= pt[0] <= phmax + tol
+                and umin - tol <= pt[1] <= umax + tol
+            ):
                 simplex = np.round(pt[:2], 3)
                 simplices.append((simplex, ids))
 
@@ -712,17 +725,21 @@ class Pourbaix:
             return False
 
         for (s1, id1), (s2, id2) in combinations(simplices, 2):
-
             # common neighboring phases, diagram frame excluded
             common = {*id1} & {*id2}
 
             simplices_are_distinct = not np.allclose(s1, s2, rtol=0, atol=tol)
-            only_two_phases_in_common = (len(common) == 2)
+            only_two_phases_in_common = len(common) == 2
             diagram_frame_excluded = not are_boundaries_there(common)
 
             # Filtering out duplicates
-            if all([simplices_are_distinct, only_two_phases_in_common,
-                    diagram_frame_excluded]):
+            if all(
+                [
+                    simplices_are_distinct,
+                    only_two_phases_in_common,
+                    diagram_frame_excluded,
+                ]
+            ):
                 testarray = sorted([s1, s2], key=lambda s: (s[0], s[1]))
                 testarray.append(sorted(common))
                 testarray = np.array(testarray).flatten()
@@ -731,10 +748,7 @@ class Pourbaix:
         segments = []
         for segment in duplicate_filter:
             coords, phases = np.split(np.array(segment), [4])
-            segments.append((
-                coords.reshape(2, 2).T,
-                list(phases.astype(int))
-            ))
+            segments.append((coords.reshape(2, 2).T, list(phases.astype(int))))
         return segments
 
 
@@ -768,13 +782,16 @@ class PourbaixDiagram:
         return (self.U[0], self.U[-1])
 
     def _draw_diagram_axes(
-            self,
-            cap,
-            normalize,
-            include_text,
-            include_water,
-            labeltype, cmap, *,
-            ax):
+        self,
+        cap,
+        normalize,
+        include_text,
+        include_water,
+        labeltype,
+        cmap,
+        *,
+        ax,
+    ):
         """Backend for drawing Pourbaix diagrams."""
 
         meta = self.meta.copy()
@@ -787,10 +804,7 @@ class PourbaixDiagram:
         fig = ax.get_figure()
         extent = [*self.pHrange, *self.Urange]
 
-        fig.subplots_adjust(
-            left=0.1, right=0.97,
-            top=0.97, bottom=0.14
-        )
+        fig.subplots_adjust(left=0.1, right=0.97, top=0.97, bottom=0.14)
 
         if isinstance(cap, list):
             vmin = cap[0]
@@ -800,18 +814,17 @@ class PourbaixDiagram:
             vmax = cap
 
         colorplot = ax.imshow(
-            meta, cmap=cmap,
+            meta,
+            cmap=cmap,
             extent=extent,
-            vmin=vmin, vmax=vmax,
-            origin='lower', aspect='auto',
-            interpolation='gaussian'
+            vmin=vmin,
+            vmax=vmax,
+            origin='lower',
+            aspect='auto',
+            interpolation='gaussian',
         )
 
-        cbar = fig.colorbar(
-            colorplot,
-            ax=ax,
-            pad=0.02
-        )
+        cbar = fig.colorbar(colorplot, ax=ax, pad=0.02)
 
         bounds = self.pbx.get_phase_boundaries(
             *self.pHrange, *self.Urange, self.domains
@@ -834,8 +847,9 @@ class PourbaixDiagram:
         ax.set_xlim(*self.pHrange)
         ax.set_ylim(*self.Urange)
         ax.set_xlabel('pH', fontsize=22)
-        ax.set_ylabel(r'$\it{U}$' + f' vs. {self.pbx.reference} (V)',
-                      fontsize=22)
+        ax.set_ylabel(
+            r'$\it{U}$' + f' vs. {self.pbx.reference} (V)', fontsize=22
+        )
         ax.set_xticks(np.arange(self.pHrange[0], self.pHrange[1] + 1, 2))
         ax.set_yticks(np.arange(self.Urange[0], self.Urange[1] + 1, 1))
         ax.xaxis.set_tick_params(width=1.5, length=5)
@@ -860,17 +874,19 @@ class PourbaixDiagram:
         fig.tight_layout()
         return cbar
 
-    def plot(self,
-             cap=1.0,
-             # figsize=[12, 6],
-             normalize=True,
-             include_text=True,
-             include_water=False,
-             labeltype='numbers',
-             cmap="RdYlGn_r",
-             filename=None,
-             ax=None,
-             show=False):
+    def plot(
+        self,
+        cap=1.0,
+        # figsize=[12, 6],
+        normalize=True,
+        include_text=True,
+        include_water=False,
+        labeltype='numbers',
+        cmap='RdYlGn_r',
+        filename=None,
+        ax=None,
+        show=False,
+    ):
         """Plot a complete Pourbaix diagram.
 
         Keyword arguments
@@ -930,12 +946,8 @@ class PourbaixDiagram:
         fig = ax.get_figure()
 
         self._draw_diagram_axes(
-            cap,
-            normalize,
-            include_text,
-            include_water,
-            labeltype, cmap,
-            ax=ax)
+            cap, normalize, include_text, include_water, labeltype, cmap, ax=ax
+        )
 
         if filename is not None:
             fig.savefig(filename)

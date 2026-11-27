@@ -1,31 +1,43 @@
-# fmt: off
-
 import numpy as np
 
 import ase.units
 from ase.calculators.calculator import FileIOCalculator, SCFError
+
+# Following the minimal requirements given in
+# https://www.q-chem.com/qchem-website/manual/qchem43_manual/sect-METHOD.html
 
 
 class QChem(FileIOCalculator):
     """
     QChem calculator
     """
+
     name = 'QChem'
 
     implemented_properties = ['energy', 'forces']
     _legacy_default_command = 'qchem PREFIX.inp PREFIX.out'
 
-    # Following the minimal requirements given in
-    # https://www.q-chem.com/qchem-website/manual/qchem43_manual/sect-METHOD.html
-    default_parameters = {'method': 'hf',
-                          'basis': '6-31G*',
-                          'jobtype': None,
-                          'charge': 0}
+    default_parameters = {
+        'method': 'hf',
+        'basis': '6-31G*',
+        'jobtype': None,
+        'charge': 0,
+    }
 
-    def __init__(self, restart=None,
-                 ignore_bad_restart_file=FileIOCalculator._deprecated,
-                 label='qchem', scratch=None, np=1, nt=1, pbs=False,
-                 basisfile=None, ecpfile=None, atoms=None, **kwargs):
+    def __init__(
+        self,
+        restart=None,
+        ignore_bad_restart_file=FileIOCalculator._deprecated,
+        label='qchem',
+        scratch=None,
+        np=1,
+        nt=1,
+        pbs=False,
+        basisfile=None,
+        ecpfile=None,
+        atoms=None,
+        **kwargs,
+    ):
         """
         The scratch directory, number of processor and threads as well as a few
         other command line options can be set using the arguments explained
@@ -49,8 +61,9 @@ class QChem(FileIOCalculator):
             combination with ecp='gen' keyword argument.
         """
 
-        FileIOCalculator.__init__(self, restart, ignore_bad_restart_file,
-                                  label, atoms, **kwargs)
+        FileIOCalculator.__init__(
+            self, restart, ignore_bad_restart_file, label, atoms, **kwargs
+        )
 
         # Augment the command by various flags
         if pbs:
@@ -99,9 +112,17 @@ class QChem(FileIOCalculator):
                             # Cut in chunks of 12 symbols and convert into
                             # strings. This is preferred over string.split() as
                             # the fields may overlap for large gradients
-                            gradient[i].extend(list(map(
-                                float, [line[i:i + 12]
-                                        for i in range(0, len(line), 12)])))
+                            gradient[i].extend(
+                                list(
+                                    map(
+                                        float,
+                                        [
+                                            line[i : i + 12]
+                                            for i in range(0, len(line), 12)
+                                        ],
+                                    )
+                                )
+                            )
 
                         # After three force components we expect either a
                         # separator line, which we want to skip, or the end of
@@ -112,7 +133,8 @@ class QChem(FileIOCalculator):
                         if ' Max gradient component' in next(lineiter):
                             # Minus to convert from gradient to force
                             self.results['forces'] = np.array(gradient).T * (
-                                -ase.units.Hartree / ase.units.Bohr)
+                                -ase.units.Hartree / ase.units.Bohr
+                            )
                             break
 
     def write_input(self, atoms, properties=None, system_changes=None):
@@ -132,8 +154,10 @@ class QChem(FileIOCalculator):
             for prm in self.parameters:
                 if prm not in ['charge', 'multiplicity']:
                     if self.parameters[prm] is not None:
-                        fileobj.write('   %-25s   %s\n' % (
-                            prm.upper(), self.parameters[prm].upper()))
+                        fileobj.write(
+                            '   %-25s   %s\n'
+                            % (prm.upper(), self.parameters[prm].upper())
+                        )
 
             # Not even a parameters as this is an absolute necessity
             fileobj.write('   %-25s   %s\n' % ('SYM_IGNORE', 'TRUE'))
@@ -141,7 +165,7 @@ class QChem(FileIOCalculator):
 
             fileobj.write('$molecule\n')
             # Following the example set by the gaussian calculator
-            if ('multiplicity' not in self.parameters):
+            if 'multiplicity' not in self.parameters:
                 tot_magmom = atoms.get_initial_magnetic_moments().sum()
                 mult = tot_magmom + 1
             else:
@@ -149,8 +173,9 @@ class QChem(FileIOCalculator):
             # Default charge of 0 is defined in default_parameters
             fileobj.write('   %d %d\n' % (self.parameters['charge'], mult))
             for a in atoms:
-                fileobj.write('   {}  {:f}  {:f}  {:f}\n'.format(a.symbol,
-                                                                 a.x, a.y, a.z))
+                fileobj.write(
+                    '   {}  {:f}  {:f}  {:f}\n'.format(a.symbol, a.x, a.y, a.z)
+                )
             fileobj.write('$end\n\n')
 
             if self.basisfile is not None:

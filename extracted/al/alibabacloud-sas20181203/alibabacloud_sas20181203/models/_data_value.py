@@ -31,15 +31,15 @@ class DataValue(DaraModel):
     ):
         # The total number of baseline check items.
         self.baseline_check_count = baseline_check_count
-        # The total number of system vulnerability items.
+        # The total number of system vulnerability records.
         self.cve_vul_count = cve_vul_count
-        # The estimated detection volume in GB. This field is not currently returned by the batch statistics operation.
+        # The estimated detection size, in GB. This field is not returned by the batch statistics operation.
         self.estimate_used_size = estimate_used_size
-        # The timestamp of the last scan time, in milliseconds.
+        # The timestamp of the last scan, in milliseconds.
         self.last_task_time = last_task_time
         # The total number of malicious sample files.
         self.malicious_file = malicious_file
-        # The number of vulnerable servers.
+        # The number of at-risk servers.
         self.risk_machine = risk_machine
         # The total number of application vulnerabilities.
         self.sca_vul_count = sca_vul_count
@@ -47,21 +47,21 @@ class DataValue(DaraModel):
         self.scan_machine = scan_machine
         # The total number of sensitive files.
         self.sensitive_file_count = sensitive_file_count
-        # The total number of Windows system vulnerability items.
+        # The total number of Windows system vulnerability records.
         self.sys_vul_count = sys_vul_count
-        # The number of vulnerability risks.
+        # The number of vulnerabilities.
         self.vulnerability = vulnerability
         # The number of Linux software vulnerabilities.
         self.cve_num = cve_num
-        # The number of emergency vulnerabilities. This field is 0 when ImageVul is set to true.
+        # The number of emergency vulnerabilities. If ImageVul is set to true, the value of this field is 0.
         self.emg_num = emg_num
-        # The number of Windows system vulnerabilities. This field is 0 when ImageVul is set to true.
+        # The Windows system vulnerability count. If ImageVul is set to true, the value of this field is 0.
         self.sys_num = sys_num
-        # The number of Web-CMS vulnerabilities. This field is 0 when ImageVul is set to true.
+        # The number of Web-CMS vulnerabilities. If ImageVul is set to true, the value of this field is 0.
         self.cms_num = cms_num
-        # The number of application vulnerabilities. This field is 0 when ImageVul is set to true.
+        # The number of application vulnerabilities. If ImageVul is set to true, the value of this field is 0.
         self.app_num = app_num
-        # The number of software composition analysis (SCA) vulnerabilities.
+        # The number of software constituency parsing (SCA) vulnerabilities.
         self.sca_num = sca_num
         # The number of high-priority vulnerabilities.
         self.vul_asap_sum = vul_asap_sum
@@ -69,7 +69,7 @@ class DataValue(DaraModel):
         self.vul_later_sum = vul_later_sum
         # The number of low-priority vulnerabilities.
         self.vul_nntf_sum = vul_nntf_sum
-        # The number of high-priority system vulnerabilities among Linux software vulnerabilities and Windows system vulnerabilities.
+        # The number of high-priority system vulnerability items, including Linux software vulnerabilities and Windows system vulnerabilities.
         self.sys_asap_num = sys_asap_num
 
     def validate(self):

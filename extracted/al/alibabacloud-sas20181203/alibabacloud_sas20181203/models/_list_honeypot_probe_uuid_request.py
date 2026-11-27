@@ -12,16 +12,16 @@ class ListHoneypotProbeUuidRequest(DaraModel):
         probe_type: str = None,
     ):
         # The ID of the management node.
-        # > You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain this value.
+        # > You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to retrieve this value.
         self.control_node_id = control_node_id
         # The language of the request and response. Default value: **zh**. Valid values:
         # 
-        # - **zh**: Chinese
+        # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang
         # The probe type. Valid values:
         # 
-        # - **host_probe**: host probe
+        # - **host_probe**: host probe.
         # 
         # - **vpc_black_hole_probe**: VPC blackhole probe.
         self.probe_type = probe_type

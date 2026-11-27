@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: collate-sqllineage
-Version: 2.1.9
+Version: 2.1.10
 Summary: Collate SQL Lineage for Analysis Tool powered by Python and sqlfluff based on sqllineage.
 Author: Collate Committers
 Classifier: Development Status :: 5 - Production/Stable
@@ -15,7 +15,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: sqlparse==0.6.1
 Requires-Dist: networkx>=2.4
-Requires-Dist: collate-sqlfluff==3.5.3
+Requires-Dist: collate-sqlfluff==3.6.0
 Requires-Dist: sqlglot==29.0.1
 Provides-Extra: ci
 Requires-Dist: bandit; extra == "ci"
@@ -82,7 +82,7 @@ $ pip install sqllineage
 
 Using sqllineage command to parse a quoted-query-string:
 ```
-$ sqllineage -e "insert into db1.table1 select * from db2.table2"
+$ collate-sqllineage -e "insert into db1.table1 select * from db2.table2"
 Statements(#): 1
 Source Tables:
     db2.table2
@@ -92,7 +92,7 @@ Target Tables:
 
 Or you can parse a SQL file with -f option:
 ```
-$ sqllineage -f foo.sql
+$ collate-sqllineage -f foo.sql
 Statements(#): 1
 Source Tables:
     db1.table_foo
@@ -106,7 +106,7 @@ Target Tables:
 ### Multiple SQL Statements
 Lineage result combined for multiple SQL statements, with intermediate tables identified:
 ```
-$ sqllineage -e "insert into db1.table1 select * from db2.table2; insert into db3.table3 select * from db1.table1;"
+$ collate-sqllineage -e "insert into db1.table1 select * from db2.table2; insert into db3.table3 select * from db1.table1;"
 Statements(#): 2
 Source Tables:
     db2.table2
@@ -119,7 +119,7 @@ Intermediate Tables:
 ### Verbose Lineage Result
 And if you want to see lineage result for every SQL statement, just toggle verbose option
 ```
-$ sqllineage -v -e "insert into db1.table1 select * from db2.table2; insert into db3.table3 select * from db1.table1;"
+$ collate-sqllineage -v -e "insert into db1.table1 select * from db2.table2; insert into db3.table3 select * from db1.table1;"
 Statement #1: insert into db1.table1 select * from db2.table2;
     table read: [Table: db2.table2]
     table write: [Table: db1.table1]
@@ -152,25 +152,25 @@ assist the lineage analyzing.
 Take below example, `analyze` is a reserved keyword in PostgreSQL. Default non-validating dialect gives incomplete result,
 while ansi dialect gives the correct one and postgres dialect tells you this causes syntax error:
 ```
-$ sqllineage -e "insert into analyze select * from foo;"
+$ collate-sqllineage -e "insert into analyze select * from foo;"
 Statements(#): 1
 Source Tables:
     <default>.foo
 Target Tables:
     
-$ sqllineage -e "insert into analyze select * from foo;" --dialect=ansi
+$ collate-sqllineage -e "insert into analyze select * from foo;" --dialect=ansi
 Statements(#): 1
 Source Tables:
     <default>.foo
 Target Tables:
     <default>.analyze
 
-$ sqllineage -e "insert into analyze select * from foo;" --dialect=postgres
+$ collate-sqllineage -e "insert into analyze select * from foo;" --dialect=postgres
 ...
 sqllineage.exceptions.InvalidSyntaxException: This SQL statement is unparsable, please check potential syntax error for SQL
 ```
 
-Use `sqllineage --dialects` to see all available dialects.
+Use `collate-sqllineage --dialects` to see all available dialects.
 
 ### Column-Level Lineage
 We also support column level lineage in command line interface, set level option to column, all column lineage path will 
@@ -203,7 +203,7 @@ FROM foo a
 Suppose this sql is stored in a file called foo.sql
 
 ```
-$ sqllineage -f foo.sql -l column
+$ collate-sqllineage -f foo.sql -l column
 <default>.corge.col1 <- <default>.foo.col1 <- <default>.bar.col1
 <default>.corge.col2 <- <default>.foo.col2 <- <default>.baz.col1
 <default>.corge.col2 <- <default>.grault.col2
@@ -217,7 +217,7 @@ One more cool feature, if you want a graph visualization for the lineage result,
 
 Still using the above SQL file
 ```
-sqllineage -g -f foo.sql
+collate-sqllineage -g -f foo.sql
 ```
 A webserver will be started, showing DAG representation of the lineage result in browser:
 

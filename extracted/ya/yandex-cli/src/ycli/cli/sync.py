@@ -99,7 +99,10 @@ def pull(
     path: Annotated[
         Path,
         typer.Argument(
-            help="What to pull: wiki/<page> with the pages under it, tracker/queues/<queue>."
+            help=(
+                "What to pull: wiki/<page> with the pages under it, tracker/queues/<queue>, "
+                "datalens/workbooks/<workbook>."
+            )
         ),
     ],
     kind: Kinds = None,
@@ -189,11 +192,11 @@ def diff(
     listed = ItemList[Planned](
         [one for one in found if show_unchanged or one.state is not State.UNCHANGED]
     )
-    if counted[State.UNREADABLE]:
+    if counted[State.UNREADABLE] or counted[State.REFUSED]:
         return ExitWith(listed, exit_code=ExitCode.FAILURE)
     if not exit_code:
         return listed
-    apart = {State.CHANGED_ON_SERVER, State.UNTRACKED, State.GONE}
+    apart = {State.CHANGED_ON_SERVER, State.UNTRACKED, State.GONE, State.MOVED}
     if any(counted[state] for state in apart):
         return ExitWith(listed, exit_code=ExitCode.DIVERGED)
     to_push = counted[State.UPDATE] + counted[State.CREATE]
@@ -223,11 +226,13 @@ def push(
 ) -> ItemList[Pushed] | ItemList[Planned] | ExitWith:
     """Send the files that differ from their objects, each write read back and compared.
 
-    A file is sent only when its object is as the file was read: one whose object changed on
-    the server, is gone, or was never read is stopped (exit 8) until a `pull`. After a write
-    the object is read again: the file gets its new link, and a value the server did not keep
-    fails the file and is named. A new file gets the identity of what was created. With
-    --dry-run nothing is sent and the plan is printed; `diff` shows it with the differences.
+    A file is sent only when its object holds what the file was read from: one whose object
+    changed on the server, is gone, or was never read is stopped (exit 8) until a `pull`. A new
+    version alone is no change: a file whose object already holds its content is not sent and
+    gets the server's version. After a write the object is read again: the file gets its new
+    link, and a value the server did not keep fails the file and is named. A new file gets the
+    identity of what was created. With --dry-run nothing is sent and the plan is printed;
+    `diff` shows it with the differences.
     """
     application = context.find_root().obj
     clients = {service.name: service.client_class for service in SERVICES}
@@ -246,26 +251,30 @@ def push(
         planned = [
             one.model_copy(update={"diff": None}) for one in plan(root, scopes, kinds, sender)
         ]
-        planned += [one for one, _, _ in doomed]
-        counted = Counter(one.state for one in planned)
+        # Every file the prune names is said, the one whose object a living file keeps too.
+        pruning = [one for one, *_ in doomed]
+        counted = Counter(one.state for one in [*planned, *pruning])
         typer.echo(", ".join(f"{counted[state]} {state}" for state in State), err=True)
         return ItemList[Planned](
-            [one for one in planned if show_unchanged or one.state is not State.UNCHANGED]
+            [one for one in planned if show_unchanged or one.state is not State.UNCHANGED] + pruning
         )
     done = list(push_files(root, scopes, kinds, sender, on_error=on_error))
     aborted = on_error is OnError.ABORT and any(one.result is Result.FAILED for one in done)
-    if not aborted:
-        done += prune_objects(doomed, sender)
-    results = Counter(one.result for one in done)
+    pruned = [] if aborted else list(prune_objects(doomed, sender))
+    results = Counter(one.result for one in [*done, *pruned])
     summed = ", ".join(f"{results[result]} {result}" for result in Result)
     added = sum(one.added for one in done)
     # Said only when it happened: most runs add nothing.
     holds = {0: "", 1: "; 1 file now holds what the service added"}.get(
         added, f"; {added} files now hold what the service added"
     )
-    typer.echo(summed + holds, err=True)
+    recorded = sum(one.recorded for one in done)
+    records = {0: "", 1: "; 1 file now records the server's version"}.get(
+        recorded, f"; {recorded} files now record the server's version"
+    )
+    typer.echo(summed + holds + records, err=True)
     listed = ItemList[Pushed](
-        [one for one in done if show_unchanged or one.result is not Result.UNCHANGED]
+        [one for one in done if show_unchanged or one.result is not Result.UNCHANGED] + pruned
     )
     if results[Result.FAILED]:
         return ExitWith(listed, exit_code=ExitCode.FAILURE)

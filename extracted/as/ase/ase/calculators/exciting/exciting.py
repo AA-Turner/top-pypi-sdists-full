@@ -82,12 +82,6 @@ class ExcitingGroundStateTemplate(CalculatorTemplate):
     _label = 'exciting'
 
     def __init__(self):
-        """Initialise with constant class attributes.
-
-        :param program_name: The DFT program, should always be exciting.
-        :param implemented_properties: What properties should exciting
-            calculate/read from output.
-        """
         super().__init__('exciting', self.implemented_properties)
         self.errorname = f'{self._label}.err'
 
@@ -95,10 +89,16 @@ class ExcitingGroundStateTemplate(CalculatorTemplate):
     def _require_forces(input_parameters):
         """Expect ASE always wants forces, enforce setting in input_parameters.
 
-        :param input_parameters: exciting ground state input parameters, either
-            as a dictionary or ExcitingGroundStateInput.
-        :return: Ground state input parameters, with "compute
-                forces" set to true.
+        Parameters
+        ----------
+        input_parameters : dict | ExcitingGroundStateInput
+            Exciting ground state input parameters.
+
+        Returns
+        -------
+        ExcitingGroundStateInput
+            Ground state input parameters, with "compute forces" set to true.
+
         """
         from excitingtools import ExcitingGroundStateInput
 
@@ -118,15 +118,23 @@ class ExcitingGroundStateTemplate(CalculatorTemplate):
     ):
         """Write an exciting input.xml file based on the input args.
 
-        :param profile: an Exciting code profile
-        :param directory: Directory in which to run calculator.
-        :param atoms: ASE atoms object.
-        :param parameters: exciting ground state input parameters, in a
-            dictionary. Expect species_path, title and ground_state data,
+        Parameters
+        ----------
+        profile : ExcitingProfile
+            Exciting code profile.
+        directory : PathLike
+            Directory in which to run calculator.
+        atoms : Atoms
+            ASE Atoms object.
+        parameters : dict
+            Exciting ground state input parameters, in a dictionary.
+            Expect species_path, title and ground_state data,
             either in an object or as dict.
-        :param properties: Base method's API expects the physical properties
+        properties : None
+            Base method's API expects the physical properties
             expected from a ground state calculation, for example energies
             and forces. For us this is not used.
+
         """
         # Create a copy of the parameters dictionary so we don't
         # modify the callers dictionary.
@@ -160,11 +168,19 @@ class ExcitingGroundStateTemplate(CalculatorTemplate):
         binary runner at initialization will set all of the directory
         information so we don't use this variable again here.
 
-        :param directory: Not used but comes from the base class.
-        :param profile: This name comes from the superclass CalculatorTemplate.
+        Parameters
+        ----------
+        directory : PathLike
+            Not used but comes from the base class.
+        profile
+            This name comes from the superclass CalculatorTemplate.
             It should be an instance of an exciting.runner.SimpleBinaryRunner.
 
-        :return: Results of the subprocess.run command.
+        Returns
+        -------
+        SubprocessRunResults
+            Results of the subprocess.run command.
+
         """
         return profile.run()
 
@@ -173,11 +189,18 @@ class ExcitingGroundStateTemplate(CalculatorTemplate):
 
         Note we allow for the ability for there to be multiple output files.
 
-        :param directory: Directory path to output file from exciting
-            simulation.
-        :return: dictionary of results. This can be fed into
+        Parameters
+        ----------
+        directory : PathLike
+            Directory path to output file from exciting simulation.
+
+        Returns
+        -------
+        Mapping[str, Any]
+            dictionary of results. This can be fed into
             ExcitingGroundStateResults if the user wants to access properties
             more easily.
+
         """
         results = {}
         for file_name in self.output_names:
@@ -238,24 +261,28 @@ class ExcitingGroundStateResults:
 class ExcitingGroundStateCalculator(GenericFileIOCalculator):
     """Class for the ground state calculation.
 
-    :param runner: Binary runner that will execute an exciting calculation and
+    Parameters
+    ----------
+    runner : SimpleBinaryRunner
+        Binary runner that will execute an exciting calculation and
         return a result.
-    :param ground_state_input: dictionary of ground state settings for example
+    ground_state_input : dict | ExcitingGroundStateInput
+        Dictionary of ground state settings for example
         {'rgkmax': 8.0, 'autormt': True} or an object of type
         ExcitingGroundStateInput.
-    :param directory: Directory in which to run the job.
-    :param species_path: Path to the location of exciting's species files.
-    :param title: job name written to input.xml
+    directory : str
+        Directory in which to run the job.
+    species_path : str
+        Path to the location of exciting's species files.
+    title : str, default: 'ASE-generated input'
+        Job name written to input.xml.
 
-    :return: Results returned from running the calculate method.
+    Examples
+    --------
+    >>> atoms: Atoms
+    >>> gs_calculator = ExcitingGroundState(runner, ground_state_input)
+    >>> results: ExcitingGroundStateResults = gs_calculator.calculate(atoms)
 
-
-    Typical usage:
-
-    gs_calculator = ExcitingGroundState(runner, ground_state_input)
-
-    results: ExcitingGroundStateResults = gs_calculator.calculate(
-            atoms: Atoms)
     """
 
     def __init__(

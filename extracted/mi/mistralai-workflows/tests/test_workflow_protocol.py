@@ -3,6 +3,7 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
+from mistralai.workflows.core.rate_limiting.rate_limit import RateLimit, set_rate_limit
 from mistralai.workflows.models import WorkflowSpecWithTaskQueue
 from mistralai.workflows.protocol.v1.workflow import (
     WorkerHeartbeatRequest,
@@ -56,6 +57,70 @@ def test_deployment_name_rejects_invalid_string() -> None:
             deployment_name="bad name!",
             worker_name="test-worker",
         )
+
+
+class TestReservedDeploymentNameSuffixes:
+    HEX = "0123456789abcdef0123456789abcdef"
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            f"dep-rate-limited-{HEX}",
+            f"dep-sticky-worker-session-{HEX}",
+            f"dep-sticky-worker-session-{HEX}-rate-limited-{HEX}",
+            f"dep-rate-limited-{HEX.upper()}",
+        ],
+    )
+    def test_rejects_derived_task_queue_endings(self, name: str) -> None:
+        with pytest.raises(ValidationError, match="reserved"):
+            WorkerHeartbeatRequest(deployment_name=name, worker_name="test-worker")
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "dep-rate-limited",
+            "dep-sticky-worker-session",
+            f"rate-limited-{HEX}",
+            f"dep-rate-limited-{HEX}-v2",
+            f"dep-rate-limited-{HEX[:31]}",
+            f"dep_rate_limited_{HEX}",
+        ],
+    )
+    def test_accepts_names_without_a_reserved_ending(self, name: str) -> None:
+        request = WorkerHeartbeatRequest(deployment_name=name, worker_name="test-worker")
+
+        assert request.deployment_name == name
+
+    def test_rejects_the_rate_limited_queue_name_workers_derive(self) -> None:
+        def some_activity() -> None: ...
+
+        rate_limit = set_rate_limit(some_activity, RateLimit(time_window_in_sec=1, max_execution=1))
+
+        with pytest.raises(ValidationError, match="reserved"):
+            WorkerHeartbeatRequest(deployment_name=f"dep-{rate_limit.task_queue_suffix}", worker_name="test-worker")
+
+
+def test_task_queue_is_optional_on_registered_specs() -> None:
+    spec = WorkflowSpecWithTaskQueue(name="test", input_schema={})
+
+    request = WorkflowSpecsRegisterRequest(definitions=[spec], deployment_name="dep-1", worker_name="test-worker")
+
+    assert request.model_dump(mode="json")["definitions"][0]["task_queue"] is None
+
+
+def test_task_queue_is_deprecated_and_not_required_in_the_register_schema() -> None:
+    schema = WorkflowSpecWithTaskQueue.model_json_schema()
+
+    assert "task_queue" not in schema["required"]
+    assert schema["properties"]["task_queue"]["deprecated"] is True
+
+
+def test_task_queue_round_trips_on_registered_specs() -> None:
+    spec = WorkflowSpecWithTaskQueue(name="test", input_schema={}, task_queue="dep-1")
+
+    request = WorkflowSpecsRegisterRequest(definitions=[spec], deployment_name="dep-1", worker_name="test-worker")
+
+    assert request.model_dump(mode="json")["definitions"][0]["task_queue"] == "dep-1"
 
 
 class TestWorkflowRegistrationRef:

@@ -7,7 +7,8 @@ This module contains the OpenAI batch processing provider class.
 from typing import Any, Optional, Union
 import io
 import logging
-from .base import BatchProvider
+import time
+from .base import BatchProvider, _atomic_result_file
 from ..models import BatchJobInfo
 
 logger = logging.getLogger(__name__)
@@ -45,8 +46,9 @@ class OpenAIProvider(BatchProvider):
             else:
                 logger.debug("Creating batch file from BytesIO buffer")
                 file_path_or_buffer.seek(0)
+                # Name in-memory uploads so the API sees a JSONL file.
                 batch_file = client.files.create(
-                    file=file_path_or_buffer, purpose="batch"
+                    file=("batch.jsonl", file_path_or_buffer), purpose="batch"
                 )
 
             batch_job = client.batches.create(
@@ -59,10 +61,12 @@ class OpenAIProvider(BatchProvider):
             return batch_job.id
         except (ValueError, TypeError) as e:
             # Re-raise validation errors as-is
-            logger.error(f"Validation error in OpenAI batch submission: {e}")
+            logger.error(
+                "Validation error in OpenAI batch submission (%s)", type(e).__name__
+            )
             raise
         except Exception as e:
-            logger.error(f"Failed to submit OpenAI batch: {e}")
+            logger.error("Failed to submit OpenAI batch (%s)", type(e).__name__)
             raise RuntimeError(f"Failed to submit OpenAI batch: {e}") from e
 
     def get_status(self, batch_id: str) -> dict[str, Any]:
@@ -86,50 +90,68 @@ class OpenAIProvider(BatchProvider):
             raise Exception(f"Failed to get OpenAI batch status: {e}") from e
 
     def _get_results_text(self, batch_id: str) -> str:
-        """Return the output file for a completed OpenAI batch."""
+        """Return success and error records for a finished OpenAI batch."""
         from openai import OpenAI
-        import time
+        from openai.types import Batch
 
         client = OpenAI()
         batch = client.batches.retrieve(batch_id)
 
-        if batch.status != "completed":
+        # Expired and cancelled batches keep records finished before they stopped.
+        result_statuses = {"completed", "expired", "cancelled"}
+        if batch.status not in result_statuses:
             raise Exception(f"Batch not completed, status: {batch.status}")
 
-        request_counts = getattr(batch, "request_counts", None)
-        if request_counts:
-            completed = getattr(request_counts, "completed", 0)
-            failed = getattr(request_counts, "failed", 0)
-            total = getattr(request_counts, "total", 0)
-
-            if failed > 0 and completed == 0:
-                raise RuntimeError(
-                    f"All {total} batch requests failed. No output file will be available."
+        def files_ready(batch: Batch) -> bool:
+            counts = batch.request_counts
+            if (
+                batch.status in {"expired", "cancelled"}
+                and counts is not None
+                and not counts.completed
+                and not counts.failed
+            ):
+                # No request finished, so no result file will ever appear.
+                return True
+            return bool(batch.output_file_id or batch.error_file_id) and (
+                counts is None
+                or (
+                    (not counts.completed or bool(batch.output_file_id))
+                    and (not counts.failed or bool(batch.error_file_id))
                 )
+            )
 
-        if not batch.output_file_id:
+        if not files_ready(batch):
             max_retries = 10
             for attempt in range(max_retries):
                 wait_time = min(5 + attempt, 15)
                 print(
-                    f"Output file not ready, waiting {wait_time}s (attempt {attempt + 1}/{max_retries})..."
+                    f"Result files not ready, waiting {wait_time}s (attempt {attempt + 1}/{max_retries})..."
                 )
                 time.sleep(wait_time)
                 batch = client.batches.retrieve(batch_id)
-                if batch.output_file_id:
-                    print(f"Output file now available: {batch.output_file_id}")
-                    break
-                if batch.status != "completed":
+                if batch.status not in result_statuses:
                     raise Exception(
-                        f"Batch status changed to {batch.status} while waiting for output file"
+                        f"Batch status changed to {batch.status} while waiting for result files"
                     )
+                if files_ready(batch):
+                    print("Result files now available")
+                    break
             else:
                 raise RuntimeError(
-                    f"No output file available after {max_retries} retries over {sum(range(5, 5 + max_retries))} seconds. "
+                    f"No result files available after {max_retries} retries over {sum(range(5, 5 + max_retries))} seconds. "
                     f"Batch status: {batch.status}, Request counts: {getattr(batch, 'request_counts', 'unknown')}."
                 )
 
-        return client.files.content(batch.output_file_id).text
+        file_ids = dict.fromkeys(
+            file_id
+            for file_id in (batch.output_file_id, batch.error_file_id)
+            if file_id is not None
+        )
+        contents = [client.files.content(file_id).text for file_id in file_ids]
+        if len(contents) == 1:
+            return contents[0]
+        # Each file is JSONL; the output file need not end with a newline.
+        return "\n".join(content.rstrip("\n") for content in contents)
 
     def retrieve_results(self, batch_id: str) -> str:
         """Retrieve OpenAI batch results"""
@@ -142,8 +164,8 @@ class OpenAIProvider(BatchProvider):
         """Download OpenAI batch results to a file"""
         try:
             results_text = self._get_results_text(batch_id)
-            with open(file_path, "w") as f:
-                f.write(results_text)
+            with _atomic_result_file(file_path) as output:
+                output.write(results_text.encode("utf-8"))
         except Exception as e:
             raise Exception(f"Failed to download OpenAI results: {e}") from e
 

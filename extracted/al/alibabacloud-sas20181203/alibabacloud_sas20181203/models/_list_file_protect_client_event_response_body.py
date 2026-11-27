@@ -71,9 +71,9 @@ class ListFileProtectClientEventResponseBodyPageInfo(DaraModel):
         page_size: int = None,
         total_count: int = None,
     ):
-        # The number of the page to return in a paged query.
+        # The page number of the current page in a paging query.
         self.current_page = current_page
-        # The maximum number of entries to return on each page in a paged query.
+        # The maximum number of entries to return per page in a paging query.
         self.page_size = page_size
         # The total number of entries returned.
         self.total_count = total_count
@@ -137,25 +137,25 @@ class ListFileProtectClientEventResponseBodyEventList(DaraModel):
     ):
         # The alert notification level. Valid values:
         # 
-        # - 0: no alert
+        # - 0: No alert.
         # 
-        # - 1: reminder
+        # - 1: Reminder.
         # 
-        # - 2: suspicious
+        # - 2: Suspicious.
         # 
-        # - 3: high-risk
+        # - 3: High-risk.
         self.alert_level = alert_level
         # The command line of the event.
         self.cmd_line = cmd_line
         # The number of times the event occurred.
         self.count = count
-        # The file path.
+        # The path of the file.
         self.file_path = file_path
-        # The timestamp when the event was first detected. Unit: milliseconds.
+        # The time when the event was first detected. The value is a UNIX timestamp in milliseconds.
         self.first_time = first_time
-        # The time when the event was handled. This value is a UNIX timestamp in milliseconds.
+        # The time when the event was handled. The value is a UNIX timestamp in milliseconds.
         self.handle_time = handle_time
-        # The event ID.
+        # The ID of the event.
         self.id = id
         # The name of the server instance.
         self.instance_name = instance_name
@@ -163,7 +163,7 @@ class ListFileProtectClientEventResponseBodyEventList(DaraModel):
         self.internet_ip = internet_ip
         # The private IP address of the instance.
         self.intranet_ip = intranet_ip
-        # The most recent time when the event occurred. This value is a UNIX timestamp in milliseconds.
+        # The time when the event last occurred. The value is a UNIX timestamp in milliseconds.
         self.latest_time = latest_time
         # The type of operation performed on the file. Valid values:
         # 
@@ -171,30 +171,30 @@ class ListFileProtectClientEventResponseBodyEventList(DaraModel):
         # - **WRITE**: File write.
         # - **READ**: File read.
         # - **RENAME**: File rename.
-        # - **CHOWN**: Setting the file owner and file group.
+        # - **CHOWN**: Change of file owner and group.
         self.operation = operation
-        # The operating system type. Valid values:
+        # The type of the operating system. Valid values:
         # 
         # - **windows**: Windows.
         # - **linux**: Linux.
         self.platform = platform
-        # The process path.
+        # The path of the process.
         self.proc_path = proc_path
-        # The process permission.
+        # The permissions of the process.
         self.proc_permission = proc_permission
         # The process ID of the event.
         self.process_id = process_id
         # The remarks.
         self.remark = remark
-        # The rule action. Valid values:
+        # The action of the rule. Valid values:
         # 
         # - **block**: Block.
         # 
         # - **monitor**: Monitor.
         self.rule_action = rule_action
-        # The rule name.
+        # The name of the rule.
         self.rule_name = rule_name
-        # The event status. Valid values:
+        # The status of the event. Valid values:
         # 
         # - 0: Unhandled. 
         # - 1: Handled.

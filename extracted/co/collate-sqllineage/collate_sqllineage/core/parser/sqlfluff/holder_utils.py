@@ -1,6 +1,6 @@
 from typing import List, Optional, Union
 
-from sqlfluff.core.parser import BaseSegment
+from collate_sqlfluff.core.parser import BaseSegment
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
 from collate_sqllineage.core.models import Location, Path, SubQuery, Table

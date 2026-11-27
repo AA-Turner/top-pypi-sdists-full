@@ -57,6 +57,8 @@ class _StateTracker:
         register_client.register_execution_async = AsyncMock(
             return_value=RegisterExecutionResponse(execution_id="wf", created=True)
         )
+        register_client.__aenter__ = AsyncMock(return_value=register_client)
+        register_client.__aexit__ = AsyncMock(return_value=None)
         register_client.aclose = AsyncMock()
         self._client = AsyncMock(spec=PrivateWorkerClient)
         self._client.upsert_execution_metadata_async = AsyncMock(side_effect=self._capture_upsert)

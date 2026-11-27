@@ -10,6 +10,7 @@ class DescribeOnceTaskRequest(DaraModel):
         current_page: int = None,
         end_time_query: int = None,
         page_size: int = None,
+        resource_directory_account_id: int = None,
         root_task_id: str = None,
         source: str = None,
         start_time_query: int = None,
@@ -18,19 +19,22 @@ class DescribeOnceTaskRequest(DaraModel):
     ):
         # The number of the page to return. Default value: **1**.
         self.current_page = current_page
-        # The timestamp when the root task ends. Unit: milliseconds.
+        # The timestamp when the root task ended. Unit: milliseconds.
         self.end_time_query = end_time_query
-        # The number of client tasks per page for paging. Default value: **20**, which indicates that each page contains 20 client tasks.
+        # The number of client tasks per page in a paged query. Default value: **20**.
         self.page_size = page_size
+        # The ID of the member account in the resource directory (Alibaba Cloud account).
+        # > You can call the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        self.resource_directory_account_id = resource_directory_account_id
         # The root task ID.
-        # > You can call the [DescribeOnceTask](~~DescribeOnceTask~~) operation and specify TaskType to query the root task list. You can obtain this parameter from TaskManageResponseList[].TaskId in the response.
-        # > **TaskType** and **RootTaskId** cannot be empty at the same time. If neither is provided, the API returns HTTP 400 with the error code -101.
+        # > You can call the [DescribeOnceTask](~~DescribeOnceTask~~) operation and specify TaskType to query the root task list. Obtain this parameter from TaskManageResponseList[].TaskId in the response.
+        # > You must specify at least one of **TaskType** and **RootTaskId**. If neither is specified, the API returns an HTTP 400 error with the error code -101.
         self.root_task_id = root_task_id
         # The source of the task. Valid values include but are not limited to:
-        # - **schedule**: automatic scheduling of vulnerability scanning
+        # - **schedule**: automatic scheduling for vulnerability scanning
         # - **console**: one-click detection in the vulnerability scanning console
         self.source = source
-        # The timestamp when the root task starts. Unit: milliseconds.
+        # The timestamp when the root task started. Unit: milliseconds.
         self.start_time_query = start_time_query
         # The task ID.
         self.task_id = task_id
@@ -40,7 +44,7 @@ class DescribeOnceTaskRequest(DaraModel):
         # - **CLIENT_DEV_OPS**: cloud O&M task
         # - **ASSET_SECURITY_CHECK**: asset collection task
         # - **ASSET_REFRESH_HOST**: host asset synchronization task
-        # > **TaskType** and **RootTaskId** cannot be empty at the same time. If neither is provided, the API returns HTTP 400 with the error code -101.
+        # > You must specify at least one of **TaskType** and **RootTaskId**. If neither is specified, the API returns an HTTP 400 error with the error code -101.
         self.task_type = task_type
 
     def validate(self):
@@ -59,6 +63,9 @@ class DescribeOnceTaskRequest(DaraModel):
 
         if self.page_size is not None:
             result['PageSize'] = self.page_size
+
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
 
         if self.root_task_id is not None:
             result['RootTaskId'] = self.root_task_id
@@ -87,6 +94,9 @@ class DescribeOnceTaskRequest(DaraModel):
 
         if m.get('PageSize') is not None:
             self.page_size = m.get('PageSize')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         if m.get('RootTaskId') is not None:
             self.root_task_id = m.get('RootTaskId')

@@ -12,6 +12,8 @@ class CreateRouteTargetGroupRequest(DaraModel):
         self,
         client_token: str = None,
         config_mode: str = None,
+        dry_run: bool = None,
+        ip_version: str = None,
         region_id: str = None,
         resource_group_id: str = None,
         route_target_group_description: str = None,
@@ -28,6 +30,8 @@ class CreateRouteTargetGroupRequest(DaraModel):
         # 
         # This parameter is required.
         self.config_mode = config_mode
+        self.dry_run = dry_run
+        self.ip_version = ip_version
         # The region ID of the route target group. You can call the DescribeRegions operation to query the most recent region list.
         # 
         # This parameter is required.
@@ -79,6 +83,12 @@ class CreateRouteTargetGroupRequest(DaraModel):
         if self.config_mode is not None:
             result['ConfigMode'] = self.config_mode
 
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
+
+        if self.ip_version is not None:
+            result['IpVersion'] = self.ip_version
+
         if self.region_id is not None:
             result['RegionId'] = self.region_id
 
@@ -113,6 +123,12 @@ class CreateRouteTargetGroupRequest(DaraModel):
 
         if m.get('ConfigMode') is not None:
             self.config_mode = m.get('ConfigMode')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
+
+        if m.get('IpVersion') is not None:
+            self.ip_version = m.get('IpVersion')
 
         if m.get('RegionId') is not None:
             self.region_id = m.get('RegionId')

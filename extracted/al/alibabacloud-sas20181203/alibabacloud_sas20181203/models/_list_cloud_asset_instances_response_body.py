@@ -86,9 +86,9 @@ class ListCloudAssetInstancesResponseBodyPageInfo(DaraModel):
     ):
         # The number of entries returned on the current page.
         self.count = count
-        # The page number of the current page in a paged query.
+        # The page number of the current page during paging in a paged query.
         self.current_page = current_page
-        # The number of entries per page.
+        # The number of entries returned per page.
         self.page_size = page_size
         # The total number of cloud assets.
         self.total_count = total_count
@@ -154,25 +154,26 @@ class ListCloudAssetInstancesResponseBodyInstances(DaraModel):
         vendor_uid: str = None,
         vendor_user_name: str = None,
     ):
-        # Indicates whether the cloud asset has security alerts. Valid values:
-        # - **YES**: The cloud asset has security alerts.
-        # - **NO**: The cloud asset does not have security alerts.
+        # Indicates whether security alerts exist for the cloud asset. Valid values:
+        # - **YES**: Security alerts exist.
+        # - **NO**: No security alerts exist.
         self.alarm_status = alarm_status
-        # The subtype of the cloud product, which corresponds to the asset type. Valid values:
+        # The subtype of the cloud service.
+        # The asset type and subtype. Valid values:
         # 
-        # - **0**: ECS server 
+        # - **0**: Elastic Compute Service (ECS) server
         # 
         #     * **0**: instance
-        #     * **1**: cloud disk (storage)
+        #     * **1**: cloud disk
         #     * **2**: security group
-        # - **1**: Server Load Balancer (SLB)
-        #     * **0**: Server Load Balancer (SLB)
+        # - **1**: load balancing
+        #     * **0**: load balancing
         #     * **1**: Application Load Balancer (ALB)
-        # - **3**: ApsaraDB RDS
+        # - **3**: ApsaraDB RDS database
         #     * **0**: instance
-        # - **4**: ApsaraDB for MongoDB
+        # - **4**: ApsaraDB for MongoDB database
         #     * **0**: instance
-        # - **5**: ApsaraDB for Tair (Redis-compatible)
+        # - **5**: Tair (Redis® OSS-Compatible) database
         #     * **0**: instance
         # - **6**: Container Registry
         #     * **1**: Enterprise Edition
@@ -186,9 +187,9 @@ class ListCloudAssetInstancesResponseBodyInstances(DaraModel):
         #     * **3**: flow log
         # - **11**: ActionTrail
         #     * **0**: trail
-        # - **12**: CDN
+        # - **12**: Alibaba Cloud CDN
         #     * **0**: instance
-        # - **13**: SSL Certificates Service
+        # - **13**: Certificate Management Service
         #     * **0**: certificate
         # - **14**: Yunxiao
         #     * **0**: organization
@@ -196,21 +197,21 @@ class ListCloudAssetInstancesResponseBodyInstances(DaraModel):
         #     * **0**: instance
         # - **17**: Web Application Firewall (WAF)
         #      * **0**: domain name
-        # - **18**: OSS
+        # - **18**: Object Storage Service (OSS)
         #     * **0**: bucket
-        # - **19**: PolarDB
+        # - **19**: cloud-native relational database PolarDB
         #     * **0**: cluster
-        # - **20**: ApsaraDB for PostgreSQL
+        # - **20**: ApsaraDB RDS for PostgreSQL database
         #     * **0**: instance
-        # - **21**: Microservices Engine (MSE)
+        # - **21**: Microservices Engine
         #     * **0**: cluster
         # - **22**: Apsara File Storage NAS
         #     * **0**: file system
         # - **23**: Data Security Center (DSC)
         #     * **0**: instance
-        # - **24**: EIP
+        # - **24**: Elastic IP Address (EIP)
         #     * **0**: Anycast EIP
-        # - **25**: EIAM
+        # - **25**: IDaaS EIAM
         #     * **0**: instance
         # - **26**: PolarDB-X
         #     * **0**: instance
@@ -221,28 +222,28 @@ class ListCloudAssetInstancesResponseBodyInstances(DaraModel):
         self.asset_sub_type_name = asset_sub_type_name
         # The type of the asset. Valid values:
         # 
-        # - **0**: ECS server
-        # - **1**: Server Load Balancer (SLB)
-        # - **3**: ApsaraDB RDS
-        # - **4**: ApsaraDB for MongoDB
-        # - **5**: ApsaraDB for Tair (Redis-compatible)
+        # - **0**: Elastic Compute Service (ECS) server
+        # - **1**: load balancing
+        # - **3**: ApsaraDB RDS database
+        # - **4**: ApsaraDB for MongoDB database
+        # - **5**: Tair (Redis® OSS-Compatible) database
         # - **6**: Container Registry
         # - **8**: Container Service for Kubernetes (ACK)
         # - **9**: Virtual Private Cloud (VPC)
         # - **11**: ActionTrail
-        # - **12**: Content Delivery Network (CDN)
-        # - **13**: SSL Certificates Service
+        # - **12**: Alibaba Cloud CDN
+        # - **13**: Certificate Management Service
         # - **14**: Yunxiao
         # - **16**: Anti-DDoS
         # - **17**: Web Application Firewall (WAF)
         # - **18**: Object Storage Service (OSS)
-        # - **19**: PolarDB
-        # - **20**: ApsaraDB for PostgreSQL
-        # - **21**: Microservices Engine (MSE)
+        # - **19**: cloud-native relational database PolarDB
+        # - **20**: ApsaraDB RDS for PostgreSQL database
+        # - **21**: Microservices Engine
         # - **22**: Apsara File Storage NAS
         # - **23**: Data Security Center (DSC)
         # - **24**: Elastic IP Address (EIP)
-        # - **25**: Elastic Identity and Access Management (EIAM)
+        # - **25**: IDaaS EIAM
         # - **26**: PolarDB-X
         # - **27**: Elasticsearch
         self.asset_type = asset_type
@@ -258,11 +259,11 @@ class ListCloudAssetInstancesResponseBodyInstances(DaraModel):
         self.instance_name = instance_name
         # The public IP address of the instance.
         self.internet_ip = internet_ip
-        # The ID of the region where the asset instance resides.
+        # The ID of the region to which the asset instance belongs.
         self.region_id = region_id
-        # Indicates whether the cloud asset has security risks. Valid values:
-        # - **YES**: The cloud asset has security risks.
-        # - **NO**: The cloud asset does not have security risks.
+        # Indicates whether security risks exist for the cloud asset. Valid values:
+        # - **YES**: Security risks exist.
+        # - **NO**: No security risks exist.
         self.risk_status = risk_status
         # The CSPM sales identifier.
         self.sale_cspm = sale_cspm
@@ -272,12 +273,12 @@ class ListCloudAssetInstancesResponseBodyInstances(DaraModel):
         self.security_info = security_info
         # The list of tags.
         self.tags = tags
-        # The asset vendor. Valid values:
+        # The vendor of the asset. Valid values:
         # 
         # - **0**: Alibaba Cloud asset
-        # - **1**: non-Alibaba Cloud asset
+        # - **1**: non-cloud asset
         # - **2**: IDC asset
-        # - **3**, **4**, **5**, and **7**: other cloud asset
+        # - **3**, **4**, **5**, **7**: other cloud assets
         # - **8**: lightweight asset
         self.vendor = vendor
         # The account ID of the multi-cloud instance.

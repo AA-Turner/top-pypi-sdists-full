@@ -17,6 +17,7 @@ import re
 import gc
 import operator
 import pathlib
+import platform
 import shutil
 import tempfile
 import textwrap
@@ -974,6 +975,47 @@ class ETreeOnlyTestCase(HelperTestCase):
         self.assertEqual(['test'], content)
         self.assertEqual(b'<root><![CDATA[test]]></root>',
                           tostring(context.root))
+
+    def test_iterparse_wellformed_entity(self):
+        xml_with_entity = b"""\
+        <!DOCTYPE r [ <!ENTITY e "<item a1='v1'><name>zz</name></item>"> ]>
+        <r>&e;</r>
+        """
+        found = []
+        for _event, elem in etree.iterparse(BytesIO(xml_with_entity), tag="item"):
+            found.append((elem.tag, elem.get("a1"), elem.findtext("name")))
+            elem.clear()
+        self.assertTrue(found)
+
+    def test_iterparse_nonwellformed_entity(self):
+        # https://github.com/lxml/lxml/security/advisories/GHSA-59qx-3jjv-x996
+        broken_entity_xml = b"""\
+        <!DOCTYPE r [ <!ENTITY e "<item a1='v1'><name>zz</name></item><x>"> ]>
+        <r>&e;</r>
+        """
+        found = []
+        with self.assertRaises(self.etree.XMLSyntaxError):
+            for _event, elem in etree.iterparse(BytesIO(broken_entity_xml), tag="item"):
+                # reads freed xmlNode/xmlAttr
+                found.append((elem.tag, elem.get("a1"), elem.findtext("name")))
+                # frees them again
+                elem.clear()
+        self.assertFalse(found)
+
+    def test_iterparse_nonwellformed_entity_large(self):
+        # https://github.com/lxml/lxml/security/advisories/GHSA-59qx-3jjv-x996
+        broken_entity_xml = b"""\
+        <!DOCTYPE r [ <!ENTITY e "<item a1='v1'>%s</item><x>"> ]>
+        <r>&e;</r>
+        """ % (b'<name>zz</name>' * 100)
+        found = []
+        with self.assertRaises(self.etree.XMLSyntaxError):
+            for _event, elem in etree.iterparse(BytesIO(broken_entity_xml), tag="item", chunk_size=100):
+                # reads freed xmlNode/xmlAttr
+                found.append((elem.tag, elem.get("a1"), elem.findtext("name")))
+                # frees them again
+                elem.clear()
+        self.assertFalse(found)
 
     def test_parser_encoding_unknown(self):
         self.assertRaises(
@@ -2040,6 +2082,20 @@ class ETreeOnlyTestCase(HelperTestCase):
         self.assertEqual('test]]>',
                           root.text)
         self.assertEqual(b'<root><![CDATA[test]]]]><![CDATA[>]]></root>',
+                          tostring(root))
+
+    def test_cdata_end_bracket(self):
+        # Tests that a trailing ']' in CDATA is handled correctly.
+        CDATA = self.etree.CDATA
+        Element = self.etree.Element
+        tostring = self.etree.tostring
+
+        root = Element("root")
+        root.text = CDATA('test]')
+
+        self.assertEqual('test]',
+                          root.text)
+        self.assertEqual(b'<root><![CDATA[test]]]></root>',
                           tostring(root))
 
     # TypeError in etree, AssertionError in ElementTree;
@@ -5130,6 +5186,10 @@ class _XIncludeTestCase(HelperTestCase):
             called = {}
 
             def resolve(self, url, id, context):
+                if platform.system() == 'Windows':
+                    # The separator used might depend on libxml2, so normalise on Windows.
+                    url = url.replace('\\', '/')
+
                 if url.endswith("test_xinclude.xml"):
                     assert not self.called.get("input")
                     self.called["input"] = True

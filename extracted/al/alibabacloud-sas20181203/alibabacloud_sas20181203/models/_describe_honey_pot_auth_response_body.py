@@ -13,9 +13,9 @@ class DescribeHoneyPotAuthResponseBody(DaraModel):
     ):
         # The total number of authorizations.
         self.honey_pot_auth_count = honey_pot_auth_count
-        # The number of consumed authorizations.
+        # The number of used authorizations.
         self.honey_pot_count = honey_pot_count
-        # The request ID. Alibaba Cloud generates a unique identifier for each API request. You can use this ID to troubleshoot issues.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):

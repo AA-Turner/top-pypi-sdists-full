@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.truncated_token_risks_item import TruncatedTokenRisksItem
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="TruncatedToken")
@@ -18,22 +19,36 @@ class TruncatedToken:
         created_at (datetime.datetime):
         last_used_at (datetime.datetime):
         read_only (bool):
+        risks (List[TruncatedTokenRisksItem]): what a token review flags on this token; empty for a token the server
+            manages on its own
         label (Union[Unset, str]):
         expiration (Union[Unset, datetime.datetime]):
         scopes (Union[Unset, List[str]]):
         email (Union[Unset, str]):
         workspace_id (Union[Unset, str]):
+        allowed_ips (Union[Unset, List[str]]): IPs or CIDRs the token may be used from; absent when it may be used from
+            anywhere.
+        admin (Union[Unset, bool]): The token carries workspace admin rights: it was minted with them and its owner is
+            an
+            admin of the workspace it is bound to (any workspace when unbound). Set by /users/tokens/list.
+        super_admin (Union[Unset, bool]): The token carries superadmin rights: it was minted with them (a session always
+            is) and
+            its owner is a superadmin. Set by /users/tokens/list.
     """
 
     token_prefix: str
     created_at: datetime.datetime
     last_used_at: datetime.datetime
     read_only: bool
+    risks: List[TruncatedTokenRisksItem]
     label: Union[Unset, str] = UNSET
     expiration: Union[Unset, datetime.datetime] = UNSET
     scopes: Union[Unset, List[str]] = UNSET
     email: Union[Unset, str] = UNSET
     workspace_id: Union[Unset, str] = UNSET
+    allowed_ips: Union[Unset, List[str]] = UNSET
+    admin: Union[Unset, bool] = UNSET
+    super_admin: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -43,6 +58,12 @@ class TruncatedToken:
         last_used_at = self.last_used_at.isoformat()
 
         read_only = self.read_only
+        risks = []
+        for risks_item_data in self.risks:
+            risks_item = risks_item_data.value
+
+            risks.append(risks_item)
+
         label = self.label
         expiration: Union[Unset, str] = UNSET
         if not isinstance(self.expiration, Unset):
@@ -54,6 +75,12 @@ class TruncatedToken:
 
         email = self.email
         workspace_id = self.workspace_id
+        allowed_ips: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.allowed_ips, Unset):
+            allowed_ips = self.allowed_ips
+
+        admin = self.admin
+        super_admin = self.super_admin
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -63,6 +90,7 @@ class TruncatedToken:
                 "created_at": created_at,
                 "last_used_at": last_used_at,
                 "read_only": read_only,
+                "risks": risks,
             }
         )
         if label is not UNSET:
@@ -75,6 +103,12 @@ class TruncatedToken:
             field_dict["email"] = email
         if workspace_id is not UNSET:
             field_dict["workspace_id"] = workspace_id
+        if allowed_ips is not UNSET:
+            field_dict["allowed_ips"] = allowed_ips
+        if admin is not UNSET:
+            field_dict["admin"] = admin
+        if super_admin is not UNSET:
+            field_dict["super_admin"] = super_admin
 
         return field_dict
 
@@ -88,6 +122,13 @@ class TruncatedToken:
         last_used_at = isoparse(d.pop("last_used_at"))
 
         read_only = d.pop("read_only")
+
+        risks = []
+        _risks = d.pop("risks")
+        for risks_item_data in _risks:
+            risks_item = TruncatedTokenRisksItem(risks_item_data)
+
+            risks.append(risks_item)
 
         label = d.pop("label", UNSET)
 
@@ -104,16 +145,26 @@ class TruncatedToken:
 
         workspace_id = d.pop("workspace_id", UNSET)
 
+        allowed_ips = cast(List[str], d.pop("allowed_ips", UNSET))
+
+        admin = d.pop("admin", UNSET)
+
+        super_admin = d.pop("super_admin", UNSET)
+
         truncated_token = cls(
             token_prefix=token_prefix,
             created_at=created_at,
             last_used_at=last_used_at,
             read_only=read_only,
+            risks=risks,
             label=label,
             expiration=expiration,
             scopes=scopes,
             email=email,
             workspace_id=workspace_id,
+            allowed_ips=allowed_ips,
+            admin=admin,
+            super_admin=super_admin,
         )
 
         truncated_token.additional_properties = d

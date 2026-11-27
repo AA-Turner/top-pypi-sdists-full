@@ -174,9 +174,11 @@ class Plumed(Calculator):
     def calculate(
         self,
         atoms=None,
-        properties=['energy', 'forces'],
+        properties=None,
         system_changes=all_changes,
     ):
+        if properties is None:
+            properties = ['energy', 'forces']
         Calculator.calculate(self, atoms, properties, system_changes)
 
         comp = self._compute_properties(self.atoms.get_positions(), self.istep)

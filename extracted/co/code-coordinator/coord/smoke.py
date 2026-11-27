@@ -123,6 +123,7 @@ from coord.models import (
     WORK_LIKE_TYPES,
     Assignment,
     Board,
+    FanoutLegVerdict,
     Machine,
 )
 # #2170: the SAME marker/exit-code convention `scripts/coord-test-runner.sh`
@@ -1088,6 +1089,152 @@ def _find_leg_for_partition(
     return best
 
 
+#: Bound (characters) on the command snippet shown in a failure-evidence
+#: header. A partition's resolved Test-stage command is an arbitrary shell
+#: command (commas, brackets, newlines — anything #4166 forbids echoing
+#: into a fix briefing wholesale); this is a label, not the command itself.
+_COMMAND_LABEL_BUDGET = 80
+
+
+def _bounded_command_label(command: str) -> str:
+    """Collapse *command* to one line and cap it to `_COMMAND_LABEL_BUDGET`
+    characters, so a 3KB+ multi-stage CI command never lands in a header
+    verbatim — only enough to say which command this partition ran.
+    """
+    label = " ".join(command.split())
+    if len(label) > _COMMAND_LABEL_BUDGET:
+        label = label[:_COMMAND_LABEL_BUDGET].rstrip() + "…"
+    return label
+
+
+#: How many pre-existing-failure notes one leg may contribute. A leg writes
+#: at most one, so >1 means something appended repeatedly; cap it rather
+#: than let a pathological log pad the briefing.
+_MAX_PRE_EXISTING_NOTES = 2
+
+
+def _pre_existing_notes(leg_output: str) -> list[str]:
+    """Every `coord.base_failure_cache` note line in *leg_output*, capped."""
+    from coord.base_failure_cache import PRE_EXISTING_NOTE_PREFIX  # noqa: PLC0415
+
+    notes = [
+        line.strip()
+        for line in leg_output.splitlines()
+        if line.strip().startswith(PRE_EXISTING_NOTE_PREFIX)
+    ]
+    return notes[:_MAX_PRE_EXISTING_NOTES]
+
+
+def _write_fanout_failure_evidence(
+    work_parent_id: str,
+    leg_states: list[tuple[str, tuple[str, ...], str | None, str | None, str | None]],
+) -> None:
+    """Compose a richer fix-briefing evidence body for *work_parent_id* out
+    of each FAILING leg's own stored test output, and persist it where
+    `coord fix` already looks first.
+
+    Best-effort and silent on any read/write failure — this only enriches
+    what the fix worker is briefed with; it must never block or alter the
+    verdict :func:`finalize_smoke_fanout` is folding.
+    """
+    from coord.confirm_test import write_test_output_file  # noqa: PLC0415
+    from coord.failure_evidence import (  # noqa: PLC0415
+        extract_failure_evidence,
+        format_evidence_block,
+    )
+    from coord.state import COORD_DIR  # noqa: PLC0415
+
+    sections: list[str] = []
+    for leg_id, caps, state, reason, command in leg_states:
+        if state != "failed":
+            continue
+        header = f"capability set [{'+'.join(caps)}] failed"
+        if command:
+            header += f" (ran `{_bounded_command_label(command)}`)"
+        leg_output = ""
+        try:
+            leg_output = (COORD_DIR / "test_output" / f"{leg_id}.txt").read_text()
+        except OSError:
+            leg_output = ""
+        block = format_evidence_block(extract_failure_evidence(leg_output)) if leg_output else ""
+        # #4166: the extractor keeps compiler/test lines and drops
+        # everything else, including the agent's own pre-existing-failure
+        # note (`coord.base_failure_cache`) — the one line that tells a fix
+        # worker this failure was already red on the base it branched from.
+        # Carry it through explicitly; it is bounded by construction (see
+        # `note_line`), so this cannot reintroduce unbounded log text.
+        notes = _pre_existing_notes(leg_output)
+        body = "\n".join([part for part in (block, *notes) if part])
+        if body:
+            sections.append(f"{header}\n{body}")
+        elif reason:
+            sections.append(f"{header} — {reason}")
+        else:
+            sections.append(header)
+    if not sections:
+        return
+    try:
+        write_test_output_file(work_parent_id, "\n\n".join(sections))
+    except Exception:  # noqa: BLE001 — never break the caller's own fold
+        logger.exception(
+            "_write_fanout_failure_evidence: failed to persist evidence for %s",
+            work_parent_id,
+        )
+
+
+def fanout_leg_verdicts(work_parent_id: str) -> list[FanoutLegVerdict]:
+    """Every capability-partition leg of *work_parent_id*'s #3182 fan-out,
+    with its own terminal verdict read back off the board (#4147).
+
+    `[]` when *work_parent_id* carries no fan-out manifest (an ordinary
+    single-leg row) — the same "not a fan-out row" signal
+    :func:`finalize_smoke_fanout` treats as a no-op. A leg still `running`/
+    unset reports `state=None`, same convention as everywhere else in this
+    module; callers that need to wait for every leg to report in (like
+    `finalize_smoke_fanout`) check for that themselves.
+
+    The ONE reader of the `[[smoke-fanout:...]]` manifest plus each named
+    leg's own `test_state`/`test_reason` — `finalize_smoke_fanout`'s own
+    verdict fold and `coord.dispatch.select_fix_machine`'s capability-aware
+    fix routing (#4147) both call this rather than each re-deriving the
+    same per-leg verdict independently (#2096, "one question, one answer").
+    """
+    from coord.state import (  # noqa: PLC0415
+        load_assignment_test_reason,
+        load_assignment_test_state,
+    )
+
+    legs = _parse_fanout_manifest(load_assignment_test_reason(work_parent_id))
+    if not legs:
+        return []
+    return [
+        FanoutLegVerdict(
+            leg_id=leg_id,
+            capabilities=caps,
+            state=load_assignment_test_state(leg_id),
+            reason=load_assignment_test_reason(leg_id),
+            command=command,
+        )
+        for leg_id, caps, command in legs
+    ]
+
+
+def failing_capability_sets(work_parent_id: str) -> tuple[tuple[str, ...], ...]:
+    """Each FAILED leg's own capability set out of *work_parent_id*'s
+    #3182 fan-out (#4147) — e.g. ``(("macos",),)`` for the #2876 shape
+    (only the macOS leg failed), or ``(("macos",), ("windows",))`` when
+    two legs both failed. Empty when *work_parent_id* isn't a fan-out row,
+    or every leg that has reported in so far passed/skipped.
+
+    This is the input :func:`coord.dispatch.select_fix_machine` scores
+    candidate machines against — see that function's *failing_capability_
+    sets* parameter.
+    """
+    return tuple(
+        v.capabilities for v in fanout_leg_verdicts(work_parent_id) if v.state == "failed"
+    )
+
+
 def finalize_smoke_fanout(work_parent_id: str) -> None:
     """#3182: fold every fan-out leg's own terminal verdict into ONE
     aggregate verdict on the parent work row, once enough of them are in.
@@ -1151,47 +1298,63 @@ def finalize_smoke_fanout(work_parent_id: str) -> None:
             return  # already terminal — never clobber (human override or
             # our own prior aggregate write; recomputing changes nothing).
 
-        legs = _parse_fanout_manifest(load_assignment_test_reason(work_parent_id))
-        if not legs:
+        # #3298/#4147: `fanout_leg_verdicts` is the ONE reader of the
+        # manifest plus each named leg's own `test_state`/`test_reason` —
+        # carrying each leg's own resolved command forward from the
+        # manifest (never re-read from the leg's row — `_record_smoke_
+        # verdict` overwrites a leg's own `test_reason` with its terminal
+        # verdict text, so the command it ran is only ever recoverable from
+        # here) into the failure report, so two failing legs that ran
+        # DIFFERENT commands (possible now that command resolution is
+        # scoped per partition) read as distinguishable instead of two
+        # identically-shaped failures.
+        verdicts = fanout_leg_verdicts(work_parent_id)
+        if not verdicts:
             return  # not a fan-out row
 
-        # #3298: carry each leg's own resolved command forward from the
-        # manifest (never re-read from the leg's row — `_record_smoke_verdict`
-        # overwrites a leg's own `test_reason` with its terminal verdict text,
-        # so the command it ran is only ever recoverable from here) into the
-        # failure report, so two failing legs that ran DIFFERENT commands
-        # (possible now that command resolution is scoped per partition) read
-        # as distinguishable instead of two identically-shaped failures.
-        leg_states: list[tuple[tuple[str, ...], str | None, str | None, str | None]] = []
-        for leg_id, caps, command in legs:
-            state = load_assignment_test_state(leg_id)
-            reason = load_assignment_test_reason(leg_id)
-            leg_states.append((caps, state, reason, command))
-        if any(state in (None, "running") for _, state, _, _ in leg_states):
+        leg_states: list[tuple[str, tuple[str, ...], str | None, str | None, str | None]] = [
+            (v.leg_id, v.capabilities, v.state, v.reason, v.command) for v in verdicts
+        ]
+        if any(state in (None, "running") for _, _, state, _, _ in leg_states):
             return  # not everyone has reported in yet
 
         severity = {"failed": 3, TEST_STATE_BLOCKED: 2, "skipped": 1, "passed": 0}
         worst = max(
-            (state for _, state, _, _ in leg_states if state in severity),
+            (state for _, _, state, _, _ in leg_states if state in severity),
             key=lambda s: severity[s],
             default="passed",
         )
         summary = "; ".join(
-            f"[{'+'.join(caps)}]={state}" for caps, state, _, _ in leg_states
+            f"[{'+'.join(caps)}]={state}" for _, caps, state, _, _ in leg_states
         )
         manifest_line = _encode_fanout_manifest(
-            [(lid, caps, command) for lid, caps, command in legs]
+            [(lid, caps, command) for lid, caps, _, _, command in leg_states]
         )
 
         if worst == "failed":
             named = "; ".join(
                 f"capability set [{'+'.join(caps)}] failed"
-                + (f" (ran `{command}`)" if command else "")
+                + (f" (ran `{_bounded_command_label(command)}`)" if command else "")
                 + (f" — {reason}" if reason else "")
-                for caps, state, reason, command in leg_states
+                for _, caps, state, reason, command in leg_states
                 if state == "failed"
             )
             final_state, headline = "failed", f"Test stage failed (#3182): {named}."
+            # `test_reason` above (echoed verbatim in a `coord fix` briefing
+            # when no richer evidence exists) carries only each leg's own
+            # one-line reason — a plain-runner leg's is routinely as bare as
+            # "headless smoke" — plus the `[[smoke-fanout:...]]` manifest
+            # blob, neither of which names a single compiler error, test
+            # name, or `FAILED STAGES` line. Fold each FAILING leg's own
+            # stored test output (`write_test_output_file`, keyed by the
+            # LEG's id — see `coord.notify._record_smoke_verdict`'s
+            # retargeting) through `coord.failure_evidence.
+            # extract_failure_evidence` and persist the result on the
+            # PARENT's own test-output file, which `coord fix`
+            # (`coord.commands.plan_followup.fix`) already prefers over
+            # `test_reason` whenever it exists — no reader-side change
+            # needed for the fix briefing to pick this up.
+            _write_fanout_failure_evidence(work_parent_id, leg_states)
         elif worst == TEST_STATE_BLOCKED:
             final_state, headline = TEST_STATE_BLOCKED, (
                 "Test stage blocked (#3182): at least one capability-"
@@ -1663,6 +1826,56 @@ def _capability_probe_reasons(
         if isinstance(info, dict)
     }
     return unmet_capabilities(required_caps, probes)
+
+
+def _load_probe_reason(
+    machine: Machine,
+    max_load_per_core: float | None,
+    *,
+    http_client: httpx.Client | None = None,
+    timeout: float = 5.0,
+) -> str | None:
+    """#4130: is `machine` too loaded to admit a NEW Test leg right now?
+
+    Reads the live `load` block `AgentServer.health` publishes
+    (`coord.agent._current_load_snapshot`) and compares its 1-minute load
+    average against `cpu_count * max_load_per_core`. Returns a human-
+    readable refusal reason when it's over, else `None`.
+
+    Fails OPEN on every "can't tell" shape, same discipline as the sibling
+    `_capability_probe_reasons`: `max_load_per_core is None` (the default —
+    the check is off), a connectivity/parse hiccup, a `/health` reply with
+    no `load` block (an agent that predates #4130), or a host whose own
+    `os.getloadavg()` is unavailable (`load` is `None` — e.g. Windows) all
+    return `None` — never refuse a candidate on a reading this function
+    could not actually take.
+    """
+    if max_load_per_core is None or max_load_per_core <= 0:
+        return None
+    client = http_client or httpx
+    try:
+        resp = client.get(f"http://{machine.host}:{AGENT_PORT}/health", timeout=timeout)
+        resp.raise_for_status()
+        health = resp.json()
+    except (httpx.HTTPError, httpx.TimeoutException, ValueError):
+        return None
+    load = health.get("load") if isinstance(health, dict) else None
+    if not isinstance(load, dict):
+        return None
+    load1 = load.get("load1")
+    cpu_count = load.get("cpu_count")
+    if not isinstance(load1, (int, float)) or not isinstance(cpu_count, (int, float)):
+        return None
+    if cpu_count <= 0:
+        return None
+    ceiling = max_load_per_core * cpu_count
+    if load1 <= ceiling:
+        return None
+    return (
+        f"1-minute load {load1:.2f} across {cpu_count:.0f} core(s) exceeds "
+        f"the configured ceiling of {max_load_per_core:g}/core "
+        f"({ceiling:.2f}) — #4130"
+    )
 
 
 # ── CI-equivalence of the Test-stage command (#2091) ────────────────────────
@@ -2718,6 +2931,7 @@ def _dispatch_cross_platform_precheck(
             smoke_command=command,
             smoke_needs_judgement=False,
             smoke_timeout_s=smoke_cfg.timeout_seconds,
+            max_load_per_core=smoke_cfg.max_load_per_core,
         )
         if dispatched_one is None:
             logger.warning(
@@ -3184,9 +3398,11 @@ class SmokeAttempt:
     machine_name: str
     reason: str
     #: True when the reason is expected to clear without operator action (a
-    #: connectivity blip). False for durable faults — an explicit `/health`
-    #: probe contradiction (#1570 D) or a missing `repo_paths` entry — which
-    #: stay broken until somebody fixes the machine or the config.
+    #: connectivity blip, or a load snapshot over the configured
+    #: `max_load_per_core` multiple). False for durable faults — an explicit
+    #: `/health` probe contradiction (#1570 D) or a missing `repo_paths`
+    #: entry — which stay broken until somebody fixes the machine or the
+    #: config.
     transient: bool = False
 
     def describe(self) -> str:
@@ -3587,11 +3803,19 @@ def _walk_candidates_and_dispatch(
     smoke_command: str | None = None,
     smoke_needs_judgement: bool = False,
     smoke_timeout_s: float | None = None,
+    max_load_per_core: float | None = None,
 ) -> tuple[tuple[SmokeMachineChoice, str, dict] | None, list[SmokeAttempt]]:
     """Walk *candidates* best-first, probing then POSTing ``/assign`` — the
     #1672 full-candidate-list walk every smoke dispatch does. Returns the
     dispatched ``(choice, briefing, agent_response)`` (or ``None`` if every
     candidate was exhausted) and the `SmokeAttempt`\\ s burned getting there.
+
+    *max_load_per_core* (#4130) skips a candidate whose live `/health` load
+    reading is over this many times its CPU count (:func:`_load_probe_
+    reason`) — a parallel cargo fan-out starving a cold target dir is
+    exactly the shape that blew a sole-capability Test host's own timeout.
+    `None` (the default) performs no such check, byte-for-byte the
+    pre-#4130 behaviour.
 
     *build_briefing(is_worker, native_unverified)* builds the briefing for
     one candidate — a callback rather than a plain string because the
@@ -3642,6 +3866,28 @@ def _walk_candidates_and_dispatch(
     attempts: list[SmokeAttempt] = []
     client = http_client or httpx
     for choice in candidates:
+        overloaded = _load_probe_reason(
+            choice.machine, max_load_per_core, http_client=http_client,
+        )
+        if overloaded is not None:
+            # #4130: requeue rather than dispatch into a host that is
+            # already too busy to finish within its own Test-stage
+            # timeout. #1672: per-machine, so keep walking the candidate
+            # list instead of ending the stage — transient, unlike the
+            # #1570 D capability-probe refusal just below: this host is
+            # perfectly eligible again the moment its load drops.
+            logger.warning(
+                "dispatch_smoke: skipping machine %s for %s#%s — %s. "
+                "Trying the next capability-matched machine (#1672, #4130).",
+                choice.machine.name, completed.repo_name,
+                completed.issue_number, overloaded,
+            )
+            attempts.append(SmokeAttempt(
+                machine_name=choice.machine.name, reason=overloaded,
+                transient=True,
+            ))
+            continue
+
         if required_caps:
             unmet = _capability_probe_reasons(
                 choice.machine, required_caps, http_client=http_client
@@ -4512,6 +4758,7 @@ def _dispatch_smoke_single_leg(
                 required_caps, smoke_cfg.native_execution_capabilities,
             ),
             smoke_timeout_s=smoke_cfg.timeout_seconds,
+            max_load_per_core=smoke_cfg.max_load_per_core,
         )
 
         if dispatched is None:
@@ -4901,6 +5148,7 @@ def _dispatch_smoke_fanout(
                     caps, smoke_cfg.native_execution_capabilities,
                 ),
                 smoke_timeout_s=smoke_cfg.timeout_seconds,
+                max_load_per_core=smoke_cfg.max_load_per_core,
             )
 
             if result is None:

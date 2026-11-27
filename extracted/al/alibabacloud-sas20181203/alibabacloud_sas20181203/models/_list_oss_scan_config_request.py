@@ -12,15 +12,15 @@ class ListOssScanConfigRequest(DaraModel):
         page_size: int = None,
         source: str = None,
     ):
-        # The current page number for paged queries.
+        # The current page number for the paging query.
         self.current_page = current_page
         # The policy name.
         self.name = name
-        # The maximum number of entries to display on each page for paged queries.
+        # The number of entries per page for the paging query.
         self.page_size = page_size
         # The business source. Valid values:
-        # - **OSS**: OSS
-        # - **NAS**: NAS
+        # - **OSS**: OSS.
+        # - **NAS**: NAS.
         self.source = source
 
     def validate(self):

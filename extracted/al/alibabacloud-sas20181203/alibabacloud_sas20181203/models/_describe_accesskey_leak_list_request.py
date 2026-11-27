@@ -14,25 +14,26 @@ class DescribeAccesskeyLeakListRequest(DaraModel):
         start_ts: int = None,
         status: str = None,
     ):
-        # The page number of the current page in a paged query. Default value: **1**.
+        # Specifies the page number of the current page during paging in a paged query. Default value: **1**.
         # 
         # This parameter is required.
         self.current_page = current_page
-        # The maximum number of entries per page for a paged query. The maximum value of PageSize is 100. The default number of entries per page is 20. If the PageSize parameter is left empty, 20 entries are returned by default.
-        # > Do not leave PageSize empty.
+        # Specifies the maximum number of entries to return on each page in a paged query.  
+        # The maximum value of the PageSize parameter is 100. The default number of entries displayed per page during paging is 20. If the PageSize parameter is left empty, 20 entries are returned by default.
+        # > Do not leave the PageSize parameter empty.
         # 
         # This parameter is required.
         self.page_size = page_size
-        # The AccessKey ID that you want to query. Only exact match is supported.
+        # Specifies the AccessKey ID to query. Only exact match is supported.
         self.query = query
-        # The ID of the member account in the resource directory (Alibaba Cloud account).
+        # The ID of the member accounts in the resource folder (Alibaba Cloud account).
         # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
-        # The discovery time of the leaked information that you want to query. All AccessKey leak information discovered after this point in time is returned. This parameter is a UNIX timestamp. Unit: milliseconds.
+        # Specifies the discovery time of the leak information to query. You can query all AccessKey leak information discovered after this point in time. The value is a timestamp in milliseconds.
         self.start_ts = start_ts
-        # The processing status of the leaked AccessKey information that you want to query. Valid values:
-        # - **pending**: unprocessed
-        # - **dealed**: processed.
+        # Specifies the processing status of the leaked AccessKey information to query. Valid values:
+        # - **pending**: Unprocessed.
+        # - **dealed**: Processed.
         self.status = status
 
     def validate(self):

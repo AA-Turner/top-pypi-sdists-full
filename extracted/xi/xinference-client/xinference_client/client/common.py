@@ -30,6 +30,14 @@ def is_http_url(value: str) -> bool:
     return value.lower().startswith(("http://", "https://"))
 
 
+def read_file_input(value: Union[str, bytes]) -> bytes:
+    """Return the bytes of an upload given as a local file path or as bytes."""
+    if isinstance(value, str):
+        with open(value, "rb") as f:
+            return f.read()
+    return value
+
+
 def encode_world_reference(reference: Union[str, bytes], media_type: str) -> str:
     if isinstance(reference, str) and not os.path.isfile(reference):
         return reference
@@ -78,7 +86,11 @@ def streaming_response_iterator(
 
     """
 
+    first_line = True
     for line in response_lines:
+        if first_line:
+            line = line.removeprefix(b"\xef\xbb\xbf")
+            first_line = False
         line = line.strip()
         if line.startswith(b"data:"):
             json_str = line[len(b"data:") :].strip()
@@ -127,7 +139,11 @@ async def async_streaming_response_iterator(
         if _prime:
             # Enter the cleanup scope before handing the stream to the caller.
             yield None
+        first_line = True
         async for line in response_lines:
+            if first_line:
+                line = line.removeprefix(b"\xef\xbb\xbf")
+                first_line = False
             line = line.strip()
             if line.startswith(b"data:"):
                 json_str = line[len(b"data:") :].strip()

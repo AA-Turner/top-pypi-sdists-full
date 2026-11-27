@@ -30,7 +30,7 @@ class UpdateFileProtectClientEventRequest(DaraModel):
     ):
         # The list of alert notification levels.
         self.alert_levels = alert_levels
-        # The end time. The value is a UNIX timestamp.
+        # The timestamp of the end time.
         self.end_time = end_time
         # The list of excluded event IDs.
         self.exclude_id_list = exclude_id_list
@@ -47,7 +47,6 @@ class UpdateFileProtectClientEventRequest(DaraModel):
         # The internal IP address.
         self.intranet_ip = intranet_ip
         # The new status. Valid values:
-        # 
         # - **0**: Unhandled.
         # - **1**: Handled.
         # - **2**: Whitelisted.

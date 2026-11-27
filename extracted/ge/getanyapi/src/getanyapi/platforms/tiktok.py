@@ -3373,7 +3373,7 @@ class TiktokNamespace:
         List the replies to a TikTok comment with cursor pagination (text, author,
         likes).
 
-        Price: $0.0006 per request.
+        Price: $0.00058 per request.
 
         Example:
             res = client.tiktok.comment_replies(commentId="7623828115408274207", url="https://www.tiktok.com/@stoolpresidente/video/7623818255903329566")
@@ -3505,7 +3505,7 @@ class TiktokNamespace:
         List recent TikTok videos for a hashtag (creator, caption, views, likes,
         shares).
 
-        Price: $0.0012 per request.
+        Price: $0.00118 per request.
 
         Example:
             res = client.tiktok.hashtag_videos(hashtag="cooking", limit=3)
@@ -3568,7 +3568,7 @@ class TiktokNamespace:
         with pixel dimensions and both the clean and watermarked variant of each.
         Videos carry no images - use tiktok.video_download for those.
 
-        Price: $0.00119 per request.
+        Price: $0.00118 per request.
 
         Example:
             res = client.tiktok.photos(url="https://www.tiktok.com/@foodbyfranchi/video/7479916555602513174")
@@ -3873,7 +3873,7 @@ class TiktokNamespace:
         Search TikTok by keyword and get matching videos (caption, views, likes,
         comments, shares) as normalized JSON.
 
-        Price: $0.00035 per request.
+        Price: $0.0006 per request.
 
         Example:
             res = client.tiktok.search_keyword(datePosted=0, query="cooking", sortBy="relevance")
@@ -3918,7 +3918,7 @@ class TiktokNamespace:
         in each post plus view, like and comment counts. tiktok.search_keyword
         returns videos and drops these.
 
-        Price: $0.0018 per request.
+        Price: $0.0012 per request.
 
         Example:
             res = client.tiktok.search_photos(query="latte art")
@@ -4244,7 +4244,7 @@ class TiktokNamespace:
         List the comments on a TikTok video by URL with cursor pagination (text,
         author, likes, reply count).
 
-        Price: $0.0004 per request.
+        Price: $0.00059 per request.
 
         Example:
             res = client.tiktok.video_comments(url="https://www.tiktok.com/@zachking/video/7650468599424945422?_r=1&u_code=f0hj7d780760m9&preview_pb=0&sharer_language=en&_d=f0hj7blh067h71&share_item_id=7650468599424945422&source=h5_m")
@@ -4292,7 +4292,7 @@ class TiktokNamespace:
         file) and watermarkedUrl is usually absent, or the call may answer not
         found; use tiktok.photos for its images.
 
-        Price: $0.00079 per request.
+        Price: $0.00078 per request.
 
         Example:
             res = client.tiktok.video_download(url="https://www.tiktok.com/@mrbeast/video/7654638524729216287")
@@ -4318,7 +4318,7 @@ class TiktokNamespace:
         track to read, tiktok.video_transcript_full transcribes the audio with
         AnyAPI's own speech-to-text instead.
 
-        Price: $0.00109 per request.
+        Price: $0.00108 per request.
 
         Example:
             res = client.tiktok.video_transcript(url="https://www.tiktok.com/@washingtonpost/video/7609177768793787679")
@@ -4506,7 +4506,7 @@ class AsyncTiktokNamespace:
         List the replies to a TikTok comment with cursor pagination (text, author,
         likes).
 
-        Price: $0.0006 per request.
+        Price: $0.00058 per request.
 
         Example:
             res = client.tiktok.comment_replies(commentId="7623828115408274207", url="https://www.tiktok.com/@stoolpresidente/video/7623818255903329566")
@@ -4638,7 +4638,7 @@ class AsyncTiktokNamespace:
         List recent TikTok videos for a hashtag (creator, caption, views, likes,
         shares).
 
-        Price: $0.0012 per request.
+        Price: $0.00118 per request.
 
         Example:
             res = client.tiktok.hashtag_videos(hashtag="cooking", limit=3)
@@ -4701,7 +4701,7 @@ class AsyncTiktokNamespace:
         with pixel dimensions and both the clean and watermarked variant of each.
         Videos carry no images - use tiktok.video_download for those.
 
-        Price: $0.00119 per request.
+        Price: $0.00118 per request.
 
         Example:
             res = client.tiktok.photos(url="https://www.tiktok.com/@foodbyfranchi/video/7479916555602513174")
@@ -5006,7 +5006,7 @@ class AsyncTiktokNamespace:
         Search TikTok by keyword and get matching videos (caption, views, likes,
         comments, shares) as normalized JSON.
 
-        Price: $0.00035 per request.
+        Price: $0.0006 per request.
 
         Example:
             res = client.tiktok.search_keyword(datePosted=0, query="cooking", sortBy="relevance")
@@ -5051,7 +5051,7 @@ class AsyncTiktokNamespace:
         in each post plus view, like and comment counts. tiktok.search_keyword
         returns videos and drops these.
 
-        Price: $0.0018 per request.
+        Price: $0.0012 per request.
 
         Example:
             res = client.tiktok.search_photos(query="latte art")
@@ -5377,7 +5377,7 @@ class AsyncTiktokNamespace:
         List the comments on a TikTok video by URL with cursor pagination (text,
         author, likes, reply count).
 
-        Price: $0.0004 per request.
+        Price: $0.00059 per request.
 
         Example:
             res = client.tiktok.video_comments(url="https://www.tiktok.com/@zachking/video/7650468599424945422?_r=1&u_code=f0hj7d780760m9&preview_pb=0&sharer_language=en&_d=f0hj7blh067h71&share_item_id=7650468599424945422&source=h5_m")
@@ -5425,7 +5425,7 @@ class AsyncTiktokNamespace:
         file) and watermarkedUrl is usually absent, or the call may answer not
         found; use tiktok.photos for its images.
 
-        Price: $0.00079 per request.
+        Price: $0.00078 per request.
 
         Example:
             res = client.tiktok.video_download(url="https://www.tiktok.com/@mrbeast/video/7654638524729216287")
@@ -5451,7 +5451,7 @@ class AsyncTiktokNamespace:
         track to read, tiktok.video_transcript_full transcribes the audio with
         AnyAPI's own speech-to-text instead.
 
-        Price: $0.00109 per request.
+        Price: $0.00108 per request.
 
         Example:
             res = client.tiktok.video_transcript(url="https://www.tiktok.com/@washingtonpost/video/7609177768793787679")

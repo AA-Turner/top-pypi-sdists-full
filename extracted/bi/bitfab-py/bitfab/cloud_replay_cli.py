@@ -8,6 +8,8 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from bitfab import cloud_execute
+
 HINT = "Add --cloud to run the same replay on GitHub Actions; bitfab-replay --cloud --help explains it."
 
 HELPER = Path(__file__).with_name("cloudReplay.mjs")
@@ -20,6 +22,8 @@ def is_cloud_command(argv: Sequence[str]) -> bool:
 
 
 def run_cloud_command(argv: Sequence[str], *, helper: Path = HELPER) -> int:
+    if list(argv) == ["--cloud-execute"]:
+        return cloud_execute.main()
     node = shutil.which("node")
     if node is None:
         print(NO_NODE, file=sys.stderr)

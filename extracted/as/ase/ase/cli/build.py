@@ -18,7 +18,7 @@ class CLICommand:
         ase build <formula> ...
 
     where <formula> must be one of the formulas known to ASE
-    (see here: https://ase-lib.org/ase/build/build.html#molecules).
+    (see here: https://docs.ase-lib.org/ase/build/build.html#molecules).
 
     Bulk:
 

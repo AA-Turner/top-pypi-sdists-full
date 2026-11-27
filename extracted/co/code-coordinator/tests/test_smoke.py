@@ -6362,6 +6362,211 @@ def test_finalize_smoke_fanout_passes_when_every_leg_passes(coord_db) -> None:
     assert load_assignment_test_state("w-fanout") == "passed"
 
 
+def test_finalize_smoke_fanout_writes_per_leg_failure_evidence_to_parent_test_output(
+    coord_db, tmp_path, monkeypatch,
+) -> None:
+    """Guards against a fix briefing that holds only a bare one-line reason
+    (e.g. `headless smoke: exit=1`), the echoed `test_command`, and the
+    `[[smoke-fanout:...]]` base64 blob — zero compiler errors, test names,
+    or `FAILED STAGES` lines.
+
+    Each failing leg's own stored test output (what a plain-runner leg
+    writes via `coord.confirm_test.write_test_output_file`, keyed by the
+    LEG's id) folds into the PARENT's own test-output file — the file
+    `coord fix` reads ahead of the bare `test_reason` summary.
+    """
+    from coord.confirm_test import write_test_output_file  # noqa: PLC0415
+    from coord.smoke import _encode_fanout_manifest  # noqa: PLC0415
+    from coord.state import load_assignment_test_reason, record_test_verdict  # noqa: PLC0415
+
+    coord_state_dir = tmp_path / "coord-state"
+    monkeypatch.setattr("coord.state.COORD_DIR", coord_state_dir)
+
+    _seed_fanout_parent()
+    _seed_leg(leg_id="leg-a", state="failed", reason="headless smoke")
+    _seed_leg(leg_id="leg-b", state="failed", reason="headless smoke")
+    write_test_output_file(
+        "leg-a",
+        "running stage 1/1: cargo test --workspace --lib\n"
+        "error[E0308]: mismatched types\n"
+        " --> src/widget.rs:120:9\n"
+        "test result: FAILED. 0 passed; 1 failed\n"
+        "FAILED STAGES (stage order, first is likely root): "
+        "cargo test --workspace --lib\n"
+        "SMOKE: fail exit=1\n",
+    )
+    write_test_output_file(
+        "leg-b",
+        "collected 2 items\n"
+        "FAILED tests/test_widgets.py::test_widget_resize\n"
+        "E       assert 80 == 100\n"
+        "========================= 1 failed, 1 passed in 0.05s =====================\n"
+        "SMOKE: fail exit=1\n",
+    )
+    manifest = _encode_fanout_manifest([
+        ("leg-a", ("gtk",), "cargo test --workspace --lib"),
+        ("leg-b", ("windows",), "pytest quadraui/tests"),
+    ])
+    record_test_verdict(
+        assignment_id="w-fanout", test_state="running",
+        test_reason=(
+            f"{manifest}\n"
+            "Test stage running across 2 capability-partition leg(s) (#3182): "
+            "[gtk]; [windows]."
+        ),
+    )
+
+    finalize_smoke_fanout("w-fanout")
+
+    stored = coord_state_dir / "test_output" / "w-fanout.txt"
+    assert stored.exists()
+    briefing_evidence = stored.read_text()
+
+    assert "cargo test --workspace --lib" in briefing_evidence
+    assert "error[E0308]: mismatched types" in briefing_evidence
+    assert "FAILED tests/test_widgets.py::test_widget_resize" in briefing_evidence
+    assert "E       assert 80 == 100" in briefing_evidence
+
+    # Never the base64 fan-out manifest — that belongs on `test_reason` for
+    # machine parsing, never quoted at a fix worker as evidence.
+    assert "[[smoke-fanout:" not in briefing_evidence
+
+    # The aggregate `test_reason` is untouched by this — still short, still
+    # carries the manifest for `_parse_fanout_manifest`'s own readers.
+    reason = load_assignment_test_reason("w-fanout") or ""
+    assert "[[smoke-fanout:" in reason
+
+
+def test_finalize_smoke_fanout_bounds_the_echoed_command_label(
+    coord_db, tmp_path, monkeypatch,
+) -> None:
+    """A partition's resolved Test-stage command can be a multi-KB,
+    CI-shaped multi-stage shell script (#4166) — the one payload the issue
+    explicitly forbids echoing into a fix briefing. The header built from
+    it must stay a short, single-line label, never the command verbatim.
+    """
+    from coord.confirm_test import write_test_output_file  # noqa: PLC0415
+    from coord.smoke import _encode_fanout_manifest  # noqa: PLC0415
+    from coord.state import record_test_verdict  # noqa: PLC0415
+
+    coord_state_dir = tmp_path / "coord-state"
+    monkeypatch.setattr("coord.state.COORD_DIR", coord_state_dir)
+
+    huge_command = "set -x\n" + "\n".join(
+        f"echo stage {i}; cargo test --features f{i} -p quadraui" for i in range(200)
+    )
+    assert len(huge_command) > 4000
+
+    _seed_fanout_parent()
+    _seed_leg(leg_id="leg-a", state="failed", reason="headless smoke")
+    write_test_output_file(
+        "leg-a",
+        "running stage 1/1: cargo test --workspace --lib\n"
+        "error[E0308]: mismatched types\n"
+        " --> src/widget.rs:120:9\n"
+        "test result: FAILED. 0 passed; 1 failed\n"
+        "FAILED STAGES (stage order, first is likely root): "
+        "cargo test --workspace --lib\n",
+    )
+    manifest = _encode_fanout_manifest([("leg-a", ("gtk",), huge_command)])
+    record_test_verdict(
+        assignment_id="w-fanout", test_state="running",
+        test_reason=(
+            f"{manifest}\n"
+            "Test stage running across 1 capability-partition leg(s) (#3182): [gtk]."
+        ),
+    )
+
+    finalize_smoke_fanout("w-fanout")
+
+    stored = coord_state_dir / "test_output" / "w-fanout.txt"
+    briefing_evidence = stored.read_text()
+
+    assert huge_command not in briefing_evidence
+    assert "error[E0308]: mismatched types" in briefing_evidence
+    # The header carries only a short, bounded label of the command — never
+    # the full multi-stage text.
+    header_line = briefing_evidence.splitlines()[0]
+    assert len(header_line) < 200
+
+    # The aggregate `test_reason` is read as a briefing fallback when no
+    # richer evidence file exists, so its own per-leg headline is bounded
+    # the same way.
+    from coord.state import load_assignment_test_reason  # noqa: PLC0415
+
+    reason = load_assignment_test_reason("w-fanout") or ""
+    assert huge_command not in reason
+    assert "(ran `set -x echo stage 0" in reason
+
+
+def test_finalize_smoke_fanout_carries_a_pre_existing_failure_note(
+    coord_db, tmp_path, monkeypatch,
+) -> None:
+    """#4166: the agent writes a one-line pre-existing-failure note into a
+    failing leg's own output when a sibling branch off the same base already
+    failed the same way (`coord.base_failure_cache`). The evidence extractor
+    keeps compiler/test lines only, so the note has to be carried through
+    explicitly — otherwise the fix worker never learns the failure predates
+    its branch.
+    """
+    from coord.base_failure_cache import PRE_EXISTING_NOTE_PREFIX  # noqa: PLC0415
+    from coord.confirm_test import write_test_output_file  # noqa: PLC0415
+    from coord.smoke import _encode_fanout_manifest  # noqa: PLC0415
+    from coord.state import record_test_verdict  # noqa: PLC0415
+
+    coord_state_dir = tmp_path / "coord-state"
+    monkeypatch.setattr("coord.state.COORD_DIR", coord_state_dir)
+
+    note = (
+        f"{PRE_EXISTING_NOTE_PREFIX} this same failure was already recorded "
+        "for quadraui at base 0123456789ab on branch issue-1 (2026-11-20) — "
+        "it predates this branch."
+    )
+
+    _seed_fanout_parent()
+    _seed_leg(leg_id="leg-a", state="failed", reason="headless smoke")
+    write_test_output_file(
+        "leg-a",
+        "running stage 1/1: cargo test --workspace --lib\n"
+        "error[E0308]: mismatched types\n"
+        " --> src/widget.rs:120:9\n"
+        "FAILED STAGES (stage order, first is likely root): "
+        "cargo test --workspace --lib\n"
+        f"{note}\n",
+    )
+    manifest = _encode_fanout_manifest([("leg-a", ("gtk",), "cargo test --workspace --lib")])
+    record_test_verdict(
+        assignment_id="w-fanout", test_state="running",
+        test_reason=(
+            f"{manifest}\n"
+            "Test stage running across 1 capability-partition leg(s) (#3182): [gtk]."
+        ),
+    )
+
+    finalize_smoke_fanout("w-fanout")
+
+    briefing_evidence = (coord_state_dir / "test_output" / "w-fanout.txt").read_text()
+
+    assert note in briefing_evidence
+    assert "error[E0308]: mismatched types" in briefing_evidence
+
+
+def test_pre_existing_notes_are_capped_and_everything_else_is_ignored() -> None:
+    """A leg writes one note; a pathological log carrying many must not pad
+    the briefing with all of them, and ordinary log lines never masquerade
+    as notes."""
+    from coord.base_failure_cache import PRE_EXISTING_NOTE_PREFIX  # noqa: PLC0415
+    from coord.smoke import _MAX_PRE_EXISTING_NOTES, _pre_existing_notes  # noqa: PLC0415
+
+    assert _pre_existing_notes("error[E0308]: mismatched types\nSMOKE: fail\n") == []
+
+    many = "".join(f"{PRE_EXISTING_NOTE_PREFIX} note {i}\n" for i in range(20))
+    notes = _pre_existing_notes("some log\n" + many)
+
+    assert len(notes) == _MAX_PRE_EXISTING_NOTES
+    assert notes[0] == f"{PRE_EXISTING_NOTE_PREFIX} note 0"
+
+
 @pytest.mark.parametrize(
     "infra_reason",
     [
@@ -7561,3 +7766,161 @@ def test_dispatch_pending_smoke_proceeds_to_the_real_fanout_after_a_passed_prech
     # left `running` — the whole point of #4098's "a pass proceeds to the
     # fan-out exactly as if no precheck had run".
     assert work.test_state is None
+
+
+# ── #4130: load-aware Test admission (_load_probe_reason) ──────────────────
+
+
+def test_load_probe_reason_none_when_max_load_per_core_unset() -> None:
+    from coord.smoke import _load_probe_reason
+
+    machine = _machine("desktop-a", "desktop-a.tail", caps=["gtk"])
+    client = _FakeClient({}, health={"load": {"load1": 99.0, "cpu_count": 2}})
+    assert _load_probe_reason(machine, None, http_client=client) is None
+    # Not even probed — the check is off, no network call made at all.
+    assert client.get_calls == []
+
+
+def test_load_probe_reason_refuses_over_the_ceiling() -> None:
+    from coord.smoke import _load_probe_reason
+
+    machine = _machine("desktop-a", "desktop-a.tail", caps=["gtk"])
+    client = _FakeClient({}, health={"load": {"load1": 20.0, "cpu_count": 4}})
+    reason = _load_probe_reason(machine, 1.5, http_client=client)
+    assert reason is not None
+    assert "20.0" in reason or "20.00" in reason
+    assert client.get_calls == ["http://desktop-a.tail:7433/health"]
+
+
+def test_load_probe_reason_none_when_under_the_ceiling() -> None:
+    from coord.smoke import _load_probe_reason
+
+    machine = _machine("desktop-a", "desktop-a.tail", caps=["gtk"])
+    client = _FakeClient({}, health={"load": {"load1": 2.0, "cpu_count": 4}})
+    assert _load_probe_reason(machine, 1.5, http_client=client) is None
+
+
+def test_load_probe_reason_fails_open_when_health_has_no_load_block() -> None:
+    """An agent that predates #4130 publishes no `load` key at all — never
+    refuse a candidate on a reading this function could not take."""
+    from coord.smoke import _load_probe_reason
+
+    machine = _machine("desktop-a", "desktop-a.tail", caps=["gtk"])
+    client = _FakeClient({}, health={})
+    assert _load_probe_reason(machine, 1.5, http_client=client) is None
+
+
+def test_load_probe_reason_fails_open_when_load_is_unmeasurable() -> None:
+    """`load: null` — a host whose own `os.getloadavg()` is unavailable
+    (e.g. Windows) — must never refuse either."""
+    from coord.smoke import _load_probe_reason
+
+    machine = _machine("desktop-a", "desktop-a.tail", caps=["gtk"])
+    client = _FakeClient({}, health={"load": None})
+    assert _load_probe_reason(machine, 1.5, http_client=client) is None
+
+
+def test_load_probe_reason_fails_open_on_connectivity_error() -> None:
+    import httpx
+
+    from coord.smoke import _load_probe_reason
+
+    class _BoomClient:
+        def get(self, url, *, timeout):
+            raise httpx.ConnectError("nope")
+
+    machine = _machine("desktop-a", "desktop-a.tail", caps=["gtk"])
+    assert _load_probe_reason(machine, 1.5, http_client=_BoomClient()) is None
+
+
+def test_walk_candidates_and_dispatch_skips_overloaded_machine_then_tries_next(
+    gtk_and_server_config: Config,
+) -> None:
+    """#4130: an overloaded capability-matched candidate is skipped (never
+    dispatched to) and the walk proceeds to the next one — "requeue, or
+    pick another capable host", never a dispatch straight into the
+    overload."""
+    from coord.smoke import SmokeMachineChoice, _walk_candidates_and_dispatch
+
+    overloaded = _machine("desktop-a", "desktop-a.tail", caps=["python", "gtk"])
+    idle = _machine("desktop-b", "desktop-b.tail", caps=["python", "gtk"])
+    candidates = [
+        SmokeMachineChoice(machine=overloaded, is_worker=False, rationale="r1"),
+        SmokeMachineChoice(machine=idle, is_worker=False, rationale="r2"),
+    ]
+
+    class _PerHostClient:
+        def __init__(self) -> None:
+            self.posts: list[str] = []
+
+        def get(self, url, *, timeout):
+            if "desktop-a" in url:
+                return _FakeResp({"load": {"load1": 50.0, "cpu_count": 4}})
+            return _FakeResp({"load": {"load1": 1.0, "cpu_count": 4}})
+
+        def post(self, url, *, json, timeout):
+            self.posts.append(url)
+            return _FakeResp({"id": "assigned"})
+
+    client = _PerHostClient()
+    dispatched, attempts = _walk_candidates_and_dispatch(
+        candidates,
+        completed=_completed(),
+        repo=Repo(name="api", github="acme/api", depends_on=[], default_branch="main"),
+        required_caps=[],
+        issue_title="t",
+        build_briefing=lambda is_worker, native_unverified: "briefing",
+        smoke_model_wire="sonnet",
+        http_client=client,
+        smoke_timeout_s=600,
+        max_load_per_core=1.0,
+    )
+
+    assert dispatched is not None
+    assert dispatched[0].machine.name == "desktop-b"
+    assert client.posts == ["http://desktop-b.tail:7433/assign"]
+    assert any("desktop-a" in a.machine_name and "load" in a.reason for a in attempts)
+    # #4130 review: a load spike is a snapshot that clears on its own, not a
+    # durable fault — the attempt must carry `transient=True` so a dead end
+    # built entirely from load skips (see
+    # test_dispatch_smoke_all_overloaded_candidates_leaves_row_redispatchable
+    # below) is not mistaken for one that needs a manual `--reset`.
+    assert all(a.transient for a in attempts)
+
+
+def test_dispatch_smoke_all_overloaded_candidates_leaves_row_redispatchable(
+    three_gtk_config: Config, caplog,
+) -> None:
+    """#4130 review: every capability-matched candidate is merely over its
+    load ceiling — the macmini-is-the-only-`macos`-host shape, where the
+    sole candidate list is entirely load-skipped. That must stay re-
+    dispatchable, exactly like a connectivity blip or a cordon, not wedge
+    the row into `TEST_STATE_BLOCKED` demanding a manual `coord diagnose
+    ... --stage test --reset` for something the next tick clears for free.
+    """
+    three_gtk_config.smoke_tests.max_load_per_core = 1.0
+
+    def _overloaded_gtk_health() -> dict:
+        probe = _gtk_probe(found=True)
+        probe["load"] = {"load1": 50.0, "cpu_count": 4}
+        return probe
+
+    completed = _completed(machine="server")
+    client = _MultiHostClient(
+        health={f"desktop-{s}.tail": _overloaded_gtk_health() for s in "abc"},
+    )
+    with caplog.at_level("WARNING", logger="coord.smoke"):
+        result = dispatch_smoke(
+            completed, Board(), three_gtk_config,
+            http_client=client, diff_lookup=lambda r, b: _GTK_DIFF,
+        )
+    assert result is None
+    # Still eligible next tick — never poisoned into a durable block.
+    assert completed.test_state is None
+    # Never actually dispatched into any of the overloaded candidates.
+    assert client.calls == []
+    summaries = [
+        r for r in caplog.records if "cannot be routed" in r.getMessage()
+    ]
+    assert summaries, "expected the unroutable dead end to be logged once"
+    assert "re-dispatchable" in summaries[0].getMessage()

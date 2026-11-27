@@ -1,26 +1,34 @@
-# fmt: off
-
 # Copyright 2008, 2009
 # CAMd (see accompanying license files for details).
 import warnings
+from pathlib import Path
+
+from ase.config import ASE_CONFIG_FILE, Config, cfg
 
 
 class CLICommand:
     """ASE's graphical user interface.
 
     ASE-GUI.  See the online manual
-    (https://ase-lib.org/ase/gui/gui.html)
+    (https://docs.ase-lib.org/ase/gui/gui.html)
     for more information.
     """
 
     @staticmethod
     def add_arguments(parser):
         add = parser.add_argument
-        add('filenames', nargs='*',
+        add(
+            'filenames',
+            nargs='*',
             help='Files to open.  Append @SLICE to a filename to pick '
             'a subset of images from that file.  See --image-number '
-            'for SLICE syntax.')
-        add('-n', '--image-number', metavar='SLICE', default=':',
+            'for SLICE syntax.',
+        )
+        add(
+            '-n',
+            '--image-number',
+            metavar='SLICE',
+            default=':',
             help='Pick individual image or slice from each of the files.  '
             'SLICE can be a number or a Python slice-like expression '
             'such as :STOP, START:STOP, or START:STOP:STEP, '
@@ -28,43 +36,87 @@ class CLICommand:
             'Indexing counts from 0.  '
             'Negative numbers count backwards from last image.  '
             'Using @SLICE syntax for a filename overrides this option '
-            'for that file.')
-        add('-r', '--repeat',
+            'for that file.',
+        )
+        add(
+            '-r',
+            '--repeat',
             default='1',
-            help='Repeat unit cell.  Use "-r 2" or "-r 2,3,1".')
-        add('-R', '--rotations', default='',
-            help='Examples: "-R -90x", "-R 90z,-30x".')
-        add('-o', '--output', metavar='FILE',
-            help='Write configurations to FILE.')
-        add('-g', '--graph',
+            help='Repeat unit cell.  Use "-r 2" or "-r 2,3,1".',
+        )
+        add(
+            '-R',
+            '--rotations',
+            default='',
+            help='Examples: "-R -90x", "-R 90z,-30x".',
+        )
+        add(
+            '-o',
+            '--output',
+            metavar='FILE',
+            help='Write configurations to FILE.',
+        )
+        add(
+            '-g',
+            '--graph',
             # TRANSLATORS: EXPR abbreviates 'expression'
             metavar='EXPR',
             help='Plot x,y1,y2,... graph from configurations or '
             'write data to sdtout in terminal mode.  Use the '
             'symbols: i, s, d, fmax, e, ekin, A, R, E and F.  See '
-            'https://ase-lib.org/ase/gui/gui.html'
-            '#plotting-data for more details.')
-        add('-t', '--terminal',
+            'https://docs.ase-lib.org/ase/gui/gui.html'
+            '#plotting-data for more details.',
+        )
+        add(
+            '-t',
+            '--terminal',
             action='store_true',
             default=False,
-            help='Run in terminal window - no GUI.')
-        add('--interpolate',
-            type=int, metavar='N',
-            help='Interpolate N images between 2 given images.')
-        add('-b', '--bonds',
+            help='Run in terminal window - no GUI.',
+        )
+        add(
+            '--interpolate',
+            type=int,
+            metavar='N',
+            help='Interpolate N images between 2 given images.',
+        )
+        add(
+            '-b',
+            '--bonds',
             action='store_true',
             default=False,
-            help='Draw bonds between atoms.')
-        add('-s', '--scale', dest='radii_scale', metavar='FLOAT',
-            default=None, type=float,
-            help='Scale covalent radii.')
+            help='Draw bonds between atoms.',
+        )
+        add(
+            '-s',
+            '--scale',
+            dest='radii_scale',
+            metavar='FLOAT',
+            default=None,
+            type=float,
+            help='Scale covalent radii.',
+        )
+        add(
+            '--configfile',
+            metavar='FILE',
+            default=None,
+            type=str,
+            help='Load GUI settings from the specified file (.ini format). '
+            'If not specified, defaults to the global ASE configfile '
+            f'{str(ASE_CONFIG_FILE)}.',
+        )
 
     @staticmethod
     def run(args):
         from ase.atoms import Atoms
         from ase.gui.images import Images
 
-        images = Images()
+        if args.configfile:
+            config = Config.read(Path(args.configfile))
+        else:
+            config = cfg
+
+        images = Images(config=config)
 
         if args.filenames:
             images.read(args.filenames, args.image_number)
@@ -113,7 +165,10 @@ class CLICommand:
             if 'inline' in backend:
                 os.environ['MPLBACKEND'] = 'TkAgg'
 
-            gui = GUI(images, args.rotations, args.bonds, args.graph)
+            gui = GUI(
+                images, args.rotations, args.bonds, args.graph, config=config
+            )
+            images.notify_new_images = gui.obs.new_images.notify  # XXX hack
             gui.run()
 
             # Reinstate the backend used before the GUI was opened

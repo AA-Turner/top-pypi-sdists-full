@@ -111,10 +111,7 @@ class ParentWorkflow:
         return GreetingResult(message=f"Parent received: {child_result.message}")
 
 
-@workflow.define(
-    name="test-spec-workflow",
-    workflow_description="A test workflow for verifying spec generation",
-)
+@workflow.define(name="test-spec-workflow")
 class SpecWorkflow:
     @workflow.entrypoint
     async def run(self, params: GreetingParams) -> GreetingResult:
@@ -264,7 +261,8 @@ class TestWorkflowDefinition:
 
         assert workflow_def is not None
         assert workflow_def.name == "test-spec-workflow"
-        assert workflow_def.description == "A test workflow for verifying spec generation"
+        assert workflow_def.description is None
+        assert workflow_def.display_name is None
         assert workflow_def.input_schema is not None
         assert workflow_def.output_schema is not None
         assert len(workflow_def.signals) == 1

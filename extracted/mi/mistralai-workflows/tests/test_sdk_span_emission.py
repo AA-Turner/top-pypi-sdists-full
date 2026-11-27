@@ -15,6 +15,7 @@ from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows._mistral_http import MISTRAL_HTTP
 from mistralai.workflows.client import get_mistral_client
+from mistralai.workflows.core.auth import RunAs
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.tracing import init_tracing
 from mistralai.workflows.testing import create_test_worker
@@ -160,7 +161,7 @@ class TestMistralClientTracing:
         # flag fails this test instead of skipping it. compat_mistral_v3 pins a release that has it.
         if MISTRAL_HTTP.__name__ == "httpx2" and not hasattr(otel_httpx, "HTTPX2ClientInstrumentor"):
             pytest.skip("HTTPX2ClientInstrumentor needs opentelemetry-instrumentation-httpx>=0.65b0")
-        client = get_mistral_client(api_key="test-key", server_url=models_server)
+        client = get_mistral_client(api_key="test-key", server_url=models_server, run_as=RunAs.DEPLOYMENT)
 
         with trace.get_tracer(__name__).start_as_current_span("activity") as activity_span:
             await client.models.list_async()

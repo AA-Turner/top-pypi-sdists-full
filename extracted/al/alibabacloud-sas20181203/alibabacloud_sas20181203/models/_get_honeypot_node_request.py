@@ -10,15 +10,12 @@ class GetHoneypotNodeRequest(DaraModel):
         lang: str = None,
         node_id: str = None,
     ):
-        # The language of the content within the request and response. Valid values:
-        # 
-        # - **zh**: Chinese
-        # 
-        # - **en**: English
+        # The language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese.
+        # - **en**: English.
         self.lang = lang
         # The ID of the management node.
-        # 
-        # > You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to query the IDs of management nodes.
+        # >You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain the value of this parameter.
         # 
         # This parameter is required.
         self.node_id = node_id

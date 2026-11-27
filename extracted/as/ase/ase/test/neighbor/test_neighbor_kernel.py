@@ -191,8 +191,7 @@ def test_neighbor_kernel():
                 i2, j2, d2, _D2, _S2 = neighbor_list(
                     'ijdDS', atoms2, atoms2.numbers * 0.2 + 0.5
                 )
-                c2 = np.bincount(i2, minlength=len(atoms))
-                c2.shape = (-1, nat)
+                c2 = np.bincount(i2, minlength=len(atoms)).reshape((-1, nat))
                 dd = d.sum() * (p1 + 1) * (p2 + 1) * (p3 + 1) - d2.sum()
                 pos = atoms.positions
                 dr = np.linalg.solve(

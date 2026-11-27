@@ -18,21 +18,27 @@ class ListUnknownThreatDetectEventRequest(DaraModel):
         status: int = None,
         uuid: str = None,
     ):
+        # The analysis result. Valid values:
+        # - **black**: Abnormal process
+        # - **white**: Normal process
         self.analyze_result = analyze_result
-        # The page number of the current page in a paging query.
+        # The page number of the current page for paging in a paged query.
         self.current_page = current_page
         # The unique identifier of the file.
         self.hash_key = hash_key
+        # The language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
-        # The maximum number of entries to return on each page in a paging query.
+        # The maximum number of entries to return on each page for paging in a paged query.
         self.page_size = page_size
-        # The parent process path.
+        # The path of the parent process.
         self.parent_process_path = parent_process_path
-        # The process path.
+        # The path of the process.
         self.process_path = process_path
-        # The filter condition based on instance name or IP address.
+        # The keyword used to filter results by instance name or IP address.
         self.remark = remark
-        # The event status. Valid values:
+        # The status of the event. Valid values:
         # 
         # - **1**: Unhandled.
         # - **2**: Blocked.

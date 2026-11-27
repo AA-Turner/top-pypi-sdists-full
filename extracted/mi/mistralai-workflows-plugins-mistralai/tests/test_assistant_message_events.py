@@ -13,7 +13,7 @@ from mistralai.workflows.plugins.mistralai import (
 )
 from mistralai.workflows.testing import (
     compare_itemwise,
-    create_capturing_mock_events_client,
+    create_capturing_mock_event_publisher,
     create_test_worker_with_events,
     custom_task_completed,
     custom_task_started,
@@ -76,7 +76,7 @@ class AssistantMessageMultipleWorkflow:
 async def test_assistant_message_text_emits_events(temporal_env: WorkflowEnvironment) -> None:
     """Test that send_assistant_message with text emits correct custom task events."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -140,7 +140,7 @@ async def test_assistant_message_text_emits_events(temporal_env: WorkflowEnviron
 async def test_assistant_message_multiple_emits_events(temporal_env: WorkflowEnvironment) -> None:
     """Test that multiple send_assistant_message calls emit separate events."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -174,7 +174,7 @@ async def test_assistant_message_multiple_emits_events(temporal_env: WorkflowEnv
 async def test_assistant_message_canvas_emits_events(temporal_env: WorkflowEnvironment) -> None:
     """Test that send_assistant_message with canvas emits text and resource chunks."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(

@@ -29,19 +29,91 @@ PERMUTE_BLOCK_BYTES = 1 << 26
 """Bytes of rows `permute_columns_in_place` moves at a time."""
 
 GATHER_BLOCK_BYTES = 1 << 26
-"""Bytes of columns `gather_columns` reads at a time."""
+"""Bytes of gathered values `gather_columns` handles at a time."""
 
 
 def gather_columns(X: np.ndarray, indices: np.ndarray, dtype: Any) -> np.ndarray:
-    """`X[:, indices].astype(dtype, order="C")`, with no full-size intermediate.
-
-    The columns are gathered a block at a time straight into the C-ordered result.
-    """
+    """`X[:, indices].astype(dtype, order="C")`, with no full-size intermediate."""
     out = np.empty((X.shape[0], len(indices)), dtype=dtype, order="C")
+    if X.dtype in (np.float32, np.float64) and (
+        X.flags.c_contiguous or X.flags.f_contiguous
+    ):
+        # `torch.gather` with one index row broadcast over a block of rows outpaces
+        # `index_select` and numpy's fancy indexing from either layout.
+        source = as_tensor_to_read(X)
+        index = torch.as_tensor(indices, dtype=torch.long).view(1, -1)
+        target = torch.from_numpy(out)
+        rows = max(1, GATHER_BLOCK_BYTES // max(1, len(indices) * out.itemsize))
+        for start in range(0, X.shape[0], rows):
+            block = slice(start, start + rows)
+            values = source[block]
+            block_index = index.expand(len(values), -1)
+            if X.dtype == out.dtype:
+                torch.gather(values, 1, block_index, out=target[block])
+            else:
+                # `gather` does not cast, so the block is cast as it is written.
+                target[block] = torch.gather(values, 1, block_index)
+        return out
+    # A block of columns at a time, each cast as it is written into the result.
+    # numpy's fancy indexing over a block of rows is far slower.
     width = max(1, GATHER_BLOCK_BYTES // max(1, X.shape[0] * X.itemsize))
     for start in range(0, len(indices), width):
         out[:, start : start + width] = X[:, indices[start : start + width]]
     return out
+
+
+def positions(values: np.ndarray) -> torch.Tensor:
+    """`values`, positions along an axis, as a contiguous int64 tensor.
+
+    numpy 1 gives int32 on Windows, which some torch indexing ops reject, and
+    `torch.from_numpy` rejects negative strides, such as those of a reversed view.
+    """
+    return torch.from_numpy(np.ascontiguousarray(values, dtype=np.int64))
+
+
+def gather_cells(
+    whole: torch.Tensor, rows: slice | np.ndarray, columns: np.ndarray
+) -> torch.Tensor:
+    """`whole[rows][:, columns]` as a new tensor, one block of rows per torch thread.
+
+    `index_select` along columns runs on one thread. Advanced indexing runs on all
+    of them, but does several times the work per thread. So each thread runs
+    `index_select` on its own block.
+    """
+    index = positions(columns)
+    if not isinstance(rows, slice):
+        rows = positions(rows)
+    n_rows = rows.stop - rows.start if isinstance(rows, slice) else len(rows)
+    out = torch.empty((n_rows, len(index)), dtype=whole.dtype)
+    threads = torch.get_num_threads()
+    bounds = np.linspace(0, n_rows, threads + 1).astype(int)
+
+    # Inference mode is per thread, and `out` is an inference tensor when the caller
+    # runs in that mode: each thread must write to it in the same mode.
+    inference = torch.is_inference_mode_enabled()
+
+    def gather_block(start: int, stop: int) -> None:
+        with torch.inference_mode(inference):
+            if isinstance(rows, slice):
+                block = whole[rows.start + start : rows.start + stop]
+            else:
+                block = whole.index_select(0, rows[start:stop])
+            torch.index_select(block, 1, index, out=out[start:stop])
+
+    pool = _thread_pool(threads, os.getpid())
+    list(pool.map(gather_block, bounds[:-1].tolist(), bounds[1:].tolist()))
+    return out
+
+
+@functools.cache
+def _thread_pool(threads: int, pid: int) -> ThreadPoolExecutor:  # noqa: ARG001
+    """A pool of `threads` threads for the process `pid`, kept for its lifetime.
+
+    Starting the threads, and the thread teams torch starts in each of them, costs
+    more than a small gather. A forked process has no threads of its parent's
+    pool, so it gets its own.
+    """
+    return ThreadPoolExecutor(threads)
 
 
 def step_owns_input() -> bool:
@@ -54,16 +126,17 @@ def step_owns_input() -> bool:
 
 
 def permute_columns_in_place(X: np.ndarray, order: list[int]) -> np.ndarray:
-    """`X[:, order]` for a permutation `order`, written into `X` a block of rows at a
-    time; returns `X`.
+    """`X[:, order]` for a permutation `order`, written into a C-ordered float `X` a
+    block of rows at a time; returns `X`, or a new array for any other `X`.
     """
-    if not X.flags.c_contiguous:
+    if not (X.flags.c_contiguous and X.dtype in (np.float32, np.float64)):
         return X[:, order]
-    index = np.asarray(order, dtype=np.intp)
+    # `index_select` beats numpy's fancy indexing over a block of rows.
+    table, index = torch.from_numpy(X), torch.as_tensor(order, dtype=torch.long)
     rows = max(1, PERMUTE_BLOCK_BYTES // max(1, X.shape[1] * X.itemsize))
     for start in range(0, X.shape[0], rows):
-        block = X[start : start + rows]
-        block[:] = block[:, index]
+        block = table[start : start + rows]
+        block.copy_(block.index_select(1, index))
     return X
 
 
@@ -206,13 +279,34 @@ class SharedColumnsTable:
         """Writes rows `start:stop` into `out`, a contiguous CPU tensor of their
         shape in `base`'s dtype.
         """
+        self._fill(
+            as_tensor_to_read(self.base[start:stop]),
+            torch.from_numpy(self.own[start:stop]),
+            out,
+        )
+
+    def rows_at(self, rows: np.ndarray) -> torch.Tensor:
+        """Rows `rows`, in their order, as a new CPU tensor."""
         from_base, own_at, own_from = self._gather_indices
-        rows = stop - start
+        # One index of rows and columns reads only the table's cells, not whole rows
+        # of `base`. Torch indexes with many threads, NumPy with one.
+        index = positions(rows).view(-1, 1)
+        out = as_tensor_to_read(self.base)[index, from_base]
+        if own_at.numel():
+            values = torch.from_numpy(self.own)[index, own_from]
+            out.scatter_(1, own_at.expand(len(rows), -1), values)
+        return out
+
+    def _fill(self, base: torch.Tensor, own: torch.Tensor, out: torch.Tensor) -> None:
+        """Writes the table's columns of some rows into `out`.
+
+        `base` and `own` hold these rows of the base array and of the own array.
+        """
+        from_base, own_at, own_from = self._gather_indices
+        rows = len(base)
         # Every column from `base` in one gather, then the own ones over theirs.
-        base = as_tensor_to_read(self.base[start:stop])
         torch.gather(base, 1, from_base.expand(rows, -1), out=out)
         if own_at.numel():
-            own = torch.from_numpy(self.own[start:stop])
             values = torch.gather(own, 1, own_from.expand(rows, -1))
             out.scatter_(1, own_at.expand(rows, -1), values)
 
@@ -662,12 +756,18 @@ class PreprocessingPipeline:
         return PreprocessingPipelineResult(X=X, feature_schema=feature_schema)
 
     def transform(
-        self, X: np.ndarray | torch.Tensor, *, may_keep_input: bool = False
+        self,
+        X: np.ndarray | torch.Tensor,
+        *,
+        feature_indices: np.ndarray | None = None,
+        may_keep_input: bool = False,
     ) -> PreprocessingPipelineResult:
         """Transform the data using the fitted pipeline.
 
         Args:
             X: 2d array of shape (n_samples, n_features).
+            feature_indices: The columns of `X` the pipeline reads, gathered into
+                its working copy; None for all of them.
             may_keep_input: Whether the result may be `X` itself, or a
                 `SharedColumnsTable` over it, which the caller then must not write
                 into.
@@ -684,6 +784,7 @@ class PreprocessingPipeline:
             X,
             self.initial_feature_schema_,
             is_fitting=False,
+            feature_indices=feature_indices,
             may_keep_input=may_keep_input,
         )
         return PreprocessingPipelineResult(X=X, feature_schema=updated_schema)
@@ -721,9 +822,9 @@ class PreprocessingPipeline:
         """The array the steps run on.
 
         This is a copy of `X`, or of its `feature_indices` columns. It is `X` itself,
-        as a `SharedColumnsTable`, when nothing would write into it and
-        `may_keep_input`: a step that would copy `X` to move or rewrite its columns
-        then shares the columns it leaves alone.
+        as a `SharedColumnsTable` of those columns, when nothing would write into it
+        and `may_keep_input`: a step that would copy `X` to move or rewrite its
+        columns then shares the columns it leaves alone.
 
         One copy preserves the caller's array and saves each step its own; the cast
         is fused with it.
@@ -736,28 +837,34 @@ class PreprocessingPipeline:
         keep = self.keep_float32 and X.dtype == np.float32
         if (
             keep
-            and feature_indices is None
             and may_keep_input
             # The copy is C-ordered, and `torch.as_tensor` rejects negative strides.
             and X.flags.c_contiguous
-            and self._writes_only_owned_input(X)
+            and self._writes_only_owned_input(X, feature_indices)
         ):
-            return SharedColumnsTable.of(X)
+            table = SharedColumnsTable.of(X)
+            return table if feature_indices is None else table[:, feature_indices]
         dtype = np.float32 if keep else np.float64
         if feature_indices is None:
             return X.astype(dtype, order="C", copy=True)
         return gather_columns(X, feature_indices, dtype)
 
-    def _writes_only_owned_input(self, X: np.ndarray) -> bool:
-        """Whether the steps can run on `X` itself without anything writing into it.
+    def _writes_only_owned_input(
+        self, X: np.ndarray, feature_indices: np.ndarray | None
+    ) -> bool:
+        """Whether the steps can run on `X`'s `feature_indices` columns, or all of
+        them, without anything writing into `X`.
 
         That is not the case when a step has modalities, because the pipeline writes
-        that step's output back into its array, or when `X` holds infinities, which
-        are replaced in place. The steps themselves only write into arrays they own.
+        that step's output back into its array, or when the columns hold infinities,
+        which are replaced in place. The steps themselves only write into arrays they
+        own.
         """
         if any(modalities for _, modalities in self.steps):
             return False
         (has_inf,) = any_per_column(X, [np.isinf])
+        if feature_indices is not None:
+            has_inf = has_inf[feature_indices]
         return not has_inf.any()
 
     def _process_steps(
@@ -767,7 +874,7 @@ class PreprocessingPipeline:
         *,
         is_fitting: bool,
         may_keep_input: bool,
-        feature_indices: np.ndarray | None = None,
+        feature_indices: np.ndarray | None,
     ) -> tuple[np.ndarray | torch.Tensor, FeatureSchema]:
         """Process all pipeline steps.
 

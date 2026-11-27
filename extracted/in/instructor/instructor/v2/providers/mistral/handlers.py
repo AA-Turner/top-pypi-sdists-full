@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import inspect
 import json
+from functools import partial
 from collections.abc import (
     AsyncGenerator,
     AsyncIterator,
@@ -22,7 +23,6 @@ from collections.abc import (
 )
 from textwrap import dedent
 from typing import Any, cast, get_origin
-from weakref import WeakKeyDictionary
 
 from pydantic import BaseModel
 
@@ -33,9 +33,12 @@ from instructor.v2.core.errors import (
     ResponseParsingError,
 )
 from instructor.v2.dsl.iterable import IterableBase
-from instructor.v2.dsl.parallel import ParallelBase, get_types_array
-from instructor.v2.dsl.partial import PartialBase
-from instructor.v2.dsl.simple_type import AdapterBase
+from instructor.v2.dsl.parallel import (
+    ParallelBase as ParallelBase,
+    ParallelModel,
+    model_for_tool_name,
+)
+from instructor.v2.dsl.simple_type import AdapterBase as AdapterBase
 from instructor.v2.core.multimodal import convert_messages as convert_messages_v1
 from instructor.v2.core.json import (
     extract_json_from_codeblock,
@@ -44,106 +47,127 @@ from instructor.v2.core.json import (
 )
 from instructor.v2.providers.openai.schema import generate_openai_schema
 from instructor.v2.core.messages import (
+    append_system_instruction,
     copy_messages_for_mutation,
     dump_message,
     merge_consecutive_messages,
+    text_from_content_blocks,
 )
 from instructor.v2.core.decorators import register_mode_handler
 from instructor.v2.core.handler import ModeHandler
+from instructor.v2.core.streaming import StreamingModelState
 
 
-class MistralHandlerBase(ModeHandler):
+def _first_choice_message(response: Any) -> Any | None:
+    """Return the first completion choice's message, if the response has one.
+
+    Some gateways return HTTP 200 with an empty ``choices`` list (for example
+    when a prompt is rejected by content filtering). There is no assistant
+    message to parse or replay in that case, so callers must treat it as a
+    retryable parse failure instead of indexing ``choices[0]``.
+    """
+    choices = getattr(response, "choices", None)
+    if not choices:
+        return None
+    return choices[0].message
+
+
+class MistralHandlerBase(StreamingModelState, ModeHandler):
     """Base class for Mistral handlers with shared utilities."""
 
     mode: Mode
 
-    def __init__(self) -> None:
-        self._streaming_models: WeakKeyDictionary[type[Any], None] = WeakKeyDictionary()
+    def _require_choice_message(self, response: Any) -> Any:
+        message = _first_choice_message(response)
+        if message is None:
+            raise ResponseParsingError(
+                "No choices in Mistral response",
+                mode=self.mode.name,
+                raw_response=response,
+            )
+        return message
 
-    def _register_streaming_from_kwargs(
-        self, response_model: type[BaseModel] | None, kwargs: dict[str, Any]
-    ) -> None:
-        """Register model for streaming if stream=True in kwargs."""
-        if response_model is None:
-            return
-        if kwargs.get("stream"):
-            self.mark_streaming_model(response_model, True)
+    def _stream_chunk_json(self, chunk: Any) -> str | None:
+        """Return the JSON fragment carried by one stream chunk, if any."""
+        try:
+            # `choices` can be empty (e.g. a trailing usage-only chunk), which
+            # raises IndexError rather than AttributeError.
+            delta = chunk.data.choices[0].delta
+            if self.mode == Mode.TOOLS:
+                if not delta.tool_calls:
+                    return None
+                return delta.tool_calls[0].function.arguments
+            content = delta.content
+        except (AttributeError, IndexError):
+            return None
+        if isinstance(content, list):
+            # Reasoning models stream [ThinkChunk, TextChunk] deltas.
+            return text_from_content_blocks(content)
+        return content if isinstance(content, str) else None
 
-    def mark_streaming_model(
-        self, response_model: type[BaseModel] | None, stream: bool
-    ) -> None:
-        """Record that the response model expects streaming output."""
-        if not stream or response_model is None:
-            return
-        if inspect.isclass(response_model) and issubclass(
-            response_model, (IterableBase, PartialBase)
-        ):
-            self._streaming_models[response_model] = None
-
-    def _consume_streaming_flag(
-        self, response_model: type[BaseModel] | ParallelBase | None
-    ) -> bool:
-        """Check and consume streaming flag for a model."""
-        if response_model is None:
+    @staticmethod
+    def _is_length_stop(chunk: Any) -> bool:
+        try:
+            return chunk.data.choices[0].finish_reason == "length"
+        except (AttributeError, IndexError):
             return False
-        if not inspect.isclass(response_model):
-            return False
-        if response_model in self._streaming_models:
-            del self._streaming_models[response_model]
-            return True
-        return False
 
     def extract_streaming_json(
-        self, completion: TypingIterable[Any]
+        self, completion: TypingIterable[Any], *, single_model: bool = False
     ) -> Generator[str, None, None]:
         """Extract JSON chunks from Mistral streaming responses."""
+        # Raised only after every complete item has been flushed downstream.
+        truncated: list[IncompleteOutputException] = []
 
         def _raw_chunks() -> Generator[str, None, None]:
+            incomplete_chunk: Any = None
             for chunk in completion:
-                try:
-                    if self.mode == Mode.TOOLS:
-                        if not chunk.data.choices[0].delta.tool_calls:
-                            continue
-                        yield (
-                            chunk.data.choices[0].delta.tool_calls[0].function.arguments
-                        )
-                    else:
-                        yield chunk.data.choices[0].delta.content
-                except AttributeError:
-                    continue
+                if not single_model and self._is_length_stop(chunk):
+                    incomplete_chunk = chunk
+                if json_chunk := self._stream_chunk_json(chunk):
+                    yield json_chunk
+            if incomplete_chunk is not None:
+                truncated.append(
+                    IncompleteOutputException(last_completion=incomplete_chunk)
+                )
 
         raw_chunks = _raw_chunks()
         if self.mode == Mode.MD_JSON:
-            yield from extract_json_from_stream(raw_chunks)
-            return
-        yield from raw_chunks
+            yield from extract_json_from_stream(raw_chunks, single_model=single_model)
+        else:
+            yield from raw_chunks
+        if truncated:
+            raise truncated[0]
 
     async def extract_streaming_json_async(
-        self, completion: AsyncGenerator[Any, None]
+        self, completion: AsyncGenerator[Any, None], *, single_model: bool = False
     ) -> AsyncGenerator[str, None]:
         """Extract JSON chunks from Mistral async streams."""
+        truncated: list[IncompleteOutputException] = []
 
         async def _raw_chunks() -> AsyncGenerator[str, None]:
+            incomplete_chunk: Any = None
             async for chunk in completion:
-                try:
-                    if self.mode == Mode.TOOLS:
-                        if not chunk.data.choices[0].delta.tool_calls:
-                            continue
-                        yield (
-                            chunk.data.choices[0].delta.tool_calls[0].function.arguments
-                        )
-                    else:
-                        yield chunk.data.choices[0].delta.content
-                except AttributeError:
-                    continue
+                if not single_model and self._is_length_stop(chunk):
+                    incomplete_chunk = chunk
+                if json_chunk := self._stream_chunk_json(chunk):
+                    yield json_chunk
+            if incomplete_chunk is not None:
+                truncated.append(
+                    IncompleteOutputException(last_completion=incomplete_chunk)
+                )
 
         raw_chunks = _raw_chunks()
         if self.mode == Mode.MD_JSON:
-            async for chunk in extract_json_from_stream_async(raw_chunks):
+            async for chunk in extract_json_from_stream_async(
+                raw_chunks, single_model=single_model
+            ):
                 yield chunk
-            return
-        async for chunk in raw_chunks:
-            yield chunk
+        else:
+            async for chunk in raw_chunks:
+                yield chunk
+        if truncated:
+            raise truncated[0]
 
     def convert_messages(
         self, messages: list[dict[str, Any]], autodetect_images: bool = False
@@ -189,7 +213,10 @@ class MistralHandlerBase(ModeHandler):
                 )
             return streaming_model.from_streaming_response_async(
                 response,
-                stream_extractor=self.extract_streaming_json_async,
+                stream_extractor=partial(
+                    self.extract_streaming_json_async,
+                    single_model=not issubclass(response_model, IterableBase),
+                ),
                 **parse_kwargs,
             )
 
@@ -197,29 +224,15 @@ class MistralHandlerBase(ModeHandler):
             parse_kwargs["task_parser"] = task_parser
         generator = streaming_model.from_streaming_response(
             response,
-            stream_extractor=self.extract_streaming_json,
+            stream_extractor=partial(
+                self.extract_streaming_json,
+                single_model=not issubclass(response_model, IterableBase),
+            ),
             **parse_kwargs,
         )
         if inspect.isclass(response_model) and issubclass(response_model, IterableBase):
             return generator
         return list(generator)
-
-    def _finalize_parsed_result(
-        self,
-        response_model: type[BaseModel] | ParallelBase,
-        response: Any,
-        parsed: Any,
-    ) -> Any:
-        """Finalize parsed result, handling DSL types."""
-        if isinstance(parsed, IterableBase):
-            return [task for task in parsed.tasks]
-        if isinstance(response_model, ParallelBase):
-            return parsed
-        if isinstance(parsed, AdapterBase):
-            return parsed.content
-        if isinstance(parsed, BaseModel):
-            parsed._raw_response = response  # type: ignore[attr-defined]
-        return parsed
 
     def _extract_tool_call_json(self, response: Any) -> str:
         """Extract JSON from tool call response.
@@ -227,7 +240,7 @@ class MistralHandlerBase(ModeHandler):
         Mistral returns tool call arguments as either a string or a dict,
         so we need to handle both cases.
         """
-        message = response.choices[0].message
+        message = self._require_choice_message(response)
         tool_calls = getattr(message, "tool_calls", None) or []
         if not tool_calls:
             # The model replied in prose instead of calling the tool (e.g.
@@ -246,7 +259,12 @@ class MistralHandlerBase(ModeHandler):
 
     def _extract_text_content(self, response: Any) -> str:
         """Extract text content from response."""
-        return response.choices[0].message.content or ""
+        message = self._require_choice_message(response)
+        content = message.content
+        if isinstance(content, list):
+            # Reasoning models (Magistral) return [ThinkChunk, TextChunk].
+            return text_from_content_blocks(content) or ""
+        return content or ""
 
 
 @register_mode_handler(Provider.MISTRAL, Mode.TOOLS)
@@ -285,7 +303,7 @@ class MistralToolsHandler(MistralHandlerBase):
 
         if is_parallel:
             # Handle parallel model - generate tools for each type
-            the_types = get_types_array(cast(Any, response_model))
+            the_types = ParallelModel(cast(Any, response_model)).models
             tools = []
             for model_type in the_types:
                 schema = generate_openai_schema(model_type)
@@ -308,10 +326,12 @@ class MistralToolsHandler(MistralHandlerBase):
     ) -> dict[str, Any]:
         """Handle reask for tools mode."""
         kwargs = kwargs.copy()
-        message = response.choices[0].message
-        reask_msgs: list[Any] = [dump_message(message)]
+        # With no completion choice there is no assistant message to replay;
+        # fall through to the plain user correction below.
+        message = _first_choice_message(response)
+        reask_msgs: list[Any] = [dump_message(message)] if message is not None else []
 
-        tool_calls = message.tool_calls or []
+        tool_calls = (message.tool_calls or []) if message is not None else []
         if not tool_calls:
             # The model answered in prose without calling the tool, so there is
             # no tool_call_id to attach a tool-role message to. Fall back to a
@@ -348,15 +368,12 @@ class MistralToolsHandler(MistralHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
-        stream: bool = False,  # noqa: ARG002
+        stream: bool | None = None,
         is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         """Parse tool call response."""
         # Check for streaming
-        consume_streaming = isinstance(
-            response_model, type
-        ) and self._consume_streaming_flag(response_model)
-        if consume_streaming:
+        if self._should_parse_streaming(response_model, stream):
             return self._parse_streaming_response(
                 response_model,
                 response,
@@ -373,24 +390,27 @@ class MistralToolsHandler(MistralHandlerBase):
         # Handle parallel tools (Iterable[Union[...]])
         origin = get_origin(response_model)
         if origin is TypingIterable:
-            the_types = get_types_array(response_model)  # type: ignore[arg-type]
-            type_registry = {t.__name__: t for t in the_types}
-
-            def parallel_generator() -> Generator[BaseModel, None, None]:
-                for tool_call in response.choices[0].message.tool_calls or []:
-                    name = tool_call.function.name
-                    if name in type_registry:
-                        model_class = type_registry[name]
-                        args = tool_call.function.arguments
-                        if isinstance(args, dict):
-                            args = json.dumps(args)
-                        yield model_class.model_validate_json(
-                            args,
-                            context=validation_context,
-                            strict=strict,
-                        )
-
-            return parallel_generator()
+            type_registry: dict[str, type[BaseModel]] = ParallelModel(
+                cast(Any, response_model)
+            ).registry
+            message = self._require_choice_message(response)
+            results = []
+            for tool_call in message.tool_calls or []:
+                model_class = model_for_tool_name(
+                    type_registry,
+                    tool_call.function.name,
+                    mode=self.mode,
+                    raw_response=response,
+                )
+                args = tool_call.function.arguments
+                if isinstance(args, dict):
+                    args = json.dumps(args)
+                results.append(
+                    model_class.model_validate_json(
+                        args, context=validation_context, strict=strict
+                    )
+                )
+            return iter(results)
 
         # Standard tool call parsing
         json_str = self._extract_tool_call_json(response)
@@ -447,11 +467,20 @@ class MistralJSONSchemaHandler(MistralHandlerBase):
     ) -> dict[str, Any]:
         """Handle reask for JSON schema mode."""
         kwargs = kwargs.copy()
-        reask_msgs = [
-            {
-                "role": "assistant",
-                "content": response.choices[0].message.content,
-            },
+        # With no completion choice there is no assistant message to replay;
+        # append only the correction prompt.
+        message = _first_choice_message(response)
+        reask_msgs = (
+            [
+                {
+                    "role": "assistant",
+                    "content": message.content,
+                },
+            ]
+            if message is not None
+            else []
+        )
+        reask_msgs.append(
             {
                 "role": "user",
                 "content": (
@@ -459,7 +488,7 @@ class MistralJSONSchemaHandler(MistralHandlerBase):
                     "Recall the function correctly, fix the errors"
                 ),
             },
-        ]
+        )
         kwargs["messages"].extend(reask_msgs)
         return kwargs
 
@@ -469,14 +498,12 @@ class MistralJSONSchemaHandler(MistralHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
-        stream: bool = False,  # noqa: ARG002
+        stream: bool | None = None,
         is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         """Parse JSON schema response."""
         # Check for streaming
-        if isinstance(response_model, type) and self._consume_streaming_flag(
-            response_model
-        ):
+        if self._should_parse_streaming(response_model, stream):
             return self._parse_streaming_response(
                 response_model,
                 response,
@@ -532,22 +559,8 @@ class MistralMDJSONHandler(MistralHandlerBase):
 
         # Add system message with schema
         messages = copy_messages_for_mutation(new_kwargs.get("messages", []))
-        if messages and messages[0]["role"] != "system":
-            messages.insert(
-                0,
-                {
-                    "role": "system",
-                    "content": message,
-                },
-            )
-        elif messages and isinstance(messages[0]["content"], str):
-            messages[0]["content"] += f"\n\n{message}"
-        elif (
-            messages
-            and isinstance(messages[0]["content"], list)
-            and messages[0]["content"]
-        ):
-            messages[0]["content"][0]["text"] += f"\n\n{message}"
+        if messages and messages[0]["role"] == "system":
+            append_system_instruction(messages[0], message)
         else:
             messages.insert(0, {"role": "system", "content": message})
 
@@ -570,11 +583,20 @@ class MistralMDJSONHandler(MistralHandlerBase):
     ) -> dict[str, Any]:
         """Handle reask for MD_JSON mode."""
         kwargs = kwargs.copy()
-        reask_msgs = [
-            {
-                "role": "assistant",
-                "content": response.choices[0].message.content,
-            },
+        # With no completion choice there is no assistant message to replay;
+        # append only the correction prompt.
+        message = _first_choice_message(response)
+        reask_msgs = (
+            [
+                {
+                    "role": "assistant",
+                    "content": message.content,
+                },
+            ]
+            if message is not None
+            else []
+        )
+        reask_msgs.append(
             {
                 "role": "user",
                 "content": (
@@ -582,7 +604,7 @@ class MistralMDJSONHandler(MistralHandlerBase):
                     "Recall the function correctly, fix the errors"
                 ),
             },
-        ]
+        )
         kwargs["messages"].extend(reask_msgs)
         return kwargs
 
@@ -592,14 +614,12 @@ class MistralMDJSONHandler(MistralHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
-        stream: bool = False,  # noqa: ARG002
+        stream: bool | None = None,
         is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         """Parse JSON from markdown code block in response."""
         # Check for streaming
-        if isinstance(response_model, type) and self._consume_streaming_flag(
-            response_model
-        ):
+        if self._should_parse_streaming(response_model, stream):
             return self._parse_streaming_response(
                 response_model,
                 response,

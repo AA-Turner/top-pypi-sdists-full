@@ -253,7 +253,7 @@ class Runner:
         return name
 
 
-def str2dict(s: str, namespace={}, sep: str = '=') -> dict[str, Any]:
+def str2dict(s: str, namespace=None, sep: str = '=') -> dict[str, Any]:
     """Convert comma-separated key=value string to dictionary.
 
     Examples
@@ -262,8 +262,11 @@ def str2dict(s: str, namespace={}, sep: str = '=') -> dict[str, Any]:
     >>> str2dict('xc=PBE,nbands=200,parallel={band:4}')
     {'xc': 'PBE', 'nbands': 200, 'parallel': {'band': 4}}
     >>> str2dict('a=1.2,b=True,c=ab,d=1,2,3,e={f:42,g:cd}')
-    {'a': 1.2, 'c': 'ab', 'b': True, 'e': {'g': 'cd', 'f': 42}, 'd': (1, 2, 3)}
+    {'a': 1.2, 'b': True, 'c': 'ab', 'd': (1, 2, 3), 'e': {'f': 42, 'g': 'cd'}}
     """
+
+    if namespace is None:
+        namespace = {}
 
     def myeval(value):
         try:

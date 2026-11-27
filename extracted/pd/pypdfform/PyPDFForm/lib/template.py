@@ -11,7 +11,7 @@ specific patterns for identifying and constructing different types of widgets.
 from copy import deepcopy
 from functools import lru_cache
 from io import BytesIO
-from typing import Dict, List, cast
+from typing import Dict, List, Optional, Tuple, cast
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import (
@@ -29,6 +29,7 @@ from .constants import (
     MULTILINE,
     READ_ONLY,
     REQUIRED,
+    AcroForm,
     Annots,
     Dest,
     JavaScript,
@@ -42,22 +43,23 @@ from .middleware.dropdown import Dropdown
 from .middleware.radio import Radio
 from .middleware.text import Text
 from .patterns import (
-    WIDGET_DESCRIPTION_PATTERNS,
-    WIDGET_TYPE_PATTERNS,
     check_field_flag,
     get_checkbox_value,
     get_dropdown_choices,
     get_dropdown_value,
     get_field_hidden,
     get_field_rect,
+    get_field_tooltip,
     get_radio_value,
     get_text_field_alignment,
     get_text_field_max_length,
+    get_text_field_style,
     get_text_value,
     get_widget_key,
+    get_widget_type,
     update_annotation_name,
 )
-from .utils import extract_widget_property, find_pattern_match
+from .utils import get_dictionary
 
 
 def get_metadata(pdf: bytes) -> dict:
@@ -226,19 +228,56 @@ def _build_widget_cache(
         Dict[str, WIDGET_TYPES]: Cached widget prototypes keyed by widget name.
     """
     results = {}
+    radios = {}
+    reader = PdfReader(BytesIO(pdf_stream))
+    acroform = get_dictionary(reader.root_object, AcroForm)
 
-    for page_num, widgets in get_widgets_by_page(pdf_stream).items():
-        for widget in widgets:
-            _process_widget(widget, page_num, use_full_widget_name, results)
+    for page_num, page in enumerate(reader.pages, start=1):
+        for index, (widget, annot) in enumerate(_get_widget_annotations(page)):
+            _process_widget(
+                widget,
+                get_widget_key(annot, use_full_widget_name),
+                page_num,
+                results,
+                radios,
+                acroform,
+                index,
+            )
 
     return results
 
 
+def get_widget_positions(pdf_stream: bytes) -> Dict[str, tuple]:
+    """
+    Gets where the widget that each short key gives access to is in a PDF.
+
+    The position is the page number and the index of the widget among the
+    widgets on that page, which renaming doesn't change. For a radio group, it
+    is the position of its first option.
+
+    Args:
+        pdf_stream (bytes): The PDF stream to parse.
+
+    Returns:
+        Dict[str, tuple]: The `(page number, index)` of each key's widget.
+    """
+    if not pdf_stream:
+        return {}
+
+    return {
+        key: widget.__dict__["_position"]
+        for key, widget in _build_widget_cache(pdf_stream, False).items()
+    }
+
+
 def _process_widget(
     widget: dict,
+    key: str,
     page_number: int,
-    use_full_widget_name: bool,
     results: Dict[str, WIDGET_TYPES],
+    radios: Dict[str, Radio],
+    acroform: Optional[DictionaryObject],
+    index: int,
 ) -> None:
     """
     Processes a single widget and adds it to the results dictionary.
@@ -246,30 +285,44 @@ def _process_widget(
     Common geometry and flags are populated for every recognized widget. Text,
     checkbox, dropdown, and radio widgets then get type-specific state. Radio
     annotations that share a key are aggregated into one middleware object with
-    per-option geometry and a selected option index.
+    per-option geometry and a selected option index. A widget replaces an
+    earlier one with its key, so the key gives access to the last one.
 
     Args:
         widget (dict): The widget dictionary from the PDF.
+        key (str): The widget's key, computed from the PDF's own annotation,
+            as `get_widget_key` requires.
         page_number (int): The 1-indexed page number the widget appears on.
-        use_full_widget_name (bool): Whether to use the full widget name.
         results (Dict[str, WIDGET_TYPES]): The dictionary of widgets being built.
+        radios (Dict[str, Radio]): The radio groups being built, by key, kept
+            when a widget of another type replaces them in `results`.
+        acroform (Optional[DictionaryObject]): The AcroForm dictionary, whose
+            default appearance text fields and dropdowns can inherit.
+        index (int): The index of the widget among the widgets on its page.
     """
-    key = get_widget_key(widget, use_full_widget_name)
     _widget = construct_widget(widget, key)
     if _widget is not None:
+        # which widget the key gives access to, as `get_widget_positions` reads it
+        _widget.__dict__["_position"] = (page_number, index)
         _populate_common_properties(widget, page_number, _widget)
+
+        if isinstance(_widget, (Text, Dropdown)):
+            _populate_style_properties(widget, _widget, acroform)
 
         if isinstance(_widget, Text):
             _populate_text_properties(widget, _widget)
 
         if type(_widget) is Checkbox:
             _widget.value = get_checkbox_value(widget)
+            # the value the PDF holds, which filling doesn't write again
+            _widget.__dict__["_pdf_value"] = _widget.value
 
         if isinstance(_widget, Dropdown):
             _populate_dropdown_properties(widget, _widget)
 
         if isinstance(_widget, Radio):
-            _handle_radio_widget(widget, key, _widget, results)
+            _handle_radio_widget(widget, key, _widget, radios)
+            results[key] = radios[key]
         else:
             results[key] = _widget
 
@@ -290,9 +343,7 @@ def _populate_common_properties(
     """
     # widget property extractions don't trigger hooks in this function
     _widget.__dict__["page_number"] = page_number
-    _widget.__dict__["tooltip"] = extract_widget_property(
-        widget, WIDGET_DESCRIPTION_PATTERNS, None, str
-    )
+    _widget.__dict__["tooltip"] = get_field_tooltip(widget)
     _widget.__dict__["readonly"] = check_field_flag(widget, READ_ONLY)
     _widget.__dict__["required"] = check_field_flag(widget, REQUIRED)
     _widget.__dict__["hidden"] = get_field_hidden(widget)
@@ -303,6 +354,27 @@ def _populate_common_properties(
         _widget.__dict__["width"],
         _widget.__dict__["height"],
     ) = get_field_rect(widget)
+
+
+def _populate_style_properties(
+    widget: dict, _widget: Text | Dropdown, acroform: Optional[DictionaryObject]
+) -> None:
+    """
+    Populates the font, font size, and font color of a text field or dropdown.
+
+    They are read from the default appearance that a change to them edits, as
+    `get_text_field_style` describes, and assigned directly so loading
+    existing PDF state does not trigger write hooks.
+
+    Args:
+        widget (dict): The widget dictionary from the PDF.
+        _widget (Text | Dropdown): The widget object to populate.
+        acroform (Optional[DictionaryObject]): The AcroForm dictionary.
+    """
+    style = get_text_field_style(widget, acroform)
+    _widget.__dict__["font"] = style.font
+    _widget.__dict__["font_size"] = style.font_size
+    _widget.__dict__["font_color"] = style.font_color
 
 
 def _populate_text_properties(widget: dict, _widget: Text) -> None:
@@ -342,7 +414,7 @@ def _populate_dropdown_properties(widget: dict, _widget: Dropdown) -> None:
 
 
 def _handle_radio_widget(
-    widget: dict, key: str, _widget: Radio, results: Dict[str, WIDGET_TYPES]
+    widget: dict, key: str, _widget: Radio, radios: Dict[str, Radio]
 ) -> None:
     """
     Handles the logic for radio widgets, including aggregating multiple options.
@@ -350,24 +422,26 @@ def _handle_radio_widget(
     Each radio annotation contributes one option to a shared `Radio` object. The
     method stores per-option rectangles as lists, increments the option count for
     schema generation, and records the selected option index when the annotation
-    is currently selected.
+    is currently selected. The group is kept by key apart from the other
+    widgets, so options separated by a widget of another type with the same
+    key, such as a checkbox with the same short name, stay in one group.
 
     Args:
         widget (dict): The widget dictionary from the PDF.
         key (str): The widget key.
         _widget (Radio): The radio widget object.
-        results (Dict[str, WIDGET_TYPES]): The dictionary of widgets being built.
+        radios (Dict[str, Radio]): The radio groups being built, by key.
     """
     field_rect = get_field_rect(widget)
 
-    if key not in results:
+    if key not in radios:
         _widget.__dict__["x"] = []
         _widget.__dict__["y"] = []
         _widget.__dict__["width"] = []
         _widget.__dict__["height"] = []
-        results[key] = _widget
+        radios[key] = _widget
 
-    radio = cast(Radio, results[key])
+    radio = radios[key]
     # for schema
     radio.number_of_options += 1
 
@@ -422,13 +496,32 @@ def _get_widgets_on_page(page) -> List[dict]:
     Returns:
         List[dict]: A list of widget dictionaries found on the page.
     """
-    widgets = page.annotations
+    return [widget for widget, _ in _get_widget_annotations(page)]
+
+
+def _get_widget_annotations(page) -> List[Tuple[dict, DictionaryObject]]:
+    """
+    Retrieves the widgets of a single PDF page with their annotations.
+
+    Each widget is a plain dictionary copied from the page annotation, as
+    `_get_widgets_on_page` returns it, and is paired with the annotation
+    itself, which is the PDF's own object that `get_widget_key` requires.
+
+    Args:
+        page: The PDF page object.
+
+    Returns:
+        List[Tuple[dict, DictionaryObject]]: The widget dictionaries found on
+            the page, each with its annotation.
+    """
+    annotations = page.annotations
     result = []
-    if widgets:
-        for widget in widgets:
-            widget = dict(widget.get_object())
+    if annotations:
+        for reference in annotations:
+            annot = reference.get_object()
+            widget = dict(annot)
             if _is_widget(widget):
-                result.append(widget)
+                result.append((widget, annot))
     return result
 
 
@@ -436,8 +529,7 @@ def _is_widget(widget: dict) -> bool:
     """
     Checks if a dictionary represents a valid widget.
 
-    A widget is considered valid when it satisfies all patterns for one of the
-    supported middleware widget types.
+    A widget is considered valid when `get_widget_type` finds its type.
 
     Args:
         widget (dict): The dictionary to check.
@@ -445,22 +537,15 @@ def _is_widget(widget: dict) -> bool:
     Returns:
         bool: True if the dictionary represents a widget, False otherwise.
     """
-    for each in WIDGET_TYPE_PATTERNS:
-        patterns = each[0]
-        check = True
-        for pattern in patterns:
-            check = check and find_pattern_match(pattern, widget)
-        if check:
-            return True
-    return False
+    return get_widget_type(widget) is not None
 
 
 def construct_widget(widget: dict, key: str) -> WIDGET_TYPES | None:
     """
     Constructs a widget object based on the widget dictionary and key.
 
-    This function determines the type of widget based on predefined patterns
-    and constructs the corresponding middleware widget object using the supplied
+    This function determines the type of widget with `get_widget_type` and
+    constructs the corresponding middleware widget object using the supplied
     key as its name.
 
     Args:
@@ -471,16 +556,8 @@ def construct_widget(widget: dict, key: str) -> WIDGET_TYPES | None:
         WIDGET_TYPES | None: The constructed widget object, or None
             if the widget type is not recognized.
     """
-    result = None
-    for each in WIDGET_TYPE_PATTERNS:
-        patterns, _type = each
-        check = True
-        for pattern in patterns:
-            check = check and find_pattern_match(pattern, widget)
-        if check:
-            result = _type(key)
-            break
-    return result
+    _type = get_widget_type(widget)
+    return _type(key) if _type is not None else None
 
 
 def _group_annotations_by_page(
@@ -576,52 +653,6 @@ def create_annotations(
             page[NameObject(Annots)] += page_annotations
         else:
             page[NameObject(Annots)] = page_annotations
-
-    with BytesIO() as f:
-        writer.write(f)
-        f.seek(0)
-        return f.read()
-
-
-def remove_widgets_by_keys(
-    pdf: bytes, keys: List[str], use_full_widget_name: bool = False
-) -> bytes:
-    """
-    Removes specific widgets from a PDF by their keys.
-
-    This function removes any widget annotation whose key matches one of the
-    provided keys. If no keys are provided, the original PDF stream is returned
-    unchanged.
-
-    Args:
-        pdf (bytes): The PDF stream to remove widgets from.
-        keys (List[str]): A list of widget keys to remove.
-        use_full_widget_name (bool): Whether to match widgets by their full
-            names, including parent names.
-
-    Returns:
-        bytes: The updated PDF stream with the matching widgets removed.
-    """
-    if not keys:
-        return pdf
-
-    key_set = set(keys)
-    writer = PdfWriter(BytesIO(pdf))
-
-    for page in writer.pages:
-        needs_update = False
-        page_annots = ArrayObject([])
-
-        for annot in page.get(Annots, []):
-            annot = cast(DictionaryObject, annot.get_object())
-            key = get_widget_key(annot.get_object(), use_full_widget_name)
-            if key not in key_set:
-                page_annots.append(annot)
-            else:
-                needs_update = True
-
-        if needs_update:
-            page[NameObject(Annots)] = page_annots
 
     with BytesIO() as f:
         writer.write(f)

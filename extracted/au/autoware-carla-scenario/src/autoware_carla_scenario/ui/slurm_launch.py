@@ -24,6 +24,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field, replace
@@ -49,6 +50,10 @@ from ..slurm.records import JsonMembers
 # run`` in front of it and the sbatch or checks it started.
 from ..utils.process_group import kill_group as _kill_group
 from .case_paths import session_order
+
+# The end of a file a process wrote its output to, read back as the runner
+# reads a job's.
+from .runner import _tail
 from .slurm_case_state import case_state, no_job_case_state
 
 # SLURM's command-line tools are run in the checked slurm.queue (#1634):
@@ -295,37 +300,88 @@ def _joined(stdout: str | None, stderr: str | None) -> str:
     return "\n".join(written)
 
 
-def _run_submit(command: list[str], base: Path) -> tuple[int | None, str]:
-    """Run the submitting *command* in *base*, as :func:`run_cli` runs
-    ``scenario-slurm``: its exit status and output; :data:`TIMED_OUT`, with
-    why, when it did not end within :data:`SUBMIT_TIMEOUT_SECONDS`, its whole
-    process group killed; ``None`` when it could not be started."""
+#: How much of a submit's output, its end, is read back once it has ended:
+#: the line naming the batch's directory is its last, and the viewer's API
+#: sends the last 8000 characters (:meth:`Submission.to_dict`).
+_OUTPUT_MAX_BYTES = 256 * 1024
+
+
+def _output_file() -> Path:
+    """A new, empty temporary file for a submit's output.
+
+    Raises:
+        OSError: It cannot be made.
+    """
+    fd, name = tempfile.mkstemp(prefix="scenario-slurm-submit-", suffix=".log")
+    os.close(fd)
+    return Path(name)
+
+
+def _read_output(log: Path) -> str:
+    """What a submit wrote to *log*: its end (:data:`_OUTPUT_MAX_BYTES`),
+    its bytes that are not UTF-8 replaced; empty when it cannot be read."""
     try:
-        process = subprocess.Popen(  # noqa: S603
-            command,
-            cwd=str(base),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            encoding="utf-8",
-            errors="replace",
-            start_new_session=True,
-        )
-    except (OSError, ValueError) as exc:  # ValueError: a NUL in an argument
+        return _tail(log, _OUTPUT_MAX_BYTES)
+    except OSError:
+        return ""
+
+
+def _run_submit(command: list[str], base: Path) -> tuple[int | None, str]:
+    """Run the submitting *command* in *base*: its exit status and output
+    (stdout and stderr, in the order written); :data:`TIMED_OUT`, with why,
+    when it did not end within :data:`SUBMIT_TIMEOUT_SECONDS`, its whole
+    process group killed; ``None`` when it could not be started.
+
+    Its output goes to a temporary file as it runs (:func:`_output_file`),
+    read back once it has ended and then removed, never to a pipe, as the
+    runner writes a job's (#2543): it runs in a session of its own, so it
+    outlives a viewer stopped while it submits, and with a pipe its next
+    write would then raise ``BrokenPipeError``, between the batch's
+    submission record and its collect job (``slurm/submit.py``), leaving an
+    array job without its collect job. Writing to a file, it finishes the
+    submission; the file of one the viewer stopped waiting for is left in
+    the temporary directory, with what it wrote.
+    """
+    try:
+        log = _output_file()
+    except OSError as exc:
         return None, f"Could not run {command[0]}: {exc}"
+    try:
+        return _run_submit_into(command, base, log)
+    finally:
+        try:
+            log.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _run_submit_into(
+    command: list[str], base: Path, log: Path
+) -> tuple[int | None, str]:
+    """:func:`_run_submit`, its output written to *log*."""
+    with log.open("w", encoding="utf-8") as output:
+        try:
+            process = subprocess.Popen(  # noqa: S603
+                command,
+                cwd=str(base),
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                encoding="utf-8",
+                errors="replace",
+                start_new_session=True,
+            )
+        except (OSError, ValueError) as exc:  # ValueError: a NUL in an argument
+            return None, f"Could not run {command[0]}: {exc}"
     timeout = SUBMIT_TIMEOUT_SECONDS
     try:
-        stdout, stderr = process.communicate(timeout=timeout)
+        process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         _kill_group(process)
-        # Bounded: what the killed group wrote, once its pipes close.
-        try:
-            stdout, stderr = process.communicate(timeout=10.0)
-        except subprocess.TimeoutExpired:
-            # A process that left the group holds the pipes: reap ours.
-            process.wait()
-            stdout, stderr = "", ""
-        output = _joined(stdout, stderr)
+        # Its output is a file, which no process left of the group can hold
+        # open as it could a pipe: the killed command is reaped at once.
+        process.wait()
+        written = _read_output(log)
         reason = (
             f"{command[0]} did not end within {timeout:g} s and was stopped: "
             "the batch's checks or sbatch hung (is the SLURM controller "
@@ -338,12 +394,12 @@ def _run_submit(command: list[str], base: Path) -> tuple[int | None, str]:
         )
         # Typed as the function returns it: Codon's tuples do not widen.
         timed_out: int | None = TIMED_OUT
-        return timed_out, f"{output}\n{reason}" if output else reason
+        return timed_out, f"{written}\n{reason}" if written else reason
     except BaseException:
         _kill_group(process)
         process.wait()
         raise
-    return process.returncode, _joined(stdout, stderr)
+    return process.returncode, _read_output(log)
 
 
 def _submit(command: list[str], base: Path, record: Submission) -> None:
@@ -583,8 +639,14 @@ def batch_status(batch_dir: Path) -> dict[str, Any] | None:
     states (``squeue``), and whether it has been collected.  A submission
     whose record cannot be read is listed ``unreadable`` with a ``note``, as
     is one with no job id, which says why (``in_flight`` or
-    ``sbatch_timed_out``, else a stale record; #1791)."""
-    layout = BatchLayout(batch_dir)
+    ``sbatch_timed_out``, else a stale record; #1791).
+
+    No record is read through a symbolic link (the record's, or a directory's
+    between it and *batch_dir*), which may name a file outside the viewer's
+    base, as the session page reads none (``ui.cases._own_member``): such a
+    case's outcome or task status is taken as missing, and such a submission
+    record as unreadable (#2549)."""
+    layout = BatchLayout(batch_dir, own_files=True)
     try:
         manifest = layout.read_manifest()
     except (FileNotFoundError, ValueError, OSError):
@@ -596,12 +658,17 @@ def batch_status(batch_dir: Path) -> dict[str, Any] | None:
         if sub is None:
             path = layout.submission(index)
             if path.exists():  # else removed since: its sbatch failed
+                why = (
+                    "cannot be read (empty, not JSON, or not a JSON object)"
+                    if layout.own(path)
+                    else "is reached through a symbolic link, which the viewer "
+                    "does not read (#2549)"
+                )
                 submissions.append(
                     {
                         "index": index,
                         "unreadable": True,
-                        "note": f"Its record {path} cannot be read (empty, not "
-                        "JSON, or not a JSON object): its job is not shown and "
+                        "note": f"Its record {path} {why}: its job is not shown and "
                         "its cases count as not submitted by it.",
                         "job_id": None,
                         "collect_job_id": None,
@@ -682,6 +749,7 @@ def batch_status(batch_dir: Path) -> dict[str, Any] | None:
         counts[entry.state] = counts.get(entry.state, 0) + 1
     cases = [case_entry(entry) for entry in case_states]
     collected = layout.root / "collected.json"
+    summary = batch_dir / "batch_results.json"
     return {
         "batch_dir": str(batch_dir),
         "created": manifest.get("created"),
@@ -692,8 +760,8 @@ def batch_status(batch_dir: Path) -> dict[str, Any] | None:
         "total": len(cases),
         "submissions": submissions,
         "active": any(s["active"] for s in submissions),
-        "collected": collected.is_file(),
-        "summary": (batch_dir / "batch_results.json").is_file(),
+        "collected": layout.own(collected) and collected.is_file(),
+        "summary": layout.own(summary) and summary.is_file(),
     }
 
 
@@ -708,7 +776,10 @@ TIMED_OUT = 124
 def run_cli(args: list[str], timeout: float = 300.0) -> tuple[int, str]:
     """``scenario-slurm <args>``, run by this viewer's interpreter: its exit
     status and output; :data:`NOT_STARTED` or :data:`TIMED_OUT`, with why,
-    when it could not be started or did not end within *timeout* seconds."""
+    when it could not be started or did not end within *timeout* seconds.
+
+    The viewer's actions pass ``--own-files`` first, so that they act on no
+    record reached through a symbolic link, as its panel shows none (#2549)."""
     command = [sys.executable, "-m", "autoware_carla_scenario.slurm.cli", *args]
     try:
         done = subprocess.run(  # noqa: S603
@@ -749,7 +820,7 @@ def run_collect(batch_dir: Path, timeout: float = 300.0) -> tuple[bool, int, str
     """
     collected = BatchLayout(batch_dir).root / "collected.json"
     before = _stat_key(collected)
-    code, output = run_cli(["collect", str(batch_dir)], timeout)
+    code, output = run_cli(["--own-files", "collect", str(batch_dir)], timeout)
     after = _stat_key(collected)
     ok = code == 0 or (code == 1 and after is not None and after != before)
     return ok, code, output

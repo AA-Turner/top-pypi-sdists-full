@@ -1,5 +1,3 @@
-# fmt: off
-
 import warnings
 from pathlib import Path
 from typing import IO
@@ -9,12 +7,14 @@ import numpy as np
 from ase import Atoms
 from ase._4.optimize.bfgs import BFGSMethod
 from ase.optimize.optimize import Optimizer, UnitCellFilter
+from ase.utils import deprecate_positionals
 
 
 class BFGS(Optimizer):
     # default parameters
     defaults = {**Optimizer.defaults, 'alpha': 70.0}
 
+    @deprecate_positionals(2)
     def __init__(
         self,
         atoms: Atoms,
@@ -59,6 +59,34 @@ class BFGS(Optimizer):
             Extra arguments passed to
             :class:`~ase.optimize.optimize.Optimizer`.
 
+        Examples
+        --------
+        The BFGS object is one of the minimizers in the ASE package. The below
+        script uses BFGS to optimize the structure of a water molecule,
+        starting with the experimental geometry:
+
+        >>> from ase import Atoms
+        >>> from ase.optimize import BFGS
+        >>> from ase.calculators.emt import EMT
+        >>> import numpy as np
+        >>> d = 0.9575
+        >>> t = np.pi / 180 * 104.51
+        >>> system = Atoms('H2O',
+        ... positions=[(d, 0, 0),
+        ... (d * np.cos(t), d * np.sin(t), 0),
+        ... (0, 0, 0)],
+        ... calculator=EMT())
+        >>> dyn = BFGS(system)
+        >>> dyn.run(fmax=0.05) # doctest:+ELLIPSIS, +NORMALIZE_WHITESPACE
+              Step     Time          Energy          fmax
+        BFGS:    0      ...        2.769632      8.609090
+        BFGS:    1      ...        1.930507      1.641499
+        BFGS:    2      ...        1.884227      0.535354
+        BFGS:    3      ...        1.879314      0.049628
+        ...
+
+        The columns are the solver name, step number, clock time, potential
+        energy (eV), and maximum force (eV/Å).
         """
         if maxstep is None:
             self.maxstep = self.defaults['maxstep']
@@ -66,8 +94,10 @@ class BFGS(Optimizer):
             self.maxstep = maxstep
 
         if self.maxstep > 1.0:
-            warnings.warn('You are using a *very* large value for '
-                          'the maximum step size: %.1f Å' % self.maxstep)
+            warnings.warn(
+                'You are using a *very* large value for '
+                'the maximum step size: %.1f Å' % self.maxstep
+            )
 
         self.alpha = alpha
         if self.alpha is None:
@@ -76,10 +106,13 @@ class BFGS(Optimizer):
         self.state = None
 
         super().__init__(
-            atoms=atoms, restart=restart,
-            logfile=logfile, trajectory=trajectory,
+            atoms=atoms,
+            restart=restart,
+            logfile=logfile,
+            trajectory=trajectory,
             append_trajectory=append_trajectory,
-            **kwargs)
+            **kwargs,
+        )
 
     def initialize(self):
         # initial hessian
@@ -111,11 +144,19 @@ class BFGS(Optimizer):
         dpos = self.determine_step(dpos, steplengths)
         optimizable.set_x(pos + dpos)
         if isinstance(self.atoms, UnitCellFilter):
-            self.dump((self.state.hessian, self.pos0, self.forces0,
-                       self.maxstep, self.atoms.orig_cell))
+            self.dump(
+                (
+                    self.state.hessian,
+                    self.pos0,
+                    self.forces0,
+                    self.maxstep,
+                    self.atoms.orig_cell,
+                )
+            )
         else:
-            self.dump((self.state.hessian, self.pos0, self.forces0,
-                       self.maxstep))
+            self.dump(
+                (self.state.hessian, self.pos0, self.forces0, self.maxstep)
+            )
 
     def prepare_step(self, pos, gradient):
         pos = pos.ravel()

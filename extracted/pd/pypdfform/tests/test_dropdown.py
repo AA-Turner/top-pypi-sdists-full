@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+from unittest.mock import patch
 
 import pytest
 
@@ -65,8 +66,7 @@ def test_dropdown_one_readonly(sample_template_with_dropdown, pdf_samples, reque
         assert obj.read() == expected
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
-def test_dropdown_alignment(dropdown_alignment, pdf_samples, request):
+def test_dropdown_alignment(dropdown_alignment, pdf_samples, request, assert_same_pdf):
     expected_path = os.path.join(pdf_samples, "dropdown", "test_dropdown_alignment.pdf")
     with open(expected_path, "rb+") as f:
         obj = PdfWrapper(dropdown_alignment).fill(
@@ -82,13 +82,11 @@ def test_dropdown_alignment(dropdown_alignment, pdf_samples, request):
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
+        assert_same_pdf(obj.read(), expected)
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
 def test_dropdown_alignment_readonly_then_editable(
-    dropdown_alignment, pdf_samples, request
+    dropdown_alignment, pdf_samples, request, assert_same_pdf
 ):
     expected_path = os.path.join(
         pdf_samples, "dropdown", "test_dropdown_alignment_readonly_then_editable.pdf"
@@ -109,8 +107,7 @@ def test_dropdown_alignment_readonly_then_editable(
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
+        assert_same_pdf(obj.read(), expected)
 
 
 def test_dropdown_alignment_sejda(dropdown_alignment_sejda, pdf_samples, request):
@@ -195,3 +192,24 @@ def test_dropdown_alignment_sejda_readonly_then_editable(
 
         assert len(obj.read()) == len(expected)
         assert obj.read() == expected
+
+
+def test_failed_fill_restores_dropdown(
+    sample_template_with_dropdown, assert_widgets_match_output
+):
+    obj = PdfWrapper(sample_template_with_dropdown)
+    original = obj.read()
+    data = obj.data
+    choices = obj.widgets["dropdown_1"].choices
+
+    with (
+        patch("PyPDFForm.lib.wrapper.fill", side_effect=RuntimeError),
+        pytest.raises(RuntimeError),
+    ):
+        obj.fill({"test_1": "test_1", "dropdown_1": "new choice"})
+
+    assert obj.data == data
+    assert obj.widgets["dropdown_1"].choices == choices
+    assert not any(widget.hooks_to_trigger for widget in obj.widgets.values())
+    assert obj.read() == original
+    assert_widgets_match_output(obj)

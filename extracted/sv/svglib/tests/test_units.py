@@ -131,6 +131,23 @@ class TestDrawingDimensionsUserUnits:
                 f"height mismatch for {val}"
             )
 
+    def test_auto_is_like_no_width_and_height(self):
+        """width="auto" height="auto", as Figma writes them, use the viewBox."""
+        for width, height in (("auto", "auto"), ("AUTO", "16"), ("24", " auto ")):
+            d = _drawing(width, height, 'viewBox="0 0 24 16"')
+            assert math.isclose(d.width, 24 * PX_TO_PT)
+            assert math.isclose(d.height, 16 * PX_TO_PT)
+
+    def test_auto_without_viewbox_is_like_no_width_and_height(self):
+        """Without a viewBox, width="auto" and height="auto" are like no size."""
+        without_size = drawing_from_svg(
+            '<svg xmlns="http://www.w3.org/2000/svg">'
+            '<rect x="0" y="0" width="10" height="10" fill="red"/></svg>'
+        )
+        d = _drawing("auto", "auto")
+        assert (d.width, d.height) == (without_size.width, without_size.height)
+        assert len(d.contents) == len(without_size.contents)
+
 
 # ---------------------------------------------------------------------------
 # Drawing dimensions — point units
@@ -431,6 +448,35 @@ class TestSVG2ViewportUnits:
         rect = drawing.contents[0].contents[0]
         assert math.isclose(rect.width, 16.0, rel_tol=1e-4)
         assert math.isclose(rect.height, 16.0, rel_tol=1e-4)
+
+    def test_em_uses_font_size_of_shape(self):
+        """em and ex in shape geometry resolve against the shape's font-size."""
+        drawing = drawing_from_svg(
+            """<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 width="400" height="300" viewBox="0 0 400 300">
+              <g font-size="10px">
+                <rect width="2em" height="1ex"/>
+                <circle cx="1em" cy="1em" r="1em" style="font-size: 20px"/>
+              </g>
+            </svg>"""
+        )
+        rect, circle = drawing.contents[0].contents[0].contents
+        # 2em = 2 * 10px = 20 user units; 1ex = 5; the circle's own 1em = 20
+        assert math.isclose(rect.width, 20.0, rel_tol=1e-4)
+        assert math.isclose(rect.height, 5.0, rel_tol=1e-4)
+        assert math.isclose(circle.r, 20.0, rel_tol=1e-4)
+
+    def test_em_on_root_uses_root_font_size(self):
+        """width="1em" on the root <svg> resolves against its own font-size."""
+        drawing = drawing_from_svg(
+            """<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 width="1em" height="2em" viewBox="0 0 10 10" font-size="20px"/>"""
+        )
+        # 1em = 20px = 15 pt
+        assert math.isclose(drawing.width, 20 * PX_TO_PT, rel_tol=1e-4)
+        assert math.isclose(drawing.height, 40 * PX_TO_PT, rel_tol=1e-4)
 
     def test_vw_fraction_of_viewport_width(self):
         """50vw == 50% of viewport width (200 user units for a 400-wide box)."""

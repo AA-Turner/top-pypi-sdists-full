@@ -1,0 +1,26 @@
+version: 2
+defaults:
+  owners:
+    any:
+      - '@mistralai/engineering-workflows'
+      # vibe-bump's PRs (bumps and reconciles) merge on a Felix verdict at or below Medium.
+      - all:
+          - author_in: ['@vibe-bump[bot]', '@vibe-bump-reconcile[bot]']
+          - auto: {from: '@mistralai-felix[bot]', risk: Medium}
+  blocking: true
+rules:
+  - 'plugins/': '@mistralai/solution-workflows'
+  - 'plugins/crucible/': '@mistralai/cyber-ops'
+  - 'plugins/evaluations/': ['@mistralai/engineering-observability', '@mistralai/engineering-workflows']
+  - 'plugins/mistralai/': '@mistralai/engineering-workflows'
+  - 'plugins/search/': ['@mistralai/engineering-context-platform', '@mistralai/engineering-workflows']
+  - 'plugins/sequence/': '@mistralai/engineering-workflows'
+  - 'plugins/triggers/': '@mistralai/engineering-workflows'
+  - 'plugins/webhook/': ['@mistralai/applied-for-mistral', '@mistralai/engineering-workflows']
+  # Tests: a team approval, or both bots with only mild findings left open.
+  - 'tests/':
+      any:
+        - '@mistralai/engineering-workflows'
+        - all:
+            - auto: {from: '@mistralai-felix[bot]', risk: Medium, findings: minor}
+            - auto: {from: '@cursor[bot]', risk: Medium, findings: Low}

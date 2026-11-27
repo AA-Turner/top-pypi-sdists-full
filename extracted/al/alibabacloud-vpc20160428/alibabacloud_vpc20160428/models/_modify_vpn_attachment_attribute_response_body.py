@@ -38,6 +38,12 @@ class ModifyVpnAttachmentAttributeResponseBody(DaraModel):
         # The instance ID of the Cloud Enterprise Network (CEN) instance to which the forward routing vRouter instance attached to the IPsec-VPN connection belongs.
         self.attach_instance_id = attach_instance_id
         # The type of resource associated with the IPsec-VPN connection.
+        # 
+        # Valid values:
+        # 
+        # - **CEN**: The IPsec-VPN connection is attached to a transit router instance.
+        # - **VPNGW**: The IPsec-VPN connection is attached to a VPN gateway instance.
+        # - **NO_ASSOCIATED**: The IPsec-VPN connection is not attached to any resource.
         self.attach_type = attach_type
         # The timestamp when the IPsec-VPN connection was created. Unit: milliseconds.
         # 
@@ -48,6 +54,11 @@ class ModifyVpnAttachmentAttributeResponseBody(DaraModel):
         # The description of the IPsec-VPN connection.
         self.description = description
         # Indicates whether the IPsec-VPN connection configuration takes effect immediately.
+        # 
+        # Valid values:
+        # 
+        # - **true**: yes.
+        # - **false**: no.
         self.effect_immediately = effect_immediately
         # Indicates whether the Dead Peer Detection (DPD) feature is enabled for the IPsec-VPN connection.
         # 
@@ -83,6 +94,11 @@ class ModifyVpnAttachmentAttributeResponseBody(DaraModel):
         # The name of the IPsec-VPN connection.
         self.name = name
         # The network type of the IPsec-VPN connection.
+        # 
+        # Valid values:
+        # 
+        # - **public**: public network.
+        # - **private**: private network.
         self.network_type = network_type
         # The CIDR block on the on-premises data center side that needs to communicate with Alibaba Cloud.
         self.remote_subnet = remote_subnet
@@ -309,6 +325,11 @@ class ModifyVpnAttachmentAttributeResponseBodyVpnBgpConfig(DaraModel):
         tunnel_cidr: str = None,
     ):
         # Indicates whether the BGP feature is enabled for the IPsec-VPN connection.
+        # 
+        # Valid values:
+        # 
+        # - **true**: enabled.
+        # - **false**: disabled.
         self.enable_bgp = enable_bgp
         # The autonomous system number on the Alibaba Cloud side.
         self.local_asn = local_asn
@@ -319,6 +340,12 @@ class ModifyVpnAttachmentAttributeResponseBodyVpnBgpConfig(DaraModel):
         # The BGP IP address on the on-premises data center side.
         self.peer_bgp_ip = peer_bgp_ip
         # The BGP negotiation status.
+        # 
+        # Valid values:
+        # 
+        # - **success**: normal.
+        # 
+        # - **false**: abnormal.
         self.status = status
         # The IPsec tunnel CIDR block.
         self.tunnel_cidr = tunnel_cidr
@@ -392,6 +419,11 @@ class ModifyVpnAttachmentAttributeResponseBodyVcoHealthCheck(DaraModel):
         # The destination IP address of the health check.
         self.dip = dip
         # Indicates whether the health check feature is enabled for the IPsec-VPN connection.
+        # 
+        # Valid values:
+        # 
+        # - **true**: enabled.
+        # - **false**: disabled.
         self.enable = enable
         # The retry interval of the health check. Unit: seconds.
         self.interval = interval
@@ -473,12 +505,27 @@ class ModifyVpnAttachmentAttributeResponseBodyTunnelOptionsSpecification(DaraMod
         # The ID of the customer gateway associated with the tunnel.
         self.customer_gateway_id = customer_gateway_id
         # Indicates whether the DPD feature is enabled for the tunnel.
+        # 
+        # Valid values:
+        # 
+        # - **true**: enabled.
+        # - **false**: disabled.
         self.enable_dpd = enable_dpd
         # Indicates whether the NAT traversal feature is enabled for the tunnel.
+        # 
+        # Valid values:
+        # 
+        # - **true**: enabled.
+        # - **false**: disabled.
         self.enable_nat_traversal = enable_nat_traversal
         # The gateway IP address on the Alibaba Cloud side of the tunnel.
         self.internet_ip = internet_ip
         # The role of the tunnel.
+        # 
+        # Valid values:
+        # 
+        # - **master**: The tunnel is the master tunnel.
+        # - **slave**: The tunnel is the backup tunnel.
         self.role = role
         # The status of the tunnel.
         # 
@@ -493,6 +540,9 @@ class ModifyVpnAttachmentAttributeResponseBodyTunnelOptionsSpecification(DaraMod
         # The Phase 1 negotiation configuration.
         self.tunnel_ike_config = tunnel_ike_config
         # The creation order of the tunnel.
+        # 
+        # - **1**: the first tunnel.
+        # - **2**: the second tunnel.
         self.tunnel_index = tunnel_index
         # The Phase 2 negotiation configuration.
         self.tunnel_ipsec_config = tunnel_ipsec_config
@@ -660,6 +710,9 @@ class ModifyVpnAttachmentAttributeResponseBodyTunnelOptionsSpecificationTunnelIk
         # The lifetime for the IKE phase. Unit: seconds.
         self.ike_lifetime = ike_lifetime
         # The negotiation mode of the IKE version. Valid values:
+        # 
+        # - **main**: main mode. This mode ensures high security during negotiation.
+        # - **aggressive**: aggressive mode. This mode features fast negotiation and a high success rate.
         self.ike_mode = ike_mode
         # The DH group for the IKE phase.
         self.ike_pfs = ike_pfs

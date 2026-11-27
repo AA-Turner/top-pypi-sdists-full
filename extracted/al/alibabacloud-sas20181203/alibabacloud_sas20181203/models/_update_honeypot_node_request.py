@@ -18,8 +18,7 @@ class UpdateHoneypotNodeRequest(DaraModel):
         # 
         # This parameter is required.
         self.available_probe_num = available_probe_num
-        # The ID of the management node.
-        # >You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain this parameter.
+        # The ID of the management node. You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain this parameter.
         # 
         # This parameter is required.
         self.node_id = node_id

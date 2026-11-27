@@ -7,6 +7,7 @@ from typing import Any, cast
 from pydantic import BaseModel
 
 from instructor.v2.core.decorators import register_mode_handler
+from instructor.v2.core.errors import IncompleteOutputException
 from instructor.v2.core.handler import ModeHandler
 from instructor.v2.core.mode import Mode
 from instructor.v2.core.multimodal import extract_genai_multimodal_content
@@ -17,6 +18,11 @@ from instructor.v2.dsl.parallel import ParallelBase
 from instructor.v2.dsl.partial import Partial, PartialBase
 from instructor.v2.dsl.simple_type import AdapterBase
 from instructor.v2.providers.gemini import utils as gemini_utils
+from instructor.v2.providers.genai.request import (
+    OPENAI_TO_GEMINI_MAP,
+    apply_openai_generation_config,
+    update_genai_kwargs,
+)
 
 
 def reask_genai_tools(
@@ -92,21 +98,33 @@ def reask_genai_structured_outputs(
     from google.genai import types
 
     kwargs = kwargs.copy()
-    genai_response = (
-        response.text
-        if response and hasattr(response, "text")
-        else "You must generate a response to the user's request that is consistent with the response model"
-    )
+    kwargs["contents"] = list(kwargs.get("contents") or [])
+    candidates = getattr(response, "candidates", None)
+    if candidates and candidates[0].content is not None and candidates[0].content.parts:
+        kwargs["contents"].append(candidates[0].content)
     kwargs["contents"].append(
-        types.ModelContent(
+        types.Content(
+            role="user",
             parts=[
                 types.Part.from_text(
-                    text=f"Validation Error found:\n{exception}\nRecall the function correctly, fix the errors in the following attempt:\n{genai_response}"
+                    text=f"Validation Error found:\n{exception}\n"
+                    "Generate a response that fixes these errors and matches the response model."
                 ),
-            ]
+            ],
         ),
     )
     return kwargs
+
+
+def _is_truncated_at_max_tokens(response: Any) -> bool:
+    """Return True when the first candidate stopped at the token limit."""
+    from google.genai import types as genai_types
+
+    candidates = getattr(response, "candidates", None)
+    return bool(
+        candidates
+        and candidates[0].finish_reason == genai_types.FinishReason.MAX_TOKENS
+    )
 
 
 def parse_genai_structured_outputs(
@@ -177,33 +195,50 @@ class GenAIHandlerBase(ModeHandler):
             )
         return None
 
-    def extract_streaming_json(self, completion: Any) -> Generator[str, None, None]:
+    def _extract_chunk_json(self, chunk: Any) -> str | None:
+        # `candidates` can be empty (e.g. a safety-blocked chunk), which
+        # raises IndexError; callers skip the chunk either way.
+        if self.mode == Mode.TOOLS:
+            parts = chunk.candidates[0].content.parts or []
+            # Skip thought parts that may share the chunk with the function call.
+            part = next((p for p in parts if not p.thought and p.function_call), None)
+            return json.dumps(part.function_call.args) if part is not None else None
+        return gemini_utils.extract_gemini_chunk_text(chunk)
+
+    def extract_streaming_json(
+        self, completion: Any, *, require_complete: bool = False
+    ) -> Generator[str, None, None]:
         """Extract JSON chunks from GenAI streaming responses."""
+        incomplete_chunk: Any = None
         for chunk in completion:
+            if require_complete and _is_truncated_at_max_tokens(chunk):
+                incomplete_chunk = chunk
             try:
-                if self.mode == Mode.TOOLS:
-                    yield json.dumps(
-                        chunk.candidates[0].content.parts[0].function_call.args
-                    )
-                else:
-                    yield gemini_utils.extract_gemini_chunk_text(chunk)
-            except AttributeError:
+                if text := self._extract_chunk_json(chunk):
+                    yield text
+            except (AttributeError, IndexError):
                 continue
+        if incomplete_chunk is not None:
+            raise IncompleteOutputException(last_completion=incomplete_chunk)
 
     async def extract_streaming_json_async(
-        self, completion: AsyncGenerator[Any, None]
+        self,
+        completion: AsyncGenerator[Any, None],
+        *,
+        require_complete: bool = False,
     ) -> AsyncGenerator[str, None]:
         """Extract JSON chunks from GenAI async streams."""
+        incomplete_chunk: Any = None
         async for chunk in completion:
+            if require_complete and _is_truncated_at_max_tokens(chunk):
+                incomplete_chunk = chunk
             try:
-                if self.mode == Mode.TOOLS:
-                    yield json.dumps(
-                        chunk.candidates[0].content.parts[0].function_call.args
-                    )
-                else:
-                    yield gemini_utils.extract_gemini_chunk_text(chunk)
-            except AttributeError:
+                if text := self._extract_chunk_json(chunk):
+                    yield text
+            except (AttributeError, IndexError):
                 continue
+        if incomplete_chunk is not None:
+            raise IncompleteOutputException(last_completion=incomplete_chunk)
 
     def _wrap_streaming_model(
         self,
@@ -270,6 +305,28 @@ class GenAIHandlerBase(ModeHandler):
             config = user_config.model_dump(exclude_none=True)
         else:
             config = {}
+        # OpenAI-style options (top-level wins over generation_config), then
+        # explicit `config` keys win over both.
+        generation_config = kwargs.get("generation_config")
+        generation_options = (
+            dict(generation_config) if isinstance(generation_config, dict) else {}
+        )
+        for key in OPENAI_TO_GEMINI_MAP:
+            if key in kwargs:
+                generation_options[key] = kwargs[key]
+        mapped: dict[str, Any] = apply_openai_generation_config(generation_options, {})
+        if kwargs.get("thinking_config") is not None:
+            mapped["thinking_config"] = kwargs["thinking_config"]
+        # Unlike the structured path, no default safety settings are applied.
+        safety_settings = kwargs.get("safety_settings")
+        if isinstance(safety_settings, dict):
+            safety_settings = [
+                {"category": category, "threshold": threshold}
+                for category, threshold in safety_settings.items()
+            ]
+        if safety_settings is not None:
+            mapped["safety_settings"] = safety_settings
+        config: dict[str, Any] = {**mapped, **config}
         cached_content = kwargs.pop("cached_content", None)
         if config.get("cached_content") is None and cached_content is not None:
             config["cached_content"] = cached_content
@@ -306,18 +363,30 @@ class GenAIHandlerBase(ModeHandler):
             and isinstance(response_model, type)
             and issubclass(response_model, (IterableBase, PartialBase))
         ):
+            require_complete = issubclass(response_model, IterableBase)
             if is_async:
                 return response_model.from_streaming_response_async(  # type: ignore
                     response,
-                    stream_extractor=self.extract_streaming_json_async,
+                    stream_extractor=lambda chunks: self.extract_streaming_json_async(
+                        chunks, require_complete=require_complete
+                    ),
                 )
             generator = response_model.from_streaming_response(  # type: ignore
                 response,
-                stream_extractor=self.extract_streaming_json,
+                stream_extractor=lambda chunks: self.extract_streaming_json(
+                    chunks, require_complete=require_complete
+                ),
             )
             if issubclass(response_model, IterableBase):
                 return generator
             return list(generator)
+
+        # A response truncated at max_tokens is not evaluable: the model never
+        # emitted the remaining fields, so parsing it yields schema defaults that
+        # are indistinguishable from values the model actually chose.
+        # Restores the check shipped in v1.15.0 (#2232), dropped by 60cc815.
+        if _is_truncated_at_max_tokens(response):
+            raise IncompleteOutputException(last_completion=response)
 
         if self.mode == Mode.TOOLS:
             model = parse_genai_tools(
@@ -417,7 +486,7 @@ class GenAIToolsHandler(GenAIHandlerBase):
         }
         # Temporarily put generation_config back for update_genai_kwargs to process
         new_kwargs["generation_config"] = generation_config_dict
-        generation_config = gemini_utils.update_genai_kwargs(new_kwargs, base_config)
+        generation_config = update_genai_kwargs(new_kwargs, base_config)
         new_kwargs.pop("generation_config", None)  # Remove it after processing
         new_kwargs["config"] = types.GenerateContentConfig(**generation_config)
         new_kwargs = self._convert_messages_to_contents(new_kwargs, autodetect_images)
@@ -488,7 +557,7 @@ class GenAIStructuredOutputsHandler(GenAIHandlerBase):
         }
         # Temporarily put generation_config back for update_genai_kwargs to process
         new_kwargs["generation_config"] = generation_config_dict
-        generation_config = gemini_utils.update_genai_kwargs(new_kwargs, base_config)
+        generation_config = update_genai_kwargs(new_kwargs, base_config)
         new_kwargs.pop("generation_config", None)  # Remove it after processing
         new_kwargs["config"] = types.GenerateContentConfig(**generation_config)
         new_kwargs = self._convert_messages_to_contents(new_kwargs, autodetect_images)

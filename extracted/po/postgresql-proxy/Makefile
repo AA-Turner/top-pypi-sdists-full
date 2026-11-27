@@ -1,0 +1,104 @@
+SHELL := /bin/bash
+VENV_DIR ?= .venv
+VENV_RUN = . $(VENV_DIR)/bin/activate
+PIP_CMD ?= pip
+PYTHON_CMD ?= python
+TEST_REQS ?= requirements-test.txt
+LINT_REQS ?= requirements-lint.txt
+
+PG_TEST_CONTAINER ?= pg-proxy-local-tests
+PG_TEST_IMAGE ?= postgres:18
+PG_TEST_PORT ?= 55432
+PG_TEST_USER ?= postgres
+PG_TEST_PASSWORD ?= postgres
+PG_TEST_DB ?= postgres
+
+usage:             ## Show this help
+	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'
+
+install:           ## Install dependencies in local virtualenv folder
+	(test `which virtualenv` || $(PIP_CMD) install virtualenv) && \
+		(test -e $(VENV_DIR) || virtualenv $(VENV_OPTS) $(VENV_DIR)) && \
+		($(VENV_RUN) && $(PIP_CMD) install --upgrade pip) && \
+		(test ! -e requirements.txt || ($(VENV_RUN); $(PIP_CMD) install -r requirements.txt)) && \
+		($(VENV_RUN); $(PIP_CMD) install -e .)
+
+dist: clean        ## Build distribution packages
+	python -m pip install -U build hatchling hatch-vcs
+	python -m build
+
+clean:             ## Remove build artifacts
+	rm -rf dist build *.egg-info postgresql_proxy/version.py
+
+publish: dist      ## Publish the library to the central PyPi repository
+	($(VENV_RUN); pip install twine; twine upload dist/*)
+
+install-test: install ## Install test dependencies in local virtualenv
+	($(VENV_RUN); $(PIP_CMD) install -r $(TEST_REQS))
+
+install-lint: install ## Install lint dependencies in local virtualenv
+	($(VENV_RUN); $(PIP_CMD) install -r $(LINT_REQS))
+
+install-pre-commit: install-lint ## Install and register the pre-commit hook
+	$(VENV_DIR)/bin/pre-commit install
+
+CHECK ?=
+
+lint: install-lint ## Format code with ruff (use CHECK=1 to check without modifying)
+	$(VENV_DIR)/bin/ruff format $(if $(CHECK),--check,) postgresql_proxy tests plugins
+	$(VENV_DIR)/bin/ruff check $(if $(CHECK),,--fix) postgresql_proxy tests plugins
+
+start-postgres: ## Start local PostgreSQL test container and wait until ready
+	@set -euo pipefail; \
+	if docker ps -a --format '{{.Names}}' | grep -Fx '$(PG_TEST_CONTAINER)' >/dev/null 2>&1; then \
+		echo "Container $(PG_TEST_CONTAINER) already exists; run 'make stop-postgres' first"; \
+		exit 1; \
+	fi; \
+	docker run --name $(PG_TEST_CONTAINER) \
+		-e POSTGRES_USER=$(PG_TEST_USER) \
+		-e POSTGRES_PASSWORD=$(PG_TEST_PASSWORD) \
+		-e POSTGRES_DB=$(PG_TEST_DB) \
+		-p $(PG_TEST_PORT):5432 \
+		-d $(PG_TEST_IMAGE) >/dev/null; \
+	for i in $$(seq 1 45); do \
+		if docker exec $(PG_TEST_CONTAINER) pg_isready -U $(PG_TEST_USER) >/dev/null 2>&1; then \
+			echo "PostgreSQL ready on 127.0.0.1:$(PG_TEST_PORT)"; \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	if ! docker exec $(PG_TEST_CONTAINER) pg_isready -U $(PG_TEST_USER) >/dev/null 2>&1; then \
+		echo "PostgreSQL did not become ready in time"; \
+		docker rm -f $(PG_TEST_CONTAINER) >/dev/null 2>&1 || true; \
+		exit 1; \
+	fi
+
+stop-postgres: ## Stop and remove local PostgreSQL test container
+	@docker rm -f $(PG_TEST_CONTAINER) >/dev/null 2>&1 || true
+
+test: ## Run all tests against an already running PostgreSQL
+	$(VENV_DIR)/bin/$(PYTHON_CMD) -m pytest -vv
+
+start-pg-and-test: ## Start local PostgreSQL container, run all tests, and clean up
+	@set -euo pipefail; \
+	status=0; \
+	$(MAKE) start-postgres; \
+	E2E_PG_HOST=127.0.0.1 \
+	E2E_PG_PORT=$(PG_TEST_PORT) \
+	E2E_PG_USER=$(PG_TEST_USER) \
+	E2E_PG_PASSWORD=$(PG_TEST_PASSWORD) \
+	E2E_PG_DB=$(PG_TEST_DB) \
+	$(MAKE) test || status=$$?; \
+	$(MAKE) stop-postgres; \
+	exit $$status
+
+ACT_CMD ?= act
+ACT_WORKFLOW ?= .github/workflows/build.yml
+ACT_JOB ?= tests
+ACT_PULL ?= false
+ACT_CONTAINER_ARCH ?= linux/arm64
+
+test-act:          ## Run the CI test workflow locally with act
+	$(ACT_CMD) -W $(ACT_WORKFLOW) -j $(ACT_JOB) --pull=$(ACT_PULL) --container-architecture $(ACT_CONTAINER_ARCH)
+
+.PHONY: usage install install-test install-lint dist clean publish lint start-postgres stop-postgres test test-act start-pg-and-test

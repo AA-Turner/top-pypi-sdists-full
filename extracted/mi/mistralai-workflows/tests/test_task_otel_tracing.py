@@ -23,6 +23,7 @@ from mistralai.workflows.core.tracing._otel_config import (
     FORCE_TRACE_ID_ATTRIBUTE,
     WORKFLOW_ROOT_ID_GENERATOR,
 )
+from mistralai.workflows.core.tracing.utils import GEN_AI_WORKFLOW_NAME_ATTRIBUTE
 from mistralai.workflows.models import EventSpanType
 
 from .fixtures_task import (
@@ -30,6 +31,7 @@ from .fixtures_task import (
     NestedTasksWorkflow,
     SimpleTaskWorkflow,
     StatefulTaskWorkflow,
+    TaskInWorkflowWorkflow,
     failing_task_no_retry_activity,
     nested_tasks_activity,
     simple_task_activity,
@@ -105,6 +107,7 @@ async def test_task_span_lifecycle(temporal_env: WorkflowEnvironment) -> None:
     assert s.attributes.get("wf.activity.attempt") == 1
     assert s.attributes.get("wf.workflow.execution_id") is not None
     assert s.attributes.get("wf.run.id") is not None
+    assert s.attributes.get("wf.workflow.run_id") is not None
     assert s.attributes.get("wf.task_queue") == "test-task-queue"
 
     # Completed span is a child of the started span
@@ -118,6 +121,32 @@ async def test_task_span_lifecycle(temporal_env: WorkflowEnvironment) -> None:
         assert span.end_time is not None
         assert span.start_time is not None
         assert span.end_time - span.start_time < 1e9, "Span duration should be < 1s (0-time span)"
+
+
+@pytest.mark.asyncio
+async def test_task_spans_carry_workflow_name(temporal_env: WorkflowEnvironment) -> None:
+    mock_client = AsyncMock()
+    mock_client.send_event = AsyncMock()
+
+    async with EventContext(mock_client):
+        async with create_test_worker_with_events(
+            temporal_env,
+            workflows=[TaskInWorkflowWorkflow],
+            activities=[simple_task_activity],
+        ):
+            handle = await temporal_env.client.start_workflow(
+                "task_in_workflow",
+                id="test-task-span-workflow-name",
+                task_queue="test-task-queue",
+            )
+            await handle.result()
+
+    task_spans = get_task_spans()
+    # workflow_task runs in workflow context, test_task in activity context: both must carry the name.
+    assert _type_spans(task_spans, "workflow_task") and _type_spans(task_spans, "test_task")
+    for span in task_spans:
+        assert span.attributes is not None
+        assert span.attributes.get(GEN_AI_WORKFLOW_NAME_ATTRIBUTE) == "task_in_workflow", span.name
 
 
 @pytest.mark.asyncio

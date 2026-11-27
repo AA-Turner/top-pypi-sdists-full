@@ -1,5 +1,3 @@
-# fmt: off
-
 import re
 from collections import namedtuple
 from numbers import Real
@@ -17,7 +15,8 @@ _re_defs = re.compile(r'\s*=\s*|\s+')
 
 
 _ZMatrixRow = namedtuple(
-    '_ZMatrixRow', 'ind1 dist ind2 a_bend ind3 a_dihedral',
+    '_ZMatrixRow',
+    'ind1 dist ind2 a_bend ind3 a_dihedral',
 )
 
 
@@ -33,14 +32,14 @@ def require(condition):
 class _ZMatrixToAtoms:
     known_units = dict(
         distance={'angstrom': Angstrom, 'bohr': Bohr, 'au': Bohr, 'nm': nm},
-        angle={'radians': 1., 'degrees': np.pi / 180},
+        angle={'radians': 1.0, 'degrees': np.pi / 180},
     )
 
     def __init__(
         self,
         dconv: str | Real,
         aconv: str | Real,
-        defs: dict[str, float] | str | list[str] | None = None
+        defs: dict[str, float] | str | list[str] | None = None,
     ) -> None:
         self.dconv = self.get_units('distance', dconv)  # type: float
         self.aconv = self.get_units('angle', aconv)  # type: float
@@ -58,8 +57,7 @@ class _ZMatrixToAtoms:
             return float(value)
         out = self.known_units[kind].get(value.lower())
         if out is None:
-            raise ValueError("Unknown {} units: {}"
-                             .format(kind, value))
+            raise ValueError('Unknown {} units: {}'.format(kind, value))
         return out
 
     def set_defs(self, defs: dict[str, float] | str | list[str] | None) -> None:
@@ -84,8 +82,9 @@ class _ZMatrixToAtoms:
         except ValueError as e:
             val_out = self.defs.get(val.lstrip('+-'))
             if val_out is None:
-                raise ValueError('Invalid value encountered in Z-matrix: {}'
-                                 .format(val)) from e
+                raise ValueError(
+                    'Invalid value encountered in Z-matrix: {}'.format(val)
+                ) from e
         return val_out * (-1 if val.startswith('-') else 1)
 
     def get_index(self, name: str) -> int:
@@ -94,8 +93,9 @@ class _ZMatrixToAtoms:
             return int(name) - 1
         except ValueError as e:
             if self.name_to_index is None or name not in self.name_to_index:
-                raise ValueError('Failed to determine index for name "{}"'
-                                 .format(name)) from e
+                raise ValueError(
+                    'Failed to determine index for name "{}"'.format(name)
+                ) from e
         return self.name_to_index[name]
 
     def set_index(self, name: str) -> None:
@@ -115,19 +115,24 @@ class _ZMatrixToAtoms:
     def validate_indices(self, *indices) -> None:
         """Raises an error if indices in a Z-matrix row are invalid."""
         if any(np.array(indices) >= self.nrows):
-            raise ValueError('An invalid Z-matrix was provided! Row {} refers '
-                             'to atom indices {}, at least one of which '
-                             "hasn't been defined yet!"
-                             .format(self.nrows, indices))
+            raise ValueError(
+                'An invalid Z-matrix was provided! Row {} refers '
+                'to atom indices {}, at least one of which '
+                "hasn't been defined yet!".format(self.nrows, indices)
+            )
 
         if len(indices) != len(set(indices)):
-            raise ValueError('An atom index has been used more than once a '
-                             'row of the Z-matrix! Row numbers {}, '
-                             'referred indices: {}'
-                             .format(self.nrows, indices))
+            raise ValueError(
+                'An atom index has been used more than once a '
+                'row of the Z-matrix! Row numbers {}, '
+                'referred indices: {}'.format(self.nrows, indices)
+            )
 
-    def parse_row(self, row: str) -> tuple[
-            str, _ZMatrixRow | ThreeFloats,
+    def parse_row(
+        self, row: str
+    ) -> tuple[
+        str,
+        _ZMatrixRow | ThreeFloats,
     ]:
         tokens = row.split()
         name = tokens[0]
@@ -139,8 +144,9 @@ class _ZMatrixToAtoms:
         ind1 = self.get_index(tokens[1])
         if ind1 == -1:
             require(len(tokens) == 5)
-            return name, np.array(list(map(self.get_var, tokens[2:])),
-                                  dtype=float)
+            return name, np.array(
+                list(map(self.get_var, tokens[2:])), dtype=float
+            )
 
         dist = self.dconv * self.get_var(tokens[2])
 
@@ -160,8 +166,7 @@ class _ZMatrixToAtoms:
         ind3 = self.get_index(tokens[5])
         a_dihedral = self.aconv * self.get_var(tokens[6])
         self.validate_indices(ind1, ind2, ind3)
-        return name, _ZMatrixRow(ind1, dist, ind2, a_bend, ind3,
-                                 a_dihedral)
+        return name, _ZMatrixRow(ind1, dist, ind2, a_bend, ind3, a_dihedral)
 
     def add_atom(self, name: str, pos: ThreeFloats) -> None:
         """Sets the symbol and position of an atom."""
@@ -200,8 +205,9 @@ class _ZMatrixToAtoms:
         # ax3 is a vector that forms the appropriate dihedral angle, though
         # the bending angle is 90 degrees, rather than a_bend. It is formed
         # from a linear combination of ax2 and (ax2 x ax1)
-        ax3 = (ax2 * np.cos(zrow.a_dihedral)
-               + np.cross(ax2, ax1) * np.sin(zrow.a_dihedral))
+        ax3 = ax2 * np.cos(zrow.a_dihedral) + np.cross(ax2, ax1) * np.sin(
+            zrow.a_dihedral
+        )
 
         # The final position vector is a linear combination of ax1 and ax3.
         pos = ax1 * np.cos(zrow.a_bend) - ax3 * np.sin(zrow.a_bend)
@@ -217,7 +223,7 @@ def parse_zmatrix(
     zmat: str | list[str],
     distance_units: str | Real = 'angstrom',
     angle_units: str | Real = 'degrees',
-    defs: dict[str, float] | str | list[str] | None = None
+    defs: dict[str, float] | str | list[str] | None = None,
 ) -> Atoms:
     """Converts a Z-matrix into an Atoms object.
 

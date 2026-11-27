@@ -48,6 +48,7 @@ class TestOpenAIJSONSchema(unittest.TestCase):
             )
         else:
             return OpenAIJSONSchema(
+                name = '',
         )
         """
 

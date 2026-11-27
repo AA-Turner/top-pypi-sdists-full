@@ -62,6 +62,7 @@ from testmu._v4._helpers.vision import (
     get_vision_coordinates,
 )
 from testmu._v4._helpers.smartui import smartui_snapshot
+from testmu._v4._helpers.accessibility import accessibility_scan
 from testmu._v4._helpers.textual_analyzer import textual_analyzer
 
 # Derivation recompute — re-evaluate recorded code_js derivations at replay

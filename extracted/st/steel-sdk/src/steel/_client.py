@@ -52,14 +52,26 @@ from .types.scrape_response import ScrapeResponse
 from .types.screenshot_response import ScreenshotResponse
 
 if TYPE_CHECKING:
-    from .resources import files, api_keys, profiles, projects, sessions, extensions, credentials
+    from .resources import (
+        files,
+        vaults,
+        api_keys,
+        profiles,
+        projects,
+        sessions,
+        extensions,
+        credentials,
+        secret_connections,
+    )
     from .resources.files import FilesResource, AsyncFilesResource
+    from .resources.vaults import VaultsResource, AsyncVaultsResource
     from .resources.api_keys import APIKeysResource, AsyncAPIKeysResource
     from .resources.profiles import ProfilesResource, AsyncProfilesResource
     from .resources.projects import ProjectsResource, AsyncProjectsResource
     from .resources.extensions import ExtensionsResource, AsyncExtensionsResource
     from .resources.credentials import CredentialsResource, AsyncCredentialsResource
     from .resources.sessions.sessions import SessionsResource, AsyncSessionsResource
+    from .resources.secret_connections import SecretConnectionsResource, AsyncSecretConnectionsResource
 
 __all__ = ["Timeout", "Transport", "ProxiesTypes", "RequestOptions", "Steel", "AsyncSteel", "Client", "AsyncClient"]
 
@@ -164,10 +176,22 @@ class Steel(SyncAPIClient):
         return ProjectsResource(self)
 
     @cached_property
+    def secret_connections(self) -> SecretConnectionsResource:
+        from .resources.secret_connections import SecretConnectionsResource
+
+        return SecretConnectionsResource(self)
+
+    @cached_property
     def sessions(self) -> SessionsResource:
         from .resources.sessions import SessionsResource
 
         return SessionsResource(self)
+
+    @cached_property
+    def vaults(self) -> VaultsResource:
+        from .resources.vaults import VaultsResource
+
+        return VaultsResource(self)
 
     @cached_property
     def with_raw_response(self) -> SteelWithRawResponse:
@@ -565,10 +589,22 @@ class AsyncSteel(AsyncAPIClient):
         return AsyncProjectsResource(self)
 
     @cached_property
+    def secret_connections(self) -> AsyncSecretConnectionsResource:
+        from .resources.secret_connections import AsyncSecretConnectionsResource
+
+        return AsyncSecretConnectionsResource(self)
+
+    @cached_property
     def sessions(self) -> AsyncSessionsResource:
         from .resources.sessions import AsyncSessionsResource
 
         return AsyncSessionsResource(self)
+
+    @cached_property
+    def vaults(self) -> AsyncVaultsResource:
+        from .resources.vaults import AsyncVaultsResource
+
+        return AsyncVaultsResource(self)
 
     @cached_property
     def with_raw_response(self) -> AsyncSteelWithRawResponse:
@@ -920,10 +956,22 @@ class SteelWithRawResponse:
         return ProjectsResourceWithRawResponse(self._client.projects)
 
     @cached_property
+    def secret_connections(self) -> secret_connections.SecretConnectionsResourceWithRawResponse:
+        from .resources.secret_connections import SecretConnectionsResourceWithRawResponse
+
+        return SecretConnectionsResourceWithRawResponse(self._client.secret_connections)
+
+    @cached_property
     def sessions(self) -> sessions.SessionsResourceWithRawResponse:
         from .resources.sessions import SessionsResourceWithRawResponse
 
         return SessionsResourceWithRawResponse(self._client.sessions)
+
+    @cached_property
+    def vaults(self) -> vaults.VaultsResourceWithRawResponse:
+        from .resources.vaults import VaultsResourceWithRawResponse
+
+        return VaultsResourceWithRawResponse(self._client.vaults)
 
 
 class AsyncSteelWithRawResponse:
@@ -980,10 +1028,22 @@ class AsyncSteelWithRawResponse:
         return AsyncProjectsResourceWithRawResponse(self._client.projects)
 
     @cached_property
+    def secret_connections(self) -> secret_connections.AsyncSecretConnectionsResourceWithRawResponse:
+        from .resources.secret_connections import AsyncSecretConnectionsResourceWithRawResponse
+
+        return AsyncSecretConnectionsResourceWithRawResponse(self._client.secret_connections)
+
+    @cached_property
     def sessions(self) -> sessions.AsyncSessionsResourceWithRawResponse:
         from .resources.sessions import AsyncSessionsResourceWithRawResponse
 
         return AsyncSessionsResourceWithRawResponse(self._client.sessions)
+
+    @cached_property
+    def vaults(self) -> vaults.AsyncVaultsResourceWithRawResponse:
+        from .resources.vaults import AsyncVaultsResourceWithRawResponse
+
+        return AsyncVaultsResourceWithRawResponse(self._client.vaults)
 
 
 class SteelWithStreamedResponse:
@@ -1040,10 +1100,22 @@ class SteelWithStreamedResponse:
         return ProjectsResourceWithStreamingResponse(self._client.projects)
 
     @cached_property
+    def secret_connections(self) -> secret_connections.SecretConnectionsResourceWithStreamingResponse:
+        from .resources.secret_connections import SecretConnectionsResourceWithStreamingResponse
+
+        return SecretConnectionsResourceWithStreamingResponse(self._client.secret_connections)
+
+    @cached_property
     def sessions(self) -> sessions.SessionsResourceWithStreamingResponse:
         from .resources.sessions import SessionsResourceWithStreamingResponse
 
         return SessionsResourceWithStreamingResponse(self._client.sessions)
+
+    @cached_property
+    def vaults(self) -> vaults.VaultsResourceWithStreamingResponse:
+        from .resources.vaults import VaultsResourceWithStreamingResponse
+
+        return VaultsResourceWithStreamingResponse(self._client.vaults)
 
 
 class AsyncSteelWithStreamedResponse:
@@ -1100,10 +1172,22 @@ class AsyncSteelWithStreamedResponse:
         return AsyncProjectsResourceWithStreamingResponse(self._client.projects)
 
     @cached_property
+    def secret_connections(self) -> secret_connections.AsyncSecretConnectionsResourceWithStreamingResponse:
+        from .resources.secret_connections import AsyncSecretConnectionsResourceWithStreamingResponse
+
+        return AsyncSecretConnectionsResourceWithStreamingResponse(self._client.secret_connections)
+
+    @cached_property
     def sessions(self) -> sessions.AsyncSessionsResourceWithStreamingResponse:
         from .resources.sessions import AsyncSessionsResourceWithStreamingResponse
 
         return AsyncSessionsResourceWithStreamingResponse(self._client.sessions)
+
+    @cached_property
+    def vaults(self) -> vaults.AsyncVaultsResourceWithStreamingResponse:
+        from .resources.vaults import AsyncVaultsResourceWithStreamingResponse
+
+        return AsyncVaultsResourceWithStreamingResponse(self._client.vaults)
 
 
 Client = Steel

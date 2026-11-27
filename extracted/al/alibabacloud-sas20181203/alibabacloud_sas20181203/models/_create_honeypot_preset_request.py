@@ -17,22 +17,19 @@ class CreateHoneypotPresetRequest(DaraModel):
         # 
         # This parameter is required.
         self.honeypot_image_name = honeypot_image_name
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
-        # 
-        # *   **zh**: Chinese
-        # *   **en**: English
+        # The language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
-        # The custom configurations of the honeypot template. The value is a JSON string that contains the following fields:
-        # 
-        # *   **portrait_option**: Social Source Tracing
-        # *   **burp**: Burp-specific Defense
-        # *   **trojan_git**: Git-specific Defense
+        # The custom parameters of the honeypot template. The value is a JSON string that contains the following fields:
+        # - **portrait_option**: social tracing
+        # - **burp**: Burp countermeasure
+        # - **trojan_git**: Git countermeasure
         # 
         # This parameter is required.
         self.meta = meta
-        # The ID of the management node to which you want to deploy honeypots.
-        # 
-        # > You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to query the IDs of management nodes.
+        # The unique ID of the honeypot management node.
+        # > You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain this parameter.
         # 
         # This parameter is required.
         self.node_id = node_id

@@ -1,20 +1,36 @@
+# OpenID discovery and callbacks share the same protocol state and checks.
+# pylint: disable=too-many-lines
 from __future__ import annotations
 
+import time
+from calendar import timegm
 from typing import TYPE_CHECKING, Any, cast
+from urllib.error import URLError
 from urllib.parse import parse_qsl, urldefrag, urlencode, urlsplit, urlunsplit
+from urllib.request import HTTPRedirectHandler, build_opener
 
+from openid import fetchers
 from openid.consumer.consumer import (
     CANCEL,
     FAILURE,
     SUCCESS,
     AuthRequest,
     Consumer,
+    GenericConsumer,
     SuccessResponse,
 )
-from openid.consumer.discover import DiscoveryFailure, OpenIDServiceEndpoint
+from openid.consumer.discover import (
+    DiscoveryFailure,
+    OpenIDServiceEndpoint,
+    getOPOrUserServices,
+    normalizeURL,
+)
 from openid.extensions import ax, pape, sreg
 from openid.fetchers import HTTPFetchingError
 from openid.message import OPENID2_NS, OPENID_NS, Message
+from openid.yadis.constants import YADIS_ACCEPT_HEADER
+from openid.yadis.discover import DiscoveryResult, whereIsYadis
+from openid.yadis.etxrd import XRDSError
 
 from social_core.backends.base import ResponseT_co
 from social_core.exceptions import (
@@ -28,11 +44,19 @@ from social_core.exceptions import (
     ErrorStage,
 )
 from social_core.store import InvalidOpenIdSession, OpenIdSessionWrapper
-from social_core.utils import constant_time_compare, url_add_parameters
+from social_core.utils import (
+    DEFAULT_REDIRECT_SCHEMES,
+    constant_time_compare,
+    has_unsafe_url_characters,
+    url_add_parameters,
+)
 
 from .base import BaseAuth
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
+
+    from social_core.storage import UserProtocol
     from social_core.store import OpenIdStore
 
 # OpenID configuration
@@ -56,6 +80,161 @@ SESSION_NAME = "openid"
 _VERIFIED_RESPONSE_KEY = "_openid_verified_response"
 _BACKEND_SESSION_KEY = "_social_auth_backend"
 _LEGACY_SESSION_ID_FIELD = "psa_session_id"
+# RFC 3339 UTC timestamp used by the PAPE auth_time response field.
+_PAPE_AUTH_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+
+def _pape_now() -> int:
+    """Read the PAPE clock through a private, testable binding."""
+    return int(time.time())
+
+
+def _is_https_url(url: object) -> bool:
+    if not isinstance(url, str) or not url or has_unsafe_url_characters(url):
+        return False
+    try:
+        parsed = urlsplit(url)
+        port = parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname is not None
+        and parsed.username is None
+        and parsed.password is None
+        and (port is None or port > 0)
+    )
+
+
+class _InsecureDiscovery(DiscoveryFailure):
+    """Discovery of an HTTPS identifier left HTTPS."""
+
+
+class _InsecureRedirect(URLError):
+    """An OpenID discovery redirect tried to leave HTTPS."""
+
+
+class _HTTPSRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # urllib follows redirects inside the fetcher, before its caller can
+        # inspect final_url. Reject the destination before urllib sends it.
+        if not _is_https_url(newurl):
+            raise _InsecureRedirect("OpenID discovery refers to an insecure URL")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+class _HTTPSDiscoveryFetcher(fetchers.Urllib2Fetcher):
+    def __init__(self) -> None:
+        # Construct the opener per fetch so environment proxy settings are
+        # resolved for the current request, as with urllib's default opener.
+        self.urlopen = cast("Any", build_opener(_HTTPSRedirectHandler()).open)
+
+
+class _HTTPSCurlFetcher(fetchers.CurlHTTPFetcher):
+    def _checkURL(self, url: str) -> bool:
+        if not _is_https_url(url):
+            raise _InsecureRedirect("OpenID discovery refers to an insecure URL")
+        return super()._checkURL(url)
+
+
+def _fetch_over_https(url: str, headers: dict[str, str] | None = None) -> Any:
+    if not _is_https_url(url):
+        raise _InsecureDiscovery("OpenID discovery refers to an insecure URL", None)
+    try:
+        current_fetcher = fetchers.getDefaultFetcher()
+        while isinstance(current_fetcher, fetchers.ExceptionWrappingFetcher):
+            current_fetcher = current_fetcher.fetcher
+        if isinstance(current_fetcher, fetchers.HTTPLib2Fetcher):
+            # httplib2 follows redirects internally without a per-hop guard.
+            raise _InsecureDiscovery(
+                "OpenID discovery fetcher cannot enforce HTTPS redirects", None
+            )
+        if isinstance(current_fetcher, fetchers.Urllib2Fetcher):
+            secure_fetcher = _HTTPSDiscoveryFetcher()
+        elif isinstance(current_fetcher, fetchers.CurlHTTPFetcher):
+            secure_fetcher = _HTTPSCurlFetcher()
+        else:
+            # Custom fetchers are application-supplied transport boundaries.
+            secure_fetcher = None
+        response = (
+            fetchers.ExceptionWrappingFetcher(secure_fetcher).fetch(
+                url, headers=headers
+            )
+            if secure_fetcher is not None
+            else fetchers.fetch(url, headers=headers)
+        )
+    except HTTPFetchingError as error:
+        if isinstance(error.why, _InsecureRedirect):
+            raise _InsecureDiscovery(
+                "OpenID discovery refers to an insecure URL", None
+            ) from error
+        raise DiscoveryFailure("OpenID discovery request failed", None) from error
+    except _InsecureRedirect as error:
+        raise _InsecureDiscovery(
+            "OpenID discovery refers to an insecure URL", None
+        ) from error
+    if not _is_https_url(response.final_url):
+        raise _InsecureDiscovery(
+            "OpenID discovery was redirected to an insecure URL", response
+        )
+    if response.status not in {200, 206}:
+        raise DiscoveryFailure(
+            f"OpenID discovery got HTTP status {response.status!r}", response
+        )
+    return response
+
+
+def _discover_over_https(identifier: str) -> tuple[str, list[OpenIDServiceEndpoint]]:
+    """Discover the services of an HTTPS identifier without leaving HTTPS.
+
+    python3-openid follows redirects and the Yadis location of the identifier's
+    page to ``http://`` URLs. The document found there names the provider and
+    the local identifier it has to sign, so whoever can alter a cleartext
+    response would choose who vouches for the HTTPS identifier. This is
+    ``openid.consumer.discover.discoverURI`` with every fetch required to start
+    and end at an HTTPS URL. Identifiers that are not HTTPS URLs are discovered
+    as before.
+    """
+    if urlsplit(identifier).scheme != "https":
+        raise _InsecureDiscovery("Fixed OpenID discovery requires HTTPS", None)
+
+    endpoint_type = cast("Any", OpenIDServiceEndpoint)
+    url = normalizeURL(identifier)
+    result = DiscoveryResult(url)
+    response = _fetch_over_https(url, {"Accept": YADIS_ACCEPT_HEADER})
+    result.normalized_uri = response.final_url
+    result.content_type = response.headers.get("content-type")
+    result.xrds_uri = whereIsYadis(response)
+    if result.xrds_uri and result.usedYadisLocation():
+        response = _fetch_over_https(result.xrds_uri)
+        # A fetcher reports where redirects ended, not the hops in between,
+        # and a redirected document still speaks for the same identifier.
+        if response.final_url != result.xrds_uri:
+            raise _InsecureDiscovery("OpenID XRDS document was redirected", response)
+        result.content_type = response.headers.get("content-type")
+
+    try:
+        services = endpoint_type.fromXRDS(result.normalized_uri, response.body)
+    except XRDSError:
+        services = []
+    if not services:
+        if result.isXRDS():
+            # Not an OpenID XRDS document: read the page itself as HTML.
+            page = _fetch_over_https(url)
+            services = endpoint_type.fromHTML(page.final_url, page.body)
+            return normalizeURL(page.final_url), services
+        services = endpoint_type.fromHTML(result.normalized_uri, response.body)
+    return normalizeURL(result.normalized_uri), cast(
+        "list[OpenIDServiceEndpoint]", getOPOrUserServices(services)
+    )
+
+
+class _HTTPSDiscoveryGenericConsumer(GenericConsumer):
+    _discover = staticmethod(_discover_over_https)
+
+
+class _HTTPSDiscoveryConsumer(Consumer):
+    _discover = staticmethod(_discover_over_https)
 
 
 class OpenIdAuth(BaseAuth[ResponseT_co]):
@@ -74,8 +253,10 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
         return self.URL is not None
 
     @staticmethod
-    def _is_https_url(url: object) -> bool:
-        if not isinstance(url, str) or not url:
+    def _is_web_url(
+        url: object, schemes: Collection[str] = DEFAULT_REDIRECT_SCHEMES
+    ) -> bool:
+        if not isinstance(url, str) or not url or has_unsafe_url_characters(url):
             return False
         try:
             parsed = urlsplit(url)
@@ -83,12 +264,16 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
         except ValueError:
             return False
         return (
-            parsed.scheme == "https"
+            parsed.scheme in schemes
             and parsed.hostname is not None
             and parsed.username is None
             and parsed.password is None
             and (port is None or port > 0)
         )
+
+    @classmethod
+    def _is_https_url(cls, url: object) -> bool:
+        return cls._is_web_url(url, ("https",))
 
     def _validate_provider_url(self, url: object) -> None:
         if not self._is_https_url(url):
@@ -108,7 +293,18 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
                 code="malformed_response",
                 stage="begin",
             )
-        if not self._is_https_url(endpoint_url):
+        # The browser is sent to this endpoint by redirect or by the
+        # auto-submitted form, so it must be an absolute HTTP(S) URL.
+        if not self._is_web_url(endpoint_url):
+            raise AuthProviderError(
+                self,
+                "OpenID discovery returned an invalid provider endpoint",
+                code="malformed_response",
+                stage="begin",
+            )
+        if self.requires_openid_provider_binding() and not self._is_https_url(
+            endpoint_url
+        ):
             raise AuthProviderError(
                 self,
                 "OpenID discovery returned an insecure provider endpoint",
@@ -421,6 +617,17 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
         )
         return values
 
+    def auth_allowed(self, response: Any, details: dict[str, Any]) -> bool:
+        """Return True if the user should be allowed to authenticate.
+
+        A provider selected by the visitor vouches only for its own
+        identifiers, so the address it asserts cannot satisfy
+        WHITELISTED_EMAILS or WHITELISTED_DOMAINS.
+        """
+        if not self.requires_openid_provider_binding():
+            details = {**details, "email": ""}
+        return super().auth_allowed(response, details)
+
     def extra_data(
         self,
         user,
@@ -469,13 +676,30 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
 
     def create_state(self) -> str:
         """Bind the next positive assertion to this browser's OpenID login."""
+        if self.ASSOCIATION_ONLY:
+            return self.get_association_state()
         state = self.strategy.random_string(32)
         self.strategy.session_set(f"{self.name}_state", state)
         return state
 
-    def validate_state(self) -> None:
+    def answers_pending_request(self, data: dict[str, Any]) -> bool:
+        state = data.get("redirect_state")
+        pending = self.strategy.session_get(f"{self.name}_state")
+        if isinstance(pending, dict):
+            pending = pending.get("state")
+        return (
+            isinstance(state, str)
+            and isinstance(pending, str)
+            and bool(state)
+            and constant_time_compare(state, pending)
+        )
+
+    def validate_state(self, user: UserProtocol | None = None) -> None:
         """Require the verified return URL's state in the initiating session."""
         request_state = self.data.get("redirect_state")
+        if self.ASSOCIATION_ONLY:
+            self.validate_association_state(request_state, user)
+            return
         if not isinstance(request_state, str) or not request_state:
             raise AuthInputError(
                 self,
@@ -613,7 +837,8 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
         else:
             initiated_endpoint = self._expected_openid_endpoint()
             self._validate_completed_generic_provider(response, initiated_endpoint)
-        self.validate_state()
+        self.validate_state(kwargs.get("user"))
+        self.validate_pape_auth_time(response)
         self._clear_openid_context()
         # Retain both the verified message and its signed fields so extension
         # data keeps the same trust checks after a JSON-serialized partial.
@@ -657,15 +882,18 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
             )
         request.addExtension(fetch_request)
 
-        # Add PAPE Extension for if configured
+        self.add_pape_request(request)
+        return request
+
+    def add_pape_request(self, request: AuthRequest) -> None:
+        """Attach the configured PAPE request and remember when it was sent."""
         preferred_policies = self.setting("OPENID_PAPE_PREFERRED_AUTH_POLICIES")
         preferred_level_types = self.setting("OPENID_PAPE_PREFERRED_AUTH_LEVEL_TYPES")
-        max_age = self.setting("OPENID_PAPE_MAX_AUTH_AGE")
+        max_age = self.pape_max_auth_age()
         if max_age is not None:
-            try:
-                max_age = int(max_age)
-            except (ValueError, TypeError):
-                max_age = None
+            # max_auth_age counts back from this request; the callback
+            # compares the signed auth_time against that moment.
+            self.strategy.session_set(f"{self.name}_pape_requested_at", _pape_now())
 
         if max_age is not None or preferred_policies or preferred_level_types:
             pape_request = pape.Request(
@@ -674,7 +902,89 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
                 preferred_auth_level_types=preferred_level_types,
             )
             request.addExtension(pape_request)
-        return request
+
+    def pape_max_auth_age(self) -> int | None:
+        """Return the configured PAPE max_auth_age in seconds, if any."""
+        max_age = self.setting("OPENID_PAPE_MAX_AUTH_AGE")
+        if max_age is None:
+            return None
+        try:
+            parsed = int(max_age)
+        except (ValueError, TypeError) as error:
+            raise AuthConfigurationError(
+                self,
+                code="invalid_setting",
+                parameter="OPENID_PAPE_MAX_AUTH_AGE",
+                stage="begin",
+            ) from error
+        if isinstance(max_age, bool) or parsed < 0:
+            raise AuthConfigurationError(
+                self,
+                code="invalid_setting",
+                parameter="OPENID_PAPE_MAX_AUTH_AGE",
+                stage="begin",
+            )
+        return parsed
+
+    def validate_pape_auth_time(self, response: SuccessResponse) -> None:
+        """Require a signed PAPE auth_time within OPENID_PAPE_MAX_AUTH_AGE.
+
+        The authentication request reaches the provider through the browser,
+        which can drop or alter max_auth_age, and a provider may ignore it,
+        so the provider's signed answer has to show the requirement was met.
+        """
+        requested_at = self.strategy.session_pop(f"{self.name}_pape_requested_at")
+        max_age = self.pape_max_auth_age()
+        if max_age is None:
+            return
+        # fromSuccessResponse() only reads signed PAPE fields.
+        pape_response = cast("Any", pape.Response).fromSuccessResponse(response)
+        auth_time = pape_response.auth_time if pape_response else None
+        if not auth_time:
+            raise AuthResponseError(
+                self,
+                "Missing PAPE response: auth_time",
+                claim="auth_time",
+                code="missing_claim",
+                stage="callback",
+            )
+        try:
+            authenticated_at = timegm(time.strptime(auth_time, _PAPE_AUTH_TIME_FORMAT))
+        except ValueError as error:
+            raise AuthResponseError(
+                self,
+                "Incorrect PAPE response: auth_time",
+                claim="auth_time",
+                code="invalid_claim",
+                stage="callback",
+            ) from error
+        if not isinstance(requested_at, int):
+            # The request was made without the setting; fail safe on now.
+            requested_at = _pape_now()
+        leeway = self.setting("OPENID_PAPE_AUTH_TIME_LEEWAY", 1)
+        if not isinstance(leeway, int) or isinstance(leeway, bool) or leeway < 0:
+            raise AuthConfigurationError(
+                self,
+                code="invalid_setting",
+                parameter="OPENID_PAPE_AUTH_TIME_LEEWAY",
+                stage="callback",
+            )
+        if authenticated_at > _pape_now() + leeway:
+            raise AuthResponseError(
+                self,
+                "Incorrect PAPE response: auth_time",
+                claim="auth_time",
+                code="response_not_yet_valid",
+                stage="callback",
+            )
+        if requested_at - authenticated_at > max_age:
+            raise AuthResponseError(
+                self,
+                "Incorrect PAPE response: auth_time",
+                claim="auth_time",
+                code="response_expired",
+                stage="callback",
+            )
 
     def get_consumer_store(self) -> OpenIdStore | None:
         return self.strategy.openid_store()
@@ -686,7 +996,12 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
         return self._consumer
 
     def create_consumer(self, store=None):
-        return Consumer(self.strategy.openid_session_dict(SESSION_NAME), store)
+        session = self.strategy.openid_session_dict(SESSION_NAME)
+        if self.requires_openid_provider_binding():
+            return _HTTPSDiscoveryConsumer(
+                session, store, _HTTPSDiscoveryGenericConsumer
+            )
+        return Consumer(session, store)
 
     def uses_redirect(self):
         """Return true if openid request will be handled with redirect or
@@ -698,19 +1013,28 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
         self, provider_url: str, params: dict[str, str] | None
     ) -> AuthRequest:
         try:
-            consumer = self.consumer()
+            session = self.strategy.openid_session_dict(SESSION_NAME)
+            same_backend = session.get(_BACKEND_SESSION_KEY) == self.name
         except InvalidOpenIdSession:
+            same_backend = False
+        if not same_backend:
+            # Discovery stores the endpoint as it goes and can fail half-way,
+            # so drop another backend's context and claim the session before
+            # it starts. The consumer persists its own copy of the session,
+            # so it must be recreated from the claimed one.
+            self.strategy.session_set(SESSION_NAME, {_BACKEND_SESSION_KEY: self.name})
+            self._consumer = None
+        consumer = self.consumer()
+        if self.requires_openid_provider_binding():
+            # Previously saved services may have been discovered over HTTP.
+            consumer.session.pop(OpenIdSessionWrapper.manager_key, None)
+        request = consumer.begin(url_add_parameters(provider_url, params))
+        try:
+            self._validate_discovered_provider_endpoint(request.endpoint.server_url)
+        except AuthProviderError:
             self.strategy.session_set(SESSION_NAME, {})
             self._consumer = None
-            consumer = self.consumer()
-        request = consumer.begin(url_add_parameters(provider_url, params))
-        if self.requires_openid_provider_binding():
-            try:
-                self._validate_discovered_provider_endpoint(request.endpoint.server_url)
-            except AuthProviderError:
-                self.strategy.session_set(SESSION_NAME, {})
-                self._consumer = None
-                raise
+            raise
         self.strategy.openid_session_dict(SESSION_NAME)[_BACKEND_SESSION_KEY] = (
             self.name
         )
@@ -727,7 +1051,9 @@ class OpenIdAuth(BaseAuth[ResponseT_co]):
             raise AuthProviderError(
                 self,
                 f"OpenID discovery error: {err}",
-                code="http_error",
+                code="tls_error"
+                if isinstance(err, _InsecureDiscovery)
+                else "http_error",
                 stage="begin",
             ) from err
 

@@ -9,12 +9,13 @@ supports making the filled form read-only to prevent further modifications.
 """
 
 from io import BytesIO
-from typing import Dict, cast
+from typing import Dict, List, Set, cast
 
 from pypdf import PdfWriter
-from pypdf.generic import ArrayObject, DictionaryObject
+from pypdf.generic import DictionaryObject
 
-from .constants import AcroForm, Fields, Kids, Parent, Subtype, Widget
+from .constants import Subtype, Widget
+from .field_tree import detach_field
 from .hooks import update_field_readonly
 from .image import get_draw_image_resolutions, get_image_dimensions
 from .middleware import WIDGET_TYPES
@@ -26,6 +27,8 @@ from .middleware.signature import Signature
 from .middleware.text import Text
 from .patterns import (
     get_widget_key,
+    get_widget_type,
+    is_pushbutton,
     update_checkbox_value,
     update_dropdown_value,
     update_radio_value,
@@ -77,21 +80,67 @@ def signature_image_handler(
     return any_image_to_draw
 
 
+def _is_filled_by(widget: WIDGET_TYPES, annot: DictionaryObject) -> bool:
+    """Checks whether filling a widget changes an annotation with its key.
+
+    A key can name fields of different types, such as a checkbox and a radio
+    group with the same short name. An annotation of another type than the
+    widget, from `get_widget_type`, which doesn't depend on its appearance
+    state, keeps its value. A radio group fills only radio options, so no
+    other annotation takes an option index; other widgets also fill
+    annotations that aren't a supported widget, except pushbuttons, which have
+    no value.
+
+    Args:
+        widget (WIDGET_TYPES): The widget under the annotation's key.
+        annot (DictionaryObject): The widget annotation.
+
+    Returns:
+        bool: True if filling the widget changes the annotation.
+    """
+    _type = get_widget_type(annot)
+    if isinstance(widget, Radio):
+        return _type is Radio
+    if _type is None:
+        return not is_pushbutton(annot)
+
+    return _type is type(widget)
+
+
+def _is_unchanged_checkbox(widget: WIDGET_TYPES) -> bool:
+    """Checks whether a widget is a checkbox still at the value the PDF holds.
+
+    Args:
+        widget (WIDGET_TYPES): The widget to check.
+
+    Returns:
+        bool: True if the widget is a checkbox, not a radio group, whose value
+            is the one in `_pdf_value`, which `build_widgets` read and
+            `PdfWrapper.fill` updates after each fill.
+    """
+    return type(widget) is Checkbox and widget.value == widget.__dict__.get(
+        "_pdf_value"
+    )
+
+
 def update_widget(
     annot: DictionaryObject,
     widget: WIDGET_TYPES,
     key: str,
-    radio_button_tracker: Dict[str, int],
+    radio_options: Dict[str, List[DictionaryObject]],
     images_to_draw_page: list,
     need_appearances: bool,
     readonly: bool,
+    write_value: bool = True,
 ) -> bool:
     """Updates a single widget's value and handles its properties.
 
     This function updates the value of a single PDF form widget based on its type. It sets
     the read-only flag first when requested, skips value updates when the
-    middleware value is ``None``, tracks radio option indices within each group,
-    updates the entire radio group when its selected option is reached, and
+    middleware value is ``None`` or filling the widget doesn't change the
+    annotation, such as a checkbox with the short name of a radio group,
+    collects the options of each radio group in order, which `fill` selects
+    once every page is visited, and
     prepares images or signatures for later drawing instead of writing image data directly
     into the annotation.
 
@@ -99,17 +148,20 @@ def update_widget(
         annot (DictionaryObject): The annotation object representing the widget in the PDF.
         widget (WIDGET_TYPES): The widget middleware object containing the new value.
         key (str): The unique key identifying the widget.
-        radio_button_tracker (Dict[str, int]): A tracker for radio button groups to manage their indices.
+        radio_options (Dict[str, List[DictionaryObject]]): The options of
+            each radio group so far, by key, in the order they are filled.
         images_to_draw_page (list): A list to store image data for the current page.
         need_appearances (bool): If True, skips updating appearance streams for certain fields.
         readonly (bool): Whether to make the widget read-only to prevent further editing.
+        write_value (bool): False to leave the value unchanged, such as a
+            checkbox's that wasn't supplied. Defaults to True.
 
     Returns:
         bool: True if an image or signature was prepared for drawing, False otherwise.
     """
     if readonly:
         update_field_readonly(annot, True)
-    if widget.value is None:
+    if widget.value is None or not write_value or not _is_filled_by(widget, annot):
         return False
 
     any_image_to_draw = False
@@ -118,11 +170,7 @@ def update_widget(
     elif type(widget) is Checkbox:
         update_checkbox_value(annot, widget.value)
     elif isinstance(widget, Radio):
-        if key not in radio_button_tracker:
-            radio_button_tracker[key] = 0
-        radio_button_tracker[key] += 1
-        if widget.value == radio_button_tracker[key] - 1:
-            update_radio_value(annot)
+        radio_options.setdefault(key, []).append(annot)
     elif isinstance(widget, Dropdown):
         update_dropdown_value(annot, widget, need_appearances)
     elif isinstance(widget, Text):
@@ -157,41 +205,12 @@ def handle_image_drawing(
     return merge_watermarks_with_pdf(result, create_watermarks_and_draw(result, images))
 
 
-def _detach_consumed_widget(writer: PdfWriter, annot: DictionaryObject) -> None:
-    """
-    Detaches a consumed widget and empty ancestor fields from the AcroForm tree.
-
-    This function removes the widget from its parent's child array or the
-    AcroForm's root field array. It removes ancestors that become empty, stopping
-    at the first parent with remaining children. Resolved objects are compared
-    by identity so unrelated fields with the same name retain their references.
-    The caller is responsible for removing the widget from page annotations.
-
-    Args:
-        writer (PdfWriter): The PDF writer that owns the widget and field tree.
-        annot (DictionaryObject): The consumed image or signature widget to detach.
-    """
-    field = annot
-    while Parent in field:
-        parent = cast(DictionaryObject, field[Parent])
-        children = cast(ArrayObject, parent.get(Kids, ArrayObject()).get_object())
-        children[:] = [child for child in children if child.get_object() is not field]
-        if children:
-            return
-        field = parent
-
-    acroform = writer.root_object.get(AcroForm, DictionaryObject()).get_object()
-    fields = cast(ArrayObject, acroform.get(Fields, ArrayObject()).get_object())
-    fields[:] = [
-        reference for reference in fields if reference.get_object() is not field
-    ]
-
-
 def fill(
     template: bytes,
     widgets: Dict[str, WIDGET_TYPES],
     need_appearances: bool,
     use_full_widget_name: bool,
+    supplied: Set[str],
     readonly: bool = False,
 ) -> tuple:
     """Fills a PDF template with the given widgets.
@@ -199,10 +218,19 @@ def fill(
     This function fills a PDF template with the provided widget values. It iterates through the
     widgets on each page of the PDF and updates their values based on the provided `widgets`
     dictionary. The function supports text fields, checkboxes, radio buttons, dropdowns,
-    images, and signatures. It can set fields read-only during filling, and when images or
-    signatures are present it removes only the widgets whose images were prepared,
-    including their field-tree entries, and returns a second stream with the image
-    watermarks applied. All other annotations retain their existing references.
+    images, and signatures. A field of another type than the widget under its key,
+    such as a checkbox with the short name of a radio group, keeps its value, and a
+    radio group fills only its own options. Once every page is visited, the
+    option at a radio group's index is selected, and the other widgets of its
+    field are cleared, including those that the field's `/Kids` doesn't list.
+    A checkbox whose value wasn't supplied, and is still the one the PDF
+    holds, isn't written again, since its key can name other widgets that
+    read differently, such as the widgets of a field with different on
+    states. It can set fields read-only during
+    filling, and when images or signatures are present it removes only the widgets
+    whose images were prepared, including their field-tree entries, and returns a
+    second stream with the image watermarks applied. All other annotations retain
+    their existing references.
 
     Args:
         template (bytes): The PDF template as bytes.
@@ -213,6 +241,7 @@ def fill(
             behavior for certain fields.
         use_full_widget_name (bool): Whether to use the full widget name when looking up widgets
                                       in the `widgets` dictionary.
+        supplied (Set[str]): The keys whose values the caller supplied.
         readonly (bool): Whether to make form fields read-only. Defaults to False.
 
     Returns:
@@ -221,8 +250,12 @@ def fill(
                tuple item is None when no image drawing is needed.
     """
     out = PdfWriter(BytesIO(template))
+    write_values = {
+        key: key in supplied or not _is_unchanged_checkbox(widget)
+        for key, widget in widgets.items()
+    }
 
-    radio_button_tracker = {}
+    radio_options = {}
     images_to_draw = {}
     any_image_to_draw = False
 
@@ -246,17 +279,25 @@ def fill(
                 annot,
                 widget,
                 key,
-                radio_button_tracker,
+                radio_options,
                 images_to_draw[page_num + 1],
                 need_appearances,
                 readonly,
+                write_values[key],
             )
             if consumed:
                 any_image_to_draw = True
                 annotations[:] = [
                     item for item in annotations if item.get_object() is not annot
                 ]
-                _detach_consumed_widget(out, annot)
+                detach_field(out, annot)
+
+    # every option is known now, so the other widgets of the selected
+    # option's field are cleared on any page
+    for key, options in radio_options.items():
+        index = cast(int, widgets[key].value)
+        if index < len(options):
+            update_radio_value(options[index], options)
 
     with BytesIO() as f:
         out.write(f)

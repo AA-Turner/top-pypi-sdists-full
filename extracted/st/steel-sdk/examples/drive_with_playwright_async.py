@@ -8,7 +8,7 @@ client = AsyncSteel()
 
 
 async def main() -> None:
-    session = await client.sessions.create()
+    session = await client.sessions.create(inactivity_timeout=3 * 60 * 1000)
     print(f"Watch the session live at {session.session_viewer_url}")
 
     try:

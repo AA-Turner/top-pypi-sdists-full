@@ -1,5 +1,6 @@
 """Module for calculating phonons of periodic systems."""
 
+import warnings
 from math import pi, sqrt
 from pathlib import Path
 
@@ -33,124 +34,118 @@ class Displacement:
     def __init__(
         self,
         atoms: Atoms,
-        calc=None,
-        supercell: tuple[int, int, int] = (1, 1, 1),
-        name: str | None = None,
-        delta: float = 0.01,
-        center_refcell: bool = False,
-        comm=None,
+        calc,
+        supercell: tuple[int, int, int],
+        select_atoms: list[str] | list[int] | None,
+        name: str,
+        delta: float,
+        center_refcell: bool,
+        comm,
     ):
-        """Init with an instance of :class:`~ase.Atoms` and a calculator.
-
-        Parameters
-        ----------
-        atoms: :class:`~ase.Atoms`
-            The atoms to work on.
-        calc: Calculator
-            Calculator for the supercell calculation.
-        supercell: tuple[int, int, int]
-            Size of supercell given by the number of repetitions (l, m, n) of
-            the small unit cell in each direction.
-        name: str
-            Base name to use for files.
-        delta: float
-            Magnitude of displacement in Ang.
-        center_refcell: bool
-            Reference cell in which the atoms will be displaced. If False, then
-            corner cell in supercell is used. If True, then cell in the center
-            of the supercell is used.
-        comm: communicator
-            MPI communicator for the phonon calculation.
-            Default is to use world.
-        """
-
         # Store atoms and calculator
         self.atoms = atoms
+        self.natoms = len(atoms)
         self.calc = calc
 
-        # Displace all atoms in the unit cell by default
-        self.indices = np.arange(len(atoms))
+        # Specify indices of which atoms to vibrate
+        self.set_atoms(select_atoms, _warn=False)
+
         self.name = name
         self.delta = delta
-        self.center_refcell = center_refcell
+
+        assert len(supercell) == 3
         self.supercell = supercell
+        self.ncells = np.prod(supercell)
+        if not center_refcell:
+            self.refcell_offset = 0
+        else:
+            self.refcell_offset = (
+                supercell[0] // 2 * (supercell[1] * supercell[2])
+                + supercell[1] // 2 * supercell[2]
+                + supercell[2] // 2
+            )
+
+        self.lattice_vectors_array = self.get_lattice_vectors()
 
         if comm is None:
             comm = world
         self.comm = comm
 
-        self.cache = MultiFileJSONCache(self.name)
+        self.cache = MultiFileJSONCache(self.name, comm=comm)
 
-    def define_offset(self):  # Reference cell offset
-        if not self.center_refcell:
-            # Corner cell
-            self.offset = 0
-        else:
-            # Center cell
-            N_c = self.supercell
-            self.offset = (
-                N_c[0] // 2 * (N_c[1] * N_c[2])
-                + N_c[1] // 2 * N_c[2]
-                + N_c[2] // 2
-            )
-        return self.offset
-
-    @property
-    def supercell(self):
-        return self._supercell
-
-    @supercell.setter
-    def supercell(self, supercell):
-        assert len(supercell) == 3
-        self._supercell = tuple(supercell)
-        self.define_offset()
-        self._lattice_vectors_array = self.compute_lattice_vectors()
-
+    @deprecated('Please use get_lattice_vectors() instead')
     def compute_lattice_vectors(self):
-        """Return lattice vectors for cells in the supercell."""
-        # Lattice vectors -- ordered as illustrated in class docstring
+        """Deprecated version of get_lattice_vectors,
+        can safely be removed by summer 2027"""
+        return self.get_lattice_vectors().T
 
-        # Lattice vectors relevative to the reference cell
-        R_cN = np.indices(self.supercell).reshape(3, -1)
-        N_c = np.array(self.supercell)[:, np.newaxis]
-        if self.offset == 0:
-            R_cN += N_c // 2
-            R_cN %= N_c
-        R_cN -= N_c // 2
-        return R_cN
+    def get_lattice_vectors(self):
+        """Return lattice vectors for cells in the supercell.
+
+        These are the integer indices of each cell within the supercell.
+        The ordering is as illustrated in Phonons class docstring"""
+
+        # First, lattice vectors relevative to the corner unit cell
+        R_Nc = np.indices(self.supercell).reshape(3, self.ncells).T
+
+        N_c = np.array(self.supercell)
+        if self.refcell_offset == 0:
+            R_Nc += N_c // 2
+            R_Nc %= N_c
+        R_Nc -= N_c // 2
+
+        return R_Nc
 
     def __call__(self, *args, **kwargs):
         """Member function called in the ``run`` function."""
 
         raise NotImplementedError('Implement in derived classes!.')
 
-    def set_atoms(self, atoms):
-        """Set the atoms to vibrate.
+    def set_atoms(
+        self, select_atoms: list[str] | list[int] | None, _warn: bool = True
+    ):
+        """Specify which atoms to vibrate.
 
         Parameters
         ----------
-        atoms: list
-            Can be either a list of strings, ints or ...
+        select_atoms:
+            List of atomic indices or atomic types.
+            If None, all atoms are set to vibrate.
 
         """
 
-        assert isinstance(atoms, list)
-        assert len(atoms) <= len(self.atoms)
+        if _warn:
+            warnings.warn(
+                'Please specify which atoms to vibrate using the select_atoms '
+                'keyword during initialization instead of using '
+                'Displacements.set_atoms(...)',
+                FutureWarning,
+            )
+        # This method can safely be moved inside the __init__ and deleted
+        # roughly by summer 2027.
 
-        if isinstance(atoms[0], str):
-            assert np.all([isinstance(atom, str) for atom in atoms])
-            sym_a = self.atoms.get_chemical_symbols()
-            # List for atomic indices
-            indices = []
-            for type in atoms:
-                indices.extend(
-                    [a for a, atom in enumerate(sym_a) if atom == type]
+        atoms = self.atoms
+
+        match select_atoms:
+            case None:
+                self.nindices = len(atoms)
+                self.indices = np.arange(self.nindices)
+            case [*atomlist]:
+                indices: list[int]
+                assert len(atomlist) == len(set(atomlist))
+                assert len(atomlist) <= len(atoms)
+                assert all(type(atom) is type(atomlist[0]) for atom in atomlist)
+                if isinstance(atomlist[0], str):
+                    indices = atoms.symbols.search(atomlist)
+                elif isinstance(atomlist[0], int):
+                    indices = atomlist
+                self.indices = np.array(indices)
+                self.nindices = len(indices)
+            case _:
+                raise TypeError(
+                    'Bad input type for keyword "select_atoms"; '
+                    'should be either list[str] or list[int]!'
                 )
-        else:
-            assert np.all([isinstance(atom, int) for atom in atoms])
-            indices = atoms
-
-        self.indices = indices
 
     def _eq_disp(self):
         return self._disp(0, 0, 0)
@@ -188,8 +183,8 @@ class Displacement:
 
         # Positions of atoms to be displaced in the reference cell
         natoms = len(self.atoms)
-        offset = natoms * self.offset
-        pos = atoms_N.positions[offset : offset + natoms].copy()
+        offset = natoms * self.refcell_offset
+        pos_av = atoms_N.positions[offset : offset + natoms].copy()
 
         # Loop over all displacements
         for a in self.indices:
@@ -201,14 +196,14 @@ class Displacement:
                             continue
                         try:
                             atoms_N.positions[offset + a, i] = (
-                                pos[a, i] + sign * self.delta
+                                pos_av[a, i] + sign * self.delta
                             )
 
                             result = self.calculate(atoms_N, disp)
                             handle.save(result)
                         finally:
                             # Return to initial positions
-                            atoms_N.positions[offset + a, i] = pos[a, i]
+                            atoms_N.positions[offset + a, i] = pos_av[a, i]
 
         self.comm.barrier()
 
@@ -269,7 +264,7 @@ class Phonons(Displacement):
                           (0, a)
 
     Ordering of the unit cells illustrated here for a 1-dimensional system (in
-    case ``refcell=None`` in constructor!):
+    case ``center_refcell=False`` in constructor!):
 
     ::
 
@@ -286,34 +281,100 @@ class Phonons(Displacement):
     --------
     >>> from ase.build import bulk
     >>> from ase.phonons import Phonons
-    >>> from gpaw import GPAW, FermiDirac
+    >>> from ase.calculators.emt import EMT
 
-    >>> atoms = bulk('Si', 'diamond', a=5.4)
-    >>> calc = GPAW(mode='fd',
-    ...             kpts=(5, 5, 5),
-    ...             h=0.2,
-    ...             occupations=FermiDirac(0.))
-    >>> ph = Phonons(atoms, calc, supercell=(5, 5, 5))
+    >>> atoms = bulk('Al', 'fcc', a=4.05)
+    >>> calc = EMT()
+    >>> ph = Phonons(
+    ...     atoms,
+    ...     calc,
+    ...     supercell=(5, 5, 5),
+    ...     delta=0.05,
+    ...     use_mean_minimum_images=True
+    ... )
     >>> ph.run()
-    >>> ph.read(method='frederiksen', acoustic=True)
+    >>> ph.read()
+    >>> path = atoms.cell.bandpath('GXULGK', npoints=100)
+    >>> bs = ph.get_band_structure(path, verbose=False)
+    >>> dos = ph.get_dos(kpts=(12, 12, 12)).sample_grid(npts=100, width=1e-3)
 
     """
 
-    def __init__(self, *args, **kwargs):
-        """Initialize with base class args and kwargs."""
+    def __init__(
+        self,
+        atoms: Atoms,
+        calc=None,
+        supercell: tuple[int, int, int] = (1, 1, 1),
+        select_atoms: list[int] | list[str] | None = None,
+        name: str = 'phonon',
+        delta: float = 0.01,
+        center_refcell: bool = False,
+        use_mean_minimum_images: bool | None = None,
+        minimum_image_tol: float = 1e-5,
+        comm=None,
+    ):
+        """Init with an instance of :class:`~ase.Atoms` and a calculator.
 
-        if 'name' not in kwargs:
-            kwargs['name'] = 'phonon'
+        Parameters
+        ----------
+        atoms:
+            The atoms to work on.
+        calc:
+            Calculator for the supercell calculation.
+        supercell:
+            Size of supercell given by the number of repetitions (n1, n2, n3) of
+            the small unit cell in each direction.
+        select_atoms:
+            Select which atoms to generate displacements for.
+            By default, displacements are generated for all atoms.
+        name:
+            Base name to use for files.
+        delta:
+            Magnitude of displacement in Ang.
+        center_refcell:
+            Reference cell in which the atoms will be displaced. If False, then
+            corner cell in supercell is used. If True, then cell in the center
+            of the supercell is used.
+        use_mean_minimum_images:
+            Use averaged phase factor of all the shortest atom-to-atom image
+            vectors.  This will be the default in the future and is strongly
+            recommended as it requires smaller supercells to converge
+            the phonon energies.
+        minimum_image_tol:
+            Tolerance (in Å) for finding equivalent atoms when using
+            mean minimum image phase factors.
+        comm:
+            MPI communicator for the phonon calculation.
+            Default is to use world.
+        """
 
-        Displacement.__init__(self, *args, **kwargs)
+        super().__init__(
+            atoms=atoms,
+            calc=calc,
+            supercell=supercell,
+            select_atoms=select_atoms,
+            name=name,
+            delta=delta,
+            center_refcell=center_refcell,
+            comm=comm,
+        )
 
-        # Attributes for force constants and dynamical matrix in real space
-        self.C_N = None  # in units of eV / Ang**2
-        self.D_N = None  # in units of eV / Ang**2 / amu
+        if use_mean_minimum_images is None:
+            warnings.warn(
+                'The "use_mean_minimum_images" parameter is new to the '
+                'Phonons class and in the future it will be True by default. '
+                'For now, it will be set to False to ensure consistency with '
+                'previous behaviour. Please explicitly set the '
+                '"use_mean_minimum_images" keyword to True / False '
+                'to ensure consistent behaviour with future versions.',
+                FutureWarning,
+            )
+            use_mean_minimum_images = False
 
-        # Attributes for born charges and static dielectric tensor
-        self.Z_avv = None
-        self.eps_vv = None
+        self.use_mean_minimum_images = use_mean_minimum_images
+        self.atom2atom_vectors = self._get_atom2atom_vectors(minimum_image_tol)
+
+        self.C_avNav: np.ndarray | None = None  # in units of eV / Ang**2
 
     def __call__(self, atoms_N: Atoms):
         """Calculate forces on atoms in supercell."""
@@ -336,10 +397,59 @@ class Phonons(Displacement):
 
         return fmin, fmax, i_min, i_max
 
+    def _get_atom2atom_vectors(self, minimum_image_tol: float) -> np.ndarray:
+        """Calculate all atom-to-atom vectors, i.e. all vectors that go from
+        atom a1 in the reference unit cell to atom a2 in cell N in the
+        supercell.
+
+        If the phonons class was initialized with use_mean_minimum_images=True,
+        all the shortest atom-to-atom vectors are calculated by also checking
+        the periodic images of atom2 in cell N. Furthermore, the keyword
+        minimum_image_tol can be supplied to the Phonons class which controls
+        the tolerance when detecting minimum image vectors.
+        """
+
+        R_Nc = self.lattice_vectors_array
+        relpos_ac = self.atoms.get_scaled_positions(wrap=True)[self.indices]
+        vectors_aNac = (
+            relpos_ac[np.newaxis, np.newaxis]
+            + R_Nc[np.newaxis, :, np.newaxis]
+            - relpos_ac[:, np.newaxis, np.newaxis]
+        )
+
+        if not self.use_mean_minimum_images:
+            return vectors_aNac
+
+        supercellshifts_Sc = (
+            np.indices((3, 3, 3)).reshape(3, -1).T - 1
+        ) * self.supercell
+        bools_L = np.logical_or(supercellshifts_Sc == 0, self.atoms.pbc).all(
+            axis=1
+        )
+        supercellshifts_Sc = supercellshifts_Sc[bools_L]
+        cell_cv = self.atoms.cell.array
+
+        vectors_aNaSc = np.empty(vectors_aNac.shape[0:3], dtype=object)
+
+        for a1, vectors_Nac in enumerate(vectors_aNac):
+            for N, vectors_ac in enumerate(vectors_Nac):
+                for a2, vector_c in enumerate(vectors_ac):
+                    images_Sc = vector_c + supercellshifts_Sc
+                    lengths_S = np.linalg.norm(images_Sc @ cell_cv, axis=1)
+                    bools_S = np.isclose(
+                        lengths_S,
+                        lengths_S.min(),
+                        rtol=0.0,
+                        atol=minimum_image_tol,
+                    )
+                    vectors_aNaSc[a1, N, a2] = images_Sc[bools_S]
+
+        return vectors_aNaSc
+
     @deprecated(
-        'Current implementation of non-analytical correction is '
-        'likely incorrect, see '
-        'https://gitlab.com/ase/ase/-/issues/941'
+        'Implementation of non-analytical correction has remained untested '
+        'for many years and was likely incorrect, see '
+        'https://gitlab.com/ase/ase/-/work_items/941   '
     )
     def read_born_charges(self, name='born', neutrality=True):
         r"""Read Born charges and dieletric tensor from JSON file.
@@ -352,6 +462,10 @@ class Phonons(Displacement):
                    /__  ij
                     a
 
+        .. deprecated:: 3.22.1
+            Current implementation of non-analytical correction is likely
+            incorrect, see :issue:`941`
+
         Parameters
         ----------
 
@@ -361,10 +475,6 @@ class Phonons(Displacement):
         name: str
             Key used to identify the file with Born charges for the unit cell
             in the JSON cache.
-
-        .. deprecated:: 3.22.1
-            Current implementation of non-analytical correction is likely
-            incorrect, see :issue:`941`
         """
 
         # Load file with Born charges and dielectric tensor for atoms in the
@@ -385,32 +495,25 @@ class Phonons(Displacement):
         symmetrize: int = 3,
         acoustic: bool = True,
         cutoff: float | None = None,
-        born: bool = False,
-        **kwargs,
     ):
         """Read forces from json files and calculate force constants.
 
-        Extra keyword arguments will be passed to ``read_born_charges``.
-
         Parameters
         ----------
-        method: str
-            Specify method for evaluating the atomic forces.
-        symmetrize: int
+        method:
+            Specify method for evaluating the atomic forces,
+            method='Frederiksen' imposes momentum conservation.
+        symmetrize:
             Symmetrize force constants (see doc string at top) when
             ``symmetrize != 0`` (default: 3). Since restoring the acoustic sum
             rule breaks the symmetry, the symmetrization must be repeated a few
             times until the changes a insignificant. The integer gives the
             number of iterations that will be carried out.
-        acoustic: bool
+        acoustic:
             Restore the acoustic sum rule on the force constants.
-        cutoff: None or float
+        cutoff:
             Zero elements in the dynamical matrix between atoms with an
             interatomic distance larger than the cutoff.
-        born: bool
-            Read in Born effective charge tensor and high-frequency static
-            dielelctric tensor from file.
-
         """
 
         method = method.lower()
@@ -418,165 +521,149 @@ class Phonons(Displacement):
         if cutoff is not None:
             cutoff = float(cutoff)
 
-        # Read Born effective charges and optical dielectric tensor
-        if born:
-            self.read_born_charges(**kwargs)
-
-        # Number of atoms
-        natoms = len(self.indices)
-        # Number of unit cells
-        N = np.prod(self.supercell)
-        # Matrix of force constants as a function of unit cell index in units
-        # of eV / Ang**2
-        C_xNav = np.empty((natoms * 3, N, natoms, 3), dtype=float)
+        cache = self.cache
+        natoms = self.natoms
+        nindices = self.nindices
+        ncells = self.ncells
+        refcell_offset = self.refcell_offset
+        # Matrix of force constants in units eV / Ang**2 with five
+        # indices (a1, v1) and (N, a2, v2), i.e. these constants
+        # couple the harmonic motion of atom a1 in the reference
+        # unit cell moving along Cartesian direction v1 with the
+        # force on atom a2 in unit cell N pointing along direction v2.
+        C_avNav = np.empty((nindices, 3, ncells, nindices, 3), dtype=float)
 
         # Loop over all atomic displacements and calculate force constants
-        for i, a in enumerate(self.indices):
-            for j, v in enumerate('xyz'):
+        for a, C_vNav in zip(self.indices, C_avNav):
+            for v, C_Nav in zip('xyz', C_vNav):
                 # Atomic forces for a displacement of atom a in direction v
                 # basename = '%s.%d%s' % (self.name, a, v)
-                basename = '%d%s' % (a, v)
-                fminus_av = self.cache[basename + '-']['forces']
-                fplus_av = self.cache[basename + '+']['forces']
+                basename = f'{a}{v}'
+                C_raw_Nav = (
+                    cache[basename + '-']['forces']
+                    - cache[basename + '+']['forces']
+                ).reshape(ncells, natoms, 3)
+                C_raw_Nav /= 2 * self.delta
 
                 if method == 'frederiksen':
-                    fminus_av[a] -= fminus_av.sum(0)
-                    fplus_av[a] -= fplus_av.sum(0)
-
-                # Finite difference derivative
-                C_av = fminus_av - fplus_av
-                C_av /= 2 * self.delta
+                    C_raw_Nav[refcell_offset, a] -= C_raw_Nav.sum((0, 1))
 
                 # Slice out included atoms
-                C_Nav = C_av.reshape((N, len(self.atoms), 3))[:, self.indices]
-                index = 3 * i + j
-                C_xNav[index] = C_Nav
+                C_Nav[:] = C_raw_Nav[:, self.indices]
 
-        # Make unitcell index the first and reshape
-        C_N = C_xNav.swapaxes(0, 1).reshape((N,) + (3 * natoms, 3 * natoms))
-
-        # Cut off before symmetry and acoustic sum rule are imposed
+        # Apply cutoff before symmetry and acoustic sum rule are imposed
         if cutoff is not None:
-            self.apply_cutoff(C_N, cutoff)
+            self.apply_cutoff(C_avNav, cutoff)
 
         # Symmetrize force constants
         if symmetrize:
             for _ in range(symmetrize):
                 # Symmetrize
-                C_N = self.symmetrize(C_N)
+                C_avNav = self.symmetrize(C_avNav)
                 # Restore acoustic sum-rule
                 if acoustic:
-                    self.acoustic(C_N)
+                    self.acoustic(C_avNav)
                 else:
                     break
 
-        # Store force constants and dynamical matrix
-        self.C_N = C_N
-        self.D_N = C_N.copy()
+        # Store force constants
+        self.C_avNav = C_avNav
 
-        # Add mass prefactor
-        m_a = self.atoms.get_masses()
-        self.m_inv_x = np.repeat(m_a[self.indices] ** -0.5, 3)
-        M_inv = np.outer(self.m_inv_x, self.m_inv_x)
-        for D in self.D_N:
-            D *= M_inv
-
-    def symmetrize(self, C_N: np.ndarray) -> np.ndarray:
+    def symmetrize(self, C_avNav: np.ndarray) -> np.ndarray:
         """Symmetrize force constant matrix."""
 
-        # Number of atoms
-        natoms = len(self.indices)
-        # Number of unit cells
-        N = np.prod(self.supercell)
+        supercell = self.supercell
+        nindices = self.nindices
+        ncells = self.ncells
 
-        # Reshape force constants to (l, m, n) cell indices
-        C_lmn = C_N.reshape(self.supercell + (3 * natoms, 3 * natoms))
+        C_Navav = np.moveaxis(C_avNav, (0, 1, 2), (1, 2, 0))
 
-        # Shift reference cell to center index
-        if self.offset == 0:
-            C_lmn = fft.fftshift(C_lmn, axes=(0, 1, 2)).copy()
+        # Reshape force constants to (n, n, n) cell indices
+        C_nnnXX = C_Navav.reshape(supercell + (3 * nindices, 3 * nindices))
+
+        # Shift reference cell to center index (if it isn't already)
+        if self.refcell_offset == 0:
+            C_nnnXX = fft.fftshift(C_nnnXX, axes=(0, 1, 2)).copy()
         # Make force constants symmetric in indices -- in case of an even
         # number of unit cells don't include the first cell
-        i, j, k = 1 - np.asarray(self.supercell) % 2
-        C_lmn[i:, j:, k:] *= 0.5
-        C_lmn[i:, j:, k:] += (
-            C_lmn[i:, j:, k:][::-1, ::-1, ::-1].transpose(0, 1, 2, 4, 3).copy()
+        n1, n2, n3 = 1 - np.asarray(supercell) % 2
+        C_nnnXX[n1:, n2:, n3:] *= 0.5
+        C_nnnXX[n1:, n2:, n3:] += (
+            (C_nnnXX[n1:, n2:, n3:][::-1, ::-1, ::-1])
+            .transpose(0, 1, 2, 4, 3)
+            .copy()
         )
-        if self.offset == 0:
-            C_lmn = fft.ifftshift(C_lmn, axes=(0, 1, 2)).copy()
+        if self.refcell_offset == 0:
+            C_nnnXX = fft.ifftshift(C_nnnXX, axes=(0, 1, 2)).copy()
 
         # Change to single unit cell index shape
-        C_N = C_lmn.reshape((N, 3 * natoms, 3 * natoms))
+        C_Navav = C_nnnXX.reshape((ncells, nindices, 3, nindices, 3))
 
-        return C_N
+        return np.moveaxis(C_Navav, (0, 1, 2), (2, 0, 1))
 
-    def acoustic(self, C_N: np.ndarray) -> None:
+    def acoustic(self, C_avNav: np.ndarray) -> None:
         """Restore acoustic sumrule on force constants."""
+        # There may be better performing methods for
+        # restoring the acoustic sum rule
 
-        # Number of atoms
-        natoms = len(self.indices)
-        # Copy force constants
-        C_N_temp = C_N.copy()
+        for a, C_vNav in enumerate(C_avNav):
+            for C_Nav in C_vNav:
+                C_Nav[self.refcell_offset, a] -= C_Nav.sum(axis=(0, 1))
 
-        # Correct atomic diagonals of R_m = (0, 0, 0) matrix
-        for C in C_N_temp:
-            for a in range(natoms):
-                for a_ in range(natoms):
-                    C_N[self.offset, 3 * a : 3 * a + 3, 3 * a : 3 * a + 3] -= C[
-                        3 * a : 3 * a + 3, 3 * a_ : 3 * a_ + 3
-                    ]
-
-    def apply_cutoff(self, D_N: np.ndarray, r_c: float) -> None:
+    def apply_cutoff(self, C_avNav: np.ndarray, r_c: float) -> None:
         """Zero elements for interatomic distances larger than the cutoff.
 
         Parameters
         ----------
-        D_N: ndarray
-            Dynamical/force constant matrix.
+        C_avNav: ndarray
+            Matrix of force constants.
         r_c: float
-            Cutoff in Angstrom.
+            Cutoff radius in Ångstrom.
+        """
+
+        R_Nc = self.lattice_vectors_array
+        cell_cv = self.atoms.cell
+        R_Nv = R_Nc @ cell_cv
+        pos_av = self.atoms.get_positions()[self.indices]
+
+        # Maybe calculate mean minimum image vector here instead..
+        vectors_aNav = (
+            pos_av[np.newaxis, np.newaxis]
+            + R_Nv[np.newaxis, :, np.newaxis]
+            - pos_av[:, np.newaxis, np.newaxis]
+        )
+
+        dist_aNa = np.linalg.norm(vectors_aNav, axis=-1)
+        bools_aNa = dist_aNa <= r_c
+
+        C_avNav *= bools_aNa[:, np.newaxis, :, :, np.newaxis]
+
+    @deprecated('Please use get_force_constants() instead')
+    def get_force_constant(self) -> np.ndarray:
+        """Deprecated version of get_force_constants,
+        can safely be removed by summer 2027
+
+        .. note::
+           Please use get_force_constants().
 
         """
 
-        # Number of atoms and primitive cells
-        natoms = len(self.indices)
-        N = np.prod(self.supercell)
-        # Lattice vectors
-        R_cN = self._lattice_vectors_array
-        # Reshape matrix to individual atomic and cartesian dimensions
-        D_Navav = D_N.reshape((N, natoms, 3, natoms, 3))
+        C_avNav = self.get_force_constants()
+        C_Navav = np.moveaxis(C_avNav, (0, 1, 2), (1, 2, 0))
+        return C_Navav.reshape(
+            (C_Navav.shape[0],) + (3 * self.nindices, 3 * self.nindices)
+        )
 
-        # Cell vectors
-        cell_vc = self.atoms.cell.transpose()
-        # Atomic positions in reference cell
-        pos_av = self.atoms.get_positions()
-
-        # Zero elements with a distance to atoms in the reference cell
-        # larger than the cutoff
-        for n in range(N):
-            # Lattice vector to cell
-            R_v = np.dot(cell_vc, R_cN[:, n])
-            # Atomic positions in cell
-            posn_av = pos_av + R_v
-            # Loop over atoms and zero elements
-            for i, a in enumerate(self.indices):
-                dist_a = np.sqrt(np.sum((pos_av[a] - posn_av) ** 2, axis=-1))
-                # Atoms where the distance is larger than the cufoff
-                i_a = dist_a > r_c  # np.where(dist_a > r_c)
-                # Zero elements
-                D_Navav[n, i, :, i_a, :] = 0.0
-
-    def get_force_constant(self) -> np.ndarray:
+    def get_force_constants(self) -> np.ndarray:
         """Return matrix of force constants."""
 
-        assert self.C_N is not None
-        return self.C_N
+        assert self.C_avNav is not None
+        return self.C_avNav
 
     def get_band_structure(
         self,
         path,
         modes: bool = False,
-        born: bool = False,
         verbose: bool = True,
     ):
         r"""Calculate and return the phonon band structure.
@@ -597,10 +684,6 @@ class Phonons(Displacement):
         modes : bool, optional
             If True, phonon modes will also be calculated and returned.
             Defaults to False.
-        born : bool, optional
-            If True, includes the effect of Born effective charges in
-            the phonon calculations.
-            Defaults to False.
         verbose : bool, optional
             If True, enables verbose output during the calculation.
             Defaults to True.
@@ -619,16 +702,8 @@ class Phonons(Displacement):
             is `1 / m_{eff}`, where `m_{eff}` is the effective mass of the
             mode.
 
-        Examples
-        --------
-        >>> from ase.dft.kpoints import BandPath
-        >>> path = BandPath(...)  # Define the band path
-        >>> phonons = Phonons(...)
-        >>> bs, modes = phonons.get_band_structure(path, modes=True)
         """
-        result = self.band_structure(
-            path.kpts, modes=modes, born=born, verbose=verbose
-        )
+        result = self.band_structure(path.kpts, modes=modes, verbose=verbose)
         if modes:
             omega_kl, omega_modes = result
         else:
@@ -641,10 +716,16 @@ class Phonons(Displacement):
         # Return based on the modes flag
         return (bs, omega_modes) if modes else bs
 
-    def compute_dynamical_matrix(self, q_scaled: np.ndarray, D_N: np.ndarray):
+    @deprecated('Please use calculate_dynamical_matrix() instead')
+    def compute_dynamical_matrix(
+        self, q_scaled: np.ndarray, D_N: np.ndarray
+    ) -> np.ndarray:
         """Computation of the dynamical matrix in momentum space D_ab(q).
-            This is a Fourier transform from real-space dynamical matrix D_N
-            for a given momentum vector q.
+        This is a Fourier transform from real-space dynamical matrix D_N
+        for a given momentum vector q.
+
+        .. note::
+           Deprecated. Please use calculate_dynamical_matrix().
 
         Parameters
         ----------
@@ -652,10 +733,6 @@ class Phonons(Displacement):
             q vector in scaled coordinates.
         D_N : np.ndarray
             Dynamical matrix in real-space.
-            It is necessary, at least currently, to provide this matrix
-            explicitly (rather than use self.D_N) because this matrix is
-            modified by the Born charges contributions and these modifications
-            are momentum (q) dependent.
 
         Returns
         -------
@@ -663,13 +740,57 @@ class Phonons(Displacement):
             2D complex-valued array D(q) with shape=(3 * natoms, 3 * natoms).
 
         """
+
         # Evaluate fourier sum
-        R_cN = self._lattice_vectors_array
+        R_cN = self.compute_lattice_vectors()
         phase_N = np.exp(-2.0j * pi * np.dot(q_scaled, R_cN))
         D_q = np.sum(phase_N[:, np.newaxis, np.newaxis] * D_N, axis=0)
         return D_q
 
-    def band_structure(self, path_kc, modes=False, born=False, verbose=True):
+    def calculate_dynamical_matrix(
+        self, q_c: np.ndarray, D_avNav: np.ndarray
+    ) -> np.ndarray:
+        """Computation of the dynamical matrix in momentum space D_XX(q).
+        This is a Fourier transform from real-space force constants
+        for a given momentum vector q.
+
+        If the phonons class was initialized with use_mean_minimum_images=True,
+        the q-dependent phase factor for a given set of atoms a1 and (N, a2) is
+        averaged over all the shortest atom-to-atom vectors from atom1 to a
+        periodic image of atom (N, a2).
+
+        Parameters
+        ----------
+        q_c:
+            Phonon wave vector in scaled coordinates.
+        D_avNav:
+            Force constant matrix scaled by atom masses.
+
+        Returns
+        -------
+        D_XX: np.ndarray
+            Dynamical matrix, a complex-valued array D(q)
+            with shape=(3 * natoms, 3 * natoms).
+        """
+
+        if not self.use_mean_minimum_images:
+            atom2atom_aNac = self.atom2atom_vectors
+            phase_aNa = np.exp(2.0j * np.pi * np.dot(atom2atom_aNac, q_c))
+        else:
+            atom2atom_aNaSc = self.atom2atom_vectors
+            # In this case, atom2atom is an ndarray with 3 indexes of ndarrays
+            # with 2 indexes so some code might look unintuitive
+            phase_aNa = np.zeros(atom2atom_aNaSc.shape, dtype=complex)
+            for (a1, N, a2), atom2atom_Sc in np.ndenumerate(atom2atom_aNaSc):
+                phase_aNa[a1, N, a2] = np.exp(
+                    2.0j * np.pi * np.dot(atom2atom_Sc, q_c)
+                ).mean()
+
+        D_avav = np.einsum('avNbw,aNb->avbw', D_avNav, phase_aNa)
+
+        return D_avav.reshape(3 * self.nindices, 3 * self.nindices)
+
+    def band_structure(self, path_kc, modes=False, verbose=True):
         """Calculate phonon dispersion along a path in the Brillouin zone.
 
         The dynamical matrix at arbitrary q-vectors is obtained by Fourier
@@ -688,81 +809,51 @@ class Phonons(Displacement):
             dynamical matrix will be calculated.
         modes: bool
             Returns both frequencies and modes when True.
-        born: bool
-            Include non-analytic part given by the Born effective charges and
-            the static part of the high-frequency dielectric tensor. This
-            contribution to the force constant accounts for the splitting
-            between the LO and TO branches for q -> 0.
         verbose: bool
             Print warnings when imaginary frequncies are detected.
 
         Returns
         -------
-        omega_kl : np.ndarray
-            Energies.
-        eigenvectors : np.ndarray
+        omega_kl: np.ndarray
+            Phonon band energies.
+        u_klav: np.ndarray
             Eigenvectors (only when ``modes`` is ``True``).
-
         """
 
-        assert self.D_N is not None
-        if born:
-            assert self.Z_avv is not None
-            assert self.eps_vv is not None
+        nindices = self.nindices
 
-        # Dynamical matrix in real-space
-        D_N = self.D_N
+        # Force constant matrices
+        assert self.C_avNav is not None, print(
+            'Make sure you have .read() your force constant matrices!'
+        )
+        C_avNav = self.C_avNav
+
+        # Multiply by mass prefactor
+        m_inv_a = self.atoms.get_masses()[self.indices] ** -0.5
+        m_inv_aa = np.outer(m_inv_a, m_inv_a)
+
+        D_avNav = C_avNav * m_inv_aa[:, np.newaxis, np.newaxis, :, np.newaxis]
 
         # Lists for frequencies and modes along path
-        omega_kl = []
-        u_kl = []
+        nk = path_kc.shape[0]
+        omega_kl = np.zeros((nk, 3 * nindices))
+        u_klav = np.zeros((nk, 3 * nindices, nindices, 3), dtype=complex)
 
-        # Reciprocal basis vectors for use in non-analytic contribution
-        reci_vc = 2 * pi * la.inv(self.atoms.cell)
-        # Unit cell volume in Bohr^3
-        vol = abs(la.det(self.atoms.cell)) / units.Bohr**3
-
-        for q_c in path_kc:
-            # Add non-analytic part
-            if born:
-                # q-vector in cartesian coordinates
-                q_v = np.dot(reci_vc, q_c)
-                # Non-analytic contribution to force constants in atomic units
-                qdotZ_av = np.dot(q_v, self.Z_avv).ravel()
-                C_na = (
-                    4
-                    * pi
-                    * np.outer(qdotZ_av, qdotZ_av)
-                    / np.dot(q_v, np.dot(self.eps_vv, q_v))
-                    / vol
-                )
-                self.C_na = C_na / units.Bohr**2 * units.Hartree
-                # Add mass prefactor and convert to eV / (Ang^2 * amu)
-                M_inv = np.outer(self.m_inv_x, self.m_inv_x)
-                D_na = C_na * M_inv / units.Bohr**2 * units.Hartree
-                self.D_na = D_na
-                D_N = self.D_N + D_na / np.prod(self.supercell)
-
-            # if np.prod(self.N_c) == 1:
-            #
-            #     q_av = np.tile(q_v, len(self.indices))
-            #     q_xx = np.vstack([q_av]*len(self.indices)*3)
-            #     D_m += q_xx
-
-            # Evaluate fourier sum
-            D_q = self.compute_dynamical_matrix(q_c, D_N)
+        for q_index, q_c in enumerate(path_kc):
+            # Evaluate Fourier sum
+            D_XX = self.calculate_dynamical_matrix(q_c, D_avNav)
 
             if modes:
-                omega2_l, u_xl = la.eigh(D_q, UPLO='U')
-                # Sort eigenmodes according to eigenvalues (see below) and
-                # multiply with mass prefactor.  This gives the eigenmode
-                # (which is now not normalized!) with units 1/sqrt(amu).
-                u_lx = (
-                    self.m_inv_x[:, np.newaxis] * u_xl[:, omega2_l.argsort()]
-                ).T.copy()
-                u_kl.append(u_lx.reshape((-1, len(self.indices), 3)))
+                omega2_l, u_Xl = la.eigh(D_XX, UPLO='U')
+                # Sort eigenmodes according to eigenvalues and reshape
+                u_lav = u_Xl.T[omega2_l.argsort()].reshape(
+                    3 * nindices, nindices, 3
+                )
+                # Multiply with mass prefactor. This gives the eigenmode
+                # (which is now not normalized!) in units of 1/sqrt(amu).
+                u_klav[q_index] = u_lav * m_inv_a[np.newaxis, :, np.newaxis]
             else:
-                omega2_l = la.eigvalsh(D_q, UPLO='U')
+                omega2_l = la.eigvalsh(D_XX, UPLO='U')
 
             # Sort eigenvalues in increasing order
             omega2_l.sort()
@@ -771,32 +862,32 @@ class Phonons(Displacement):
 
             # Take care of imaginary frequencies
             if not np.all(omega2_l >= 0.0):
-                indices = np.where(omega2_l < 0)[0]
+                complex_indices = np.where(omega2_l < 0)[0]
 
                 if verbose:
                     print(
                         'WARNING, %i imaginary frequencies at '
                         'q = (% 5.2f, % 5.2f, % 5.2f) ; (omega_q =% 5.3e*i)'
                         % (
-                            len(indices),
+                            len(complex_indices),
                             q_c[0],
                             q_c[1],
                             q_c[2],
-                            omega_l[indices][0].imag,
+                            omega_l[complex_indices][0].imag,
                         )
                     )
 
-                omega_l[indices] = -1 * np.sqrt(np.abs(omega2_l[indices].real))
+                omega_l[complex_indices] = -1 * np.sqrt(
+                    np.abs(omega2_l[complex_indices].real)
+                )
 
-            omega_kl.append(omega_l.real)
+            omega_kl[q_index] = omega_l.real
 
         # Conversion factor: sqrt(eV / Ang^2 / amu) -> eV
-        s = units._hbar * 1e10 / sqrt(units._e * units._amu)
-        omega_kl = s * np.asarray(omega_kl)
+        omega_kl *= units._hbar * 1e10 / sqrt(units._e * units._amu)
 
         if modes:
-            return omega_kl, np.asarray(u_kl)
-
+            return omega_kl, u_klav
         return omega_kl
 
     def get_dos(
@@ -853,12 +944,15 @@ class Phonons(Displacement):
         q_c,
         branches=0,
         kT: float = units.kB * 300,
-        born: bool = False,
         repeat: tuple[int, int, int] = (1, 1, 1),
         nimages: int = 30,
         center: bool = False,
     ) -> None:
         """Write modes to trajectory file.
+
+        .. note::
+           To exaggerate the amplitudes for better visualization, multiply
+           kT by the square of the desired factor.
 
         Parameters
         ----------
@@ -869,8 +963,6 @@ class Phonons(Displacement):
         kT: float
             Temperature in units of eV. Determines the amplitude of the atomic
             displacements in the modes.
-        born: bool
-            Include non-analytic contribution to the force constants at q -> 0.
         repeat: tuple
             Repeat atoms (l, m, n) times in the directions of the lattice
             vectors. Displacements of atoms in repeated cells carry a Bloch
@@ -879,9 +971,6 @@ class Phonons(Displacement):
             Number of images in an oscillation.
         center: bool
             Center atoms in unit cell if True (default: False).
-
-        To exaggerate the amplitudes for better visualization, multiply
-        kT by the square of the desired factor.
         """
 
         if isinstance(branches, int):
@@ -890,7 +979,10 @@ class Phonons(Displacement):
             branch_l = list(branches)
 
         # Calculate modes
-        omega_l, u_l = self.band_structure([q_c], modes=True, born=born)
+        omega_l, u_l = self.band_structure(
+            q_c[np.newaxis, :],
+            modes=True,
+        )
         # Repeat atoms
         atoms = self.atoms * repeat
         # Center

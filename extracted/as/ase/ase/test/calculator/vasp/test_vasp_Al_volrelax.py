@@ -36,7 +36,7 @@ def test_vasp_Al_volrelax(factory):
         # Explicitly parse atomic position output file from Vasp
         CONTCAR_Al = io.read('CONTCAR', format='vasp')
 
-        print('Stress after relaxation:\n', calc.read_stress())
+        print('Stress after relaxation:\n', calc.get_stress())
 
         print(
             'Al cell post relaxation from calc:\n', calc.get_atoms().get_cell()
@@ -60,7 +60,7 @@ def test_vasp_Al_volrelax(factory):
         with BFGS(sf, logfile='relaxation.log') as qn:
             qn.run(fmax=0.1, steps=5)
 
-        print('Stress:\n', calc.read_stress())
+        print('Stress:\n', calc.get_stress())
         print('Al post ASE volume relaxation\n', calc.get_atoms().get_cell())
 
         return Al

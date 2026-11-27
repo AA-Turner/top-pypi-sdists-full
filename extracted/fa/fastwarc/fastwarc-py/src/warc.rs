@@ -21,13 +21,14 @@ use fastwarc::warc::header::{HeaderEncoding, HeaderMap, WarcHeader};
 use fastwarc::warc::iter::{ArchiveIteratorOptions, ArchiveIteratorThreadSafe, ArchiveIteratorTrait, filter};
 use fastwarc::warc::record::{AutoDecode, WarcRecord, WarcRecordType};
 use fastwarc::warc::record::{DigestError::StreamError, SharedWarcRecord};
-use pyo3::exceptions::{PyKeyError, PyOSError, PyValueError};
-use pyo3::intern;
+use pyo3::exceptions::{PyKeyError, PyOSError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{
     PyBool, PyBytes, PyDateAccess, PyDateTime, PyDelta, PyDeltaAccess, PyDict, PyIterator, PyString, PyTimeAccess,
     PyTuple, PyType,
 };
+use pyo3::{PyTypeInfo, intern};
+use std::fmt::Debug;
 use std::io::{self, Read, Seek};
 use std::sync::{Arc, Mutex, MutexGuard};
 use time::{Date, Month, OffsetDateTime, Time, UtcOffset};
@@ -96,6 +97,10 @@ impl From<WarcRecordType> for WarcRecordTypePy {
 
 #[pymethods]
 impl WarcRecordTypePy {
+    pub fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<ReduceByName<'py>> {
+        reduce_by_name(py, self)
+    }
+
     pub fn __index__(&self) -> u16 {
         *self as u16
     }
@@ -131,6 +136,15 @@ impl WarcRecordTypePy {
     pub fn __str__(&self) -> &'static str {
         WarcRecordType::from(*self).as_str()
     }
+}
+
+/// Pickle reduction tuple that restores an enum member via ``getattr(cls, name)``.
+type ReduceByName<'py> = (Bound<'py, PyAny>, (Bound<'py, PyType>, String));
+
+/// Reduce a simple enum member to a lookup of its variant name on its class.
+fn reduce_by_name<'py, T: PyTypeInfo + Debug>(py: Python<'py>, value: &T) -> PyResult<ReduceByName<'py>> {
+    let getattr = PyModule::import(py, "builtins")?.getattr("getattr")?;
+    Ok((getattr, (py.get_type::<T>(), format!("{value:?}"))))
 }
 
 // ===========================================================
@@ -198,6 +212,10 @@ impl From<WarcHeaderPy> for WarcHeader {
 
 #[pymethods]
 impl WarcHeaderPy {
+    pub fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<ReduceByName<'py>> {
+        reduce_by_name(py, self)
+    }
+
     pub fn __str__(&self) -> &'static str {
         WarcHeader::from(*self).as_str()
     }
@@ -867,7 +885,8 @@ impl WarcRecordPy {
         let (serialized, http_parsed) = state;
         let mut record = WarcRecord::from_bytes(serialized)?;
         if http_parsed {
-            record.parse_http()?;
+            // The snapshot contains the payload reader's output, which may already be decoded.
+            record.parse_http_with_decode(AutoDecode::None)?;
         }
         self.inner = Arc::new(Mutex::new(record));
         Ok(())
@@ -1219,6 +1238,9 @@ impl WarcRecordPy {
     ///
     /// Quirks mode allows parsing of headers terminated with only LF instead of CRLF.
     ///
+    /// .. versionchanged:: 2.1.0
+    ///    HTTP transfer encoding is decoded by default. Use ``auto_decode='none'`` to read the stored body.
+    ///
     /// :param auto_decode: Automatically decode HTTP payload encodings
     ///     (accepted values: ``'none'``, ``'content'``, ``'transfer'``, ``'all'``).
     /// :param max_header_len: Maximum allowed header length (throws an error if exceeded)
@@ -1226,7 +1248,7 @@ impl WarcRecordPy {
     /// :param strict_mode: This argument is deprecated and ignored.
     /// :raise ValueError: If auto_decode is not a supported decoding mode
     /// :raise OSError: If HTTP headers are invalid, exceed max_header_len, or cannot be read
-    #[pyo3(signature = (auto_decode="none", max_header_len=32 << 10, quirks_mode=false, *, strict_mode=true))]
+    #[pyo3(signature = (auto_decode="transfer", max_header_len=32 << 10, quirks_mode=false, *, strict_mode=true))]
     pub fn parse_http(
         &mut self,
         auto_decode: &str,
@@ -1258,15 +1280,22 @@ impl WarcRecordPy {
 
     /// Verify whether ``WARC-Payload-Digest`` matches the current HTTP payload.
     ///
-    /// HTTP headers must have been parsed first with :meth:`parse_http`.
-    /// Returns ``False`` for missing or invalid digest metadata and raises
-    /// :class:`OSError` only for stream I/O failures.
+    /// Parse HTTP headers first with :meth:`parse_http`. Revisit payloads require
+    /// interpreting the revisit profile and may come from another record.
+    /// Verify before decoding HTTP content encoding.
+    ///
+    /// .. versionchanged:: 2.1.0
+    ///    Verification decodes HTTP transfer encoding by default. To verify against the stored bytes,
+    ///    parse with ``auto_decode='none'`` and pass ``decode_transfer=False``.
     ///
     /// :param consume: Consume the remaining payload instead of preserving it
+    /// :param decode_transfer: Decode HTTP transfer encoding for the digest (default: ``True``)
+    /// :return: Whether the digest matches. Returns ``False`` when verification is unavailable,
+    ///          including for revisit records and missing or invalid digest metadata.
     /// :raise OSError: If reading the payload fails
-    #[pyo3(signature = (consume=false))]
-    pub fn verify_payload_digest(&mut self, consume: bool) -> PyResult<bool> {
-        match self.lock().verify_payload_digest(consume) {
+    #[pyo3(signature = (consume=false, decode_transfer=true))]
+    pub fn verify_payload_digest(&mut self, consume: bool, decode_transfer: bool) -> PyResult<bool> {
+        match self.lock().verify_payload_digest_with_opts(consume, decode_transfer) {
             Ok(valid) => Ok(valid),
             Err(StreamError(e)) => Err(PyOSError::new_err(e.to_string())),
             Err(_) => Ok(false),
@@ -1275,13 +1304,21 @@ impl WarcRecordPy {
 
     /// Write this record to a stream.
     ///
+    /// Read with ``auto_decode='none'`` to preserve the stored HTTP block for writing.
+    /// Parse HTTP headers before writing to generate a payload digest.
+    ///
+    /// .. versionchanged:: 2.1.0
+    ///    When generating a payload digest, HTTP transfer encoding is decoded by default.
+    ///    The stored HTTP bytes are written as-is. Pass ``decode_transfer=False`` to hash those bytes.
+    ///
     /// :param stream: Output stream
     /// :param checksum_data: Calculate and add block and payload digests
     /// :param payload_digest: Optional SHA-1 payload digest bytes
     /// :param chunk_size: Write block size
+    /// :param decode_transfer: Decode HTTP transfer encoding when generating the payload digest (default: ``True``)
     /// :return: Number of bytes written
     /// :raise OSError: If the record stream operation fails
-    #[pyo3(signature = (stream, checksum_data=false, payload_digest=None, chunk_size=16384))]
+    #[pyo3(signature = (stream, checksum_data=false, payload_digest=None, chunk_size=16384, decode_transfer=true))]
     pub fn write<'py>(
         &mut self,
         py: Python<'py>,
@@ -1289,6 +1326,7 @@ impl WarcRecordPy {
         checksum_data: bool,
         payload_digest: Option<&[u8]>,
         chunk_size: usize,
+        decode_transfer: bool,
     ) -> PyResult<usize> {
         if let Some(payload_digest) = payload_digest {
             let encoded = py
@@ -1312,12 +1350,9 @@ impl WarcRecordPy {
         };
 
         let mut writer = PyWriterAdapter::new(stream.clone().unbind())?;
-        let bytes_written = if checksum_data {
+        let bytes_written =
             self.lock()
-                .write_with_block_size_checksum(&mut writer, chunk_size, true)?
-        } else {
-            self.lock().write_with_block_size(&mut writer, chunk_size)?
-        };
+                .write_with_block_size_checksum_opts(&mut writer, chunk_size, checksum_data, decode_transfer)?;
 
         // Call legacy shim end_member and calculate bytes written.
         // TODO: Remove when shims are removed.
@@ -1360,6 +1395,9 @@ fn http_datetime_to_py<'py>(py: Python<'py>, value: Option<&str>) -> PyResult<Op
 /// paths and URLs unless ``fsspec_args=False``.
 ///
 /// Exceptions raised by func_filter or a supplied Python stream propagate during iteration.
+///
+/// .. versionchanged:: 2.1.0
+///    HTTP transfer encoding is decoded by default. Use ``auto_decode='none'`` to read the stored body.
 ///
 /// :param stream: Input stream, file-like object, file name, or URL
 /// :param record_types: Bitmask of :class:`WarcRecordType` values to return
@@ -1438,7 +1476,7 @@ impl ArchiveIteratorPy {
         func_filter=None,
         verify_digests=false,
         quirks_mode=false,
-        auto_decode="none",
+        auto_decode="transfer",
         max_header_len=32 << 10,
         stream_detect=true,
         buffer_size=64 << 10,
@@ -1678,6 +1716,21 @@ pub struct NativeFilterPy {
 
 #[pymethods]
 impl NativeFilterPy {
+    /// Reduce to a call of the factory function that created this filter.
+    ///
+    /// :raise TypeError: If the filter is not parameterized
+    pub fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, (u64,))> {
+        let (factory, arg) = match self.kind {
+            NativeFilterKind::HasRecordType(mask) => ("has_record_type", mask as u64),
+            NativeFilterKind::HasContentLengthLte(max) => ("has_content_length_lte", max),
+            NativeFilterKind::HasContentLengthGte(min) => ("has_content_length_gte", min),
+            // Parameterless filters are exposed as plain module functions and never wrapped
+            _ => return Err(PyTypeError::new_err("Unparameterized filters are not pickled.")),
+        };
+        let module = py.import(intern!(py, "fastwarc.warc"))?;
+        Ok((module.getattr(factory)?, (arg,)))
+    }
+
     pub fn __call__(&self, record: &WarcRecordPy) -> bool {
         let mut record = record.lock();
         self.kind.apply(&mut record)
@@ -1730,6 +1783,9 @@ pub fn has_payload_digest_py(record: &WarcRecordPy) -> bool {
 }
 
 /// Filter predicate for checking if a record has a valid payload digest.
+///
+/// .. versionchanged:: 2.1.0
+///    The filter verifies the payload digest after HTTP transfer decoding.
 ///
 /// :param record: WARC record
 #[pyfunction(name = "has_valid_payload_digest")]

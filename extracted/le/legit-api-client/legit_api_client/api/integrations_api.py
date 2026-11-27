@@ -4665,6 +4665,7 @@ class IntegrationsApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '409': "ProblemDetails",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4731,6 +4732,7 @@ class IntegrationsApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '409': "ProblemDetails",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4797,6 +4799,7 @@ class IntegrationsApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '409': "ProblemDetails",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4837,6 +4840,15 @@ class IntegrationsApi:
             _body_params = apply_bulk_workspace_operation_dto
 
 
+        # set the HTTP header `Accept`
+        if not any(key.lower() == 'accept' for key in _header_params):
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
 
         # set the HTTP header `Content-Type`
         if _content_type:

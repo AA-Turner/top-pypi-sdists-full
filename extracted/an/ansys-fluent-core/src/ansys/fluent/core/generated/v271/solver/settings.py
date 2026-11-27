@@ -8,6 +8,9 @@ from ansys.fluent.core.solver.flobject import (
     ExposureLevel,
     _ChildNamedObjectAccessorMixin,
     _NonCreatableNamedObjectMixin,
+    _NamedObjectCommandBase,
+    _merge_named_object_child_classes,
+    _merge_named_object_command_names,
     _InputFile,
     _OutputFile,
     _InOutFile,
@@ -1527,7 +1530,7 @@ class outline_view_settings(Command):
         outline_view_path : str
             Export case settings by providing the location of those settings in the Outline View Tree.
      For example, "setup/models/viscous" will export the settings of the viscous turbulence model.
-        file_name_1 : str
+        file_name : str
             Filename for exported file.
         extension : str
             Extension to export the file.
@@ -1660,7 +1663,7 @@ class read_1(Command):
     ----------
         file_type : str
             The file type.
-        file_name_1 : str
+        file_name : str
             The name of the file to be read.
     """
     _version = '271'
@@ -1715,7 +1718,7 @@ class import_fmu(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Import FMU file.
     """
     _version = '271'
@@ -1798,7 +1801,7 @@ class open(Command):
     
     Parameters
     ----------
-        project_file_name_1 : str
+        project_file_name : str
             The name of new parametric project file.
         load_case : bool
             Specifies whether to load the case file associated with the project or not.
@@ -2156,7 +2159,7 @@ class open_1(Command):
     ----------
         load_current_case_or_mesh : bool
             Whether to load the case/mesh registered as current in the project.
-        project_file_name_1 : str
+        project_file_name : str
             The path of the Fluent project file to open.
     """
     _version = '271'
@@ -2438,7 +2441,7 @@ class read_data_1(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Filename for interpolation.
         cell_zones : list
             List of cell zones to import.
@@ -2635,7 +2638,7 @@ class read_table_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Filename for table file.
         save_in_case_file : bool
             Specifies whether to store table file data in the case file.
@@ -2701,7 +2704,7 @@ class read_rgp_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Filename for RGP file.
         component : str
             The RGP component to read.
@@ -2749,7 +2752,7 @@ class read_matrix_data_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Filename for matrix data file.
         component_name : str
             The component name to store matrix data in.
@@ -2929,7 +2932,7 @@ class read_macros(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The name of the file containing macros to read.
     """
     _version = '271'
@@ -2990,7 +2993,7 @@ class read(Command):
     ----------
         file_type : str
             The type of file to read.
-        file_name_1 : str
+        file_name : str
             Path of the file to read.
         pdf_file_name : str
             Path of the PDF file to read.
@@ -3015,7 +3018,7 @@ class read_case(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Path of the file to read.
         pdf_file_name : str
             Path of the PDF file to read.
@@ -3036,7 +3039,7 @@ class read_case_data(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Path of the file to read.
         pdf_file_name : str
             Path of the PDF file to read.
@@ -3057,7 +3060,7 @@ class read_case_lightweight(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Path of the file to read.
         pdf_file_name : str
             Path of the PDF file to read.
@@ -3078,7 +3081,7 @@ class read_data(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Path of the file to read.
     """
     _version = '271'
@@ -3096,7 +3099,7 @@ class read_mesh(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Path of the file to read.
     """
     _version = '271'
@@ -3138,7 +3141,7 @@ class read_surface_mesh(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Path to surface mesh file.
         unit : str
             Unit in which the mesh was created.
@@ -3261,7 +3264,7 @@ class replace_mesh(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The name of the mesh or case file to replace the existing mesh in the case.
     """
     _version = '271'
@@ -3508,7 +3511,7 @@ class read_settings(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The name of the file containing fluent settings to read.
     """
     _version = '271'
@@ -3535,7 +3538,7 @@ class read_field_functions(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The name of the file containing custom field-function definitions.
     """
     _version = '271'
@@ -3562,7 +3565,7 @@ class read_injections(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The name of the file containing DPM injections to read.
     """
     _version = '271'
@@ -3589,7 +3592,7 @@ class read_profile(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The name of the boundary profile file to read.
     """
     _version = '271'
@@ -3616,7 +3619,7 @@ class read_pdf(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The name of the PDF file to read. Default is the last used PDF file.
     """
     _version = '271'
@@ -3643,7 +3646,7 @@ class read_isat_table(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The name of the ISAT table file to read.
     """
     _version = '271'
@@ -4519,14 +4522,7 @@ class manage_criteria_item(Group):
         predicates=predicates,
     )
 
-class manage_criteria(NamedObject[manage_criteria_item], CreatableNamedObjectMixin[manage_criteria_item]):
-    """
-    The adaption criteria management object.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'manage-criteria'
-    _python_name = 'manage_criteria'
+class _NamedObjectCommands(_NamedObjectCommandBase):
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create,
@@ -4536,6 +4532,21 @@ class manage_criteria(NamedObject[manage_criteria_item], CreatableNamedObjectMix
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
     )
+    create = create
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class manage_criteria(_NamedObjectCommands, NamedObject[manage_criteria_item], CreatableNamedObjectMixin[manage_criteria_item]):
+    """
+    The adaption criteria management object.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'manage-criteria'
+    _python_name = 'manage_criteria'
     child_object_type = manage_criteria_item
 
 class density_based(Command):
@@ -5371,7 +5382,7 @@ class manage_item(Group):
         geometry=geometry_3,
     )
 
-class manage(NamedObject[manage_item], CreatableNamedObjectMixin[manage_item]):
+class manage(_NamedObjectCommands, NamedObject[manage_item], CreatableNamedObjectMixin[manage_item]):
     """
     The adaption geometry management object.
     """
@@ -5379,15 +5390,6 @@ class manage(NamedObject[manage_item], CreatableNamedObjectMixin[manage_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'manage'
     _python_name = 'manage'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = manage_item
 
 class reconstruct_geometry(Boolean):
@@ -5896,7 +5898,7 @@ class geometry_1_item(Group):
         type=type_3,
     )
 
-class geometry_1(NamedObject[geometry_1_item], CreatableNamedObjectMixin[geometry_1_item]):
+class geometry_1(_NamedObjectCommands, NamedObject[geometry_1_item], CreatableNamedObjectMixin[geometry_1_item]):
     """
     The mesh geometry management object.
     """
@@ -5904,15 +5906,6 @@ class geometry_1(NamedObject[geometry_1_item], CreatableNamedObjectMixin[geometr
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'geometry'
     _python_name = 'geometry'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = geometry_1_item
 
 class coarsen(Boolean):
@@ -6812,7 +6805,7 @@ class replace_zone(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The case file name to read the zone from.
         zone_1_name : str
             The zone name.
@@ -6848,7 +6841,7 @@ class append_mesh(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The case file name to append mesh from.
     """
     _version = '271'
@@ -6875,7 +6868,7 @@ class append_mesh_data(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The data file name to append mesh data from.
     """
     _version = '271'
@@ -8210,7 +8203,7 @@ class read_3(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The case file name.
         unit : str
             The unit in which the mesh was created.
@@ -8962,7 +8955,7 @@ class replace(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Specifies the mesh file to use when replacing the existing mesh.
         zones : bool
             Enable/disable data interpolation across zones when replacing the mesh.
@@ -9630,7 +9623,7 @@ class units_item(Group):
         offset=offset_5,
     )
 
-class units(NamedObject[units_item], CreatableNamedObjectMixin[units_item]):
+class units(_NamedObjectCommands, NamedObject[units_item], CreatableNamedObjectMixin[units_item]):
     """
     Units.
     """
@@ -9638,15 +9631,6 @@ class units(NamedObject[units_item], CreatableNamedObjectMixin[units_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'units'
     _python_name = 'units'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = units_item
 
 class quantity(String, AllowedValuesMixin):
@@ -10211,7 +10195,7 @@ class export_model(Command):
     
     Parameters
     ----------
-        model_file_1 : str
+        model_file : str
             The output file path for the impedance parameters.
     """
     _version = '271'
@@ -11491,7 +11475,7 @@ class phases_item(Group):
         iac_props=iac_props,
     )
 
-class phases(NamedObject[phases_item], CreatableNamedObjectMixin[phases_item]):
+class phases(_NamedObjectCommands, NamedObject[phases_item], CreatableNamedObjectMixin[phases_item]):
     """
     Group of phases.
     """
@@ -11499,15 +11483,6 @@ class phases(NamedObject[phases_item], CreatableNamedObjectMixin[phases_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phases'
     _python_name = 'phases'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phases_item
 
 class lift_shaver_podowski(Boolean):
@@ -19259,7 +19234,7 @@ class turb_visc_mf_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'turb_visc_mf_item'
 
-class turb_visc_mf(NamedObject[turb_visc_mf_item], CreatableNamedObjectMixin[turb_visc_mf_item]):
+class turb_visc_mf(_NamedObjectCommands, NamedObject[turb_visc_mf_item], CreatableNamedObjectMixin[turb_visc_mf_item]):
     """
     Turbulent viscosity function.
     """
@@ -19267,15 +19242,6 @@ class turb_visc_mf(NamedObject[turb_visc_mf_item], CreatableNamedObjectMixin[tur
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'turb-visc-mf'
     _python_name = 'turb_visc_mf'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = turb_visc_mf_item
 
 class turb_visc(String, AllowedValuesMixin):
@@ -20292,7 +20258,7 @@ class read_vf_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Name of input file containing view factors.
     """
     _version = '271'
@@ -20369,7 +20335,7 @@ class multiband_item(Group):
         end=end,
     )
 
-class multiband(NamedObject[multiband_item], CreatableNamedObjectMixin[multiband_item]):
+class multiband(_NamedObjectCommands, NamedObject[multiband_item], CreatableNamedObjectMixin[multiband_item]):
     """
     Multi-band information.
     """
@@ -20377,15 +20343,6 @@ class multiband(NamedObject[multiband_item], CreatableNamedObjectMixin[multiband
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'multiband'
     _python_name = 'multiband'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = multiband_item
 
 class method_2(String, AllowedValuesMixin):
@@ -21202,7 +21159,7 @@ class porosity_models_item(Group):
         parameters=parameters_1,
     )
 
-class porosity_models(NamedObject[porosity_models_item], CreatableNamedObjectMixin[porosity_models_item]):
+class porosity_models(_NamedObjectCommands, NamedObject[porosity_models_item], CreatableNamedObjectMixin[porosity_models_item]):
     """
     Manage core porosity model library.
     """
@@ -21210,15 +21167,14 @@ class porosity_models(NamedObject[porosity_models_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'porosity-models'
     _python_name = 'porosity_models'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'read_from_file']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        read_from_file=read_from_file,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'read_from_file')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'read_from_file', read_from_file),
+        ],
     )
     child_object_type = porosity_models_item
 
@@ -21332,7 +21288,7 @@ class read_table(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             File name for reading.
     """
     _version = '271'
@@ -21450,7 +21406,7 @@ class read_table_1(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             File name for reading.
     """
     _version = '271'
@@ -21838,7 +21794,7 @@ class cores_item(Group):
         get_plot_data=get_plot_data,
     )
 
-class cores(NamedObject[cores_item], CreatableNamedObjectMixin[cores_item]):
+class cores(_NamedObjectCommands, NamedObject[cores_item], CreatableNamedObjectMixin[cores_item]):
     """
     Heat exchanger cores. Each core corresponds to one fluid zone.
     """
@@ -21846,15 +21802,6 @@ class cores(NamedObject[cores_item], CreatableNamedObjectMixin[cores_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'cores'
     _python_name = 'cores'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = cores_item
 
 class option_24(String, AllowedValuesMixin):
@@ -22197,7 +22144,7 @@ class heat_exchanger_item(Group):
         macro_model=macro_model,
     )
 
-class heat_exchanger(NamedObject[heat_exchanger_item], CreatableNamedObjectMixin[heat_exchanger_item]):
+class heat_exchanger(_NamedObjectCommands, NamedObject[heat_exchanger_item], CreatableNamedObjectMixin[heat_exchanger_item]):
     """
     Manage heat exchangers.
     """
@@ -22205,15 +22152,6 @@ class heat_exchanger(NamedObject[heat_exchanger_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'heat-exchanger'
     _python_name = 'heat_exchanger'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = heat_exchanger_item
 
 class option_26(String, AllowedValuesMixin):
@@ -22247,7 +22185,7 @@ class phase_material_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'phase_material_item'
 
-class phase_material(NamedObject[phase_material_item], CreatableNamedObjectMixin[phase_material_item]):
+class phase_material(_NamedObjectCommands, NamedObject[phase_material_item], CreatableNamedObjectMixin[phase_material_item]):
     """
     Phase Material.
     """
@@ -22255,15 +22193,6 @@ class phase_material(NamedObject[phase_material_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase-material'
     _python_name = 'phase_material'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_material_item
 
 class number_volumetric_species(Integer):
@@ -22359,7 +22288,7 @@ class multi_component_diffusion_mf_item(Boolean):
     fluent_name = 'child-object-type'
     _python_name = 'multi_component_diffusion_mf_item'
 
-class multi_component_diffusion_mf(NamedObject[multi_component_diffusion_mf_item], CreatableNamedObjectMixin[multi_component_diffusion_mf_item]):
+class multi_component_diffusion_mf(_NamedObjectCommands, NamedObject[multi_component_diffusion_mf_item], CreatableNamedObjectMixin[multi_component_diffusion_mf_item]):
     """
     Multicomponent diffusion.
     """
@@ -22367,15 +22296,6 @@ class multi_component_diffusion_mf(NamedObject[multi_component_diffusion_mf_item
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'multi-component-diffusion-mf'
     _python_name = 'multi_component_diffusion_mf'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = multi_component_diffusion_mf_item
 
 class multi_component_diffusion(Boolean):
@@ -23722,7 +23642,7 @@ class species_boundary_item(Group):
         oxidizer=oxidizer,
     )
 
-class species_boundary(NamedObject[species_boundary_item], CreatableNamedObjectMixin[species_boundary_item]):
+class species_boundary(_NamedObjectCommands, NamedObject[species_boundary_item], CreatableNamedObjectMixin[species_boundary_item]):
     """
     Species Fuel and Oxidizer Fractions.
     """
@@ -23730,15 +23650,6 @@ class species_boundary(NamedObject[species_boundary_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-boundary'
     _python_name = 'species_boundary'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_boundary_item
 
 class default_progress_variable(Boolean):
@@ -23772,7 +23683,7 @@ class definition_item(Group):
         weight=weight,
     )
 
-class definition(NamedObject[definition_item], CreatableNamedObjectMixin[definition_item]):
+class definition(_NamedObjectCommands, NamedObject[definition_item], CreatableNamedObjectMixin[definition_item]):
     """
     Species Coefficients for Reaction Progress Definition.
     """
@@ -23780,15 +23691,6 @@ class definition(NamedObject[definition_item], CreatableNamedObjectMixin[definit
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'definition'
     _python_name = 'definition'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = definition_item
 
 class progress_variable_definition(Group):
@@ -24125,7 +24027,7 @@ class write_grid_to_file(Command):
     
     Parameters
     ----------
-        grid_file_1 : str
+        grid_file : str
             Output XY file for f-grid distribution.
     """
     _version = '271'
@@ -24233,7 +24135,7 @@ class write_grid_to_file_1(Command):
     
     Parameters
     ----------
-        grid_file_1 : str
+        grid_file : str
             Output XY file for c-grid distribution.
     """
     _version = '271'
@@ -26312,7 +26214,7 @@ class user_defined_comp_item(Group):
         mf=mf,
     )
 
-class user_defined_comp(NamedObject[user_defined_comp_item], CreatableNamedObjectMixin[user_defined_comp_item]):
+class user_defined_comp(_NamedObjectCommands, NamedObject[user_defined_comp_item], CreatableNamedObjectMixin[user_defined_comp_item]):
     """
     User Defined Composition.
     """
@@ -26320,15 +26222,6 @@ class user_defined_comp(NamedObject[user_defined_comp_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'user-defined-comp'
     _python_name = 'user_defined_comp'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = user_defined_comp_item
 
 class normalize(Command):
@@ -29745,7 +29638,7 @@ class components_1_item(Group):
         evaporating_stream=evaporating_stream_1,
     )
 
-class components_1(NamedObject[components_1_item], CreatableNamedObjectMixin[components_1_item]):
+class components_1(_NamedObjectCommands, NamedObject[components_1_item], CreatableNamedObjectMixin[components_1_item]):
     """
     Initial mass fractions and evaporating species of all chemical components.
     """
@@ -29753,15 +29646,6 @@ class components_1(NamedObject[components_1_item], CreatableNamedObjectMixin[com
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'components'
     _python_name = 'components'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = components_1_item
 
 class temperature_2(Real, AllowedValuesMixin):
@@ -30555,7 +30439,7 @@ class injections_item(Group):
         reference_frame=('initial_values/reference_frame', 'reference-frame'),
     )
 
-class injections(NamedObject[injections_item], CreatableNamedObjectMixin[injections_item]):
+class injections(_NamedObjectCommands, NamedObject[injections_item], CreatableNamedObjectMixin[injections_item]):
     """
     Injection named object container.
     """
@@ -30563,15 +30447,6 @@ class injections(NamedObject[injections_item], CreatableNamedObjectMixin[injecti
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'injections'
     _python_name = 'injections'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = injections_item
 
 class discrete_phase(Group):
@@ -31170,15 +31045,8 @@ class geometry_6_item(Group):
         airfoil_data_file=airfoil_data_file,
     )
 
-class geometry_6(NamedObject[geometry_6_item], CreatableNamedObjectMixin[geometry_6_item]):
-    """
-    Main object.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'geometry'
-    _python_name = 'geometry'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'add']
+class _NamedObjectCommands_1(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create,
         delete=delete_2,
@@ -31186,7 +31054,30 @@ class geometry_6(NamedObject[geometry_6_item], CreatableNamedObjectMixin[geometr
         list=list_2,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        add=add_7,
+    )
+    create = create
+    delete = delete_2
+    rename = rename
+    list = list_2
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class geometry_6(_NamedObjectCommands_1, NamedObject[geometry_6_item], CreatableNamedObjectMixin[geometry_6_item]):
+    """
+    Main object.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'geometry'
+    _python_name = 'geometry'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_1.command_names, [(6, 'add')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_1._child_classes,
+        [
+            (6, 'add', add_7),
+        ],
     )
     child_object_type = geometry_6_item
 
@@ -31284,7 +31175,7 @@ class rotor_item(Group):
         trimming=trimming,
     )
 
-class rotor(NamedObject[rotor_item], CreatableNamedObjectMixin[rotor_item]):
+class rotor(_NamedObjectCommands, NamedObject[rotor_item], CreatableNamedObjectMixin[rotor_item]):
     """
     Main object.
     """
@@ -31292,15 +31183,6 @@ class rotor(NamedObject[rotor_item], CreatableNamedObjectMixin[rotor_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'rotor'
     _python_name = 'rotor'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = rotor_item
 
 class apply(Command):
@@ -31535,15 +31417,8 @@ class beams_item(Group):
         beam_vector=beam_vector,
     )
 
-class beams(NamedObject[beams_item], CreatableNamedObjectMixin[beams_item]):
-    """
-    The optical beams object.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'beams'
-    _python_name = 'beams'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'copy']
+class _NamedObjectCommands_2(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_2,
         delete=delete_2,
@@ -31551,7 +31426,30 @@ class beams(NamedObject[beams_item], CreatableNamedObjectMixin[beams_item]):
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        copy=copy,
+    )
+    create = create_2
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class beams(_NamedObjectCommands_2, NamedObject[beams_item], CreatableNamedObjectMixin[beams_item]):
+    """
+    The optical beams object.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'beams'
+    _python_name = 'beams'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_2.command_names, [(6, 'copy')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_2._child_classes,
+        [
+            (6, 'copy', copy),
+        ],
     )
     child_object_type = beams_item
 
@@ -35078,7 +34976,7 @@ class reactions_1_item(Group):
         get_number_of_products=get_number_of_products,
     )
 
-class reactions_1(NamedObject[reactions_1_item], CreatableNamedObjectMixin[reactions_1_item]):
+class reactions_1(_NamedObjectCommands, NamedObject[reactions_1_item], CreatableNamedObjectMixin[reactions_1_item]):
     """
     The electrochemical reactions management object.
     """
@@ -35086,15 +34984,6 @@ class reactions_1(NamedObject[reactions_1_item], CreatableNamedObjectMixin[react
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'reactions'
     _python_name = 'reactions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = reactions_1_item
 
 class reactions_2(StringList, AllowedValuesMixin):
@@ -35120,7 +35009,7 @@ class mechanisms_item(Group):
         reactions=reactions_2,
     )
 
-class mechanisms(NamedObject[mechanisms_item], CreatableNamedObjectMixin[mechanisms_item]):
+class mechanisms(_NamedObjectCommands, NamedObject[mechanisms_item], CreatableNamedObjectMixin[mechanisms_item]):
     """
     The object.
     """
@@ -35128,15 +35017,6 @@ class mechanisms(NamedObject[mechanisms_item], CreatableNamedObjectMixin[mechani
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mechanisms'
     _python_name = 'mechanisms'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mechanisms_item
 
 class electrolysis(Group):
@@ -36527,7 +36407,7 @@ class read_all_data_table(Command):
     ----------
         enabled : bool
             Read all ECM data tables.
-        file_name_1 : str
+        file_name : str
             File name in reading ECM tables.
     """
     _version = '271'
@@ -37402,7 +37282,7 @@ class import_properties_from_bpx_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             BPX file name with its full path.
     """
     _version = '271'
@@ -37728,7 +37608,7 @@ class energy_source_active_item(Group):
         method=('option', 'method'),
     )
 
-class energy_source_active(NamedObject[energy_source_active_item], CreatableNamedObjectMixin[energy_source_active_item]):
+class energy_source_active(_NamedObjectCommands, NamedObject[energy_source_active_item], CreatableNamedObjectMixin[energy_source_active_item]):
     """
     Energy source for active zone.
     """
@@ -37736,15 +37616,6 @@ class energy_source_active(NamedObject[energy_source_active_item], CreatableName
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'energy-source-active'
     _python_name = 'energy_source_active'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = energy_source_active_item
 
 class option_45(String, AllowedValuesMixin):
@@ -37817,7 +37688,7 @@ class energy_source_active_1_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'energy_source_active_item'
 
-class energy_source_active_1(NamedObject[energy_source_active_1_item], CreatableNamedObjectMixin[energy_source_active_1_item]):
+class energy_source_active_1(_NamedObjectCommands, NamedObject[energy_source_active_1_item], CreatableNamedObjectMixin[energy_source_active_1_item]):
     """
     Energy source for active zone in the FMU-coupling.
     """
@@ -37825,15 +37696,6 @@ class energy_source_active_1(NamedObject[energy_source_active_1_item], Creatable
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'energy-source-active'
     _python_name = 'energy_source_active'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = energy_source_active_1_item
 
 class option_46(String, AllowedValuesMixin):
@@ -38600,14 +38462,7 @@ class contact_resistance_locations_item(Group):
         value=value_22,
     )
 
-class contact_resistance_locations(NamedObject[contact_resistance_locations_item], CreatableNamedObjectMixin[contact_resistance_locations_item]):
-    """
-    Contact resistance regions.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'contact-resistance-locations'
-    _python_name = 'contact_resistance_locations'
+class _NamedObjectCommands_3(_NamedObjectCommandBase):
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_3,
@@ -38617,6 +38472,21 @@ class contact_resistance_locations(NamedObject[contact_resistance_locations_item
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
     )
+    create = create_3
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class contact_resistance_locations(_NamedObjectCommands_3, NamedObject[contact_resistance_locations_item], CreatableNamedObjectMixin[contact_resistance_locations_item]):
+    """
+    Contact resistance regions.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'contact-resistance-locations'
+    _python_name = 'contact_resistance_locations'
     child_object_type = contact_resistance_locations_item
 
 class enabled_34(Boolean):
@@ -39210,7 +39080,7 @@ class read_abuse_rate_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             N-eqn abuse kinetics file name with its full path.
     """
     _version = '271'
@@ -41614,7 +41484,7 @@ class read_location_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Module Location file name with its full path.
     """
     _version = '271'
@@ -48282,7 +48152,7 @@ class uds_diffusivities_item(Group):
         cyl_orthotropic=cyl_orthotropic,
     )
 
-class uds_diffusivities(NamedObject[uds_diffusivities_item], CreatableNamedObjectMixin[uds_diffusivities_item]):
+class uds_diffusivities(_NamedObjectCommands, NamedObject[uds_diffusivities_item], CreatableNamedObjectMixin[uds_diffusivities_item]):
     """
     UDS Diffusivity settings.
     """
@@ -48290,15 +48160,6 @@ class uds_diffusivities(NamedObject[uds_diffusivities_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'uds-diffusivities'
     _python_name = 'uds_diffusivities'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = uds_diffusivities_item
 
 class uds_diffusivity(Group):
@@ -48390,7 +48251,7 @@ class fluid_item(Group):
         uds_diffusivity=uds_diffusivity,
     )
 
-class fluid(NamedObject[fluid_item], CreatableNamedObjectMixin[fluid_item]):
+class fluid(_NamedObjectCommands, NamedObject[fluid_item], CreatableNamedObjectMixin[fluid_item]):
     """
     Accesses the list of defined fluid materials.
     """
@@ -48398,15 +48259,6 @@ class fluid(NamedObject[fluid_item], CreatableNamedObjectMixin[fluid_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'fluid'
     _python_name = 'fluid'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = fluid_item
 
 class density_4(Group):
@@ -49170,7 +49022,7 @@ class solid_item(Group):
         uds_diffusivity=uds_diffusivity,
     )
 
-class solid(NamedObject[solid_item], CreatableNamedObjectMixin[solid_item]):
+class solid(_NamedObjectCommands, NamedObject[solid_item], CreatableNamedObjectMixin[solid_item]):
     """
     Accesses the list of defined solid materials.
     """
@@ -49178,15 +49030,6 @@ class solid(NamedObject[solid_item], CreatableNamedObjectMixin[solid_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'solid'
     _python_name = 'solid'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = solid_item
 
 class volumetric_species_item(Group):
@@ -49258,7 +49101,7 @@ class volumetric_species_item(Group):
         uds_diffusivity=uds_diffusivity,
     )
 
-class volumetric_species(NamedObject[volumetric_species_item], CreatableNamedObjectMixin[volumetric_species_item]):
+class volumetric_species(_NamedObjectCommands, NamedObject[volumetric_species_item], CreatableNamedObjectMixin[volumetric_species_item]):
     """
     Lists species involved in the mixture as volumetric contributors.
     """
@@ -49267,15 +49110,6 @@ class volumetric_species(NamedObject[volumetric_species_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'volumetric-species'
     _python_name = 'volumetric_species'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = volumetric_species_item
 
 class volumetric(StringList, AllowedValuesMixin):
@@ -49383,7 +49217,7 @@ class material_4_item(Group):
         uds_diffusivity=uds_diffusivity,
     )
 
-class material_4(NamedObject[material_4_item], CreatableNamedObjectMixin[material_4_item]):
+class material_4(_NamedObjectCommands, NamedObject[material_4_item], CreatableNamedObjectMixin[material_4_item]):
     """
     Mixture species materials.
     """
@@ -49391,15 +49225,6 @@ class material_4(NamedObject[material_4_item], CreatableNamedObjectMixin[materia
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'material'
     _python_name = 'material'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = material_4_item
 
 class species_6(Group):
@@ -49744,7 +49569,7 @@ class species_diffusivity_item(Group):
         polynomial=polynomial_2,
     )
 
-class species_diffusivity(NamedObject[species_diffusivity_item], CreatableNamedObjectMixin[species_diffusivity_item]):
+class species_diffusivity(_NamedObjectCommands, NamedObject[species_diffusivity_item], CreatableNamedObjectMixin[species_diffusivity_item]):
     """
     Mixture species mass diffusion coeffients.
     """
@@ -49752,15 +49577,6 @@ class species_diffusivity(NamedObject[species_diffusivity_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-diffusivity'
     _python_name = 'species_diffusivity'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_diffusivity_item
 
 class multicomponent_item_item(Group):
@@ -49778,7 +49594,7 @@ class multicomponent_item_item(Group):
         polynomial=polynomial_2,
     )
 
-class multicomponent_item(NamedObject[multicomponent_item_item], CreatableNamedObjectMixin[multicomponent_item_item]):
+class multicomponent_item(_NamedObjectCommands, NamedObject[multicomponent_item_item], CreatableNamedObjectMixin[multicomponent_item_item]):
     """
     'child_object_type' of multicomponent.
     """
@@ -49786,18 +49602,9 @@ class multicomponent_item(NamedObject[multicomponent_item_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'child-object-type'
     _python_name = 'multicomponent_item'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = multicomponent_item_item
 
-class multicomponent(NamedObject[multicomponent_item], CreatableNamedObjectMixin[multicomponent_item]):
+class multicomponent(_NamedObjectCommands, NamedObject[multicomponent_item], CreatableNamedObjectMixin[multicomponent_item]):
     """
     First species.
     """
@@ -49805,15 +49612,6 @@ class multicomponent(NamedObject[multicomponent_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'multicomponent'
     _python_name = 'multicomponent'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = multicomponent_item
 
 class mass_diffusivity(Group):
@@ -49954,7 +49752,7 @@ class cross_section_multicomponent_item_item(Group):
         charged_particle_interaction=charged_particle_interaction,
     )
 
-class cross_section_multicomponent_item(NamedObject[cross_section_multicomponent_item_item], CreatableNamedObjectMixin[cross_section_multicomponent_item_item]):
+class cross_section_multicomponent_item(_NamedObjectCommands, NamedObject[cross_section_multicomponent_item_item], CreatableNamedObjectMixin[cross_section_multicomponent_item_item]):
     """
     'child_object_type' of cross_section_multicomponent.
     """
@@ -49962,18 +49760,9 @@ class cross_section_multicomponent_item(NamedObject[cross_section_multicomponent
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'child-object-type'
     _python_name = 'cross_section_multicomponent_item'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = cross_section_multicomponent_item_item
 
-class cross_section_multicomponent(NamedObject[cross_section_multicomponent_item], CreatableNamedObjectMixin[cross_section_multicomponent_item]):
+class cross_section_multicomponent(_NamedObjectCommands, NamedObject[cross_section_multicomponent_item], CreatableNamedObjectMixin[cross_section_multicomponent_item]):
     """
     Manages cross-section data for multicomponent collision modeling.
     """
@@ -49981,15 +49770,6 @@ class cross_section_multicomponent(NamedObject[cross_section_multicomponent_item
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'cross-section-multicomponent'
     _python_name = 'cross_section_multicomponent'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = cross_section_multicomponent_item
 
 class collision_cross_section(Group):
@@ -50058,7 +49838,7 @@ class mixture_item(Group):
         uds_diffusivity=uds_diffusivity,
     )
 
-class mixture(NamedObject[mixture_item], CreatableNamedObjectMixin[mixture_item]):
+class mixture(_NamedObjectCommands, NamedObject[mixture_item], CreatableNamedObjectMixin[mixture_item]):
     """
     Accesses the list of defined mixture materials.
     """
@@ -50066,15 +49846,6 @@ class mixture(NamedObject[mixture_item], CreatableNamedObjectMixin[mixture_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mixture'
     _python_name = 'mixture'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mixture_item
 
 class density_6(Group):
@@ -50290,7 +50061,7 @@ class inert_particle_item(Group):
         charge_density=charge_density,
     )
 
-class inert_particle(NamedObject[inert_particle_item], CreatableNamedObjectMixin[inert_particle_item]):
+class inert_particle(_NamedObjectCommands, NamedObject[inert_particle_item], CreatableNamedObjectMixin[inert_particle_item]):
     """
     Accesses the list of defined inert particle materials.
     """
@@ -50298,15 +50069,6 @@ class inert_particle(NamedObject[inert_particle_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'inert-particle'
     _python_name = 'inert_particle'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = inert_particle_item
 
 class use_vapor_species_heat_capacity(Boolean):
@@ -50809,7 +50571,7 @@ class droplet_particle_item(Group):
         reference_temperature=reference_temperature,
     )
 
-class droplet_particle(NamedObject[droplet_particle_item], CreatableNamedObjectMixin[droplet_particle_item]):
+class droplet_particle(_NamedObjectCommands, NamedObject[droplet_particle_item], CreatableNamedObjectMixin[droplet_particle_item]):
     """
     Accesses the list of defined droplet particle materials.
     """
@@ -50817,15 +50579,6 @@ class droplet_particle(NamedObject[droplet_particle_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'droplet-particle'
     _python_name = 'droplet_particle'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = droplet_particle_item
 
 class density_7(Group):
@@ -51336,7 +51089,7 @@ class combusting_particle_item(Group):
         emissivity=emissivity_1,
     )
 
-class combusting_particle(NamedObject[combusting_particle_item], CreatableNamedObjectMixin[combusting_particle_item]):
+class combusting_particle(_NamedObjectCommands, NamedObject[combusting_particle_item], CreatableNamedObjectMixin[combusting_particle_item]):
     """
     Accesses the list of defined combusting particle materials.
     """
@@ -51344,15 +51097,6 @@ class combusting_particle(NamedObject[combusting_particle_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'combusting-particle'
     _python_name = 'combusting_particle'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = combusting_particle_item
 
 class particle_species_item(Group):
@@ -51397,7 +51141,7 @@ class particle_species_item(Group):
         reference_temperature=reference_temperature,
     )
 
-class particle_species(NamedObject[particle_species_item], CreatableNamedObjectMixin[particle_species_item]):
+class particle_species(_NamedObjectCommands, NamedObject[particle_species_item], CreatableNamedObjectMixin[particle_species_item]):
     """
     Lists species involved in the particle mixture as volumetric contributors.
     """
@@ -51406,15 +51150,6 @@ class particle_species(NamedObject[particle_species_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'particle-species'
     _python_name = 'particle_species'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = particle_species_item
 
 class particle(StringList, AllowedValuesMixin):
@@ -51468,7 +51203,7 @@ class material_5_item(Group):
         reference_temperature=reference_temperature,
     )
 
-class material_5(NamedObject[material_5_item], CreatableNamedObjectMixin[material_5_item]):
+class material_5(_NamedObjectCommands, NamedObject[material_5_item], CreatableNamedObjectMixin[material_5_item]):
     """
     Species particle mixture species materials.
     """
@@ -51476,15 +51211,6 @@ class material_5(NamedObject[material_5_item], CreatableNamedObjectMixin[materia
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'material'
     _python_name = 'material'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = material_5_item
 
 class species_7(Group):
@@ -51639,7 +51365,7 @@ class particle_mixture_item(Group):
         reaction_model=reaction_model,
     )
 
-class particle_mixture(NamedObject[particle_mixture_item], CreatableNamedObjectMixin[particle_mixture_item]):
+class particle_mixture(_NamedObjectCommands, NamedObject[particle_mixture_item], CreatableNamedObjectMixin[particle_mixture_item]):
     """
     Accesses the list of defined particle mixture materials.
     """
@@ -51647,15 +51373,6 @@ class particle_mixture(NamedObject[particle_mixture_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'particle-mixture'
     _python_name = 'particle_mixture'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = particle_mixture_item
 
 class copy_from_database(Command):
@@ -54002,7 +53719,7 @@ class terms_item(ListObject[terms_item_item]):
     )
     child_object_type = terms_item_item
 
-class terms(NamedObject[terms_item], CreatableNamedObjectMixin[terms_item]):
+class terms(_NamedObjectCommands, NamedObject[terms_item], CreatableNamedObjectMixin[terms_item]):
     """
     List of sources.
     """
@@ -54010,15 +53727,6 @@ class terms(NamedObject[terms_item], CreatableNamedObjectMixin[terms_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'terms'
     _python_name = 'terms'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = terms_item
 
 class sources_1(Group):
@@ -54077,7 +53785,7 @@ class variables_item(Group):
         constant=('value', 'constant'),
     )
 
-class variables(NamedObject[variables_item], CreatableNamedObjectMixin[variables_item]):
+class variables(_NamedObjectCommands, NamedObject[variables_item], CreatableNamedObjectMixin[variables_item]):
     """
     List of variables for fixed terms.
     """
@@ -54085,15 +53793,6 @@ class variables(NamedObject[variables_item], CreatableNamedObjectMixin[variables
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'variables'
     _python_name = 'variables'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = variables_item
 
 class fixed_values(Group):
@@ -54839,7 +54538,7 @@ class phase_2_item(Group):
         material=('general/material', 'material'),
     )
 
-class phase_2(NamedObject[phase_2_item], CreatableNamedObjectMixin[phase_2_item]):
+class phase_2(_NamedObjectCommands, NamedObject[phase_2_item], CreatableNamedObjectMixin[phase_2_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -54847,15 +54546,6 @@ class phase_2(NamedObject[phase_2_item], CreatableNamedObjectMixin[phase_2_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_2_item
 
 class adjacent_zone(String):
@@ -54932,7 +54622,7 @@ class fluid_1_item(Group):
         material=('general/material', 'material'),
     )
 
-class fluid_1(NamedObject[fluid_1_item], CreatableNamedObjectMixin[fluid_1_item]):
+class fluid_1(_NamedObjectCommands, NamedObject[fluid_1_item], CreatableNamedObjectMixin[fluid_1_item]):
     """
     Settings for cell zone condition object.
     """
@@ -54940,15 +54630,6 @@ class fluid_1(NamedObject[fluid_1_item], CreatableNamedObjectMixin[fluid_1_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'fluid'
     _python_name = 'fluid'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = fluid_1_item
 
 class general_3(Group):
@@ -55237,7 +54918,7 @@ class phase_3_item(Group):
         material=('general/material', 'material'),
     )
 
-class phase_3(NamedObject[phase_3_item], CreatableNamedObjectMixin[phase_3_item]):
+class phase_3(_NamedObjectCommands, NamedObject[phase_3_item], CreatableNamedObjectMixin[phase_3_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -55245,15 +54926,6 @@ class phase_3(NamedObject[phase_3_item], CreatableNamedObjectMixin[phase_3_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_3_item
 
 class solid_2_item(Group):
@@ -55290,7 +54962,7 @@ class solid_2_item(Group):
         material=('general/material', 'material'),
     )
 
-class solid_2(NamedObject[solid_2_item], CreatableNamedObjectMixin[solid_2_item]):
+class solid_2(_NamedObjectCommands, NamedObject[solid_2_item], CreatableNamedObjectMixin[solid_2_item]):
     """
     Settings for cell zone condition object.
     """
@@ -55298,15 +54970,6 @@ class solid_2(NamedObject[solid_2_item], CreatableNamedObjectMixin[solid_2_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'solid'
     _python_name = 'solid'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = solid_2_item
 
 class name_18(String):
@@ -55503,7 +55166,7 @@ class terms_1_item(ListObject[terms_1_item_item]):
     )
     child_object_type = terms_1_item_item
 
-class terms_1(NamedObject[terms_1_item], CreatableNamedObjectMixin[terms_1_item]):
+class terms_1(_NamedObjectCommands, NamedObject[terms_1_item], CreatableNamedObjectMixin[terms_1_item]):
     """
     Collection of source term lists.
     """
@@ -55511,15 +55174,6 @@ class terms_1(NamedObject[terms_1_item], CreatableNamedObjectMixin[terms_1_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'terms'
     _python_name = 'terms'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = terms_1_item
 
 class sources_2(Group):
@@ -55572,7 +55226,7 @@ class regions_item(Group):
         display=display_4,
     )
 
-class regions(NamedObject[regions_item], CreatableNamedObjectMixin[regions_item]):
+class regions(_NamedObjectCommands, NamedObject[regions_item], CreatableNamedObjectMixin[regions_item]):
     """
     Solid region collection.
     """
@@ -55580,17 +55234,16 @@ class regions(NamedObject[regions_item], CreatableNamedObjectMixin[regions_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'regions'
     _python_name = 'regions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'create_surface', 'display', 'recreate']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        create_surface=create_surface_1,
-        display=display_3,
-        recreate=recreate,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'create_surface'), (7, 'display'), (8, 'recreate')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'create_surface', create_surface_1),
+            (7, 'display', display_3),
+            (8, 'recreate', recreate),
+        ],
     )
     child_object_type = regions_item
 
@@ -55608,7 +55261,7 @@ class wrapped_solid_item(Group):
         regions=regions,
     )
 
-class wrapped_solid(NamedObject[wrapped_solid_item], CreatableNamedObjectMixin[wrapped_solid_item]):
+class wrapped_solid(_NamedObjectCommands, NamedObject[wrapped_solid_item], CreatableNamedObjectMixin[wrapped_solid_item]):
     """
     Wrapped solid with its material region assignments.
     """
@@ -55616,15 +55269,6 @@ class wrapped_solid(NamedObject[wrapped_solid_item], CreatableNamedObjectMixin[w
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'wrapped-solid'
     _python_name = 'wrapped_solid'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = wrapped_solid_item
 
 class from__1(String, AllowedValuesMixin):
@@ -55963,7 +55607,7 @@ class faces_item(Group):
         name=name_19,
     )
 
-class faces(NamedObject[faces_item], CreatableNamedObjectMixin[faces_item]):
+class faces(_NamedObjectCommands, NamedObject[faces_item], CreatableNamedObjectMixin[faces_item]):
     """
     Define topology faces.
     """
@@ -55971,15 +55615,6 @@ class faces(NamedObject[faces_item], CreatableNamedObjectMixin[faces_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'faces'
     _python_name = 'faces'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = faces_item
 
 class name_20(String):
@@ -56025,7 +55660,7 @@ class bodies_1_item(Group):
         create_baffle_face=create_baffle_face,
     )
 
-class bodies_1(NamedObject[bodies_1_item], CreatableNamedObjectMixin[bodies_1_item]):
+class bodies_1(_NamedObjectCommands, NamedObject[bodies_1_item], CreatableNamedObjectMixin[bodies_1_item]):
     """
     Define topology body.
     """
@@ -56033,15 +55668,6 @@ class bodies_1(NamedObject[bodies_1_item], CreatableNamedObjectMixin[bodies_1_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'bodies'
     _python_name = 'bodies'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = bodies_1_item
 
 class components_2(StringList, AllowedValuesMixin):
@@ -56067,7 +55693,7 @@ class groups_1_item(Group):
         components=components_2,
     )
 
-class groups_1(NamedObject[groups_1_item], CreatableNamedObjectMixin[groups_1_item]):
+class groups_1(_NamedObjectCommands, NamedObject[groups_1_item], CreatableNamedObjectMixin[groups_1_item]):
     """
     Define topology group.
     """
@@ -56075,15 +55701,6 @@ class groups_1(NamedObject[groups_1_item], CreatableNamedObjectMixin[groups_1_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'groups'
     _python_name = 'groups'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = groups_1_item
 
 class name_21(String):
@@ -56165,7 +55782,7 @@ class parts_item(Group):
         display=display_5,
     )
 
-class parts(NamedObject[parts_item], CreatableNamedObjectMixin[parts_item]):
+class parts(_NamedObjectCommands, NamedObject[parts_item], CreatableNamedObjectMixin[parts_item]):
     """
     Define topology Part.
     """
@@ -56173,15 +55790,6 @@ class parts(NamedObject[parts_item], CreatableNamedObjectMixin[parts_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'parts'
     _python_name = 'parts'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = parts_item
 
 class groups_item(Group):
@@ -56198,7 +55806,7 @@ class groups_item(Group):
         components=components_2,
     )
 
-class groups(NamedObject[groups_item], CreatableNamedObjectMixin[groups_item]):
+class groups(_NamedObjectCommands, NamedObject[groups_item], CreatableNamedObjectMixin[groups_item]):
     """
     Define topology global group.
     """
@@ -56206,15 +55814,6 @@ class groups(NamedObject[groups_item], CreatableNamedObjectMixin[groups_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'groups'
     _python_name = 'groups'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = groups_item
 
 class list_topology(Command):
@@ -56286,7 +55885,7 @@ class phase_4_item(Group):
         disabled=disabled,
     )
 
-class phase_4(NamedObject[phase_4_item], CreatableNamedObjectMixin[phase_4_item]):
+class phase_4(_NamedObjectCommands, NamedObject[phase_4_item], CreatableNamedObjectMixin[phase_4_item]):
     """
     Defines phase-specific physical properties for a fluid volume region.
     """
@@ -56294,15 +55893,6 @@ class phase_4(NamedObject[phase_4_item], CreatableNamedObjectMixin[phase_4_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_4_item
 
 class netm_solid_region(Group):
@@ -56489,7 +56079,7 @@ class fluid_2_item(Group):
         location=('locations', 'location'),
     )
 
-class fluid_2(NamedObject[fluid_2_item], CreatableNamedObjectMixin[fluid_2_item]):
+class fluid_2(_NamedObjectCommands, NamedObject[fluid_2_item], CreatableNamedObjectMixin[fluid_2_item]):
     """
     Thread-type.
     """
@@ -56497,15 +56087,6 @@ class fluid_2(NamedObject[fluid_2_item], CreatableNamedObjectMixin[fluid_2_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'fluid'
     _python_name = 'fluid'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = fluid_2_item
 
 class phase_5_item(Group):
@@ -56529,7 +56110,7 @@ class phase_5_item(Group):
         internal=internal,
     )
 
-class phase_5(NamedObject[phase_5_item], CreatableNamedObjectMixin[phase_5_item]):
+class phase_5(_NamedObjectCommands, NamedObject[phase_5_item], CreatableNamedObjectMixin[phase_5_item]):
     """
     Defines phase-specific physical properties for a fluid volume region.
     """
@@ -56537,15 +56118,6 @@ class phase_5(NamedObject[phase_5_item], CreatableNamedObjectMixin[phase_5_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_5_item
 
 class solid_3_item(Group):
@@ -56581,7 +56153,7 @@ class solid_3_item(Group):
         location=('locations', 'location'),
     )
 
-class solid_3(NamedObject[solid_3_item], CreatableNamedObjectMixin[solid_3_item]):
+class solid_3(_NamedObjectCommands, NamedObject[solid_3_item], CreatableNamedObjectMixin[solid_3_item]):
     """
     Thread-type.
     """
@@ -56589,15 +56161,6 @@ class solid_3(NamedObject[solid_3_item], CreatableNamedObjectMixin[solid_3_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'solid'
     _python_name = 'solid'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = solid_3_item
 
 class list_physics(Command):
@@ -56889,7 +56452,7 @@ class phase_6_item(Group):
         geometry=geometry_8,
     )
 
-class phase_6(NamedObject[phase_6_item], CreatableNamedObjectMixin[phase_6_item]):
+class phase_6(_NamedObjectCommands, NamedObject[phase_6_item], CreatableNamedObjectMixin[phase_6_item]):
     """
     Domain name to define settings on.
     """
@@ -56897,15 +56460,6 @@ class phase_6(NamedObject[phase_6_item], CreatableNamedObjectMixin[phase_6_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_6_item
 
 class wall_motion(String, AllowedValuesMixin):
@@ -58590,7 +58144,7 @@ class read_polar_dist_func_from_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             Name of input CSV file.
     """
     _version = '271'
@@ -58724,7 +58278,7 @@ class direct_irradiation_item(Group):
         constant=('value', 'constant'),
     )
 
-class direct_irradiation(NamedObject[direct_irradiation_item], CreatableNamedObjectMixin[direct_irradiation_item]):
+class direct_irradiation(_NamedObjectCommands, NamedObject[direct_irradiation_item], CreatableNamedObjectMixin[direct_irradiation_item]):
     """
     Settings for direct irradiation on this boundary.
     """
@@ -58732,15 +58286,6 @@ class direct_irradiation(NamedObject[direct_irradiation_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'direct-irradiation'
     _python_name = 'direct_irradiation'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = direct_irradiation_item
 
 class parallel_collimated_beam(Boolean):
@@ -58827,7 +58372,7 @@ class diffuse_irradiation_item(Group):
         constant=('value', 'constant'),
     )
 
-class diffuse_irradiation(NamedObject[diffuse_irradiation_item], CreatableNamedObjectMixin[diffuse_irradiation_item]):
+class diffuse_irradiation(_NamedObjectCommands, NamedObject[diffuse_irradiation_item], CreatableNamedObjectMixin[diffuse_irradiation_item]):
     """
     Settings for diffuse irradiation on this boundary.
     """
@@ -58835,15 +58380,6 @@ class diffuse_irradiation(NamedObject[diffuse_irradiation_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'diffuse-irradiation'
     _python_name = 'diffuse_irradiation'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = diffuse_irradiation_item
 
 class diffuse_fraction_band_item(Real):
@@ -58855,7 +58391,7 @@ class diffuse_fraction_band_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'diffuse_fraction_band_item'
 
-class diffuse_fraction_band(NamedObject[diffuse_fraction_band_item], CreatableNamedObjectMixin[diffuse_fraction_band_item]):
+class diffuse_fraction_band(_NamedObjectCommands, NamedObject[diffuse_fraction_band_item], CreatableNamedObjectMixin[diffuse_fraction_band_item]):
     """
     Diffuse fraction.
     """
@@ -58863,15 +58399,6 @@ class diffuse_fraction_band(NamedObject[diffuse_fraction_band_item], CreatableNa
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'diffuse-fraction-band'
     _python_name = 'diffuse_fraction_band'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = diffuse_fraction_band_item
 
 class diffuse_irradiation_settings(Group):
@@ -58933,7 +58460,7 @@ class internal_emissivity_band_item(Group):
         constant=('value', 'constant'),
     )
 
-class internal_emissivity_band(NamedObject[internal_emissivity_band_item], CreatableNamedObjectMixin[internal_emissivity_band_item]):
+class internal_emissivity_band(_NamedObjectCommands, NamedObject[internal_emissivity_band_item], CreatableNamedObjectMixin[internal_emissivity_band_item]):
     """
     Internal emissivity.
     """
@@ -58941,15 +58468,6 @@ class internal_emissivity_band(NamedObject[internal_emissivity_band_item], Creat
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'internal-emissivity-band'
     _python_name = 'internal_emissivity_band'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = internal_emissivity_band_item
 
 class radiating_s2s_surface(Boolean):
@@ -59313,7 +58831,7 @@ class species_boundary_conditions_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'species_boundary_conditions_item'
 
-class species_boundary_conditions(NamedObject[species_boundary_conditions_item], CreatableNamedObjectMixin[species_boundary_conditions_item]):
+class species_boundary_conditions(_NamedObjectCommands, NamedObject[species_boundary_conditions_item], CreatableNamedObjectMixin[species_boundary_conditions_item]):
     """
     Species Boundary Conditions.
     """
@@ -59321,15 +58839,6 @@ class species_boundary_conditions(NamedObject[species_boundary_conditions_item],
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-boundary-conditions'
     _python_name = 'species_boundary_conditions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_boundary_conditions_item
 
 class species_mass_fraction_or_flux_item(Group):
@@ -59352,7 +58861,7 @@ class species_mass_fraction_or_flux_item(Group):
         constant=('value', 'constant'),
     )
 
-class species_mass_fraction_or_flux(NamedObject[species_mass_fraction_or_flux_item], CreatableNamedObjectMixin[species_mass_fraction_or_flux_item]):
+class species_mass_fraction_or_flux(_NamedObjectCommands, NamedObject[species_mass_fraction_or_flux_item], CreatableNamedObjectMixin[species_mass_fraction_or_flux_item]):
     """
     List of Species mass fractions or mole fractions.
     """
@@ -59360,15 +58869,6 @@ class species_mass_fraction_or_flux(NamedObject[species_mass_fraction_or_flux_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-mass-fraction-or-flux'
     _python_name = 'species_mass_fraction_or_flux'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_mass_fraction_or_flux_item
 
 class surf_washcoat_factor(Real):
@@ -61495,7 +60995,7 @@ class contact_angles_item(Group):
         constant=('value', 'constant'),
     )
 
-class contact_angles(NamedObject[contact_angles_item], CreatableNamedObjectMixin[contact_angles_item]):
+class contact_angles(_NamedObjectCommands, NamedObject[contact_angles_item], CreatableNamedObjectMixin[contact_angles_item]):
     """
     Contact angle values.
     """
@@ -61503,15 +61003,6 @@ class contact_angles(NamedObject[contact_angles_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'contact-angles'
     _python_name = 'contact_angles'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = contact_angles_item
 
 class static_angle(Group):
@@ -61977,7 +61468,7 @@ class uds_bc_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'uds_bc_item'
 
-class uds_bc(NamedObject[uds_bc_item], CreatableNamedObjectMixin[uds_bc_item]):
+class uds_bc(_NamedObjectCommands, NamedObject[uds_bc_item], CreatableNamedObjectMixin[uds_bc_item]):
     """
     User-defined scalar boundary condition.
     """
@@ -61985,15 +61476,6 @@ class uds_bc(NamedObject[uds_bc_item], CreatableNamedObjectMixin[uds_bc_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'uds-bc'
     _python_name = 'uds_bc'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = uds_bc_item
 
 class uds_1_item(Group):
@@ -62016,7 +61498,7 @@ class uds_1_item(Group):
         constant=('value', 'constant'),
     )
 
-class uds_1(NamedObject[uds_1_item], CreatableNamedObjectMixin[uds_1_item]):
+class uds_1(_NamedObjectCommands, NamedObject[uds_1_item], CreatableNamedObjectMixin[uds_1_item]):
     """
     User-defined scalar boundary value or flux.
     """
@@ -62024,15 +61506,6 @@ class uds_1(NamedObject[uds_1_item], CreatableNamedObjectMixin[uds_1_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'uds'
     _python_name = 'uds'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = uds_1_item
 
 class uds(Group):
@@ -62500,7 +61973,7 @@ class species_mass_fraction_item(Group):
         constant=('value', 'constant'),
     )
 
-class species_mass_fraction(NamedObject[species_mass_fraction_item], CreatableNamedObjectMixin[species_mass_fraction_item]):
+class species_mass_fraction(_NamedObjectCommands, NamedObject[species_mass_fraction_item], CreatableNamedObjectMixin[species_mass_fraction_item]):
     """
     List of species mass fractions or mole fractions.
     """
@@ -62508,15 +61981,6 @@ class species_mass_fraction(NamedObject[species_mass_fraction_item], CreatableNa
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-mass-fraction'
     _python_name = 'species_mass_fraction'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_mass_fraction_item
 
 class ablation_1(Group):
@@ -62650,14 +62114,7 @@ class axis_6_item(Group):
         location=('locations', 'location'),
     )
 
-class axis_6(NamedObject[axis_6_item], CreatableNamedObjectMixin[axis_6_item]):
-    """
-    Thread-type.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'axis'
-    _python_name = 'axis'
+class _NamedObjectCommands_4(_NamedObjectCommandBase):
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_6,
@@ -62667,6 +62124,21 @@ class axis_6(NamedObject[axis_6_item], CreatableNamedObjectMixin[axis_6_item]):
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
     )
+    create = create_6
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class axis_6(_NamedObjectCommands_4, NamedObject[axis_6_item], CreatableNamedObjectMixin[axis_6_item]):
+    """
+    Thread-type.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'axis'
+    _python_name = 'axis'
     child_object_type = axis_6_item
 
 class degassing_item(Group):
@@ -62695,7 +62167,7 @@ class degassing_item(Group):
         location=('locations', 'location'),
     )
 
-class degassing(NamedObject[degassing_item], CreatableNamedObjectMixin[degassing_item]):
+class degassing(_NamedObjectCommands_4, NamedObject[degassing_item], CreatableNamedObjectMixin[degassing_item]):
     """
     Thread-type.
     """
@@ -62703,15 +62175,6 @@ class degassing(NamedObject[degassing_item], CreatableNamedObjectMixin[degassing
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'degassing'
     _python_name = 'degassing'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = degassing_item
 
 class system_coupling_2(Boolean):
@@ -64265,7 +63728,7 @@ class backflow_species_mass_fraction_item(Group):
         constant=('value', 'constant'),
     )
 
-class backflow_species_mass_fraction(NamedObject[backflow_species_mass_fraction_item], CreatableNamedObjectMixin[backflow_species_mass_fraction_item]):
+class backflow_species_mass_fraction(_NamedObjectCommands, NamedObject[backflow_species_mass_fraction_item], CreatableNamedObjectMixin[backflow_species_mass_fraction_item]):
     """
     Species mass fraction.
     """
@@ -64273,15 +63736,6 @@ class backflow_species_mass_fraction(NamedObject[backflow_species_mass_fraction_
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'backflow-species-mass-fraction'
     _python_name = 'backflow_species_mass_fraction'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = backflow_species_mass_fraction_item
 
 class species_mole_fraction_item(Group):
@@ -64304,7 +63758,7 @@ class species_mole_fraction_item(Group):
         constant=('value', 'constant'),
     )
 
-class species_mole_fraction(NamedObject[species_mole_fraction_item], CreatableNamedObjectMixin[species_mole_fraction_item]):
+class species_mole_fraction(_NamedObjectCommands, NamedObject[species_mole_fraction_item], CreatableNamedObjectMixin[species_mole_fraction_item]):
     """
     Species mole fraction.
     """
@@ -64312,15 +63766,6 @@ class species_mole_fraction(NamedObject[species_mole_fraction_item], CreatableNa
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-mole-fraction'
     _python_name = 'species_mole_fraction'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_mole_fraction_item
 
 class backflow_mixture_fraction(Group):
@@ -64943,7 +64388,7 @@ class tss_scalar_item(Group):
         constant=('value', 'constant'),
     )
 
-class tss_scalar(NamedObject[tss_scalar_item], CreatableNamedObjectMixin[tss_scalar_item]):
+class tss_scalar(_NamedObjectCommands, NamedObject[tss_scalar_item], CreatableNamedObjectMixin[tss_scalar_item]):
     """
     Specifies the scalar value for a species at a boundary, used in species transport simulations to define mass fraction or concentration.
     """
@@ -64951,15 +64396,6 @@ class tss_scalar(NamedObject[tss_scalar_item], CreatableNamedObjectMixin[tss_sca
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'tss-scalar'
     _python_name = 'tss_scalar'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = tss_scalar_item
 
 class species_9(Group):
@@ -65279,7 +64715,7 @@ class discrete_boundary_condition_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'discrete_boundary_condition_item'
 
-class discrete_boundary_condition(NamedObject[discrete_boundary_condition_item], CreatableNamedObjectMixin[discrete_boundary_condition_item]):
+class discrete_boundary_condition(_NamedObjectCommands, NamedObject[discrete_boundary_condition_item], CreatableNamedObjectMixin[discrete_boundary_condition_item]):
     """
     List of boundary conditions for Discrete population balance model.
     """
@@ -65287,15 +64723,6 @@ class discrete_boundary_condition(NamedObject[discrete_boundary_condition_item],
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'discrete-boundary-condition'
     _python_name = 'discrete_boundary_condition'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = discrete_boundary_condition_item
 
 class discrete_boundary_value_item(Group):
@@ -65318,7 +64745,7 @@ class discrete_boundary_value_item(Group):
         constant=('value', 'constant'),
     )
 
-class discrete_boundary_value(NamedObject[discrete_boundary_value_item], CreatableNamedObjectMixin[discrete_boundary_value_item]):
+class discrete_boundary_value(_NamedObjectCommands, NamedObject[discrete_boundary_value_item], CreatableNamedObjectMixin[discrete_boundary_value_item]):
     """
     List of boundary values for Discrete population balance model.
     """
@@ -65326,15 +64753,6 @@ class discrete_boundary_value(NamedObject[discrete_boundary_value_item], Creatab
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'discrete-boundary-value'
     _python_name = 'discrete_boundary_value'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = discrete_boundary_value_item
 
 class quadrature_moment_boundary_condition_item(String, AllowedValuesMixin):
@@ -65346,7 +64764,7 @@ class quadrature_moment_boundary_condition_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'quadrature_moment_boundary_condition_item'
 
-class quadrature_moment_boundary_condition(NamedObject[quadrature_moment_boundary_condition_item], CreatableNamedObjectMixin[quadrature_moment_boundary_condition_item]):
+class quadrature_moment_boundary_condition(_NamedObjectCommands, NamedObject[quadrature_moment_boundary_condition_item], CreatableNamedObjectMixin[quadrature_moment_boundary_condition_item]):
     """
     List of boundary conditions for Quadrature Moment population balance model.
     """
@@ -65354,15 +64772,6 @@ class quadrature_moment_boundary_condition(NamedObject[quadrature_moment_boundar
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'quadrature-moment-boundary-condition'
     _python_name = 'quadrature_moment_boundary_condition'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = quadrature_moment_boundary_condition_item
 
 class quadrature_moment_boundary_value_item(Group):
@@ -65385,7 +64794,7 @@ class quadrature_moment_boundary_value_item(Group):
         constant=('value', 'constant'),
     )
 
-class quadrature_moment_boundary_value(NamedObject[quadrature_moment_boundary_value_item], CreatableNamedObjectMixin[quadrature_moment_boundary_value_item]):
+class quadrature_moment_boundary_value(_NamedObjectCommands, NamedObject[quadrature_moment_boundary_value_item], CreatableNamedObjectMixin[quadrature_moment_boundary_value_item]):
     """
     List of boundary values for Quadrature Moment population balance model.
     """
@@ -65393,15 +64802,6 @@ class quadrature_moment_boundary_value(NamedObject[quadrature_moment_boundary_va
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'quadrature-moment-boundary-value'
     _python_name = 'quadrature_moment_boundary_value'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = quadrature_moment_boundary_value_item
 
 class qbmm_boundary_condition_item(String, AllowedValuesMixin):
@@ -65413,7 +64813,7 @@ class qbmm_boundary_condition_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'qbmm_boundary_condition_item'
 
-class qbmm_boundary_condition(NamedObject[qbmm_boundary_condition_item], CreatableNamedObjectMixin[qbmm_boundary_condition_item]):
+class qbmm_boundary_condition(_NamedObjectCommands, NamedObject[qbmm_boundary_condition_item], CreatableNamedObjectMixin[qbmm_boundary_condition_item]):
     """
     List of boundary conditions for QBMM population balance model.
     """
@@ -65421,15 +64821,6 @@ class qbmm_boundary_condition(NamedObject[qbmm_boundary_condition_item], Creatab
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'qbmm-boundary-condition'
     _python_name = 'qbmm_boundary_condition'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = qbmm_boundary_condition_item
 
 class qbmm_boundary_value_item(Group):
@@ -65452,7 +64843,7 @@ class qbmm_boundary_value_item(Group):
         constant=('value', 'constant'),
     )
 
-class qbmm_boundary_value(NamedObject[qbmm_boundary_value_item], CreatableNamedObjectMixin[qbmm_boundary_value_item]):
+class qbmm_boundary_value(_NamedObjectCommands, NamedObject[qbmm_boundary_value_item], CreatableNamedObjectMixin[qbmm_boundary_value_item]):
     """
     List of boundary values for QBMM population balance model.
     """
@@ -65460,15 +64851,6 @@ class qbmm_boundary_value(NamedObject[qbmm_boundary_value_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'qbmm-boundary-value'
     _python_name = 'qbmm_boundary_value'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = qbmm_boundary_value_item
 
 class std_moment_boundary_condition_item(String, AllowedValuesMixin):
@@ -65480,7 +64862,7 @@ class std_moment_boundary_condition_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'std_moment_boundary_condition_item'
 
-class std_moment_boundary_condition(NamedObject[std_moment_boundary_condition_item], CreatableNamedObjectMixin[std_moment_boundary_condition_item]):
+class std_moment_boundary_condition(_NamedObjectCommands, NamedObject[std_moment_boundary_condition_item], CreatableNamedObjectMixin[std_moment_boundary_condition_item]):
     """
     List of boundary conditions for Standard population balance model.
     """
@@ -65488,15 +64870,6 @@ class std_moment_boundary_condition(NamedObject[std_moment_boundary_condition_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'std-moment-boundary-condition'
     _python_name = 'std_moment_boundary_condition'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = std_moment_boundary_condition_item
 
 class std_moment_boundary_value_item(Group):
@@ -65519,7 +64892,7 @@ class std_moment_boundary_value_item(Group):
         constant=('value', 'constant'),
     )
 
-class std_moment_boundary_value(NamedObject[std_moment_boundary_value_item], CreatableNamedObjectMixin[std_moment_boundary_value_item]):
+class std_moment_boundary_value(_NamedObjectCommands, NamedObject[std_moment_boundary_value_item], CreatableNamedObjectMixin[std_moment_boundary_value_item]):
     """
     List of boundary values for Standard population balance model.
     """
@@ -65527,15 +64900,6 @@ class std_moment_boundary_value(NamedObject[std_moment_boundary_value_item], Cre
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'std-moment-boundary-value'
     _python_name = 'std_moment_boundary_value'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = std_moment_boundary_value_item
 
 class dqmom_boundary_condition_item(String, AllowedValuesMixin):
@@ -65547,7 +64911,7 @@ class dqmom_boundary_condition_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'dqmom_boundary_condition_item'
 
-class dqmom_boundary_condition(NamedObject[dqmom_boundary_condition_item], CreatableNamedObjectMixin[dqmom_boundary_condition_item]):
+class dqmom_boundary_condition(_NamedObjectCommands, NamedObject[dqmom_boundary_condition_item], CreatableNamedObjectMixin[dqmom_boundary_condition_item]):
     """
     List of boundary conditions for DQMOM population balance model.
     """
@@ -65555,15 +64919,6 @@ class dqmom_boundary_condition(NamedObject[dqmom_boundary_condition_item], Creat
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'dqmom-boundary-condition'
     _python_name = 'dqmom_boundary_condition'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = dqmom_boundary_condition_item
 
 class dqmom_boundary_value_item(Group):
@@ -65586,7 +64941,7 @@ class dqmom_boundary_value_item(Group):
         constant=('value', 'constant'),
     )
 
-class dqmom_boundary_value(NamedObject[dqmom_boundary_value_item], CreatableNamedObjectMixin[dqmom_boundary_value_item]):
+class dqmom_boundary_value(_NamedObjectCommands, NamedObject[dqmom_boundary_value_item], CreatableNamedObjectMixin[dqmom_boundary_value_item]):
     """
     List of boundary values for DQMOM population balance model.
     """
@@ -65594,15 +64949,6 @@ class dqmom_boundary_value(NamedObject[dqmom_boundary_value_item], CreatableName
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'dqmom-boundary-value'
     _python_name = 'dqmom_boundary_value'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = dqmom_boundary_value_item
 
 class population_balance(Group):
@@ -65841,7 +65187,7 @@ class phase_7_item(Group):
         geometry=geometry_8,
     )
 
-class phase_7(NamedObject[phase_7_item], CreatableNamedObjectMixin[phase_7_item]):
+class phase_7(_NamedObjectCommands, NamedObject[phase_7_item], CreatableNamedObjectMixin[phase_7_item]):
     """
     Domain name to define settings on.
     """
@@ -65849,15 +65195,6 @@ class phase_7(NamedObject[phase_7_item], CreatableNamedObjectMixin[phase_7_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_7_item
 
 class exhaust_fan_item(Group):
@@ -65897,7 +65234,7 @@ class exhaust_fan_item(Group):
         location=('locations', 'location'),
     )
 
-class exhaust_fan(NamedObject[exhaust_fan_item], CreatableNamedObjectMixin[exhaust_fan_item]):
+class exhaust_fan(_NamedObjectCommands_4, NamedObject[exhaust_fan_item], CreatableNamedObjectMixin[exhaust_fan_item]):
     """
     Thread-type.
     """
@@ -65905,15 +65242,6 @@ class exhaust_fan(NamedObject[exhaust_fan_item], CreatableNamedObjectMixin[exhau
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'exhaust-fan'
     _python_name = 'exhaust_fan'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = exhaust_fan_item
 
 class porous_jump_turb_wall_treatment(Boolean):
@@ -66314,7 +65642,7 @@ class phase_8_item(Group):
         geometry=geometry_8,
     )
 
-class phase_8(NamedObject[phase_8_item], CreatableNamedObjectMixin[phase_8_item]):
+class phase_8(_NamedObjectCommands, NamedObject[phase_8_item], CreatableNamedObjectMixin[phase_8_item]):
     """
     Domain name to define settings on.
     """
@@ -66322,15 +65650,6 @@ class phase_8(NamedObject[phase_8_item], CreatableNamedObjectMixin[phase_8_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_8_item
 
 class fan_item(Group):
@@ -66362,7 +65681,7 @@ class fan_item(Group):
         location=('locations', 'location'),
     )
 
-class fan(NamedObject[fan_item], CreatableNamedObjectMixin[fan_item]):
+class fan(_NamedObjectCommands_4, NamedObject[fan_item], CreatableNamedObjectMixin[fan_item]):
     """
     Thread-type.
     """
@@ -66370,15 +65689,6 @@ class fan(NamedObject[fan_item], CreatableNamedObjectMixin[fan_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'fan'
     _python_name = 'fan'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = fan_item
 
 class geometry_7_item(Group):
@@ -66407,7 +65717,7 @@ class geometry_7_item(Group):
         location=('locations', 'location'),
     )
 
-class geometry_7(NamedObject[geometry_7_item], CreatableNamedObjectMixin[geometry_7_item]):
+class geometry_7(_NamedObjectCommands_4, NamedObject[geometry_7_item], CreatableNamedObjectMixin[geometry_7_item]):
     """
     Thread-type.
     """
@@ -66415,15 +65725,6 @@ class geometry_7(NamedObject[geometry_7_item], CreatableNamedObjectMixin[geometr
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'geometry'
     _python_name = 'geometry'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = geometry_7_item
 
 class inlet_specification(String, AllowedValuesMixin):
@@ -67359,7 +66660,7 @@ class species_mass_fraction_1_item(Group):
         constant=('value', 'constant'),
     )
 
-class species_mass_fraction_1(NamedObject[species_mass_fraction_1_item], CreatableNamedObjectMixin[species_mass_fraction_1_item]):
+class species_mass_fraction_1(_NamedObjectCommands, NamedObject[species_mass_fraction_1_item], CreatableNamedObjectMixin[species_mass_fraction_1_item]):
     """
     Species mass fraction.
     """
@@ -67367,15 +66668,6 @@ class species_mass_fraction_1(NamedObject[species_mass_fraction_1_item], Creatab
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-mass-fraction'
     _python_name = 'species_mass_fraction'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_mass_fraction_1_item
 
 class progress_variable(Group):
@@ -68546,7 +67838,7 @@ class phase_9_item(Group):
         geometry=geometry_8,
     )
 
-class phase_9(NamedObject[phase_9_item], CreatableNamedObjectMixin[phase_9_item]):
+class phase_9(_NamedObjectCommands, NamedObject[phase_9_item], CreatableNamedObjectMixin[phase_9_item]):
     """
     Domain name to define settings on.
     """
@@ -68554,15 +67846,6 @@ class phase_9(NamedObject[phase_9_item], CreatableNamedObjectMixin[phase_9_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_9_item
 
 class inlet_vent_item(Group):
@@ -68603,7 +67886,7 @@ class inlet_vent_item(Group):
         location=('locations', 'location'),
     )
 
-class inlet_vent(NamedObject[inlet_vent_item], CreatableNamedObjectMixin[inlet_vent_item]):
+class inlet_vent(_NamedObjectCommands_4, NamedObject[inlet_vent_item], CreatableNamedObjectMixin[inlet_vent_item]):
     """
     Thread-type.
     """
@@ -68611,15 +67894,6 @@ class inlet_vent(NamedObject[inlet_vent_item], CreatableNamedObjectMixin[inlet_v
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'inlet-vent'
     _python_name = 'inlet_vent'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = inlet_vent_item
 
 class swirl_velocity_specification_1(Boolean):
@@ -68715,7 +67989,7 @@ class phase_10_item(Group):
         geometry=geometry_8,
     )
 
-class phase_10(NamedObject[phase_10_item], CreatableNamedObjectMixin[phase_10_item]):
+class phase_10(_NamedObjectCommands, NamedObject[phase_10_item], CreatableNamedObjectMixin[phase_10_item]):
     """
     Domain name to define settings on.
     """
@@ -68723,15 +67997,6 @@ class phase_10(NamedObject[phase_10_item], CreatableNamedObjectMixin[phase_10_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_10_item
 
 class intake_fan_item(Group):
@@ -68772,7 +68037,7 @@ class intake_fan_item(Group):
         location=('locations', 'location'),
     )
 
-class intake_fan(NamedObject[intake_fan_item], CreatableNamedObjectMixin[intake_fan_item]):
+class intake_fan(_NamedObjectCommands_4, NamedObject[intake_fan_item], CreatableNamedObjectMixin[intake_fan_item]):
     """
     Thread-type.
     """
@@ -68780,15 +68045,6 @@ class intake_fan(NamedObject[intake_fan_item], CreatableNamedObjectMixin[intake_
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'intake-fan'
     _python_name = 'intake_fan'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = intake_fan_item
 
 class non_overlap_zone_name(String, AllowedValuesMixin):
@@ -68827,7 +68083,7 @@ class phase_11_item(Group):
         geometry=geometry_8,
     )
 
-class phase_11(NamedObject[phase_11_item], CreatableNamedObjectMixin[phase_11_item]):
+class phase_11(_NamedObjectCommands, NamedObject[phase_11_item], CreatableNamedObjectMixin[phase_11_item]):
     """
     Domain name to define settings on.
     """
@@ -68835,15 +68091,6 @@ class phase_11(NamedObject[phase_11_item], CreatableNamedObjectMixin[phase_11_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_11_item
 
 class interface_item(Group):
@@ -68873,7 +68120,7 @@ class interface_item(Group):
         location=('locations', 'location'),
     )
 
-class interface(NamedObject[interface_item], CreatableNamedObjectMixin[interface_item]):
+class interface(_NamedObjectCommands_4, NamedObject[interface_item], CreatableNamedObjectMixin[interface_item]):
     """
     Thread-type.
     """
@@ -68881,15 +68128,6 @@ class interface(NamedObject[interface_item], CreatableNamedObjectMixin[interface
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'interface'
     _python_name = 'interface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = interface_item
 
 class is_not_a_rans_les_interface(Boolean):
@@ -68927,7 +68165,7 @@ class phase_12_item(Group):
         interior=interior_1,
     )
 
-class phase_12(NamedObject[phase_12_item], CreatableNamedObjectMixin[phase_12_item]):
+class phase_12(_NamedObjectCommands, NamedObject[phase_12_item], CreatableNamedObjectMixin[phase_12_item]):
     """
     Domain name to define settings on.
     """
@@ -68935,15 +68173,6 @@ class phase_12(NamedObject[phase_12_item], CreatableNamedObjectMixin[phase_12_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_12_item
 
 class interior_item(Group):
@@ -68972,7 +68201,7 @@ class interior_item(Group):
         location=('locations', 'location'),
     )
 
-class interior(NamedObject[interior_item], CreatableNamedObjectMixin[interior_item]):
+class interior(_NamedObjectCommands_4, NamedObject[interior_item], CreatableNamedObjectMixin[interior_item]):
     """
     Thread-type.
     """
@@ -68980,15 +68209,6 @@ class interior(NamedObject[interior_item], CreatableNamedObjectMixin[interior_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'interior'
     _python_name = 'interior'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = interior_item
 
 class mass_flow_specification(String, AllowedValuesMixin):
@@ -69579,7 +68799,7 @@ class phase_13_item(Group):
         geometry=geometry_8,
     )
 
-class phase_13(NamedObject[phase_13_item], CreatableNamedObjectMixin[phase_13_item]):
+class phase_13(_NamedObjectCommands, NamedObject[phase_13_item], CreatableNamedObjectMixin[phase_13_item]):
     """
     Domain name to define settings on.
     """
@@ -69587,15 +68807,6 @@ class phase_13(NamedObject[phase_13_item], CreatableNamedObjectMixin[phase_13_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_13_item
 
 class mass_flow_inlet_item(Group):
@@ -69635,7 +68846,7 @@ class mass_flow_inlet_item(Group):
         location=('locations', 'location'),
     )
 
-class mass_flow_inlet(NamedObject[mass_flow_inlet_item], CreatableNamedObjectMixin[mass_flow_inlet_item]):
+class mass_flow_inlet(_NamedObjectCommands_4, NamedObject[mass_flow_inlet_item], CreatableNamedObjectMixin[mass_flow_inlet_item]):
     """
     Thread-type.
     """
@@ -69643,15 +68854,6 @@ class mass_flow_inlet(NamedObject[mass_flow_inlet_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mass-flow-inlet'
     _python_name = 'mass_flow_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mass_flow_inlet_item
 
 class reference_frame_5(String, AllowedValuesMixin):
@@ -69828,7 +69030,7 @@ class phase_14_item(Group):
         geometry=geometry_8,
     )
 
-class phase_14(NamedObject[phase_14_item], CreatableNamedObjectMixin[phase_14_item]):
+class phase_14(_NamedObjectCommands, NamedObject[phase_14_item], CreatableNamedObjectMixin[phase_14_item]):
     """
     Domain name to define settings on.
     """
@@ -69836,15 +69038,6 @@ class phase_14(NamedObject[phase_14_item], CreatableNamedObjectMixin[phase_14_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_14_item
 
 class mass_flow_outlet_item(Group):
@@ -69884,7 +69077,7 @@ class mass_flow_outlet_item(Group):
         location=('locations', 'location'),
     )
 
-class mass_flow_outlet(NamedObject[mass_flow_outlet_item], CreatableNamedObjectMixin[mass_flow_outlet_item]):
+class mass_flow_outlet(_NamedObjectCommands_4, NamedObject[mass_flow_outlet_item], CreatableNamedObjectMixin[mass_flow_outlet_item]):
     """
     Thread-type.
     """
@@ -69892,15 +69085,6 @@ class mass_flow_outlet(NamedObject[mass_flow_outlet_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mass-flow-outlet'
     _python_name = 'mass_flow_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mass_flow_outlet_item
 
 class phase_15_item(Group):
@@ -69912,7 +69096,7 @@ class phase_15_item(Group):
     fluent_name = 'child-object-type'
     _python_name = 'phase_item'
 
-class phase_15(NamedObject[phase_15_item], CreatableNamedObjectMixin[phase_15_item]):
+class phase_15(_NamedObjectCommands, NamedObject[phase_15_item], CreatableNamedObjectMixin[phase_15_item]):
     """
     Domain name to define settings on.
     """
@@ -69920,15 +69104,6 @@ class phase_15(NamedObject[phase_15_item], CreatableNamedObjectMixin[phase_15_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_15_item
 
 class network_item(Group):
@@ -69956,7 +69131,7 @@ class network_item(Group):
         location=('locations', 'location'),
     )
 
-class network(NamedObject[network_item], CreatableNamedObjectMixin[network_item]):
+class network(_NamedObjectCommands_4, NamedObject[network_item], CreatableNamedObjectMixin[network_item]):
     """
     Thread-type.
     """
@@ -69964,15 +69139,6 @@ class network(NamedObject[network_item], CreatableNamedObjectMixin[network_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'network'
     _python_name = 'network'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = network_item
 
 class thermal_bc(String, AllowedValuesMixin):
@@ -70035,7 +69201,7 @@ class phase_16_item(Group):
         network_end=network_end_1,
     )
 
-class phase_16(NamedObject[phase_16_item], CreatableNamedObjectMixin[phase_16_item]):
+class phase_16(_NamedObjectCommands, NamedObject[phase_16_item], CreatableNamedObjectMixin[phase_16_item]):
     """
     Domain name to define settings on.
     """
@@ -70043,15 +69209,6 @@ class phase_16(NamedObject[phase_16_item], CreatableNamedObjectMixin[phase_16_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_16_item
 
 class network_end_item(Group):
@@ -70080,7 +69237,7 @@ class network_end_item(Group):
         location=('locations', 'location'),
     )
 
-class network_end(NamedObject[network_end_item], CreatableNamedObjectMixin[network_end_item]):
+class network_end(_NamedObjectCommands_4, NamedObject[network_end_item], CreatableNamedObjectMixin[network_end_item]):
     """
     Thread-type.
     """
@@ -70088,15 +69245,6 @@ class network_end(NamedObject[network_end_item], CreatableNamedObjectMixin[netwo
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'network-end'
     _python_name = 'network_end'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = network_end_item
 
 class flowrate_frac(Real):
@@ -70178,7 +69326,7 @@ class phase_17_item(Group):
         geometry=geometry_8,
     )
 
-class phase_17(NamedObject[phase_17_item], CreatableNamedObjectMixin[phase_17_item]):
+class phase_17(_NamedObjectCommands, NamedObject[phase_17_item], CreatableNamedObjectMixin[phase_17_item]):
     """
     Domain name to define settings on.
     """
@@ -70186,15 +69334,6 @@ class phase_17(NamedObject[phase_17_item], CreatableNamedObjectMixin[phase_17_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_17_item
 
 class outflow_item(Group):
@@ -70229,7 +69368,7 @@ class outflow_item(Group):
         location=('locations', 'location'),
     )
 
-class outflow(NamedObject[outflow_item], CreatableNamedObjectMixin[outflow_item]):
+class outflow(_NamedObjectCommands_4, NamedObject[outflow_item], CreatableNamedObjectMixin[outflow_item]):
     """
     Thread-type.
     """
@@ -70237,15 +69376,6 @@ class outflow(NamedObject[outflow_item], CreatableNamedObjectMixin[outflow_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'outflow'
     _python_name = 'outflow'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = outflow_item
 
 class momentum_7(Group):
@@ -70340,7 +69470,7 @@ class phase_18_item(Group):
         geometry=geometry_8,
     )
 
-class phase_18(NamedObject[phase_18_item], CreatableNamedObjectMixin[phase_18_item]):
+class phase_18(_NamedObjectCommands, NamedObject[phase_18_item], CreatableNamedObjectMixin[phase_18_item]):
     """
     Domain name to define settings on.
     """
@@ -70348,15 +69478,6 @@ class phase_18(NamedObject[phase_18_item], CreatableNamedObjectMixin[phase_18_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_18_item
 
 class outlet_vent_item(Group):
@@ -70396,7 +69517,7 @@ class outlet_vent_item(Group):
         location=('locations', 'location'),
     )
 
-class outlet_vent(NamedObject[outlet_vent_item], CreatableNamedObjectMixin[outlet_vent_item]):
+class outlet_vent(_NamedObjectCommands_4, NamedObject[outlet_vent_item], CreatableNamedObjectMixin[outlet_vent_item]):
     """
     Thread-type.
     """
@@ -70404,15 +69525,6 @@ class outlet_vent(NamedObject[outlet_vent_item], CreatableNamedObjectMixin[outle
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'outlet-vent'
     _python_name = 'outlet_vent'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = outlet_vent_item
 
 class overset_1_item(Group):
@@ -70441,7 +69553,7 @@ class overset_1_item(Group):
         location=('locations', 'location'),
     )
 
-class overset_1(NamedObject[overset_1_item], CreatableNamedObjectMixin[overset_1_item]):
+class overset_1(_NamedObjectCommands_4, NamedObject[overset_1_item], CreatableNamedObjectMixin[overset_1_item]):
     """
     Thread-type.
     """
@@ -70449,15 +69561,6 @@ class overset_1(NamedObject[overset_1_item], CreatableNamedObjectMixin[overset_1
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'overset'
     _python_name = 'overset'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = overset_1_item
 
 class rotationally_periodic(String, AllowedValuesMixin):
@@ -70619,7 +69722,7 @@ class phase_19_item(Group):
         geometry=geometry_9,
     )
 
-class phase_19(NamedObject[phase_19_item], CreatableNamedObjectMixin[phase_19_item]):
+class phase_19(_NamedObjectCommands, NamedObject[phase_19_item], CreatableNamedObjectMixin[phase_19_item]):
     """
     Domain name to define settings on.
     """
@@ -70627,15 +69730,6 @@ class phase_19(NamedObject[phase_19_item], CreatableNamedObjectMixin[phase_19_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_19_item
 
 class periodic_item(Group):
@@ -70665,7 +69759,7 @@ class periodic_item(Group):
         location=('locations', 'location'),
     )
 
-class periodic(NamedObject[periodic_item], CreatableNamedObjectMixin[periodic_item]):
+class periodic(_NamedObjectCommands_4, NamedObject[periodic_item], CreatableNamedObjectMixin[periodic_item]):
     """
     Thread-type.
     """
@@ -70673,15 +69767,6 @@ class periodic(NamedObject[periodic_item], CreatableNamedObjectMixin[periodic_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'periodic'
     _python_name = 'periodic'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = periodic_item
 
 class alpha(Real):
@@ -70874,7 +69959,7 @@ class phase_20_item(Group):
         geometry=geometry_8,
     )
 
-class phase_20(NamedObject[phase_20_item], CreatableNamedObjectMixin[phase_20_item]):
+class phase_20(_NamedObjectCommands, NamedObject[phase_20_item], CreatableNamedObjectMixin[phase_20_item]):
     """
     Domain name to define settings on.
     """
@@ -70882,15 +69967,6 @@ class phase_20(NamedObject[phase_20_item], CreatableNamedObjectMixin[phase_20_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_20_item
 
 class porous_jump_item(Group):
@@ -70921,7 +69997,7 @@ class porous_jump_item(Group):
         location=('locations', 'location'),
     )
 
-class porous_jump(NamedObject[porous_jump_item], CreatableNamedObjectMixin[porous_jump_item]):
+class porous_jump(_NamedObjectCommands_4, NamedObject[porous_jump_item], CreatableNamedObjectMixin[porous_jump_item]):
     """
     Thread-type.
     """
@@ -70929,15 +70005,6 @@ class porous_jump(NamedObject[porous_jump_item], CreatableNamedObjectMixin[porou
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'porous-jump'
     _python_name = 'porous_jump'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = porous_jump_item
 
 class mach_number(Group):
@@ -71172,7 +70239,7 @@ class phase_21_item(Group):
         geometry=geometry_8,
     )
 
-class phase_21(NamedObject[phase_21_item], CreatableNamedObjectMixin[phase_21_item]):
+class phase_21(_NamedObjectCommands, NamedObject[phase_21_item], CreatableNamedObjectMixin[phase_21_item]):
     """
     Domain name to define settings on.
     """
@@ -71180,15 +70247,6 @@ class phase_21(NamedObject[phase_21_item], CreatableNamedObjectMixin[phase_21_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_21_item
 
 class pressure_far_field_item(Group):
@@ -71227,7 +70285,7 @@ class pressure_far_field_item(Group):
         location=('locations', 'location'),
     )
 
-class pressure_far_field(NamedObject[pressure_far_field_item], CreatableNamedObjectMixin[pressure_far_field_item]):
+class pressure_far_field(_NamedObjectCommands_4, NamedObject[pressure_far_field_item], CreatableNamedObjectMixin[pressure_far_field_item]):
     """
     Thread-type.
     """
@@ -71235,15 +70293,6 @@ class pressure_far_field(NamedObject[pressure_far_field_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'pressure-far-field'
     _python_name = 'pressure_far_field'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = pressure_far_field_item
 
 class momentum_9(Group):
@@ -71309,7 +70358,7 @@ class phase_22_item(Group):
         geometry=geometry_8,
     )
 
-class phase_22(NamedObject[phase_22_item], CreatableNamedObjectMixin[phase_22_item]):
+class phase_22(_NamedObjectCommands, NamedObject[phase_22_item], CreatableNamedObjectMixin[phase_22_item]):
     """
     Domain name to define settings on.
     """
@@ -71317,15 +70366,6 @@ class phase_22(NamedObject[phase_22_item], CreatableNamedObjectMixin[phase_22_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_22_item
 
 class pressure_inlet_item(Group):
@@ -71366,7 +70406,7 @@ class pressure_inlet_item(Group):
         location=('locations', 'location'),
     )
 
-class pressure_inlet(NamedObject[pressure_inlet_item], CreatableNamedObjectMixin[pressure_inlet_item]):
+class pressure_inlet(_NamedObjectCommands_4, NamedObject[pressure_inlet_item], CreatableNamedObjectMixin[pressure_inlet_item]):
     """
     Thread-type.
     """
@@ -71374,15 +70414,6 @@ class pressure_inlet(NamedObject[pressure_inlet_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'pressure-inlet'
     _python_name = 'pressure_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = pressure_inlet_item
 
 class momentum_10(Group):
@@ -71474,7 +70505,7 @@ class phase_23_item(Group):
         geometry=geometry_8,
     )
 
-class phase_23(NamedObject[phase_23_item], CreatableNamedObjectMixin[phase_23_item]):
+class phase_23(_NamedObjectCommands, NamedObject[phase_23_item], CreatableNamedObjectMixin[phase_23_item]):
     """
     Domain name to define settings on.
     """
@@ -71482,15 +70513,6 @@ class phase_23(NamedObject[phase_23_item], CreatableNamedObjectMixin[phase_23_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_23_item
 
 class pressure_outlet_item(Group):
@@ -71530,7 +70552,7 @@ class pressure_outlet_item(Group):
         location=('locations', 'location'),
     )
 
-class pressure_outlet(NamedObject[pressure_outlet_item], CreatableNamedObjectMixin[pressure_outlet_item]):
+class pressure_outlet(_NamedObjectCommands_4, NamedObject[pressure_outlet_item], CreatableNamedObjectMixin[pressure_outlet_item]):
     """
     Thread-type.
     """
@@ -71538,15 +70560,6 @@ class pressure_outlet(NamedObject[pressure_outlet_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'pressure-outlet'
     _python_name = 'pressure_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = pressure_outlet_item
 
 class hc(Group):
@@ -71623,7 +70636,7 @@ class phase_24_item(Group):
         geometry=geometry_8,
     )
 
-class phase_24(NamedObject[phase_24_item], CreatableNamedObjectMixin[phase_24_item]):
+class phase_24(_NamedObjectCommands, NamedObject[phase_24_item], CreatableNamedObjectMixin[phase_24_item]):
     """
     Domain name to define settings on.
     """
@@ -71631,15 +70644,6 @@ class phase_24(NamedObject[phase_24_item], CreatableNamedObjectMixin[phase_24_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_24_item
 
 class radiator_item(Group):
@@ -71670,7 +70674,7 @@ class radiator_item(Group):
         location=('locations', 'location'),
     )
 
-class radiator(NamedObject[radiator_item], CreatableNamedObjectMixin[radiator_item]):
+class radiator(_NamedObjectCommands_4, NamedObject[radiator_item], CreatableNamedObjectMixin[radiator_item]):
     """
     Thread-type.
     """
@@ -71678,15 +70682,6 @@ class radiator(NamedObject[radiator_item], CreatableNamedObjectMixin[radiator_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'radiator'
     _python_name = 'radiator'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = radiator_item
 
 class les_spec_name(String, AllowedValuesMixin):
@@ -71763,7 +70758,7 @@ class phase_25_item(Group):
         geometry=geometry_8,
     )
 
-class phase_25(NamedObject[phase_25_item], CreatableNamedObjectMixin[phase_25_item]):
+class phase_25(_NamedObjectCommands, NamedObject[phase_25_item], CreatableNamedObjectMixin[phase_25_item]):
     """
     Domain name to define settings on.
     """
@@ -71771,15 +70766,6 @@ class phase_25(NamedObject[phase_25_item], CreatableNamedObjectMixin[phase_25_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_25_item
 
 class rans_les_interface_item(Group):
@@ -71809,7 +70795,7 @@ class rans_les_interface_item(Group):
         location=('locations', 'location'),
     )
 
-class rans_les_interface(NamedObject[rans_les_interface_item], CreatableNamedObjectMixin[rans_les_interface_item]):
+class rans_les_interface(_NamedObjectCommands_4, NamedObject[rans_les_interface_item], CreatableNamedObjectMixin[rans_les_interface_item]):
     """
     Thread-type.
     """
@@ -71817,15 +70803,6 @@ class rans_les_interface(NamedObject[rans_les_interface_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'rans-les-interface'
     _python_name = 'rans_les_interface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = rans_les_interface_item
 
 class outlet_zone(Integer):
@@ -71938,7 +70915,7 @@ class species_mass_fractions_item(Group):
         constant=('value', 'constant'),
     )
 
-class species_mass_fractions(NamedObject[species_mass_fractions_item], CreatableNamedObjectMixin[species_mass_fractions_item]):
+class species_mass_fractions(_NamedObjectCommands, NamedObject[species_mass_fractions_item], CreatableNamedObjectMixin[species_mass_fractions_item]):
     """
     List of Species mass fractions or mole fractions.
     """
@@ -71946,15 +70923,6 @@ class species_mass_fractions(NamedObject[species_mass_fractions_item], Creatable
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-mass-fractions'
     _python_name = 'species_mass_fractions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_mass_fractions_item
 
 class recirculation_inlet_1(Group):
@@ -72053,7 +71021,7 @@ class phase_26_item(Group):
         geometry=geometry_8,
     )
 
-class phase_26(NamedObject[phase_26_item], CreatableNamedObjectMixin[phase_26_item]):
+class phase_26(_NamedObjectCommands, NamedObject[phase_26_item], CreatableNamedObjectMixin[phase_26_item]):
     """
     Domain name to define settings on.
     """
@@ -72061,15 +71029,6 @@ class phase_26(NamedObject[phase_26_item], CreatableNamedObjectMixin[phase_26_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_26_item
 
 class recirculation_inlet_item(Group):
@@ -72099,7 +71058,7 @@ class recirculation_inlet_item(Group):
         location=('locations', 'location'),
     )
 
-class recirculation_inlet(NamedObject[recirculation_inlet_item], CreatableNamedObjectMixin[recirculation_inlet_item]):
+class recirculation_inlet(_NamedObjectCommands_4, NamedObject[recirculation_inlet_item], CreatableNamedObjectMixin[recirculation_inlet_item]):
     """
     Thread-type.
     """
@@ -72107,15 +71066,6 @@ class recirculation_inlet(NamedObject[recirculation_inlet_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'recirculation-inlet'
     _python_name = 'recirculation_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = recirculation_inlet_item
 
 class recirculation_outlet_1(Group):
@@ -72155,7 +71105,7 @@ class phase_27_item(Group):
         geometry=geometry_8,
     )
 
-class phase_27(NamedObject[phase_27_item], CreatableNamedObjectMixin[phase_27_item]):
+class phase_27(_NamedObjectCommands, NamedObject[phase_27_item], CreatableNamedObjectMixin[phase_27_item]):
     """
     Domain name to define settings on.
     """
@@ -72163,15 +71113,6 @@ class phase_27(NamedObject[phase_27_item], CreatableNamedObjectMixin[phase_27_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_27_item
 
 class recirculation_outlet_item(Group):
@@ -72201,7 +71142,7 @@ class recirculation_outlet_item(Group):
         location=('locations', 'location'),
     )
 
-class recirculation_outlet(NamedObject[recirculation_outlet_item], CreatableNamedObjectMixin[recirculation_outlet_item]):
+class recirculation_outlet(_NamedObjectCommands_4, NamedObject[recirculation_outlet_item], CreatableNamedObjectMixin[recirculation_outlet_item]):
     """
     Thread-type.
     """
@@ -72209,15 +71150,6 @@ class recirculation_outlet(NamedObject[recirculation_outlet_item], CreatableName
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'recirculation-outlet'
     _python_name = 'recirculation_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = recirculation_outlet_item
 
 class shadow_item(Group):
@@ -72246,7 +71178,7 @@ class shadow_item(Group):
         location=('locations', 'location'),
     )
 
-class shadow(NamedObject[shadow_item], CreatableNamedObjectMixin[shadow_item]):
+class shadow(_NamedObjectCommands_4, NamedObject[shadow_item], CreatableNamedObjectMixin[shadow_item]):
     """
     Thread-type.
     """
@@ -72254,15 +71186,6 @@ class shadow(NamedObject[shadow_item], CreatableNamedObjectMixin[shadow_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'shadow'
     _python_name = 'shadow'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = shadow_item
 
 class symmetry_item(Group):
@@ -72291,7 +71214,7 @@ class symmetry_item(Group):
         location=('locations', 'location'),
     )
 
-class symmetry(NamedObject[symmetry_item], CreatableNamedObjectMixin[symmetry_item]):
+class symmetry(_NamedObjectCommands_4, NamedObject[symmetry_item], CreatableNamedObjectMixin[symmetry_item]):
     """
     Thread-type.
     """
@@ -72299,15 +71222,6 @@ class symmetry(NamedObject[symmetry_item], CreatableNamedObjectMixin[symmetry_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'symmetry'
     _python_name = 'symmetry'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = symmetry_item
 
 class open_channel_wave_bc(Boolean):
@@ -73678,7 +72592,7 @@ class phase_28_item(Group):
         geometry=geometry_8,
     )
 
-class phase_28(NamedObject[phase_28_item], CreatableNamedObjectMixin[phase_28_item]):
+class phase_28(_NamedObjectCommands, NamedObject[phase_28_item], CreatableNamedObjectMixin[phase_28_item]):
     """
     Domain name to define settings on.
     """
@@ -73686,15 +72600,6 @@ class phase_28(NamedObject[phase_28_item], CreatableNamedObjectMixin[phase_28_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_28_item
 
 class velocity_inlet_item(Group):
@@ -73734,7 +72639,7 @@ class velocity_inlet_item(Group):
         location=('locations', 'location'),
     )
 
-class velocity_inlet(NamedObject[velocity_inlet_item], CreatableNamedObjectMixin[velocity_inlet_item]):
+class velocity_inlet(_NamedObjectCommands_4, NamedObject[velocity_inlet_item], CreatableNamedObjectMixin[velocity_inlet_item]):
     """
     Thread-type.
     """
@@ -73742,15 +72647,6 @@ class velocity_inlet(NamedObject[velocity_inlet_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'velocity-inlet'
     _python_name = 'velocity_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = velocity_inlet_item
 
 class phase_29_item(Group):
@@ -73779,7 +72675,7 @@ class phase_29_item(Group):
         geometry=geometry_8,
     )
 
-class phase_29(NamedObject[phase_29_item], CreatableNamedObjectMixin[phase_29_item]):
+class phase_29(_NamedObjectCommands, NamedObject[phase_29_item], CreatableNamedObjectMixin[phase_29_item]):
     """
     Domain name to define settings on.
     """
@@ -73787,15 +72683,6 @@ class phase_29(NamedObject[phase_29_item], CreatableNamedObjectMixin[phase_29_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_29_item
 
 class wall_item(Group):
@@ -73837,7 +72724,7 @@ class wall_item(Group):
         location=('locations', 'location'),
     )
 
-class wall(NamedObject[wall_item], CreatableNamedObjectMixin[wall_item]):
+class wall(_NamedObjectCommands_4, NamedObject[wall_item], CreatableNamedObjectMixin[wall_item]):
     """
     Thread-type.
     """
@@ -73845,15 +72732,6 @@ class wall(NamedObject[wall_item], CreatableNamedObjectMixin[wall_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'wall'
     _python_name = 'wall'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_6,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = wall_item
 
 class boundary_names(StringList, AllowedValuesMixin):
@@ -74211,7 +73089,7 @@ class overlapping_boundaries_item(Group):
         geometry=geometry_8,
     )
 
-class overlapping_boundaries(NamedObject[overlapping_boundaries_item], CreatableNamedObjectMixin[overlapping_boundaries_item]):
+class overlapping_boundaries(_NamedObjectCommands, NamedObject[overlapping_boundaries_item], CreatableNamedObjectMixin[overlapping_boundaries_item]):
     """
     Define settings for overlapping boundaries.
     """
@@ -74219,15 +73097,6 @@ class overlapping_boundaries(NamedObject[overlapping_boundaries_item], Creatable
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'overlapping-boundaries'
     _python_name = 'overlapping_boundaries'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = overlapping_boundaries_item
 
 class fan_settings(Group):
@@ -74329,15 +73198,8 @@ class interfaces_item(Group):
         list_area=list_area,
     )
 
-class interfaces(NamedObject[interfaces_item], CreatableNamedObjectMixin[interfaces_item]):
-    """
-    Physics interface definitions.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'interfaces'
-    _python_name = 'interfaces'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'auto_create', 'list_all']
+class _NamedObjectCommands_5(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_7,
         delete=delete_2,
@@ -74345,8 +73207,31 @@ class interfaces(NamedObject[interfaces_item], CreatableNamedObjectMixin[interfa
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        auto_create=auto_create,
-        list_all=list_all_1,
+    )
+    create = create_7
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class interfaces(_NamedObjectCommands_5, NamedObject[interfaces_item], CreatableNamedObjectMixin[interfaces_item]):
+    """
+    Physics interface definitions.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'interfaces'
+    _python_name = 'interfaces'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_5.command_names, [(6, 'auto_create'), (7, 'list_all')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_5._child_classes,
+        [
+            (6, 'auto_create', auto_create),
+            (7, 'list_all', list_all_1),
+        ],
     )
     child_object_type = interfaces_item
 
@@ -74421,7 +73306,7 @@ class phase_30_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class phase_30(NamedObject[phase_30_item], CreatableNamedObjectMixin[phase_30_item]):
+class phase_30(_NamedObjectCommands, NamedObject[phase_30_item], CreatableNamedObjectMixin[phase_30_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -74429,15 +73314,6 @@ class phase_30(NamedObject[phase_30_item], CreatableNamedObjectMixin[phase_30_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_30_item
 
 class axis_7_item(Group):
@@ -74463,7 +73339,7 @@ class axis_7_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class axis_7(NamedObject[axis_7_item], CreatableNamedObjectMixin[axis_7_item]):
+class axis_7(_NamedObjectCommands, NamedObject[axis_7_item], CreatableNamedObjectMixin[axis_7_item]):
     """
     Settings for boundary-condition object.
     """
@@ -74471,15 +73347,6 @@ class axis_7(NamedObject[axis_7_item], CreatableNamedObjectMixin[axis_7_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'axis'
     _python_name = 'axis'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = axis_7_item
 
 class degassing_1_item(Group):
@@ -74505,7 +73372,7 @@ class degassing_1_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class degassing_1(NamedObject[degassing_1_item], CreatableNamedObjectMixin[degassing_1_item]):
+class degassing_1(_NamedObjectCommands, NamedObject[degassing_1_item], CreatableNamedObjectMixin[degassing_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -74513,15 +73380,6 @@ class degassing_1(NamedObject[degassing_1_item], CreatableNamedObjectMixin[degas
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'degassing'
     _python_name = 'degassing'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = degassing_1_item
 
 class phase_31_item(Group):
@@ -74554,7 +73412,7 @@ class phase_31_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_31(NamedObject[phase_31_item], CreatableNamedObjectMixin[phase_31_item]):
+class phase_31(_NamedObjectCommands, NamedObject[phase_31_item], CreatableNamedObjectMixin[phase_31_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -74562,15 +73420,6 @@ class phase_31(NamedObject[phase_31_item], CreatableNamedObjectMixin[phase_31_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_31_item
 
 class exhaust_fan_1_item(Group):
@@ -74610,7 +73459,7 @@ class exhaust_fan_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class exhaust_fan_1(NamedObject[exhaust_fan_1_item], CreatableNamedObjectMixin[exhaust_fan_1_item]):
+class exhaust_fan_1(_NamedObjectCommands, NamedObject[exhaust_fan_1_item], CreatableNamedObjectMixin[exhaust_fan_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -74618,15 +73467,6 @@ class exhaust_fan_1(NamedObject[exhaust_fan_1_item], CreatableNamedObjectMixin[e
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'exhaust-fan'
     _python_name = 'exhaust_fan'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = exhaust_fan_1_item
 
 class phase_32_item(Group):
@@ -74651,7 +73491,7 @@ class phase_32_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_32(NamedObject[phase_32_item], CreatableNamedObjectMixin[phase_32_item]):
+class phase_32(_NamedObjectCommands, NamedObject[phase_32_item], CreatableNamedObjectMixin[phase_32_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -74659,15 +73499,6 @@ class phase_32(NamedObject[phase_32_item], CreatableNamedObjectMixin[phase_32_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_32_item
 
 class fan_1_item(Group):
@@ -74699,7 +73530,7 @@ class fan_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class fan_1(NamedObject[fan_1_item], CreatableNamedObjectMixin[fan_1_item]):
+class fan_1(_NamedObjectCommands, NamedObject[fan_1_item], CreatableNamedObjectMixin[fan_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -74707,15 +73538,6 @@ class fan_1(NamedObject[fan_1_item], CreatableNamedObjectMixin[fan_1_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'fan'
     _python_name = 'fan'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = fan_1_item
 
 class geometry_10_item(Group):
@@ -74741,7 +73563,7 @@ class geometry_10_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class geometry_10(NamedObject[geometry_10_item], CreatableNamedObjectMixin[geometry_10_item]):
+class geometry_10(_NamedObjectCommands, NamedObject[geometry_10_item], CreatableNamedObjectMixin[geometry_10_item]):
     """
     Settings for boundary-condition object.
     """
@@ -74749,15 +73571,6 @@ class geometry_10(NamedObject[geometry_10_item], CreatableNamedObjectMixin[geome
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'geometry'
     _python_name = 'geometry'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = geometry_10_item
 
 class phase_33_item(Group):
@@ -74791,7 +73604,7 @@ class phase_33_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_33(NamedObject[phase_33_item], CreatableNamedObjectMixin[phase_33_item]):
+class phase_33(_NamedObjectCommands, NamedObject[phase_33_item], CreatableNamedObjectMixin[phase_33_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -74799,15 +73612,6 @@ class phase_33(NamedObject[phase_33_item], CreatableNamedObjectMixin[phase_33_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_33_item
 
 class inlet_vent_1_item(Group):
@@ -74848,7 +73652,7 @@ class inlet_vent_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class inlet_vent_1(NamedObject[inlet_vent_1_item], CreatableNamedObjectMixin[inlet_vent_1_item]):
+class inlet_vent_1(_NamedObjectCommands, NamedObject[inlet_vent_1_item], CreatableNamedObjectMixin[inlet_vent_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -74856,15 +73660,6 @@ class inlet_vent_1(NamedObject[inlet_vent_1_item], CreatableNamedObjectMixin[inl
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'inlet-vent'
     _python_name = 'inlet_vent'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = inlet_vent_1_item
 
 class phase_34_item(Group):
@@ -74898,7 +73693,7 @@ class phase_34_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_34(NamedObject[phase_34_item], CreatableNamedObjectMixin[phase_34_item]):
+class phase_34(_NamedObjectCommands, NamedObject[phase_34_item], CreatableNamedObjectMixin[phase_34_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -74906,15 +73701,6 @@ class phase_34(NamedObject[phase_34_item], CreatableNamedObjectMixin[phase_34_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_34_item
 
 class intake_fan_1_item(Group):
@@ -74955,7 +73741,7 @@ class intake_fan_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class intake_fan_1(NamedObject[intake_fan_1_item], CreatableNamedObjectMixin[intake_fan_1_item]):
+class intake_fan_1(_NamedObjectCommands, NamedObject[intake_fan_1_item], CreatableNamedObjectMixin[intake_fan_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -74963,15 +73749,6 @@ class intake_fan_1(NamedObject[intake_fan_1_item], CreatableNamedObjectMixin[int
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'intake-fan'
     _python_name = 'intake_fan'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = intake_fan_1_item
 
 class phase_35_item(Group):
@@ -74991,7 +73768,7 @@ class phase_35_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class phase_35(NamedObject[phase_35_item], CreatableNamedObjectMixin[phase_35_item]):
+class phase_35(_NamedObjectCommands, NamedObject[phase_35_item], CreatableNamedObjectMixin[phase_35_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -74999,15 +73776,6 @@ class phase_35(NamedObject[phase_35_item], CreatableNamedObjectMixin[phase_35_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_35_item
 
 class interface_2_item(Group):
@@ -75034,7 +73802,7 @@ class interface_2_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class interface_2(NamedObject[interface_2_item], CreatableNamedObjectMixin[interface_2_item]):
+class interface_2(_NamedObjectCommands, NamedObject[interface_2_item], CreatableNamedObjectMixin[interface_2_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75042,15 +73810,6 @@ class interface_2(NamedObject[interface_2_item], CreatableNamedObjectMixin[inter
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'interface'
     _python_name = 'interface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = interface_2_item
 
 class phase_36_item(Group):
@@ -75069,7 +73828,7 @@ class phase_36_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class phase_36(NamedObject[phase_36_item], CreatableNamedObjectMixin[phase_36_item]):
+class phase_36(_NamedObjectCommands, NamedObject[phase_36_item], CreatableNamedObjectMixin[phase_36_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75077,15 +73836,6 @@ class phase_36(NamedObject[phase_36_item], CreatableNamedObjectMixin[phase_36_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_36_item
 
 class interior_2_item(Group):
@@ -75111,7 +73861,7 @@ class interior_2_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class interior_2(NamedObject[interior_2_item], CreatableNamedObjectMixin[interior_2_item]):
+class interior_2(_NamedObjectCommands, NamedObject[interior_2_item], CreatableNamedObjectMixin[interior_2_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75119,15 +73869,6 @@ class interior_2(NamedObject[interior_2_item], CreatableNamedObjectMixin[interio
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'interior'
     _python_name = 'interior'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = interior_2_item
 
 class phase_37_item(Group):
@@ -75160,7 +73901,7 @@ class phase_37_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_37(NamedObject[phase_37_item], CreatableNamedObjectMixin[phase_37_item]):
+class phase_37(_NamedObjectCommands, NamedObject[phase_37_item], CreatableNamedObjectMixin[phase_37_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75168,15 +73909,6 @@ class phase_37(NamedObject[phase_37_item], CreatableNamedObjectMixin[phase_37_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_37_item
 
 class mass_flow_inlet_1_item(Group):
@@ -75216,7 +73948,7 @@ class mass_flow_inlet_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_item], CreatableNamedObjectMixin[mass_flow_inlet_1_item]):
+class mass_flow_inlet_1(_NamedObjectCommands, NamedObject[mass_flow_inlet_1_item], CreatableNamedObjectMixin[mass_flow_inlet_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75224,15 +73956,6 @@ class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mass-flow-inlet'
     _python_name = 'mass_flow_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mass_flow_inlet_1_item
 
 class phase_38_item(Group):
@@ -75265,7 +73988,7 @@ class phase_38_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_38(NamedObject[phase_38_item], CreatableNamedObjectMixin[phase_38_item]):
+class phase_38(_NamedObjectCommands, NamedObject[phase_38_item], CreatableNamedObjectMixin[phase_38_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75273,15 +73996,6 @@ class phase_38(NamedObject[phase_38_item], CreatableNamedObjectMixin[phase_38_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_38_item
 
 class mass_flow_outlet_1_item(Group):
@@ -75321,7 +74035,7 @@ class mass_flow_outlet_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_item], CreatableNamedObjectMixin[mass_flow_outlet_1_item]):
+class mass_flow_outlet_1(_NamedObjectCommands, NamedObject[mass_flow_outlet_1_item], CreatableNamedObjectMixin[mass_flow_outlet_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75329,15 +74043,6 @@ class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mass-flow-outlet'
     _python_name = 'mass_flow_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mass_flow_outlet_1_item
 
 class phase_39_item(Group):
@@ -75354,7 +74059,7 @@ class phase_39_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class phase_39(NamedObject[phase_39_item], CreatableNamedObjectMixin[phase_39_item]):
+class phase_39(_NamedObjectCommands, NamedObject[phase_39_item], CreatableNamedObjectMixin[phase_39_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75362,15 +74067,6 @@ class phase_39(NamedObject[phase_39_item], CreatableNamedObjectMixin[phase_39_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_39_item
 
 class network_1_item(Group):
@@ -75395,7 +74091,7 @@ class network_1_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class network_1(NamedObject[network_1_item], CreatableNamedObjectMixin[network_1_item]):
+class network_1(_NamedObjectCommands, NamedObject[network_1_item], CreatableNamedObjectMixin[network_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75403,15 +74099,6 @@ class network_1(NamedObject[network_1_item], CreatableNamedObjectMixin[network_1
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'network'
     _python_name = 'network'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = network_1_item
 
 class phase_40_item(Group):
@@ -75430,7 +74117,7 @@ class phase_40_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class phase_40(NamedObject[phase_40_item], CreatableNamedObjectMixin[phase_40_item]):
+class phase_40(_NamedObjectCommands, NamedObject[phase_40_item], CreatableNamedObjectMixin[phase_40_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75438,15 +74125,6 @@ class phase_40(NamedObject[phase_40_item], CreatableNamedObjectMixin[phase_40_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_40_item
 
 class network_end_2_item(Group):
@@ -75472,7 +74150,7 @@ class network_end_2_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class network_end_2(NamedObject[network_end_2_item], CreatableNamedObjectMixin[network_end_2_item]):
+class network_end_2(_NamedObjectCommands, NamedObject[network_end_2_item], CreatableNamedObjectMixin[network_end_2_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75480,15 +74158,6 @@ class network_end_2(NamedObject[network_end_2_item], CreatableNamedObjectMixin[n
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'network-end'
     _python_name = 'network_end'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = network_end_2_item
 
 class phase_41_item(Group):
@@ -75516,7 +74185,7 @@ class phase_41_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_41(NamedObject[phase_41_item], CreatableNamedObjectMixin[phase_41_item]):
+class phase_41(_NamedObjectCommands, NamedObject[phase_41_item], CreatableNamedObjectMixin[phase_41_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75524,15 +74193,6 @@ class phase_41(NamedObject[phase_41_item], CreatableNamedObjectMixin[phase_41_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_41_item
 
 class outflow_1_item(Group):
@@ -75567,7 +74227,7 @@ class outflow_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class outflow_1(NamedObject[outflow_1_item], CreatableNamedObjectMixin[outflow_1_item]):
+class outflow_1(_NamedObjectCommands, NamedObject[outflow_1_item], CreatableNamedObjectMixin[outflow_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75575,15 +74235,6 @@ class outflow_1(NamedObject[outflow_1_item], CreatableNamedObjectMixin[outflow_1
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'outflow'
     _python_name = 'outflow'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = outflow_1_item
 
 class phase_42_item(Group):
@@ -75616,7 +74267,7 @@ class phase_42_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_42(NamedObject[phase_42_item], CreatableNamedObjectMixin[phase_42_item]):
+class phase_42(_NamedObjectCommands, NamedObject[phase_42_item], CreatableNamedObjectMixin[phase_42_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75624,15 +74275,6 @@ class phase_42(NamedObject[phase_42_item], CreatableNamedObjectMixin[phase_42_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_42_item
 
 class outlet_vent_1_item(Group):
@@ -75672,7 +74314,7 @@ class outlet_vent_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class outlet_vent_1(NamedObject[outlet_vent_1_item], CreatableNamedObjectMixin[outlet_vent_1_item]):
+class outlet_vent_1(_NamedObjectCommands, NamedObject[outlet_vent_1_item], CreatableNamedObjectMixin[outlet_vent_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75680,15 +74322,6 @@ class outlet_vent_1(NamedObject[outlet_vent_1_item], CreatableNamedObjectMixin[o
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'outlet-vent'
     _python_name = 'outlet_vent'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = outlet_vent_1_item
 
 class overset_2_item(Group):
@@ -75714,7 +74347,7 @@ class overset_2_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class overset_2(NamedObject[overset_2_item], CreatableNamedObjectMixin[overset_2_item]):
+class overset_2(_NamedObjectCommands, NamedObject[overset_2_item], CreatableNamedObjectMixin[overset_2_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75722,15 +74355,6 @@ class overset_2(NamedObject[overset_2_item], CreatableNamedObjectMixin[overset_2
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'overset'
     _python_name = 'overset'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = overset_2_item
 
 class phase_43_item(Group):
@@ -75750,7 +74374,7 @@ class phase_43_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class phase_43(NamedObject[phase_43_item], CreatableNamedObjectMixin[phase_43_item]):
+class phase_43(_NamedObjectCommands, NamedObject[phase_43_item], CreatableNamedObjectMixin[phase_43_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75758,15 +74382,6 @@ class phase_43(NamedObject[phase_43_item], CreatableNamedObjectMixin[phase_43_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_43_item
 
 class periodic_2_item(Group):
@@ -75793,7 +74408,7 @@ class periodic_2_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class periodic_2(NamedObject[periodic_2_item], CreatableNamedObjectMixin[periodic_2_item]):
+class periodic_2(_NamedObjectCommands, NamedObject[periodic_2_item], CreatableNamedObjectMixin[periodic_2_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75801,15 +74416,6 @@ class periodic_2(NamedObject[periodic_2_item], CreatableNamedObjectMixin[periodi
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'periodic'
     _python_name = 'periodic'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = periodic_2_item
 
 class phase_44_item(Group):
@@ -75833,7 +74439,7 @@ class phase_44_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_44(NamedObject[phase_44_item], CreatableNamedObjectMixin[phase_44_item]):
+class phase_44(_NamedObjectCommands, NamedObject[phase_44_item], CreatableNamedObjectMixin[phase_44_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75841,15 +74447,6 @@ class phase_44(NamedObject[phase_44_item], CreatableNamedObjectMixin[phase_44_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_44_item
 
 class porous_jump_2_item(Group):
@@ -75880,7 +74477,7 @@ class porous_jump_2_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class porous_jump_2(NamedObject[porous_jump_2_item], CreatableNamedObjectMixin[porous_jump_2_item]):
+class porous_jump_2(_NamedObjectCommands, NamedObject[porous_jump_2_item], CreatableNamedObjectMixin[porous_jump_2_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75888,15 +74485,6 @@ class porous_jump_2(NamedObject[porous_jump_2_item], CreatableNamedObjectMixin[p
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'porous-jump'
     _python_name = 'porous_jump'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = porous_jump_2_item
 
 class phase_45_item(Group):
@@ -75928,7 +74516,7 @@ class phase_45_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_45(NamedObject[phase_45_item], CreatableNamedObjectMixin[phase_45_item]):
+class phase_45(_NamedObjectCommands, NamedObject[phase_45_item], CreatableNamedObjectMixin[phase_45_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -75936,15 +74524,6 @@ class phase_45(NamedObject[phase_45_item], CreatableNamedObjectMixin[phase_45_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_45_item
 
 class pressure_far_field_1_item(Group):
@@ -75983,7 +74562,7 @@ class pressure_far_field_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class pressure_far_field_1(NamedObject[pressure_far_field_1_item], CreatableNamedObjectMixin[pressure_far_field_1_item]):
+class pressure_far_field_1(_NamedObjectCommands, NamedObject[pressure_far_field_1_item], CreatableNamedObjectMixin[pressure_far_field_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -75991,15 +74570,6 @@ class pressure_far_field_1(NamedObject[pressure_far_field_1_item], CreatableName
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'pressure-far-field'
     _python_name = 'pressure_far_field'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = pressure_far_field_1_item
 
 class phase_46_item(Group):
@@ -76033,7 +74603,7 @@ class phase_46_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_46(NamedObject[phase_46_item], CreatableNamedObjectMixin[phase_46_item]):
+class phase_46(_NamedObjectCommands, NamedObject[phase_46_item], CreatableNamedObjectMixin[phase_46_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -76041,15 +74611,6 @@ class phase_46(NamedObject[phase_46_item], CreatableNamedObjectMixin[phase_46_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_46_item
 
 class pressure_inlet_1_item(Group):
@@ -76090,7 +74651,7 @@ class pressure_inlet_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class pressure_inlet_1(NamedObject[pressure_inlet_1_item], CreatableNamedObjectMixin[pressure_inlet_1_item]):
+class pressure_inlet_1(_NamedObjectCommands, NamedObject[pressure_inlet_1_item], CreatableNamedObjectMixin[pressure_inlet_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76098,15 +74659,6 @@ class pressure_inlet_1(NamedObject[pressure_inlet_1_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'pressure-inlet'
     _python_name = 'pressure_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = pressure_inlet_1_item
 
 class phase_47_item(Group):
@@ -76139,7 +74691,7 @@ class phase_47_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_47(NamedObject[phase_47_item], CreatableNamedObjectMixin[phase_47_item]):
+class phase_47(_NamedObjectCommands, NamedObject[phase_47_item], CreatableNamedObjectMixin[phase_47_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -76147,15 +74699,6 @@ class phase_47(NamedObject[phase_47_item], CreatableNamedObjectMixin[phase_47_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_47_item
 
 class pressure_outlet_1_item(Group):
@@ -76195,7 +74738,7 @@ class pressure_outlet_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class pressure_outlet_1(NamedObject[pressure_outlet_1_item], CreatableNamedObjectMixin[pressure_outlet_1_item]):
+class pressure_outlet_1(_NamedObjectCommands, NamedObject[pressure_outlet_1_item], CreatableNamedObjectMixin[pressure_outlet_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76203,15 +74746,6 @@ class pressure_outlet_1(NamedObject[pressure_outlet_1_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'pressure-outlet'
     _python_name = 'pressure_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = pressure_outlet_1_item
 
 class phase_48_item(Group):
@@ -76235,7 +74769,7 @@ class phase_48_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_48(NamedObject[phase_48_item], CreatableNamedObjectMixin[phase_48_item]):
+class phase_48(_NamedObjectCommands, NamedObject[phase_48_item], CreatableNamedObjectMixin[phase_48_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -76243,15 +74777,6 @@ class phase_48(NamedObject[phase_48_item], CreatableNamedObjectMixin[phase_48_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_48_item
 
 class radiator_2_item(Group):
@@ -76282,7 +74807,7 @@ class radiator_2_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class radiator_2(NamedObject[radiator_2_item], CreatableNamedObjectMixin[radiator_2_item]):
+class radiator_2(_NamedObjectCommands, NamedObject[radiator_2_item], CreatableNamedObjectMixin[radiator_2_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76290,15 +74815,6 @@ class radiator_2(NamedObject[radiator_2_item], CreatableNamedObjectMixin[radiato
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'radiator'
     _python_name = 'radiator'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = radiator_2_item
 
 class phase_49_item(Group):
@@ -76318,7 +74834,7 @@ class phase_49_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class phase_49(NamedObject[phase_49_item], CreatableNamedObjectMixin[phase_49_item]):
+class phase_49(_NamedObjectCommands, NamedObject[phase_49_item], CreatableNamedObjectMixin[phase_49_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -76326,15 +74842,6 @@ class phase_49(NamedObject[phase_49_item], CreatableNamedObjectMixin[phase_49_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_49_item
 
 class rans_les_interface_1_item(Group):
@@ -76361,7 +74868,7 @@ class rans_les_interface_1_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class rans_les_interface_1(NamedObject[rans_les_interface_1_item], CreatableNamedObjectMixin[rans_les_interface_1_item]):
+class rans_les_interface_1(_NamedObjectCommands, NamedObject[rans_les_interface_1_item], CreatableNamedObjectMixin[rans_les_interface_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76369,15 +74876,6 @@ class rans_les_interface_1(NamedObject[rans_les_interface_1_item], CreatableName
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'rans-les-interface'
     _python_name = 'rans_les_interface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = rans_les_interface_1_item
 
 class phase_50_item(Group):
@@ -76397,7 +74895,7 @@ class phase_50_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class phase_50(NamedObject[phase_50_item], CreatableNamedObjectMixin[phase_50_item]):
+class phase_50(_NamedObjectCommands, NamedObject[phase_50_item], CreatableNamedObjectMixin[phase_50_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -76405,15 +74903,6 @@ class phase_50(NamedObject[phase_50_item], CreatableNamedObjectMixin[phase_50_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_50_item
 
 class recirculation_inlet_2_item(Group):
@@ -76440,7 +74929,7 @@ class recirculation_inlet_2_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class recirculation_inlet_2(NamedObject[recirculation_inlet_2_item], CreatableNamedObjectMixin[recirculation_inlet_2_item]):
+class recirculation_inlet_2(_NamedObjectCommands, NamedObject[recirculation_inlet_2_item], CreatableNamedObjectMixin[recirculation_inlet_2_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76448,15 +74937,6 @@ class recirculation_inlet_2(NamedObject[recirculation_inlet_2_item], CreatableNa
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'recirculation-inlet'
     _python_name = 'recirculation_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = recirculation_inlet_2_item
 
 class phase_51_item(Group):
@@ -76476,7 +74956,7 @@ class phase_51_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class phase_51(NamedObject[phase_51_item], CreatableNamedObjectMixin[phase_51_item]):
+class phase_51(_NamedObjectCommands, NamedObject[phase_51_item], CreatableNamedObjectMixin[phase_51_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -76484,15 +74964,6 @@ class phase_51(NamedObject[phase_51_item], CreatableNamedObjectMixin[phase_51_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_51_item
 
 class recirculation_outlet_2_item(Group):
@@ -76519,7 +74990,7 @@ class recirculation_outlet_2_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class recirculation_outlet_2(NamedObject[recirculation_outlet_2_item], CreatableNamedObjectMixin[recirculation_outlet_2_item]):
+class recirculation_outlet_2(_NamedObjectCommands, NamedObject[recirculation_outlet_2_item], CreatableNamedObjectMixin[recirculation_outlet_2_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76527,15 +74998,6 @@ class recirculation_outlet_2(NamedObject[recirculation_outlet_2_item], Creatable
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'recirculation-outlet'
     _python_name = 'recirculation_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = recirculation_outlet_2_item
 
 class shadow_1_item(Group):
@@ -76561,7 +75023,7 @@ class shadow_1_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class shadow_1(NamedObject[shadow_1_item], CreatableNamedObjectMixin[shadow_1_item]):
+class shadow_1(_NamedObjectCommands, NamedObject[shadow_1_item], CreatableNamedObjectMixin[shadow_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76569,15 +75031,6 @@ class shadow_1(NamedObject[shadow_1_item], CreatableNamedObjectMixin[shadow_1_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'shadow'
     _python_name = 'shadow'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = shadow_1_item
 
 class symmetry_1_item(Group):
@@ -76603,7 +75056,7 @@ class symmetry_1_item(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class symmetry_1(NamedObject[symmetry_1_item], CreatableNamedObjectMixin[symmetry_1_item]):
+class symmetry_1(_NamedObjectCommands, NamedObject[symmetry_1_item], CreatableNamedObjectMixin[symmetry_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76611,15 +75064,6 @@ class symmetry_1(NamedObject[symmetry_1_item], CreatableNamedObjectMixin[symmetr
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'symmetry'
     _python_name = 'symmetry'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = symmetry_1_item
 
 class phase_52_item(Group):
@@ -76652,7 +75096,7 @@ class phase_52_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_52(NamedObject[phase_52_item], CreatableNamedObjectMixin[phase_52_item]):
+class phase_52(_NamedObjectCommands, NamedObject[phase_52_item], CreatableNamedObjectMixin[phase_52_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -76660,15 +75104,6 @@ class phase_52(NamedObject[phase_52_item], CreatableNamedObjectMixin[phase_52_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_52_item
 
 class velocity_inlet_1_item(Group):
@@ -76708,7 +75143,7 @@ class velocity_inlet_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class velocity_inlet_1(NamedObject[velocity_inlet_1_item], CreatableNamedObjectMixin[velocity_inlet_1_item]):
+class velocity_inlet_1(_NamedObjectCommands, NamedObject[velocity_inlet_1_item], CreatableNamedObjectMixin[velocity_inlet_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76716,15 +75151,6 @@ class velocity_inlet_1(NamedObject[velocity_inlet_1_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'velocity-inlet'
     _python_name = 'velocity_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = velocity_inlet_1_item
 
 class phase_53_item(Group):
@@ -76759,7 +75185,7 @@ class phase_53_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class phase_53(NamedObject[phase_53_item], CreatableNamedObjectMixin[phase_53_item]):
+class phase_53(_NamedObjectCommands, NamedObject[phase_53_item], CreatableNamedObjectMixin[phase_53_item]):
     """
     Provides an object description for phase-specific conditions.
     """
@@ -76767,15 +75193,6 @@ class phase_53(NamedObject[phase_53_item], CreatableNamedObjectMixin[phase_53_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase'
     _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_53_item
 
 class wall_1_item(Group):
@@ -76817,7 +75234,7 @@ class wall_1_item(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class wall_1(NamedObject[wall_1_item], CreatableNamedObjectMixin[wall_1_item]):
+class wall_1(_NamedObjectCommands, NamedObject[wall_1_item], CreatableNamedObjectMixin[wall_1_item]):
     """
     Settings for boundary-condition object.
     """
@@ -76825,15 +75242,6 @@ class wall_1(NamedObject[wall_1_item], CreatableNamedObjectMixin[wall_1_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'wall'
     _python_name = 'wall'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = wall_1_item
 
 class sigma(Real):
@@ -77478,7 +75886,7 @@ class read_input_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The name of the input file.
     """
     _version = '271'
@@ -78483,15 +76891,8 @@ class interface_3_item(Group):
         display_with_parents=display_with_parents_1,
     )
 
-class interface_3(NamedObject[interface_3_item], CreatableNamedObjectMixin[interface_3_item]):
-    """
-    Create mesh interfaces.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'interface'
-    _python_name = 'interface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'create_many_to_many_interfaces', 'display', 'display_interfaces', 'display_interfaces_with_parents']
+class _NamedObjectCommands_6(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_9,
         delete=delete_2,
@@ -78499,10 +76900,33 @@ class interface_3(NamedObject[interface_3_item], CreatableNamedObjectMixin[inter
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        create_many_to_many_interfaces=create_many_to_many_interfaces,
-        display=display_8,
-        display_interfaces=display_interfaces,
-        display_interfaces_with_parents=display_interfaces_with_parents,
+    )
+    create = create_9
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class interface_3(_NamedObjectCommands_6, NamedObject[interface_3_item], CreatableNamedObjectMixin[interface_3_item]):
+    """
+    Create mesh interfaces.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'interface'
+    _python_name = 'interface'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_6.command_names, [(6, 'create_many_to_many_interfaces'), (7, 'display'), (8, 'display_interfaces'), (9, 'display_interfaces_with_parents')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_6._child_classes,
+        [
+            (6, 'create_many_to_many_interfaces', create_many_to_many_interfaces),
+            (7, 'display', display_8),
+            (8, 'display_interfaces', display_interfaces),
+            (9, 'display_interfaces_with_parents', display_interfaces_with_parents),
+        ],
     )
     child_object_type = interface_3_item
 
@@ -79063,14 +77487,7 @@ class turbo_interface_item(Group):
         turbo_non_overlap=turbo_non_overlap_1,
     )
 
-class turbo_interface(NamedObject[turbo_interface_item], CreatableNamedObjectMixin[turbo_interface_item]):
-    """
-    Create turbo interfaces.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'turbo-interface'
-    _python_name = 'turbo_interface'
+class _NamedObjectCommands_7(_NamedObjectCommandBase):
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_10,
@@ -79080,6 +77497,21 @@ class turbo_interface(NamedObject[turbo_interface_item], CreatableNamedObjectMix
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
     )
+    create = create_10
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class turbo_interface(_NamedObjectCommands_7, NamedObject[turbo_interface_item], CreatableNamedObjectMixin[turbo_interface_item]):
+    """
+    Create turbo interfaces.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'turbo-interface'
+    _python_name = 'turbo_interface'
     child_object_type = turbo_interface_item
 
 class verbosity_9(Integer):
@@ -81321,7 +79753,7 @@ class sdof_properties_item(Group):
         inertia_tensor=inertia_tensor,
     )
 
-class sdof_properties(NamedObject[sdof_properties_item], CreatableNamedObjectMixin[sdof_properties_item]):
+class sdof_properties(_NamedObjectCommands, NamedObject[sdof_properties_item], CreatableNamedObjectMixin[sdof_properties_item]):
     """
     'sdof_properties' child.
     """
@@ -81329,15 +79761,14 @@ class sdof_properties(NamedObject[sdof_properties_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'sdof-properties'
     _python_name = 'sdof_properties'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'list_properties_all']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        list_properties_all=list_properties_all,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'list_properties_all')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'list_properties_all', list_properties_all),
+        ],
     )
     child_object_type = sdof_properties_item
 
@@ -81732,7 +80163,7 @@ class perdisp_group_properties_item(Group):
         pluck_test=pluck_test,
     )
 
-class perdisp_group_properties(NamedObject[perdisp_group_properties_item], CreatableNamedObjectMixin[perdisp_group_properties_item]):
+class perdisp_group_properties(_NamedObjectCommands, NamedObject[perdisp_group_properties_item], CreatableNamedObjectMixin[perdisp_group_properties_item]):
     """
     'perdisp_group_properties' child.
     """
@@ -81740,15 +80171,14 @@ class perdisp_group_properties(NamedObject[perdisp_group_properties_item], Creat
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'perdisp-group-properties'
     _python_name = 'perdisp_group_properties'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'list_properties_all']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        list_properties_all=list_properties_all,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'list_properties_all')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'list_properties_all', list_properties_all),
+        ],
     )
     child_object_type = perdisp_group_properties_item
 
@@ -82286,7 +80716,7 @@ class perdisp_properties_item(Group):
         structural_damping_ratio=structural_damping_ratio,
     )
 
-class perdisp_properties(NamedObject[perdisp_properties_item], CreatableNamedObjectMixin[perdisp_properties_item]):
+class perdisp_properties(_NamedObjectCommands, NamedObject[perdisp_properties_item], CreatableNamedObjectMixin[perdisp_properties_item]):
     """
     'perdisp_properties' child.
     """
@@ -82294,15 +80724,14 @@ class perdisp_properties(NamedObject[perdisp_properties_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'perdisp-properties'
     _python_name = 'perdisp_properties'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'list_properties_all']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        list_properties_all=list_properties_all,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'list_properties_all')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'list_properties_all', list_properties_all),
+        ],
     )
     child_object_type = perdisp_properties_item
 
@@ -84467,15 +82896,8 @@ class dynamic_zones_item(Group):
         solver=solver_1,
     )
 
-class dynamic_zones(NamedObject[dynamic_zones_item], CreatableNamedObjectMixin[dynamic_zones_item]):
-    """
-    Dynamic Zones.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'dynamic-zones'
-    _python_name = 'dynamic_zones'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'list_properties_all']
+class _NamedObjectCommands_8(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_12,
         delete=delete_2,
@@ -84483,7 +82905,30 @@ class dynamic_zones(NamedObject[dynamic_zones_item], CreatableNamedObjectMixin[d
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        list_properties_all=list_properties_all,
+    )
+    create = create_12
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class dynamic_zones(_NamedObjectCommands_8, NamedObject[dynamic_zones_item], CreatableNamedObjectMixin[dynamic_zones_item]):
+    """
+    Dynamic Zones.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'dynamic-zones'
+    _python_name = 'dynamic_zones'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_8.command_names, [(6, 'list_properties_all')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_8._child_classes,
+        [
+            (6, 'list_properties_all', list_properties_all),
+        ],
     )
     child_object_type = dynamic_zones_item
 
@@ -85126,7 +83571,7 @@ class gap_regions_item(Group):
         delete=delete_7,
     )
 
-class gap_regions(NamedObject[gap_regions_item], CreatableNamedObjectMixin[gap_regions_item]):
+class gap_regions(_NamedObjectCommands, NamedObject[gap_regions_item], CreatableNamedObjectMixin[gap_regions_item]):
     """
     Collection of defined gap regions. Each gap region defines a narrow passage for which the solver applies special treatment.
     """
@@ -85134,15 +83579,6 @@ class gap_regions(NamedObject[gap_regions_item], CreatableNamedObjectMixin[gap_r
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'gap-regions'
     _python_name = 'gap_regions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = gap_regions_item
 
 class expert_5(Boolean):
@@ -86686,7 +85122,7 @@ class reference_frames_item(Group):
         display_state=display_state,
     )
 
-class reference_frames(NamedObject[reference_frames_item], CreatableNamedObjectMixin[reference_frames_item]):
+class reference_frames(_NamedObjectCommands, NamedObject[reference_frames_item], CreatableNamedObjectMixin[reference_frames_item]):
     """
     Create local coordinate systems with a given position and orientation, either with or without motion.
     """
@@ -86694,16 +85130,15 @@ class reference_frames(NamedObject[reference_frames_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'reference-frames'
     _python_name = 'reference_frames'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display_frame', 'hide_frame']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        display_frame=display_frame,
-        hide_frame=hide_frame,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'display_frame'), (7, 'hide_frame')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'display_frame', display_frame),
+            (7, 'hide_frame', hide_frame),
+        ],
     )
     child_object_type = reference_frames_item
 
@@ -86829,7 +85264,7 @@ class named_expressions_item(Group):
         get_info=get_info,
     )
 
-class named_expressions(NamedObject[named_expressions_item], CreatableNamedObjectMixin[named_expressions_item]):
+class named_expressions(_NamedObjectCommands, NamedObject[named_expressions_item], CreatableNamedObjectMixin[named_expressions_item]):
     """
     Accesses the interface for creating and managing named expressions.
     """
@@ -86837,15 +85272,14 @@ class named_expressions(NamedObject[named_expressions_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'named-expressions'
     _python_name = 'named_expressions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'compute']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        compute=compute_2,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'compute')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'compute', compute_2),
+        ],
     )
     child_object_type = named_expressions_item
 
@@ -88010,15 +86444,8 @@ class objects_item(Group):
         harmonic=harmonic_1,
     )
 
-class objects(NamedObject[objects_item], CreatableNamedObjectMixin[objects_item]):
-    """
-    Manage Generalized Forces objects.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'objects'
-    _python_name = 'objects'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'process_all']
+class _NamedObjectCommands_9(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_14,
         delete=delete_2,
@@ -88026,7 +86453,30 @@ class objects(NamedObject[objects_item], CreatableNamedObjectMixin[objects_item]
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        process_all=process_all,
+    )
+    create = create_14
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class objects(_NamedObjectCommands_9, NamedObject[objects_item], CreatableNamedObjectMixin[objects_item]):
+    """
+    Manage Generalized Forces objects.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'objects'
+    _python_name = 'objects'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_9.command_names, [(6, 'process_all')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_9._child_classes,
+        [
+            (6, 'process_all', process_all),
+        ],
     )
     child_object_type = objects_item
 
@@ -88139,7 +86589,7 @@ class turbo_interfaces_item(Group):
         turbo_non_overlap=turbo_non_overlap_1,
     )
 
-class turbo_interfaces(NamedObject[turbo_interfaces_item], CreatableNamedObjectMixin[turbo_interfaces_item]):
+class turbo_interfaces(_NamedObjectCommands_7, NamedObject[turbo_interfaces_item], CreatableNamedObjectMixin[turbo_interfaces_item]):
     """
     Create turbo interfaces.
     """
@@ -88147,15 +86597,6 @@ class turbo_interfaces(NamedObject[turbo_interfaces_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'turbo-interfaces'
     _python_name = 'turbo_interfaces'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_10,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = turbo_interfaces_item
 
 class number_of_rows(Integer):
@@ -88301,14 +86742,7 @@ class rows_1_item(Group):
         cell_zone_ids=('cell_zones', 'cell-zone-ids'),
     )
 
-class rows_1(NamedObject[rows_1_item], CreatableNamedObjectMixin[rows_1_item]):
-    """
-    Collection of turbomachine rows. Create rows and configure their properties.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'rows'
-    _python_name = 'rows'
+class _NamedObjectCommands_10(_NamedObjectCommandBase):
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_16,
@@ -88318,6 +86752,21 @@ class rows_1(NamedObject[rows_1_item], CreatableNamedObjectMixin[rows_1_item]):
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
     )
+    create = create_16
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class rows_1(_NamedObjectCommands_10, NamedObject[rows_1_item], CreatableNamedObjectMixin[rows_1_item]):
+    """
+    Collection of turbomachine rows. Create rows and configure their properties.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'rows'
+    _python_name = 'rows'
     child_object_type = rows_1_item
 
 class autofill_from_turbo_setup(Boolean):
@@ -88960,7 +87409,7 @@ class periodic_instances_item(Group):
         repeats_in_360_degrees=repeats_in_360_degrees,
     )
 
-class periodic_instances(NamedObject[periodic_instances_item], CreatableNamedObjectMixin[periodic_instances_item]):
+class periodic_instances(_NamedObjectCommands, NamedObject[periodic_instances_item], CreatableNamedObjectMixin[periodic_instances_item]):
     """
     Periodic instance objects are used to specify periodic repetition of surfaces.
     """
@@ -88968,16 +87417,15 @@ class periodic_instances(NamedObject[periodic_instances_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'periodic-instances'
     _python_name = 'periodic_instances'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'detect_surfaces', 'clear_repeats']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        detect_surfaces=detect_surfaces,
-        clear_repeats=clear_repeats,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'detect_surfaces'), (7, 'clear_repeats')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'detect_surfaces', detect_surfaces),
+            (7, 'clear_repeats', clear_repeats),
+        ],
     )
     child_object_type = periodic_instances_item
 
@@ -89118,7 +87566,7 @@ class inter_row_disturbances_item(Group):
         include=include_1,
     )
 
-class inter_row_disturbances(NamedObject[inter_row_disturbances_item], CreatableNamedObjectMixin[inter_row_disturbances_item]):
+class inter_row_disturbances(_NamedObjectCommands, NamedObject[inter_row_disturbances_item], CreatableNamedObjectMixin[inter_row_disturbances_item]):
     """
     Inter-row disturbances affecting this row. Each entry represents a source row whose blade passing frequency is seen by this target row.
     """
@@ -89126,15 +87574,6 @@ class inter_row_disturbances(NamedObject[inter_row_disturbances_item], Creatable
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'inter-row-disturbances'
     _python_name = 'inter_row_disturbances'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = inter_row_disturbances_item
 
 class disturbance_type(String, AllowedValuesMixin):
@@ -89203,7 +87642,7 @@ class user_defined_disturbances_item(Group):
         harmonics=harmonics_1,
     )
 
-class user_defined_disturbances(NamedObject[user_defined_disturbances_item], CreatableNamedObjectMixin[user_defined_disturbances_item]):
+class user_defined_disturbances(_NamedObjectCommands, NamedObject[user_defined_disturbances_item], CreatableNamedObjectMixin[user_defined_disturbances_item]):
     """
     User-defined disturbances targeting this row. Added on top of the inter-row disturbances above.
     """
@@ -89211,15 +87650,6 @@ class user_defined_disturbances(NamedObject[user_defined_disturbances_item], Cre
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'user-defined-disturbances'
     _python_name = 'user_defined_disturbances'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = user_defined_disturbances_item
 
 class disturbance_name(String):
@@ -89353,7 +87783,7 @@ class frequency_setup_item(Group):
         remove_user_defined_disturbance=remove_user_defined_disturbance,
     )
 
-class frequency_setup(NamedObject[frequency_setup_item], CreatableNamedObjectMixin[frequency_setup_item]):
+class frequency_setup(_NamedObjectCommands, NamedObject[frequency_setup_item], CreatableNamedObjectMixin[frequency_setup_item]):
     """
     Row-based frequency configuration for graphics spectral content. Select a row to view and configure its inter-row disturbances and harmonics.
     """
@@ -89361,15 +87791,6 @@ class frequency_setup(NamedObject[frequency_setup_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'frequency-setup'
     _python_name = 'frequency_setup'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = frequency_setup_item
 
 class create_17(CommandWithPositionalArgs):
@@ -91590,7 +90011,7 @@ class discretization_scheme_item(String, AllowedValuesMixin):
     fluent_name = 'child-object-type'
     _python_name = 'discretization_scheme_item'
 
-class discretization_scheme(NamedObject[discretization_scheme_item], CreatableNamedObjectMixin[discretization_scheme_item]):
+class discretization_scheme(_NamedObjectCommands, NamedObject[discretization_scheme_item], CreatableNamedObjectMixin[discretization_scheme_item]):
     """
     Discretization scheme.
     """
@@ -91598,15 +90019,6 @@ class discretization_scheme(NamedObject[discretization_scheme_item], CreatableNa
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'discretization-scheme'
     _python_name = 'discretization_scheme'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = discretization_scheme_item
 
 class spatial_discretization(Group):
@@ -92799,7 +91211,7 @@ class turbulent_dispersion_limit_vof_item(Group):
         turb_disp_limit_upper_vof=turb_disp_limit_upper_vof,
     )
 
-class turbulent_dispersion_limit_vof(NamedObject[turbulent_dispersion_limit_vof_item], CreatableNamedObjectMixin[turbulent_dispersion_limit_vof_item]):
+class turbulent_dispersion_limit_vof(_NamedObjectCommands, NamedObject[turbulent_dispersion_limit_vof_item], CreatableNamedObjectMixin[turbulent_dispersion_limit_vof_item]):
     """
     The volume fraction limits for the turbulent dispersion limiting function.
     """
@@ -92807,15 +91219,6 @@ class turbulent_dispersion_limit_vof(NamedObject[turbulent_dispersion_limit_vof_
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'turbulent-dispersion-limit-vof'
     _python_name = 'turbulent_dispersion_limit_vof'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = turbulent_dispersion_limit_vof_item
 
 class exclude_td_boundary(Boolean):
@@ -93558,7 +91961,7 @@ class set_velocity_and_vof_cutoffs_item(Group):
         vol_frac_cutoff=vol_frac_cutoff,
     )
 
-class set_velocity_and_vof_cutoffs(NamedObject[set_velocity_and_vof_cutoffs_item], CreatableNamedObjectMixin[set_velocity_and_vof_cutoffs_item]):
+class set_velocity_and_vof_cutoffs(_NamedObjectCommands, NamedObject[set_velocity_and_vof_cutoffs_item], CreatableNamedObjectMixin[set_velocity_and_vof_cutoffs_item]):
     """
     Velocity and vof cutoff.
     """
@@ -93566,15 +91969,6 @@ class set_velocity_and_vof_cutoffs(NamedObject[set_velocity_and_vof_cutoffs_item
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'set-velocity-and-vof-cutoffs'
     _python_name = 'set_velocity_and_vof_cutoffs'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = set_velocity_and_vof_cutoffs_item
 
 class set_damping_strengths_item(Real):
@@ -93586,7 +91980,7 @@ class set_damping_strengths_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'set_damping_strengths_item'
 
-class set_damping_strengths(NamedObject[set_damping_strengths_item], CreatableNamedObjectMixin[set_damping_strengths_item]):
+class set_damping_strengths(_NamedObjectCommands, NamedObject[set_damping_strengths_item], CreatableNamedObjectMixin[set_damping_strengths_item]):
     """
     Damping strength.
     """
@@ -93594,15 +91988,6 @@ class set_damping_strengths(NamedObject[set_damping_strengths_item], CreatableNa
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'set-damping-strengths'
     _python_name = 'set_damping_strengths'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = set_damping_strengths_item
 
 class set_velocity_cutoff(Real):
@@ -93987,7 +92372,7 @@ class phase_based_vof_discretization_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'phase_based_vof_discretization_item'
 
-class phase_based_vof_discretization(NamedObject[phase_based_vof_discretization_item], CreatableNamedObjectMixin[phase_based_vof_discretization_item]):
+class phase_based_vof_discretization(_NamedObjectCommands, NamedObject[phase_based_vof_discretization_item], CreatableNamedObjectMixin[phase_based_vof_discretization_item]):
     """
     Phase-based vof discretization.
     """
@@ -93995,15 +92380,6 @@ class phase_based_vof_discretization(NamedObject[phase_based_vof_discretization_
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'phase-based-vof-discretization'
     _python_name = 'phase_based_vof_discretization'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = phase_based_vof_discretization_item
 
 class reduced_rank_extrapolation(Boolean):
@@ -96484,7 +94860,7 @@ class relaxation_factor_4_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'relaxation_factor_item'
 
-class relaxation_factor_4(NamedObject[relaxation_factor_4_item], CreatableNamedObjectMixin[relaxation_factor_4_item]):
+class relaxation_factor_4(_NamedObjectCommands, NamedObject[relaxation_factor_4_item], CreatableNamedObjectMixin[relaxation_factor_4_item]):
     """
     Explicit relaxation object.
     """
@@ -96492,15 +94868,6 @@ class relaxation_factor_4(NamedObject[relaxation_factor_4_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'relaxation-factor'
     _python_name = 'relaxation_factor'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = relaxation_factor_4_item
 
 class under_relaxation_2_item(Real):
@@ -96512,7 +94879,7 @@ class under_relaxation_2_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'under_relaxation_item'
 
-class under_relaxation_2(NamedObject[under_relaxation_2_item], CreatableNamedObjectMixin[under_relaxation_2_item]):
+class under_relaxation_2(_NamedObjectCommands, NamedObject[under_relaxation_2_item], CreatableNamedObjectMixin[under_relaxation_2_item]):
     """
     Under Relaxation Menu.
     """
@@ -96520,15 +94887,6 @@ class under_relaxation_2(NamedObject[under_relaxation_2_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'under-relaxation'
     _python_name = 'under_relaxation'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = under_relaxation_2_item
 
 class pseudo_time_courant_number(Real):
@@ -96582,7 +94940,7 @@ class local_dt_dualts_relax_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'local_dt_dualts_relax_item'
 
-class local_dt_dualts_relax(NamedObject[local_dt_dualts_relax_item], CreatableNamedObjectMixin[local_dt_dualts_relax_item]):
+class local_dt_dualts_relax(_NamedObjectCommands, NamedObject[local_dt_dualts_relax_item], CreatableNamedObjectMixin[local_dt_dualts_relax_item]):
     """
     Local time step relaxation factor.
     """
@@ -96590,15 +94948,6 @@ class local_dt_dualts_relax(NamedObject[local_dt_dualts_relax_item], CreatableNa
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'local-dt-dualts-relax'
     _python_name = 'local_dt_dualts_relax'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = local_dt_dualts_relax_item
 
 class global_dt_pseudo_relax_item(Real):
@@ -96610,7 +94959,7 @@ class global_dt_pseudo_relax_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'global_dt_pseudo_relax_item'
 
-class global_dt_pseudo_relax(NamedObject[global_dt_pseudo_relax_item], CreatableNamedObjectMixin[global_dt_pseudo_relax_item]):
+class global_dt_pseudo_relax(_NamedObjectCommands, NamedObject[global_dt_pseudo_relax_item], CreatableNamedObjectMixin[global_dt_pseudo_relax_item]):
     """
     Global time step relaxation factor.
     """
@@ -96618,15 +94967,6 @@ class global_dt_pseudo_relax(NamedObject[global_dt_pseudo_relax_item], Creatable
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'global-dt-pseudo-relax'
     _python_name = 'global_dt_pseudo_relax'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = global_dt_pseudo_relax_item
 
 class pseudo_time_explicit_relaxation_factor(Group):
@@ -96896,7 +95236,7 @@ class mg_controls_item(Group):
         dual_ts_cycle_type=dual_ts_cycle_type,
     )
 
-class mg_controls(NamedObject[mg_controls_item], CreatableNamedObjectMixin[mg_controls_item]):
+class mg_controls(_NamedObjectCommands, NamedObject[mg_controls_item], CreatableNamedObjectMixin[mg_controls_item]):
     """
     Multi-grid controls object.
     """
@@ -96904,15 +95244,6 @@ class mg_controls(NamedObject[mg_controls_item], CreatableNamedObjectMixin[mg_co
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mg-controls'
     _python_name = 'mg_controls'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mg_controls_item
 
 class global_dt_post_sweeps(Integer):
@@ -97641,7 +95972,7 @@ class equations_item(Boolean):
     fluent_name = 'child-object-type'
     _python_name = 'equations_item'
 
-class equations(NamedObject[equations_item], CreatableNamedObjectMixin[equations_item]):
+class equations(_NamedObjectCommands, NamedObject[equations_item], CreatableNamedObjectMixin[equations_item]):
     """
     Equations to be solved.
     """
@@ -97649,15 +95980,6 @@ class equations(NamedObject[equations_item], CreatableNamedObjectMixin[equations
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'equations'
     _python_name = 'equations'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = equations_item
 
 class min_pressure(Real):
@@ -97874,7 +96196,7 @@ class mg_controls_1_item(Group):
         stabilization=stabilization_1,
     )
 
-class mg_controls_1(NamedObject[mg_controls_1_item], CreatableNamedObjectMixin[mg_controls_1_item]):
+class mg_controls_1(_NamedObjectCommands, NamedObject[mg_controls_1_item], CreatableNamedObjectMixin[mg_controls_1_item]):
     """
     Multi-grid controls object.
     """
@@ -97882,15 +96204,6 @@ class mg_controls_1(NamedObject[mg_controls_1_item], CreatableNamedObjectMixin[m
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mg-controls'
     _python_name = 'mg_controls'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mg_controls_1_item
 
 class pre_sweeps_1(Integer):
@@ -98423,7 +96736,7 @@ class amg_gpgpu_options_item(Group):
         smoother=smoother,
     )
 
-class amg_gpgpu_options(NamedObject[amg_gpgpu_options_item], CreatableNamedObjectMixin[amg_gpgpu_options_item]):
+class amg_gpgpu_options(_NamedObjectCommands, NamedObject[amg_gpgpu_options_item], CreatableNamedObjectMixin[amg_gpgpu_options_item]):
     """
     AMG GPGPU options object.
     """
@@ -98431,15 +96744,6 @@ class amg_gpgpu_options(NamedObject[amg_gpgpu_options_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'amg-gpgpu-options'
     _python_name = 'amg_gpgpu_options'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = amg_gpgpu_options_item
 
 class multi_grid(Group):
@@ -98607,7 +96911,7 @@ class pseudo_time_method_usage_item(Group):
         implicit_under_relaxation_factor=implicit_under_relaxation_factor,
     )
 
-class pseudo_time_method_usage(NamedObject[pseudo_time_method_usage_item], CreatableNamedObjectMixin[pseudo_time_method_usage_item]):
+class pseudo_time_method_usage(_NamedObjectCommands, NamedObject[pseudo_time_method_usage_item], CreatableNamedObjectMixin[pseudo_time_method_usage_item]):
     """
     Pseudo time method expert settings object.
     """
@@ -98615,15 +96919,6 @@ class pseudo_time_method_usage(NamedObject[pseudo_time_method_usage_item], Creat
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'pseudo-time-method-usage'
     _python_name = 'pseudo_time_method_usage'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = pseudo_time_method_usage_item
     _child_aliases = dict(
         global_dt=('../pseudo_time_method_usage', 'global-dt'),
@@ -98992,7 +97287,7 @@ class nci_secondary_gradient_item(Boolean):
     fluent_name = 'child-object-type'
     _python_name = 'nci_secondary_gradient_item'
 
-class nci_secondary_gradient(NamedObject[nci_secondary_gradient_item], CreatableNamedObjectMixin[nci_secondary_gradient_item]):
+class nci_secondary_gradient(_NamedObjectCommands, NamedObject[nci_secondary_gradient_item], CreatableNamedObjectMixin[nci_secondary_gradient_item]):
     """
     NCI Secondary Gradient Correction object.
     """
@@ -99000,15 +97295,6 @@ class nci_secondary_gradient(NamedObject[nci_secondary_gradient_item], Creatable
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'nci-secondary-gradient'
     _python_name = 'nci_secondary_gradient'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = nci_secondary_gradient_item
 
 class specified_zero_shear_alternative_treatment(String, AllowedValuesMixin):
@@ -99078,7 +97364,7 @@ class nita_controls_item(Group):
         residual_tolerance=residual_tolerance,
     )
 
-class nita_controls(NamedObject[nita_controls_item], CreatableNamedObjectMixin[nita_controls_item]):
+class nita_controls(_NamedObjectCommands, NamedObject[nita_controls_item], CreatableNamedObjectMixin[nita_controls_item]):
     """
     Non-Iterative Solver Controls.
     """
@@ -99086,15 +97372,6 @@ class nita_controls(NamedObject[nita_controls_item], CreatableNamedObjectMixin[n
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'nita-controls'
     _python_name = 'nita_controls'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = nita_controls_item
 
 class relaxation_1(Real):
@@ -99593,7 +97870,7 @@ class mesh_1_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class mesh_1(NamedObject[mesh_1_item], CreatableNamedObjectMixin[mesh_1_item]):
+class mesh_1(_NamedObjectCommands, NamedObject[mesh_1_item], CreatableNamedObjectMixin[mesh_1_item]):
     """
     The report definition type.
     """
@@ -99601,15 +97878,6 @@ class mesh_1(NamedObject[mesh_1_item], CreatableNamedObjectMixin[mesh_1_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mesh'
     _python_name = 'mesh'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mesh_1_item
 
 class field(String, AllowedValuesMixin):
@@ -99681,7 +97949,7 @@ class surface_1_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class surface_1(NamedObject[surface_1_item], CreatableNamedObjectMixin[surface_1_item]):
+class surface_1(_NamedObjectCommands, NamedObject[surface_1_item], CreatableNamedObjectMixin[surface_1_item]):
     """
     The report definition type.
     """
@@ -99689,15 +97957,6 @@ class surface_1(NamedObject[surface_1_item], CreatableNamedObjectMixin[surface_1
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'surface'
     _python_name = 'surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = surface_1_item
 
 class cell_zones_11(StringList, AllowedValuesMixin):
@@ -99741,7 +98000,7 @@ class volume_3_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class volume_3(NamedObject[volume_3_item], CreatableNamedObjectMixin[volume_3_item]):
+class volume_3(_NamedObjectCommands, NamedObject[volume_3_item], CreatableNamedObjectMixin[volume_3_item]):
     """
     The report definition type.
     """
@@ -99749,15 +98008,6 @@ class volume_3(NamedObject[volume_3_item], CreatableNamedObjectMixin[volume_3_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'volume'
     _python_name = 'volume'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = volume_3_item
 
 class force_vector(RealList):
@@ -99836,7 +98086,7 @@ class force_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class force(NamedObject[force_item], CreatableNamedObjectMixin[force_item]):
+class force(_NamedObjectCommands, NamedObject[force_item], CreatableNamedObjectMixin[force_item]):
     """
     The report definition type.
     """
@@ -99844,15 +98094,6 @@ class force(NamedObject[force_item], CreatableNamedObjectMixin[force_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'force'
     _python_name = 'force'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = force_item
 
 class lift_1_item(Group):
@@ -99888,7 +98129,7 @@ class lift_1_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class lift_1(NamedObject[lift_1_item], CreatableNamedObjectMixin[lift_1_item]):
+class lift_1(_NamedObjectCommands, NamedObject[lift_1_item], CreatableNamedObjectMixin[lift_1_item]):
     """
     The report definition type.
     """
@@ -99896,15 +98137,6 @@ class lift_1(NamedObject[lift_1_item], CreatableNamedObjectMixin[lift_1_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'lift'
     _python_name = 'lift'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = lift_1_item
 
 class drag_1_item(Group):
@@ -99940,7 +98172,7 @@ class drag_1_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class drag_1(NamedObject[drag_1_item], CreatableNamedObjectMixin[drag_1_item]):
+class drag_1(_NamedObjectCommands, NamedObject[drag_1_item], CreatableNamedObjectMixin[drag_1_item]):
     """
     The report definition type.
     """
@@ -99948,15 +98180,6 @@ class drag_1(NamedObject[drag_1_item], CreatableNamedObjectMixin[drag_1_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'drag'
     _python_name = 'drag'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = drag_1_item
 
 class mom_center(RealList):
@@ -100011,7 +98234,7 @@ class moment_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class moment(NamedObject[moment_item], CreatableNamedObjectMixin[moment_item]):
+class moment(_NamedObjectCommands, NamedObject[moment_item], CreatableNamedObjectMixin[moment_item]):
     """
     The report definition type.
     """
@@ -100019,15 +98242,6 @@ class moment(NamedObject[moment_item], CreatableNamedObjectMixin[moment_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'moment'
     _python_name = 'moment'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = moment_item
 
 class time_1_item(Group):
@@ -100053,7 +98267,7 @@ class time_1_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class time_1(NamedObject[time_1_item], CreatableNamedObjectMixin[time_1_item]):
+class time_1(_NamedObjectCommands, NamedObject[time_1_item], CreatableNamedObjectMixin[time_1_item]):
     """
     Create a new or edit an existing report definition.
     """
@@ -100061,15 +98275,6 @@ class time_1(NamedObject[time_1_item], CreatableNamedObjectMixin[time_1_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'time'
     _python_name = 'time'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = time_1_item
 
 class boundaries_2(StringList, AllowedValuesMixin):
@@ -100122,7 +98327,7 @@ class flux_1_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class flux_1(NamedObject[flux_1_item], CreatableNamedObjectMixin[flux_1_item]):
+class flux_1(_NamedObjectCommands, NamedObject[flux_1_item], CreatableNamedObjectMixin[flux_1_item]):
     """
     The report definition type.
     """
@@ -100130,15 +98335,6 @@ class flux_1(NamedObject[flux_1_item], CreatableNamedObjectMixin[flux_1_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'flux'
     _python_name = 'flux'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = flux_1_item
 
 class vbm_rotor_name(String, AllowedValuesMixin):
@@ -100189,7 +98385,7 @@ class vbm_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class vbm(NamedObject[vbm_item], CreatableNamedObjectMixin[vbm_item]):
+class vbm(_NamedObjectCommands, NamedObject[vbm_item], CreatableNamedObjectMixin[vbm_item]):
     """
     The report definition type.
     """
@@ -100197,15 +98393,6 @@ class vbm(NamedObject[vbm_item], CreatableNamedObjectMixin[vbm_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'vbm'
     _python_name = 'vbm'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = vbm_item
 
 class injection_list(StringList, AllowedValuesMixin):
@@ -100329,7 +98516,7 @@ class injection_2_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class injection_2(NamedObject[injection_2_item], CreatableNamedObjectMixin[injection_2_item]):
+class injection_2(_NamedObjectCommands, NamedObject[injection_2_item], CreatableNamedObjectMixin[injection_2_item]):
     """
     Create a new or edit an existing report definition.
     """
@@ -100337,15 +98524,6 @@ class injection_2(NamedObject[injection_2_item], CreatableNamedObjectMixin[injec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'injection'
     _python_name = 'injection'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = injection_2_item
 
 class function_name_1(String, AllowedValuesMixin):
@@ -100394,7 +98572,7 @@ class user_defined_21_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class user_defined_21(NamedObject[user_defined_21_item], CreatableNamedObjectMixin[user_defined_21_item]):
+class user_defined_21(_NamedObjectCommands, NamedObject[user_defined_21_item], CreatableNamedObjectMixin[user_defined_21_item]):
     """
     The report definition type.
     """
@@ -100402,15 +98580,6 @@ class user_defined_21(NamedObject[user_defined_21_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'user-defined'
     _python_name = 'user_defined'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = user_defined_21_item
 
 class nodal_diameters(StringList, AllowedValuesMixin):
@@ -100521,7 +98690,7 @@ class aeromechanics_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class aeromechanics(NamedObject[aeromechanics_item], CreatableNamedObjectMixin[aeromechanics_item]):
+class aeromechanics(_NamedObjectCommands, NamedObject[aeromechanics_item], CreatableNamedObjectMixin[aeromechanics_item]):
     """
     Create a new or edit an existing report definition.
     """
@@ -100529,15 +98698,6 @@ class aeromechanics(NamedObject[aeromechanics_item], CreatableNamedObjectMixin[a
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'aeromechanics'
     _python_name = 'aeromechanics'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = aeromechanics_item
 
 class icing_4_item(Group):
@@ -100565,7 +98725,7 @@ class icing_4_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class icing_4(NamedObject[icing_4_item], CreatableNamedObjectMixin[icing_4_item]):
+class icing_4(_NamedObjectCommands, NamedObject[icing_4_item], CreatableNamedObjectMixin[icing_4_item]):
     """
     Create a new or edit an existing report definition.
     """
@@ -100573,15 +98733,6 @@ class icing_4(NamedObject[icing_4_item], CreatableNamedObjectMixin[icing_4_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'icing'
     _python_name = 'icing'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = icing_4_item
 
 class expr_value(Real):
@@ -100629,7 +98780,7 @@ class expression_7_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class expression_7(NamedObject[expression_7_item], CreatableNamedObjectMixin[expression_7_item]):
+class expression_7(_NamedObjectCommands, NamedObject[expression_7_item], CreatableNamedObjectMixin[expression_7_item]):
     """
     Create a new or edit an existing report definition.
     """
@@ -100637,15 +98788,6 @@ class expression_7(NamedObject[expression_7_item], CreatableNamedObjectMixin[exp
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'expression'
     _python_name = 'expression'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = expression_7_item
 
 class single_valued_expression_item(Group):
@@ -100675,7 +98817,7 @@ class single_valued_expression_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class single_valued_expression(NamedObject[single_valued_expression_item], CreatableNamedObjectMixin[single_valued_expression_item]):
+class single_valued_expression(_NamedObjectCommands, NamedObject[single_valued_expression_item], CreatableNamedObjectMixin[single_valued_expression_item]):
     """
     The report definition type.
     """
@@ -100683,15 +98825,6 @@ class single_valued_expression(NamedObject[single_valued_expression_item], Creat
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'single-valued-expression'
     _python_name = 'single_valued_expression'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = single_valued_expression_item
 
 class custom_item(Group):
@@ -100718,7 +98851,7 @@ class custom_item(Group):
         per_zone=('per_selection', 'per-zone?'),
     )
 
-class custom(NamedObject[custom_item], CreatableNamedObjectMixin[custom_item]):
+class custom(_NamedObjectCommands, NamedObject[custom_item], CreatableNamedObjectMixin[custom_item]):
     """
     Create a new or edit an existing report definition.
     """
@@ -100726,15 +98859,6 @@ class custom(NamedObject[custom_item], CreatableNamedObjectMixin[custom_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'custom'
     _python_name = 'custom'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = custom_item
 
 class name_list_1(StringList, AllowedValuesMixin):
@@ -100936,7 +99060,7 @@ class equations_1_item(Group):
         relative_criteria=relative_criteria,
     )
 
-class equations_1(NamedObject[equations_1_item], CreatableNamedObjectMixin[equations_1_item]):
+class equations_1(_NamedObjectCommands, NamedObject[equations_1_item], CreatableNamedObjectMixin[equations_1_item]):
     """
     The various equations that can be monitored. For example, continuity, x-velocity, y-velocity, z-velocity, energy, k, and omega.
     """
@@ -100944,15 +99068,6 @@ class equations_1(NamedObject[equations_1_item], CreatableNamedObjectMixin[equat
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'equations'
     _python_name = 'equations'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = equations_1_item
 
 class criterion_type(String, AllowedValuesMixin):
@@ -101604,7 +99719,7 @@ class curves_item(Group):
         marker_in_file=marker_in_file,
     )
 
-class curves(NamedObject[curves_item], CreatableNamedObjectMixin[curves_item]):
+class curves(_NamedObjectCommands, NamedObject[curves_item], CreatableNamedObjectMixin[curves_item]):
     """
     Parameters for curves.
     """
@@ -101612,15 +99727,6 @@ class curves(NamedObject[curves_item], CreatableNamedObjectMixin[curves_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'curves'
     _python_name = 'curves'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = curves_item
 
 class reset_1(Command):
@@ -101753,7 +99859,7 @@ class equations_2_item(Group):
         relative_criteria=relative_criteria_1,
     )
 
-class equations_2(NamedObject[equations_2_item], CreatableNamedObjectMixin[equations_2_item]):
+class equations_2(_NamedObjectCommands, NamedObject[equations_2_item], CreatableNamedObjectMixin[equations_2_item]):
     """
     List of equations available for global imbalance monitoring.
     """
@@ -101761,15 +99867,6 @@ class equations_2(NamedObject[equations_2_item], CreatableNamedObjectMixin[equat
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'equations'
     _python_name = 'equations'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = equations_2_item
 
 class print_to_console_1(String, AllowedValuesMixin):
@@ -101994,7 +100091,7 @@ class report_files_item(Group):
         write_instantaneous_values=write_instantaneous_values,
     )
 
-class report_files(NamedObject[report_files_item], CreatableNamedObjectMixin[report_files_item]):
+class report_files(_NamedObjectCommands, NamedObject[report_files_item], CreatableNamedObjectMixin[report_files_item]):
     """
     Available options related to report files.
     """
@@ -102002,16 +100099,15 @@ class report_files(NamedObject[report_files_item], CreatableNamedObjectMixin[rep
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'report-files'
     _python_name = 'report_files'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'delete_all', 'clear_data']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        delete_all=delete_all_6,
-        clear_data=clear_data,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'delete_all'), (7, 'clear_data')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'delete_all', delete_all_6),
+            (7, 'clear_data', clear_data),
+        ],
     )
     child_object_type = report_files_item
 
@@ -102135,7 +100231,7 @@ class report_plots_item(Group):
         get_plot_data=get_plot_data_1,
     )
 
-class report_plots(NamedObject[report_plots_item], CreatableNamedObjectMixin[report_plots_item]):
+class report_plots(_NamedObjectCommands, NamedObject[report_plots_item], CreatableNamedObjectMixin[report_plots_item]):
     """
     Available options related to report plots.
     """
@@ -102143,15 +100239,14 @@ class report_plots(NamedObject[report_plots_item], CreatableNamedObjectMixin[rep
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'report-plots'
     _python_name = 'report_plots'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'delete_all']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        delete_all=delete_all_7,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'delete_all')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'delete_all', delete_all_7),
+        ],
     )
     child_object_type = report_plots_item
 
@@ -102251,7 +100346,7 @@ class convergence_reports_item(Group):
         previous_values=previous_values,
     )
 
-class convergence_reports(NamedObject[convergence_reports_item], CreatableNamedObjectMixin[convergence_reports_item]):
+class convergence_reports(_NamedObjectCommands, NamedObject[convergence_reports_item], CreatableNamedObjectMixin[convergence_reports_item]):
     """
     Available options related to creating convergence reports.
     """
@@ -102259,15 +100354,6 @@ class convergence_reports(NamedObject[convergence_reports_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'convergence-reports'
     _python_name = 'convergence_reports'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = convergence_reports_item
 
 class frequency_6(Integer):
@@ -103286,7 +101372,7 @@ class cell_registers_item(Group):
         create_volume_surface=create_volume_surface,
     )
 
-class cell_registers(NamedObject[cell_registers_item], CreatableNamedObjectMixin[cell_registers_item]):
+class cell_registers(_NamedObjectCommands, NamedObject[cell_registers_item], CreatableNamedObjectMixin[cell_registers_item]):
     """
     Provides access to cell registers used to store and operate on subsets of mesh cells.
     """
@@ -103294,15 +101380,6 @@ class cell_registers(NamedObject[cell_registers_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'cell-registers'
     _python_name = 'cell_registers'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = cell_registers_item
 
 class initialization_type(String, AllowedValuesMixin):
@@ -103401,7 +101478,7 @@ class defaults_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'defaults_item'
 
-class defaults(NamedObject[defaults_item], CreatableNamedObjectMixin[defaults_item]):
+class defaults(_NamedObjectCommands, NamedObject[defaults_item], CreatableNamedObjectMixin[defaults_item]):
     """
     Defaults object.
     """
@@ -103409,15 +101486,6 @@ class defaults(NamedObject[defaults_item], CreatableNamedObjectMixin[defaults_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'defaults'
     _python_name = 'defaults'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = defaults_item
 
 class enabled_72(Boolean):
@@ -103593,7 +101661,7 @@ class species_fraction_mf_item_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'species_fraction_mf_item_item'
 
-class species_fraction_mf_item(NamedObject[species_fraction_mf_item_item], CreatableNamedObjectMixin[species_fraction_mf_item_item]):
+class species_fraction_mf_item(_NamedObjectCommands, NamedObject[species_fraction_mf_item_item], CreatableNamedObjectMixin[species_fraction_mf_item_item]):
     """
     'child_object_type' of species_fraction_mf.
     """
@@ -103601,18 +101669,9 @@ class species_fraction_mf_item(NamedObject[species_fraction_mf_item_item], Creat
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'child-object-type'
     _python_name = 'species_fraction_mf_item'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_fraction_mf_item_item
 
-class species_fraction_mf(NamedObject[species_fraction_mf_item], CreatableNamedObjectMixin[species_fraction_mf_item]):
+class species_fraction_mf(_NamedObjectCommands, NamedObject[species_fraction_mf_item], CreatableNamedObjectMixin[species_fraction_mf_item]):
     """
     Configure species settings.
     """
@@ -103620,15 +101679,6 @@ class species_fraction_mf(NamedObject[species_fraction_mf_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-fraction-mf'
     _python_name = 'species_fraction_mf'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_fraction_mf_item
 
 class species_fraction_item(Real):
@@ -103640,7 +101690,7 @@ class species_fraction_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'species_fraction_item'
 
-class species_fraction(NamedObject[species_fraction_item], CreatableNamedObjectMixin[species_fraction_item]):
+class species_fraction(_NamedObjectCommands, NamedObject[species_fraction_item], CreatableNamedObjectMixin[species_fraction_item]):
     """
     Configure species settings object.
     """
@@ -103648,15 +101698,6 @@ class species_fraction(NamedObject[species_fraction_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'species-fraction'
     _python_name = 'species_fraction'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = species_fraction_item
 
 class species_setting(Group):
@@ -104705,7 +102746,7 @@ class execute_commands_item(Group):
         python_cmd=python_cmd,
     )
 
-class execute_commands(NamedObject[execute_commands_item], CreatableNamedObjectMixin[execute_commands_item]):
+class execute_commands(_NamedObjectCommands, NamedObject[execute_commands_item], CreatableNamedObjectMixin[execute_commands_item]):
     """
     Execute commands.
     """
@@ -104713,16 +102754,15 @@ class execute_commands(NamedObject[execute_commands_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'execute-commands'
     _python_name = 'execute_commands'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'export', 'import_']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        export=export_1,
-        import_=import__1,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'export'), (7, 'import_')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'export', export_1),
+            (7, 'import_', import__1),
+        ],
     )
     child_object_type = execute_commands_item
 
@@ -105075,15 +103115,8 @@ class solution_animations_item(Group):
         display=display_11,
     )
 
-class solution_animations(NamedObject[solution_animations_item], CreatableNamedObjectMixin[solution_animations_item]):
-    """
-    Controls settings for generating animations during the simulation run.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'solution-animations'
-    _python_name = 'solution_animations'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
+class _NamedObjectCommands_11(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_18,
         delete=delete_2,
@@ -105091,9 +103124,32 @@ class solution_animations(NamedObject[solution_animations_item], CreatableNamedO
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    )
+    create = create_18
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy_1
+
+class solution_animations(_NamedObjectCommands_11, NamedObject[solution_animations_item], CreatableNamedObjectMixin[solution_animations_item]):
+    """
+    Controls settings for generating animations during the simulation run.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'solution-animations'
+    _python_name = 'solution_animations'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_11.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_11._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = solution_animations_item
     _child_aliases = dict(
@@ -105332,7 +103388,7 @@ class automatic_case_modification_item(Group):
         flowtime=flowtime,
     )
 
-class automatic_case_modification(NamedObject[automatic_case_modification_item], CreatableNamedObjectMixin[automatic_case_modification_item]):
+class automatic_case_modification(_NamedObjectCommands, NamedObject[automatic_case_modification_item], CreatableNamedObjectMixin[automatic_case_modification_item]):
     """
     Automatic Case Modification.
     """
@@ -105340,17 +103396,16 @@ class automatic_case_modification(NamedObject[automatic_case_modification_item],
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'automatic-case-modification'
     _python_name = 'automatic_case_modification'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'enable', 'disable', 'add_edit']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        enable=enable_51,
-        disable=disable_1,
-        add_edit=add_edit,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'enable'), (7, 'disable'), (8, 'add_edit')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'enable', enable_51),
+            (7, 'disable', disable_1),
+            (8, 'add_edit', add_edit),
+        ],
     )
     child_object_type = automatic_case_modification_item
     _child_aliases = dict(
@@ -105446,7 +103501,7 @@ class import_modifications(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             TSV filename.
     """
     _version = '271'
@@ -105730,15 +103785,8 @@ class register_based_item(Group):
         monitor=monitor_3,
     )
 
-class register_based(NamedObject[register_based_item], CreatableNamedObjectMixin[register_based_item]):
-    """
-    Up the application of poor mesh numerics to cells in a register.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'register-based'
-    _python_name = 'register_based'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'set']
+class _NamedObjectCommands_12(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create,
         delete=delete_2,
@@ -105746,7 +103794,30 @@ class register_based(NamedObject[register_based_item], CreatableNamedObjectMixin
         list=list_4,
         list_properties=list_properties_5,
         make_a_copy=make_a_copy,
-        set=set_1,
+    )
+    create = create
+    delete = delete_2
+    rename = rename
+    list = list_4
+    list_properties = list_properties_5
+    make_a_copy = make_a_copy
+
+class register_based(_NamedObjectCommands_12, NamedObject[register_based_item], CreatableNamedObjectMixin[register_based_item]):
+    """
+    Up the application of poor mesh numerics to cells in a register.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'register-based'
+    _python_name = 'register_based'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_12.command_names, [(6, 'set')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_12._child_classes,
+        [
+            (6, 'set', set_1),
+        ],
     )
     child_object_type = register_based_item
 
@@ -105847,7 +103918,7 @@ class ascii_1_item(Group):
         file_name=file_name_29,
     )
 
-class ascii_1(NamedObject[ascii_1_item], CreatableNamedObjectMixin[ascii_1_item]):
+class ascii_1(_NamedObjectCommands, NamedObject[ascii_1_item], CreatableNamedObjectMixin[ascii_1_item]):
     """
     ASCII Export.
     """
@@ -105855,15 +103926,6 @@ class ascii_1(NamedObject[ascii_1_item], CreatableNamedObjectMixin[ascii_1_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'ascii'
     _python_name = 'ascii'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = ascii_1_item
 
 class file_format(String, AllowedValuesMixin):
@@ -105901,7 +103963,7 @@ class cgns_1_item(Group):
         file_name=file_name_29,
     )
 
-class cgns_1(NamedObject[cgns_1_item], CreatableNamedObjectMixin[cgns_1_item]):
+class cgns_1(_NamedObjectCommands, NamedObject[cgns_1_item], CreatableNamedObjectMixin[cgns_1_item]):
     """
     CGNS Export.
     """
@@ -105909,15 +103971,6 @@ class cgns_1(NamedObject[cgns_1_item], CreatableNamedObjectMixin[cgns_1_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'cgns'
     _python_name = 'cgns'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = cgns_1_item
 
 class visualize_item(Group):
@@ -105942,7 +103995,7 @@ class visualize_item(Group):
         file_name=file_name_29,
     )
 
-class visualize(NamedObject[visualize_item], CreatableNamedObjectMixin[visualize_item]):
+class visualize(_NamedObjectCommands, NamedObject[visualize_item], CreatableNamedObjectMixin[visualize_item]):
     """
     Visualize (DVS) Export.
     """
@@ -105950,15 +104003,6 @@ class visualize(NamedObject[visualize_item], CreatableNamedObjectMixin[visualize
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'visualize'
     _python_name = 'visualize'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = visualize_item
 
 class analysis(String, AllowedValuesMixin):
@@ -106020,7 +104064,7 @@ class mapdl_item(Group):
         file_name=file_name_29,
     )
 
-class mapdl(NamedObject[mapdl_item], CreatableNamedObjectMixin[mapdl_item]):
+class mapdl(_NamedObjectCommands, NamedObject[mapdl_item], CreatableNamedObjectMixin[mapdl_item]):
     """
     Mechanical APDL Input Export.
     """
@@ -106028,15 +104072,6 @@ class mapdl(NamedObject[mapdl_item], CreatableNamedObjectMixin[mapdl_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mapdl'
     _python_name = 'mapdl'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mapdl_item
 
 class nastran_1_item(Group):
@@ -106061,7 +104096,7 @@ class nastran_1_item(Group):
         file_name=file_name_29,
     )
 
-class nastran_1(NamedObject[nastran_1_item], CreatableNamedObjectMixin[nastran_1_item]):
+class nastran_1(_NamedObjectCommands, NamedObject[nastran_1_item], CreatableNamedObjectMixin[nastran_1_item]):
     """
     NASTRAN Export.
     """
@@ -106069,15 +104104,6 @@ class nastran_1(NamedObject[nastran_1_item], CreatableNamedObjectMixin[nastran_1
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'nastran'
     _python_name = 'nastran'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = nastran_1_item
 
 class tecplot_1_item(Group):
@@ -106099,7 +104125,7 @@ class tecplot_1_item(Group):
         file_name=file_name_29,
     )
 
-class tecplot_1(NamedObject[tecplot_1_item], CreatableNamedObjectMixin[tecplot_1_item]):
+class tecplot_1(_NamedObjectCommands, NamedObject[tecplot_1_item], CreatableNamedObjectMixin[tecplot_1_item]):
     """
     Tecplot Export.
     """
@@ -106107,15 +104133,6 @@ class tecplot_1(NamedObject[tecplot_1_item], CreatableNamedObjectMixin[tecplot_1
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'tecplot'
     _python_name = 'tecplot'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = tecplot_1_item
 
 class automatic_exports(Group, _ChildNamedObjectAccessorMixin):
@@ -107348,7 +105365,7 @@ class extrapolate_eqn_vars_item(Boolean):
     fluent_name = 'child-object-type'
     _python_name = 'extrapolate_eqn_vars_item'
 
-class extrapolate_eqn_vars(NamedObject[extrapolate_eqn_vars_item], CreatableNamedObjectMixin[extrapolate_eqn_vars_item]):
+class extrapolate_eqn_vars(_NamedObjectCommands, NamedObject[extrapolate_eqn_vars_item], CreatableNamedObjectMixin[extrapolate_eqn_vars_item]):
     """
     The extrapolation object.
     """
@@ -107356,15 +105373,6 @@ class extrapolate_eqn_vars(NamedObject[extrapolate_eqn_vars_item], CreatableName
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'extrapolate-eqn-vars'
     _python_name = 'extrapolate_eqn_vars'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = extrapolate_eqn_vars_item
 
 class enable_solid_time_step(Boolean):
@@ -107709,7 +105717,7 @@ class data_sets_item(Group):
         average_over=average_over_1,
     )
 
-class data_sets(NamedObject[data_sets_item], CreatableNamedObjectMixin[data_sets_item]):
+class data_sets(_NamedObjectCommands, NamedObject[data_sets_item], CreatableNamedObjectMixin[data_sets_item]):
     """
     Data sampling datasets object.
     """
@@ -107717,15 +105725,6 @@ class data_sets(NamedObject[data_sets_item], CreatableNamedObjectMixin[data_sets
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'data-sets'
     _python_name = 'data_sets'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = data_sets_item
 
 class zone_names_6(StringList, AllowedValuesMixin):
@@ -108051,15 +106050,8 @@ class compute_resources_item(Group):
         default_cluster=default_cluster,
     )
 
-class compute_resources(NamedObject[compute_resources_item], CreatableNamedObjectMixin[compute_resources_item]):
-    """
-    Compute Resource List.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'compute-resources'
-    _python_name = 'compute_resources'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'add', 'get_current', 'set_current', 'disconnect_current']
+class _NamedObjectCommands_13(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create,
         delete=delete_12,
@@ -108067,10 +106059,33 @@ class compute_resources(NamedObject[compute_resources_item], CreatableNamedObjec
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        add=add_8,
-        get_current=get_current,
-        set_current=set_current,
-        disconnect_current=disconnect_current,
+    )
+    create = create
+    delete = delete_12
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class compute_resources(_NamedObjectCommands_13, NamedObject[compute_resources_item], CreatableNamedObjectMixin[compute_resources_item]):
+    """
+    Compute Resource List.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'compute-resources'
+    _python_name = 'compute_resources'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_13.command_names, [(6, 'add'), (7, 'get_current'), (8, 'set_current'), (9, 'disconnect_current')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_13._child_classes,
+        [
+            (6, 'add', add_8),
+            (7, 'get_current', get_current),
+            (8, 'set_current', set_current),
+            (9, 'disconnect_current', disconnect_current),
+        ],
     )
     child_object_type = compute_resources_item
 
@@ -109463,7 +107478,7 @@ class load_1(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             File name.
     """
     _version = '271'
@@ -109510,16 +107525,8 @@ class custom_field_functions_1_item(Group):
         custom_field_function=custom_field_function_1,
     )
 
-class custom_field_functions_1(NamedObject[custom_field_functions_1_item], CreatableNamedObjectMixin[custom_field_functions_1_item]):
-    """
-    Provides access to creating custom field function.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'custom-field-functions'
-    _python_name = 'custom_field_functions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'save', 'load']
-    query_names = ['get_list_of_valid_cell_function_names']
+class _NamedObjectCommands_14(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_19,
         delete=delete_2,
@@ -109527,9 +107534,33 @@ class custom_field_functions_1(NamedObject[custom_field_functions_1_item], Creat
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        save=save_2,
-        load=load_1,
-        get_list_of_valid_cell_function_names=get_list_of_valid_cell_function_names,
+    )
+    create = create_19
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class custom_field_functions_1(_NamedObjectCommands_14, NamedObject[custom_field_functions_1_item], CreatableNamedObjectMixin[custom_field_functions_1_item]):
+    """
+    Provides access to creating custom field function.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'custom-field-functions'
+    _python_name = 'custom_field_functions'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_14.command_names, [(6, 'save'), (7, 'load')]
+    )
+    query_names = ['get_list_of_valid_cell_function_names']
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_14._child_classes,
+        [
+            (6, 'save', save_2),
+            (7, 'load', load_1),
+            (8, 'get_list_of_valid_cell_function_names', get_list_of_valid_cell_function_names),
+        ],
     )
     child_object_type = custom_field_functions_1_item
 
@@ -109576,7 +107607,7 @@ class custom_vectors_item(Group):
         z_component=z_component,
     )
 
-class custom_vectors(NamedObject[custom_vectors_item], CreatableNamedObjectMixin[custom_vectors_item]):
+class custom_vectors(_NamedObjectCommands, NamedObject[custom_vectors_item], CreatableNamedObjectMixin[custom_vectors_item]):
     """
     Create and manage user-defined vector fields for post-processing.
     """
@@ -109584,15 +107615,6 @@ class custom_vectors(NamedObject[custom_vectors_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'custom-vectors'
     _python_name = 'custom_vectors'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = custom_vectors_item
 
 class reference_frame_13(String, AllowedValuesMixin):
@@ -109706,7 +107728,7 @@ class point_surface_item(Group):
         display=display_12,
     )
 
-class point_surface(NamedObject[point_surface_item], CreatableNamedObjectMixin[point_surface_item]):
+class point_surface(_NamedObjectCommands, NamedObject[point_surface_item], CreatableNamedObjectMixin[point_surface_item]):
     """
     Provides access to creating point surfaces (surfaces containing a single data point).
     """
@@ -109714,15 +107736,6 @@ class point_surface(NamedObject[point_surface_item], CreatableNamedObjectMixin[p
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'point-surface'
     _python_name = 'point_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = point_surface_item
 
 class p0(RealList):
@@ -109760,7 +107773,7 @@ class line_surface_item(Group):
         display=display_12,
     )
 
-class line_surface(NamedObject[line_surface_item], CreatableNamedObjectMixin[line_surface_item]):
+class line_surface(_NamedObjectCommands, NamedObject[line_surface_item], CreatableNamedObjectMixin[line_surface_item]):
     """
     Provides access to creating new and editing existing line surfaces.
     """
@@ -109768,15 +107781,6 @@ class line_surface(NamedObject[line_surface_item], CreatableNamedObjectMixin[lin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'line-surface'
     _python_name = 'line_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = line_surface_item
 
 class number_of_points(Integer):
@@ -109806,7 +107810,7 @@ class rake_surface_item(Group):
         display=display_12,
     )
 
-class rake_surface(NamedObject[rake_surface_item], CreatableNamedObjectMixin[rake_surface_item]):
+class rake_surface(_NamedObjectCommands, NamedObject[rake_surface_item], CreatableNamedObjectMixin[rake_surface_item]):
     """
     Provides access to creating new and editing existing rake surfaces.
     """
@@ -109814,15 +107818,6 @@ class rake_surface(NamedObject[rake_surface_item], CreatableNamedObjectMixin[rak
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'rake-surface'
     _python_name = 'rake_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = rake_surface_item
 
 class method_19(String, AllowedValuesMixin):
@@ -109985,7 +107980,7 @@ class plane_surface_item(Group):
         point_vector=('point', 'point-vector'),
     )
 
-class plane_surface(NamedObject[plane_surface_item], CreatableNamedObjectMixin[plane_surface_item]):
+class plane_surface(_NamedObjectCommands, NamedObject[plane_surface_item], CreatableNamedObjectMixin[plane_surface_item]):
     """
     The attributes of plane surface.
     """
@@ -109993,15 +107988,6 @@ class plane_surface(NamedObject[plane_surface_item], CreatableNamedObjectMixin[p
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'plane-surface'
     _python_name = 'plane_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = plane_surface_item
 
 class field_2(String, AllowedValuesMixin):
@@ -110140,7 +108126,7 @@ class iso_surface_item(Group):
         update_min_max=('range/compute', 'update-min-max'),
     )
 
-class iso_surface(NamedObject[iso_surface_item], CreatableNamedObjectMixin[iso_surface_item]):
+class iso_surface(_NamedObjectCommands, NamedObject[iso_surface_item], CreatableNamedObjectMixin[iso_surface_item]):
     """
     Provides access to creating new and editing existing iso-surfaces. These surfaces can be iso-valued sections of an existing surface or of the entire domain.
     """
@@ -110148,15 +108134,6 @@ class iso_surface(NamedObject[iso_surface_item], CreatableNamedObjectMixin[iso_s
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'iso-surface'
     _python_name = 'iso_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = iso_surface_item
 
 class surfaces_12(StringList, AllowedValuesMixin):
@@ -110235,7 +108212,7 @@ class iso_clip_item(Group):
         update_min_max=('range/compute', 'update-min-max'),
     )
 
-class iso_clip(NamedObject[iso_clip_item], CreatableNamedObjectMixin[iso_clip_item]):
+class iso_clip(_NamedObjectCommands, NamedObject[iso_clip_item], CreatableNamedObjectMixin[iso_clip_item]):
     """
     Provides access to creating new and editing existing clip surfaces. The clipped surface consists of those points on the selected surface where the scalar field values are within the specified range.
     """
@@ -110243,15 +108220,6 @@ class iso_clip(NamedObject[iso_clip_item], CreatableNamedObjectMixin[iso_clip_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'iso-clip'
     _python_name = 'iso_clip'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = iso_clip_item
 
 class zone_name_11(String, AllowedValuesMixin):
@@ -110279,7 +108247,7 @@ class zone_surface_item(Group):
         display=display_12,
     )
 
-class zone_surface(NamedObject[zone_surface_item], CreatableNamedObjectMixin[zone_surface_item]):
+class zone_surface(_NamedObjectCommands, NamedObject[zone_surface_item], CreatableNamedObjectMixin[zone_surface_item]):
     """
     Provides access to creating new and editing existing zone surfaces.
     """
@@ -110287,15 +108255,6 @@ class zone_surface(NamedObject[zone_surface_item], CreatableNamedObjectMixin[zon
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'zone-surface'
     _python_name = 'zone_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = zone_surface_item
 
 class partition_1(Integer):
@@ -110343,7 +108302,7 @@ class partition_surface_item(Group):
         display=display_12,
     )
 
-class partition_surface(NamedObject[partition_surface_item], CreatableNamedObjectMixin[partition_surface_item]):
+class partition_surface(_NamedObjectCommands, NamedObject[partition_surface_item], CreatableNamedObjectMixin[partition_surface_item]):
     """
     Provides access to creating new and editing existing partition surfaces.
     """
@@ -110351,15 +108310,6 @@ class partition_surface(NamedObject[partition_surface_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'partition-surface'
     _python_name = 'partition_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = partition_surface_item
 
 class surface_2(StringList, AllowedValuesMixin):
@@ -110428,7 +108378,7 @@ class transform_surface_item(Group):
         display=display_12,
     )
 
-class transform_surface(NamedObject[transform_surface_item], CreatableNamedObjectMixin[transform_surface_item]):
+class transform_surface(_NamedObjectCommands, NamedObject[transform_surface_item], CreatableNamedObjectMixin[transform_surface_item]):
     """
     Provides access to creating new and editing existing transform surfaces. You can create a new transform surface by rotating and/or translating an existing surface and/or by specifying a constant normal distance from it.
     """
@@ -110436,15 +108386,6 @@ class transform_surface(NamedObject[transform_surface_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'transform-surface'
     _python_name = 'transform_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = transform_surface_item
 
 class surface_3(String, AllowedValuesMixin):
@@ -110492,7 +108433,7 @@ class imprint_surface_item(Group):
         display=display_12,
     )
 
-class imprint_surface(NamedObject[imprint_surface_item], CreatableNamedObjectMixin[imprint_surface_item]):
+class imprint_surface(_NamedObjectCommands, NamedObject[imprint_surface_item], CreatableNamedObjectMixin[imprint_surface_item]):
     """
     Provides access to creating new and editing existing imprint surfaces. You can import a custom surface representing the region of interest (.stl, .msh, or .cas format) and imprint this surface into the current mesh.
     """
@@ -110500,15 +108441,6 @@ class imprint_surface(NamedObject[imprint_surface_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'imprint-surface'
     _python_name = 'imprint_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = imprint_surface_item
 
 class distance_from_origin(Real):
@@ -110537,7 +108469,7 @@ class plane_slice_item(Group):
         display=display_12,
     )
 
-class plane_slice(NamedObject[plane_slice_item], CreatableNamedObjectMixin[plane_slice_item]):
+class plane_slice(_NamedObjectCommands, NamedObject[plane_slice_item], CreatableNamedObjectMixin[plane_slice_item]):
     """
     Provides access to creating new and editing existing plane slices.
     """
@@ -110545,15 +108477,6 @@ class plane_slice(NamedObject[plane_slice_item], CreatableNamedObjectMixin[plane
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'plane-slice'
     _python_name = 'plane_slice'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = plane_slice_item
 
 class center_2(RealList):
@@ -110582,7 +108505,7 @@ class sphere_slice_item(Group):
         display=display_12,
     )
 
-class sphere_slice(NamedObject[sphere_slice_item], CreatableNamedObjectMixin[sphere_slice_item]):
+class sphere_slice(_NamedObjectCommands, NamedObject[sphere_slice_item], CreatableNamedObjectMixin[sphere_slice_item]):
     """
     Provides access to creating new and editing existing sphere slices.
     """
@@ -110590,15 +108513,6 @@ class sphere_slice(NamedObject[sphere_slice_item], CreatableNamedObjectMixin[sph
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'sphere-slice'
     _python_name = 'sphere_slice'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = sphere_slice_item
 
 class attribute(RealList):
@@ -110636,7 +108550,7 @@ class quadric_surface_item(Group):
         display=display_12,
     )
 
-class quadric_surface(NamedObject[quadric_surface_item], CreatableNamedObjectMixin[quadric_surface_item]):
+class quadric_surface(_NamedObjectCommands, NamedObject[quadric_surface_item], CreatableNamedObjectMixin[quadric_surface_item]):
     """
     Provides access to creating new and editing existing quadric surfaces. You can display data on a general quadric surface where you can specify the surface by entering the coefficients of the quadric function that defines it. This feature provides you with an explicit method for defining surfaces.
     """
@@ -110644,15 +108558,6 @@ class quadric_surface(NamedObject[quadric_surface_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'quadric-surface'
     _python_name = 'quadric_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = quadric_surface_item
 
 class surface_4(String, AllowedValuesMixin):
@@ -110680,7 +108585,7 @@ class surface_cells_item(Group):
         display=display_12,
     )
 
-class surface_cells(NamedObject[surface_cells_item], CreatableNamedObjectMixin[surface_cells_item]):
+class surface_cells(_NamedObjectCommands, NamedObject[surface_cells_item], CreatableNamedObjectMixin[surface_cells_item]):
     """
     Extract all cells intersected by a data surface.
     """
@@ -110688,15 +108593,6 @@ class surface_cells(NamedObject[surface_cells_item], CreatableNamedObjectMixin[s
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'surface-cells'
     _python_name = 'surface_cells'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = surface_cells_item
 
 class expression_definition(String):
@@ -110724,7 +108620,7 @@ class expression_volume_item(Group):
         display=display_12,
     )
 
-class expression_volume(NamedObject[expression_volume_item], CreatableNamedObjectMixin[expression_volume_item]):
+class expression_volume(_NamedObjectCommands, NamedObject[expression_volume_item], CreatableNamedObjectMixin[expression_volume_item]):
     """
     Provides access to creating new and editing existing expression-surfaces.
     """
@@ -110732,15 +108628,6 @@ class expression_volume(NamedObject[expression_volume_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'expression-volume'
     _python_name = 'expression_volume'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = expression_volume_item
 
 class wrapped_body_surface_item(Group):
@@ -110759,7 +108646,7 @@ class wrapped_body_surface_item(Group):
         display=display_12,
     )
 
-class wrapped_body_surface(NamedObject[wrapped_body_surface_item], CreatableNamedObjectMixin[wrapped_body_surface_item]):
+class wrapped_body_surface(_NamedObjectCommands, NamedObject[wrapped_body_surface_item], CreatableNamedObjectMixin[wrapped_body_surface_item]):
     """
     Provides access to creating new and editing existing expression-surfaces.
     """
@@ -110767,15 +108654,6 @@ class wrapped_body_surface(NamedObject[wrapped_body_surface_item], CreatableName
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'wrapped-body-surface'
     _python_name = 'wrapped_body_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = wrapped_body_surface_item
 
 class wrapped_part_surface_item(Group):
@@ -110794,7 +108672,7 @@ class wrapped_part_surface_item(Group):
         display=display_12,
     )
 
-class wrapped_part_surface(NamedObject[wrapped_part_surface_item], CreatableNamedObjectMixin[wrapped_part_surface_item]):
+class wrapped_part_surface(_NamedObjectCommands, NamedObject[wrapped_part_surface_item], CreatableNamedObjectMixin[wrapped_part_surface_item]):
     """
     Provides access to creating new and editing existing expression-surfaces.
     """
@@ -110802,15 +108680,6 @@ class wrapped_part_surface(NamedObject[wrapped_part_surface_item], CreatableName
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'wrapped-part-surface'
     _python_name = 'wrapped_part_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = wrapped_part_surface_item
 
 class wrapped_solid_region_surface_item(Group):
@@ -110829,7 +108698,7 @@ class wrapped_solid_region_surface_item(Group):
         display=display_12,
     )
 
-class wrapped_solid_region_surface(NamedObject[wrapped_solid_region_surface_item], CreatableNamedObjectMixin[wrapped_solid_region_surface_item]):
+class wrapped_solid_region_surface(_NamedObjectCommands, NamedObject[wrapped_solid_region_surface_item], CreatableNamedObjectMixin[wrapped_solid_region_surface_item]):
     """
     Provides access to creating new and editing existing expression-surfaces.
     """
@@ -110837,15 +108706,6 @@ class wrapped_solid_region_surface(NamedObject[wrapped_solid_region_surface_item
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'wrapped-solid-region-surface'
     _python_name = 'wrapped_solid_region_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = wrapped_solid_region_surface_item
 
 class name_48(String):
@@ -110939,15 +108799,8 @@ class group_surface_item(Group):
         display=display_13,
     )
 
-class group_surface(NamedObject[group_surface_item], CreatableNamedObjectMixin[group_surface_item]):
-    """
-    Provides access to creating new group and ungroup existing surfaces.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'group-surface'
-    _python_name = 'group_surface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'ungroup']
+class _NamedObjectCommands_15(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_20,
         delete=delete_2,
@@ -110955,7 +108808,30 @@ class group_surface(NamedObject[group_surface_item], CreatableNamedObjectMixin[g
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        ungroup=ungroup,
+    )
+    create = create_20
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class group_surface(_NamedObjectCommands_15, NamedObject[group_surface_item], CreatableNamedObjectMixin[group_surface_item]):
+    """
+    Provides access to creating new group and ungroup existing surfaces.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'group-surface'
+    _python_name = 'group_surface'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_15.command_names, [(6, 'ungroup')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_15._child_classes,
+        [
+            (6, 'ungroup', ungroup),
+        ],
     )
     child_object_type = group_surface_item
 
@@ -111952,15 +109828,8 @@ class mesh_2_item(Group):
         display=display_11,
     )
 
-class mesh_2(NamedObject[mesh_2_item], CreatableNamedObjectMixin[mesh_2_item]):
-    """
-    A mesh object is a named graphical entity in used to represent surface or volume meshes for visualization purposes. These objects allow users to control how mesh data is displayed, manipulated, or referenced in post-processing and visualization workflows.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'mesh'
-    _python_name = 'mesh'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
+class _NamedObjectCommands_16(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create,
         delete=delete_2,
@@ -111968,9 +109837,32 @@ class mesh_2(NamedObject[mesh_2_item], CreatableNamedObjectMixin[mesh_2_item]):
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    )
+    create = create
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy_1
+
+class mesh_2(_NamedObjectCommands_16, NamedObject[mesh_2_item], CreatableNamedObjectMixin[mesh_2_item]):
+    """
+    A mesh object is a named graphical entity in used to represent surface or volume meshes for visualization purposes. These objects allow users to control how mesh data is displayed, manipulated, or referenced in post-processing and visualization workflows.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'mesh'
+    _python_name = 'mesh'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = mesh_2_item
     _child_aliases = dict(
@@ -112535,7 +110427,7 @@ class contour_item(Group):
         update_min_max=('range_options/compute', 'update-min-max'),
     )
 
-class contour(NamedObject[contour_item], CreatableNamedObjectMixin[contour_item]):
+class contour(_NamedObjectCommands_16, NamedObject[contour_item], CreatableNamedObjectMixin[contour_item]):
     """
     A contour object is a named graphical entity used to visualize scalar field data such as temperature, pressure, or velocity magnitude across surfaces or volumes. It maps numerical values to color gradients, helping users analyze flow behavior, gradients, and other physical phenomena.
     """
@@ -112543,17 +110435,16 @@ class contour(NamedObject[contour_item], CreatableNamedObjectMixin[contour_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'contour'
     _python_name = 'contour'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = contour_item
     _child_aliases = dict(
@@ -112800,7 +110691,7 @@ class vector_1_item(Group):
         update_min_max=('range_options/compute', 'update-min-max'),
     )
 
-class vector_1(NamedObject[vector_1_item], CreatableNamedObjectMixin[vector_1_item]):
+class vector_1(_NamedObjectCommands_16, NamedObject[vector_1_item], CreatableNamedObjectMixin[vector_1_item]):
     """
     A vector object is a named graphics entity used to display vector fields such as velocity, force, or any directional quantity on specified surfaces. It visualizes both magnitude and direction using arrows or glyphs.
     """
@@ -112808,17 +110699,16 @@ class vector_1(NamedObject[vector_1_item], CreatableNamedObjectMixin[vector_1_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'vector'
     _python_name = 'vector'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = vector_1_item
     _child_aliases = dict(
@@ -114135,7 +112025,7 @@ class curves_1_item(Group):
         marker=marker_2,
     )
 
-class curves_1(NamedObject[curves_1_item], CreatableNamedObjectMixin[curves_1_item]):
+class curves_1(_NamedObjectCommands, NamedObject[curves_1_item], CreatableNamedObjectMixin[curves_1_item]):
     """
     Line, marker style and color for Curves.
     """
@@ -114143,15 +112033,6 @@ class curves_1(NamedObject[curves_1_item], CreatableNamedObjectMixin[curves_1_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'curves'
     _python_name = 'curves'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = curves_1_item
 
 class pathline_item(Group):
@@ -114198,7 +112079,7 @@ class pathline_item(Group):
         update_min_max=('range_options/compute', 'update-min-max'),
     )
 
-class pathline(NamedObject[pathline_item], CreatableNamedObjectMixin[pathline_item]):
+class pathline(_NamedObjectCommands_16, NamedObject[pathline_item], CreatableNamedObjectMixin[pathline_item]):
     """
     A pathlines object is a named graphical entity used to visualize the paths that fluid particles follow over time within a flow field. Unlike streamlines (which are instantaneous), pathlines are time-dependent and show the historical trajectory of particles.
     """
@@ -114206,17 +112087,16 @@ class pathline(NamedObject[pathline_item], CreatableNamedObjectMixin[pathline_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'pathline'
     _python_name = 'pathline'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = pathline_item
     _child_aliases = dict(
@@ -115080,7 +112960,7 @@ class particle_track_item(Group):
         update_min_max=('range_options/compute', 'update-min-max'),
     )
 
-class particle_track(NamedObject[particle_track_item], CreatableNamedObjectMixin[particle_track_item]):
+class particle_track(_NamedObjectCommands_16, NamedObject[particle_track_item], CreatableNamedObjectMixin[particle_track_item]):
     """
     A particle tracks object is a named graphical visualization that displays the trajectory of discrete particles (or droplets, bubbles, etc.) tracked through the flow domain using the Discrete Phase Model (DPM). These tracks are computed based on forces such as drag, gravity, and other interactions with the continuous phase.
     """
@@ -115088,17 +112968,16 @@ class particle_track(NamedObject[particle_track_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'particle-track'
     _python_name = 'particle_track'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = particle_track_item
     _child_aliases = dict(
@@ -115300,7 +113179,7 @@ class lic_item(Group):
         update_min_max=('range_options/compute', 'update-min-max'),
     )
 
-class lic(NamedObject[lic_item], CreatableNamedObjectMixin[lic_item]):
+class lic(_NamedObjectCommands_16, NamedObject[lic_item], CreatableNamedObjectMixin[lic_item]):
     """
     A LIC object is a named graphics entity that visualizes flow direction and structure using Line Integral Convolution (LIC). LIC provides a dense, texture-based representation of a vector field (typically velocity) on a surface, producing a smooth and intuitive image of flow patterns especially useful in complex or turbulent regions.
     """
@@ -115308,17 +113187,16 @@ class lic(NamedObject[lic_item], CreatableNamedObjectMixin[lic_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'lic'
     _python_name = 'lic'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = lic_item
     _child_aliases = dict(
@@ -115366,7 +113244,7 @@ class olic_item(Group):
         display=display_11,
     )
 
-class olic(NamedObject[olic_item], CreatableNamedObjectMixin[olic_item]):
+class olic(_NamedObjectCommands_16, NamedObject[olic_item], CreatableNamedObjectMixin[olic_item]):
     """
     An OLIC object is a specialized visualization tool based on Oriented Line Integral Convolution. It enhances the standard LIC (Line Integral Convolution) by adding directional cues to the vector field, allowing users to interpret both direction and flow orientation rather than just structure.
     """
@@ -115374,17 +113252,16 @@ class olic(NamedObject[olic_item], CreatableNamedObjectMixin[olic_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'olic'
     _python_name = 'olic'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = olic_item
     _child_aliases = dict(
@@ -115906,7 +113783,7 @@ class volumes_4_item(Group):
         display=display_11,
     )
 
-class volumes_4(NamedObject[volumes_4_item], CreatableNamedObjectMixin[volumes_4_item]):
+class volumes_4(_NamedObjectCommands_16, NamedObject[volumes_4_item], CreatableNamedObjectMixin[volumes_4_item]):
     """
     A volume object is a named graphical entity that allows you to visualize scalar or vector fields within the volume of the domain, not just on surfaces. These objects are essential for analyzing internal flow behavior, gradients, and regions that may not be visible in surface-only plots.
     """
@@ -115914,17 +113791,16 @@ class volumes_4(NamedObject[volumes_4_item], CreatableNamedObjectMixin[volumes_4
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'volumes'
     _python_name = 'volumes'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = volumes_4_item
     _child_aliases = dict(
@@ -116025,7 +113901,7 @@ class type_name_item(Group):
         material=material_10,
     )
 
-class type_name(NamedObject[type_name_item], CreatableNamedObjectMixin[type_name_item]):
+class type_name(_NamedObjectCommands, NamedObject[type_name_item], CreatableNamedObjectMixin[type_name_item]):
     """
     The zone type to specify colors and/or materials.
     """
@@ -116033,15 +113909,6 @@ class type_name(NamedObject[type_name_item], CreatableNamedObjectMixin[type_name
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'type-name'
     _python_name = 'type_name'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = type_name_item
 
 class reset_3(Command):
@@ -116111,7 +113978,7 @@ class surface_name_item(Group):
         material=material_11,
     )
 
-class surface_name(NamedObject[surface_name_item], CreatableNamedObjectMixin[surface_name_item]):
+class surface_name(_NamedObjectCommands, NamedObject[surface_name_item], CreatableNamedObjectMixin[surface_name_item]):
     """
     The surface to specify colors and/or materials.
     """
@@ -116119,15 +113986,6 @@ class surface_name(NamedObject[surface_name_item], CreatableNamedObjectMixin[sur
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'surface-name'
     _python_name = 'surface_name'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = surface_name_item
 
 class list_surfaces_by_color(Command):
@@ -117312,7 +115170,7 @@ class read_4(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             File name to read display states from.
     """
     _version = '271'
@@ -117581,7 +115439,7 @@ class display_states_item(Group):
         light_id=light_id,
     )
 
-class display_states(NamedObject[display_states_item], CreatableNamedObjectMixin[display_states_item]):
+class display_states(_NamedObjectCommands, NamedObject[display_states_item], CreatableNamedObjectMixin[display_states_item]):
     """
     Display state options.
     """
@@ -117589,19 +115447,18 @@ class display_states(NamedObject[display_states_item], CreatableNamedObjectMixin
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'display-states'
     _python_name = 'display_states'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'use_active', 'apply', 'copy', 'read', 'write']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        use_active=use_active,
-        apply=apply_2,
-        copy=copy_3,
-        read=read_4,
-        write=write_4,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'use_active'), (7, 'apply'), (8, 'copy'), (9, 'read'), (10, 'write')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'use_active', use_active),
+            (7, 'apply', apply_2),
+            (8, 'copy', copy_3),
+            (9, 'read', read_4),
+            (10, 'write', write_4),
+        ],
     )
     child_object_type = display_states_item
 
@@ -117867,14 +115724,7 @@ class mirror_planes_item(Group):
         visible=visible_1,
     )
 
-class mirror_planes(NamedObject[mirror_planes_item], CreatableNamedObjectMixin[mirror_planes_item]):
-    """
-    The mirror planes options object.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'mirror-planes'
-    _python_name = 'mirror_planes'
+class _NamedObjectCommands_17(_NamedObjectCommandBase):
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_21,
@@ -117884,6 +115734,21 @@ class mirror_planes(NamedObject[mirror_planes_item], CreatableNamedObjectMixin[m
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
     )
+    create = create_21
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class mirror_planes(_NamedObjectCommands_17, NamedObject[mirror_planes_item], CreatableNamedObjectMixin[mirror_planes_item]):
+    """
+    The mirror planes options object.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'mirror-planes'
+    _python_name = 'mirror_planes'
     child_object_type = mirror_planes_item
 
 class mirror_zones(StringList, AllowedValuesMixin):
@@ -118100,7 +115965,7 @@ class read_views(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The view file.
     """
     _version = '271'
@@ -119647,7 +117512,7 @@ class hsf_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             HSF file name.
     """
     _version = '271'
@@ -119975,7 +117840,7 @@ class material_9_item(Group):
         type=type_27,
     )
 
-class material_9(NamedObject[material_9_item], CreatableNamedObjectMixin[material_9_item]):
+class material_9(_NamedObjectCommands, NamedObject[material_9_item], CreatableNamedObjectMixin[material_9_item]):
     """
     Add, Edit, Remove materials in case file.
     """
@@ -119983,15 +117848,14 @@ class material_9(NamedObject[material_9_item], CreatableNamedObjectMixin[materia
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'material'
     _python_name = 'material'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'new']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        new=new_3,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'new')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'new', new_3),
+        ],
     )
     child_object_type = material_9_item
     _child_aliases = dict(
@@ -120409,7 +118273,7 @@ class read_from_file_1(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             File name.
     """
     _version = '271'
@@ -120482,7 +118346,7 @@ class xy_plot_item(Group):
         get_plot_data=get_plot_data_1,
     )
 
-class xy_plot(NamedObject[xy_plot_item], CreatableNamedObjectMixin[xy_plot_item]):
+class xy_plot(_NamedObjectCommands_16, NamedObject[xy_plot_item], CreatableNamedObjectMixin[xy_plot_item]):
     """
     An XY Plot object is a named entity used to plot scalar or vector quantities on a 2D graph with X and Y axes, typically over position, time, or other variable ranges. It is commonly used for monitoring variable trends across surfaces, lines, or during transient simulations.
     """
@@ -120490,17 +118354,16 @@ class xy_plot(NamedObject[xy_plot_item], CreatableNamedObjectMixin[xy_plot_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'xy-plot'
     _python_name = 'xy_plot'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy_1,
-        display=display_15,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_15),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = xy_plot_item
     _child_aliases = dict(
@@ -120869,7 +118732,7 @@ class cumulative_plot_item(Group):
         get_plot_data=get_plot_data_1,
     )
 
-class cumulative_plot(NamedObject[cumulative_plot_item], CreatableNamedObjectMixin[cumulative_plot_item]):
+class cumulative_plot(_NamedObjectCommands, NamedObject[cumulative_plot_item], CreatableNamedObjectMixin[cumulative_plot_item]):
     """
     Cumulative plots.
     """
@@ -120877,17 +118740,16 @@ class cumulative_plot(NamedObject[cumulative_plot_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'cumulative-plot'
     _python_name = 'cumulative_plot'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'plot', 'write', 'print']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        plot=plot_9,
-        write=write_7,
-        print=print_7,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'plot'), (7, 'write'), (8, 'print')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'plot', plot_9),
+            (7, 'write', write_7),
+            (8, 'print', print_7),
+        ],
     )
     child_object_type = cumulative_plot_item
 
@@ -121173,7 +119035,7 @@ class plot_13(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             File name.
     """
     _version = '271'
@@ -121981,7 +119843,7 @@ class receiver_1_item(ListObject[receiver_1_item_item]):
     )
     child_object_type = receiver_1_item_item
 
-class receiver_1(NamedObject[receiver_1_item], CreatableNamedObjectMixin[receiver_1_item]):
+class receiver_1(_NamedObjectCommands, NamedObject[receiver_1_item], CreatableNamedObjectMixin[receiver_1_item]):
     """
     Manage the list of receivers for sound analysis. Each receiver pairs an input file with a Frequency Response Function (FRF) file.
     """
@@ -121989,15 +119851,6 @@ class receiver_1(NamedObject[receiver_1_item], CreatableNamedObjectMixin[receive
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'receiver'
     _python_name = 'receiver'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = receiver_1_item
 
 class sound_duration(Real):
@@ -122193,7 +120046,7 @@ class graphics_objects_item(Group):
         colormap_height=colormap_height,
     )
 
-class graphics_objects(NamedObject[graphics_objects_item], CreatableNamedObjectMixin[graphics_objects_item]):
+class graphics_objects(_NamedObjectCommands_1, NamedObject[graphics_objects_item], CreatableNamedObjectMixin[graphics_objects_item]):
     """
     The graphics objects object.
     """
@@ -122201,15 +120054,14 @@ class graphics_objects(NamedObject[graphics_objects_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'graphics-objects'
     _python_name = 'graphics_objects'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'add']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_2,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        add=add_7,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_1.command_names, [(6, 'add')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_1._child_classes,
+        [
+            (6, 'add', add_7),
+        ],
     )
     child_object_type = graphics_objects_item
 
@@ -122232,7 +120084,7 @@ class scene_item(Group):
         display=display_11,
     )
 
-class scene(NamedObject[scene_item], CreatableNamedObjectMixin[scene_item]):
+class scene(_NamedObjectCommands_16, NamedObject[scene_item], CreatableNamedObjectMixin[scene_item]):
     """
     A scene is a container object graphics that organizes and manages the display of multiple graphical elements such as contours, vectors, pathlines, LIC, particle tracks, and mesh into a single visual output. Scenes help you build layered visualizations, control rendering order, and export cohesive views for reports or animations.
     """
@@ -122240,17 +120092,16 @@ class scene(NamedObject[scene_item], CreatableNamedObjectMixin[scene_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'scene'
     _python_name = 'scene'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'display', 'add_to_graphics', 'clear_history']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy_1,
-        display=display_10,
-        add_to_graphics=add_to_graphics,
-        clear_history=clear_history,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_16.command_names, [(6, 'display'), (7, 'add_to_graphics'), (8, 'clear_history')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_16._child_classes,
+        [
+            (6, 'display', display_10),
+            (7, 'add_to_graphics', add_to_graphics),
+            (8, 'clear_history', clear_history),
+        ],
     )
     child_object_type = scene_item
     _child_aliases = dict(
@@ -122487,7 +120338,7 @@ class annotation_item(Group):
         position=position_2,
     )
 
-class annotation(NamedObject[annotation_item], CreatableNamedObjectMixin[annotation_item]):
+class annotation(_NamedObjectCommands, NamedObject[annotation_item], CreatableNamedObjectMixin[annotation_item]):
     """
     Add, Edit, Remove annotations in case file.
     """
@@ -122495,16 +120346,15 @@ class annotation(NamedObject[annotation_item], CreatableNamedObjectMixin[annotat
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'annotation'
     _python_name = 'annotation'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'annotate', 'show_hide_annotations']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        annotate=annotate,
-        show_hide_annotations=show_hide_annotations,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'annotate'), (7, 'show_hide_annotations')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'annotate', annotate),
+            (7, 'show_hide_annotations', show_hide_annotations),
+        ],
     )
     child_object_type = annotation_item
 
@@ -123096,7 +120946,7 @@ class read_animation(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             The file name to load scene animation from.
     """
     _version = '271'
@@ -123728,7 +121578,7 @@ class read_simulation_report_template_file(Command):
     
     Parameters
     ----------
-        file_name_1 : str
+        file_name : str
             File name and path to read the simulation report template file from.
     """
     _version = '271'
@@ -129255,7 +127105,7 @@ class definition_3_item(Group):
     fluent_name = 'child-object-type'
     _python_name = 'definition_item'
 
-class definition_3(NamedObject[definition_3_item], CreatableNamedObjectMixin[definition_3_item]):
+class definition_3(_NamedObjectCommands, NamedObject[definition_3_item], CreatableNamedObjectMixin[definition_3_item]):
     """
     Old observables definitions. This has been migrated to definitions with an "s" where the various observable types are contained in different dictionaries.
     """
@@ -129264,15 +127114,6 @@ class definition_3(NamedObject[definition_3_item], CreatableNamedObjectMixin[def
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'definition'
     _python_name = 'definition'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = definition_3_item
 
 class walls(StringList, AllowedValuesMixin):
@@ -129309,7 +127150,7 @@ class force_1_item(Group):
         vector=vector_2,
     )
 
-class force_1(NamedObject[force_1_item], CreatableNamedObjectMixin[force_1_item]):
+class force_1(_NamedObjectCommands, NamedObject[force_1_item], CreatableNamedObjectMixin[force_1_item]):
     """
     Force observable definitions.
     """
@@ -129317,15 +127158,6 @@ class force_1(NamedObject[force_1_item], CreatableNamedObjectMixin[force_1_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'force'
     _python_name = 'force'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = force_1_item
 
 class center_3(RealList):
@@ -129363,7 +127195,7 @@ class moment_of_force_item(Group):
         axis=axis_10,
     )
 
-class moment_of_force(NamedObject[moment_of_force_item], CreatableNamedObjectMixin[moment_of_force_item]):
+class moment_of_force(_NamedObjectCommands, NamedObject[moment_of_force_item], CreatableNamedObjectMixin[moment_of_force_item]):
     """
     Moment of force observable definitions.
     """
@@ -129371,15 +127203,6 @@ class moment_of_force(NamedObject[moment_of_force_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'moment-of-force'
     _python_name = 'moment_of_force'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = moment_of_force_item
 
 class fluid_zones(StringList, AllowedValuesMixin):
@@ -129418,7 +127241,7 @@ class swirl_item(Group):
         normalized=normalized_2,
     )
 
-class swirl(NamedObject[swirl_item], CreatableNamedObjectMixin[swirl_item]):
+class swirl(_NamedObjectCommands, NamedObject[swirl_item], CreatableNamedObjectMixin[swirl_item]):
     """
     Swirl observable definitions.
     """
@@ -129426,15 +127249,6 @@ class swirl(NamedObject[swirl_item], CreatableNamedObjectMixin[swirl_item]):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'swirl'
     _python_name = 'swirl'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = swirl_item
 
 class inlets_2(StringList, AllowedValuesMixin):
@@ -129498,7 +127312,7 @@ class pressure_drop_1_item(Group):
         outlet_location=outlet_location,
     )
 
-class pressure_drop_1(NamedObject[pressure_drop_1_item], CreatableNamedObjectMixin[pressure_drop_1_item]):
+class pressure_drop_1(_NamedObjectCommands, NamedObject[pressure_drop_1_item], CreatableNamedObjectMixin[pressure_drop_1_item]):
     """
     Pressure drop observable definitions.
     """
@@ -129506,15 +127320,6 @@ class pressure_drop_1(NamedObject[pressure_drop_1_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'pressure-drop'
     _python_name = 'pressure_drop'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = pressure_drop_1_item
 
 class numerator(String, AllowedValuesMixin):
@@ -129550,7 +127355,7 @@ class ratio_2_item(Group):
         denominator=denominator,
     )
 
-class ratio_2(NamedObject[ratio_2_item], CreatableNamedObjectMixin[ratio_2_item]):
+class ratio_2(_NamedObjectCommands, NamedObject[ratio_2_item], CreatableNamedObjectMixin[ratio_2_item]):
     """
     Ratio observable definitions.
     """
@@ -129558,15 +127363,6 @@ class ratio_2(NamedObject[ratio_2_item], CreatableNamedObjectMixin[ratio_2_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'ratio'
     _python_name = 'ratio'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = ratio_2_item
 
 class factor_1(String, AllowedValuesMixin):
@@ -129602,7 +127398,7 @@ class product_item(Group):
         factor_2=factor_2,
     )
 
-class product(NamedObject[product_item], CreatableNamedObjectMixin[product_item]):
+class product(_NamedObjectCommands, NamedObject[product_item], CreatableNamedObjectMixin[product_item]):
     """
     Product observable definitions.
     """
@@ -129610,15 +127406,6 @@ class product(NamedObject[product_item], CreatableNamedObjectMixin[product_item]
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'product'
     _python_name = 'product'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = product_item
 
 class penalized_observable(String, AllowedValuesMixin):
@@ -129664,7 +127451,7 @@ class quadratic_penalty_item(Group):
         normalization=normalization_1,
     )
 
-class quadratic_penalty(NamedObject[quadratic_penalty_item], CreatableNamedObjectMixin[quadratic_penalty_item]):
+class quadratic_penalty(_NamedObjectCommands, NamedObject[quadratic_penalty_item], CreatableNamedObjectMixin[quadratic_penalty_item]):
     """
     Quadratic penalty observable definitions.
     """
@@ -129672,15 +127459,6 @@ class quadratic_penalty(NamedObject[quadratic_penalty_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'quadratic-penalty'
     _python_name = 'quadratic_penalty'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = quadratic_penalty_item
 
 class constant_3(Real):
@@ -129782,7 +127560,7 @@ class linear_combination_item(Group):
         entries=entries,
     )
 
-class linear_combination(NamedObject[linear_combination_item], CreatableNamedObjectMixin[linear_combination_item]):
+class linear_combination(_NamedObjectCommands, NamedObject[linear_combination_item], CreatableNamedObjectMixin[linear_combination_item]):
     """
     Linear combination observable definitions.
     """
@@ -129790,15 +127568,6 @@ class linear_combination(NamedObject[linear_combination_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'linear-combination'
     _python_name = 'linear_combination'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = linear_combination_item
 
 class observable_list(StringList, AllowedValuesMixin):
@@ -129824,7 +127593,7 @@ class arithmetic_average_item(Group):
         observable_list=observable_list,
     )
 
-class arithmetic_average(NamedObject[arithmetic_average_item], CreatableNamedObjectMixin[arithmetic_average_item]):
+class arithmetic_average(_NamedObjectCommands, NamedObject[arithmetic_average_item], CreatableNamedObjectMixin[arithmetic_average_item]):
     """
     Arithmetic average observable definitions.
     """
@@ -129832,15 +127601,6 @@ class arithmetic_average(NamedObject[arithmetic_average_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'arithmetic-average'
     _python_name = 'arithmetic_average'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = arithmetic_average_item
 
 class mean_variance_item(Group):
@@ -129857,7 +127617,7 @@ class mean_variance_item(Group):
         observable_list=observable_list,
     )
 
-class mean_variance(NamedObject[mean_variance_item], CreatableNamedObjectMixin[mean_variance_item]):
+class mean_variance(_NamedObjectCommands, NamedObject[mean_variance_item], CreatableNamedObjectMixin[mean_variance_item]):
     """
     Mean-variance observable definitions.
     """
@@ -129865,15 +127625,6 @@ class mean_variance(NamedObject[mean_variance_item], CreatableNamedObjectMixin[m
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'mean-variance'
     _python_name = 'mean_variance'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = mean_variance_item
 
 class operator(String, AllowedValuesMixin):
@@ -129921,7 +127672,7 @@ class unary_operation_item(Group):
         observable=observable_1,
     )
 
-class unary_operation(NamedObject[unary_operation_item], CreatableNamedObjectMixin[unary_operation_item]):
+class unary_operation(_NamedObjectCommands, NamedObject[unary_operation_item], CreatableNamedObjectMixin[unary_operation_item]):
     """
     Unary operation observable definitions.
     """
@@ -129929,15 +127680,6 @@ class unary_operation(NamedObject[unary_operation_item], CreatableNamedObjectMix
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'unary-operation'
     _python_name = 'unary_operation'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = unary_operation_item
 
 class fixed_value_1(Real):
@@ -129963,7 +127705,7 @@ class fixed_value_item(Group):
         fixed_value=fixed_value_1,
     )
 
-class fixed_value(NamedObject[fixed_value_item], CreatableNamedObjectMixin[fixed_value_item]):
+class fixed_value(_NamedObjectCommands, NamedObject[fixed_value_item], CreatableNamedObjectMixin[fixed_value_item]):
     """
     Fixed value observable definitions.
     """
@@ -129971,15 +127713,6 @@ class fixed_value(NamedObject[fixed_value_item], CreatableNamedObjectMixin[fixed
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'fixed-value'
     _python_name = 'fixed_value'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = fixed_value_item
 
 class integral_type(String, AllowedValuesMixin):
@@ -130026,7 +127759,7 @@ class surface_integral_item(Group):
         field_variable=field_variable_1,
     )
 
-class surface_integral(NamedObject[surface_integral_item], CreatableNamedObjectMixin[surface_integral_item]):
+class surface_integral(_NamedObjectCommands, NamedObject[surface_integral_item], CreatableNamedObjectMixin[surface_integral_item]):
     """
     Surface integral observable definitions.
     """
@@ -130034,15 +127767,6 @@ class surface_integral(NamedObject[surface_integral_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'surface-integral'
     _python_name = 'surface_integral'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = surface_integral_item
 
 class integral_type_1(String, AllowedValuesMixin):
@@ -130143,7 +127867,7 @@ class volume_integral_1_item(Group):
         field_direction=field_direction,
     )
 
-class volume_integral_1(NamedObject[volume_integral_1_item], CreatableNamedObjectMixin[volume_integral_1_item]):
+class volume_integral_1(_NamedObjectCommands, NamedObject[volume_integral_1_item], CreatableNamedObjectMixin[volume_integral_1_item]):
     """
     Volume integral observable definitions.
     """
@@ -130151,15 +127875,6 @@ class volume_integral_1(NamedObject[volume_integral_1_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'volume-integral'
     _python_name = 'volume_integral'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = volume_integral_1_item
 
 class definitions(Group, _ChildNamedObjectAccessorMixin):
@@ -130355,7 +128070,7 @@ class adjoint_equations_item(Group):
         adjoint_activation=adjoint_activation_1,
     )
 
-class adjoint_equations(NamedObject[adjoint_equations_item], CreatableNamedObjectMixin[adjoint_equations_item]):
+class adjoint_equations(_NamedObjectCommands, NamedObject[adjoint_equations_item], CreatableNamedObjectMixin[adjoint_equations_item]):
     """
     Associated adjoint equations.
     """
@@ -130363,15 +128078,6 @@ class adjoint_equations(NamedObject[adjoint_equations_item], CreatableNamedObjec
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'adjoint-equations'
     _python_name = 'adjoint_equations'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = adjoint_equations_item
 
 class methods_4_item(Group):
@@ -130390,7 +128096,7 @@ class methods_4_item(Group):
         adjoint_equations=adjoint_equations,
     )
 
-class methods_4(NamedObject[methods_4_item], CreatableNamedObjectMixin[methods_4_item]):
+class methods_4(_NamedObjectCommands, NamedObject[methods_4_item], CreatableNamedObjectMixin[methods_4_item]):
     """
     The adjoint solution methods object.
     """
@@ -130398,17 +128104,16 @@ class methods_4(NamedObject[methods_4_item], CreatableNamedObjectMixin[methods_4
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'methods'
     _python_name = 'methods'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'default', 'balanced', 'best_match']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        default=default_1,
-        balanced=balanced,
-        best_match=best_match,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'default'), (7, 'balanced'), (8, 'best_match')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'default', default_1),
+            (7, 'balanced', balanced),
+            (8, 'best_match', best_match),
+        ],
     )
     child_object_type = methods_4_item
 
@@ -130457,7 +128162,7 @@ class advancement_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'advancement_item'
 
-class advancement(NamedObject[advancement_item], CreatableNamedObjectMixin[advancement_item]):
+class advancement(_NamedObjectCommands, NamedObject[advancement_item], CreatableNamedObjectMixin[advancement_item]):
     """
     Adjoint advancement controls object.
     """
@@ -130465,15 +128170,6 @@ class advancement(NamedObject[advancement_item], CreatableNamedObjectMixin[advan
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'advancement'
     _python_name = 'advancement'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = advancement_item
 
 class under_relaxation_3_item(Real):
@@ -130485,7 +128181,7 @@ class under_relaxation_3_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'under_relaxation_item'
 
-class under_relaxation_3(NamedObject[under_relaxation_3_item], CreatableNamedObjectMixin[under_relaxation_3_item]):
+class under_relaxation_3(_NamedObjectCommands, NamedObject[under_relaxation_3_item], CreatableNamedObjectMixin[under_relaxation_3_item]):
     """
     Adjoint under-relaxation controls object.
     """
@@ -130493,15 +128189,6 @@ class under_relaxation_3(NamedObject[under_relaxation_3_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'under-relaxation'
     _python_name = 'under_relaxation'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = under_relaxation_3_item
 
 class tolerance_6(Real):
@@ -130900,7 +128587,7 @@ class adjoint_equations_1_item(Group):
         absolute_criteria=absolute_criteria,
     )
 
-class adjoint_equations_1(NamedObject[adjoint_equations_1_item], CreatableNamedObjectMixin[adjoint_equations_1_item]):
+class adjoint_equations_1(_NamedObjectCommands, NamedObject[adjoint_equations_1_item], CreatableNamedObjectMixin[adjoint_equations_1_item]):
     """
     Monitors the solution of adjoint equations during optimization.
     """
@@ -130908,15 +128595,6 @@ class adjoint_equations_1(NamedObject[adjoint_equations_1_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'adjoint-equations'
     _python_name = 'adjoint_equations'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = adjoint_equations_1_item
 
 class print_9(Boolean):
@@ -131080,7 +128758,7 @@ class execute_commands_1_item(Group):
         python_cmd=python_cmd,
     )
 
-class execute_commands_1(NamedObject[execute_commands_1_item], CreatableNamedObjectMixin[execute_commands_1_item]):
+class execute_commands_1(_NamedObjectCommands, NamedObject[execute_commands_1_item], CreatableNamedObjectMixin[execute_commands_1_item]):
     """
     Execute commands during adjoint calculation.
     """
@@ -131088,16 +128766,15 @@ class execute_commands_1(NamedObject[execute_commands_1_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'execute-commands'
     _python_name = 'execute_commands'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'export', 'import_']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        export=export_1,
-        import_=import__1,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'export'), (7, 'import_')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'export', export_1),
+            (7, 'import_', import__1),
+        ],
     )
     child_object_type = execute_commands_1_item
 
@@ -131641,7 +129318,7 @@ class definitions_1_item(Group):
         weight=weight_6,
     )
 
-class definitions_1(NamedObject[definitions_1_item], CreatableNamedObjectMixin[definitions_1_item]):
+class definitions_1(_NamedObjectCommands, NamedObject[definitions_1_item], CreatableNamedObjectMixin[definitions_1_item]):
     """
     Objectives used in design change tool.
     """
@@ -131649,15 +129326,6 @@ class definitions_1(NamedObject[definitions_1_item], CreatableNamedObjectMixin[d
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'definitions'
     _python_name = 'definitions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = definitions_1_item
 
 class freeform_scaling_scheme(String, AllowedValuesMixin):
@@ -132762,7 +130430,7 @@ class specify_boundary_item(Group):
         axial_continuity=axial_continuity,
     )
 
-class specify_boundary(NamedObject[specify_boundary_item], CreatableNamedObjectMixin[specify_boundary_item]):
+class specify_boundary(_NamedObjectCommands, NamedObject[specify_boundary_item], CreatableNamedObjectMixin[specify_boundary_item]):
     """
     Design region boundary continuity settings.
     """
@@ -132770,15 +130438,6 @@ class specify_boundary(NamedObject[specify_boundary_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'specify-boundary'
     _python_name = 'specify_boundary'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = specify_boundary_item
 
 class boundary_continuity(Group):
@@ -133042,7 +130701,7 @@ class definition_5_item(Group):
     fluent_name = 'child-object-type'
     _python_name = 'definition_item'
 
-class definition_5(NamedObject[definition_5_item], CreatableNamedObjectMixin[definition_5_item]):
+class definition_5(_NamedObjectCommands, NamedObject[definition_5_item], CreatableNamedObjectMixin[definition_5_item]):
     """
     Old design condition definitions. This has been migrated to definitions with an "s" where the various design condition types are contained in different dictionaries.
     """
@@ -133051,15 +130710,6 @@ class definition_5(NamedObject[definition_5_item], CreatableNamedObjectMixin[def
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'definition'
     _python_name = 'definition'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = definition_5_item
 
 class location_6(Group):
@@ -133102,7 +130752,7 @@ class fixed_walls_constraint_item(Group):
         display=display_18,
     )
 
-class fixed_walls_constraint(NamedObject[fixed_walls_constraint_item], CreatableNamedObjectMixin[fixed_walls_constraint_item]):
+class fixed_walls_constraint(_NamedObjectCommands, NamedObject[fixed_walls_constraint_item], CreatableNamedObjectMixin[fixed_walls_constraint_item]):
     """
     Fixed walls constraint definition.
     """
@@ -133110,15 +130760,6 @@ class fixed_walls_constraint(NamedObject[fixed_walls_constraint_item], Creatable
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'fixed-walls-constraint'
     _python_name = 'fixed_walls_constraint'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = fixed_walls_constraint_item
 
 class distance_1(Real):
@@ -133158,7 +130799,7 @@ class bounded_by_plane_item(Group):
         display=display_18,
     )
 
-class bounded_by_plane(NamedObject[bounded_by_plane_item], CreatableNamedObjectMixin[bounded_by_plane_item]):
+class bounded_by_plane(_NamedObjectCommands, NamedObject[bounded_by_plane_item], CreatableNamedObjectMixin[bounded_by_plane_item]):
     """
     Bounded by plane constraint definition.
     """
@@ -133166,15 +130807,6 @@ class bounded_by_plane(NamedObject[bounded_by_plane_item], CreatableNamedObjectM
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'bounded-by-plane'
     _python_name = 'bounded_by_plane'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = bounded_by_plane_item
 
 class surfaces_19(StringList, AllowedValuesMixin):
@@ -133407,7 +131039,7 @@ class bounded_by_surfaces_item(Group):
         delete_surfaces=('delete_imported_surfaces', 'delete-surfaces'),
     )
 
-class bounded_by_surfaces(NamedObject[bounded_by_surfaces_item], CreatableNamedObjectMixin[bounded_by_surfaces_item]):
+class bounded_by_surfaces(_NamedObjectCommands, NamedObject[bounded_by_surfaces_item], CreatableNamedObjectMixin[bounded_by_surfaces_item]):
     """
     Bounded by surfaces constraint definition.
     """
@@ -133415,15 +131047,6 @@ class bounded_by_surfaces(NamedObject[bounded_by_surfaces_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'bounded-by-surfaces'
     _python_name = 'bounded_by_surfaces'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = bounded_by_surfaces_item
 
 class deformation_profile(String, AllowedValuesMixin):
@@ -133481,7 +131104,7 @@ class parameters_11_item(Group):
         value=value_41,
     )
 
-class parameters_11(NamedObject[parameters_11_item], CreatableNamedObjectMixin[parameters_11_item]):
+class parameters_11(_NamedObjectCommands, NamedObject[parameters_11_item], CreatableNamedObjectMixin[parameters_11_item]):
     """
     Parameters for prescribed profile.
     """
@@ -133489,15 +131112,6 @@ class parameters_11(NamedObject[parameters_11_item], CreatableNamedObjectMixin[p
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'parameters'
     _python_name = 'parameters'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = parameters_11_item
 
 class prescribed_profile_item(Group):
@@ -133520,7 +131134,7 @@ class prescribed_profile_item(Group):
         display=display_18,
     )
 
-class prescribed_profile(NamedObject[prescribed_profile_item], CreatableNamedObjectMixin[prescribed_profile_item]):
+class prescribed_profile(_NamedObjectCommands, NamedObject[prescribed_profile_item], CreatableNamedObjectMixin[prescribed_profile_item]):
     """
     Prescribed profile constraint definition.
     """
@@ -133528,15 +131142,6 @@ class prescribed_profile(NamedObject[prescribed_profile_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'prescribed-profile'
     _python_name = 'prescribed_profile'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = prescribed_profile_item
 
 class angle_8(Group):
@@ -133601,7 +131206,7 @@ class rotation_item(Group):
         get_center=get_center,
     )
 
-class rotation(NamedObject[rotation_item], CreatableNamedObjectMixin[rotation_item]):
+class rotation(_NamedObjectCommands, NamedObject[rotation_item], CreatableNamedObjectMixin[rotation_item]):
     """
     Rotation constraint definition.
     """
@@ -133609,15 +131214,6 @@ class rotation(NamedObject[rotation_item], CreatableNamedObjectMixin[rotation_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'rotation'
     _python_name = 'rotation'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = rotation_item
 
 class x_12(Group):
@@ -133695,7 +131291,7 @@ class translation_1_item(Group):
         display=display_18,
     )
 
-class translation_1(NamedObject[translation_1_item], CreatableNamedObjectMixin[translation_1_item]):
+class translation_1(_NamedObjectCommands, NamedObject[translation_1_item], CreatableNamedObjectMixin[translation_1_item]):
     """
     Translation constraint definition.
     """
@@ -133703,15 +131299,6 @@ class translation_1(NamedObject[translation_1_item], CreatableNamedObjectMixin[t
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'translation'
     _python_name = 'translation'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = translation_1_item
 
 class scaling_type(String, AllowedValuesMixin):
@@ -133847,7 +131434,7 @@ class scaling_1_item(Group):
         get_center=get_center,
     )
 
-class scaling_1(NamedObject[scaling_1_item], CreatableNamedObjectMixin[scaling_1_item]):
+class scaling_1(_NamedObjectCommands, NamedObject[scaling_1_item], CreatableNamedObjectMixin[scaling_1_item]):
     """
     Scaling constraint definition.
     """
@@ -133855,15 +131442,6 @@ class scaling_1(NamedObject[scaling_1_item], CreatableNamedObjectMixin[scaling_1
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'scaling'
     _python_name = 'scaling'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = scaling_1_item
 
 class rigid_body_item(Group):
@@ -133883,7 +131461,7 @@ class rigid_body_item(Group):
         display=display_18,
     )
 
-class rigid_body(NamedObject[rigid_body_item], CreatableNamedObjectMixin[rigid_body_item]):
+class rigid_body(_NamedObjectCommands, NamedObject[rigid_body_item], CreatableNamedObjectMixin[rigid_body_item]):
     """
     Rigid body constraint definition.
     """
@@ -133891,15 +131469,6 @@ class rigid_body(NamedObject[rigid_body_item], CreatableNamedObjectMixin[rigid_b
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'rigid-body'
     _python_name = 'rigid_body'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = rigid_body_item
 
 class method_27(String, AllowedValuesMixin):
@@ -133945,7 +131514,7 @@ class compound_item(Group):
         display=display_18,
     )
 
-class compound(NamedObject[compound_item], CreatableNamedObjectMixin[compound_item]):
+class compound(_NamedObjectCommands, NamedObject[compound_item], CreatableNamedObjectMixin[compound_item]):
     """
     Compound condition definition.
     """
@@ -133953,15 +131522,6 @@ class compound(NamedObject[compound_item], CreatableNamedObjectMixin[compound_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'compound'
     _python_name = 'compound'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = compound_item
 
 class definitions_2(Group, _ChildNamedObjectAccessorMixin):
@@ -134249,7 +131809,7 @@ class parameters_12_item(Group):
         affected_conditions=affected_conditions,
     )
 
-class parameters_12(NamedObject[parameters_12_item], CreatableNamedObjectMixin[parameters_12_item]):
+class parameters_12(_NamedObjectCommands, NamedObject[parameters_12_item], CreatableNamedObjectMixin[parameters_12_item]):
     """
     Design change parameter.
     """
@@ -134257,15 +131817,6 @@ class parameters_12(NamedObject[parameters_12_item], CreatableNamedObjectMixin[p
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'parameters'
     _python_name = 'parameters'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = parameters_12_item
 
 class file_name_56(String):
@@ -134312,7 +131863,7 @@ class results_1_item(Group):
         expected_change=expected_change,
     )
 
-class results_1(NamedObject[results_1_item], CreatableNamedObjectMixin[results_1_item]):
+class results_1(_NamedObjectCommands, NamedObject[results_1_item], CreatableNamedObjectMixin[results_1_item]):
     """
     Design results information.
     """
@@ -134320,15 +131871,6 @@ class results_1(NamedObject[results_1_item], CreatableNamedObjectMixin[results_1
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'results'
     _python_name = 'results'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = results_1_item
 
 class file_name_57(Filename):
@@ -135007,7 +132549,7 @@ class parameters_14_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'parameters_item'
 
-class parameters_14(NamedObject[parameters_14_item], CreatableNamedObjectMixin[parameters_14_item]):
+class parameters_14(_NamedObjectCommands, NamedObject[parameters_14_item], CreatableNamedObjectMixin[parameters_14_item]):
     """
     Parameter values of the given condition.
     """
@@ -135015,15 +132557,6 @@ class parameters_14(NamedObject[parameters_14_item], CreatableNamedObjectMixin[p
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'parameters'
     _python_name = 'parameters'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = parameters_14_item
 
 class conditions_2_item(Group):
@@ -135257,7 +132790,7 @@ class definitions_3_item(Group):
         step_size=('value', 'step-size'),
     )
 
-class definitions_3(NamedObject[definitions_3_item], CreatableNamedObjectMixin[definitions_3_item]):
+class definitions_3(_NamedObjectCommands, NamedObject[definitions_3_item], CreatableNamedObjectMixin[definitions_3_item]):
     """
     Objectives with various parameters and conditions.
     """
@@ -135265,15 +132798,6 @@ class definitions_3(NamedObject[definitions_3_item], CreatableNamedObjectMixin[d
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'definitions'
     _python_name = 'definitions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = definitions_3_item
     _has_migration_adapter = True
 
@@ -135555,7 +133079,7 @@ class limits_1_item(RealList):
     fluent_name = 'child-object-type'
     _python_name = 'limits_item'
 
-class limits_1(NamedObject[limits_1_item], CreatableNamedObjectMixin[limits_1_item]):
+class limits_1(_NamedObjectCommands, NamedObject[limits_1_item], CreatableNamedObjectMixin[limits_1_item]):
     """
     Design variable limits.
     """
@@ -135563,15 +133087,14 @@ class limits_1(NamedObject[limits_1_item], CreatableNamedObjectMixin[limits_1_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'limits'
     _python_name = 'limits'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'defaults']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        defaults=defaults_1,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'defaults')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'defaults', defaults_1),
+        ],
     )
     child_object_type = limits_1_item
 
@@ -136280,7 +133803,7 @@ class execute_commands_2_item(Group):
         python_cmd=python_cmd,
     )
 
-class execute_commands_2(NamedObject[execute_commands_2_item], CreatableNamedObjectMixin[execute_commands_2_item]):
+class execute_commands_2(_NamedObjectCommands, NamedObject[execute_commands_2_item], CreatableNamedObjectMixin[execute_commands_2_item]):
     """
     Execute commands during optimization.
     """
@@ -136288,16 +133811,15 @@ class execute_commands_2(NamedObject[execute_commands_2_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'execute-commands'
     _python_name = 'execute_commands'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'export', 'import_']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        export=export_1,
-        import_=import__1,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'export'), (7, 'import_')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'export', export_1),
+            (7, 'import_', import__1),
+        ],
     )
     child_object_type = execute_commands_2_item
 
@@ -136925,7 +134447,7 @@ class scheme_proc_item(Group):
         apply_function=apply_function,
     )
 
-class scheme_proc(NamedObject[scheme_proc_item], CreatableNamedObjectMixin[scheme_proc_item]):
+class scheme_proc(_NamedObjectCommands, NamedObject[scheme_proc_item], CreatableNamedObjectMixin[scheme_proc_item]):
     """
     Use input parameter in scheme-procedure.
     """
@@ -136933,15 +134455,6 @@ class scheme_proc(NamedObject[scheme_proc_item], CreatableNamedObjectMixin[schem
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'scheme-proc'
     _python_name = 'scheme_proc'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = scheme_proc_item
 
 class value_45(Real):
@@ -136967,7 +134480,7 @@ class udf_side_item(Group):
         value=value_45,
     )
 
-class udf_side(NamedObject[udf_side_item], CreatableNamedObjectMixin[udf_side_item]):
+class udf_side(_NamedObjectCommands, NamedObject[udf_side_item], CreatableNamedObjectMixin[udf_side_item]):
     """
     Use input parameter in solver-udf.
     """
@@ -136975,15 +134488,6 @@ class udf_side(NamedObject[udf_side_item], CreatableNamedObjectMixin[udf_side_it
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'udf-side'
     _python_name = 'udf_side'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = udf_side_item
 
 class value_46(Real):
@@ -137009,7 +134513,7 @@ class expression_8_item(Group):
         value=value_46,
     )
 
-class expression_8(NamedObject[expression_8_item], CreatableNamedObjectMixin[expression_8_item]):
+class expression_8(_NamedObjectCommands, NamedObject[expression_8_item], CreatableNamedObjectMixin[expression_8_item]):
     """
     Accesses input parameters defined using named expressions.
     """
@@ -137017,15 +134521,6 @@ class expression_8(NamedObject[expression_8_item], CreatableNamedObjectMixin[exp
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'expression'
     _python_name = 'expression'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = expression_8_item
 
 class list_6(Command):
@@ -137177,15 +134672,8 @@ class report_definitions_1_item(Group):
         report_definition=report_definition,
     )
 
-class report_definitions_1(NamedObject[report_definitions_1_item], CreatableNamedObjectMixin[report_definitions_1_item]):
-    """
-    Accesses output parameters based on report definitions.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'report-definitions'
-    _python_name = 'report_definitions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'print_to_console', 'write_to_file']
+class _NamedObjectCommands_18(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_22,
         delete=delete_2,
@@ -137193,8 +134681,31 @@ class report_definitions_1(NamedObject[report_definitions_1_item], CreatableName
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        print_to_console=print_to_console_2,
-        write_to_file=write_to_file_11,
+    )
+    create = create_22
+    delete = delete_2
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class report_definitions_1(_NamedObjectCommands_18, NamedObject[report_definitions_1_item], CreatableNamedObjectMixin[report_definitions_1_item]):
+    """
+    Accesses output parameters based on report definitions.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'report-definitions'
+    _python_name = 'report_definitions'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_18.command_names, [(6, 'print_to_console'), (7, 'write_to_file')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_18._child_classes,
+        [
+            (6, 'print_to_console', print_to_console_2),
+            (7, 'write_to_file', write_to_file_11),
+        ],
     )
     child_object_type = report_definitions_1_item
 
@@ -137221,7 +134732,7 @@ class named_expressions_1_item(Group):
         named_expression=named_expression,
     )
 
-class named_expressions_1(NamedObject[named_expressions_1_item], CreatableNamedObjectMixin[named_expressions_1_item]):
+class named_expressions_1(_NamedObjectCommands, NamedObject[named_expressions_1_item], CreatableNamedObjectMixin[named_expressions_1_item]):
     """
     Named Expression parameters object.
     """
@@ -137229,16 +134740,15 @@ class named_expressions_1(NamedObject[named_expressions_1_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'named-expressions'
     _python_name = 'named_expressions'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'print_to_console', 'write_to_file']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        print_to_console=print_to_console_2,
-        write_to_file=write_to_file_11,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'print_to_console'), (7, 'write_to_file')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'print_to_console', print_to_console_2),
+            (7, 'write_to_file', write_to_file_11),
+        ],
     )
     child_object_type = named_expressions_1_item
 
@@ -137807,7 +135317,7 @@ class input_parameters_2_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'input_parameters_item'
 
-class input_parameters_2(NamedObject[input_parameters_2_item], CreatableNamedObjectMixin[input_parameters_2_item]):
+class input_parameters_2(_NamedObjectCommands, NamedObject[input_parameters_2_item], CreatableNamedObjectMixin[input_parameters_2_item]):
     """
     Input Parameter Values of Design Point.
     """
@@ -137815,15 +135325,6 @@ class input_parameters_2(NamedObject[input_parameters_2_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'input-parameters'
     _python_name = 'input_parameters'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = input_parameters_2_item
 
 class output_parameters_1_item(Real):
@@ -137835,7 +135336,7 @@ class output_parameters_1_item(Real):
     fluent_name = 'child-object-type'
     _python_name = 'output_parameters_item'
 
-class output_parameters_1(NamedObject[output_parameters_1_item], CreatableNamedObjectMixin[output_parameters_1_item]):
+class output_parameters_1(_NamedObjectCommands, NamedObject[output_parameters_1_item], CreatableNamedObjectMixin[output_parameters_1_item]):
     """
     Output Parameter Values of Design Point.
     """
@@ -137843,15 +135344,6 @@ class output_parameters_1(NamedObject[output_parameters_1_item], CreatableNamedO
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'output-parameters'
     _python_name = 'output_parameters'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-    )
     child_object_type = output_parameters_1_item
 
 class status_1(String):
@@ -137881,15 +135373,8 @@ class design_points_item(Group):
         capture_simulation_report_data=capture_simulation_report_data,
     )
 
-class design_points(NamedObject[design_points_item], CreatableNamedObjectMixin[design_points_item]):
-    """
-    Manages the design points within the selected study.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'design-points'
-    _python_name = 'design_points'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'duplicate', 'load_case_data', 'set_as_current', 'clear_generated_data', 'status_of_all_dps', 'update_current', 'update_all', 'update_selected', 'interrupt', 'abort', 'connect_to_web_session', 'download_output_files', 'interrupt_all_concurrent_dps', 'abort_all_concurrent_dps', 'refresh_status_of_concurrent_dps']
+class _NamedObjectCommands_19(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create_23,
         delete=delete_14,
@@ -137897,21 +135382,44 @@ class design_points(NamedObject[design_points_item], CreatableNamedObjectMixin[d
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        duplicate=duplicate_1,
-        load_case_data=load_case_data,
-        set_as_current=set_as_current_3,
-        clear_generated_data=clear_generated_data,
-        status_of_all_dps=status_of_all_dps,
-        update_current=update_current,
-        update_all=update_all,
-        update_selected=update_selected,
-        interrupt=interrupt_4,
-        abort=abort_1,
-        connect_to_web_session=connect_to_web_session,
-        download_output_files=download_output_files_1,
-        interrupt_all_concurrent_dps=interrupt_all_concurrent_dps,
-        abort_all_concurrent_dps=abort_all_concurrent_dps,
-        refresh_status_of_concurrent_dps=refresh_status_of_concurrent_dps,
+    )
+    create = create_23
+    delete = delete_14
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class design_points(_NamedObjectCommands_19, NamedObject[design_points_item], CreatableNamedObjectMixin[design_points_item]):
+    """
+    Manages the design points within the selected study.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'design-points'
+    _python_name = 'design_points'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_19.command_names, [(6, 'duplicate'), (7, 'load_case_data'), (8, 'set_as_current'), (9, 'clear_generated_data'), (10, 'status_of_all_dps'), (11, 'update_current'), (12, 'update_all'), (13, 'update_selected'), (14, 'interrupt'), (15, 'abort'), (16, 'connect_to_web_session'), (17, 'download_output_files'), (18, 'interrupt_all_concurrent_dps'), (19, 'abort_all_concurrent_dps'), (20, 'refresh_status_of_concurrent_dps')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_19._child_classes,
+        [
+            (6, 'duplicate', duplicate_1),
+            (7, 'load_case_data', load_case_data),
+            (8, 'set_as_current', set_as_current_3),
+            (9, 'clear_generated_data', clear_generated_data),
+            (10, 'status_of_all_dps', status_of_all_dps),
+            (11, 'update_current', update_current),
+            (12, 'update_all', update_all),
+            (13, 'update_selected', update_selected),
+            (14, 'interrupt', interrupt_4),
+            (15, 'abort', abort_1),
+            (16, 'connect_to_web_session', connect_to_web_session),
+            (17, 'download_output_files', download_output_files_1),
+            (18, 'interrupt_all_concurrent_dps', interrupt_all_concurrent_dps),
+            (19, 'abort_all_concurrent_dps', abort_all_concurrent_dps),
+            (20, 'refresh_status_of_concurrent_dps', refresh_status_of_concurrent_dps),
+        ],
     )
     child_object_type = design_points_item
     _child_aliases = dict(
@@ -138437,15 +135945,8 @@ class criteria_1_item(Group):
         limit=limit,
     )
 
-class criteria_1(NamedObject[criteria_1_item], CreatableNamedObjectMixin[criteria_1_item]):
-    """
-    Criteria List.
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'criteria'
-    _python_name = 'criteria'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'add_objective', 'add_constraint']
+class _NamedObjectCommands_20(_NamedObjectCommandBase):
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
         create=create,
         delete=delete_15,
@@ -138453,8 +135954,31 @@ class criteria_1(NamedObject[criteria_1_item], CreatableNamedObjectMixin[criteri
         list=list_1,
         list_properties=list_properties_1,
         make_a_copy=make_a_copy,
-        add_objective=add_objective,
-        add_constraint=add_constraint,
+    )
+    create = create
+    delete = delete_15
+    rename = rename
+    list = list_1
+    list_properties = list_properties_1
+    make_a_copy = make_a_copy
+
+class criteria_1(_NamedObjectCommands_20, NamedObject[criteria_1_item], CreatableNamedObjectMixin[criteria_1_item]):
+    """
+    Criteria List.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'criteria'
+    _python_name = 'criteria'
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands_20.command_names, [(6, 'add_objective'), (7, 'add_constraint')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands_20._child_classes,
+        [
+            (6, 'add_objective', add_objective),
+            (7, 'add_constraint', add_constraint),
+        ],
     )
     child_object_type = criteria_1_item
 
@@ -138930,7 +136454,7 @@ class parametric_studies_item(Group):
         auto_parametric_report_html_export=auto_parametric_report_html_export,
     )
 
-class parametric_studies(NamedObject[parametric_studies_item], CreatableNamedObjectMixin[parametric_studies_item]):
+class parametric_studies(_NamedObjectCommands, NamedObject[parametric_studies_item], CreatableNamedObjectMixin[parametric_studies_item]):
     """
     Accesses tools for creating, managing, and analyzing parametric studies and design points.
     """
@@ -138938,19 +136462,18 @@ class parametric_studies(NamedObject[parametric_studies_item], CreatableNamedObj
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'parametric-studies'
     _python_name = 'parametric_studies'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'initialize', 'duplicate', 'set_as_current', 'export_design_table', 'import_design_table']
-    _child_classes = dict(
-        create=create,
-        delete=delete_2,
-        rename=rename,
-        list=list_1,
-        list_properties=list_properties_1,
-        make_a_copy=make_a_copy,
-        initialize=initialize_5,
-        duplicate=duplicate,
-        set_as_current=set_as_current_2,
-        export_design_table=export_design_table,
-        import_design_table=import_design_table,
+    command_names = _merge_named_object_command_names(
+        _NamedObjectCommands.command_names, [(6, 'initialize'), (7, 'duplicate'), (8, 'set_as_current'), (9, 'export_design_table'), (10, 'import_design_table')]
+    )
+    _child_classes = _merge_named_object_child_classes(
+        _NamedObjectCommands._child_classes,
+        [
+            (6, 'initialize', initialize_5),
+            (7, 'duplicate', duplicate),
+            (8, 'set_as_current', set_as_current_2),
+            (9, 'export_design_table', export_design_table),
+            (10, 'import_design_table', import_design_table),
+        ],
     )
     child_object_type = parametric_studies_item
 
@@ -140631,7 +138154,7 @@ class save_hosts(Command):
     
     Parameters
     ----------
-        host_file_1 : str
+        host_file : str
             Selects the hosts file name to write.
     """
     _version = '271'

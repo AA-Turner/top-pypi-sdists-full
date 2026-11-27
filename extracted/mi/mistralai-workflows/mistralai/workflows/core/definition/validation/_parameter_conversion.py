@@ -8,6 +8,7 @@ from mistralai.workflows.core.definition.validation._schema_generator import (
     _is_bare_union_of_basemodels,
     _is_basemodel_subclass,
 )
+from mistralai.workflows.core.logging import extract_error_context
 
 logger = get_logger(__name__)
 
@@ -106,7 +107,7 @@ def convert_result_to_temporal_format(
             reason=reason,
             result_type=type(result).__name__,
             output_model=output_model.__name__ if output_model else None,
-            error=str(e),
+            **extract_error_context(e),
         )
         return result
 

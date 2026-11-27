@@ -419,7 +419,7 @@ class Database:
 
     @parallel_function
     @lock
-    def write(self, atoms, key_value_pairs={}, data={}, id=None, **kwargs):
+    def write(self, atoms, key_value_pairs=None, data=None, id=None, **kwargs):
         """Write atoms to database with key-value pairs.
 
         atoms: Atoms object
@@ -440,6 +440,10 @@ class Database:
         Returns integer id of the new row.
         """
 
+        if data is None:
+            data = {}
+        if key_value_pairs is None:
+            key_value_pairs = {}
         if atoms is None:
             atoms = Atoms()
 
@@ -622,7 +626,7 @@ class Database:
     @parallel_function
     @lock
     def update(
-        self, id, atoms=None, delete_keys=[], data=None, **add_key_value_pairs
+        self, id, atoms=None, delete_keys=None, data=None, **add_key_value_pairs
     ):
         """Update and/or delete key-value pairs of row(s).
 
@@ -640,6 +644,8 @@ class Database:
         Returns number of key-value pairs added and removed.
         """
 
+        if delete_keys is None:
+            delete_keys = []
         if not isinstance(id, numbers.Integral):
             if isinstance(id, list):
                 err = (
@@ -789,8 +795,7 @@ def b2o(obj: Any, b: bytes) -> Any:
         shape, name, offset = x
         dtype = np.dtype(name)
         size = dtype.itemsize * np.prod(shape).astype(int)
-        a = np.frombuffer(b[offset : offset + size], dtype)
-        a.shape = shape
+        a = np.frombuffer(b[offset : offset + size], dtype).reshape(shape)
         if not np.little_endian:
             a = a.byteswap()
         return a

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xcffib"
-version = "1.13.0"
+version = "1.14.0"
 description = "xcffib is the XCB binding for python"
 readme = "README.md"
 keywords = ["xcb", "cffi", "x11", "x", "windows"]
@@ -37,6 +37,7 @@ xcffib = ["py.typed"]
 
 [project.optional-dependencies]
 dev = [
+    "build>=1.6.1",
     "pytest>=8.4",
 ]
 

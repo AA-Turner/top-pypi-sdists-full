@@ -44,6 +44,30 @@ of a nested function. It never becomes a node, so its `{todo}` reaches no
 and logs a {data}`UNRENDERED_TODO_WARNING` for each such `{todo}`. Its author can
 then move it into a docstring that a page renders.
 
+A parallel read also changes the order of the list. The `todo` domain keys its
+entries on their page, and the `todolist` renders them in the order of that
+mapping, which a parallel read fills in the order its workers merge. This module
+sorts the mapping by page once the read is over, which is the order a serial
+read gives ([sphinx-doc/sphinx#14809](https://github.com/sphinx-doc/sphinx/pull/14809)).
+
+A serial read breaks the links of the list instead. It keeps the doctree of each
+page in memory for the write, and the `todo` domain holds the very nodes of
+that doctree. Writing the page resolves the cross-references of its todos in
+place, against that page, so a `todolist` written after it copies links to
+anchors of another page, which miss on its own. This module gives the domain
+copies of its nodes once the read is over, as a parallel read does.
+
+```{todo}
+Delete {func}`sort_todos` once
+[sphinx-doc/sphinx#14809](https://github.com/sphinx-doc/sphinx/pull/14809)
+ships, and the `sphinx` extra's floor passes the release that carries it.
+```
+
+```{todo}
+Delete {func}`detach_todos` once `sphinx.ext.todo` keeps nodes of its own in
+its domain, and the `sphinx` extra's floor passes the release that does.
+```
+
 ```{todo}
 Propose the deduplication upstream, as a `sphinx.ext.todo` feature rather
 than a third-party hook.
@@ -549,8 +573,44 @@ def report_unrendered_todos(app: Sphinx, env: BuildEnvironment) -> None:
                 )
 
 
+def sort_todos(app: Sphinx, env: BuildEnvironment) -> None:
+    """Order the entries of the `todo` domain by page, as a serial read does.
+
+    Connected to `env-updated`, which fires once the read is over: after a
+    parallel read merged the entries of its workers, and before Sphinx pickles
+    the environment. Inert without `sphinx.ext.todo`, which registers the domain.
+    """
+    domain = env.domains.get("todo")
+    if domain is None:
+        return
+    todos = domain.data.get("todos")
+    if todos:
+        domain.data["todos"] = dict(sorted(todos.items()))
+
+
+def detach_todos(app: Sphinx, env: BuildEnvironment) -> None:
+    """Give the `todo` domain copies of its nodes, apart from their doctrees.
+
+    Connected to `env-updated`, which fires once the read is over and before the
+    first page is written. Writing a page then resolves the cross-references of
+    its own doctree, and leaves those of the copies for each `todolist` to
+    resolve against its page. The copies keep the source, the line, the page and
+    the anchor that the deduplication and the `todolist` read. Inert without
+    `sphinx.ext.todo`, which registers the domain.
+    """
+    domain = env.domains.get("todo")
+    if domain is None:
+        return
+    todos = domain.data.get("todos")
+    if todos:
+        domain.data["todos"] = {
+            docname: [node.deepcopy() for node in nodes]
+            for docname, nodes in todos.items()
+        }
+
+
 def setup(app: Sphinx) -> None:
-    """Register the deduplication hook and the unrendered-todo check on `app`.
+    """Register the todo-list hooks on `app`.
 
     Called from {func}`click_extra.sphinx.setup` so projects only need to list
     `"click_extra.sphinx"` in their `extensions`. Priority 400 places the
@@ -561,5 +621,7 @@ def setup(app: Sphinx) -> None:
     app.add_config_value(
         DEDUPE_TODOS_CONFIG, default=True, rebuild="html", types=[bool]
     )
+    app.connect("env-updated", sort_todos)
+    app.connect("env-updated", detach_todos)
     app.connect("doctree-resolved", deduplicate_todos, priority=400)
     app.connect("env-check-consistency", report_unrendered_todos)

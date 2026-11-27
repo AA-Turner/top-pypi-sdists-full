@@ -65,6 +65,7 @@ class TestOpenAIResponseMessage8Variants(unittest.TestCase):
                 call_id = '',
                 name = '',
                 arguments = '',
+                namespace = '',
                 server_label = '',
                 error = '',
                 output = '',

@@ -31,6 +31,9 @@ class ListResourceResponse200Item:
         refresh_error (Union[Unset, str]):
         account (Union[Unset, float]):
         scopes (Union[Unset, List[str]]): OAuth scopes the linked account was connected with
+        client (Union[Unset, str]): OAuth client the linked account refreshes through
+        is_workspace_integration (Union[Unset, bool]): The linked account was connected through the workspace's own
+            OAuth app
         created_by (Union[Unset, str]):
         edited_at (Union[Unset, datetime.datetime]):
         labels (Union[Unset, List[str]]):
@@ -66,6 +69,8 @@ class ListResourceResponse200Item:
     refresh_error: Union[Unset, str] = UNSET
     account: Union[Unset, float] = UNSET
     scopes: Union[Unset, List[str]] = UNSET
+    client: Union[Unset, str] = UNSET
+    is_workspace_integration: Union[Unset, bool] = UNSET
     created_by: Union[Unset, str] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
     labels: Union[Unset, List[str]] = UNSET
@@ -98,6 +103,8 @@ class ListResourceResponse200Item:
         if not isinstance(self.scopes, Unset):
             scopes = self.scopes
 
+        client = self.client
+        is_workspace_integration = self.is_workspace_integration
         created_by = self.created_by
         edited_at: Union[Unset, str] = UNSET
         if not isinstance(self.edited_at, Unset):
@@ -145,6 +152,10 @@ class ListResourceResponse200Item:
             field_dict["account"] = account
         if scopes is not UNSET:
             field_dict["scopes"] = scopes
+        if client is not UNSET:
+            field_dict["client"] = client
+        if is_workspace_integration is not UNSET:
+            field_dict["is_workspace_integration"] = is_workspace_integration
         if created_by is not UNSET:
             field_dict["created_by"] = created_by
         if edited_at is not UNSET:
@@ -204,6 +215,10 @@ class ListResourceResponse200Item:
 
         scopes = cast(List[str], d.pop("scopes", UNSET))
 
+        client = d.pop("client", UNSET)
+
+        is_workspace_integration = d.pop("is_workspace_integration", UNSET)
+
         created_by = d.pop("created_by", UNSET)
 
         _edited_at = d.pop("edited_at", UNSET)
@@ -243,6 +258,8 @@ class ListResourceResponse200Item:
             refresh_error=refresh_error,
             account=account,
             scopes=scopes,
+            client=client,
+            is_workspace_integration=is_workspace_integration,
             created_by=created_by,
             edited_at=edited_at,
             labels=labels,

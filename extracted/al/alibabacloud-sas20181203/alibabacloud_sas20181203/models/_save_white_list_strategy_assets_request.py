@@ -13,36 +13,31 @@ class SaveWhiteListStrategyAssetsRequest(DaraModel):
         source_ip: str = None,
         strategy_id: int = None,
     ):
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
-        # 
-        # *   **zh**: Chinese.
-        # *   **en**: English.
+        # Specifies the language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
-        # The operation that you want to perform. This parameter is in the JSON format. The value is case-sensitive. The value contains the following fields:
+        # The operations. This parameter is in JSON format. Pay attention to the case sensitivity when you specify this parameter. This parameter includes the following fields:
         # 
-        # *   **status**: the operation. Valid values:
+        # - **status**: the operation. Valid values:
+        #   - **0**: delete
+        #   - **1**: add
+        # - **target**: the UUID of the asset. For more information about the valid values of this field, see the description.
         # 
-        #     *   **0**: the delete operation.
-        #     *   **1**: the add operation.
-        # 
-        # *   **target**: the UUID of the server.
-        # 
-        # >  You can call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain the value of **target** from the response parameter Uuid.
+        # > You can call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain the value of the **target** field.
         # 
         # This parameter is required.
         self.operations = operations
         # The type of the policy. Valid values:
-        # 
-        # *   **1**: learning policy.
-        # *   **2**: application policy.
+        # - **1**: learning policy
+        # - **2**: application policy
         # 
         # This parameter is required.
         self.relation_type = relation_type
-        # The source IP address of the request. You do not need to specify this parameter. It is automatically obtained by the system.
+        # The source IP address of the request. You do not need to specify this parameter. The system automatically obtains the value.
         self.source_ip = source_ip
         # The ID of the policy.
-        # 
-        # >  You can call the [DescribeWhiteListStrategyList](~~DescribeWhiteListStrategyList~~) operation to query the ID.
+        # > You can call the [DescribeWhiteListStrategyList](~~DescribeWhiteListStrategyList~~) operation to obtain the value of this parameter.
         # 
         # This parameter is required.
         self.strategy_id = strategy_id

@@ -6,7 +6,7 @@ import functools
 import random
 import uuid
 from collections.abc import AsyncGenerator, Callable, MutableMapping
-from contextlib import nullcontext, suppress
+from contextlib import AsyncExitStack, nullcontext, suppress
 from datetime import timedelta
 from typing import get_args
 
@@ -22,7 +22,7 @@ from pgqueuer.core import (
 )
 from pgqueuer.domain import errors, models, types
 from pgqueuer.ports import RepositoryPort, tracing
-from pgqueuer.ports.repository import EntrypointExecutionParameter
+from pgqueuer.ports.repository import EntrypointExecutionParameter, SchemaVerifier
 
 
 @dataclasses.dataclass
@@ -39,6 +39,11 @@ class QueueManager:
     channel: types.Channel = types.Channel("")
 
     shutdown: asyncio.Event = dataclasses.field(
+        init=False,
+        default_factory=asyncio.Event,
+    )
+    # Set once run() has its LISTEN in place; a probe sent before it would go unheard.
+    listening: asyncio.Event = dataclasses.field(
         init=False,
         default_factory=asyncio.Event,
     )
@@ -118,10 +123,34 @@ class QueueManager:
     async def _run_periodic_health_check(
         self,
         interval: timedelta = timedelta(seconds=10),
+        max_misses: int = 3,
     ) -> None:
-        """Probe listener health every *interval*; raise on timeout via ``listener_healthy``."""
+        """Probe listener health every *interval*; raise after *max_misses* misses in a row."""
+        await self.listening.wait()
+        misses = 0
         while not self.shutdown.is_set():
-            await self.listener_healthy(timeout=interval)
+            try:
+                await self.listener_healthy(timeout=interval)
+            except Exception:
+                misses += 1
+                if misses < max_misses:
+                    # One late or dropped NOTIFY is not a dead listener; the miss
+                    # already waited *interval*, so probe again right away.
+                    logconfig.logger.warning(
+                        "Listener health probe %d/%d failed; retrying.",
+                        misses,
+                        max_misses,
+                        exc_info=True,
+                    )
+                    continue
+                # Without shutdown_on_listener_failure nothing reads this task's exception.
+                logconfig.logger.exception(
+                    "Listener health check failed: NOTIFY wake-ups and job cancellations "
+                    "no longer reach this worker. Unless shutdown_on_listener_failure is set, "
+                    "it keeps running and only polls every dequeue timeout: restart it."
+                )
+                raise
+            misses = 0
             with suppress(TimeoutError):
                 async with asyncio.timeout(interval.total_seconds()):
                     await self.shutdown.wait()
@@ -267,7 +296,15 @@ class QueueManager:
                 yield job
 
     async def verify_structure(self) -> None:
-        """Assert that required tables, columns, indexes, enums, and triggers exist."""
+        """Assert that required tables, columns, indexes, enums, and triggers exist.
+
+        A repository that verifies its own schema checks every declared object;
+        any other gets the fixed list below.
+        """
+        if isinstance(self.queries, SchemaVerifier):
+            await self.queries.verify_schema()
+            return
+
         for table in (
             self.queries.qbe.settings.queue_table,
             self.queries.qbe.settings.statistics_table,
@@ -324,6 +361,18 @@ class QueueManager:
                     f"The required index '{index}' is missing in the '{table}' table. "
                     f"Please run 'pgq upgrade' to ensure all schema changes are applied."
                 )
+
+        if not (await self.queries.has_function(self.queries.qbe.settings.function)):
+            raise RuntimeError(
+                f"The required function '{self.queries.qbe.settings.function}' is missing. "
+                f"Please run 'pgq upgrade' to ensure all schema changes are applied."
+            )
+
+        if not (await self.queries.has_trigger(self.queries.qbe.settings.trigger)):
+            raise RuntimeError(
+                f"The required trigger '{self.queries.qbe.settings.trigger}' is missing. "
+                f"Please run 'pgq upgrade' to ensure all schema changes are applied."
+            )
 
     async def _maybe_drain_shutdown(
         self,
@@ -427,6 +476,7 @@ class QueueManager:
         """
         # Drop the previous run's ends before anything here can raise.
         self.unwritten_job_logs = []
+        self.listening.clear()
         await self.verify_structure()
 
         # Unset gets a finite budget so one worker cannot claim a whole backlog (#1090).
@@ -436,8 +486,8 @@ class QueueManager:
             max_concurrent_tasks = max(100, 2 * batch_size)
         max_concurrent_tasks = max_concurrent_tasks or None
 
-        if max_concurrent_tasks is not None and max_concurrent_tasks < 2 * batch_size:
-            raise RuntimeError("max_concurrent_tasks must be at least twice the batch size.")
+        if max_concurrent_tasks is not None and max_concurrent_tasks < batch_size:
+            raise RuntimeError("max_concurrent_tasks must be at least the batch size.")
 
         async with (
             buffers.JobStatusLogBuffer(
@@ -454,11 +504,11 @@ class QueueManager:
                 timeout=heartbeat_timeout / 8,
                 repository=self.queries,
             ) as hbuff,
-            self.queries.driver,
-            # Inside the driver so draining jobs can still receive cancel NOTIFYs.
+            # This stack removes the listener after the jobs stop.
+            AsyncExitStack() as listener_cleanup,
+            # Inside the listener stack so draining jobs can still receive cancel NOTIFYs.
             tm.TaskManager() as task_manager,
-            # Listed after the driver so they are cancelled before it closes;
-            # a failing loop body must not leak tasks probing a closing driver.
+            # Listed last, so they stop first. A failing loop body must not leak tasks.
             tm.cancel_on_exit(
                 asyncio.create_task(self._run_periodic_health_check())
             ) as periodic_health_check_task,
@@ -474,8 +524,9 @@ class QueueManager:
             tm.cancel_on_exit(asyncio.create_task(self.shutdown.wait())) as shutdown_task,
         ):
             notice_event_listener = listeners.PGNoticeEventListener()
-            await listeners.initialize_notice_event_listener(
-                self.queries.driver,
+            listener = listeners.listener_for(self.queries)
+            callback = await listeners.initialize_notice_event_listener(
+                listener,
                 self.channel,
                 listeners.default_event_router(
                     notice_event_queue=notice_event_listener,
@@ -483,6 +534,8 @@ class QueueManager:
                     pending_health_check=self.pending_health_check,
                 ),
             )
+            listener_cleanup.push_async_callback(listener.remove_listener, self.channel, callback)
+            self.listening.set()
 
             while not self.shutdown.is_set():
                 async for job in self.fetch_jobs(
@@ -500,6 +553,9 @@ class QueueManager:
                     task.add_done_callback(functools.partial(self.forget_job, job.id, context))
                     task_manager.add(task)
 
+                # NOTIFY follows commit, so the checks below already see what drained events signal.
+                while not notice_event_listener.empty():
+                    notice_event_listener.get_nowait()
                 await self._maybe_drain_shutdown(mode, task_manager)
                 await self._maybe_health_shutdown(
                     periodic_health_check_task, mode, shutdown_on_listener_failure
@@ -511,9 +567,6 @@ class QueueManager:
                 wake_on_listener_failure = (
                     shutdown_on_listener_failure and mode is not types.QueueExecutionMode.drain
                 )
-                # NOTIFY follows commit, so the probes below already see what drained events signal.
-                while not notice_event_listener.empty():
-                    notice_event_listener.get_nowait()
                 timeout = await self._effective_dequeue_timeout(
                     dequeue_timeout,
                     max_concurrent_tasks,

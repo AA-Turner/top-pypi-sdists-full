@@ -24,6 +24,7 @@ from ..types.speech_to_text_model import SpeechToTextModel
 from ..types.speech_to_text_response import SpeechToTextResponse
 from ..types.speech_to_text_translate_model import SpeechToTextTranslateModel
 from ..types.speech_to_text_translate_response import SpeechToTextTranslateResponse
+from ..types.timestamp_granularity import TimestampGranularity
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -41,6 +42,7 @@ class RawSpeechToTextClient:
         mode: typing.Optional[Mode] = OMIT,
         language_code: typing.Optional[SpeechToTextLanguage] = OMIT,
         with_timestamps: typing.Optional[bool] = OMIT,
+        timestamp_granularity: typing.Optional[TimestampGranularity] = OMIT,
         input_audio_codec: typing.Optional[InputAudioCodec] = OMIT,
         keyterms: typing.Optional[typing.List[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -122,9 +124,15 @@ class RawSpeechToTextClient:
             - `doi-IN`: Dogri
 
         with_timestamps : typing.Optional[bool]
-            Enables chunk-level timestamps in the response. If set to `true`, the response includes a `timestamps` object with `words`, `start_time_seconds`, and `end_time_seconds` (each entry covers a sentence or phrase, not an individual word).
+            Returns the legacy `timestamps` object: parallel lists `words`, `start_time_seconds`, and `end_time_seconds`, where each entry covers a sentence or phrase. For new integrations, use `timestamp_granularity` instead.
 
-            **Note:** Word-level timestamps are not supported. Speaker diarization is not supported on the REST API; use the Batch API for diarized, chunk-level timestamps.
+        timestamp_granularity : typing.Optional[TimestampGranularity]
+            Returns timed entries as a list of `{text, start, end}` objects.
+
+            - **segment**: Adds `segments`, one entry per sentence or phrase.
+            - **word**: Adds `words`, one entry per word. A word that could not be timed has `null` start and end.
+
+            Independent of `with_timestamps`. **Word timestamps are supported only by `saaras:v4`**, in the `transcribe`, `codemix`, `verbatim`, and `translit` modes; any other model or mode returns a `400`.
 
         input_audio_codec : typing.Optional[InputAudioCodec]
             Input Audio codec/format of the input file. PCM files are supported only at 16kHz sample rate.
@@ -149,6 +157,7 @@ class RawSpeechToTextClient:
                 "mode": mode,
                 "language_code": language_code,
                 "with_timestamps": with_timestamps,
+                "timestamp_granularity": timestamp_granularity,
                 "input_audio_codec": input_audio_codec,
                 "keyterms": json.dumps(jsonable_encoder(keyterms)),
             },
@@ -401,6 +410,7 @@ class AsyncRawSpeechToTextClient:
         mode: typing.Optional[Mode] = OMIT,
         language_code: typing.Optional[SpeechToTextLanguage] = OMIT,
         with_timestamps: typing.Optional[bool] = OMIT,
+        timestamp_granularity: typing.Optional[TimestampGranularity] = OMIT,
         input_audio_codec: typing.Optional[InputAudioCodec] = OMIT,
         keyterms: typing.Optional[typing.List[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -482,9 +492,15 @@ class AsyncRawSpeechToTextClient:
             - `doi-IN`: Dogri
 
         with_timestamps : typing.Optional[bool]
-            Enables chunk-level timestamps in the response. If set to `true`, the response includes a `timestamps` object with `words`, `start_time_seconds`, and `end_time_seconds` (each entry covers a sentence or phrase, not an individual word).
+            Returns the legacy `timestamps` object: parallel lists `words`, `start_time_seconds`, and `end_time_seconds`, where each entry covers a sentence or phrase. For new integrations, use `timestamp_granularity` instead.
 
-            **Note:** Word-level timestamps are not supported. Speaker diarization is not supported on the REST API; use the Batch API for diarized, chunk-level timestamps.
+        timestamp_granularity : typing.Optional[TimestampGranularity]
+            Returns timed entries as a list of `{text, start, end}` objects.
+
+            - **segment**: Adds `segments`, one entry per sentence or phrase.
+            - **word**: Adds `words`, one entry per word. A word that could not be timed has `null` start and end.
+
+            Independent of `with_timestamps`. **Word timestamps are supported only by `saaras:v4`**, in the `transcribe`, `codemix`, `verbatim`, and `translit` modes; any other model or mode returns a `400`.
 
         input_audio_codec : typing.Optional[InputAudioCodec]
             Input Audio codec/format of the input file. PCM files are supported only at 16kHz sample rate.
@@ -509,6 +525,7 @@ class AsyncRawSpeechToTextClient:
                 "mode": mode,
                 "language_code": language_code,
                 "with_timestamps": with_timestamps,
+                "timestamp_granularity": timestamp_granularity,
                 "input_audio_codec": input_audio_codec,
                 "keyterms": json.dumps(jsonable_encoder(keyterms)),
             },

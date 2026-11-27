@@ -25,6 +25,7 @@ from .comparison import (
     with_documentation_comparison,
     with_makefile_comparison,
     with_migration_comparison,
+    with_tracked_texts,
 )
 
 
@@ -148,6 +149,7 @@ def complete_repository_analysis(
     snapshot = with_documentation_comparison(
         root, snapshot, enabled_rules=enabled_rules, base_revision=request.base_revision
     )
+    snapshot = with_tracked_texts(root, snapshot, enabled_rules=enabled_rules)
     repository_diagnostics = policy.evaluate_repository(
         snapshot, enabled_rule_ids=frozenset(item.rule_id for item in enabled_rules)
     )

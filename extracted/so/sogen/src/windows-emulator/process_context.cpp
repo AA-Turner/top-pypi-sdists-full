@@ -346,7 +346,7 @@ namespace sogen
             this->gdt_base = setup_gdt(win_emu.x64_emu(), win_emu.memory);
         }
 
-        this->kusd.setup(version, fake_env, win_emu.native_timestamp_counter_frequency());
+        this->kusd.setup(version, fake_env, win_emu.native_timestamp_counter_frequency(), win_emu.intercepts_timestamp_counter());
 
         if (auto* arm64 = dynamic_cast<arm64_cpu*>(&emu.get_guest_cpu(0)))
         {
@@ -846,6 +846,23 @@ namespace sogen
         return this->working_device_list;
     }
 
+    void process_context::release_update_lock(const hwnd window)
+    {
+        if (this->update_locked_window == window)
+        {
+            this->update_locked_window = 0;
+            this->update_lock_thread_id = 0;
+        }
+    }
+
+    void process_context::release_update_lock_of_thread(const uint32_t locking_thread_id)
+    {
+        if (this->update_locked_window != 0 && this->update_lock_thread_id == locking_thread_id)
+        {
+            this->release_update_lock(this->update_locked_window);
+        }
+    }
+
     void process_context::terminate_job_processes(windows_emulator& win_emu, const job_object& job)
     {
         constexpr uint32_t kill_on_job_close = 0x2000;
@@ -1212,6 +1229,8 @@ namespace sogen
         buffer.write(this->dxgk);
         buffer.write_optional(this->etw_notification_event);
         buffer.write(this->mouse_capture_window);
+        buffer.write(this->update_locked_window);
+        buffer.write(this->update_lock_thread_id);
         buffer.write(this->foreground_window);
         buffer.write_optional(this->timer_resolution_request);
         buffer.write_optional(this->cursor_clip);
@@ -1225,7 +1244,7 @@ namespace sogen
         buffer.write_vector(this->raw_input_registrations);
         buffer.write_vector(this->pending_low_level_input);
         buffer.write(this->next_low_level_input_id);
-        buffer.write(this->next_hook_handle);
+        buffer.write(this->next_hook_uniqueness);
         buffer.write(this->drop_low_level_characters);
         buffer.write(this->next_raw_input_token);
         buffer.write_map(this->audio_render_events_by_stream);
@@ -1273,6 +1292,7 @@ namespace sogen
         buffer.write(this->managed_threads);
         buffer.write(this->debug_objects);
         buffer.write_map(this->atoms);
+        buffer.write(this->clipboard);
         buffer.write_map(this->classes);
 
         buffer.write_map(this->apiset);
@@ -1350,6 +1370,8 @@ namespace sogen
         buffer.read(this->dxgk);
         buffer.read_optional(this->etw_notification_event);
         buffer.read(this->mouse_capture_window);
+        buffer.read(this->update_locked_window);
+        buffer.read(this->update_lock_thread_id);
         buffer.read(this->foreground_window);
         buffer.read_optional(this->timer_resolution_request);
         buffer.read_optional(this->cursor_clip);
@@ -1363,7 +1385,7 @@ namespace sogen
         buffer.read_vector(this->raw_input_registrations);
         buffer.read_vector(this->pending_low_level_input);
         buffer.read(this->next_low_level_input_id);
-        buffer.read(this->next_hook_handle);
+        buffer.read(this->next_hook_uniqueness);
         buffer.read(this->drop_low_level_characters);
         buffer.read(this->next_raw_input_token);
         buffer.read_map(this->audio_render_events_by_stream);
@@ -1411,6 +1433,7 @@ namespace sogen
         buffer.read(this->managed_threads);
         buffer.read(this->debug_objects);
         buffer.read_map(this->atoms);
+        buffer.read(this->clipboard);
         buffer.read_map(this->classes);
 
         buffer.read_map(this->apiset);
@@ -2099,6 +2122,10 @@ namespace sogen
         }
 
         thread.exit_status = thread_exit_status;
+        for (auto& other : this->threads | std::views::values)
+        {
+            other.destroy_hooks_installed_by(thread.id);
+        }
         thread.clear_raw_input();
         for (auto& sent : thread.pending_sent_messages)
         {
@@ -2122,6 +2149,8 @@ namespace sogen
             entry.abandon_if_owned_by(mutant::make_owner(this->process_id, thread.id));
         }
 
+        this->release_update_lock_of_thread(thread.id);
+
         for (auto i = this->windows.begin(); i != this->windows.end();)
         {
             if (i->second.thread_id != thread.id)
@@ -2132,6 +2161,7 @@ namespace sogen
 
             i->second.ref_count = 1;
             this->release_mouse_capture(i->second.handle);
+            this->release_update_lock(i->second.handle);
             this->gdi_window_surfaces.erase(static_cast<uint32_t>(i->second.handle));
             i = this->windows.erase(i).first;
         }

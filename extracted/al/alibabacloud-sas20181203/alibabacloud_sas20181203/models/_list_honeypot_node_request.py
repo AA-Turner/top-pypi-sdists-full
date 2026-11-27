@@ -12,13 +12,13 @@ class ListHoneypotNodeRequest(DaraModel):
         node_name: str = None,
         page_size: int = None,
     ):
-        # The number of the page to return.
+        # The page number for the paging query.
         self.current_page = current_page
-        # The ID of the management node.
+        # The ID of the node.
         self.node_id = node_id
         # The name of the management node.
         self.node_name = node_name
-        # The number of entries to return on each page.
+        # The maximum number of entries to return per page in a paging query.
         self.page_size = page_size
 
     def validate(self):

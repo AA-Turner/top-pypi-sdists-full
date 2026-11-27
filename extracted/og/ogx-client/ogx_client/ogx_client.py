@@ -79,8 +79,8 @@ from ogx_client.api.routes_api import RoutesApi
 from ogx_client.api.routes_api import AsyncRoutesApi
 from ogx_client.api.skills_api import SkillsApi
 from ogx_client.api.skills_api import AsyncSkillsApi
-from ogx_client.api.tools_api import ToolsApi
-from ogx_client.api.tools_api import AsyncToolsApi
+from ogx_client.api.systemone_api import SystemoneApi
+from ogx_client.api.systemone_api import AsyncSystemoneApi
 from ogx_client.api.vector_io_api import VectorIoApi
 from ogx_client.api.vector_io_api import AsyncVectorIoApi
 from ogx_client.api.vector_stores_api import VectorStoresApi
@@ -241,7 +241,7 @@ class OgxClient:
         self.responses = ResponsesApi(self.api_client)
         self.routes = RoutesApi(self.api_client)
         self.skills = SkillsApi(self.api_client)
-        self.tools = ToolsApi(self.api_client)
+        self.systemone = SystemoneApi(self.api_client)
         self.vector_io = VectorIoApi(self.api_client)
         self.vector_stores = VectorStoresApi(self.api_client)
         self.vector_stores_files = VectorStoresFilesApi(self.api_client)
@@ -411,7 +411,7 @@ class AsyncOgxClient:
         self.responses = AsyncResponsesApi(self.api_client)
         self.routes = AsyncRoutesApi(self.api_client)
         self.skills = AsyncSkillsApi(self.api_client)
-        self.tools = AsyncToolsApi(self.api_client)
+        self.systemone = AsyncSystemoneApi(self.api_client)
         self.vector_io = AsyncVectorIoApi(self.api_client)
         self.vector_stores = AsyncVectorStoresApi(self.api_client)
         self.vector_stores_files = AsyncVectorStoresFilesApi(self.api_client)

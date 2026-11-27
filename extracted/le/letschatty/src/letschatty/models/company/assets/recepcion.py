@@ -485,6 +485,20 @@ class Recepcion(CompanyAssetModel):
         ),
     )
 
+    # 0.6.108 / 0.6.57.21 — Bienvenida «La arma la IA» (2026-11-27, Colegio de Profesionales de Higiene): el primer
+    # mensaje no es la respuesta rápida fija, lo escribe el agente de IA del camino (saluda, dice si está abierto o
+    # cuándo atienden y, si el camino tiene una acción de IA que entra enseguida, sigue con eso en el mismo mensaje).
+    # `bienvenida_fast_answer_id`, si hay, pasa a ser la INSTRUCCIÓN del saludo («saludá así, con tus palabras») y la
+    # plantilla de respaldo: fuera de la ventana de 24 h de WhatsApp, o si el agente ya no existe, sale la fija. Sin
+    # agente de IA en la empresa no se puede prender (api-chatty lo rechaza). Por cuenta, como la bienvenida.
+    bienvenida_la_arma_la_ia: bool = Field(
+        default=False,
+        description=(
+            "La bienvenida la escribe el agente de IA del camino. La respuesta rápida de bienvenida, si hay, es la "
+            "instrucción del saludo y la plantilla de respaldo (fuera de las 24 h o sin agente sale la fija)"
+        ),
+    )
+
     ausencia: Ausencia = Field(default_factory=Ausencia)
 
     seguimientos: ReglaSeguimientoHumano = Field(default_factory=ReglaSeguimientoHumano)
@@ -562,7 +576,7 @@ class Recepcion(CompanyAssetModel):
 
     #: Lo que una cuenta propia pisa de la base. El resto (`automation`, `seguimientos`,
     #: `motivos_con_ia`, `dias_para_reclasificar`, `bienvenida_demora_s`, …) es de la empresa.
-    ACCOUNT_FIELDS: ClassVar[tuple[str, ...]] = ("bienvenida_fast_answer_id", "ausencia")
+    ACCOUNT_FIELDS: ClassVar[tuple[str, ...]] = ("bienvenida_fast_answer_id", "ausencia", "bienvenida_la_arma_la_ia")
 
     def model_dump_json(self, *args, serializer: SerializerType = SerializerType.API, **kwargs):
         """What gets written to Mongo (`serializer=DATABASE`) leaves out an EMPTY `account_receptions`:
@@ -594,6 +608,8 @@ class Recepcion(CompanyAssetModel):
                 update["bienvenida_fast_answer_id"] = block["bienvenida_fast_answer_id"] or None
             if block.get("ausencia") is not None:
                 update["ausencia"] = Ausencia.model_validate(block["ausencia"])
+            if isinstance(block.get("bienvenida_la_arma_la_ia"), bool):
+                update["bienvenida_la_arma_la_ia"] = block["bienvenida_la_arma_la_ia"]
             if not update:
                 return self
             return self.model_copy(update=update)
@@ -611,6 +627,8 @@ class RecepcionDelMotivo(BaseModel):
     general. La pausa manual (`Ausencia.activa`) es siempre la de la empresa: cerró el local, cerró para todos."""
 
     bienvenida_fast_answer_id: Optional[StrObjectId] = Field(default=None, description="None = sin bienvenida")
+    # 0.6.108 / 0.6.57.21: «La arma la IA» también es del bloque (ver `Recepcion.bienvenida_la_arma_la_ia`).
+    bienvenida_la_arma_la_ia: bool = Field(default=False, description="La bienvenida la escribe el agente de IA")
     ausencia: Ausencia = Field(default_factory=Ausencia, description="Horario, aviso de cerrado y si reemplaza la bienvenida")
 
     def efectiva(self, general: "Recepcion") -> "Recepcion":
@@ -619,4 +637,5 @@ class RecepcionDelMotivo(BaseModel):
         ausencia = self.ausencia.model_copy(
             update={"activa": general.ausencia.activa, "activa_hasta": general.ausencia.activa_hasta})
         return general.model_copy(update={"bienvenida_fast_answer_id": self.bienvenida_fast_answer_id,
+                                          "bienvenida_la_arma_la_ia": self.bienvenida_la_arma_la_ia,
                                           "ausencia": ausencia})

@@ -35,6 +35,10 @@ class CreateAccountJsonBody:
         variable (Union[Unset, CreateAccountJsonBodyVariable]): The variable holding this account's access token. It is
             created with the account, in one transaction and with the same checks as createVariable, and linked to it so it
             refreshes through it.
+        is_workspace_integration (Union[Unset, bool]): Issued by the workspace's own OAuth app, with `client` naming its
+            service (google, github, nextcloud).
+        replace (Union[Unset, bool]): Reconnect: swap the token and account of the existing variable at variable.path in
+            place, keeping its sharing and description.
     """
 
     refresh_token: str
@@ -48,6 +52,8 @@ class CreateAccountJsonBody:
     mcp_server_url: Union[Unset, str] = UNSET
     scopes: Union[Unset, List[str]] = UNSET
     variable: Union[Unset, "CreateAccountJsonBodyVariable"] = UNSET
+    is_workspace_integration: Union[Unset, bool] = UNSET
+    replace: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -67,6 +73,9 @@ class CreateAccountJsonBody:
         variable: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.variable, Unset):
             variable = self.variable.to_dict()
+
+        is_workspace_integration = self.is_workspace_integration
+        replace = self.replace
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -93,6 +102,10 @@ class CreateAccountJsonBody:
             field_dict["scopes"] = scopes
         if variable is not UNSET:
             field_dict["variable"] = variable
+        if is_workspace_integration is not UNSET:
+            field_dict["is_workspace_integration"] = is_workspace_integration
+        if replace is not UNSET:
+            field_dict["replace"] = replace
 
         return field_dict
 
@@ -128,6 +141,10 @@ class CreateAccountJsonBody:
         else:
             variable = CreateAccountJsonBodyVariable.from_dict(_variable)
 
+        is_workspace_integration = d.pop("is_workspace_integration", UNSET)
+
+        replace = d.pop("replace", UNSET)
+
         create_account_json_body = cls(
             refresh_token=refresh_token,
             expires_in=expires_in,
@@ -140,6 +157,8 @@ class CreateAccountJsonBody:
             mcp_server_url=mcp_server_url,
             scopes=scopes,
             variable=variable,
+            is_workspace_integration=is_workspace_integration,
+            replace=replace,
         )
 
         create_account_json_body.additional_properties = d

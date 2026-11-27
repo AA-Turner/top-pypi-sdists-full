@@ -43,9 +43,7 @@ from AOT_biomaps.AOT_Acoustic.AcousticTools import (
     get_iq_envelope_kernel,
     get_transfer_chunk_frames,
     loadmat,
-    resample_field,
-    sensor_data_to_grid,
-    to_pipeline_layout,
+    resample_bandlimited
 )
 from AOT_biomaps.AOT_Medium import Medium
 from AOT_biomaps.Settings import Params
@@ -209,7 +207,6 @@ class AcousticField(ABC):
         burst=None,
         isGPU=None,
         GPUdevice=None,
-        tempFieldName=None,
         generation_type="envelope_squared",
         show_log=False,
         backend=None,
@@ -221,6 +218,7 @@ class AcousticField(ABC):
         host_staging_fraction=1.0 / 16.0,
         host_output_path=None,
         validate_iq=False,
+        simulation_mode=None,
     ):
         """Generate the acoustic field for the selected simulation type.
 
@@ -263,7 +261,9 @@ class AcousticField(ABC):
                 raise NotImplementedError("3D k-Wave generation is not implemented.")
             if dimension != Dim.D2.value:
                 raise ValueError(f"Unsupported k-Wave dimension: {dimension!r}.")
-
+            if simulation_mode not in ("stream", "batch", None):
+                raise ValueError(f"Invalid simulation_mode: {simulation_mode!r}. Supported modes are 'stream', 'batch', or None (auto-select).")
+            
             self.field = self._generate_acoustic_field_KWAVE_2D(
                 burst=burst,
                 isGPU=isGPU,
@@ -273,13 +273,13 @@ class AcousticField(ABC):
                 keep_on_gpu=keep_on_gpu,
                 free_vram=free_vram,
                 backend=backend,
-                tempFileName=tempFieldName,
                 envelope_lpf_hz=envelope_lpf_hz,
                 accumulate_max_bytes=accumulate_max_bytes,
                 vram_fraction=vram_fraction,
                 host_staging_fraction=host_staging_fraction,
                 host_output_path=host_output_path,
                 validate_iq=validate_iq,
+                simulation_mode=simulation_mode,
             )
         elif simulation_type == TypeSim.HYDRO.value:
             raise ValueError("Hydrophone fields are loaded from acquisitions; they cannot be simulated.")
@@ -329,7 +329,7 @@ class AcousticField(ABC):
             else:
                 raise ValueError(f"Unsupported field format: {formatSave!r}.")
 
-        if simulation_type == TypeSim.HYDRO.value:
+        elif simulation_type == TypeSim.HYDRO.value:
             if formatSave == FormatSave.HDR_IMG:
                 raise ValueError("HDR_IMG is not supported for hydrophone acquisitions.")
             h5_path = os.path.join(folderPath, field_name + ".h5")
@@ -344,8 +344,8 @@ class AcousticField(ABC):
             elif formatSave == FormatSave.NPY:
                 npy_path = folderPath if os.path.isfile(folderPath) else os.path.join(folderPath, field_name + formatSave.value)
                 self.field = np.load(npy_path, mmap_mode="r")
-
-        raise ValueError(f"Unsupported simulation type for loading: {simulation_type!r}.")
+        else:
+            raise ValueError(f"Unsupported simulation type for loading: {simulation_type!r}.")
 
     @abstractmethod
     def get_name_field(self):
@@ -499,7 +499,7 @@ class AcousticField(ABC):
             data_to_show = np.asarray(data_to_show)
 
         plt.figure(figsize=figsize)
-        plt.imshow( data_to_show, extent=(self.params.general['Xrange'][0] * 1000, self.params.general['Xrange'][1] * 1000, self.params.general['Zrange'][1] * 1000, self.params.general['Zrange'][0] * 1000), aspect="equal", cmap="jet", vmin=0, vmax=vmax,)
+        plt.imshow( data_to_show, extent=(self.params.general['Xrange'][0] * 1000, self.params.general['Xrange'][1] * 1000, self.params.general['Zrange'][1] * 1000, self.params.general['Zrange'][0] * 1000), aspect="equal", cmap="jet", vmin=0, vmax=vmax)
         plt.colorbar(label=f"Envelope amplitude ({unit_label})")
         plt.title("Maximum-intensity projection of the acoustic field envelope")
         plt.xlabel("X (mm)")
@@ -535,23 +535,20 @@ class AcousticField(ABC):
     def _generate_acoustic_field_KWAVE_2D(
         self,
         burst=None,
+        dead_piezo=None,
         isGPU=None,
         GPUdevice=None,
         generation_type="envelope_squared",
         show_log=True,
         keep_on_gpu=False,
         free_vram=True,
-        target_dt=None,
-        target_dx=None,
-        target_dz=None,
         backend=None,
-        tempFileName=None,
         envelope_lpf_hz=None,
         accumulate_max_bytes=None,
         vram_fraction=0.95,
         host_staging_fraction=1.0 / 16.0,
         host_output_path=None,
-        validate_iq=False,
+        simulation_mode=None,
     ):
         """Dispatch 2D k-Wave generation to streaming or batch processing.
 
@@ -569,14 +566,9 @@ class AcousticField(ABC):
         if GPUdevice is None:
             GPUdevice = config.select_best_gpu()
 
-        if target_dt is None:
-            target_dt = getattr(self.medium, "dt_save", None)
-        if target_dx is None:
-            target_dx = getattr(self.medium, "dx_save", None)
-        if target_dz is None:
-            target_dz = getattr(self.medium, "dz_save", None)
-        if target_dz is None:
-            target_dz = target_dx
+        target_dt = getattr(self.medium, "dt_save", None)
+        target_dx = getattr(self.medium, "dx_save", None)
+        target_dz = getattr(self.medium, "dz_save", None)
 
         if backend is None:
             backend = "python"
@@ -587,52 +579,54 @@ class AcousticField(ABC):
                 print("[AOT-biomaps] k-Wave CUDA binary unavailable; using the Python backend.")
             backend = "python"
 
-        use_streaming = (bool(isGPU) and CUPY_AVAILABLE and KWAVE_STREAMING_AVAILABLE and backend == "python" and generation_type in ("envelope", "envelope_squared"))
+        if simulation_mode is None:
+            use_streaming = (bool(isGPU) and CUPY_AVAILABLE and KWAVE_STREAMING_AVAILABLE and backend == "python" and generation_type in ("envelope", "envelope_squared"))
+        elif simulation_mode == "stream":
+            use_streaming = True
+        elif simulation_mode == "batch":
+            use_streaming = False
+
         if use_streaming:
             return self._stream_acoustic_field_KWAVE_2D(
                 burst=burst,
+                dead_piezo=dead_piezo,
+                isGPU=isGPU,
                 GPUdevice=GPUdevice,
                 generation_type=generation_type,
                 show_log=show_log,
                 keep_on_gpu=keep_on_gpu,
                 free_vram=free_vram,
-                target_dt=target_dt,
-                target_dx=target_dx,
-                target_dz=target_dz,
+                host_output_path=host_output_path,
                 envelope_lpf_hz=envelope_lpf_hz,
                 accumulate_max_bytes=accumulate_max_bytes,
                 vram_fraction=vram_fraction,
                 host_staging_fraction=host_staging_fraction,
-                host_output_path=host_output_path,
-                validate_iq=validate_iq,
+                
             )
 
         return self._batch_acoustic_field_KWAVE_2D(
             burst=burst,
+            dead_piezo=dead_piezo,
             isGPU=isGPU,
             GPUdevice=GPUdevice,
             generation_type=generation_type,
             show_log=show_log,
             keep_on_gpu=keep_on_gpu,
             free_vram=free_vram,
-            target_dt=target_dt,
-            target_dx=target_dx,
-            target_dz=target_dz,
-            backend=backend,
-            tempFileName=tempFileName,
+            host_output_path=host_output_path,
+            backend=backend,     
         )
 
     def _stream_acoustic_field_KWAVE_2D(
         self,
         burst,
+        dead_piezo,
+        isGPU,
         GPUdevice,
         generation_type,
         show_log,
         keep_on_gpu,
         free_vram,
-        target_dt,
-        target_dx,
-        target_dz,
         envelope_lpf_hz,
         accumulate_max_bytes=None,
         vram_fraction=0.95,
@@ -642,22 +636,29 @@ class AcousticField(ABC):
     ):
         """Run k-Wave and fused I/Q demodulation with GPU-side spatial resampling.
 
-        The I/Q kernel always writes native-resolution frames into one GPU
-        allocation.
-
-        If the complete native output does not fit in VRAM, the allocation is
-        used as a circular ring. Completed segments are spatially resampled on
-        a dedicated CUDA stream before being copied to pinned host memory.
-
-        The ring can be reused as soon as its spatial resampling has finished.
-        The D2H transfer then reads the independent resampled GPU allocation.
-
-        If the complete native output fits in VRAM, spatial resampling is done
-        in chunks directly on the GPU. For spatial reduction, the result is
-        compacted into the beginning of the original GPU allocation, avoiding
-        a second full-size GPU allocation.
-
+        The I/Q kernel always writes native-resolution frames into one GPU allocation.
+        If the complete native output does not fit in VRAM, the allocation is used as a circular ring. Completed segments are spatially resampled on a dedicated CUDA stream before being copied to pinned host memory.
+        The ring can be reused as soon as its spatial resampling has finished. The D2H transfer then reads the independent resampled GPU allocation.
+        If the complete native output fits in VRAM, spatial resampling is done in chunks directly on the GPU. For spatial reduction, the result is compacted into the beginning of the original GPU allocation, avoiding a second full-size GPU allocation.
         Temporal resampling is performed after the spatial processing.
+
+        Arguments:
+            burst: The excitation burst signal.
+            dead_piezo: Optional list of indices for inactive piezo elements.
+            GPUdevice: The GPU device index to use.
+            generation_type: The type of output to generate ("envelope", "envelope_squared", or "field").
+            show_log: Whether to print log messages.
+            keep_on_gpu: Whether to keep the final result on the GPU if it fits in VRAM.
+            free_vram: Whether to free VRAM after the simulation.
+            target_dt: Target temporal sampling interval (seconds).
+            target_dx: Target spatial sampling interval in x (meters).
+            target_dz: Target spatial sampling interval in z (meters).
+            envelope_lpf_hz: Low-pass filter cutoff frequency for envelope extraction (Hz).
+            accumulate_max_bytes: Optional maximum bytes for output accumulation.
+            vram_fraction: Fraction of available VRAM to use for output buffers.
+            host_staging_fraction: Fraction of available host RAM for pinned staging buffers.
+            host_output_path: Optional path to save streamed output on host.
+            validate_iq: Whether to validate I/Q envelope against a reference.
         """
 
         # ------------------------------------------------------------------
@@ -693,14 +694,10 @@ class AcousticField(ABC):
         if min(target_dt, target_dx, target_dz) <= 0.0:
             raise ValueError("Target sample spacings must be positive.")
 
-        decimation = max(1, int(round(target_dt / dt)))
+        decimation = max(1, int(target_dt / dt))
 
         output_dt = decimation * dt
         output_fs = 1.0 / output_dt
-        requested_fs = 1.0 / target_dt
-
-        if abs(output_fs - requested_fs) / requested_fs > 1e-3 and show_log:
-            print("[AOT-biomaps] Requested temporal sampling is not an integer decimation; using {output_fs:.6g} Hz.")
 
         if envelope_lpf_hz is None:
             envelope_lpf_hz = 0.25 * f_us
@@ -728,22 +725,18 @@ class AcousticField(ABC):
         # ------------------------------------------------------------------
         # 2. k-Wave source, sensor and simulation setup
         # ------------------------------------------------------------------
-
         source = kSource()
         source.p_mask = np.zeros((Nx, Nz), dtype=bool)
-        source = self._set_up_source(source, burst=burst)
-
+        source = self._set_up_source(source, dead_piezo=dead_piezo, burst=burst)
         sensor = kSensor()
         sensor.mask = np.ones((Nx, Nz), dtype=bool)
-        sensor.record = ["p"]
-
-        validate_simulation(medium_copy.kgrid, medium_copy.kmedium, source, sensor, pml_size=list(pml_size),)
+        sensor.record = ["p_final"] # Do not request the pressure time series from Simulation. p_final is a valid non-empty record request, preventing the default ("p", "p_final") behavior when record is empty.
+        validate_simulation(medium_copy.kgrid, medium_copy.kmedium, source, sensor, pml_size=list(pml_size))
         kgrid_sim, medium_sim, source_sim, sensor_sim = _expand_for_pml_outside(medium_copy.kgrid, medium_copy.kmedium, source, sensor, list(pml_size))
         kernel = get_iq_envelope_kernel()
 
         debug_enabled = bool(validate_iq)
         gpu_output = None
-        gpu_resampled_output = None
         cpu_output = None
         pinned_owners = []
         host_staging = []
@@ -757,54 +750,20 @@ class AcousticField(ABC):
         # ------------------------------------------------------------------
         # 3. GPU execution
         # ------------------------------------------------------------------
-
         with cp.cuda.Device(int(GPUdevice)):
             compute_stream = cp.cuda.get_current_stream()
-            sim = Simulation(
-                kgrid_sim,
-                medium_sim,
-                source_sim,
-                sensor_sim,
-                device="gpu",
-                use_sg=False,
-                use_kspace=True,
-                smooth_p0=False,
-                pml_size=pml_size,
-                pml_alpha=(pml_alpha, pml_alpha),
-                quiet=not show_log,
-                dtype=np.float32,
-            )
-
+            sim = Simulation(kgrid_sim, medium_sim, source_sim, sensor_sim, device="gpu", use_sg=False, use_kspace=True, smooth_p0=False, pml_size=pml_size, pml_alpha=(pml_alpha, pml_alpha), quiet=not show_log, dtype=np.float32)
             sim.setup()
-
-            # The streaming path consumes sim.p directly. Prevent k-Wave from retaining the complete sensor time series.
-            sensor_data = getattr(sim, "sensor_data", None)
-
-            if hasattr(sensor_data, "clear"):
-                sensor_data.clear()
-            elif isinstance(sensor_data, dict):
-                for key in list(sensor_data):
-                    del sensor_data[key]
-
-            if hasattr(sim, "record"):
-                try:
-                    sim.record.discard("p")
-                except (AttributeError, TypeError):
-                    pass
-
             Nt = int(sim.Nt)
             _, Nz_padded = sim.grid_shape
-
             start_n = decimation * int(math.ceil(group_delay / output_dt))
-            n_output_max = max(0,(Nt - start_n + decimation - 1) // decimation,)
-
+            n_output_max = max(0,(Nt - start_n + decimation - 1) // decimation)
             if n_output_max <= 0:
                 raise RuntimeError( "The simulation is too short to produce an envelope frame.")
 
             # ------------------------------------------------------------------
             # 4. Target dimensions
             # ------------------------------------------------------------------
-
             predicted_sizes, _ = compute_target_sizes(Nx, Nz, n_output_max, dx, dz, output_dt, target_dt, target_dx, target_dz)
             target_Nt_pred, target_Nz, target_Nx = map(int, predicted_sizes)
             target_n_voxels = target_Nz * target_Nx
@@ -814,7 +773,6 @@ class AcousticField(ABC):
             # ------------------------------------------------------------------
             # 5. I/Q state allocation
             # ------------------------------------------------------------------
-
             iq_states = cp.zeros((4, n_voxels),  dtype=cp.float64)
             i_state1, i_state2, q_state1, q_state2 = iq_states
 
@@ -828,644 +786,245 @@ class AcousticField(ABC):
             # ------------------------------------------------------------------
             # 6. Dynamic VRAM budget
             # ------------------------------------------------------------------
-
             memory_info = get_gpu_memory_info(cp)
             budget_bytes = get_gpu_output_budget_bytes(cp, fraction=vram_fraction, cap_bytes=accumulate_max_bytes)
-
             output_bytes = n_output_max * frame_bytes
-
             streamed = output_bytes > budget_bytes
 
             # Try a complete native-resolution output allocation first.
             if not streamed:
                 try:
-                    gpu_output = cp.empty(
-                        n_output_max * n_voxels,
-                        dtype=cp.float32,
-                    )
+                    gpu_output = cp.empty(n_output_max * n_voxels, dtype=cp.float32)
                 except (cp.cuda.memory.OutOfMemoryError, MemoryError):
                     streamed = True
 
             # ------------------------------------------------------------------
             # 7. Streaming ring allocation
             # ------------------------------------------------------------------
-
             ring_frames = 0
             chunk_frames = 0
             n_segments = 0
-
             if streamed:
-
-                # Use as much memory as possible for the native-resolution ring.
-                # Reduce its size only after an actual allocation failure.
-                ring_frames = min(
-                    n_output_max,
-                    int(budget_bytes // frame_bytes),
-                )
-
+                ring_frames = min(n_output_max, int(budget_bytes // frame_bytes)) # Use as much memory as possible for the native-resolution ring. Reduce its size only after an actual allocation failure.
                 allocation_error = None
-
                 while ring_frames >= 1:
                     try:
-                        gpu_output = cp.empty(
-                            ring_frames * n_voxels,
-                            dtype=cp.float32,
-                        )
+                        gpu_output = cp.empty(ring_frames * n_voxels, dtype=cp.float32)
                         break
-
                     except (cp.cuda.memory.OutOfMemoryError, MemoryError) as exc:
                         allocation_error = exc
-
                         cp.get_default_memory_pool().free_all_blocks()
-
                         ring_frames //= 2
 
                 else:
-                    raise MemoryError(
-                        "Insufficient VRAM for a one-frame I/Q output buffer. "
-                        "Reduce the spatial grid or free GPU memory before simulation."
-                    ) from allocation_error
+                    raise MemoryError("Insufficient VRAM for a one-frame I/Q output buffer. Reduce the spatial grid or free GPU memory before simulation.") from allocation_error
 
-                # The transfer chunk is defined using the RESAMPLED frame size.
-                # The ring itself remains in native resolution.
-                requested_chunk_frames = get_transfer_chunk_frames(
-                    ring_frames,
-                    target_frame_bytes,
-                    host_staging_fraction=host_staging_fraction,
-                )
-
-                requested_chunk_frames = max(
-                    1,
-                    min(ring_frames, int(requested_chunk_frames)),
-                )
+                # The transfer chunk is defined using the RESAMPLED frame size. The ring itself remains in native resolution.
+                requested_chunk_frames = get_transfer_chunk_frames(ring_frames, target_frame_bytes, host_staging_fraction=host_staging_fraction)
+                requested_chunk_frames = max(1, min(ring_frames, int(requested_chunk_frames)))
 
                 # Allocate two pinned buffers at the final spatial resolution.
-                pinned_owners, host_staging, chunk_frames = (
-                    allocate_pinned_staging_buffers(
-                        frame_shape=(target_Nz, target_Nx),
-                        requested_frames=requested_chunk_frames,
-                        n_buffers=2,
-                        dtype=np.float32,
-                    )
-                )
-
-                chunk_frames = max(
-                    1,
-                    min(ring_frames, int(chunk_frames)),
-                )
-
-                # Round the ring down to a whole number of segments.
-                n_segments = max(
-                    1,
-                    ring_frames // chunk_frames,
-                )
-
+                pinned_owners, host_staging, chunk_frames = (allocate_pinned_staging_buffers(frame_shape=(target_Nz, target_Nx), requested_frames=requested_chunk_frames, n_buffers=2, dtype=np.float32))
+                chunk_frames = max(1, min(ring_frames, int(chunk_frames)))
+                n_segments = max(1, ring_frames // chunk_frames) # Round the ring down to a whole number of segments.
                 ring_frames = n_segments * chunk_frames
-
                 if ring_frames * n_voxels != gpu_output.size:
                     gpu_output = gpu_output[:ring_frames * n_voxels]
-
-                # Host output contains already spatially resampled frames.
+     
                 if host_output_path is None:
-                    cpu_output = np.empty(
-                        (n_output_max, target_Nz, target_Nx),
-                        dtype=np.float32,
-                    )
+                    cpu_output = np.empty((n_output_max, target_Nz, target_Nx), dtype=np.float32) # Host output contains already spatially resampled frames.
                 else:
-                    host_directory = os.path.dirname(
-                        os.path.abspath(host_output_path)
-                    )
-
-                    os.makedirs(
-                        host_directory,
-                        exist_ok=True,
-                    )
-
-                    cpu_output = np.lib.format.open_memmap(
-                        host_output_path,
-                        mode="w+",
-                        dtype=np.float32,
-                        shape=(n_output_max, target_Nz, target_Nx),
-                    )
+                    host_directory = os.path.dirname(os.path.abspath(host_output_path))
+                    os.makedirs(host_directory, exist_ok=True)
+                    cpu_output = np.lib.format.open_memmap(host_output_path, mode="w+", dtype=np.float32, shape=(n_output_max, target_Nz, target_Nx))
 
                 # Dedicated streams:
                 # - compute_stream: k-Wave and I/Q kernel
                 # - resample_stream: spatial interpolation
                 # - copy_stream: asynchronous D2H
                 copy_stream = cp.cuda.Stream(non_blocking=True)
-
                 if spatial_resampling:
                     resample_stream = cp.cuda.Stream(non_blocking=True)
 
-                ready_events = [
-                    cp.cuda.Event(disable_timing=True)
-                    for _ in range(n_segments)
-                ]
-
-                segment_done_events = [
-                    cp.cuda.Event(disable_timing=True)
-                    for _ in range(n_segments)
-                ]
-
-                host_done_events = [
-                    cp.cuda.Event(disable_timing=True)
-                    for _ in range(2)
-                ]
-
+                ready_events = [cp.cuda.Event(disable_timing=True) for _ in range(n_segments)]
+                segment_done_events = [cp.cuda.Event(disable_timing=True) for _ in range(n_segments)]
+                host_done_events = [cp.cuda.Event(disable_timing=True) for _ in range(2)]
                 pending_host_copies = [None, None]
-
-                # Keep resampled GPU chunks alive until their D2H transfers finish.
-                resampled_gpu_chunks = [None, None]
-
+                resampled_gpu_chunks = [None, None] # Keep resampled GPU chunks alive until their D2H transfers finish.
                 next_host_slot = 0
                 last_scheduled_end = 0
 
                 if keep_on_gpu and show_log:
-                    print(
-                        "[AOT-biomaps] The native output exceeds the VRAM ring; "
-                        "the spatially resampled output will initially be assembled "
-                        "in host memory."
-                    )
-
+                    print("[AOT-biomaps] The native output exceeds the VRAM ring; the spatially resampled output will initially be assembled in host memory.")
                 if ring_frames < 2 and show_log:
-                    print(
-                        "[AOT-biomaps] Only one frame fits in the output ring; "
-                        "asynchronous transfer overlap will be limited."
-                    )
+                    print("[AOT-biomaps] Only one frame fits in the output ring; asynchronous transfer overlap will be limited.")
 
                 if show_log:
-                    print(
-                        "[AOT-biomaps] Asynchronous output: "
-                        f"{ring_frames} native VRAM frames "
-                        f"({ring_frames * frame_bytes / 2**30:.2f} GiB), "
-                        f"{n_segments} segment(s) x {chunk_frames} frames; "
-                        f"spatial output frame="
-                        f"{target_Nz} x {target_Nx}; "
-                        f"CUDA free={memory_info['free_bytes'] / 2**30:.2f} GiB, "
-                        f"CuPy reusable="
-                        f"{memory_info['pool_free_bytes'] / 2**30:.2f} GiB."
-                    )
+                    print(f"[AOT-biomaps] Asynchronous output: {ring_frames} native VRAM frames ({ring_frames * frame_bytes / 2**30:.2f} GiB), {n_segments} segment(s) x {chunk_frames} frames; spatial output frame={target_Nz} x {target_Nx}; CUDA free={memory_info['free_bytes'] / 2**30:.2f} GiB, CuPy reusable={memory_info['pool_free_bytes'] / 2**30:.2f} GiB.")
 
                 # --------------------------------------------------------------
                 # 7a. Host staging management
                 # --------------------------------------------------------------
-
                 def drain_host_slot(host_slot):
                     """Wait for a pinned transfer and commit it to the host output."""
-
                     pending = pending_host_copies[host_slot]
-
                     if pending is None:
                         return
-
                     global_start, frame_count = pending
-
                     host_done_events[host_slot].synchronize()
-
-                    np.copyto(
-                        cpu_output[
-                            global_start:global_start + frame_count
-                        ],
-                        host_staging[host_slot][:frame_count],
-                    )
-
+                    np.copyto(cpu_output[global_start:global_start + frame_count], host_staging[host_slot][:frame_count])
                     pending_host_copies[host_slot] = None
                     resampled_gpu_chunks[host_slot] = None
 
                 # --------------------------------------------------------------
                 # 7b. Schedule one completed ring segment
                 # --------------------------------------------------------------
-
-                def schedule_segment(
-                    segment_id,
-                    global_start,
-                    frame_count,
-                ):
+                def schedule_segment(segment_id, global_start, frame_count):
                     """Resample spatially on GPU, then schedule the D2H transfer."""
 
                     nonlocal next_host_slot
                     nonlocal last_scheduled_end
-
                     host_slot = next_host_slot
-
-                    # The pinned buffer cannot be reused until its previous
-                    # D2H transfer and host-side commit have both completed.
-                    drain_host_slot(host_slot)
-
-                    # Mark the native ring segment as ready after all previous
-                    # compute-stream operations have been submitted.
-                    ready_events[segment_id].record(compute_stream)
-
-                    device_start = (
-                        segment_id * chunk_frames * n_voxels
-                    )
-
-                    device_stop = (
-                        device_start + frame_count * n_voxels
-                    )
-
-                    device_chunk = gpu_output[
-                        device_start:device_stop
-                    ].reshape(
-                        frame_count,
-                        Nz,
-                        Nx,
-                    )
-
+                    drain_host_slot(host_slot) # The pinned buffer cannot be reused until its previous D2H transfer and host-side commit have both completed.                    
+                    ready_events[segment_id].record(compute_stream) # Mark the native ring segment as ready after all previous compute-stream operations have been submitted.
+                    device_start = (segment_id * chunk_frames * n_voxels)
+                    device_stop = (device_start + frame_count * n_voxels)
+                    device_chunk = gpu_output[device_start:device_stop].reshape(frame_count, Nz, Nx)
+                    
                     if spatial_resampling:
-
-                        # Wait for the native segment before processing it.
-                        resample_stream.wait_event(
-                            ready_events[segment_id]
-                        )
-
+                        resample_stream.wait_event(ready_events[segment_id]) # Wait for the native segment before processing it.
                         with resample_stream:
+                            processed_chunk = _resample_axis(device_chunk, target_Nz, axis=1, xp=cp)
+                            processed_chunk = _resample_axis(processed_chunk, target_Nx, axis=2, xp=cp)
+                            processed_chunk = cp.ascontiguousarray(processed_chunk) # Ensure an independent contiguous buffer. This is important because integer decimation can otherwise return a view into the native ring.
 
-                            processed_chunk = _resample_axis(
-                                device_chunk,
-                                target_Nz,
-                                axis=1,
-                                xp=cp,
-                            )
-
-                            processed_chunk = _resample_axis(
-                                processed_chunk,
-                                target_Nx,
-                                axis=2,
-                                xp=cp,
-                            )
-
-                            # Ensure an independent contiguous buffer.
-                            # This is important because integer decimation
-                            # can otherwise return a view into the native ring.
-                            processed_chunk = cp.ascontiguousarray(
-                                processed_chunk
-                            )
-
-                        # Keep the processed data alive until D2H completes.
-                        resampled_gpu_chunks[host_slot] = processed_chunk
-
-                        # The native ring can be reused as soon as spatial
-                        # resampling has finished reading the segment.
-                        segment_done_events[segment_id].record(
-                            resample_stream
-                        )
-
-                        # D2H waits for the spatially processed data.
-                        copy_stream.wait_event(
-                            segment_done_events[segment_id]
-                        )
-
-                        processed_chunk.get(
-                            out=host_staging[host_slot][:frame_count],
-                            stream=copy_stream,
-                            blocking=False,
-                        )
-
+                        resampled_gpu_chunks[host_slot] = processed_chunk # Keep the processed data alive until D2H completes.
+                        segment_done_events[segment_id].record(resample_stream) # The native ring can be reused as soon as spatial resampling has finished reading the segment.
+                        copy_stream.wait_event(segment_done_events[segment_id]) # D2H waits for the spatially processed data.
+                        processed_chunk.get(out=host_staging[host_slot][:frame_count], stream=copy_stream, blocking=False)
                     else:
-
-                        # No spatial processing is required.
-                        # Copy the native segment directly to pinned memory.
-                        copy_stream.wait_event(
-                            ready_events[segment_id]
-                        )
-
-                        device_chunk.get(
-                            out=host_staging[host_slot][:frame_count],
-                            stream=copy_stream,
-                            blocking=False,
-                        )
-
-                        # In this case, the native ring must not be overwritten
-                        # until the D2H transfer has finished.
-                        segment_done_events[segment_id].record(
-                            copy_stream
-                        )
+                        copy_stream.wait_event(ready_events[segment_id]) # No spatial processing is required. Copy the native segment directly to pinned memory.
+                        device_chunk.get(out=host_staging[host_slot][:frame_count], stream=copy_stream, blocking=False)
+                        segment_done_events[segment_id].record(copy_stream) # In this case, the native ring must not be overwritten until the D2H transfer has finished.
 
                     host_done_events[host_slot].record(copy_stream)
-
-                    pending_host_copies[host_slot] = (
-                        global_start,
-                        frame_count,
-                    )
-
+                    pending_host_copies[host_slot] = (global_start, frame_count)
                     last_scheduled_end = global_start + frame_count
-
                     next_host_slot = (next_host_slot + 1) % 2
-
             else:
-                # Complete native output remains resident in VRAM.
-                gpu_output = gpu_output.reshape(
-                    n_output_max,
-                    Nz,
-                    Nx,
-                )
+                gpu_output = gpu_output.reshape(n_output_max, Nz, Nx) # Complete native output remains resident in VRAM.
 
             # ------------------------------------------------------------------
             # 8. I/Q simulation loop
             # ------------------------------------------------------------------
-
-            debug_index = (
-                (Nz // 2) * Nx + (Nx // 2)
-            )
-
+            debug_index = ((Nz // 2) * Nx + (Nx // 2))
             threads = 256
             blocks = (n_voxels + threads - 1) // threads
-
             output_sqrt = int(generation_type == "envelope")
-
             n_rows = 0
-
             iterator = range(Nt)
-
             try:
                 from tqdm.auto import tqdm
-
                 if show_log:
-                    iterator = tqdm(
-                        iterator,
-                        desc=f"Streaming k-Wave [{self.get_name_field()}]",
-                        unit="step",
-                    )
-
+                    iterator = tqdm(iterator, desc=f"Streaming k-Wave [{self.get_name_field()}]", unit="step")
             except ImportError:
                 pass
 
-            # sim.step() and the I/Q kernel remain on the compute stream.
-            # Resampling and D2H transfers are scheduled independently.
+            # sim.step() and the I/Q kernel remain on the compute stream. Resampling and D2H transfers are scheduled independently.
             with compute_stream:
-
                 for _ in iterator:
-
                     time_index = int(sim.t)
-
                     sim.step()
-
-                    phase = math.remainder(
-                        2.0 * math.pi * f_us * (time_index * dt),
-                        2.0 * math.pi,
-                    )
-
-                    emit = (
-                        time_index >= start_n
-                        and time_index % decimation == 0
-                        and n_rows < n_output_max
-                    )
-
+                    phase = math.remainder(2.0 * math.pi * f_us * (time_index * dt), 2.0 * math.pi)
+                    emit = (time_index >= start_n and time_index % decimation == 0 and n_rows < n_output_max)
                     if streamed:
-
-                        chunk_id = (
-                            n_rows // chunk_frames if emit else 0
-                        )
-
-                        frame_in_chunk = (
-                            n_rows % chunk_frames if emit else 0
-                        )
-
-                        segment_id = (
-                            chunk_id % n_segments if emit else 0
-                        )
-
-                        if (
-                            emit
-                            and chunk_id >= n_segments
-                            and frame_in_chunk == 0
-                        ):
-                            # Reuse the native ring segment only after the
-                            # resampling stage (or D2H if no spatial resampling)
-                            # has finished reading it.
-                            compute_stream.wait_event(
-                                segment_done_events[segment_id]
-                            )
-
-                        output_slot = (
-                            segment_id * chunk_frames + frame_in_chunk
-                            if emit
-                            else 0
-                        )
-
+                        chunk_id = (n_rows // chunk_frames if emit else 0)
+                        frame_in_chunk = (n_rows % chunk_frames if emit else 0)
+                        segment_id = (chunk_id % n_segments if emit else 0)
+                        if emit and chunk_id >= n_segments and frame_in_chunk == 0:
+                            compute_stream.wait_event(segment_done_events[segment_id]) # Reuse the native ring segment only after the resampling stage (or D2H if no spatial resampling) has finished reading it.
+                        output_slot = (segment_id * chunk_frames + frame_in_chunk if emit else 0)
                     else:
                         output_slot = n_rows if emit else 0
 
-                    kernel(
-                        (blocks,),
-                        (threads,),
-                        (
-                            sim.p,
-                            np.int32(Nx),
-                            np.int32(Nz_padded),
-                            np.int32(pml_size[0]),
-                            np.int32(pml_size[1]),
-                            i_state1,
-                            i_state2,
-                            q_state1,
-                            q_state2,
-                            gpu_output,
-                            debug_pressure_gpu,
-                            debug_env2_gpu,
-                            np.int32(debug_index),
-                            np.int32(time_index),
-                            np.int64(output_slot),
-                            np.int32(n_rows),
-                            np.int32(n_voxels),
-                            np.float64(math.cos(phase)),
-                            np.float64(math.sin(phase)),
-                            np.float64(alpha),
-                            np.int32(1 if emit else 0),
-                            np.int32(1 if debug_enabled else 0),
-                            np.int32(output_sqrt),
-                        ),
-                        stream=compute_stream,
-                    )
+                    if sim.p.dtype == cp.float32:
+                        p_is_double = 0
+                    elif sim.p.dtype == cp.float64:
+                        p_is_double = 1
+                    else:
+                        raise TypeError(f"Unsupported k-Wave pressure dtype: {sim.p.dtype}")
+                    kernel((blocks,), (threads,), (sim.p, np.int32(p_is_double), np.int32(Nx), np.int32(Nz_padded), np.int32(pml_size[0]), np.int32(pml_size[1]), i_state1, i_state2, q_state1, q_state2, gpu_output, debug_pressure_gpu, debug_env2_gpu, np.int32(debug_index), np.int32(time_index), np.int64(output_slot), np.int32(n_rows), np.int32(n_voxels), np.float64(math.cos(phase)), np.float64(math.sin(phase)), np.float64(alpha), np.int32(1 if emit else 0), np.int32(1 if debug_enabled else 0), np.int32(output_sqrt)), stream=compute_stream)
 
                     if not emit:
                         continue
 
                     n_rows += 1
-
                     if streamed:
-
-                        chunk_finished = (
-                            (n_rows % chunk_frames == 0)
-                            or (n_rows == n_output_max)
-                        )
+                        chunk_finished = (n_rows % chunk_frames == 0)or (n_rows == n_output_max)
 
                         if chunk_finished:
-
-                            completed_chunk_id = (
-                                (n_rows - 1) // chunk_frames
-                            )
-
-                            completed_segment_id = (
-                                completed_chunk_id % n_segments
-                            )
-
-                            global_start = (
-                                completed_chunk_id * chunk_frames
-                            )
-
-                            completed_frames = min(
-                                chunk_frames,
-                                n_rows - global_start,
-                            )
-
-                            schedule_segment(
-                                completed_segment_id,
-                                global_start,
-                                completed_frames,
-                            )
+                            completed_chunk_id = (n_rows - 1) // chunk_frames
+                            completed_segment_id = completed_chunk_id % n_segments
+                            global_start = completed_chunk_id * chunk_frames
+                            completed_frames = min(chunk_frames, n_rows - global_start)
+                            schedule_segment(completed_segment_id, global_start, completed_frames)
 
             if n_rows <= 0:
-                raise RuntimeError(
-                    "The streaming simulation produced no output frames."
-                )
+                raise RuntimeError("The streaming simulation produced no output frames.")
 
             # ------------------------------------------------------------------
             # 9. Flush the last partial ring segment
             # ------------------------------------------------------------------
-
             if streamed and last_scheduled_end < n_rows:
-
-                completed_chunk_id = (
-                    (n_rows - 1) // chunk_frames
-                )
-
-                completed_segment_id = (
-                    completed_chunk_id % n_segments
-                )
-
-                global_start = (
-                    completed_chunk_id * chunk_frames
-                )
-
+                completed_chunk_id = (n_rows - 1) // chunk_frames
+                completed_segment_id = completed_chunk_id % n_segments
+                global_start = completed_chunk_id * chunk_frames
                 completed_frames = n_rows - global_start
-
-                schedule_segment(
-                    completed_segment_id,
-                    global_start,
-                    completed_frames,
-                )
+                schedule_segment(completed_segment_id, global_start, completed_frames)
 
             compute_stream.synchronize()
 
             # ------------------------------------------------------------------
             # 10. Collect streamed or complete GPU output
             # ------------------------------------------------------------------
-
             if streamed:
-
                 if resample_stream is not None:
                     resample_stream.synchronize()
-
                 drain_host_slot(0)
                 drain_host_slot(1)
-
                 copy_stream.synchronize()
-
                 if hasattr(cpu_output, "flush"):
                     cpu_output.flush()
-
                 raw_output = cpu_output[:n_rows]
-
                 output_on_gpu = False
-
                 spatial_resampling_done = spatial_resampling
-
             else:
-
                 # --------------------------------------------------------------
                 # 10a. Spatial resampling on GPU for a complete output
                 # --------------------------------------------------------------
-
                 if spatial_resampling:
+                    spatial_chunk_frames = get_transfer_chunk_frames(n_rows, frame_bytes, host_staging_fraction=host_staging_fraction)
+                    spatial_chunk_frames = max(1,min(n_rows, int(spatial_chunk_frames)))
 
-                    spatial_chunk_frames = get_transfer_chunk_frames(
-                        n_rows,
-                        frame_bytes,
-                        host_staging_fraction=host_staging_fraction,
-                    )
-
-                    spatial_chunk_frames = max(
-                        1,
-                        min(n_rows, int(spatial_chunk_frames)),
-                    )
-
-                    # If the number of spatial output voxels does not increase,
-                    # compact the processed output into the beginning of the
-                    # existing native GPU allocation.
-                    #
+                    # If the number of spatial output voxels does not increase, compact the processed output into the beginning of the existing native GPU allocation.
                     # This avoids allocating a second full output array.
                     if target_n_voxels <= n_voxels:
-
-                        gpu_output_flat = gpu_output.reshape(-1)
+                        gpu_output_flat = gpu_output.reshape(-1) 
 
                         with compute_stream:
-
-                            for global_start in range(
-                                0,
-                                n_rows,
-                                spatial_chunk_frames,
-                            ):
-
-                                global_stop = min(
-                                    global_start + spatial_chunk_frames,
-                                    n_rows,
-                                )
-
-                                frame_count = (
-                                    global_stop - global_start
-                                )
-
-                                device_chunk = gpu_output[
-                                    global_start:global_stop
-                                ]
-
-                                processed_chunk = _resample_axis(
-                                    device_chunk,
-                                    target_Nz,
-                                    axis=1,
-                                    xp=cp,
-                                )
-
-                                processed_chunk = _resample_axis(
-                                    processed_chunk,
-                                    target_Nx,
-                                    axis=2,
-                                    xp=cp,
-                                )
-
-                                # Detach the result from the native source
-                                # before writing into the compacted destination.
-                                processed_chunk = cp.ascontiguousarray(
-                                    processed_chunk
-                                )
-
-                                destination_start = (
-                                    global_start * target_n_voxels
-                                )
-
-                                destination_stop = (
-                                    destination_start
-                                    + frame_count * target_n_voxels
-                                )
-
-                                cp.copyto(
-                                    gpu_output_flat[
-                                        destination_start:destination_stop
-                                    ],
-                                    processed_chunk.reshape(-1),
-                                )
-
+                            for global_start in range(0, n_rows, spatial_chunk_frames):
+                                global_stop = min(global_start + spatial_chunk_frames, n_rows)
+                                frame_count = global_stop - global_start
+                                device_chunk = gpu_output[global_start:global_stop]
+                                processed_chunk = _resample_axis(device_chunk, target_Nz, axis=1, xp=cp)
+                                processed_chunk = _resample_axis(processed_chunk, target_Nx, axis=2, xp=cp)
+                                processed_chunk = cp.ascontiguousarray(processed_chunk) # Detach the result from the native source before writing into the compacted destination.
+                                destination_start = global_start * target_n_voxels
+                                destination_stop = destination_start + frame_count * target_n_voxels
+                                cp.copyto(gpu_output_flat[destination_start:destination_stop],processed_chunk.reshape(-1))
+                                
                         compute_stream.synchronize()
-
-                        raw_output_gpu = gpu_output_flat[
-                            :n_rows * target_n_voxels
-                        ].reshape(
-                            n_rows,
-                            target_Nz,
-                            target_Nx,
-                        )
-
+                        raw_output_gpu = gpu_output_flat[:n_rows * target_n_voxels].reshape(n_rows, target_Nz, target_Nx)
                         if keep_on_gpu:
                             raw_output = raw_output_gpu
                             output_on_gpu = True
@@ -1474,142 +1033,45 @@ class AcousticField(ABC):
                             output_on_gpu = False
 
                         spatial_resampling_done = True
-
                     else:
-
-                        # Spatial upsampling increases the output size.
-                        # Avoid holding a second large GPU allocation unless it
-                        # can actually be allocated.
-                        spatial_gpu_output = None
-
+                        spatial_gpu_output = None # Spatial upsampling increases the output size. Avoid holding a second large GPU allocation unless it can actually be allocated.
                         if keep_on_gpu:
                             try:
-                                spatial_gpu_output = cp.empty(
-                                    (
-                                        n_rows,
-                                        target_Nz,
-                                        target_Nx,
-                                    ),
-                                    dtype=cp.float32,
-                                )
-                            except (
-                                cp.cuda.memory.OutOfMemoryError,
-                                MemoryError,
-                            ):
+                                spatial_gpu_output = cp.empty((n_rows, target_Nz, target_Nx), dtype=cp.float32)
+                            except (cp.cuda.memory.OutOfMemoryError, MemoryError):
                                 spatial_gpu_output = None
 
                         if spatial_gpu_output is not None:
-
                             with compute_stream:
-
-                                for global_start in range(
-                                    0,
-                                    n_rows,
-                                    spatial_chunk_frames,
-                                ):
-
-                                    global_stop = min(
-                                        global_start + spatial_chunk_frames,
-                                        n_rows,
-                                    )
-
-                                    device_chunk = gpu_output[
-                                        global_start:global_stop
-                                    ]
-
-                                    processed_chunk = _resample_axis(
-                                        device_chunk,
-                                        target_Nz,
-                                        axis=1,
-                                        xp=cp,
-                                    )
-
-                                    processed_chunk = _resample_axis(
-                                        processed_chunk,
-                                        target_Nx,
-                                        axis=2,
-                                        xp=cp,
-                                    )
-
-                                    processed_chunk = cp.ascontiguousarray(
-                                        processed_chunk
-                                    )
-
-                                    cp.copyto(
-                                        spatial_gpu_output[
-                                            global_start:global_stop
-                                        ],
-                                        processed_chunk,
-                                    )
+                                for global_start in range(0, n_rows, spatial_chunk_frames):
+                                    global_stop = min(global_start + spatial_chunk_frames, n_rows)
+                                    device_chunk = gpu_output[global_start:global_stop]
+                                    processed_chunk = _resample_axis(device_chunk, target_Nz, axis=1, xp=cp)
+                                    processed_chunk = _resample_axis(processed_chunk, target_Nx, axis=2, xp=cp)
+                                    processed_chunk = cp.ascontiguousarray(processed_chunk)
+                                    cp.copyto(spatial_gpu_output[global_start:global_stop], processed_chunk)
 
                             compute_stream.synchronize()
-
                             raw_output = spatial_gpu_output
                             output_on_gpu = True
 
-                        else:
-
-                            # CPU output is used only for spatial upsampling
-                            # when a complete GPU output cannot be allocated.
-                            cpu_spatial_output = np.empty(
-                                (
-                                    n_rows,
-                                    target_Nz,
-                                    target_Nx,
-                                ),
-                                dtype=np.float32,
-                            )
-
+                        else:                          
+                            cpu_spatial_output = np.empty((n_rows, target_Nz, target_Nx, ), dtype=np.float32) # CPU output is used only for spatial upsampling when a complete GPU output cannot be allocated.
                             with compute_stream:
-
-                                for global_start in range(
-                                    0,
-                                    n_rows,
-                                    spatial_chunk_frames,
-                                ):
-
-                                    global_stop = min(
-                                        global_start + spatial_chunk_frames,
-                                        n_rows,
-                                    )
-
-                                    device_chunk = gpu_output[
-                                        global_start:global_stop
-                                    ]
-
-                                    processed_chunk = _resample_axis(
-                                        device_chunk,
-                                        target_Nz,
-                                        axis=1,
-                                        xp=cp,
-                                    )
-
-                                    processed_chunk = _resample_axis(
-                                        processed_chunk,
-                                        target_Nx,
-                                        axis=2,
-                                        xp=cp,
-                                    )
-
-                                    processed_chunk = cp.ascontiguousarray(
-                                        processed_chunk
-                                    )
-
-                                    cpu_spatial_output[
-                                        global_start:global_stop
-                                    ] = cp.asnumpy(processed_chunk)
-
+                                for global_start in range(0, n_rows, spatial_chunk_frames):
+                                    global_stop = min(global_start + spatial_chunk_frames, n_rows)
+                                    device_chunk = gpu_output[global_start:global_stop]
+                                    processed_chunk = _resample_axis(device_chunk, target_Nz, axis=1, xp=cp)
+                                    processed_chunk = _resample_axis(processed_chunk, target_Nx, axis=2, xp=cp)
+                                    processed_chunk = cp.ascontiguousarray(processed_chunk)
+                                    cpu_spatial_output[global_start:global_stop] = cp.asnumpy(processed_chunk)
                             compute_stream.synchronize()
-
                             raw_output = cpu_spatial_output
                             output_on_gpu = False
-
                         spatial_resampling_done = True
 
                 else:
-
                     raw_output_gpu = gpu_output[:n_rows]
-
                     if keep_on_gpu:
                         raw_output = raw_output_gpu
                         output_on_gpu = True
@@ -1618,259 +1080,78 @@ class AcousticField(ABC):
                         output_on_gpu = False
 
             # ------------------------------------------------------------------
-            # 11. Optional I/Q validation data
+            # 11. Actual output dimensions and metadata
             # ------------------------------------------------------------------
+            sizes, steps = compute_target_sizes(Nx, Nz, n_rows, dx, dz, output_dt, target_dt, target_dx, target_dz)
+            if int(sizes[1]) != target_Nz or int(sizes[2]) != target_Nx: # The spatial target dimensions must remain independent of the actual number of emitted temporal frames.
+                raise RuntimeError("Spatial target dimensions changed between the predicted and actual output sizes.")
 
-            if debug_enabled:
-                debug_pressure = cp.asnumpy(debug_pressure_gpu)
-                debug_env2 = cp.asnumpy(
-                    debug_env2_gpu[:n_rows]
-                )
-            else:
-                debug_pressure = None
-                debug_env2 = None
-
-            # ------------------------------------------------------------------
-            # 12. Actual output dimensions and metadata
-            # ------------------------------------------------------------------
-
-            sizes, steps = compute_target_sizes(
-                Nx,
-                Nz,
-                n_rows,
-                dx,
-                dz,
-                output_dt,
-                target_dt,
-                target_dx,
-                target_dz,
-            )
-
-            # The spatial target dimensions must remain independent of the
-            # actual number of emitted temporal frames.
-            if (
-                int(sizes[1]) != target_Nz
-                or int(sizes[2]) != target_Nx
-            ):
-                raise RuntimeError(
-                    "Spatial target dimensions changed between the predicted "
-                    "and actual output sizes."
-                )
-
-            self.last_decimation = (
-                dict(zip(("Nt", "Nz", "Nx"), sizes))
-                | dict(zip(("dt", "dz", "dx"), steps))
-            )
-
-            self.last_decimation["t0"] = (
-                start_n * dt - group_delay
-            )
-
+            self.last_decimation = (dict(zip(("Nt", "Nz", "Nx"), sizes)) | dict(zip(("dt", "dz", "dx"), steps)))
+            self.last_decimation["t0"] = (start_n * dt - group_delay)
             if show_log:
-                print(
-                    f"[AOT-biomaps] Streaming output: "
-                    f"{(n_rows, Nz, Nx)} -> {sizes}; "
-                    f"dt={output_dt * 1e9:.2f} ns, "
-                    f"saved dt={steps[0] * 1e9:.2f} ns, "
-                    f"dz={steps[1] * 1e6:.1f} um, "
-                    f"dx={steps[2] * 1e6:.1f} um."
-                )
+                print(f"[AOT-biomaps] Streaming output: {(n_rows, Nz, Nx)} -> {sizes}; dt={output_dt * 1e9:.2f} ns, saved dt={steps[0] * 1e9:.2f} ns, dz={steps[1] * 1e6:.1f} um, dx={steps[2] * 1e6:.1f} um.")
 
             # ------------------------------------------------------------------
-            # 13. Optional I/Q versus Hilbert validation
+            # 12. Release simulation and temporary references
             # ------------------------------------------------------------------
-
-            if debug_enabled and show_log:
-
-                try:
-                    hilbert_env2 = (
-                        np.abs(
-                            scipy_hilbert(
-                                debug_pressure.astype(np.float64)
-                            )
-                        ) ** 2
-                    )
-
-                    full_times = (
-                        np.arange(debug_pressure.size, dtype=np.float64) * dt
-                    )
-
-                    output_times = (
-                        start_n * dt
-                        + np.arange(n_rows, dtype=np.float64) * output_dt
-                        - group_delay
-                    )
-
-                    reference = np.interp(
-                        output_times,
-                        full_times,
-                        hilbert_env2,
-                        left=np.nan,
-                        right=np.nan,
-                    )
-
-                    valid = (
-                        np.isfinite(reference)
-                        & np.isfinite(debug_env2)
-                    )
-
-                    if np.count_nonzero(valid) >= 3:
-
-                        denominator = max(
-                            float(np.nanmax(reference)),
-                            1e-30,
-                        )
-
-                        relative_mae = float(
-                            np.mean(
-                                np.abs(
-                                    debug_env2[valid] - reference[valid]
-                                )
-                            ) / denominator
-                        )
-
-                        correlation = float(
-                            np.corrcoef(
-                                reference[valid],
-                                debug_env2[valid],
-                            )[0, 1]
-                        )
-
-                        print(
-                            f"[AOT-biomaps] I/Q vs Hilbert: "
-                            f"relative MAE={relative_mae:.4g}, "
-                            f"correlation={correlation:.6f}."
-                        )
-
-                except Exception as exc:
-                    print(
-                        f"[AOT-biomaps] I/Q diagnostic skipped: {exc}"
-                    )
-
-            # ------------------------------------------------------------------
-            # 14. Release simulation and temporary references
-            # ------------------------------------------------------------------
-
             del sim
             del iq_states
             del i_state1, i_state2, q_state1, q_state2
             del debug_pressure_gpu, debug_env2_gpu
-
             if streamed:
-
-                # All transfers and resampling operations must have completed
-                # before releasing the ring and pinned staging allocations.
+                # All transfers and resampling operations must have completed before releasing the ring and pinned staging allocations.
                 if copy_stream is not None:
                     copy_stream.synchronize()
-
                 if resample_stream is not None:
                     resample_stream.synchronize()
-
                 del gpu_output
                 del host_staging
                 del pinned_owners
-
             elif not output_on_gpu:
                 del gpu_output
 
         # ----------------------------------------------------------------------
-        # 15. Final temporal resampling
+        # 13. Final temporal resampling
         # ----------------------------------------------------------------------
-
         with cp.cuda.Device(int(GPUdevice)):
-
             output = raw_output
-
             xp = cp if output_on_gpu else np
-
-            # Spatial resampling has already been performed on GPU for the
-            # streaming path and the complete-output path.
+            # Spatial resampling has already been performed on GPU for the streaming path and the complete-output path.
             if not spatial_resampling_done:
+                output = _resample_axis(output, sizes[1], axis=1, xp=xp)
+                output = _resample_axis(output, sizes[2], axis=2, xp=xp)
 
-                output = _resample_axis(
-                    output,
-                    sizes[1],
-                    axis=1,
-                    xp=xp,
-                )
-
-                output = _resample_axis(
-                    output,
-                    sizes[2],
-                    axis=2,
-                    xp=xp,
-                )
-
-            # Temporal resampling remains a single operation after assembly.
-            output = _resample_axis(
-                output,
-                sizes[0],
-                axis=0,
-                xp=xp,
-            )
-
+            output = _resample_axis(output, sizes[0], axis=0, xp=xp) # Temporal resampling remains a single operation after assembly.
             target_shape = tuple(int(size) for size in sizes)
-
             if tuple(output.shape) != target_shape:
-                raise RuntimeError(
-                    "Final output shape mismatch: "
-                    f"got {tuple(output.shape)}, expected {target_shape}."
-                )
+                raise RuntimeError(f"Final output shape mismatch: got {tuple(output.shape)}, expected {target_shape}.")
 
             # ------------------------------------------------------------------
-            # 16. Honor keep_on_gpu after final resampling
+            # 14. Honor keep_on_gpu after final resampling
             # ------------------------------------------------------------------
-
             if keep_on_gpu and not output_on_gpu:
-
                 final_bytes = int(output.nbytes)
-
-                final_budget = get_gpu_output_budget_bytes(
-                    cp,
-                    fraction=vram_fraction,
-                    cap_bytes=None,
-                )
-
+                final_budget = get_gpu_output_budget_bytes(cp, fraction=vram_fraction, cap_bytes=None)
                 if final_bytes <= final_budget:
-
                     try:
                         output = cp.asarray(output)
                         output_on_gpu = True
-
                         if show_log:
-                            print(
-                                "[AOT-biomaps] Final resampled output "
-                                "transferred to GPU."
-                            )
-
-                    except (
-                        cp.cuda.memory.OutOfMemoryError,
-                        MemoryError,
-                    ):
-
+                            print("[AOT-biomaps] Final resampled output transferred to GPU.")
+                    except (cp.cuda.memory.OutOfMemoryError, MemoryError):
                         if show_log:
-                            print(
-                                "[AOT-biomaps] The final resampled output "
-                                "could not be reallocated on the GPU; "
-                                "returning the host array."
-                            )
+                            print("[AOT-biomaps] The final resampled output could not be reallocated on the GPU; returning the host array.")
 
                 elif show_log:
-
-                    print(
-                        "[AOT-biomaps] The final resampled output exceeds "
-                        "currently available VRAM; returning the host array."
-                    )
+                    print("[AOT-biomaps] The final resampled output exceeds currently available VRAM; returning the host array.")
 
             elif output_on_gpu and not keep_on_gpu:
-
                 output = cp.asnumpy(output)
                 output_on_gpu = False
 
             # ------------------------------------------------------------------
-            # 17. Optional GPU memory release
+            # 15. Optional GPU memory release
             # ------------------------------------------------------------------
-
             if free_vram:
                 with cp.cuda.Device(GPUdevice):
                     from AOT_biomaps.AOT_Acoustic.AcousticTools import clear_gpu_memory
@@ -1882,6 +1163,7 @@ class AcousticField(ABC):
     def _batch_acoustic_field_KWAVE_2D(
         self,
         burst=None,
+        dead_piezo=None,
         isGPU=None,
         GPUdevice=None,
         generation_type="envelope_squared",
@@ -1892,20 +1174,17 @@ class AcousticField(ABC):
         target_dx=None,
         target_dz=None,
         backend="python",
-        tempFileName=None,
-        validate_output=True,
         profile=False,
-        precimate_time=False,     # True => stocke direct à target_dt
-                                  # (change l'enveloppe si f_max > 1/(2·target_dt))
+        precimate_time=False, 
+        host_output_path=None,    
     ):
         """Run k-Wave batch simulation using Simulation.setup() and Simulation.step().
 
-        The complete pressure history is stored on the selected device. Sensor
+        The complete pressure history is stored on the selected device directly
+        in the pipeline layout (Nt, Nz, Nx): each frame is transposed at write
+        time, so no full-size layout conversion is needed afterwards. Sensor
         time-series recording is disabled to avoid allocating a second copy of
         the pressure history.
-
-        The pressure field is stored in (Nx, Nz, Nt) layout, with time on the
-        last axis, before envelope computation and final pipeline conversion.
         """
 
         import time
@@ -1914,46 +1193,24 @@ class AcousticField(ABC):
         # ------------------------------------------------------------------
         # 1. Configuration
         # ------------------------------------------------------------------
-
         if Simulation is None or validate_simulation is None:
-            raise RuntimeError(
-                "The installed k-Wave package does not expose the Simulation API."
-            )
-
+            raise RuntimeError("The installed k-Wave package does not expose the Simulation API.")
         if _expand_for_pml_outside is None:
-            raise RuntimeError(
-                "The installed k-Wave package does not expose _expand_for_pml_outside."
-            )
-
+            raise RuntimeError("The installed k-Wave package does not expose _expand_for_pml_outside.")
         if generation_type not in ("envelope_squared", "envelope", "field"):
-            raise ValueError(
-                f"Unsupported generation_type: {generation_type!r}."
-            )
-
+            raise ValueError(f"Unsupported generation_type: {generation_type!r}.")
         if backend not in (None, "python"):
-            raise ValueError(
-                "The Simulation.setup()/step() batch implementation uses "
-                "the Python Simulation backend. backend must be 'python'."
-            )
-
-        if isGPU is None:
-            isGPU = config.get_process() == "gpu"
+            raise ValueError("The Simulation.setup()/step() batch implementation uses the Python Simulation backend. backend must be 'python'.")
 
         if GPUdevice is None:
             GPUdevice = config.select_best_gpu()
-
         if isGPU and not CUPY_AVAILABLE:
             isGPU = False
-
         if isGPU:
             GPUdevice = int(GPUdevice)
 
         xp = cp if isGPU else np
-
-        device_context = (
-            cp.cuda.Device(GPUdevice) if isGPU else nullcontext()
-        )
-
+        device_context = (cp.cuda.Device(GPUdevice) if isGPU else nullcontext())
         profile_times = {}
         total_start = time.perf_counter() if profile else None
 
@@ -1961,32 +1218,14 @@ class AcousticField(ABC):
             if isGPU:
                 cp.cuda.get_current_stream().synchronize()
 
-        def profile_start():
-            if not profile:
-                return None
-
-            synchronize()
-            return time.perf_counter()
-
-        def profile_end(name, start):
-            if start is None:
-                return
-
-            synchronize()
-            profile_times[name] = time.perf_counter() - start
-
         # ------------------------------------------------------------------
         # 2. Original grid and sampling parameters
         # ------------------------------------------------------------------
-
         Nx = int(self.medium.Nx_reshaped)
         Nz = int(self.medium.Nz_reshaped)
-
         dx = float(self.medium.dx_reshaped)
         dz = float(getattr(self.medium, "dz_reshaped", dx))
-
         medium_copy = copy.deepcopy(self.medium)
-
         dt = float(medium_copy.kgrid.dt)
 
         target_dt = dt if target_dt is None else float(target_dt)
@@ -1999,123 +1238,50 @@ class AcousticField(ABC):
         # ------------------------------------------------------------------
         # 3. PML configuration
         # ------------------------------------------------------------------
-
         pml_value = self.params.acoustic["medium"].get("pml_size", 0)
 
         if isinstance(pml_value, (int, np.integer)):
             pml_size = (int(pml_value), int(pml_value))
         else:
-            pml_size = tuple(int(v) for v in pml_value)
+            if len(pml_value) != 2:
+                raise ValueError("pml_size must be an integer or a two-element sequence.")
+            pml_size = (int(pml_value[0]), int(pml_value[1]))
 
-        if len(pml_size) != 2:
-            raise ValueError("pml_size must contain two dimensions.")
-
-        pml_alpha_value = self.params.acoustic["medium"].get("pml_alpha", 2.0)
-
-        if pml_alpha_value is None:
-            pml_alpha_value = 2.0
-
-        if np.isscalar(pml_alpha_value):
-            pml_alpha = (
-                float(pml_alpha_value),
-                float(pml_alpha_value),
-            )
-        else:
-            pml_alpha = tuple(float(v) for v in pml_alpha_value)
-
-        if len(pml_alpha) != 2:
-            raise ValueError("pml_alpha must contain two values.")
+        pml_alpha = float(self.params.acoustic["medium"].get("pml_alpha", 2.0))
 
         # ------------------------------------------------------------------
         # 4. Source and sensor
         # ------------------------------------------------------------------
-
         source = kSource()
         source.p_mask = np.zeros((Nx, Nz), dtype=bool)
-
-        source = self._set_up_source(
-            source,
-            burst=burst,
-        )
-
+        source = self._set_up_source(source, dead_piezo=dead_piezo, burst=burst)
         sensor = kSensor()
         sensor.mask = np.ones((Nx, Nz), dtype=bool)
-
-        # Do not request the pressure time series from Simulation.
-        # p_final is a valid non-empty record request, preventing the default
-        # ("p", "p_final") behavior when record is empty.
-        sensor.record = ["p_final"]
+        sensor.record = ["p_final"] # Do not request the pressure time series from Simulation. p_final is a valid non-empty record request, preventing the default ("p", "p_final") behavior when record is empty.
 
         # ------------------------------------------------------------------
         # 5. Validate and expand the simulation grid with external PML
         # ------------------------------------------------------------------
-
-        validate_simulation(
-            medium_copy.kgrid,
-            medium_copy.kmedium,
-            source,
-            sensor,
-            pml_size=list(pml_size),
-        )
-
-        kgrid_sim, medium_sim, source_sim, sensor_sim = _expand_for_pml_outside(
-            medium_copy.kgrid,
-            medium_copy.kmedium,
-            source,
-            sensor,
-            list(pml_size),
-        )
-
-        # The sensor is not used for recording. Setting its mask to None avoids
-        # constructing a large GPU sensor-index array during Simulation.setup().
-        sensor_sim.mask = None
+        validate_simulation(medium_copy.kgrid, medium_copy.kmedium, source, sensor, pml_size=list(pml_size))
+        kgrid_sim, medium_sim, source_sim, sensor_sim = _expand_for_pml_outside(medium_copy.kgrid, medium_copy.kmedium, source, sensor, list(pml_size))
+        sensor_sim.mask = None # The sensor is not used for recording. Setting its mask to None avoids constructing a large GPU sensor-index array during Simulation.setup().
 
         # ------------------------------------------------------------------
         # 6. Simulation setup and batch pressure acquisition
         # ------------------------------------------------------------------
-
         grid_field = None
         sim = None
 
         with device_context:
-
-            compute_stream = (
-                cp.cuda.get_current_stream()
-                if isGPU
-                else None
-            )
-
-            stream_context = (
-                compute_stream
-                if isGPU
-                else nullcontext()
-            )
-
+            compute_stream = (cp.cuda.get_current_stream() if isGPU else None)
+            stream_context = (compute_stream if isGPU else nullcontext())
             with stream_context:
 
                 # ----------------------------------------------------------
                 # 6.1 Initialize the low-level k-Wave solver
                 # ----------------------------------------------------------
-
-                t = profile_start()
-
-                sim = Simulation(
-                    kgrid_sim,
-                    medium_sim,
-                    source_sim,
-                    sensor_sim,
-                    device="gpu" if isGPU else "cpu",
-                    use_sg=False,
-                    use_kspace=True,
-                    smooth_p0=True,
-                    pml_size=pml_size,
-                    pml_alpha=pml_alpha,
-                    quiet=not show_log,
-                    dtype=np.float32,
-                )
-
+                sim = Simulation(kgrid_sim, medium_sim, source_sim, sensor_sim, device="gpu" if isGPU else "cpu", use_sg=False, use_kspace=True, smooth_p0=True, pml_size=pml_size, pml_alpha=(pml_alpha, pml_alpha), quiet=not show_log, dtype=np.float32)
                 sim.setup()
-
                 if "p" in sim.sensor_data:
                     raise RuntimeError("The pressure sensor history was unexpectedly allocated. Check sensor.record before Simulation.setup().")
 
@@ -2124,52 +1290,45 @@ class AcousticField(ABC):
                 # ----------------------------------------------------------
                 # 6.2 Extract the physical domain from the padded grid
                 # ----------------------------------------------------------
-
-                expected_shape = (
-                    Nx + 2 * pml_size[0],
-                    Nz + 2 * pml_size[1],
-                )
-
+                expected_shape = (Nx + 2 * pml_size[0], Nz + 2 * pml_size[1])
                 if tuple(sim.grid_shape) != expected_shape:
-                    raise RuntimeError(
-                        f"Unexpected padded grid shape {sim.grid_shape}; "
-                        f"expected {expected_shape}."
-                    )
+                    raise RuntimeError(f"Unexpected padded grid shape {sim.grid_shape}; expected {expected_shape}.")
 
-                x_slice = slice(
-                    pml_size[0],
-                    pml_size[0] + Nx,
-                )
+                x_slice = slice(pml_size[0], pml_size[0] + Nx)
+                z_slice = slice(pml_size[1], pml_size[1] + Nz)
 
-                z_slice = slice(
-                    pml_size[1],
-                    pml_size[1] + Nz,
-                )
-
-                                # ----------------------------------------------------------
-                # 6.3 Pressure history TIME-MAJOR (+ décimation opt-in)
-                #      (Ns, Nx, Nz) : écriture contiguë par step.
-                #      time_stride=1 par défaut : sorties IDENTIQUES au
-                #      code d'origine (Hilbert sur la pleine cadence).
                 # ----------------------------------------------------------
-
+                # 6.3 Pressure history: keep in VRAM if it fits, else host. Decision made AFTER sim.setup(): free VRAM already excludes the solver grids.
+                # ----------------------------------------------------------
                 time_stride = int(round(target_dt / dt)) if precimate_time else 1
                 if time_stride < 1 or abs(time_stride * dt - target_dt) > 0.25 * dt:
                     time_stride = 1
 
-                stored = {
-                    int(i): int(j)
-                    for j, i in enumerate(range(0, Nt, time_stride))
-                }
+                stored = {int(i): int(j) for j, i in enumerate(range(0, Nt, time_stride))}
                 Ns = len(stored)
                 dt_eff = time_stride * dt
+                hist_bytes = Ns * Nx * Nz * np.dtype(np.float32).itemsize
 
-                grid_field = xp.empty((Ns, Nx, Nz), dtype=xp.float32)
+                store_on_gpu = False
+                if isGPU:
+                    free_b, _ = cp.cuda.runtime.memGetInfo()
+                    store_on_gpu = hist_bytes <= int(free_b * 0.90)
+
+                if store_on_gpu:
+                    grid_field = cp.empty((Ns, Nz, Nx), dtype=cp.float32)
+                else:
+                    if host_output_path is not None:
+                        os.makedirs(os.path.dirname(os.path.abspath(host_output_path)), exist_ok=True)
+                        grid_field = np.lib.format.open_memmap(host_output_path, mode="w+", dtype=np.float32, shape=(Ns, Nz, Nx))
+                    else:
+                        grid_field = np.empty((Ns, Nz, Nx), dtype=np.float32)
+                    if show_log:
+                        where = "memmap " + host_output_path if host_output_path else "host RAM"
+                        print(f"[AOT-biomaps] Batch history {hist_bytes/2**30:.1f} GiB > free VRAM -> {where}")
 
                 # ----------------------------------------------------------
-                # 6.4 run : copie coalescée, Convention d'origine conservée
+                # 6.4 run: store one frame at a time, D2H per frame on the host path
                 # ----------------------------------------------------------
-
                 iterator = range(Nt)
                 if show_log:
                     try:
@@ -2178,170 +1337,66 @@ class AcousticField(ABC):
                     except ImportError:
                         pass
 
-                t = profile_start()
-
                 for _ in iterator:
-                    time_index = int(sim.t)      # AVANT le step (frame_i = p(t_{i+1}))
+                    time_index = int(sim.t)
                     sim.step()
-
                     j = stored.get(time_index)
                     if j is not None:
-                        grid_field[j] = sim.p[x_slice, z_slice]
+                        frame = sim.p[x_slice, z_slice]      # (Nx, Nz) float32 on GPU
+                        if store_on_gpu:
+                            grid_field[j] = frame.T           # (Nz, Nx) written in place
+                        else:
+                            grid_field[j] = cp.asnumpy(frame).T
 
                 synchronize()
-                profile_end("k-Wave step + pressure storage", t)
-
                 del sim
                 sim = None
-
-                # ----------------------------------------------------------
-                # 6.4b retour au layout pipeline (Nx, Nz, Ns), UNE passe.
-                #      ⚠ double VRAM transitoire : (Ns,Nx,Nz) + (Nx,Nz,Ns)
-                #      coexistent. Si c'est trop pour la carte, transposer
-                #      par blocs de x (voir note) ou garder le layout
-                #      time-major jusqu'à l'enveloppe.
-                # ----------------------------------------------------------
-
-                t = profile_start()
-                grid_field = xp.ascontiguousarray(
-                    grid_field.transpose(1, 2, 0)      # (Ns, Nx, Nz) -> (Nx, Nz, Ns)
-                )
-                profile_end("History transpose", t)
-
-                # ------------------------------------------------------------------
-        # 7. Target dimensions and decimation   (CORRIGÉ : dt_eff + Ns)
+                
         # ------------------------------------------------------------------
-
-        Ns = int(grid_field.shape[-1])
-
-        sizes, steps = compute_target_sizes(
-            Nx,
-            Nz,
-            Ns,
-            dx,
-            dz,
-            dt_eff,
-            target_dt,
-            target_dx,
-            target_dz,
-        )
-
-        self.last_decimation = (
-            dict(zip(("Nt", "Nz", "Nx"), sizes))
-            | dict(zip(("dt", "dz", "dx"), steps))
-        )
-
+        # 6.5 Post-processing namespace follows the data location
         # ------------------------------------------------------------------
-        # 8. Envelope computation
-        # ------------------------------------------------------------------
+        xp = cp if (isGPU and store_on_gpu) else np        
+        post_context = device_context if (isGPU and store_on_gpu) else nullcontext() # Steps 7-11 run inside the device context when the data lives on the GPU
+        with post_context:
+            # ------------------------------------------------------------------
+            # 7. Target dimensions and decimation (dt_eff + Ns)
+            # ------------------------------------------------------------------
+            Ns = int(grid_field.shape[0])
+            sizes, steps = compute_target_sizes(Nx, Nz, Ns, dx, dz, dt_eff, target_dt, target_dx, target_dz)
+            self.last_decimation = (dict(zip(("Nt", "Nz", "Nx"), sizes)) | dict(zip(("dt", "dz", "dx"), steps)))
 
-        t = profile_start()
+            # ------------------------------------------------------------------
+            # 8. Envelope computation
+            # ------------------------------------------------------------------
+            if generation_type == "envelope_squared":
+                output = calculate_envelope_squared(grid_field, time_axis=0, xp=xp, show_log=show_log)
+                del grid_field
+            elif generation_type == "envelope":
+                output = calculate_envelope(grid_field, time_axis=0, xp=xp, show_log=show_log)
+                del grid_field
+            else:
+                output = grid_field  # Raw pressure field.
 
-        if generation_type == "envelope_squared":
+            # ------------------------------------------------------------------
+            # 9. Resampling directly on the pipeline layout: axes (0, 1, 2) match the (Nt, Nz, Nx) order of `sizes`.
+            # ------------------------------------------------------------------
+            output = resample_bandlimited(output, 0, int(sizes[0]), xp=xp)  # time
+            output = resample_bandlimited(output, 1, int(sizes[1]), xp=xp)  # z
+            output = resample_bandlimited(output, 2, int(sizes[2]), xp=xp)  # x
 
-            output = calculate_envelope_squared(
-                grid_field,
-                xp=xp,
-                show_log=show_log,
-            )
+            # ------------------------------------------------------------------
+            # 10. Return output
+            # ------------------------------------------------------------------
+            if isGPU and not keep_on_gpu:
+                output_host = _to_numpy_array(output)
+                del output
+                output = output_host
 
-            del grid_field
-
-        elif generation_type == "envelope":
-
-            output = calculate_envelope(
-                grid_field,
-                xp=xp,
-                show_log=show_log,
-            )
-
-            del grid_field
-
-        else:
-            # Raw pressure field.
-            output = grid_field
-
-        profile_end("Envelope computation", t)
-
-        # ------------------------------------------------------------------
-        # 9. Resampling
-        # ------------------------------------------------------------------
-
-        t = profile_start()
-
-        output = resample_field(
-            output,
-            sizes,
-            xp=xp,
-        )
-
-        profile_end("Resampling", t)
-
-        # ------------------------------------------------------------------
-        # 10. Pipeline layout: (Nx, Nz, Nt) -> (Nt, Nz, Nx)
-        # ------------------------------------------------------------------
-
-        t = profile_start()
-
-        output = to_pipeline_layout(
-            output,
-            xp=xp,
-        )
-
-        # The pipeline layout is contiguous and no longer depends on grid_field.
-        if generation_type == "field":
-            del grid_field
-
-        profile_end("Pipeline layout", t)
-
-        # ------------------------------------------------------------------
-        # 11. Return output
-        # ------------------------------------------------------------------
-
-        if isGPU and not keep_on_gpu:
-
-            t = profile_start()
-
-            output_host = cp.asnumpy(output)
-
-            del output
-
-            if free_vram:
-                with cp.cuda.Device(GPUdevice):
-                    from AOT_biomaps.AOT_Acoustic.AcousticTools import clear_gpu_memory
-                    clear_gpu_memory(cp, clear_fft_plans=True)   # plans + pool
-                    cp.get_default_pinned_memory_pool().free_all_blocks()
-
-            profile_end("GPU to CPU", t)
-
-            output = output_host
-
-        # ------------------------------------------------------------------
-        # 12. Profiling report
-        # ------------------------------------------------------------------
-
-        if profile:
-
-            if isGPU:
-                synchronize()
-
-            total_elapsed = time.perf_counter() - total_start
-
-            print("\n[AOT][BATCH] Execution profile")
-            print("----------------------------------------")
-
-            for name, elapsed in profile_times.items():
-                print(f"{name:<35s}: {elapsed:8.3f} s")
-
-            print("----------------------------------------")
-            print(f"{'Total':<35s}: {total_elapsed:8.3f} s")
-            print(f"Output shape                      : {output.shape}")
-            print(f"Output dtype                      : {output.dtype}")
-            print(
-                f"Output location                   : "
-                f"{'GPU' if isGPU and keep_on_gpu else 'CPU'}"
-            )
-            print("----------------------------------------\n")
+        if isGPU and not keep_on_gpu and free_vram:
+            with cp.cuda.Device(GPUdevice):
+                from AOT_biomaps.AOT_Acoustic.AcousticTools import clear_gpu_memory
+                clear_gpu_memory(cp, clear_fft_plans=True)   # plans + pool
+                cp.get_default_pinned_memory_pool().free_all_blocks()
 
         return output
 
@@ -2358,7 +1413,6 @@ class AcousticField(ABC):
         target_dx=None,
         target_dz=None,
         backend=None,
-        tempFileName=None,
     ):
         """Backward-compatible entry point for the former batch generator.
 
@@ -2377,7 +1431,6 @@ class AcousticField(ABC):
             target_dx=target_dx,
             target_dz=target_dz,
             backend=backend or "python",
-            tempFileName=tempFileName,
         )
 
     @abstractmethod

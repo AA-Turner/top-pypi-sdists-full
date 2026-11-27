@@ -13,11 +13,11 @@ class UpdateAttackPathSensitiveAssetConfigRequest(DaraModel):
         attack_path_asset_list: List[main_models.UpdateAttackPathSensitiveAssetConfigRequestAttackPathAssetList] = None,
         attack_path_sensitive_asset_config_id: str = None,
     ):
-        # The list of cloud service assets for attack path analysis.
+        # The list of cloud service assets in the attack path.
         # 
         # This parameter is required.
         self.attack_path_asset_list = attack_path_asset_list
-        # The ID of the attack path sensitive asset configuration.
+        # The ID of the sensitive asset configuration for the attack path.
         # 
         # This parameter is required.
         self.attack_path_sensitive_asset_config_id = attack_path_sensitive_asset_config_id
@@ -77,9 +77,9 @@ class UpdateAttackPathSensitiveAssetConfigRequestAttackPathAssetList(DaraModel):
         # 
         # This parameter is required.
         self.asset_type = asset_type
-        # The instance ID of the cloud service asset.
+        # Instance ID of the cloud service asset instance.
         # 
-        # > You can call [ListCloudAssetInstances](~~ListCloudAssetInstances~~) to query the instance ID of the cloud service asset.
+        # > You can call [ListCloudAssetInstances](~~ListCloudAssetInstances~~) to query instance ID of the cloud service asset instance.
         # 
         # This parameter is required.
         self.instance_id = instance_id

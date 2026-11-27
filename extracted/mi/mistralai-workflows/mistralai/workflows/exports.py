@@ -1,10 +1,28 @@
 from ._version import __version__
 from .core.activity import activity, activity_heartbeat
-from .core.config.config import AppConfig as WorkflowsConfig
-from .core.config.config import config
+from .core.config.config import (
+    AgentConfig,
+    BlobStorageConfig,
+    CommonConfig,
+    DeploymentLocationConfig,
+    GraphConfig,
+    HttpConfig,
+    PayloadCompressionConfig,
+    PayloadEncryptionConfig,
+    PayloadOffloadingConfig,
+    TemporalConfig,
+    WorkerConfig,
+    WorkerVersioningConfig,
+    config,
+)
+from .core.config.config import (
+    AppConfig as WorkflowsConfig,
+)
+from .core.definition._workflow_preparation import prepare_workflows
 from .core.definition.workflow_definition import get_workflow_definition
 from .core.dependencies.dependency_injector import DependencyInjector, Depends
 from .core.discovery import discover_all_workflows_in_package
+from .core.execution.call_context import get_call_context
 from .core.execution.concurrency import (
     ExtraItemParams,
     GetItemFromIndexParams,
@@ -44,14 +62,28 @@ __all__ = [
     "activity_heartbeat",
     "ParentClosePolicy",
     "run_worker",
+    "prepare_workflows",
     "workflow",
     "get_workflow_definition",
     "get_workflow_registration_ref",
     "get_registered_workflow_names",
     "execute_workflow",
     "get_execution_id",
+    "get_call_context",
     "InteractiveWorkflow",
     "WorkflowsConfig",
+    "CommonConfig",
+    "WorkerConfig",
+    "TemporalConfig",
+    "HttpConfig",
+    "AgentConfig",
+    "WorkerVersioningConfig",
+    "DeploymentLocationConfig",
+    "GraphConfig",
+    "BlobStorageConfig",
+    "PayloadOffloadingConfig",
+    "PayloadEncryptionConfig",
+    "PayloadCompressionConfig",
     "config",
     "Depends",
     "DependencyInjector",

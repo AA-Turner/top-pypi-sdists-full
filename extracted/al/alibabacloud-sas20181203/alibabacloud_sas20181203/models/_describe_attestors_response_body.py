@@ -14,11 +14,11 @@ class DescribeAttestorsResponseBody(DaraModel):
         page_info: main_models.DescribeAttestorsResponseBodyPageInfo = None,
         request_id: str = None,
     ):
-        # The witnesses.
+        # The attestors.
         self.attestors = attestors
         # The pagination information.
         self.page_info = page_info
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
 
     def validate(self):
@@ -74,11 +74,11 @@ class DescribeAttestorsResponseBodyPageInfo(DaraModel):
     ):
         # The number of entries returned on the current page.
         self.count = count
-        # The page number.
+        # The page number of the current page returned in a paging query.
         self.current_page = current_page
-        # The number of entries per page.
+        # The maximum number of entries returned on each page in a paging query.
         self.page_size = page_size
-        # The total number of entries returned.
+        # The total number of entries.
         self.total_count = total_count
 
     def validate(self):
@@ -132,11 +132,11 @@ class DescribeAttestorsResponseBodyAttestors(DaraModel):
         self.key_id = key_id
         # The region ID of the KMS key.
         self.key_region_id = key_region_id
-        # The version ID of the Key Management Service (KMS) key.
+        # The ID of the KMS key version.
         self.key_version_id = key_version_id
-        # The name of the witness.
+        # The name of the attestor.
         self.name = name
-        # The description.
+        # The remarks.
         self.remark = remark
 
     def validate(self):

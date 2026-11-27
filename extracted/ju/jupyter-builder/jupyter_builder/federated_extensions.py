@@ -20,22 +20,17 @@ if TYPE_CHECKING:
     import logging
 
 from importlib.metadata import PackageNotFoundError, version
+from tomllib import load
 
 from jupyter_core.paths import ENV_JUPYTER_PATH, SYSTEM_JUPYTER_PATH, jupyter_data_dir
 from jupyter_core.utils import ensure_dir_exists
 
-from .federated_extensions_requirements import get_federated_extensions
-
-if sys.version_info >= (3, 11):
-    from tomllib import load
-else:
-    from tomli import load
-
 from ._node_deps import ensure_dependencies_installed, find_in_node_modules
-from .commands import _test_overlap
 from .core_path import get_core_meta
+from .federated_extensions_requirements import get_federated_extensions
 from .jlpm import _which_node_js
 from .jupyterlab_semver import clean, make_range, make_semver
+from .version_ranges import ranges_overlap
 
 DEPRECATED_ARGUMENT = object()
 
@@ -490,7 +485,7 @@ def _ensure_builder(ext_path: str, core_package_file: str) -> tuple[str, str]:
     # Check for compatible versions
     dep_version1 = core_data.get("devDependencies", {}).get(marker_pkg)
     if dep_version1 is not None:
-        overlap = _test_overlap(
+        overlap = ranges_overlap(
             dep_version1,
             dep_version2,
             drop_prerelease1=True,
@@ -499,7 +494,7 @@ def _ensure_builder(ext_path: str, core_package_file: str) -> tuple[str, str]:
         if not overlap:
             with Path(target).joinpath("node_modules", *marker_parts, "package.json").open() as fid:
                 dep_version2 = str(json.load(fid).get("version", ""))
-            overlap = _test_overlap(
+            overlap = ranges_overlap(
                 dep_version1,
                 dep_version2,
                 drop_prerelease1=True,
@@ -654,10 +649,10 @@ def _find_namespace_packages(path: str) -> list[str]:
     return list(found)
 
 
-def _get_labextension_metadata(module: str) -> tuple[Any, list[dict[str, str]]]:  # noqa: C901
-    """Get the list of labextension paths associated with a Python module.
+def _get_labextension_metadata(module: str) -> tuple[Any, list[dict[str, str]]]:
+    """Get the list of labextension paths associated with a Python package.
 
-    Returns a tuple of (the module path,             [{
+    Returns a tuple of (the imported module, [{
         'src': 'mockextension',
         'dest': '_mockdestination'
     }])
@@ -665,7 +660,8 @@ def _get_labextension_metadata(module: str) -> tuple[Any, list[dict[str, str]]]:
     Parameters
     ----------
     module : str
-        Importable Python module exposing the
+        Path to the extension source directory, containing a `pyproject.toml`
+        or legacy `setup.py`, whose Python package exposes the
         magic-named `_jupyter_labextension_paths` function
 
     """
@@ -675,14 +671,6 @@ def _get_labextension_metadata(module: str) -> tuple[Any, list[dict[str, str]]]:
         raise FileNotFoundError(msg)
 
     errors = []
-
-    # Check if the path is a valid labextension
-    try:
-        m = importlib.import_module(module)
-        if hasattr(m, "_jupyter_labextension_paths"):
-            return m, m._jupyter_labextension_paths()  # noqa: SLF001
-    except Exception as exc:  # noqa: BLE001
-        errors.append(exc)
 
     # Try to get the package name
     package = None
@@ -731,7 +719,7 @@ def _get_labextension_metadata(module: str) -> tuple[Any, list[dict[str, str]]]:
             m = importlib.import_module(package)
             if hasattr(m, "_jupyter_labextension_paths"):
                 return m, m._jupyter_labextension_paths()  # noqa: SLF001
-        except Exception as exc:  # noqa: BLE001, PERF203
+        except Exception as exc:  # noqa: BLE001
             errors.append(exc)
 
     msg = f"There is no labextension at {module}. Errors encountered: {errors}"

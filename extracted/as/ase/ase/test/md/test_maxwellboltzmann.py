@@ -1,5 +1,7 @@
 """Tests for velocity distributions."""
 
+from contextlib import nullcontext
+
 import numpy as np
 import pytest
 
@@ -11,6 +13,7 @@ from ase.md.velocitydistribution import (
     MaxwellBoltzmannDistribution,
     Stationary,
     ZeroRotation,
+    force_temperature,
 )
 from ase.units import kB
 
@@ -61,3 +64,17 @@ def test_maxwellboltzmann_dof(atoms: Atoms) -> None:
 
     ZeroRotation(atoms, preserve_temperature=True)
     assert pytest.approx(atoms.get_temperature(), 1e-8) == 1000
+
+
+@pytest.mark.parametrize(
+    ('temperature', 'expectation'),
+    [(0.0, nullcontext()), (1000.0, pytest.raises(RuntimeError))],
+)
+def test_force_temperature_with_zero_velocities(
+    atoms: Atoms,
+    temperature: float,
+    expectation,
+) -> None:
+    """Test `force_temperature` for `Atoms` with zero temperature."""
+    with expectation:
+        force_temperature(atoms, temperature=temperature)

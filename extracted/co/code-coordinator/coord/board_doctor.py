@@ -878,6 +878,227 @@ def branch_merged_guard_rows(entries: Sequence[Any]) -> list[StuckRow]:
     return rows
 
 
+# ── Merged-partial dependent holds (#4177) ──────────────────────────────────
+#
+# #3945's follow-through files the remainder issue for a `merged-partial`
+# row and closes the original. Until that lands, the issue's own `after=`
+# edge is a lie: the dependent's declared prerequisite merged, but the work
+# the dependent actually needs (the symbol/field the partial merge skipped)
+# still does not exist. `coord.drive_queue._resolve_prereqs` is the actual
+# dispatch gate and already refuses to treat a still-open `merged-partial`
+# dep as satisfying the edge — this module's own pass below is the repair/
+# release layer on top of that: it makes an already-waiting hold visible
+# as a `blocked` row with a reason an operator can read, and records the
+# audit trail `_resolve_prereqs`'s own cheap, no-I/O check has no room to
+# write. quadraui#2985 cost $31.66 in fix rounds plus #2991/#2992 to close
+# for exactly this gap.
+#
+# See :mod:`coord.queue_diagnose`'s own "merged-partial dependent holds"
+# section for the marker vocabulary this writes/recognises, and
+# :data:`coord.drive_queue._PERMANENT_BLOCK_MARKERS`'s `(#4177)` entry for
+# why a held row survives the tick's own `blocked`-row reconcilers.
+
+#: Audit-log ``category``/``event_type`` vocabulary for
+#: :func:`sweep_merged_partial_dependent_holds` — same shape as
+#: :mod:`coord.overlap_predict`'s own ``AUDIT_CATEGORY``/
+#: ``EVENT_PREDICTED_DROPPED`` pair, reused by :func:`record_predicted_
+#: after_drop` above.
+AUDIT_CATEGORY_PARTIAL_REMAINDER_HOLD = "partial_remainder_hold"
+EVENT_PARTIAL_REMAINDER_HELD = "partial_remainder_held"
+EVENT_PARTIAL_REMAINDER_RELEASED = "partial_remainder_released"
+
+
+def merged_partial_dependent_holds(
+    entries: Sequence[Any],
+    *,
+    config: Any = None,
+    issue_open: Callable[[str, int], bool] | None = None,
+    hold: Callable[[Any, str], None] | None = None,
+    release: Callable[[Any], None] | None = None,
+    record: Callable[[Any, str, tuple[str, ...]], None] | None = None,
+) -> list[str]:
+    """Hold every ``waiting`` dependent of an unresolved ``merged-partial``
+    prerequisite, and release every entry THIS function previously held
+    once none of its named prerequisites are unresolved any more (#4177).
+
+    An ``after=`` dep is unresolved when its own queue row still reads
+    :data:`~coord.drive_queue.STATE_MERGED_PARTIAL` AND its issue is NOT
+    positively confirmed closed (*issue_open*, defaulting to
+    :func:`_dep_issue_still_unresolved`). Release is the PERMISSIVE
+    direction here — it resumes dispatch into the exact gap this hold
+    exists to prevent — so unlike most of this module's own
+    fail-closed-on-uncertainty defaults (e.g. :func:`predicted_after_
+    target_drop_reason`'s, which keeps a conservative edge on an uncertain
+    read), an unreadable ``gh`` response must read as "still unresolved",
+    not "resolved": only a positive ``"closed"`` reading releases. A dep
+    absent from *entries* entirely (dequeued by an operator, or by some
+    other sweep) is treated as resolved rather than held forever on a row
+    that no longer exists — the same posture :func:`drop_stale_predicted_
+    after_edges` takes for a dequeued target; that is the one place this
+    stays permissive, since there the row itself is gone, not merely
+    unreadable. Once the dep's issue closes — by the follow-through filing
+    the remainder, or by a human resolving it some other way — the hold
+    releases regardless of which path closed it; this never re-derives
+    *why* it closed, only *whether* it did.
+
+    Only a :data:`~coord.drive_queue.STATE_WAITING` entry is ever newly
+    held — an entry already ``running``/``done``-like is left alone, same
+    as every other additive pass here never touches a row outside its own
+    shape. Only an entry THIS module's own marker put into
+    :data:`~coord.drive_queue.STATE_BLOCKED`
+    (:func:`coord.queue_diagnose.is_partial_remainder_hold_reason`) is ever
+    released — a row `blocked` for an unrelated reason is never touched,
+    the same discipline :func:`coord.drive_queue._reconcile_blocked_after`
+    applies to its own marker.
+
+    *hold* is called once per newly-held entry with the
+    :func:`coord.queue_diagnose.partial_remainder_hold_reason` text
+    (``coord.state.update_drive_queue_entry(..., state=STATE_BLOCKED,
+    last_reason=...)`` in production); *release* is called once per
+    released entry with no arguments but the entry itself (resets it to
+    ``waiting``); *record* is called for both, with the action
+    (``"held"``/``"released"``) and the dep keys involved, so the event
+    lands in the durable audit log as well as on the row itself
+    (:func:`sweep_merged_partial_dependent_holds`). All three default to
+    ``None``, which computes the hold/release set without writing or
+    recording anything — a dry run, or a test asserting only on the
+    returned notes.
+
+    Returns one note per entry held or released, in entry order, mirroring
+    :func:`drop_stale_predicted_after_edges`'s own return shape.
+    """
+    from coord.drive_queue import (  # noqa: PLC0415
+        STATE_BLOCKED,
+        STATE_MERGED_PARTIAL,
+        STATE_WAITING,
+    )
+    from coord.drive_queue import parse_key as _parse_row_key  # noqa: PLC0415
+
+    entries_by_key = {e.key: e for e in entries}
+    opener = issue_open or _dep_issue_still_unresolved
+    notes: list[str] = []
+
+    def _dep_unresolved(dep_key: str) -> bool:
+        dep_entry = entries_by_key.get(dep_key)
+        if dep_entry is None or dep_entry.state != STATE_MERGED_PARTIAL:
+            return False
+        parsed = _parse_row_key(dep_key)
+        if parsed is None:
+            return False
+        dep_repo, dep_issue = parsed
+        try:
+            return opener(_github_slug(dep_repo, config), dep_issue)
+        except Exception:  # noqa: BLE001 — uncertain reads as unresolved: release
+            # is the permissive direction here (it resumes dispatch into the
+            # gap this hold exists to prevent), so only a POSITIVE "closed"
+            # reading may release — an exception from *opener* itself must
+            # hold, the same as `_dep_issue_still_unresolved`'s own default
+            # handling of an unreadable `gh` response.
+            return True
+
+    for entry in entries:
+        if not entry.after:
+            continue
+        unresolved = tuple(dep for dep in entry.after if _dep_unresolved(dep))
+        if unresolved and entry.state == STATE_WAITING:
+            reason = queue_diagnose.partial_remainder_hold_reason(unresolved)
+            if hold is not None:
+                hold(entry, reason)
+            if record is not None:
+                record(entry, "held", unresolved)
+            notes.append(f"{entry.key}: held: waiting on {', '.join(unresolved)}")
+        elif (
+            not unresolved
+            and entry.state == STATE_BLOCKED
+            and queue_diagnose.is_partial_remainder_hold_reason(entry.last_reason)
+        ):
+            if release is not None:
+                release(entry)
+            if record is not None:
+                # (#4177 review) symmetric with the "held" record above:
+                # name the prerequisite(s) this release concerns, recovered
+                # from `entry.after` since nothing tracks which of them was
+                # actually named in the original hold reason.
+                record(entry, "released", entry.after)
+            notes.append(f"{entry.key}: released: merged-partial remainder resolved")
+    return notes
+
+
+def sweep_merged_partial_dependent_holds(
+    *, dry_run: bool = False, config: Any = None,
+) -> list[str]:
+    """Production entry point for :func:`merged_partial_dependent_holds`
+    (#4177): read the live drive queue, hold/release every eligible
+    dependent, and report what changed.
+
+    *dry_run* computes the hold/release set without writing it back or
+    logging an audit event — the same "classify, never mutate" contract
+    every other optional pass in :func:`run_sweep` keeps.
+    """
+    from coord.audit import record_audit  # noqa: PLC0415
+    from coord.drive_queue import (  # noqa: PLC0415
+        STATE_BLOCKED,
+        STATE_WAITING,
+        entries_from_rows,
+    )
+    from coord.state import list_drive_queue, update_drive_queue_entry  # noqa: PLC0415
+
+    entries = entries_from_rows(list_drive_queue())
+
+    def _hold(entry: Any, reason: str) -> None:
+        update_drive_queue_entry(
+            entry.repo, entry.issue, state=STATE_BLOCKED, last_reason=reason,
+        )
+
+    def _release(entry: Any) -> None:
+        update_drive_queue_entry(
+            entry.repo, entry.issue, state=STATE_WAITING,
+            last_reason=(
+                "merged-partial prerequisite resolved; resuming dispatch (#4177)"
+            ),
+        )
+
+    def _record(entry: Any, action: str, dep_keys: tuple[str, ...]) -> None:
+        detail = ", ".join(dep_keys)
+        try:
+            record_audit(
+                tier="business",
+                category=AUDIT_CATEGORY_PARTIAL_REMAINDER_HOLD,
+                event_type=(
+                    EVENT_PARTIAL_REMAINDER_HELD if action == "held"
+                    else EVENT_PARTIAL_REMAINDER_RELEASED
+                ),
+                actor="board-doctor",
+                summary=(
+                    f"{entry.key}: {action}"
+                    + (f" ({detail})" if detail else "")
+                ),
+                repo=entry.repo,
+                issue=entry.issue,
+                details={"action": action, "after": list(dep_keys)},
+            )
+        except Exception:  # noqa: BLE001 — recording must never fail the sweep
+            # (the row write above already landed) — but a dropped audit
+            # record must be OBSERVABLE, not silent: the issue this sweep
+            # exists for (#4177) explicitly requires "log an audit event
+            # explaining the hold", so losing one with no trace anywhere is
+            # itself a defect worth a human's attention, same posture as
+            # every other advisory failure path in `run_sweep` below.
+            _log.warning(
+                "board-doctor: merged-partial dependent hold audit record "
+                f"failed for {entry.key} ({action})",
+                exc_info=True,
+            )
+
+    return merged_partial_dependent_holds(
+        entries,
+        config=config,
+        hold=None if dry_run else _hold,
+        release=None if dry_run else _release,
+        record=None if dry_run else _record,
+    )
+
+
 def _followthrough_notify(
     repo_name: str, issue_number: int, stage: str, subject: str, body: str,
 ) -> None:
@@ -1388,6 +1609,26 @@ def _issue_open(repo_name: str, issue_number: int) -> bool:
     from coord import github_ops  # noqa: PLC0415
 
     return github_ops.get_issue_state(repo_name, issue_number) == "open"
+
+
+def _dep_issue_still_unresolved(repo_name: str, issue_number: int) -> bool:
+    """Default *issue_open* resolver for
+    :func:`merged_partial_dependent_holds` (#4177) — fail UNRESOLVED
+    (held), the opposite default from :func:`_issue_open` above.
+
+    Unlike :func:`_issue_open`'s callers, where "couldn't tell" safely
+    collapses to "not open" (the conservative, fail-closed direction for a
+    follow-through that must not act on an unconfirmed read), RELEASING a
+    held dependent is the permissive direction here — it resumes dispatch
+    into the exact gap this hold exists to prevent. So this only releases
+    (returns ``False``) on a POSITIVE ``"closed"`` reading from
+    :func:`coord.github_ops.get_issue_state`; an unreadable ``gh`` response
+    (``None``, same as a still-``"open"`` one) reads as "still unresolved"
+    and keeps holding.
+    """
+    from coord import github_ops  # noqa: PLC0415
+
+    return github_ops.get_issue_state(repo_name, issue_number) != "closed"
 
 
 def _milestone_exists(repo_name: str, title: str) -> bool:
@@ -2252,6 +2493,13 @@ class SweepReport:
     #: #3454 — since that dispatcher's budget is exactly what this row
     #: already exhausted).
     base_sync_fix_ceiling_dispatch: list[dict] = field(default_factory=list)
+    #: #4177: one note per entry :func:`merged_partial_dependent_holds`
+    #: held or released this round, via
+    #: :func:`sweep_merged_partial_dependent_holds`. Same "not a
+    #: tier/auto_dispatchers/convergence decision" shape as
+    #: *dropped_predicted_after_edges* above — it runs over the raw queue,
+    #: independent of `collect_rows`'s own classification walk.
+    held_merged_partial_dependents: list[str] = field(default_factory=list)
 
 
 def merge_queue_rows(
@@ -6621,6 +6869,10 @@ def run_sweep(
     mechanical_causes: frozenset[str] | None = None,
     drop_predicted_after_edges: bool = True,
     predicted_after_edges_sweep: Callable[..., list[str]] = sweep_predicted_after_edges,
+    hold_merged_partial_dependents: bool = True,
+    merged_partial_dependent_hold_sweep: Callable[..., list[str]] = (
+        sweep_merged_partial_dependent_holds
+    ),
     auto_refile: bool = True,
     refile_sweep: Callable[..., list[board_doctor_followthrough.Disposition]] = (
         run_refile_sweep
@@ -6719,6 +6971,14 @@ def run_sweep(
     window. A failure here is advisory-only, same posture as the
     no-progress pass in :func:`_collect_rows_with_board`: it never takes
     the rest of this report down.
+
+    #4177: *merged_partial_dependent_hold_sweep* (default
+    :func:`sweep_merged_partial_dependent_holds`) runs the same way, right
+    alongside it, and reports onto :attr:`SweepReport.
+    held_merged_partial_dependents` — gated on
+    *hold_merged_partial_dependents* AND ``mechanical_causes is None``, same
+    posture as *drop_predicted_after_edges* above, including the
+    advisory-only failure handling.
 
     #4038: ``branch-merged-guard`` rows are pulled out of *rows* the same
     way ``merged-partial`` rows are, and resolved by *refile_sweep*
@@ -7043,6 +7303,16 @@ def run_sweep(
         except Exception:  # noqa: BLE001 — advisory, see docstring
             _log.warning(
                 "board-doctor: predicted after= edge sweep failed this round",
+                exc_info=True,
+            )
+    if hold_merged_partial_dependents and mechanical_causes is None:
+        try:
+            report.held_merged_partial_dependents = merged_partial_dependent_hold_sweep(
+                dry_run=dry_run, config=config,
+            )
+        except Exception:  # noqa: BLE001 — advisory, see docstring
+            _log.warning(
+                "board-doctor: merged-partial dependent hold sweep failed this round",
                 exc_info=True,
             )
     return report

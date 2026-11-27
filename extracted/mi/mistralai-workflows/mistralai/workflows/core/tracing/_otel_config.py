@@ -1,13 +1,18 @@
+import atexit
 import logging
 import os
 import threading
+from collections.abc import Mapping
 from typing import Any, Tuple
 
 import temporalio.activity
 import temporalio.workflow
 from mistralai.extra.observability import (
+    DEFAULT_REDACTED_VALUE,
+    DEFAULT_SENSITIVE_ATTRIBUTE_FRAGMENTS,
     AttributeRedactionPolicy,
     RedactingSpanExporter,
+    RedactionPolicy,
     default_redaction_policy,
 )
 from opentelemetry import metrics, trace
@@ -30,6 +35,7 @@ from opentelemetry.sdk.trace.export import (
 )
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
+from structlog.typing import EventDict
 
 from mistralai.workflows._version import __version__
 from mistralai.workflows.core._events.event_utils import try_get_lineage_workflow_exec_id
@@ -43,6 +49,10 @@ from mistralai.workflows.core.tracing.exporters import (
     build_otlp_log_exporter,
     build_otlp_metric_exporter,
     build_otlp_span_exporter,
+)
+from mistralai.workflows.core.tracing.workflow_context import (
+    WorkflowContextSpanProcessor,
+    current_context_info,
 )
 
 logger = get_logger(__name__)
@@ -62,22 +72,124 @@ TELEMETRY_DISTRO_VERSION_ATTRIBUTE = "telemetry.distro.version"
 FORCE_TRACE_ID_ATTRIBUTE = "__mistral_force_trace_id"
 FORCE_SPAN_ID_ATTRIBUTE = "__mistral_force_span_id"
 
+# Redaction policies only redact attribute mappings, so log body text goes through them under this key.
+_LOG_BODY_ATTRIBUTE = "log.body"
+
+# OTLP HTTP exporters wait out their 10 s timeout on an endpoint that does not answer, once per pending batch.
+# This caps the wait on spans at process exit.
+_TRACES_SHUTDOWN_TIMEOUT_SECONDS = 3.0
+
 
 class _StructlogAwareLoggingHandler(LoggingHandler):
-    """Log handler that keeps structlog's private record extras out of exported log attributes.
+    """Log handler that redacts exported attributes and keeps structlog's private extras out of them.
 
     structlog's ``ProcessorFormatter.wrap_for_formatter`` attaches ``_logger`` (a structlog logger
     object) and ``_name`` to every LogRecord via ``extra``; its formatter reads them, so they must
     stay on the record. The OTel base class exports every non-reserved record attribute, and a
     logger object is not a valid OTel attribute value, so without this filter every exported log
     warns "Invalid type ... for attribute value" from ``opentelemetry.attributes``.
+
+    ``redaction`` (``OTEL_REDACTION``) applies to the attributes here; the body is redacted by the
+    ``_LogBodyRedactor`` in the formatter ``config_otel`` attaches. ``_get_attributes`` is stable
+    across the supported OTel SDK range, unlike the log processor and exporter interfaces.
+
+    Unlike stdlib handlers, the OTel base ``emit`` does not catch errors, so a record its formatter
+    cannot render (a cyclic value, a ``repr()`` that raises) would fail the log call itself, and
+    with it the user's activity. ``emit`` drops such records through ``handleError`` instead.
+
+    The handler does not lock: ``createLock`` installs a lock whose acquire and release do nothing,
+    so the stdlib ``handle`` runs unchanged. A stdlib handler serializes every record behind one
+    lock, so a slow record (redaction of a large value) blocks every other thread that logs.
+    Temporal interrupts a workflow thread blocked for 2s by injecting an exception into it; if that
+    thread was waiting on the lock, the exception can fire just after the lock is acquired and leak
+    it, freezing all logging in the process. Nothing here needs the lock: formatting and redaction
+    work on per-record data, and the OTel logger provider and batch processor are thread-safe on
+    their own.
     """
+
+    def __init__(
+        self, *, logger_provider: LoggerProvider, redaction: OtelRedactionMode = OtelRedactionMode.NONE
+    ) -> None:
+        super().__init__(logger_provider=logger_provider)
+        self._redaction_policy = _build_redaction_policy(redaction)
+
+    def createLock(self) -> None:
+        self.lock = _NonLockingLock()  # type: ignore[assignment]
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            super().emit(record)
+        except Exception:
+            self.handleError(record)
 
     def _get_attributes(self, record: logging.LogRecord) -> dict[str, Any]:  # type: ignore[override]
         # Instance method + super() so a future OTel base change (e.g. staticmethod -> instance
         # method) keeps working; the ignore covers the current staticmethod declaration upstream.
         attributes = super()._get_attributes(record)
-        return {key: value for key, value in (attributes or {}).items() if not key.startswith("_")}
+        attributes = {key: value for key, value in (attributes or {}).items() if not key.startswith("_")}
+        if self._redaction_policy is None:
+            return attributes
+        return self._redaction_policy.redact_attributes(attributes)
+
+
+class _NonLockingLock:
+    """Stands in for ``logging.Handler.lock`` so the handler never serializes or blocks callers."""
+
+    def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
+        return True
+
+    def release(self) -> None:
+        pass
+
+    def __enter__(self) -> bool:
+        return True
+
+    def __exit__(self, *exc_info: object) -> None:
+        pass
+
+    def _at_fork_reinit(self) -> None:
+        pass
+
+
+class _LogBodyRedactor:
+    """structlog processor that redacts the event dict just before it is rendered as the exported body.
+
+    Redacting the dict rather than the rendered JSON text keeps the body valid JSON: scrubbing the
+    text would also match unquoted numbers (a 13-digit epoch-ms timestamp looks like a card number).
+    ``default`` scrubs string values, nested ones included, and leaves keys and numbers as they are,
+    like span attributes. ``strict`` replaces the whole body.
+    """
+
+    def __init__(self, redaction: OtelRedactionMode) -> None:
+        self._strict = redaction is OtelRedactionMode.STRICT
+        self._policy = _build_redaction_policy(redaction)
+
+    def __call__(self, logger: Any, method_name: str, event_dict: EventDict) -> EventDict:
+        if self._policy is None:
+            return event_dict
+        if self._strict:
+            return {"event": DEFAULT_REDACTED_VALUE}
+        return {key: self._redact(value) for key, value in event_dict.items()}
+
+    def _redact(self, value: Any) -> Any:
+        if value is None or isinstance(value, (bool, int, float)):
+            return value
+        if isinstance(value, str):
+            assert self._policy is not None
+            return self._policy.redact_attributes({_LOG_BODY_ATTRIBUTE: value})[_LOG_BODY_ATTRIBUTE]
+        if isinstance(value, dict):
+            return {key: self._redact(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self._redact(item) for item in value]
+        # JSONRenderer would serialize any other object through __structlog__() or repr() after this
+        # processor runs, unscrubbed; do the same conversion here so its text is redacted too.
+        try:
+            converted = value.__structlog__()
+        except AttributeError:
+            converted = repr(value)
+        if converted is not None and not isinstance(converted, (str, bool, int, float, dict, list, tuple)):
+            converted = repr(converted)
+        return self._redact(converted)
 
 
 class _ForcedIdGenerator(IdGenerator):
@@ -164,24 +276,46 @@ class _WorkflowRunFilter(logging.Filter):
         if parent_id is not None:
             record.parentWorkflowExecutionID = parent_id
 
-        try:
-            workflow_info = temporalio.workflow.info()
-            record.workflowExecutionID = workflow_info.workflow_id
-            record.workflowRunID = workflow_info.run_id
-            record.workflowName = workflow_info.workflow_type
+        context_info = current_context_info()
+        if context_info is None:
+            _set_ids_from_temporal_extra(record)
             return True
-        except Exception:
-            pass
 
-        try:
-            activity_info = temporalio.activity.info()
-            record.workflowExecutionID = activity_info.workflow_id
-            record.workflowRunID = activity_info.workflow_run_id
-            record.temporalActivityID = activity_info.activity_id
-            record.workflowName = activity_info.workflow_type
-        except Exception:
-            pass
+        record.workflowExecutionID = context_info.workflow_id
+        record.workflowRunID = (
+            context_info.workflow_run_id if isinstance(context_info, temporalio.activity.Info) else context_info.run_id
+        )
+        record.workflowName = context_info.workflow_type
+        if isinstance(context_info, temporalio.activity.Info):
+            record.temporalActivityID = context_info.activity_id
         return True
+
+
+def _set_ids_from_temporal_extra(record: logging.LogRecord) -> None:
+    """Tag records temporalio logs outside the workflow/activity context, from the details it attaches.
+
+    temporalio logs workflow task failures ("Failed activation on workflow ...") after the workflow
+    event loop has stopped, so the context lookup finds nothing, but the record carries a
+    `temporal_workflow` (or `temporal_activity`) extra with the ids.
+    """
+    activity_details = getattr(record, "temporal_activity", None)
+    if isinstance(activity_details, Mapping):
+        _set_if_str(record, "workflowExecutionID", activity_details.get("workflow_id"))
+        _set_if_str(record, "workflowRunID", activity_details.get("workflow_run_id"))
+        _set_if_str(record, "workflowName", activity_details.get("workflow_type"))
+        _set_if_str(record, "temporalActivityID", activity_details.get("activity_id"))
+        return
+
+    workflow_details = getattr(record, "temporal_workflow", None)
+    if isinstance(workflow_details, Mapping):
+        _set_if_str(record, "workflowExecutionID", workflow_details.get("workflow_id"))
+        _set_if_str(record, "workflowRunID", workflow_details.get("run_id"))
+        _set_if_str(record, "workflowName", workflow_details.get("workflow_type"))
+
+
+def _set_if_str(record: logging.LogRecord, attribute: str, value: object) -> None:
+    if isinstance(value, str):
+        setattr(record, attribute, value)
 
 
 def _build_otlp_metric_reader(
@@ -213,6 +347,18 @@ def build_runtime_metrics_meter_provider(
         return None
     resource = _create_resource(service_name, service_version, component="worker", include_worker_id=False)
     return MeterProvider(resource=resource, metric_readers=[reader], views=tuple(views))
+
+
+def _shutdown_traces(provider: TracerProvider) -> None:
+    # TracerProvider.shutdown takes no timeout. Run it in a daemon thread and stop waiting at the deadline.
+    shutdown = threading.Thread(target=provider.shutdown, name="otel-trace-shutdown", daemon=True)
+    shutdown.start()
+    shutdown.join(_TRACES_SHUTDOWN_TIMEOUT_SECONDS)
+    if shutdown.is_alive():
+        logger.warning(
+            "OpenTelemetry traces not exported before exit; pending spans dropped",
+            timeout_s=_TRACES_SHUTDOWN_TIMEOUT_SECONDS,
+        )
 
 
 def _silence_raw_otlp_exporter_logs() -> None:
@@ -250,7 +396,15 @@ def config_otel(
         resource=resource,
         sampler=ParentBasedTraceIdRatio(sample_rate),
         id_generator=WORKFLOW_ROOT_ID_GENERATOR,
+        # Replaced by the bounded shutdown registered below.
+        shutdown_on_exit=False,
     )
+    # Shut down at exit, not when the worker stops: the provider is global, and the process may keep emitting spans.
+    atexit.register(_shutdown_traces, tracer_provider)
+    # Attached unconditionally (and before the exporter processor) so every span started in a
+    # workflow or activity context carries the wf.* workflow attributes even when export is off:
+    # spans still exist for context propagation and log correlation.
+    tracer_provider.add_span_processor(WorkflowContextSpanProcessor())
     # Spans are still created for context propagation and log trace injection; only the
     # OTLP export is gated so traces can be disabled independently of the OTEL_ENABLED master switch.
     raw_span_exporter = build_otlp_span_exporter(trace_config, token_provider)
@@ -278,8 +432,13 @@ def config_otel(
         # Bridge Python's standard logging module to OTel log SDK. The JSON
         # formatter forces exported log bodies to JSON regardless of the console
         # log format chosen by the user.
-        otel_handler = _StructlogAwareLoggingHandler(logger_provider=logger_provider)
-        otel_handler.setFormatter(build_json_log_formatter())
+        otel_handler = _StructlogAwareLoggingHandler(logger_provider=logger_provider, redaction=redaction)
+        otel_handler.setFormatter(
+            build_json_log_formatter(
+                _LogBodyRedactor(redaction),
+                redact_credentials=redaction is not OtelRedactionMode.NONE,
+            )
+        )
         otel_handler.addFilter(_DropOtelExportDiagnosticsFilter())
         otel_handler.addFilter(_WorkflowRunFilter(deployment_name=deployment_name, worker_name=worker_name))
         logging.getLogger().addHandler(otel_handler)
@@ -320,6 +479,7 @@ def config_otel_local(
         sampler=ParentBasedTraceIdRatio(sample_rate),
         id_generator=WORKFLOW_ROOT_ID_GENERATOR,
     )
+    tracer_provider.add_span_processor(WorkflowContextSpanProcessor())
     tracer_provider.add_span_processor(BatchSpanProcessor(_apply_span_redaction(ConsoleSpanExporter(), redaction)))
     trace.set_tracer_provider(tracer_provider)
 
@@ -343,9 +503,19 @@ def _get_calling_module_name() -> str:
     return "unknown"
 
 
+def _build_redaction_policy(redaction: OtelRedactionMode) -> RedactionPolicy | None:
+    """Policy applied to spans and log records before export, or None when redaction is off."""
+    if redaction is OtelRedactionMode.NONE:
+        return None
+    if redaction is OtelRedactionMode.DEFAULT:
+        return default_redaction_policy()
+    # mistralai's strict defaults miss `wf.result` (activity and workflow outputs).
+    return AttributeRedactionPolicy(sensitive_fragments=DEFAULT_SENSITIVE_ATTRIBUTE_FRAGMENTS | {"result"})
+
+
 def _apply_span_redaction(exporter: SpanExporter, redaction: OtelRedactionMode) -> SpanExporter:
     """Wrap a span exporter so spans are redacted client-side before export."""
-    if redaction is OtelRedactionMode.NONE:
+    policy = _build_redaction_policy(redaction)
+    if policy is None:
         return exporter
-    policy = AttributeRedactionPolicy() if redaction is OtelRedactionMode.STRICT else default_redaction_policy()
     return RedactingSpanExporter(exporter, policy)

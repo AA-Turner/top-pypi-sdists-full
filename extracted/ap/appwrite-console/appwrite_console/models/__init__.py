@@ -14,6 +14,11 @@ from .notification_list import NotificationList
 from .file_list import FileList
 from .bucket_list import BucketList
 from .resource_token_list import ResourceTokenList
+from .video_list import VideoList
+from .video_codec_list import VideoCodecList
+from .video_profile_list import VideoProfileList
+from .video_rendition_list import VideoRenditionList
+from .video_caption_list import VideoCaptionList
 from .team_list import TeamList
 from .membership_list import MembershipList
 from .site_list import SiteList
@@ -291,6 +296,11 @@ from .migration_report import MigrationReport
 from .insight import Insight
 from .insight_cta import InsightCTA
 from .report import Report
+from .video import Video
+from .video_codec import VideoCodec
+from .video_profile import VideoProfile
+from .video_rendition import VideoRendition
+from .video_caption import VideoCaption
 from .activity_event import ActivityEvent
 from .additional_resource import AdditionalResource
 from .addon import Addon
@@ -452,6 +462,11 @@ __all__ = [
     'FileList',
     'BucketList',
     'ResourceTokenList',
+    'VideoList',
+    'VideoCodecList',
+    'VideoProfileList',
+    'VideoRenditionList',
+    'VideoCaptionList',
     'TeamList',
     'MembershipList',
     'SiteList',
@@ -729,6 +744,11 @@ __all__ = [
     'Insight',
     'InsightCTA',
     'Report',
+    'Video',
+    'VideoCodec',
+    'VideoProfile',
+    'VideoRendition',
+    'VideoCaption',
     'ActivityEvent',
     'AdditionalResource',
     'Addon',

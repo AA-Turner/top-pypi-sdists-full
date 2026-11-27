@@ -6,17 +6,21 @@ import typing_extensions
 
 
 class TimestampsModelParams(typing_extensions.TypedDict):
+    """
+    Segment-level timestamps in the older parallel-list format, returned when `with_timestamps` is `true`. Will be deprecated soon; use `timestamp_granularity` instead.
+    """
+
     words: typing.Sequence[str]
     """
-    List of transcript chunks (sentence or phrase segments). Not individual words.
+    Chunks of the transcript, in order, each of which can hold several sentences. Despite the field name, these are not single words. For per-word timing, use `timestamp_granularity=word`.
     """
 
     start_time_seconds: typing.Sequence[float]
     """
-    List of start times for each chunk in seconds.
+    Start time of each entry in `words`, in seconds.
     """
 
     end_time_seconds: typing.Sequence[float]
     """
-    List of end times for each chunk in seconds.
+    End time of each entry in `words`, in seconds.
     """

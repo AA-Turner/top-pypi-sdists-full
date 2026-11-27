@@ -23,8 +23,10 @@ class NoisyLennardJones(LennardJones):
         LennardJones.__init__(self, *args, **kwargs)
 
     def calculate(
-        self, atoms=None, properties=['energy'], system_changes=all_changes
+        self, atoms=None, properties=None, system_changes=all_changes
     ):
+        if properties is None:
+            properties = ['energy']
         LennardJones.calculate(self, atoms, properties, system_changes)
         if 'forces' in self.results:
             self.results['forces'] += 1e-4 * self.rng.normal(

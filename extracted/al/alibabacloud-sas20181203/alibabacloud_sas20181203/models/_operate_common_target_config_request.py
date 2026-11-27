@@ -9,44 +9,48 @@ class OperateCommonTargetConfigRequest(DaraModel):
         self,
         field_name: str = None,
         field_value: str = None,
+        resource_directory_account_id: int = None,
         source_ip: str = None,
         target_operations: str = None,
         target_type: str = None,
         type: str = None,
     ):
         # The target type of the image switch. Valid values:
-        # - **repoName**: repository name.
-        # - **repoNamespace**: repository namespace name.
+        # - **repoName**: the repository name
+        # - **repoNamespace**: the repository namespace name
         self.field_name = field_name
-        # The repository name or repository namespace name.
+        # The repository name or the repository namespace name.
         self.field_value = field_value
-        # The IP address of the access source.
+        # The ID of the member accounts in the resource folder (Alibaba Cloud account).
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to retrieve this parameter.
+        self.resource_directory_account_id = resource_directory_account_id
+        # The source IP address.
         self.source_ip = source_ip
-        # The parameters for configuring proactive defense on servers. The following parameters are included:
+        # The parameters for configuring proactive defense for servers. This includes the following parameters:
         # 
-        # - **targetType**: the dimension of the defense configuration. Currently, only the UUID dimension is supported. Fixed value: **uuid**.
-        # - **target**: the UUID of the server for which you want to configure proactive defense.
+        # - **targetType**: the dimension of the defense configuration. Currently, only the UUID dimension is supported. Set the value to **uuid**.
+        # - **target**: the UUID of the server for which you want to configure defense settings
         # - **flag**: specifies whether to enable or disable proactive defense for the server. Valid values: **add** (enable) and **del** (disable).
         # 
         # This parameter is required.
         self.target_operations = target_operations
-        # The Asset Type of the target. Valid values:
-        # - **uuid**: server UUID.
-        # - **Cluster**: cluster ID.
-        # - **image_repo**: image repository name.
+        # The target asset type. Valid values:
+        # - **uuid**: the server UUID
+        # - **Cluster**: the cluster ID
+        # - **image_repo**: the image repository name
         self.target_type = target_type
         # The switch type. Valid values:
-        # - **alidetect-scan-enable**: local file detection that performs detection only locally.
-        # - **ACTION-TRIAL-PERMISSION**: ActionTrail data delivery.
-        # - **alidetect**: local file detection engine.
-        # - **container_prevent_escape**: container escape prevention.
-        # - **image_repo**: repository image scanning.
-        # - **proc_filter_switch**: log filtering.
-        # - **agentless**: agentless detection.
-        # - **rasp**: application protection.
-        # - **sensitiveFile**: sensitive information scanning.
-        # - **aliscriptengine**: deep detection engine.
-        # - **containerNetwork**: container visualization.
+        # - **alidetect-scan-enable**: local-only file detection
+        # - **ACTION-TRIAL-PERMISSION**: ActionTrail data delivery
+        # - **alidetect**: the local file detection engine
+        # - **container_prevent_escape**: container escape prevention
+        # - **image_repo**: repository image scanning
+        # - **proc_filter_switch**: log filtering
+        # - **agentless**: agentless detection
+        # - **rasp**: application protection
+        # - **sensitiveFile**: sensitive information scanning
+        # - **aliscriptengine**: the deep detection engine
+        # - **containerNetwork**: container visualization
         # 
         # This parameter is required.
         self.type = type
@@ -64,6 +68,9 @@ class OperateCommonTargetConfigRequest(DaraModel):
 
         if self.field_value is not None:
             result['FieldValue'] = self.field_value
+
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
 
         if self.source_ip is not None:
             result['SourceIp'] = self.source_ip
@@ -86,6 +93,9 @@ class OperateCommonTargetConfigRequest(DaraModel):
 
         if m.get('FieldValue') is not None:
             self.field_value = m.get('FieldValue')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         if m.get('SourceIp') is not None:
             self.source_ip = m.get('SourceIp')

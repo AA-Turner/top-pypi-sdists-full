@@ -109,7 +109,12 @@ def filter_range_versions(
             If None, no upper limit is applied.
 
     Returns:
-        A list of version strings that fall within the specified bounds.
+        A list of version strings that fall within the specified bounds,
+            in the original order.
+
+    Raises:
+        packaging.version.InvalidVersion: If a version string is not
+            a valid PEP 440 version.
 
     Example:
         ```pycon
@@ -149,7 +154,12 @@ def filter_stable_versions(versions: Sequence[str]) -> list[str]:
         versions: A list of version strings.
 
     Returns:
-        A list containing only stable version strings.
+        A list containing only stable version strings, in the original
+            order.
+
+    Raises:
+        packaging.version.InvalidVersion: If a version string is not
+            a valid PEP 440 version.
 
     Example:
         ```pycon
@@ -174,13 +184,14 @@ def filter_valid_versions(versions: Iterable[str]) -> list[str]:
     r"""Filter out invalid version strings based on PEP 440.
 
     A valid version is one that can be parsed by `packaging.version.Version`.
-    Invalid versions include strings that don't conform to semantic versioning rules.
+    Invalid versions are the strings that don't conform to PEP 440.
 
     Args:
         versions: A list of version strings.
 
     Returns:
-        A list containing only valid version strings.
+        A list containing only valid version strings, in the original
+            order.
 
     Example:
         ```pycon
@@ -226,7 +237,12 @@ def latest_major_versions(versions: Sequence[str]) -> list[str]:
 
     Returns:
         A list containing the latest version for each major version,
-            sorted by major version number.
+            sorted by major version number. The strings are the ones
+            of ``versions``.
+
+    Raises:
+        packaging.version.InvalidVersion: If a version string is not
+            a valid PEP 440 version.
 
     Example:
         ```pycon
@@ -237,13 +253,13 @@ def latest_major_versions(versions: Sequence[str]) -> list[str]:
 
         ```
     """
-    by_major = {}
+    by_major: dict[int, tuple[Version, str]] = {}
     for v_str in versions:
         v = Version(v_str)
         current = by_major.get(v.major)
-        if current is None or v > current:
-            by_major[v.major] = v
-    return [str(by_major[k]) for k in sorted(by_major)]
+        if current is None or v > current[0]:
+            by_major[v.major] = (v, v_str)
+    return [by_major[k][1] for k in sorted(by_major)]
 
 
 def latest_minor_versions(versions: Sequence[str]) -> list[str]:
@@ -260,25 +276,30 @@ def latest_minor_versions(versions: Sequence[str]) -> list[str]:
 
     Returns:
         A list containing the latest version for each minor version,
-            sorted by major and minor version numbers.
+            sorted by major and minor version numbers. The strings are
+            the ones of ``versions``.
+
+    Raises:
+        packaging.version.InvalidVersion: If a version string is not
+            a valid PEP 440 version.
 
     Example:
         ```pycon
-        >>> from feu.version import latest_major_versions
+        >>> from feu.version import latest_minor_versions
         >>> versions = latest_minor_versions(["1.0.0", "1.0.1", "1.1.0", "1.1.2", "2.0.0", "2.0.3"])
         >>> versions
         ['1.0.1', '1.1.2', '2.0.3']
 
         ```
     """
-    by_minor = {}
+    by_minor: dict[tuple[int, int], tuple[Version, str]] = {}
     for v_str in versions:
         v = Version(v_str)
         key = (v.major, v.minor)
         current = by_minor.get(key)
-        if current is None or v > current:
-            by_minor[key] = v
-    return [str(by_minor[k]) for k in sorted(by_minor)]
+        if current is None or v > current[0]:
+            by_minor[key] = (v, v_str)
+    return [by_minor[k][1] for k in sorted(by_minor)]
 
 
 def unique_versions(versions: Sequence[str]) -> list[str]:

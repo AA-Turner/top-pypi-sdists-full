@@ -226,7 +226,7 @@ class AimsCube:
     def __init__(
         self,
         origin=(0, 0, 0),
-        edges=[(0.1, 0.0, 0.0), (0.0, 0.1, 0.0), (0.0, 0.0, 0.1)],
+        edges=None,
         points=(50, 50, 50),
         plots=(),
     ):
@@ -237,6 +237,8 @@ class AimsCube:
         plots:
             what to print, same names as in FHI-aims"""
 
+        if edges is None:
+            edges = [(0.1, 0.0, 0.0), (0.0, 0.1, 0.0), (0.0, 0.0, 0.1)]
         self.name = 'AimsCube'
         self.origin = origin
         self.edges = edges

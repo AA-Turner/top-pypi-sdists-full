@@ -1,13 +1,25 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.4
 Name: mozleak
-Version: 0.2
+Version: 2.1.1
 Summary: Library for extracting memory leaks from leak logs files
 Home-page: https://wiki.mozilla.org/Auto-tools/Projects/Mozbase
 Author: Mozilla Automation and Tools team
 Author-email: tools@lists.mozilla.org
 License: MPL
-Description: see https://firefox-source-docs.mozilla.org/mozbase/index.html
 Keywords: mozilla
-Platform: UNKNOWN
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 2 :: Only
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.9
+Requires-Dist: mozlog>=9.0.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+see https://firefox-source-docs.mozilla.org/mozbase/index.html

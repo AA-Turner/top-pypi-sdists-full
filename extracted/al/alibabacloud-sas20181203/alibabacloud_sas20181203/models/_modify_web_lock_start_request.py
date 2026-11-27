@@ -75,7 +75,7 @@ class ModifyWebLockStartRequest(DaraModel):
         # The local backup path used to securely back up the protection directories.  
         # The format of the protection directory path may differ between Linux servers and Windows servers. Make sure that you enter the correct format. The following directory formats are provided for reference:
         #  - Linux server: /usr/local/aegis/bak
-        #  - Windows server: C:\\Program Files (x86)\\Alibaba\\Aegis\\bak
+        #  - Windows server: C:\Program Files (x86)\Alibaba\Aegis\bak
         # 
         # This parameter is required.
         self.local_backup_dir = local_backup_dir

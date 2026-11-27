@@ -11,6 +11,7 @@ class ListRouteTargetGroupsRequest(DaraModel):
     def __init__(
         self,
         client_token: str = None,
+        ip_version: str = None,
         max_results: int = None,
         member_id: str = None,
         next_token: str = None,
@@ -22,6 +23,7 @@ class ListRouteTargetGroupsRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters. Note: If you do not specify this parameter, the system automatically uses the RequestId of the API request as the ClientToken. The RequestId of each API request is unique.
         self.client_token = client_token
+        self.ip_version = ip_version
         # The number of entries to return on each page. Valid values: **1** to **50**. Default value: **50**.
         self.max_results = max_results
         # The ID of the member instance in the route target group. This parameter is used to filter route target groups that contain the specified member instance ID.
@@ -55,6 +57,9 @@ class ListRouteTargetGroupsRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.ip_version is not None:
+            result['IpVersion'] = self.ip_version
+
         if self.max_results is not None:
             result['MaxResults'] = self.max_results
 
@@ -87,6 +92,9 @@ class ListRouteTargetGroupsRequest(DaraModel):
         m = m or dict()
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
+
+        if m.get('IpVersion') is not None:
+            self.ip_version = m.get('IpVersion')
 
         if m.get('MaxResults') is not None:
             self.max_results = m.get('MaxResults')

@@ -93,7 +93,13 @@ class DevTenantCredential:
                 )
             secret_name = row.secret_name
         reader = self._reader or SecretStoreSettingsReader(overlay=declared.store)
-        secret = asyncio.run(reader.read(declared.token_folder, secret_name))
+        try:
+            secret = asyncio.run(reader.read(declared.token_folder, secret_name))
+        except Exception as exc:
+            raise CollectorAbsentError(
+                "tenant_credential",
+                f"the dev secret store cannot be read: {type(exc).__name__}",
+            ) from None
         if secret is None:
             raise CollectorAbsentError(
                 "tenant_credential",
@@ -169,17 +175,21 @@ def _parse(raw: bytes) -> Any:
 
 def load_gateway_row(
     environ: Mapping[str, str] | None = None,
+    *,
+    explicit: object | None = None,
 ) -> ModelDelegationCheckGatewayOverlay:
     """The settings store's gateway row; with none served the node loads no gateway and its checks read PRECONDITION-ABSENT."""
     return load_structured_overlay(
         GATEWAY_OVERLAY_ID,
         ModelDelegationCheckGatewayOverlay,
         environ,
+        explicit=explicit,
         file_env=GATEWAY_FILE_ENV,
     )
 
 
 __all__ = [
+    "GATEWAY_OVERLAY_ID",
     "DevTenantCredential",
     "HttpGatewayCaller",
     "ProtocolSecretReader",

@@ -1,15 +1,28 @@
 from __future__ import annotations
 
+from functools import partial
+
 import importlib
-from typing import Any, Callable, Literal, Optional, Union, cast, overload
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Union,
+    cast,
+    overload,
+)
+from instructor.v2.core.errors import log_provider_initialization_error
 from instructor.v2.core.client import AsyncInstructor, Instructor
 from instructor import __version__
 from instructor.v2.core.mode import Mode
+from instructor.v2.core.openai_endpoints import OPENAI_ENDPOINTS
 from instructor.models import KnownModelName
 from instructor.cache import BaseCache
 from instructor.v2.core.provider_specs import ALIAS_TO_PROVIDER
 import warnings
 import logging
+
+from instructor.decisions.client import AsyncDecisionsClient, DecisionsClient
 
 # Type alias for the return type
 InstructorType = Union[Instructor, AsyncInstructor]
@@ -19,6 +32,28 @@ logger = logging.getLogger("instructor.auto_client")
 
 # Canonical strings and compatibility aliases accepted by from_provider().
 supported_providers = list(ALIAS_TO_PROVIDER)
+
+
+@overload
+def from_provider(
+    model: str,
+    async_client: Literal[False] = False,
+    cache: None = None,
+    *,
+    mode: Literal[Mode.DECISIONS],
+    **kwargs: Any,
+) -> DecisionsClient: ...
+
+
+@overload
+def from_provider(
+    model: str,
+    async_client: Literal[True],
+    cache: None = None,
+    *,
+    mode: Literal[Mode.DECISIONS],
+    **kwargs: Any,
+) -> AsyncDecisionsClient: ...
 
 
 @overload
@@ -60,15 +95,15 @@ def from_provider(
 def from_provider(
     model: Union[str, KnownModelName],  # noqa: UP007
     async_client: bool = False,
-    cache: BaseCache | None = None,
+    cache: Union[BaseCache, None] = None,  # noqa: UP007
     mode: Union[Mode, None] = None,  # noqa: ARG001, UP007
     **kwargs: Any,
-) -> Union[Instructor, AsyncInstructor]:  # noqa: UP007
+) -> Union[Instructor, AsyncInstructor, DecisionsClient, AsyncDecisionsClient]:  # noqa: UP007
     """Create an Instructor client from a model string.
 
     Args:
         model: String in format "provider/model-name"
-              (e.g., "openai/gpt-4", "anthropic/claude-3-sonnet", "google/gemini-pro")
+              (e.g., "openai/gpt-6-luna", "anthropic/claude-haiku-5-5", "google/gemini-pro")
         async_client: Whether to return an async client
         cache: Optional cache adapter (e.g., ``AutoCache`` or ``RedisCache``)
                to enable transparent response caching. Automatically flows through
@@ -90,15 +125,15 @@ def from_provider(
         >>> from instructor.cache import AutoCache
         >>>
         >>> # Basic usage
-        >>> client = instructor.from_provider("openai/gpt-4")
-        >>> client = instructor.from_provider("anthropic/claude-3-sonnet")
+        >>> client = instructor.from_provider("openai/gpt-6-luna")
+        >>> client = instructor.from_provider("anthropic/claude-haiku-5-5")
         >>>
         >>> # With caching
         >>> cache = AutoCache(maxsize=1000)
-        >>> client = instructor.from_provider("openai/gpt-4", cache=cache)
+        >>> client = instructor.from_provider("openai/gpt-6-luna", cache=cache)
         >>>
         >>> # Async clients
-        >>> async_client = instructor.from_provider("openai/gpt-4", async_client=True)
+        >>> async_client = instructor.from_provider("openai/gpt-6-luna", async_client=True)
     """
     # Add cache to kwargs if provided so it flows through to provider functions
     if cache is not None:
@@ -111,7 +146,7 @@ def from_provider(
 
         raise ConfigurationError(
             'Model string must be in format "provider/model-name" '
-            '(e.g. "openai/gpt-4" or "anthropic/claude-3-sonnet")'
+            '(e.g. "openai/gpt-6-luna" or "anthropic/claude-haiku-5-5")'
         ) from None
 
     if not provider or not model_name:
@@ -119,7 +154,7 @@ def from_provider(
 
         raise ConfigurationError(
             'Model string must be in format "provider/model-name" '
-            'with both parts non-empty (e.g. "openai/gpt-4")'
+            'with both parts non-empty (e.g. "openai/gpt-6-luna")'
         )
 
     provider_info = {"provider": provider, "operation": "initialize"}
@@ -146,6 +181,13 @@ def from_provider(
                 extra=provider_info,
             )
 
+    if mode is Mode.DECISIONS:
+        from instructor.decisions.client import from_decisions_provider
+
+        return from_decisions_provider(
+            provider, model_name, async_client=async_client, api_key=api_key, **kwargs
+        )
+
     builder = _PROVIDER_BUILDERS.get(provider)
     if builder is None:
         from instructor.v2.core.errors import ConfigurationError
@@ -171,6 +213,28 @@ def from_provider(
     )
 
 
+def _take_openai_sdk_options(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Separate client configuration from defaults sent to completion requests."""
+    options = {
+        key: kwargs.pop(key)
+        for key in (
+            "organization",
+            "project",
+            "timeout",
+            "default_headers",
+            "default_query",
+            "http_client",
+            "_strict_response_validation",
+        )
+        if key in kwargs
+    }
+    if "_strict_response_validation" in options:
+        options["_strict_response_validation"] = bool(
+            options["_strict_response_validation"]
+        )
+    return options
+
+
 def _build_openai(
     *,
     provider: str,
@@ -183,9 +247,6 @@ def _build_openai(
 ) -> InstructorType:
     try:
         import openai
-        from openai import DEFAULT_MAX_RETRIES, NotGiven, Timeout, not_given
-        from collections.abc import Mapping
-        from typing import cast
     except ImportError as err:
         missing_root = (getattr(err, "name", "") or "").split(".")[0]
         if missing_root != "openai":
@@ -199,60 +260,13 @@ def _build_openai(
         ) from None
 
     try:
-        # Extract base_url and other OpenAI client parameters from kwargs
         base_url = kwargs.pop("base_url", None)
-        organization = cast(Optional[str], kwargs.pop("organization", None))
-
-        timeout_raw = kwargs.pop("timeout", not_given)
-        timeout: float | Timeout | None | NotGiven
-        timeout = (
-            not_given
-            if timeout_raw is not_given
-            else cast(Optional[Union[float, Timeout]], timeout_raw)
-        )
-
-        max_retries_raw = kwargs.pop("max_retries", None)
-        max_retries = (
-            DEFAULT_MAX_RETRIES
-            if max_retries_raw is None
-            else int(cast(int, max_retries_raw))
-        )
-
-        default_headers = cast(
-            Optional[Mapping[str, str]], kwargs.pop("default_headers", None)
-        )
-        default_query = cast(
-            Optional[Mapping[str, object]], kwargs.pop("default_query", None)
-        )
-        http_client = kwargs.pop("http_client", None)
-        strict_response_validation = bool(
-            kwargs.pop("_strict_response_validation", False)
-        )
-
-        if async_client:
-            client = openai.AsyncOpenAI(
-                api_key=api_key,
-                base_url=base_url,
-                organization=organization,
-                timeout=timeout,
-                max_retries=max_retries,
-                default_headers=default_headers,
-                default_query=default_query,
-                http_client=http_client,
-                _strict_response_validation=strict_response_validation,
-            )
-        else:
-            client = openai.OpenAI(
-                api_key=api_key,
-                base_url=base_url,
-                organization=organization,
-                timeout=timeout,
-                max_retries=max_retries,
-                default_headers=default_headers,
-                default_query=default_query,
-                http_client=http_client,
-                _strict_response_validation=strict_response_validation,
-            )
+        sdk_options = _take_openai_sdk_options(kwargs)
+        max_retries = kwargs.pop("max_retries", None)
+        if max_retries is not None:
+            sdk_options["max_retries"] = int(max_retries)
+        sdk_class = openai.AsyncOpenAI if async_client else openai.OpenAI
+        client = sdk_class(api_key=api_key, base_url=base_url, **sdk_options)
 
         import instructor
 
@@ -268,13 +282,7 @@ def _build_openai(
         )
         return result
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -291,7 +299,7 @@ def _build_azure_openai(
     try:
         import os
         from openai import AzureOpenAI, AsyncAzureOpenAI
-        from instructor.v2.providers.openai.client import from_openai
+        from instructor.v2.providers.azure.client import from_azure
 
         # Get required Azure OpenAI configuration from environment
         api_key = api_key or os.environ.get("AZURE_OPENAI_API_KEY")
@@ -300,7 +308,17 @@ def _build_azure_openai(
         )
         api_version = kwargs.pop("api_version", "2024-02-01")
 
-        if not api_key:
+        sdk_options = {
+            name: kwargs.pop(name)
+            for name in ("azure_ad_token", "azure_ad_token_provider", "http_client")
+            if name in kwargs
+        }
+        if not (
+            api_key
+            or sdk_options.get("azure_ad_token")
+            or sdk_options.get("azure_ad_token_provider")
+            or os.environ.get("AZURE_OPENAI_AD_TOKEN")
+        ):
             from instructor.v2.core.errors import ConfigurationError
 
             raise ConfigurationError(
@@ -321,15 +339,17 @@ def _build_azure_openai(
                 api_key=api_key,
                 api_version=api_version,
                 azure_endpoint=azure_endpoint,
+                **sdk_options,
             )
             if async_client
             else AzureOpenAI(
                 api_key=api_key,
                 api_version=api_version,
                 azure_endpoint=azure_endpoint,
+                **sdk_options,
             )
         )
-        result = from_openai(
+        result = from_azure(
             client,
             model=model_name,
             mode=mode if mode else Mode.TOOLS,
@@ -348,13 +368,7 @@ def _build_azure_openai(
             "Install it with `pip install openai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -367,35 +381,37 @@ def _build_openai_compatible(
     api_key: str | None,
     kwargs: dict[str, Any],
     provider_info: dict[str, str],
-    env_var: str,
+    env_var: str | tuple[str, ...],
     default_base_url: str,
     factory_name: str,
+    default_mode: Mode = Mode.TOOLS,
 ) -> InstructorType:
     try:
         import os
         import openai
         from instructor.v2.providers.openai import client as openai_client
 
-        api_key = api_key or os.environ.get(env_var)
+        key_variables = (env_var,) if isinstance(env_var, str) else env_var
+        api_key = api_key or next(
+            (os.environ[key] for key in key_variables if os.environ.get(key)), None
+        )
         if not api_key:
             from instructor.v2.core.errors import ConfigurationError
 
             raise ConfigurationError(
-                f"{env_var} is not set. "
-                f"Set it with `export {env_var}=<your-api-key>` or pass it as kwarg api_key=<your-api-key>"
+                f"{key_variables[0]} is not set. "
+                f"Set it with `export {key_variables[0]}=<your-api-key>` or pass it as kwarg api_key=<your-api-key>"
             )
 
         base_url = kwargs.pop("base_url", default_base_url)
-        client = (
-            openai.AsyncOpenAI(api_key=api_key, base_url=base_url)
-            if async_client
-            else openai.OpenAI(api_key=api_key, base_url=base_url)
-        )
+        sdk_options = _take_openai_sdk_options(kwargs)
+        sdk_class = openai.AsyncOpenAI if async_client else openai.OpenAI
+        client = sdk_class(api_key=api_key, base_url=base_url, **sdk_options)
         factory = getattr(openai_client, factory_name)
         result = factory(
             client,
             model=model_name,
-            mode=mode if mode else Mode.TOOLS,
+            mode=mode if mode else default_mode,
             **kwargs,
         )
         logger.info(
@@ -411,13 +427,7 @@ def _build_openai_compatible(
             "Install it with `pip install openai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -489,15 +499,8 @@ def _build_databricks(
         if not base_url.endswith("/serving-endpoints"):
             base_url = f"{base_url}/serving-endpoints"
 
-        openai_client_kwargs = {}
-        for key in (
-            "organization",
-            "timeout",
-            "max_retries",
-            "default_headers",
-            "http_client",
-            "app_info",
-        ):
+        openai_client_kwargs = _take_openai_sdk_options(kwargs)
+        for key in ("max_retries", "app_info"):
             if key in kwargs:
                 openai_client_kwargs[key] = kwargs.pop(key)
 
@@ -529,13 +532,7 @@ def _build_databricks(
             "Install it with `pip install openai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -595,13 +592,7 @@ def _build_anthropic(
             "Install it with `pip install anthropic`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -670,13 +661,7 @@ def _build_google(
         )
         return result
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -720,14 +705,12 @@ def _build_gemini(
             "Install it with `pip install google-generativeai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
+
+
+def _with_requested_mode(kwargs: dict[str, Any], mode: Mode | None) -> dict[str, Any]:
+    return kwargs if mode is None else {**kwargs, "mode": mode}
 
 
 def _build_mistral(
@@ -735,18 +718,17 @@ def _build_mistral(
     provider: str,
     model_name: str,
     async_client: bool,
-    mode: Mode | None,  # noqa: ARG001
+    mode: Mode | None,
     api_key: str | None,
     kwargs: dict[str, Any],
     provider_info: dict[str, str],
 ) -> InstructorType:
     try:
-        try:
-            mistral_module = cast(Any, importlib.import_module("mistralai.client"))
-            Mistral = mistral_module.Mistral
-        except (AttributeError, ImportError):
-            mistral_module = cast(Any, importlib.import_module("mistralai"))
-            Mistral = mistral_module.Mistral
+        from instructor.v2.providers._mistral_sdk import load_mistral_client_type
+
+        Mistral = load_mistral_client_type()
+        if Mistral is None:
+            raise ImportError("Mistral client class is unavailable")
         from instructor.v2.providers.mistral.client import from_mistral
         import os
 
@@ -760,10 +742,12 @@ def _build_mistral(
                 "Set it with `export MISTRAL_API_KEY=<your-api-key>`."
             )
 
-        if async_client:
-            result = from_mistral(client, model=model_name, use_async=True, **kwargs)
-        else:
-            result = from_mistral(client, model=model_name, **kwargs)
+        result = from_mistral(
+            client,
+            model=model_name,
+            use_async=async_client,
+            **_with_requested_mode(kwargs, mode),
+        )
         logger.info(
             "Client initialized",
             extra={**provider_info, "status": "success"},
@@ -777,13 +761,7 @@ def _build_mistral(
             "Install it with `pip install mistralai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -826,13 +804,7 @@ def _build_cohere(
             "Install it with `pip install cohere`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -841,7 +813,7 @@ def _build_perplexity(
     provider: str,
     model_name: str,
     async_client: bool,
-    mode: Mode | None,  # noqa: ARG001
+    mode: Mode | None,
     api_key: str | None,
     kwargs: dict[str, Any],
     provider_info: dict[str, str],
@@ -865,7 +837,9 @@ def _build_perplexity(
             if async_client
             else openai.OpenAI(api_key=api_key, base_url="https://api.perplexity.ai")
         )
-        result = from_perplexity(client, model=model_name, **kwargs)
+        result = from_perplexity(
+            client, model=model_name, **_with_requested_mode(kwargs, mode)
+        )
         logger.info(
             "Client initialized",
             extra={**provider_info, "status": "success"},
@@ -879,13 +853,7 @@ def _build_perplexity(
             "Install it with `pip install openai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -894,7 +862,7 @@ def _build_groq(
     provider: str,
     model_name: str,
     async_client: bool,
-    mode: Mode | None,  # noqa: ARG001
+    mode: Mode | None,
     api_key: str | None,
     kwargs: dict[str, Any],
     provider_info: dict[str, str],
@@ -908,7 +876,9 @@ def _build_groq(
             if async_client
             else groq.Groq(api_key=api_key)
         )
-        result = from_groq(client, model=model_name, **kwargs)
+        result = from_groq(
+            client, model=model_name, **_with_requested_mode(kwargs, mode)
+        )
         logger.info(
             "Client initialized",
             extra={**provider_info, "status": "success"},
@@ -922,13 +892,7 @@ def _build_groq(
             "Install it with `pip install groq`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -937,7 +901,7 @@ def _build_writer(
     provider: str,
     model_name: str,
     async_client: bool,
-    mode: Mode | None,  # noqa: ARG001
+    mode: Mode | None,
     api_key: str | None,
     kwargs: dict[str, Any],
     provider_info: dict[str, str],
@@ -949,7 +913,9 @@ def _build_writer(
         client = (
             AsyncWriter(api_key=api_key) if async_client else Writer(api_key=api_key)
         )
-        result = from_writer(client, model=model_name, **kwargs)
+        result = from_writer(
+            client, model=model_name, **_with_requested_mode(kwargs, mode)
+        )
         logger.info(
             "Client initialized",
             extra={**provider_info, "status": "success"},
@@ -963,13 +929,7 @@ def _build_writer(
             "Install it with `pip install writer-sdk`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -979,84 +939,22 @@ def _build_bedrock(
     model_name: str,
     async_client: bool,
     mode: Mode | None,
-    api_key: str | None,  # noqa: ARG001
+    api_key: str | None,
     kwargs: dict[str, Any],
     provider_info: dict[str, str],
 ) -> InstructorType:
-    try:
-        import os
-        import boto3
-        from instructor.v2.providers.bedrock.client import from_bedrock
+    """Compatibility entry point for the provider-owned Bedrock builder."""
+    from instructor.v2.providers.bedrock.client import _build_from_model
 
-        # Get AWS configuration from environment or kwargs
-        if "region" in kwargs:
-            region = kwargs.pop("region")
-        else:
-            logger.debug(
-                "AWS_DEFAULT_REGION is not set. Using default region us-east-1"
-            )
-            region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
-
-        # Extract AWS-specific parameters
-        # Dictionary to collect AWS credentials and session parameters for boto3 client
-        aws_kwargs = {}
-        for key in [
-            "aws_access_key_id",
-            "aws_secret_access_key",
-            "aws_session_token",
-        ]:
-            if key in kwargs:
-                aws_kwargs[key] = kwargs.pop(key)
-            elif key.upper() in os.environ:
-                logger.debug(f"Using {key.upper()} from environment variable")
-                aws_kwargs[key] = os.environ[key.upper()]
-
-        # Add region to client configuration
-        aws_kwargs["region_name"] = region
-
-        # Create bedrock-runtime client
-        client = boto3.client("bedrock-runtime", **aws_kwargs)
-
-        # Determine default mode based on model
-        if mode is None:
-            # Anthropic models (Claude) support tools, others use JSON
-            if model_name and (
-                "anthropic" in model_name.lower() or "claude" in model_name.lower()
-            ):
-                default_mode = Mode.TOOLS
-            else:
-                default_mode = Mode.MD_JSON
-        else:
-            default_mode = mode
-
-        result = from_bedrock(
-            client,
-            mode=default_mode,
-            async_client=async_client,
-            model=model_name,
-            **kwargs,
-        )
-        logger.info(
-            "Client initialized",
-            extra={**provider_info, "status": "success"},
-        )
-        return result
-    except ImportError:
-        from instructor.v2.core.errors import ConfigurationError
-
-        raise ConfigurationError(
-            "The boto3 package is required to use the AWS Bedrock provider. "
-            "Install it with `pip install boto3`."
-        ) from None
-    except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
-        raise
+    return _build_from_model(
+        provider=provider,
+        model_name=model_name,
+        async_client=async_client,
+        mode=mode,
+        api_key=api_key,
+        kwargs=kwargs,
+        provider_info=provider_info,
+    )
 
 
 def _build_cerebras(
@@ -1064,7 +962,7 @@ def _build_cerebras(
     provider: str,
     model_name: str,
     async_client: bool,
-    mode: Mode | None,  # noqa: ARG001
+    mode: Mode | None,
     api_key: str | None,
     kwargs: dict[str, Any],
     provider_info: dict[str, str],
@@ -1078,7 +976,9 @@ def _build_cerebras(
             if async_client
             else Cerebras(api_key=api_key)
         )
-        result = from_cerebras(client, model=model_name, **kwargs)
+        result = from_cerebras(
+            client, model=model_name, **_with_requested_mode(kwargs, mode)
+        )
         logger.info(
             "Client initialized",
             extra={**provider_info, "status": "success"},
@@ -1092,13 +992,7 @@ def _build_cerebras(
             "Install it with `pip install cerebras`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -1107,13 +1001,16 @@ def _build_fireworks(
     provider: str,
     model_name: str,
     async_client: bool,
-    mode: Mode | None,  # noqa: ARG001
+    mode: Mode | None,
     api_key: str | None,
     kwargs: dict[str, Any],
     provider_info: dict[str, str],
 ) -> InstructorType:
     try:
-        from fireworks.client import AsyncFireworks, Fireworks
+        try:
+            from fireworks import AsyncFireworks, Fireworks
+        except ImportError:
+            from fireworks.client import AsyncFireworks, Fireworks
         from instructor.v2.providers.fireworks.client import from_fireworks
 
         client = (
@@ -1121,7 +1018,9 @@ def _build_fireworks(
             if async_client
             else Fireworks(api_key=api_key)
         )
-        result = from_fireworks(client, model=model_name, **kwargs)
+        result = from_fireworks(
+            client, model=model_name, **_with_requested_mode(kwargs, mode)
+        )
         logger.info(
             "Client initialized",
             extra={**provider_info, "status": "success"},
@@ -1135,13 +1034,7 @@ def _build_fireworks(
             "Install it with `pip install fireworks-ai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -1207,13 +1100,7 @@ def _build_vertexai(
         )
         return result
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -1273,13 +1160,7 @@ def _build_generative_ai(
         )
         return result
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -1299,7 +1180,7 @@ def _build_ollama(
 
         # Get base_url from kwargs or use default
         base_url = kwargs.pop("base_url", "http://localhost:11434/v1")
-        api_key = kwargs.pop("api_key", "ollama")  # required but unused
+        api_key = api_key or "ollama"  # required by the SDK but unused
 
         client = (
             openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
@@ -1350,13 +1231,7 @@ def _build_ollama(
             "Install it with `pip install openai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -1414,13 +1289,7 @@ def _build_deepseek(
             "Install it with `pip install openai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -1473,13 +1342,7 @@ def _build_xai(
             "Note: xai-sdk requires Python 3.10+."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -1537,13 +1400,7 @@ def _build_openrouter(
             "Install it with `pip install openai`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
@@ -1580,22 +1437,27 @@ def _build_litellm(
             "Install it with `pip install litellm`."
         ) from None
     except Exception as e:
-        logger.error(
-            "Error initializing %s client: %s",
-            provider,
-            e,
-            exc_info=True,
-            extra={**provider_info, "status": "error"},
-        )
+        log_provider_initialization_error(logger, provider, e, provider_info)
         raise
 
 
 ProviderBuilder = Callable[..., InstructorType]
 
 _PROVIDER_BUILDERS: dict[str, ProviderBuilder] = {
+    **{
+        endpoint_provider.value: partial(
+            _build_openai_compatible,
+            env_var=endpoint.key_variables,
+            default_base_url=endpoint.base_url,
+            factory_name=f"from_{endpoint_provider.value}",
+            default_mode=endpoint.default_mode,
+        )
+        for endpoint_provider, endpoint in OPENAI_ENDPOINTS.items()
+    },
     "openai": _build_openai,
     "anyscale": _build_anyscale,
     "together": _build_together,
+    "azure": _build_azure_openai,
     "azure_openai": _build_azure_openai,
     "databricks": _build_databricks,
     "anthropic": _build_anthropic,

@@ -1,6 +1,8 @@
 import os
+from typing import TYPE_CHECKING
 
-import pytest
+if TYPE_CHECKING:
+    from pytest import MarkDecorator
 
 DEFAULT_TEST_TASK_QUEUE = "example-dev-worker"
 TEST_TASK_QUEUE = os.getenv("DEPLOYMENT_NAME", DEFAULT_TEST_TASK_QUEUE)
@@ -18,7 +20,9 @@ def _current_version_is_older(current_version: str, minimum_version: str) -> boo
     return _parse_version(current_version) < _parse_version(minimum_version)
 
 
-def min_api_version(version: str) -> pytest.MarkDecorator:
+def min_api_version(version: str) -> "MarkDecorator":
+    import pytest
+
     return pytest.mark.xfail(
         _current_version_is_older(_API_VERSION, version),
         reason=f"Requires API version >= {version} (current: {_API_VERSION or 'unset'})",

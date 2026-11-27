@@ -13,7 +13,7 @@ class DescribeUuidVulNumClassifyStatisticResponseBody(DaraModel):
         data: Dict[str, main_models.DataValue] = None,
         request_id: str = None,
     ):
-        # The vulnerability statistics returned by asset unique identifier. The key of the map is the host UUID or image ID specified in the request.
+        # The vulnerability statistics returned based on the unique identifier of the asset. The key of the map is the server UUID or image ID specified in the request.
         self.data = data
         # The request ID.
         self.request_id = request_id

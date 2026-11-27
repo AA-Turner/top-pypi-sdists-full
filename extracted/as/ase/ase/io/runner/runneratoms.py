@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Implementation of ASE Atom mimic for temporary fast I/O."""
 
 from __future__ import annotations

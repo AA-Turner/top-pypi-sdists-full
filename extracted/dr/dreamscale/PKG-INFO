@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a370
+Version: 0.1.0a371
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -87,7 +87,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a370"
+uv add "dreamscale==0.1.0a371"
 ```
 
 Install the CLI as a standalone tool:
@@ -116,10 +116,10 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a370"
-uv add "dreamscale[sim]==0.1.0a370"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a370"
-uv add "dreamscale[hud]==0.1.0a370"
+uv add "dreamscale[so101]==0.1.0a371"
+uv add "dreamscale[sim]==0.1.0a371"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a371"
+uv add "dreamscale[hud]==0.1.0a371"
 ```
 
 The base SDK supports Python 3.11 through 3.14. The `so101` extra currently

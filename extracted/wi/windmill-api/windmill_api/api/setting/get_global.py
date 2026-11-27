@@ -5,19 +5,27 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     key: str,
+    *,
+    dangerously_reveal_secrets: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["dangerously_reveal_secrets"] = dangerously_reveal_secrets
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
         "url": "/settings/global/{key}".format(
             key=key,
         ),
+        "params": params,
     }
 
 
@@ -43,11 +51,13 @@ def sync_detailed(
     key: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    dangerously_reveal_secrets: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """get global settings
 
     Args:
         key (str):
+        dangerously_reveal_secrets (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -59,6 +69,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         key=key,
+        dangerously_reveal_secrets=dangerously_reveal_secrets,
     )
 
     response = client.get_httpx_client().request(
@@ -72,11 +83,13 @@ async def asyncio_detailed(
     key: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    dangerously_reveal_secrets: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """get global settings
 
     Args:
         key (str):
+        dangerously_reveal_secrets (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -88,6 +101,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         key=key,
+        dangerously_reveal_secrets=dangerously_reveal_secrets,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

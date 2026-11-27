@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqltrie
-Version: 0.11.3
+Version: 0.12.0
 Summary: SQL-based prefix tree inspired by pygtrie and python-diskcache
 Author-email: Ruslan Kuprieiev <ruslan@iterative.ai>
 License-Expression: Apache-2.0

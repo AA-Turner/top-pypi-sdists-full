@@ -57,7 +57,7 @@ def guifactory(display):
     guis = []
 
     def factory(images):
-        gui = GUI(images)
+        gui = GUI(images, config={})
         guis.append(gui)
         return gui
 
@@ -325,11 +325,14 @@ def test_surface(gui):
 
 
 def test_movie(animation):
+    animation.movie()
     movie = animation.movie_window
     assert movie is not None
 
     animation.step('Home')
     assert movie.frame_number.value == 0
+    animation.window.update()
+    assert animation.window.moviebar.slider.get() == movie.frame_number.value
 
     animation.step('PageUp')
     assert movie.frame_number.value == 0
@@ -339,6 +342,8 @@ def test_movie(animation):
 
     animation.step('PageDown')
     assert movie.frame_number.value == 2
+    animation.window.update()
+    assert animation.window.moviebar.slider.get() == movie.frame_number.value
 
     last_index = len(animation.images) - 1
     animation.step('End')
@@ -352,10 +357,59 @@ def test_movie(animation):
 
     animation.step('PageUp')
     assert movie.frame_number.value == last_index - 2
+    animation.window.update()
+    assert animation.window.moviebar.slider.get() == movie.frame_number.value
 
     movie.play()
     movie.stop()
     movie.close()
+
+
+def test_toolbar_shortcut(gui):
+    assert gui.movie_window is None
+    gui.window.moviebar.moviebutton.invoke()
+    assert gui.movie_window is not None
+
+
+def test_movie_toolbar(animation):
+    assert hasattr(animation.window, 'moviebar')
+    moviebar = animation.window.moviebar
+    assert moviebar.slider['state'] == 'normal'
+    assert moviebar.slider.get() == animation.frame
+
+    def testagainst(val):
+        # The tests will fail without an update because slider.set
+        # needs a chance to do it's callback: moviebar.slidercommand
+        animation.window.update()
+        assert moviebar.slider.get() == val
+
+    moviebar.click(-1, True)
+    testagainst(0)
+
+    moviebar.click(-1)
+    testagainst(0)
+
+    moviebar.click(1)
+    testagainst(1)
+
+    moviebar.click(1)
+    testagainst(2)
+
+    last_index = len(animation.images) - 1
+    moviebar.click(1, True)
+    testagainst(last_index)
+
+    moviebar.click(1)
+    testagainst(last_index)
+
+    moviebar.click(-1)
+    testagainst(last_index - 1)
+
+    moviebar.click(-1)
+    testagainst(last_index - 2)
+
+    moviebar.play()
+    moviebar.stop()
 
 
 def test_reciprocal(gui):
@@ -582,6 +636,8 @@ def runcallbacks(win):
 def test_callbacks(display):
     win = window()
     win.win.after_idle(runcallbacks)
+    # We have created an illicit instance of tk.Tk so we must destroy it:
+    win.win.destroy()
 
 
 def test_atoms_editor_set_values(gui, atoms):
@@ -646,12 +702,10 @@ def test_atoms_history(gui):
     before = gui.images[gui.frame].copy()
     gui.images.selected[0] = True
     gui.really_delete_selected_atoms()
-    assert set(compare_atoms(gui.images[gui.frame], before)) == set(
-        [
-            'numbers',
-            'positions',
-        ]
-    )
+    assert set(compare_atoms(gui.images[gui.frame], before)) == {
+        'numbers',
+        'positions',
+    }
     gui.undo_history()
     gui.redo_history()
     gui.undo_history()
@@ -679,12 +733,10 @@ def test_many_atoms_history(gui_many_images):
         before = gui_many_images.images[frame].copy()
         gui_many_images.images.selected[0] = True
         gui_many_images.really_delete_selected_atoms()
-        assert set(compare_atoms(gui_many_images.images[frame], before)) == set(
-            [
-                'numbers',
-                'positions',
-            ]
-        )
+        assert set(compare_atoms(gui_many_images.images[frame], before)) == {
+            'numbers',
+            'positions',
+        }
         gui_many_images.undo_history()
         gui_many_images.redo_history()
         gui_many_images.undo_history()
@@ -703,3 +755,193 @@ def test_custom_radii(gui, radii):
     radii = gui.images.get_radii(gui.atoms)
     assert radii[0] / radius_scale == pytest.approx(5.0)
     assert radii[1] / radius_scale == pytest.approx(3.0)
+
+
+class MockEvent:
+    def __init__(self, x, y, button, modifier=None, time=0):
+        self.x = x
+        self.y = y
+        self.button = button
+        self.modifier = modifier
+        self.time = time
+
+
+@pytest.fixture()
+def large_gui(gui, monkeypatch):
+    """GUI showing a structure above the size where the speedups apply.
+
+    The threshold is lowered so that a modest structure (quick to draw
+    in the test suite) exercises the same code paths as a large one.
+    """
+    monkeypatch.setattr(gui, 'LEVEL_OF_DETAIL_MIN_OBJECTS', 100)
+    gui.window['toggle-show-bonds'] = True
+    gui.new_atoms(bulk('Cu', cubic=True) * (4, 4, 4))
+
+    drawn = []
+    draw_indices = gui._draw_indices
+
+    def record_draw_indices(*args):
+        indices = draw_indices(*args)
+        drawn.append(indices)
+        return indices
+
+    monkeypatch.setattr(gui, '_draw_indices', record_draw_indices)
+    gui.drawn = drawn
+    return gui
+
+
+def drawn_objects(gui):
+    """Atom and bond indices drawn by a fresh redraw."""
+    gui.drawn.clear()
+    gui.draw()
+    indices = gui.drawn[-1]
+    n = len(gui.atoms)
+    bond_start = n + len(gui.X_cell)
+    return indices[indices < n], indices[indices >= bond_start]
+
+
+def test_visible_atoms():
+    from ase.gui.view import View
+
+    # Five atoms stacked in one screen cell, and one on its own in each of
+    # the neighbouring cells along x and along y.
+    P = np.array([[5.0, 5.0]] * 5 + [[50.0, 5.0], [5.0, 50.0]])
+    z = np.array([0.0, 4.0, 1.0, 3.0, 2.0, 0.0, 0.0])
+    r = np.full(7, 10.0)
+    visible = View._visible_atoms(None, P, z, r, keep=3)
+    assert sorted(visible) == [1, 3, 4, 5, 6]
+    visible = View._visible_atoms(None, P, z, r, keep=1)
+    assert sorted(visible) == [1, 5, 6]
+    assert len(View._visible_atoms(None, P[:0], z[:0], r[:0])) == 0
+
+
+def test_occlusion_culling(large_gui):
+    gui = large_gui
+    n = len(gui.atoms)
+    atoms, bonds = drawn_objects(gui)
+    assert 0 < len(atoms) < n
+    assert len(bonds) > 0
+
+    # Hidden atoms are still drawn if selected.
+    hidden = np.setdiff1d(np.arange(n), atoms)[0]
+    gui.images.selected[hidden] = True
+    atoms, _ = drawn_objects(gui)
+    assert hidden in atoms
+
+    # ... and likewise if they are being moved.
+    gui.images.selected[:] = False
+    gui.images.selected[hidden] = True
+    gui.toggle_move_mode()
+    gui.images.selected[:] = False
+    atoms, _ = drawn_objects(gui)
+    assert hidden in atoms
+    gui.toggle_move_mode()
+
+    # Labels are drawn beside the atom, so nothing may be culled.
+    gui.window['show-labels'] = 1
+    atoms, _ = drawn_objects(gui)
+    assert len(atoms) == n
+    gui.window['show-labels'] = 0
+
+    # Neither with the option turned off.
+    gui.occlusion_culling = False
+    atoms, _ = drawn_objects(gui)
+    assert len(atoms) == n
+
+
+def test_occlusion_culling_small_structure(gui):
+    """Structures below the size threshold are drawn in full."""
+    gui.new_atoms(bulk('Cu', cubic=True) * (2, 2, 2))
+    gui.draw()
+    assert len(gui._draw_indices(*draw_args(gui))) == len(gui.X)
+
+
+def draw_args(gui):
+    X = np.dot(gui.X, gui.scale * gui.axes * (1, -1, 1))
+    r = gui.get_covalent_radii() * gui.scale
+    return X, len(gui.atoms), r, [], None
+
+
+def test_interactive_level_of_detail(large_gui):
+    gui = large_gui
+    atoms_static, bonds_static = drawn_objects(gui)
+
+    gui.begin_interaction()
+    assert gui.interactive
+    atoms, bonds = drawn_objects(gui)
+    assert len(bonds) == 0
+    assert len(atoms) <= len(atoms_static)
+
+    gui.end_interaction()
+    assert not gui.interactive
+    atoms, bonds = drawn_objects(gui)
+    assert len(atoms) == len(atoms_static)
+    assert len(bonds) == len(bonds_static)
+
+    # With the option turned off, nothing changes while interacting.
+    gui.interactive_level_of_detail = False
+    gui.begin_interaction()
+    atoms, bonds = drawn_objects(gui)
+    assert len(bonds) == len(bonds_static)
+    gui.end_interaction()
+
+
+def test_interaction_settles(large_gui):
+    """Full detail comes back by itself once interaction stops."""
+    import time
+
+    gui = large_gui
+    gui.begin_interaction()
+    gui.begin_interaction()  # re-arming must not leave a stray timer
+    deadline = time.monotonic() + 5
+    while gui.interactive and time.monotonic() < deadline:
+        gui.window.win.update()
+        time.sleep(0.01)
+    assert not gui.interactive
+    assert gui._settle_timer is None
+
+
+def test_drag_rotate_and_release(large_gui):
+    gui = large_gui
+    axes = gui.axes.copy()
+    gui.press(MockEvent(100, 100, gui.b3))
+    gui.move(MockEvent(130, 110, gui.b3))
+    assert gui.interactive
+    assert not np.allclose(gui.axes, axes)
+    _, bonds = drawn_objects(gui)
+    assert len(bonds) == 0
+
+    gui.release(MockEvent(130, 110, gui.b3, time=1000))
+    assert not gui.interactive
+    assert gui._settle_timer is None
+    _, bonds = drawn_objects(gui)
+    assert len(bonds) > 0
+
+
+def test_rubber_band_selection(large_gui):
+    from ase.gui.ui import UNCACHED_PRIMITIVES_TAG
+
+    gui = large_gui
+    canvas = gui.window.canvas
+    gui.drawn.clear()
+    gui.press(MockEvent(0, 0, gui.b1))
+    for x in (100, 200, 300):
+        gui.move(MockEvent(x, x, gui.b1))
+        assert len(canvas.find_withtag(UNCACHED_PRIMITIVES_TAG)) == 1
+    # Dragging the rectangle does not redraw the scene.
+    assert gui.drawn == []
+    assert not gui.interactive
+
+    gui.release(MockEvent(300, 300, gui.b1, time=1000))
+    assert gui.images.selected.any()
+
+
+def test_large_structure_settings(large_gui):
+    gui = large_gui
+    settings = gui.settings()
+    settings.occlusion_culling.var.set(False)
+    settings.update_occlusion_culling()
+    assert not gui.occlusion_culling
+    settings.interactive_level_of_detail.var.set(False)
+    settings.update_interactive_level_of_detail()
+    assert not gui.interactive_level_of_detail

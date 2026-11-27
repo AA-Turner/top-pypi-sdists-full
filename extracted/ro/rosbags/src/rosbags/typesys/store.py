@@ -128,6 +128,7 @@ class Typestore:
             self.fielddefs.update(fielddefs)
             self.types.update({k: getattr(base, k.replace('/', '__')) for k in fielddefs})
         self.max_sequence_length = max_sequence_length
+        self.max_ros1_zero_size_elements = 2**16
 
     def deserialize_cdr(self, rawdata: bytes | memoryview, typename: str) -> object:
         """Deserialize raw data into a message object.

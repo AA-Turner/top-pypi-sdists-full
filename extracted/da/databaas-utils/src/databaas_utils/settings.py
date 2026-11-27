@@ -34,6 +34,15 @@ TOKEN_TIMEOUT = 30
 _EXPIRY_MARGIN = 60
 
 
+def zitadel_project_scope(project_id: str) -> str:
+    """The scope that puts a Zitadel project in a token's audience.
+
+    Lakekeeper and Trino reject a token whose audience lacks their project.
+    Every credential type that requests it builds it here.
+    """
+    return f"urn:zitadel:iam:org:project:id:{project_id}:aud"
+
+
 @runtime_checkable
 class TokenProvider(Protocol):
     """Anything that can produce an ``Authorization`` header value.
@@ -124,7 +133,7 @@ class OAuthClientCredentials:
         """``scope`` if set, else the Zitadel project-audience scope."""
         if self.scope:
             return self.scope
-        return f"openid urn:zitadel:iam:org:project:id:{self.project_id}"
+        return f"openid {zitadel_project_scope(str(self.project_id))}"
 
     def auth_header(self) -> str:
         """``Bearer <token>``, fetching or refreshing the token if it is stale.
@@ -252,7 +261,7 @@ class ServiceAccountKey:
         """``scope`` if set, else the Zitadel project-audience scope."""
         if self.scope:
             return self.scope
-        return f"openid urn:zitadel:iam:org:project:id:{self.project_id}"
+        return f"openid {zitadel_project_scope(str(self.project_id))}"
 
     @property
     def effective_audience(self) -> str:

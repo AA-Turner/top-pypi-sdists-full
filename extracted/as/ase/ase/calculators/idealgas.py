@@ -23,8 +23,12 @@ class IdealGas(Calculator):
         'stresses',
     ]
 
-    def calculate(self, atoms=None, properties=[], system_changes=all_changes):
+    def calculate(
+        self, atoms=None, properties=None, system_changes=all_changes
+    ):
         """'Calculate' the zero energies and their derivatives."""
+        if properties is None:
+            properties = []
         super().calculate(atoms, properties, system_changes)
         n = len(self.atoms)
         self.results = {

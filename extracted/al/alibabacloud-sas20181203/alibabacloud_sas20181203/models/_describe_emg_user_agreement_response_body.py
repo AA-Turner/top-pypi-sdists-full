@@ -10,10 +10,10 @@ class DescribeEmgUserAgreementResponseBody(DaraModel):
         auth: bool = None,
         request_id: str = None,
     ):
-        # Indicates whether the emergency vulnerability scan is authorized. Valid values:
+        # Indicates whether authorization for urgent vulnerability scanning is granted. Valid values:
         # 
         # - **true**: Authorized.
-        # - **false**: Not authorized.
+        # - **false**: Unauthorized.
         self.auth = auth
         # The ID of the request.
         self.request_id = request_id

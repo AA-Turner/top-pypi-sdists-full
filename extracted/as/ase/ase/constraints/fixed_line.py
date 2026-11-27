@@ -26,6 +26,8 @@ class FixedLine(IndexedConstraint):
         --------
         Fix all Copper atoms to only move in the x-direction:
 
+        >>> from ase.build import bulk
+        >>> atoms = bulk('Cu', 'fcc', a=3.6, cubic = True)
         >>> from ase.constraints import FixedLine
         >>> c = FixedLine(
         ...     indices=[atom.index for atom in atoms if atom.symbol == 'Cu'],

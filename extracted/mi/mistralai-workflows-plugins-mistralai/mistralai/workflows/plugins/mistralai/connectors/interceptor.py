@@ -435,7 +435,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
         """Persist resolved connector bindings into the worker-only context channel.
 
         Written to ``trusted_extensions`` — a channel the caller cannot populate — so
-        downstream readers (``ToolCallClient``, ``RemoteSession``) can trust the bindings
+        downstream readers (``ConnectorClient``, ``RemoteSession``) can trust the bindings
         as interceptor-owned without any forgery check. Preflight re-runs on every
         execution (including continue-as-new), so this channel is regenerated each run.
         """

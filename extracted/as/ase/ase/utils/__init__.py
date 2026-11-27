@@ -69,6 +69,39 @@ basestring = str
 pickleload = functools.partial(pickle.load, encoding='bytes')
 
 
+def deprecate_positionals(maxargs: int):
+    """Decorate a function to warn when too many positional arguments are used.
+
+    .. versionadded:: 3.30.0
+
+    Parameters
+    ----------
+    maxargs : int
+        Maximum number of positional arguments allowed without a warning.
+
+    Returns
+    -------
+    Callable
+        A decorator that emits a FutureWarning when the decorated function
+        is called with more than `maxargs` positional arguments.
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if len(args) > maxargs:
+                warnings.warn(
+                    f'Please do not call {func.__qualname__} with more than '
+                    f'{maxargs} positional arguments.  Use keywords instead.',
+                    FutureWarning,
+                )
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def deprecated(
     message: str | Warning,
     category: type[Warning] = FutureWarning,

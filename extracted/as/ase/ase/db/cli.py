@@ -1,9 +1,7 @@
-# fmt: off
-
 import json
 import sys
 from collections import defaultdict
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -24,7 +22,6 @@ def count_keys(db, query):
     n = max(len(key) for key in keys) + 1
     for key, number in keys.items():
         print('{:{}} {}'.format(key + ':', n, number))
-    return
 
 
 def show_values(args, db, query):
@@ -44,13 +41,15 @@ def show_values(args, db, query):
     for key in keys:
         vals = values[key]
         if key in numbers:
-            print('{:{}} [{}..{}]'
-                  .format(key + ':', n, min(vals), max(vals)))
+            print('{:{}} [{}..{}]'.format(key + ':', n, min(vals), max(vals)))
         else:
-            print('{:{}} {}'
-                  .format(key + ':', n,
-                          ', '.join(f'{v}({n})'
-                                    for v, n in vals.items())))
+            print(
+                '{:{}} {}'.format(
+                    key + ':',
+                    n,
+                    ', '.join(f'{v}({n})' for v, n in vals.items()),
+                )
+            )
 
 
 def insert_into(args, db, query, out, add_key_value_pairs):
@@ -73,13 +72,13 @@ def insert_into(args, db, query, out, add_key_value_pairs):
 
     nkvp = 0
     nrows = 0
-    with connect(args.insert_into,
-                 use_lock_file=not args.no_lock_file) as db2:
-        with progressbar(db.select(query,
-                                   sort=args.sort,
-                                   limit=args.limit,
-                                   offset=args.offset),
-                         length=length) as rows:
+    with connect(args.insert_into, use_lock_file=not args.no_lock_file) as db2:
+        with progressbar(
+            db.select(
+                query, sort=args.sort, limit=args.limit, offset=args.offset
+            ),
+            length=length,
+        ) as rows:
             for row in rows:
                 kvp = row.get('key_value_pairs', {})
                 nkvp -= len(kvp)
@@ -91,9 +90,13 @@ def insert_into(args, db, query, out, add_key_value_pairs):
                     db2.write(row, data=row.get('data'), **kvp)
                 nrows += 1
 
-    out('Added %s (%s updated)' %
-        (plural(nkvp, 'key-value pair'),
-         plural(len(add_key_value_pairs) * nrows - nkvp, 'pair')))
+    out(
+        'Added %s (%s updated)'
+        % (
+            plural(nkvp, 'key-value pair'),
+            plural(len(add_key_value_pairs) * nrows - nkvp, 'pair'),
+        )
+    )
     out(f'Inserted {plural(nrows, "row")}')
 
 
@@ -112,8 +115,9 @@ def main(args):
     if args.add_key_value_pairs:
         for pair in args.add_key_value_pairs.split(','):
             key, value = pair.split('=')
-            add_key_value_pairs[key] = \
-                convert_str_to_int_float_bool_or_str(value)
+            add_key_value_pairs[key] = convert_str_to_int_float_bool_or_str(
+                value
+            )
 
     if args.delete_keys:
         delete_keys = args.delete_keys.split(',')
@@ -161,9 +165,13 @@ def main(args):
         args.limit = 20
 
     if args.explain:
-        for row in db.select(query, explain=True,
-                             verbosity=verbosity,
-                             limit=args.limit, offset=args.offset):
+        for row in db.select(
+            query,
+            explain=True,
+            verbosity=verbosity,
+            limit=args.limit,
+            offset=args.offset,
+        ):
             print(row['explain'])
         return
 
@@ -182,13 +190,18 @@ def main(args):
         N = 0
         with db:
             for id in ids:
-                m, n = db.update(id, delete_keys=delete_keys,
-                                 **add_key_value_pairs)
+                m, n = db.update(
+                    id, delete_keys=delete_keys, **add_key_value_pairs
+                )
                 M += m
                 N += n
-        out('Added %s (%s updated)' %
-            (plural(M, 'key-value pair'),
-             plural(len(add_key_value_pairs) * len(ids) - M, 'pair')))
+        out(
+            'Added %s (%s updated)'
+            % (
+                plural(M, 'key-value pair'),
+                plural(len(add_key_value_pairs) * len(ids) - M, 'pair'),
+            )
+        )
         out('Removed', plural(N, 'key-value pair'))
 
         return
@@ -225,6 +238,7 @@ def main(args):
                     x = X[x]
                 plots[name].append([x] + [row.get(key) for key in keys[1:]])
         import matplotlib.pyplot as plt
+
         for name, plot in plots.items():
             xyy = list(zip(*plot))
             x = xyy[0]
@@ -256,6 +270,7 @@ def main(args):
             return
         check_jsmol()
         import ase.db.app as app
+
         app.DBApp().run_db(db)
         return
 
@@ -263,9 +278,9 @@ def main(args):
     c = args.columns
     if c and c.startswith('++'):
         keys = set()
-        for row in db.select(query,
-                             limit=args.limit, offset=args.offset,
-                             include_data=False):
+        for row in db.select(
+            query, limit=args.limit, offset=args.offset, include_data=False
+        ):
             keys.update(row._keys)
         columns.extend(keys)
         if c[2:3] == ',':
@@ -293,21 +308,26 @@ def main(args):
 
 def row2str(row) -> str:
     t = row2dct(row, key_descriptions={})
-    S = [t['formula'] + ':',
-         'Unit cell in Ang:',
-         'axis|periodic|          x|          y|          z|' +
-         '    length|     angle']
+    S = [
+        t['formula'] + ':',
+        'Unit cell in Ang:',
+        'axis|periodic|          x|          y|          z|'
+        + '    length|     angle',
+    ]
     c = 1
-    fmt = ('   {0}|     {1}|{2[0]:>11}|{2[1]:>11}|{2[2]:>11}|' +
-           '{3:>10}|{4:>10}')
+    fmt = (
+        '   {0}|     {1}|{2[0]:>11}|{2[1]:>11}|{2[2]:>11}|' + '{3:>10}|{4:>10}'
+    )
     for p, axis, L, A in zip(row.pbc, t['cell'], t['lengths'], t['angles']):
         S.append(fmt.format(c, [' no', 'yes'][int(p)], axis, L, A))
         c += 1
     S.append('')
 
     if 'stress' in t:
-        S += ['Stress tensor (xx, yy, zz, zy, zx, yx) in eV/Ang^3:',
-              '   {}\n'.format(t['stress'])]
+        S += [
+            'Stress tensor (xx, yy, zz, zy, zx, yx) in eV/Ang^3:',
+            '   {}\n'.format(t['stress']),
+        ]
 
     if 'dipole' in t:
         S.append('Dipole moment in e*Ang: ({})\n'.format(t['dipole']))
@@ -320,17 +340,18 @@ def row2str(row) -> str:
 
     width0 = max(max(len(row[0]) for row in t['table']), 3)
     width1 = max(max(len(row[1]) for row in t['table']), 11)
-    S.append('{:{}} | {:{}} | Value'
-             .format('Key', width0, 'Description', width1))
+    S.append(
+        '{:{}} | {:{}} | Value'.format('Key', width0, 'Description', width1)
+    )
     for key, desc, value in t['table']:
-        S.append('{:{}} | {:{}} | {}'
-                 .format(key, width0, desc, width1, value))
+        S.append('{:{}} | {:{}} | {}'.format(key, width0, desc, width1, value))
     return '\n'.join(S)
 
 
 @contextmanager
-def no_progressbar(iterable: Iterable,
-                   length: int | None = None) -> Iterator[Iterable]:
+def no_progressbar(
+    iterable: Iterable, length: int | None = None
+) -> Generator[Iterable, None, None]:
     """A do-nothing implementation."""
     yield iterable
 
@@ -338,7 +359,8 @@ def no_progressbar(iterable: Iterable,
 def check_jsmol():
     static = Path(__file__).parent / 'static'
     if not (static / 'jsmol/JSmol.min.js').is_file():
-        print(f"""
+        print(
+            f"""
     WARNING:
         You don't have jsmol on your system.
 
@@ -350,4 +372,5 @@ def check_jsmol():
             $ unzip jmol-*/jsmol.zip
             $ ln -s $PWD/jsmol {static}/jsmol
     """,
-              file=sys.stderr)
+            file=sys.stderr,
+        )

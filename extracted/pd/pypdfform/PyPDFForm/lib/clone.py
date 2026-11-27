@@ -17,6 +17,7 @@ from pypdf.generic import (
     DictionaryObject,
     IndirectObject,
     NameObject,
+    NullObject,
     StreamObject,
 )
 
@@ -25,6 +26,7 @@ from .constants import (
     AS,
     DV,
     FT,
+    NAMED_TARGETS,
     A,
     AcroForm,
     Annots,
@@ -33,7 +35,6 @@ from .constants import (
     Dest,
     Fields,
     GoTo,
-    Hide,
     Kids,
     Link,
     N,
@@ -42,15 +43,33 @@ from .constants import (
     P,
     Parent,
     R,
-    ResetForm,
     Root,
     S,
-    SubmitForm,
     Subtype,
     T,
     V,
     Widget,
 )
+
+
+def _get_entry(obj: DictionaryObject, key: str) -> object:
+    """
+    Gets an entry of a dictionary, resolving an indirect reference.
+
+    It is `utils.get_entry`, which this module can't import, since `utils`
+    imports it.
+
+    Args:
+        obj (DictionaryObject): The dictionary to read.
+        key (str): The entry's key.
+
+    Returns:
+        object: The resolved value, or None when the entry is missing or null,
+            which ISO 32000-1 treats as absent.
+    """
+    value = obj.get(key)
+    value = value.get_object() if value is not None else None
+    return None if isinstance(value, NullObject) else value
 
 
 class ClonePlan:
@@ -70,6 +89,9 @@ class ClonePlan:
       and fields whose widgets are all not cloned, so a field shared with other
       pages keeps only the cloned part of its hierarchy. A button field's
       `/Opt` and positional on-states are updated to match its remaining kids.
+      Pruning a field raises `ValueError` when an entry it needs, such as an
+      inherited `/Opt`, is looked up along a `/Parent` chain that reaches a
+      cycle before the entry is found.
     * GoTo actions whose explicit destination is an excluded page are removed,
       together with any actions chained after them.
     * Any other reference to an excluded page, the page tree, the AcroForm
@@ -80,7 +102,6 @@ class ClonePlan:
     """
 
     _REMOVE = object()
-    _NAMED_TARGETS = {ResetForm: Fields, SubmitForm: Fields, Hide: T}
 
     def __init__(
         self,
@@ -346,7 +367,7 @@ class ClonePlan:
             while stack:
                 reference, prefix = stack.pop()
                 node = cast(DictionaryObject, reference.get_object())
-                if T in node:
+                if _get_entry(node, T) is not None:
                     prefix = f"{prefix}.{node[T]}" if prefix else str(node[T])
                     self._field_names.setdefault(prefix, reference)
                 kids = [
@@ -381,7 +402,7 @@ class ClonePlan:
         Raises:
             ValueError: If the action names a field that is not cloned.
         """
-        key = self._NAMED_TARGETS.get(action.get(S))
+        key = NAMED_TARGETS.get(action.get(S))
         if key is None or key not in action:
             return
 
@@ -396,7 +417,53 @@ class ClonePlan:
             if isinstance(name, str) and self._is_excluded(self._find_field(name)):
                 self._reject(entry_path, page_number)
 
-    def _prune_kids(self, field: DictionaryObject) -> None:
+    @staticmethod
+    def _get_inherited(
+        field: DictionaryObject, key: str, page_number: int, default: Any = None
+    ) -> Any:
+        """
+        Gets an entry of a field or of the nearest dictionary above it that has one.
+
+        It follows the `/Parent` chain as pypdf's `get_inherited` does, but
+        raises `ValueError` rather than pypdf's `LimitReachedError` when the
+        chain reaches a dictionary a second time before the entry is found. An
+        entry found before that is returned, so the same pages are copied. A
+        null entry is absent, as ISO 32000-1 specifies, so the lookup continues
+        past it. A `/Parent` that doesn't resolve to a dictionary, such as a
+        number, null, or a reference to a missing object, which ISO 32000-1
+        treats as null, ends the chain.
+
+        Args:
+            field (DictionaryObject): A source field.
+            key (str): The entry to look up, such as `/Opt`.
+            page_number (int): The 1-based source page being guarded.
+            default (Any): The value when no dictionary in the chain has the
+                entry. Defaults to None.
+
+        Returns:
+            Any: The entry's value, or `default`.
+
+        Raises:
+            ValueError: If the `/Parent` chain has a cycle before the entry is
+                found.
+        """
+        seen = set()
+        node: Any = field
+        while isinstance(node, DictionaryObject):
+            if id(node) in seen:
+                msg = (
+                    f"Cannot copy page {page_number}: the /Parent chain of the "
+                    "field has a cycle."
+                )
+                raise ValueError(msg)
+            seen.add(id(node))
+            if _get_entry(node, key) is not None:
+                return node[key]
+            parent = node.get(Parent)
+            node = parent.get_object() if parent is not None else None
+        return default
+
+    def _prune_kids(self, field: DictionaryObject, page_number: int) -> None:
         """
         Removes kids that are not cloned from a field's `/Kids`.
 
@@ -409,20 +476,25 @@ class ClonePlan:
 
         Args:
             field (DictionaryObject): A source dictionary with `/Kids`.
+            page_number (int): The 1-based source page being guarded.
+
+        Raises:
+            ValueError: If an inherited entry the field needs is looked up
+                along a `/Parent` chain with a cycle before it is found.
         """
         kids = field[Kids]
         keep = [index for index, kid in enumerate(kids) if not self._is_excluded(kid)]
         if len(keep) == len(kids):
             return
 
-        options = field.get_inherited(Opt, ArrayObject())
+        options = self._get_inherited(field, Opt, page_number, ArrayObject())
         if (
-            field.get_inherited(FT) == Btn
+            self._get_inherited(field, FT, page_number) == Btn
             and len(options) == len(kids)
             and all(kid.get_object().get(Subtype) == Widget for kid in kids)
         ):
             self._renumber_states(
-                field, [kids[index].get_object() for index in keep], keep
+                field, [kids[index].get_object() for index in keep], keep, page_number
             )
             field[NameObject(Opt)] = ArrayObject(options[index] for index in keep)
         self._original_kids[id(field)] = kids
@@ -430,7 +502,10 @@ class ClonePlan:
 
     @staticmethod
     def _renumber_states(
-        field: DictionaryObject, kids: List[DictionaryObject], keep: List[int]
+        field: DictionaryObject,
+        kids: List[DictionaryObject],
+        keep: List[int],
+        page_number: int,
     ) -> None:
         """
         Renumbers positional states after a button field's `/Kids` are pruned.
@@ -453,12 +528,17 @@ class ClonePlan:
             field (DictionaryObject): The button field.
             kids (List[DictionaryObject]): The remaining kids, in order.
             keep (List[int]): The original positions of the remaining kids.
+            page_number (int): The 1-based source page being guarded.
+
+        Raises:
+            ValueError: If the field's `/V` or `/DV` is looked up along a
+                `/Parent` chain with a cycle before it is found.
         """
         states = {
             NameObject(f"/{old}"): NameObject(f"/{new}") for new, old in enumerate(keep)
         }
         for key in (V, DV):
-            value = field.get_inherited(key)
+            value = ClonePlan._get_inherited(field, key, page_number)
             if not (isinstance(value, NameObject) and value[1:].isdigit()):
                 continue
             if value in states:
@@ -466,7 +546,7 @@ class ClonePlan:
                 continue
             if key in field:
                 del field[key]
-            if field.get_inherited(key) is not None:
+            if ClonePlan._get_inherited(field, key, page_number) is not None:
                 field[NameObject(key)] = NameObject(Off)
 
         copies: Dict[int, tuple[DictionaryObject, DictionaryObject]] = {}
@@ -581,7 +661,9 @@ class ClonePlan:
             skip (Iterable[str]): Keys of the root that are not followed.
 
         Raises:
-            ValueError: If a reachable object refers to excluded content.
+            ValueError: If a reachable object refers to excluded content,
+                or a field to prune has a `/Parent` cycle before an entry it
+                inherits.
         """
         stack: List[tuple[Any, str]] = [(root, path)]
         while stack:
@@ -593,7 +675,7 @@ class ClonePlan:
             is_dict = isinstance(obj, DictionaryObject)
             if is_dict:
                 if Kids in obj:
-                    self._prune_kids(obj)
+                    self._prune_kids(obj, page_number)
                 self._check_named_targets(obj, path, page_number)
             entries = (
                 [(key, obj.raw_get(key)) for key in list(obj)]
@@ -631,7 +713,9 @@ class ClonePlan:
             List[List[Any]]: The cloned annotations, one list per source page.
 
         Raises:
-            ValueError: If a selected annotation refers to excluded content.
+            ValueError: If a selected annotation refers to excluded content,
+                or a field to prune has a `/Parent` cycle before an entry it
+                inherits.
         """
         for page_number, selected in enumerate(self.annotations, 1):
             for index, annot in selected:

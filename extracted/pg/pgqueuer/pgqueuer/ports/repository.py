@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 from datetime import timedelta
-from typing import Literal, Protocol, overload
+from typing import Literal, Protocol, overload, runtime_checkable
 
 from pgqueuer.domain import models, types
 from pgqueuer.domain.settings import DBSettings
@@ -16,7 +16,7 @@ from pgqueuer.domain.types import (
     QueueManagerId,
     SortOrder,
 )
-from pgqueuer.ports.driver import Driver
+from pgqueuer.ports.driver import Driver, NotifyCallback
 
 
 class QueryBuilderEnvironmentPort(Protocol):
@@ -193,7 +193,7 @@ class QueueRepositoryPort(Protocol):
 
 
 class InsightsRepositoryPort(Protocol):
-    """Read-only queue introspection consumed by presentation layers (web, MCP, CLI)."""
+    """Read-only queue introspection consumed by presentation layers (web, CLI)."""
 
     async def queue_size(self) -> list[models.QueueStatistics]: ...
 
@@ -296,6 +296,23 @@ class NotificationPort(Protocol):
     async def notify_health_check(self, health_check_event_id: HealthCheckId) -> None: ...
 
 
+@runtime_checkable
+class NotificationListener(Protocol):
+    """Repository that delivers the NOTIFY payloads on a channel to a callback.
+
+    Separate from ``NotificationPort`` so existing custom repositories still satisfy it.
+    The next major release moves these methods into ``NotificationPort``.
+    """
+
+    async def add_listener(self, channel: str, callback: NotifyCallback) -> None:
+        """Send the NOTIFY payloads on *channel* to *callback*."""
+        ...
+
+    async def remove_listener(self, channel: str, callback: NotifyCallback) -> None:
+        """Stop sending the NOTIFY payloads on *channel* to *callback*."""
+        ...
+
+
 class SchemaManagementPort(Protocol):
     """DDL operations for installing, upgrading, and inspecting the schema."""
 
@@ -319,3 +336,12 @@ class SchemaManagementPort(Protocol):
     async def has_function(self, function: str) -> bool: ...
 
     async def has_trigger(self, trigger: str) -> bool: ...
+
+
+@runtime_checkable
+class SchemaVerifier(Protocol):
+    """Repository that checks the installed schema against its own declaration."""
+
+    async def verify_schema(self) -> None:
+        """Raise RuntimeError naming every missing object a worker cannot run without."""
+        ...

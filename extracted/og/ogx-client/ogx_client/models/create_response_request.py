@@ -29,7 +29,7 @@ from typing_extensions import Annotated
 from ogx_client.models.context_management import ContextManagement
 from ogx_client.models.memory_tool_config import MemoryToolConfig
 from ogx_client.models.open_ai_response_input_tool_choice_mode2 import OpenAIResponseInputToolChoiceMode2
-from ogx_client.models.open_ai_response_input_tool_web_search4_variants1 import OpenAIResponseInputToolWebSearch4Variants1
+from ogx_client.models.open_ai_response_input_tool_web_search5_variants import OpenAIResponseInputToolWebSearch5Variants
 from ogx_client.models.open_ai_response_prompt import OpenAIResponsePrompt
 from ogx_client.models.open_ai_response_reasoning import OpenAIResponseReasoning
 from ogx_client.models.open_ai_response_text import OpenAIResponseText
@@ -62,7 +62,7 @@ class CreateResponseRequest(BaseModel):
     frequency_penalty: Optional[Union[Annotated[float, Field(le=2.0, strict=True, ge=-2.0)], Annotated[int, Field(le=2, strict=True, ge=-2)]]] = None
     text: Optional[OpenAIResponseText] = Field(default=None, description="Configuration for text response generation.")
     tool_choice: Optional[OpenAIResponseInputToolChoiceMode2] = None
-    tools: Optional[List[OpenAIResponseInputToolWebSearch4Variants1]] = None
+    tools: Optional[List[OpenAIResponseInputToolWebSearch5Variants]] = None
     include: Optional[List[ResponseItemInclude]] = Field(default=None, description="Additional fields to include in the response.")
     max_infer_iters: Optional[Annotated[int, Field(strict=True, ge=1)]] = None
     max_tool_calls: Optional[Annotated[int, Field(strict=True, ge=1)]] = None
@@ -412,7 +412,7 @@ class CreateResponseRequest(BaseModel):
             "frequency_penalty": obj.get("frequency_penalty"),
             "text": OpenAIResponseText.from_dict(obj["text"]) if obj.get("text") is not None else None,
             "tool_choice": OpenAIResponseInputToolChoiceMode2.from_dict(obj["tool_choice"]) if obj.get("tool_choice") is not None else None,
-            "tools": [OpenAIResponseInputToolWebSearch4Variants1.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
+            "tools": [OpenAIResponseInputToolWebSearch5Variants.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
             "include": obj.get("include"),
             "max_infer_iters": obj.get("max_infer_iters"),
             "max_tool_calls": obj.get("max_tool_calls"),

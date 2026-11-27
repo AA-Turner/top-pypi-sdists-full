@@ -33,6 +33,13 @@ class TestOrganizationsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_organization_display_settings(self) -> None:
+        """Test case for get_organization_display_settings
+
+        Get The Organization'S Display Settings.
+        """
+        pass
+
     def test_get_users_organization(self) -> None:
         """Test case for get_users_organization
 

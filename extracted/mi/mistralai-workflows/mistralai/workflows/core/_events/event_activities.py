@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable
 
 import temporalio.common
 import temporalio.workflow
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from temporalio.exceptions import ActivityError, ApplicationError
 
 from mistralai.workflows.core._events.event_context import (
@@ -12,10 +12,13 @@ from mistralai.workflows.core._events.event_context import (
     is_permanent_event_publish_failure,
 )
 from mistralai.workflows.core._events.event_utils import EMITTER_ACTIVITY_NAMES, create_emitter_event_fields
+from mistralai.workflows.core._events.manual_publish import BatchEvent, _restore_encrypted_paths
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.config.config import INTERNAL_ACTIVITY_PREFIX
+from mistralai.workflows.core.execution.workflow_run_config import current_workflow_run_config
 from mistralai.workflows.core.logging import extract_error_context
+from mistralai.workflows.core.utils.contextvars import unwrap_contextual_result
 from mistralai.workflows.protocol.v1.events import (
     CustomTaskCompleted,
     CustomTaskCompletedAttributes,
@@ -26,8 +29,10 @@ from mistralai.workflows.protocol.v1.events import (
     CustomTaskStarted,
     CustomTaskStartedAttributes,
     Failure,
+    JSONPatchPayload,
     JSONPayload,
     WorkflowEvent,
+    WorkflowEventCategory,
     WorkflowExecutionCanceled,
     WorkflowExecutionCanceledAttributes,
     WorkflowExecutionCompleted,
@@ -46,9 +51,19 @@ _EMITTER_LOCAL_RETRY_THRESHOLD = timedelta(seconds=60)
 _EMITTER_RETRY_POLICY = temporalio.common.RetryPolicy(maximum_interval=_EMITTER_LOCAL_RETRY_THRESHOLD / 2)
 
 
-def emitter_activity[T: Callable[..., Any]](name: str, **kwargs: Any) -> Callable[[T], T]:
+_EMITTER_CATEGORIES: dict[str, WorkflowEventCategory] = {}
+
+
+def emitter_activity[T: Callable[..., Any]](
+    name: str, category: WorkflowEventCategory = WorkflowEventCategory.CUSTOM_TASK, **kwargs: Any
+) -> Callable[[T], T]:
     EMITTER_ACTIVITY_NAMES.add(name)
+    _EMITTER_CATEGORIES[name] = category
     return activity(name=name, **kwargs)
+
+
+def _emitter_category(emitter: Callable[..., Any]) -> WorkflowEventCategory:
+    return _EMITTER_CATEGORIES.get(emitter.__name__, WorkflowEventCategory.CUSTOM_TASK)
 
 
 async def publish_emitter_event(build_event: Callable[[], WorkflowEvent]) -> None:
@@ -58,8 +73,20 @@ async def publish_emitter_event(build_event: Callable[[], WorkflowEvent]) -> Non
 
 
 async def execute_emitter(emitter: Callable[..., Awaitable[Any]], *args: Any) -> None:
+    await _execute_emitter_activity(emitter, *args)
+
+
+async def _run_batch_emitter(events: list[BatchEvent]) -> bool:
+    """Run the batch emitter as a local activity; return False when the batch was too large and must be split."""
+    return bool(await _execute_emitter_activity(_emit_events_batch, events, default=True))
+
+
+async def _execute_emitter_activity(emitter: Callable[..., Awaitable[Any]], *args: Any, default: Any = None) -> Any:
+    # Reads the run's recorded snapshot, never the live setting, so replay schedules the same local activities.
+    if not current_workflow_run_config().emits(_emitter_category(emitter)):
+        return default
     try:
-        await temporalio.workflow.execute_local_activity(
+        result = await temporalio.workflow.execute_local_activity(
             emitter,
             args=list(args),
             start_to_close_timeout=_EMITTER_START_TO_CLOSE_TIMEOUT,
@@ -70,6 +97,8 @@ async def execute_emitter(emitter: Callable[..., Awaitable[Any]], *args: Any) ->
         if not is_permanent_event_publish_failure(e.cause):
             raise
         raise ApplicationError(e.cause.message, type=EVENT_PUBLISH_FAILED_ERROR_TYPE, non_retryable=True) from e
+    _, payload = unwrap_contextual_result(result)
+    return payload
 
 
 async def execute_emitter_preserving_error(emitter: Callable[..., Awaitable[Any]], *args: Any) -> None:
@@ -82,16 +111,38 @@ async def execute_emitter_preserving_error(emitter: Callable[..., Awaitable[Any]
         logger.error("Failed to publish workflow event reporting an error", **extract_error_context(e))
 
 
+@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_events_batch", _allow_reserved_name=True)
+async def _emit_events_batch(events: list[BatchEvent]) -> bool:
+    context = EventContext.get_singleton()
+    if context is None:
+        raise ApplicationError("EventContext not initialized", type=EVENT_PUBLISH_FAILED_ERROR_TYPE, non_retryable=True)
+    try:
+        parsed = TypeAdapter(list[WorkflowEvent]).validate_python([event.serialized for event in events])
+    except ValidationError as e:
+        # The workflow rebuilds the same input on every attempt, so a retry would fail the same way.
+        raise ApplicationError(
+            f"Recorded workflow events could not be read: {e}",
+            type=EVENT_PUBLISH_FAILED_ERROR_TYPE,
+            non_retryable=True,
+        ) from e
+    for event, batch_event in zip(parsed, events, strict=True):
+        _restore_encrypted_paths(event, batch_event.encrypted_paths)
+    return await context.publish_events_batch_or_raise(parsed)
+
+
 class WaitForInputResult(BaseModel):
     task_id: str
 
 
-@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_started", _allow_reserved_name=True)
+@emitter_activity(
+    name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_started",
+    category=WorkflowEventCategory.WORKFLOW,
+    _allow_reserved_name=True,
+)
 async def _emit_workflow_started(
     task_id: str,
     workflow_name: str,
     input_args: list,
-    display_name: str | None = None,
     attempt: int = 1,
 ) -> None:
     await publish_emitter_event(
@@ -100,7 +151,6 @@ async def _emit_workflow_started(
             attributes=WorkflowExecutionStartedAttributes(
                 task_id=task_id,
                 workflow_name=workflow_name,
-                display_name=display_name,
                 input=JSONPayload(value=input_args),
                 attempt=attempt,
             ),
@@ -108,7 +158,11 @@ async def _emit_workflow_started(
     )
 
 
-@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_completed", _allow_reserved_name=True)
+@emitter_activity(
+    name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_completed",
+    category=WorkflowEventCategory.WORKFLOW,
+    _allow_reserved_name=True,
+)
 async def _emit_workflow_completed(task_id: str, result: Any, attempt: int = 1) -> None:
     await publish_emitter_event(
         lambda: WorkflowExecutionCompleted(
@@ -122,7 +176,11 @@ async def _emit_workflow_completed(task_id: str, result: Any, attempt: int = 1) 
     )
 
 
-@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_canceled", _allow_reserved_name=True)
+@emitter_activity(
+    name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_canceled",
+    category=WorkflowEventCategory.WORKFLOW,
+    _allow_reserved_name=True,
+)
 async def _emit_workflow_canceled(task_id: str, reason: str | None, attempt: int = 1) -> None:
     await publish_emitter_event(
         lambda: WorkflowExecutionCanceled(
@@ -136,7 +194,11 @@ async def _emit_workflow_canceled(task_id: str, reason: str | None, attempt: int
     )
 
 
-@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_failed", _allow_reserved_name=True)
+@emitter_activity(
+    name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_failed",
+    category=WorkflowEventCategory.WORKFLOW,
+    _allow_reserved_name=True,
+)
 async def _emit_workflow_failed(task_id: str, error_message: str, attempt: int = 1) -> None:
     await publish_emitter_event(
         lambda: WorkflowExecutionFailed(
@@ -228,7 +290,6 @@ async def _emit_task_in_progress(
     task_id: str, task_type: str, patches: list[dict[str, Any]], encrypted_paths: list[str]
 ) -> None:
     from mistralai.workflows.core._events.json_patch import patches_to_json_patch
-    from mistralai.workflows.protocol.v1.events import JSONPatchPayload
 
     # Convert patch dicts to JSONPatch models
     json_patches = patches_to_json_patch(patches)

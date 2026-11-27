@@ -41,7 +41,7 @@ class TestOpenAIResponseInputTool(unittest.TestCase):
         model = OpenAIResponseInputTool()
         if include_optional:
             return OpenAIResponseInputTool(
-                type = 'mcp',
+                type = 'namespace',
                 search_context_size = 'low',
                 filters = { },
                 user_location = ogx_client.models.web_search_user_location.WebSearchUserLocation(
@@ -64,7 +64,7 @@ class TestOpenAIResponseInputTool(unittest.TestCase):
                         }, 
                     model = '', 
                     hybrid_search = null, ),
-                name = '',
+                name = '0',
                 description = '',
                 parameters = { },
                 strict = True,
@@ -74,16 +74,33 @@ class TestOpenAIResponseInputTool(unittest.TestCase):
                 headers = { },
                 authorization = '',
                 require_approval = None,
-                allowed_tools = None
+                allowed_tools = None,
+                tools = [
+                    ogx_client.models.open_ai_response_input_tool_function.OpenAIResponseInputToolFunction(
+                        type = 'function', 
+                        name = '', 
+                        description = '', 
+                        parameters = { }, 
+                        strict = True, )
+                    ]
             )
         else:
             return OpenAIResponseInputTool(
                 vector_store_ids = [
                     ''
                     ],
-                name = '',
+                name = '0',
+                description = '',
                 parameters = { },
                 server_label = '',
+                tools = [
+                    ogx_client.models.open_ai_response_input_tool_function.OpenAIResponseInputToolFunction(
+                        type = 'function', 
+                        name = '', 
+                        description = '', 
+                        parameters = { }, 
+                        strict = True, )
+                    ],
         )
         """
 

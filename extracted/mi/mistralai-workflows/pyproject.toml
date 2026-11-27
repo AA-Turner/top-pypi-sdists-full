@@ -23,11 +23,11 @@ dependencies = [
     # The Speakeasy-generated worker client is generated in worker_client/ and
     # vendored into this package via the symlinked mistralai/workflows/worker_client
     # directory, so the published wheel carries the code itself rather than depending
-    # on a separately-published worker-client package (WFL-1824).
+    # on a separately-published worker-client package.
 
     # Core workflow orchestration - MOST CRITICAL
     # Pin tightly - only allow tested minor versions, must test before upgrading
-    "temporalio>=1.35.0,<1.36.0",  # Tested: 1.35.0
+    "temporalio>=1.35.0,<1.38.0",  # Tested: 1.36.1, 1.37.0
     "pydantic>=2.12.0,<3.0.0",
     "pydantic-settings>=2.9.0,<3.0.0",
     
@@ -54,7 +54,7 @@ dependencies = [
     "pyjwt>=2.15.0,<3.0.0",  # lower bound matches uv override-dependencies
 
     # OpenTelemetry core (observability)
-    "opentelemetry-api>=1.30.0,<2.0.0",
+    "opentelemetry-api>=1.45.1,<2.0.0",
     "opentelemetry-sdk>=1.30.0,<2.0.0",
     "opentelemetry-exporter-otlp-proto-http>=1.30.0,<2.0.0",
     "opentelemetry-instrumentation-httpx>=0.60b1",
@@ -69,13 +69,9 @@ Documentation = "https://docs.mistral.ai/workflows/getting-started/introduction"
 
 [project.optional-dependencies]
 mistralai = [
-    "mistralai-workflows-plugins-mistralai>=3.0.0a1,<4.0.0",
+    "mistralai-workflows-plugins-mistralai>=4.0.0a1,<5.0.0",
     "aiocache>=0.12.3,<1.0.0",
 ]
-webhook = [
-    "mistralai-workflows-plugins-webhook>=3.0.0a1,<4.0.0",
-]
-
 # Payload encryption - use client-python's extra
 encryption = ["mistralai[workflow-payload-encryption]"]
 compression = ["mistralai[workflow-payload-compression]"]
@@ -86,12 +82,11 @@ gcs = ["mistralai[workflow-payload-offloading-gcs]"]
 s3 = ["mistralai[workflow-payload-offloading-s3]"]
 storage = ["mistralai[workflow-payload-offloading]"]
 
-evaluations = ["mistralai-workflows-plugins-evaluations>=0.5.0,<1.0.0"]
+evaluations = ["mistralai-workflows-plugins-evaluations>=0.8.0a1,<1.0.0"]
 
 # All optional features
 all = [
     "mistralai-workflows[mistralai]",
-    "mistralai-workflows[webhook]",
     "mistralai-workflows[encryption]",
     "mistralai-workflows[compression]",
     "mistralai-workflows[storage]",
@@ -101,7 +96,6 @@ all = [
 # Plugin-focused bundle for CI and local plugin development
 all-plugins = [
     "mistralai-workflows[mistralai]",
-    "mistralai-workflows[webhook]",
     "mistralai-workflows[encryption]",
     "mistralai-workflows[compression]",
     "mistralai-workflows[storage]",
@@ -109,6 +103,9 @@ all-plugins = [
 ]
 
 [tool.uv]
+constraint-dependencies = [
+  "tornado>=6.6.1",
+]
 exclude-newer = "2 days"
 index-strategy = "first-index"
 exclude-newer-package = { mistralai = false }
@@ -121,13 +118,16 @@ mistralai-workflows-plugins-evaluations = { path = "plugins/evaluations", editab
 ovide = { path = "ovide", editable = true }
 
 [dependency-groups]
+webhook = ["mistralai-workflows-plugins-webhook"]
+
 dev = [
-    "ddtrace>=4.12",
+    "ddtrace>=4.15.6",
     "invoke>=2.2.0",
     "ruff>=0.9.5",
     "mypy>=1.11.0",
     "pytest>=8.3.4",
     "pytest-asyncio>=0.25.3",
+    "pytest-cov>=7.1.0",
     "pytest-split>=0.10.0",
     "psutil>=6.1.0", # For memory usage monitoring in performance tests
     "ipykernel>=6.30.0",
@@ -161,7 +161,26 @@ packages = ["mistralai"]
 source = "uv-dynamic-versioning"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["docs/", "/plugins/", "changelog.d/", "worker_client/pyproject.toml", "worker_client/uv.lock", "uv.lock", "RELEASE.md"]
+exclude = [
+    "docs/",
+    "/plugins/",
+    "changelog.d/",
+    "worker_client/pyproject.toml",
+    "worker_client/uv.lock",
+    "uv.lock",
+    "RELEASE.md",
+    # Monorepo tooling and metadata, not part of the published package.
+    "/AGENTS.md",
+    "/CLAUDE.md",
+    "/CONTRIBUTING.md",
+    "/Makefile",
+    "/catalog-info.yaml",
+    "/release-info.yaml",
+    "/tasks.py",
+    "/ovide/",
+    "/scripts/",
+    "/worker_client/",
+]
 
 [tool.uv-dynamic-versioning]
 vcs = "git"

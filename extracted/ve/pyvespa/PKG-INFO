@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvespa
-Version: 1.2.10
+Version: 1.2.11
 Summary: Python API for vespa.ai
 Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>
@@ -273,7 +273,7 @@ Requires-Dist: torch; extra == "notebooks"
 Requires-Dist: openai; extra == "notebooks"
 Requires-Dist: datasets<5.0.2; extra == "notebooks"
 Requires-Dist: ir_datasets; extra == "notebooks"
-Requires-Dist: pytrec_eval; extra == "notebooks"
+Requires-Dist: pytrec-eval-terrier; extra == "notebooks"
 Requires-Dist: papermill; extra == "notebooks"
 Requires-Dist: ipywidgets; extra == "notebooks"
 Requires-Dist: matplotlib; extra == "notebooks"

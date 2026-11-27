@@ -132,11 +132,15 @@ def sync_detailed(
     /api/v1/dashboard's snapshot: comments and reactions for every row would
     spend the forge's budget on rows nobody opens.
 
+    Review comments on lines of code are not listed, only counted
+    (`reviewCommentCount`).
+
     GitHub answers with one GraphQL query. Forgejo costs one call for the
     pull request, one for its comments, one for the description's
-    reactions and one for each comment's reactions (up to 50), so the
-    reaction calls run at most eight at a time and stop at the first rate
-    limit.
+    reactions, one for each comment's reactions (up to 50) and one for
+    each page of the pull request's reviews, whose line comment counts
+    are added up. The reaction calls run at most eight at a time and stop
+    at the first rate limit.
 
     Every text is Markdown exactly as the forge stores it (`format` is
     always `markdown`). The server neither converts nor sanitises it, so
@@ -193,11 +197,15 @@ def sync(
     /api/v1/dashboard's snapshot: comments and reactions for every row would
     spend the forge's budget on rows nobody opens.
 
+    Review comments on lines of code are not listed, only counted
+    (`reviewCommentCount`).
+
     GitHub answers with one GraphQL query. Forgejo costs one call for the
     pull request, one for its comments, one for the description's
-    reactions and one for each comment's reactions (up to 50), so the
-    reaction calls run at most eight at a time and stop at the first rate
-    limit.
+    reactions, one for each comment's reactions (up to 50) and one for
+    each page of the pull request's reviews, whose line comment counts
+    are added up. The reaction calls run at most eight at a time and stop
+    at the first rate limit.
 
     Every text is Markdown exactly as the forge stores it (`format` is
     always `markdown`). The server neither converts nor sanitises it, so
@@ -249,11 +257,15 @@ async def asyncio_detailed(
     /api/v1/dashboard's snapshot: comments and reactions for every row would
     spend the forge's budget on rows nobody opens.
 
+    Review comments on lines of code are not listed, only counted
+    (`reviewCommentCount`).
+
     GitHub answers with one GraphQL query. Forgejo costs one call for the
     pull request, one for its comments, one for the description's
-    reactions and one for each comment's reactions (up to 50), so the
-    reaction calls run at most eight at a time and stop at the first rate
-    limit.
+    reactions, one for each comment's reactions (up to 50) and one for
+    each page of the pull request's reviews, whose line comment counts
+    are added up. The reaction calls run at most eight at a time and stop
+    at the first rate limit.
 
     Every text is Markdown exactly as the forge stores it (`format` is
     always `markdown`). The server neither converts nor sanitises it, so
@@ -310,11 +322,15 @@ async def asyncio(
     /api/v1/dashboard's snapshot: comments and reactions for every row would
     spend the forge's budget on rows nobody opens.
 
+    Review comments on lines of code are not listed, only counted
+    (`reviewCommentCount`).
+
     GitHub answers with one GraphQL query. Forgejo costs one call for the
     pull request, one for its comments, one for the description's
-    reactions and one for each comment's reactions (up to 50), so the
-    reaction calls run at most eight at a time and stop at the first rate
-    limit.
+    reactions, one for each comment's reactions (up to 50) and one for
+    each page of the pull request's reviews, whose line comment counts
+    are added up. The reaction calls run at most eight at a time and stop
+    at the first rate limit.
 
     Every text is Markdown exactly as the forge stores it (`format` is
     always `markdown`). The server neither converts nor sanitises it, so

@@ -11,6 +11,7 @@ class DeleteFileProtectClientRuleRequest(DaraModel):
         self,
         alert_level: int = None,
         exclude_id_list: List[int] = None,
+        file_name: str = None,
         id_list: List[int] = None,
         platform: str = None,
         rule_action: str = None,
@@ -19,32 +20,31 @@ class DeleteFileProtectClientRuleRequest(DaraModel):
     ):
         # The alert notification level. Valid values:
         # 
-        # - 0: No alerts.
-        # 
-        # - 1: Reminder.
-        # 
-        # - 2: Suspicious.
-        # 
-        # - 3: High-risk.
+        # - 0: no alert
+        # - 1: reminder
+        # - 2: suspicious
+        # - 3: high-risk
         self.alert_level = alert_level
         # The list of excluded policy IDs.
         self.exclude_id_list = exclude_id_list
+        # The file name.
+        self.file_name = file_name
         # The list of policy IDs.
         self.id_list = id_list
-        # The type of the operating system. Valid values:
+        # The operating system type. Valid values:
         # 
-        # - **windows**: Windows.
-        # - **linux**: Linux.
+        # - **windows**: Windows
+        # - **linux**: Linux
         self.platform = platform
-        # The action of the policy. Valid values:
+        # The action to be performed by the policy. Valid values:
         # 
-        # - **monitor**: Alert.
-        # - **block**: Block.
-        # - **pass**: Allow.
+        # - **monitor**: alert
+        # - **block**: block
+        # - **pass**: allow
         self.rule_action = rule_action
         # The name of the rule.
         self.rule_name = rule_name
-        # Specifies whether to select all.
+        # Specifies whether to select all items.
         # 
         # This parameter is required.
         self.select_all = select_all
@@ -62,6 +62,9 @@ class DeleteFileProtectClientRuleRequest(DaraModel):
 
         if self.exclude_id_list is not None:
             result['ExcludeIdList'] = self.exclude_id_list
+
+        if self.file_name is not None:
+            result['FileName'] = self.file_name
 
         if self.id_list is not None:
             result['IdList'] = self.id_list
@@ -87,6 +90,9 @@ class DeleteFileProtectClientRuleRequest(DaraModel):
 
         if m.get('ExcludeIdList') is not None:
             self.exclude_id_list = m.get('ExcludeIdList')
+
+        if m.get('FileName') is not None:
+            self.file_name = m.get('FileName')
 
         if m.get('IdList') is not None:
             self.id_list = m.get('IdList')

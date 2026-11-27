@@ -6,7 +6,13 @@ from typing import Mapping, cast
 
 import httpx
 
-from ..types import profile_get_params, profile_list_params, profile_create_params, profile_update_params
+from ..types import (
+    profile_get_params,
+    profile_list_params,
+    profile_create_params,
+    profile_delete_params,
+    profile_update_params,
+)
 from .._files import deepcopy_with_paths
 from .._types import Body, Omit, Query, Headers, NotGiven, FileTypes, omit, not_given
 from .._utils import extract_files, path_template, maybe_transform, async_maybe_transform
@@ -22,6 +28,7 @@ from .._base_client import make_request_options
 from ..types.profile_get_response import ProfileGetResponse
 from ..types.profile_list_response import ProfileListResponse
 from ..types.profile_create_response import ProfileCreateResponse
+from ..types.profile_delete_response import ProfileDeleteResponse
 from ..types.profile_update_response import ProfileUpdateResponse
 
 __all__ = ["ProfilesResource", "AsyncProfilesResource"]
@@ -234,6 +241,47 @@ class ProfilesResource(SyncAPIResource):
                 query=maybe_transform({"project_id": project_id}, profile_list_params.ProfileListParams),
             ),
             cast_to=ProfileListResponse,
+        )
+
+    def delete(
+        self,
+        id: str,
+        *,
+        project_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ProfileDeleteResponse:
+        """
+        Delete the profile and its stored browser data immediately, with a final
+        asynchronous cleanup pass.
+
+        Args:
+          project_id: Project to query profiles from
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._delete(
+            path_template("/v1/profiles/{id}", id=id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"project_id": project_id}, profile_delete_params.ProfileDeleteParams),
+            ),
+            cast_to=ProfileDeleteResponse,
         )
 
     def get(
@@ -486,6 +534,49 @@ class AsyncProfilesResource(AsyncAPIResource):
             cast_to=ProfileListResponse,
         )
 
+    async def delete(
+        self,
+        id: str,
+        *,
+        project_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ProfileDeleteResponse:
+        """
+        Delete the profile and its stored browser data immediately, with a final
+        asynchronous cleanup pass.
+
+        Args:
+          project_id: Project to query profiles from
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._delete(
+            path_template("/v1/profiles/{id}", id=id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {"project_id": project_id}, profile_delete_params.ProfileDeleteParams
+                ),
+            ),
+            cast_to=ProfileDeleteResponse,
+        )
+
     async def get(
         self,
         id: str,
@@ -540,6 +631,9 @@ class ProfilesResourceWithRawResponse:
         self.list = to_raw_response_wrapper(
             profiles.list,
         )
+        self.delete = to_raw_response_wrapper(
+            profiles.delete,
+        )
         self.get = to_raw_response_wrapper(
             profiles.get,
         )
@@ -557,6 +651,9 @@ class AsyncProfilesResourceWithRawResponse:
         )
         self.list = async_to_raw_response_wrapper(
             profiles.list,
+        )
+        self.delete = async_to_raw_response_wrapper(
+            profiles.delete,
         )
         self.get = async_to_raw_response_wrapper(
             profiles.get,
@@ -576,6 +673,9 @@ class ProfilesResourceWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             profiles.list,
         )
+        self.delete = to_streamed_response_wrapper(
+            profiles.delete,
+        )
         self.get = to_streamed_response_wrapper(
             profiles.get,
         )
@@ -593,6 +693,9 @@ class AsyncProfilesResourceWithStreamingResponse:
         )
         self.list = async_to_streamed_response_wrapper(
             profiles.list,
+        )
+        self.delete = async_to_streamed_response_wrapper(
+            profiles.delete,
         )
         self.get = async_to_streamed_response_wrapper(
             profiles.get,

@@ -23,6 +23,7 @@ from ..common import (
     encode_world_reference,
     is_http_url,
     normalize_endpoint,
+    read_file_input,
     streaming_response_iterator,
 )
 
@@ -326,6 +327,10 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             :param image:
         """
         url = f"{self._base_url}/v1/images/variations"
+        if isinstance(image, list):
+            image = [self._read_image(img) for img in image]
+        else:
+            image = self._read_image(image)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -376,8 +381,16 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             return response.content
         except requests.RequestException as error:
             raise RuntimeError(
-                f"Failed to download an image for editing, detail: {error}"
+                f"Failed to download an image, detail: {error}"
             ) from error
+
+    def _read_image(self, image: Any) -> Any:
+        """Return the upload content of an image URL, local file path or bytes."""
+        image = self._download_if_url(image)
+        if isinstance(image, str):
+            with open(image, "rb") as f:
+                return f.read()
+        return image
 
     def image_edit(
         self,
@@ -458,44 +471,49 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             if value is not None:
                 files.append((key, (None, value)))
 
-        # Handle single image or multiple images using requests format
-        if isinstance(images, list):
-            # Validate image list is not empty
-            if len(images) == 0:
-                raise ValueError("Image list cannot be empty")
-            # Multiple images - send as image[] array
-            for i, img in enumerate(images):
-                if isinstance(img, str):
+        try:
+            # Handle single image or multiple images using requests format
+            if isinstance(images, list):
+                # Validate image list is not empty
+                if len(images) == 0:
+                    raise ValueError("Image list cannot be empty")
+                # Multiple images - send as image[] array
+                for i, img in enumerate(images):
+                    if isinstance(img, str):
+                        # File path - open file
+                        f = open(img, "rb")
+                        files.append(
+                            (f"images[]", (f"image_{i}", f, "application/octet-stream"))
+                        )
+                    else:
+                        # Binary data
+                        files.append(
+                            (
+                                f"images[]",
+                                (f"image_{i}", img, "application/octet-stream"),
+                            )
+                        )
+            else:
+                # Single image
+                if isinstance(images, str):
                     # File path - open file
-                    f = open(img, "rb")
-                    files.append(
-                        (f"images[]", (f"image_{i}", f, "application/octet-stream"))
-                    )
+                    f = open(images, "rb")
+                    files.append(("images", ("image", f, "application/octet-stream")))
                 else:
                     # Binary data
                     files.append(
-                        (f"images[]", (f"image_{i}", img, "application/octet-stream"))
+                        ("images", ("image", images, "application/octet-stream"))
                     )
-        else:
-            # Single image
-            if isinstance(images, str):
-                # File path - open file
-                f = open(images, "rb")
-                files.append(("images", ("image", f, "application/octet-stream")))
-            else:
-                # Binary data
-                files.append(("images", ("image", images, "application/octet-stream")))
 
-        if mask is not None:
-            if isinstance(mask, str):
-                # File path - open file
-                f = open(mask, "rb")
-                files.append(("mask", ("mask", f, "application/octet-stream")))
-            else:
-                # Binary data
-                files.append(("mask", ("mask", mask, "application/octet-stream")))
+            if mask is not None:
+                if isinstance(mask, str):
+                    # File path - open file
+                    f = open(mask, "rb")
+                    files.append(("mask", ("mask", f, "application/octet-stream")))
+                else:
+                    # Binary data
+                    files.append(("mask", ("mask", mask, "application/octet-stream")))
 
-        try:
             response = self.session.post(url, files=files, headers=self.auth_headers)
             if response.status_code != 200:
                 raise RuntimeError(
@@ -566,6 +584,8 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             :param image:
         """
         url = f"{self._base_url}/v1/images/inpainting"
+        image = self._read_image(image)
+        mask_image = self._read_image(mask_image)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -593,6 +613,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
     def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
+        image = self._read_image(image)
         params = {
             "model": self._model_uid,
             "kwargs": json.dumps(kwargs),
@@ -663,7 +684,7 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         Parameters
         ----------
         image: `Union[str, bytes]`
-            The input image to condition the generation on.
+            The input image to condition the generation on, as a local file path or bytes.
         prompt: `str` or `List[str]`
             The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
         negative_prompt (`str` or `List[str]`, *optional*):
@@ -688,13 +709,11 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
+        files.append(
+            ("image", ("image", read_file_input(image), "application/octet-stream"))
+        )
         if video is not None:
-            if isinstance(video, str):
-                with open(video, "rb") as f:
-                    video_data = f.read()
-            else:
-                video_data = video
+            video_data = read_file_input(video)
             files.append(
                 (
                     "video",
@@ -725,9 +744,9 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         Parameters
         ----------
         first_frame: `Union[str, bytes]`
-            The first frame to condition the generation on.
+            The first frame to condition the generation on, as a local file path or bytes.
         last_frame: `Union[str, bytes]`
-            The last frame to condition the generation on.
+            The last frame to condition the generation on, as a local file path or bytes.
         prompt: `str` or `List[str]`
             The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
         negative_prompt (`str` or `List[str]`, *optional*):
@@ -750,10 +769,10 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(
-            ("first_frame", ("image", first_frame, "application/octet-stream"))
-        )
-        files.append(("last_frame", ("image", last_frame, "application/octet-stream")))
+        for key, frame in (("first_frame", first_frame), ("last_frame", last_frame)):
+            files.append(
+                (key, ("image", read_file_input(frame), "application/octet-stream"))
+            )
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(

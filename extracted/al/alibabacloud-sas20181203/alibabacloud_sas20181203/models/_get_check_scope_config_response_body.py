@@ -18,14 +18,14 @@ class GetCheckScopeConfigResponseBody(DaraModel):
         self.code = code
         # The returned data.
         self.data = data
-        # The response message.
+        # The message returned for the request.
         self.message = message
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # Indicates whether the request was successful. Valid values:
+        # Indicates whether the request is successful. Valid values:
         # 
-        # - **true**: The request was successful.
-        # - **false**: The request failed.
+        # - **true**: yes
+        # - **false**: no
         self.success = success
 
     def validate(self):
@@ -84,19 +84,19 @@ class GetCheckScopeConfigResponseBodyData(DaraModel):
         gmt_modified: str = None,
         type: int = None,
     ):
-        # The automatic scan configuration as a JSON string. The fields are described as follows:
+        # The JSON string for the automatic scan configuration. The fields are described as follows:
         # 
-        # - **autoInclude**: specifies whether to enable automatic scan. Valid values: **true**: enabled. **false**: disabled.
-        # - **autoRule**: the enablement configuration.
-        # - **ruleOperator**: the enablement configuration rule. The value is **include**.
-        # - **operator**: the logical operator. The value is **or**.
-        # - **rule**: the rule.
-        # - **condition**: the rule condition. Valid values: **vendor**: vendor. **assetType**: level-1 asset type. **assetSubType**: level-2 asset type.
-        # > For specific meanings, refer to the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
+        # - **autoInclude**: Specifies whether to enable automatic scanning. Valid values: **true**: enabled. **false**: disabled.
+        # - **autoRule**: The enablement configuration.
+        # - **ruleOperator**: The rule for the enablement configuration. Set the value to **include**.
+        # - **operator**: The logical operator. Set the value to **or**.
+        # - **rule**: The rule.
+        # - **condition**: The rule condition. Valid values: **vendor**: vendor, **assetType**: level-1 asset type, **assetSubType**: level-2 asset type.
+        # > For more information, refer to the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
         self.auto_config = auto_config
-        # The automatic scan configuration type. Valid values:
-        # - **0**: Automatic scan is disabled.
-        # - **1**: Automatically scan newly added cloud assets.
+        # The type of the automatic scan configuration. Valid values:
+        # - **0**: disable automatic scanning
+        # - **1**: automatically scan new cloud assets
         self.auto_type = auto_type
         # The ID of the configuration.
         self.config_id = config_id
@@ -104,9 +104,9 @@ class GetCheckScopeConfigResponseBodyData(DaraModel):
         self.gmt_create = gmt_create
         # The modification time.
         self.gmt_modified = gmt_modified
-        # The scan scope configuration type. Valid values:
-        # - **1**: scan by instance.
-        # - **3**: scan all.
+        # The type of the scan scope configuration. Valid values:
+        # - **1**: scan by instance
+        # - **3**: scan all
         self.type = type
 
     def validate(self):

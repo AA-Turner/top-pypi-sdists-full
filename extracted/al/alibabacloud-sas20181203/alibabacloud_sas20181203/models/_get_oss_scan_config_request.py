@@ -10,9 +10,9 @@ class GetOssScanConfigRequest(DaraModel):
         bucket_name: str = None,
         id: str = None,
     ):
-        # The bucket name.
+        # The name of the bucket. You must specify at least one of BucketName and Id. If neither is specified, the API returns InvalidBucketName (HTTP 400).
         self.bucket_name = bucket_name
-        # The policy ID.
+        # The ID of the policy.
         self.id = id
 
     def validate(self):

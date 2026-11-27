@@ -148,19 +148,19 @@ def is_loopback(host: Optional[str]) -> bool:
         return False
 
 
-#: The header the pod's companion is told by, on a runtime launched for a deployment.
+#: The header the pod's companion is told by, on any runtime it gave its secret.
 POD_SECRET_HEADER = "X-Datalayer-Pod-Secret"
 
 
 def is_the_pod(host: Optional[str], secret: Optional[str]) -> bool:
     """Whether a call comes from the pod itself.
 
-    On a runtime launched for a deployment an address proves nothing: its
-    sandbox, and a harness in this container, share the pod's loopback. There
-    the pod is the companion, known by the secret it gave with the runtime's
-    proof (`principal.give_runtime_proof`), held by these two alone. On any
-    other runtime nothing here acts as anybody but the person whose it is, and
-    loopback is the machine itself.
+    In a pod an address proves nothing: the sandbox, and a harness in this
+    container, share the pod's loopback. There the pod is the companion, known
+    by the secret it gave as it started (`principal.give_pod_secret`), held by
+    these two alone, a person's own runtime as a deployment's. On a runtime
+    that holds none (no companion beside it: a developer's own, or a pod's
+    before its companion gave it), loopback is the machine itself.
 
     Parameters
     ----------
@@ -581,7 +581,8 @@ class Proof:
     ``kind`` when it did: ``pod`` (the companion, by the pod's secret, on a
     runtime that holds one), ``skill`` (a skill's script in the sandbox, on
     one of the few routes it calls: :func:`is_a_skills_call`),
-    ``sandbox-token`` (the runtime's own Jupyter token, which its owner holds
+    ``handle`` (a harness on the loopback, on a route that asks the handle
+    it was given: :data:`HANDLE_ROUTES`), ``sandbox-token`` (the runtime's own Jupyter token, which its owner holds
     from the platform's record), ``runtime-token`` (the token of this
     process: :func:`runtime_token`) or ``owner`` (the owner's Datalayer
     token). ``reason`` when it did not, in a word a log line can be counted
@@ -672,6 +673,9 @@ RESERVATIONS_PATH = "/api/iam/v1/usage/reservations"
 #: runtime is never given another owner.
 _RESERVATION_OWNER: Dict[str, str] = {}
 
+#: The status a fetch says for a 200 whose body is not in the shape asked: unverifiable.
+UNEXPECTED_ANSWER = 0
+
 #: Asks IAM for the reservations a token's account holds: (url, token) -> (status, resource uids).
 FetchReservations = Callable[[str, str], Awaitable[Tuple[int, Tuple[str, ...]]]]
 
@@ -682,9 +686,13 @@ async def _fetch_reservations(url: str, token: str) -> Tuple[int, Tuple[str, ...
         if response.status_code != 200:
             return response.status_code, ()
         try:
-            listed = (response.json() or {}).get("reservations") or []
+            said = response.json()
         except ValueError:
-            return 200, ()
+            return UNEXPECTED_ANSWER, ()
+        listed = said.get("reservations") if isinstance(said, dict) else None
+        if not isinstance(listed, list):
+            # An answer in another shape says nothing: asked again soon.
+            return UNEXPECTED_ANSWER, ()
         return 200, tuple(
             str(entry.get("resource") or entry.get("id") or "").lower()
             for entry in listed
@@ -762,6 +770,178 @@ async def owner_by_reservation(
 def forget_reservation_owner() -> None:
     """Forget the account IAM said holds the reservation (the tests)."""
     _RESERVATION_OWNER.clear()
+
+
+# --- a deployment's runtime: its deployment's owner ---------------------------------
+
+#: Where ai-agents answers one deployment to the account it is, and to nobody else.
+DEPLOYMENT_PATH = "/api/ai-agents/v1/apps/deployments/{uid}"
+
+#: The detail IAM writes on the key it mints for a deployment's owner to run
+#: that deployment's runtime (`datalayer_common.authorization_details`).
+DEPLOYMENT_RUNTIME_DETAIL = "datalayer_deployment_runtime"
+
+#: The account each deployment this runtime was launched for belongs to, once
+#: said: a deployment is never given another owner.
+_DEPLOYMENT_OWNERS: Dict[str, str] = {}
+
+#: Asks ai-agents whose a deployment is, with a token: (url, token) -> (status, account uid).
+FetchDeployment = Callable[[str, str], Awaitable[Tuple[int, str]]]
+
+
+async def _fetch_deployment_owner(url: str, token: str) -> Tuple[int, str]:
+    async with httpx.AsyncClient(timeout=TIMEOUT_SECONDS) as client:
+        response = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+        if response.status_code != 200:
+            return response.status_code, ""
+        try:
+            said = response.json()
+        except ValueError:
+            return UNEXPECTED_ANSWER, ""
+        deployment = said.get("deployment") if isinstance(said, dict) else None
+        if not isinstance(deployment, dict):
+            return UNEXPECTED_ANSWER, ""
+        return 200, str(deployment.get("account_uid") or "")
+
+
+def owner_key_deployment(claims: Mapping[str, Any]) -> str:
+    """The deployment a key of its owner names, or ``""`` for any other token.
+
+    IAM mints such a key for the Operator, for the deployment's owner alone,
+    while they keep it always on: exchanged from their always-on grant
+    (``task_grant_uid``), its details naming the deployment's runtime. Read
+    only from a token IAM has just accepted, for a person (`_proof_of_token`).
+    """
+    if not str(claims.get("task_grant_uid") or "").strip():
+        return ""
+    details = claims.get("authorization_details")
+    if isinstance(details, str):
+        import json
+
+        try:
+            details = json.loads(details)
+        except ValueError:
+            return ""
+    for detail in details if isinstance(details, list) else ():
+        if isinstance(detail, dict) and detail.get("type") == DEPLOYMENT_RUNTIME_DETAIL:
+            return str(detail.get("deployment_uid") or "").strip()
+    return ""
+
+
+#: The detail naming one context a key acts on (``kind: sandbox``: a runtime, by its uid).
+CONTEXT_DETAIL = "datalayer_context"
+
+
+def key_scope_refused(claims: Mapping[str, Any]) -> bool:
+    """Whether a key scoped to a deployment's runtime is presented to another runtime.
+
+    A key IAM mints for a deployment's owner to run its runtime proves
+    something only on that runtime, whoever's account it names: on a runtime
+    launched for that deployment (`principal.launched_for`), or on the runtime
+    the key itself names (a Kagent actor, which no proof reaches, known by its
+    own name: :func:`actor_runtime_uid`). Anywhere else, never. A token scoped
+    to no deployment is not read here.
+    """
+    from agent_runtimes.apps.principal import launched_for
+
+    named = owner_key_deployment(claims)
+    if not named:
+        return False
+    launched = launched_for()
+    if launched:
+        return named != launched
+    runtime = actor_runtime_uid().lower()
+    details = claims.get("authorization_details")
+    if isinstance(details, str):
+        import json
+
+        try:
+            details = json.loads(details)
+        except ValueError:
+            return True
+    sandboxes = {
+        str(detail.get("uid") or "").lower()
+        for detail in (details if isinstance(details, list) else ())
+        if isinstance(detail, dict)
+        and detail.get("type") == CONTEXT_DETAIL
+        and detail.get("kind") == "sandbox"
+    }
+    return not (runtime and runtime in sandboxes)
+
+
+def deployment_owner_uid() -> str:
+    """The account the deployment this runtime was launched for belongs to, once said; else ``""``."""
+    from agent_runtimes.apps.principal import launched_for
+
+    deployment = launched_for()
+    return _DEPLOYMENT_OWNERS.get(deployment, "") if deployment else ""
+
+
+async def owner_by_deployment(
+    caller_uid: str, token: str, fetch: Optional[FetchDeployment] = None
+) -> Tuple[str, str]:
+    """Whether a verified person owns the deployment this runtime was launched for.
+
+    A runtime launched for a deployment (`principal.launched_for`, by the
+    proof its companion gave it) is its deployment's owner's as well as the
+    account it was assigned to (decided 26 November 2026: a deployment's owner
+    proves ownership the same way a person proves their own runtime's). Their
+    token proves it two ways, each the platform's word, never the caller's:
+
+    - a key IAM minted for the deployment's owner to run its runtime (the
+      Operator's, keeping it always on), whose details name this deployment
+      (:func:`owner_key_deployment`); ai-agents answers such a key nothing else;
+    - otherwise ai-agents, asked with the person's own token, answers the
+      deployment to them (it answers a deployment to its account alone), at
+      the ai-agents this runtime knew as it was given its proof.
+
+    Remembered from then on. An application's token, a visitor's and anybody
+    else's prove nothing.
+
+    Returns
+    -------
+    tuple[str, str]
+        ``(owner, "")`` when the deployment is the caller's; ``("", reason)``
+        otherwise: ``owner-unknown`` (launched for no deployment, or no
+        ai-agents known), ``unverifiable`` (ai-agents not reached, or it did
+        not answer) or ``another-account`` (the deployment is not theirs).
+    """
+    from agent_runtimes.apps.principal import launched_ai_agents_url, launched_for
+
+    deployment = launched_for()
+    if not deployment or not caller_uid:
+        return "", "owner-unknown"
+    named = owner_key_deployment(_unverified_claims(token))
+    if named and named != deployment:
+        # A key of another deployment's runtime, whoever's: it proves nothing here.
+        return "", "another-account"
+    known = _DEPLOYMENT_OWNERS.get(deployment)
+    if known:
+        return (known, "") if known == caller_uid else ("", "another-account")
+    if named:
+        # A key IAM minted for this deployment's owner, to run its runtime.
+        _DEPLOYMENT_OWNERS[deployment] = caller_uid
+        return caller_uid, ""
+    url = launched_ai_agents_url()
+    if not url:
+        return "", "owner-unknown"
+    try:
+        status, account = await (fetch or _fetch_deployment_owner)(
+            f"{url}{DEPLOYMENT_PATH.format(uid=deployment)}", token
+        )
+    except httpx.HTTPError:
+        return "", "unverifiable"
+    if status in (403, 404) or (status == 200 and account and account != caller_uid):
+        return "", "another-account"
+    if status != 200 or not account:
+        return "", "unverifiable"
+    _DEPLOYMENT_OWNERS[deployment] = caller_uid
+    return caller_uid, ""
+
+
+def forget_deployment_owners() -> None:
+    """Forget whose the deployments this runtime was launched for are (the tests)."""
+    _DEPLOYMENT_OWNERS.clear()
 
 
 def _given_inference_token() -> str:
@@ -914,6 +1094,10 @@ async def proves_the_runtime(scope: Any, verifier: Optional[Any] = None) -> Proo
     proves nothing here: those reach the application's routes, which verify
     them themselves.
 
+    A harness on the loopback sends the handle it was given as it would a
+    token, to the few routes that ask it themselves (:data:`HANDLE_ROUTES`):
+    those are passed to the route, the handle unread here.
+
     Without a token, two callers on the loopback only: the companion, by the
     pod's secret, on a runtime that holds one (`principal.pod_secret_is`);
     and a skill's script in the sandbox, on the few routes it calls
@@ -926,6 +1110,13 @@ async def proves_the_runtime(scope: Any, verifier: Optional[Any] = None) -> Proo
 
     headers = headers_of(scope)
     host = (scope.get("client") or (None,))[0]
+    path = scope.get("path") or ""
+    if HANDLE_ROUTES.match(path) is not None and is_a_skills_call(
+        scope.get("method") or "GET", path, host, headers
+    ):
+        # A harness sends its handle as it would a token: the route asks it
+        # (`routes.inference_relay`, `routes.mcp_lent`), never IAM.
+        return Proof(True, kind="handle")
     token = credential_of(scope, headers)
     if not token:
         local = is_loopback(host) and not is_forwarded(headers)
@@ -985,6 +1176,8 @@ def forget_proofs() -> None:
 
 async def _proof_of_token(token: str, verifier: Any) -> Tuple[Proof, float]:
     """What a token that is not the sandbox's proves, and how long that is remembered."""
+    from agent_runtimes.apps.principal import launched_for
+
     try:
         caller = await verifier.verify(token)
     except CallerRefused as refused:
@@ -993,7 +1186,27 @@ async def _proof_of_token(token: str, verifier: Any) -> Tuple[Proof, float]:
         return Proof(False, reason="token-refused"), PROOF_SECONDS
     if caller.kind != "person":
         return Proof(False, reason="application-token"), PROOF_SECONDS
+    launched = launched_for()
+    if key_scope_refused(_unverified_claims(token)):
+        # A key of a deployment's runtime is held to that runtime: it proves
+        # nothing here, whoever's account it names, before any owner known here
+        # (the runtime's, its deployment's, its reservation's) is read.
+        return Proof(False, reason="another-account"), PROOF_SECONDS
     owner = runtime_owner_uid()
+    if owner and caller.uid == owner:
+        return Proof(True, kind="owner"), PROOF_SECONDS
+    if launched:
+        # Launched for a deployment: its deployment's owner's too.
+        deployment_owner, reason = await owner_by_deployment(caller.uid, token)
+        # Another call's lookup may have said whose it is while this one waited.
+        deployment_owner = deployment_owner or deployment_owner_uid()
+        if deployment_owner and caller.uid == deployment_owner:
+            return Proof(True, kind="owner"), PROOF_SECONDS
+        if reason == "unverifiable":
+            return Proof(False, reason=reason), PROOF_RETRY_SECONDS
+        if owner or deployment_owner or reason == "another-account":
+            return Proof(False, reason="another-account"), PROOF_SECONDS
+        return Proof(False, reason=reason), PROOF_RETRY_SECONDS
     if not owner:
         # An actor nobody names its owner to: IAM says whose reservation it is.
         owner, reason = await owner_by_reservation(caller.uid, token)

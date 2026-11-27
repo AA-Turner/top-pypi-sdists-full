@@ -1,4 +1,5 @@
 import asyncio
+import math
 import uuid
 from datetime import timedelta
 from types import SimpleNamespace
@@ -13,14 +14,17 @@ from temporalio.runtime import (
     BUFFERED_METRIC_KIND_COUNTER,
     BUFFERED_METRIC_KIND_GAUGE,
     BUFFERED_METRIC_KIND_HISTOGRAM,
+    LoggingConfig,
     MetricBuffer,
     MetricBufferDurationFormat,
     Runtime,
     TelemetryConfig,
+    TelemetryFilter,
 )
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import UnsandboxedWorkflowRunner, Worker
 
+from mistralai.workflows.core.logging import LogLevel
 from mistralai.workflows.core.temporal import runtime_metrics
 from mistralai.workflows.core.temporal.runtime_metrics import build_temporal_metric_views, pump_runtime_metrics
 
@@ -73,13 +77,12 @@ def _metrics_by_name(reader: InMemoryMetricReader) -> dict[str, Any]:
 async def _run_pump_once(
     buffer: Any, provider: MeterProvider, *, interval_s: float = 0.01, buffer_size: int = 100_000
 ) -> None:
-    """Start the pump, let it drain one batch, then cancel so the final drain + flush runs."""
+    """Start the pump, let it drain one batch, then cancel so the final drain runs."""
     task = asyncio.create_task(
         pump_runtime_metrics(
             buffer,
             provider.get_meter("test"),
             interval_s=interval_s,
-            meter_provider=provider,
             buffer_size=buffer_size,
         )
     )
@@ -184,16 +187,20 @@ class TestPumpTranslation:
         assert "temporal_activity_task_received_total" in _metrics_by_name(reader)
 
     @pytest.mark.asyncio
-    async def test_flush_failure_on_shutdown_still_raises_cancelled(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # A force_flush error on shutdown must not mask the CancelledError the worker awaits.
+    async def test_final_drain_failure_still_raises_cancelled(self) -> None:
+        # A drain error on shutdown must not mask the CancelledError the worker awaits.
         _, provider = _reader_and_provider()
 
-        def _boom() -> None:
-            raise RuntimeError("flush exploded")
+        class _BrokenOnCancelBuffer(_FakeBuffer):
+            def retrieve_updates(self) -> list[Any]:
+                if not self._batches:
+                    raise RuntimeError("drain exploded")
+                return super().retrieve_updates()
 
-        monkeypatch.setattr(provider, "force_flush", _boom)
-        buffer = _FakeBuffer([[_update("temporal_workflow_completed_total", BUFFERED_METRIC_KIND_COUNTER, 1, {})]])
-        await _run_pump_once(buffer, provider)  # asserts CancelledError (not RuntimeError) propagates
+        buffer = _BrokenOnCancelBuffer(
+            [[_update("temporal_workflow_completed_total", BUFFERED_METRIC_KIND_COUNTER, 1, {})]]
+        )
+        await _run_pump_once(buffer, provider, interval_s=10.0)  # asserts CancelledError (not RuntimeError) propagates
 
     @pytest.mark.asyncio
     async def test_near_capacity_batch_warns(self) -> None:
@@ -291,3 +298,92 @@ class TestBufferedRuntimeMetrics:
             f"Temporal core emits histograms with no pinned buckets (SDK upgrade?): {sorted(unpinned)}. "
             "Add them to TEMPORAL_HISTOGRAM_BOUNDARIES (buckets captured from the live series)."
         )
+
+
+class TestCoreConsoleLogging:
+    @pytest.mark.parametrize(
+        "log_level", [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARNING], ids=["debug", "info", "warning"]
+    )
+    def test_console_keeps_temporalio_defaults_except_the_heartbeat_spam(
+        self, monkeypatch: pytest.MonkeyPatch, log_level: LogLevel
+    ) -> None:
+        """The Rust core writes its console lines, such as a cancelled activity's heartbeat warnings,
+        straight to the process console (AGE-2388). Every level keeps temporalio's default (core WARN,
+        other ERROR) so a worker losing the Temporal server still warns on it — only the activity
+        heartbeat manager drops to ERROR, and only outside debug runs."""
+        # Prepare
+        monkeypatch.setattr(runtime_metrics, "config", SimpleNamespace(common=SimpleNamespace(log_level=log_level)))
+
+        # Do
+        logging_config = runtime_metrics._core_console_logging()
+
+        # Assert
+        temporalio_default = TelemetryFilter(core_level="WARN", other_level="ERROR").formatted()
+        if log_level == LogLevel.DEBUG:
+            assert logging_config == LoggingConfig.default
+        else:
+            assert logging_config.filter == (
+                f"{temporalio_default},{runtime_metrics._HEARTBEAT_MANAGER_LOG_TARGET}=ERROR"
+            )
+
+    @pytest.mark.parametrize(
+        ("builder", "otel_enabled", "metrics_endpoint", "token_max_age"),
+        [
+            ("worker", False, None, None),
+            ("worker", True, None, None),
+            ("client", False, None, None),
+            ("client", True, "https://otel.example", None),
+            ("client", True, None, 60.0),
+            ("client", True, None, math.inf),
+        ],
+        ids=[
+            "worker-no-metrics",
+            "worker-buffer",
+            "client-no-metrics",
+            "client-explicit-endpoint",
+            "client-rotating-token",
+            "client-static-token",
+        ],
+    )
+    def test_every_runtime_builder_applies_the_core_console_filter(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        builder: str,
+        otel_enabled: bool,
+        metrics_endpoint: str | None,
+        token_max_age: float | None,
+    ) -> None:
+        """Every branch of the public builders gives its Runtime the core console filter, so none falls back
+        to temporalio's default, which lets the heartbeat spam through."""
+        # Prepare
+        built: list[TelemetryConfig] = []
+
+        def _fake_runtime(*, telemetry: TelemetryConfig) -> SimpleNamespace:
+            built.append(telemetry)
+            return SimpleNamespace(telemetry=telemetry)
+
+        common = SimpleNamespace(
+            log_level=LogLevel.INFO,
+            otel_enabled=otel_enabled,
+            mistral_workflows_otel_metrics_export=True,
+            temporal_runtime_metrics_buffer_size=10,
+            otel_metrics_endpoint=metrics_endpoint,
+            app_version="test",
+        )
+        agent = SimpleNamespace(mistral_client_api_key="key", mistral_client_server_url="https://api.example")
+        monkeypatch.setattr(
+            runtime_metrics, "config", SimpleNamespace(common=common, worker=SimpleNamespace(agent=agent))
+        )
+        monkeypatch.setattr(runtime_metrics, "Runtime", _fake_runtime)
+        provider = SimpleNamespace(get_token_with_max_age=lambda: ("token", token_max_age))
+        monkeypatch.setattr(runtime_metrics, "get_token_provider", lambda _key: provider)
+
+        # Do
+        if builder == "worker":
+            runtime_metrics.build_runtime()
+        else:
+            runtime_metrics.build_client_runtime()
+
+        # Assert
+        assert len(built) == 1
+        assert built[0].logging == runtime_metrics._core_console_logging()

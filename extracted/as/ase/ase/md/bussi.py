@@ -40,6 +40,16 @@ class Bussi(VelocityVerlet):
         **kwargs : dict, optional
             Additional arguments are passed to
             :class:~ase.md.md.MolecularDynamics base class.
+
+        Physical background and limitations
+        -----------------------------------
+
+        The Bussi class implements the Bussi dynamics, where constant
+        temperature is imposed by a stochastic velocity rescaling algorithm.
+        The thermostat is conceptually very close to the Berendsen thermostat,
+        but does sample the canonical ensemble correctly. Given that the
+        thermostat is both correct and global, it is advised to use it for
+        production runs.
         """
         super().__init__(atoms, timestep, **kwargs)
 

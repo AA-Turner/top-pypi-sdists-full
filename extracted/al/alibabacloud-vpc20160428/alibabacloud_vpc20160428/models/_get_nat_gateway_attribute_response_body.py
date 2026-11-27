@@ -23,6 +23,7 @@ class GetNatGatewayAttributeResponseBody(DaraModel):
         forward_table: main_models.GetNatGatewayAttributeResponseBodyForwardTable = None,
         full_nat_table: main_models.GetNatGatewayAttributeResponseBodyFullNatTable = None,
         ip_list: List[main_models.GetNatGatewayAttributeResponseBodyIpList] = None,
+        ipv_6config: main_models.GetNatGatewayAttributeResponseBodyIpv6Config = None,
         log_delivery: main_models.GetNatGatewayAttributeResponseBodyLogDelivery = None,
         name: str = None,
         nat_gateway_id: str = None,
@@ -45,46 +46,49 @@ class GetNatGatewayAttributeResponseBody(DaraModel):
         # - **CrossAZ**: cross-zone disaster recovery.
         # - **SingleAZ**: single-zone disaster recovery.
         self.availability_mode = availability_mode
-        # The billing configuration.
+        # The billing configuration information.
         self.billing_config = billing_config
         # The service status of the NAT gateway. Valid values:
         # 
-        # - **Normal**: The NAT gateway is running normally.
-        # - **FinancialLocked**: The NAT gateway is locked due to an overdue payment.
+        # - **Normal**: normal.
+        # - **FinancialLocked**: locked due to overdue payment.
         self.business_status = business_status
-        # The time when the NAT gateway was created. The time is displayed in the YYYY-MM-DDThh:mm:ssZ format.
+        # The time when the NAT gateway was created. Format: YYYY-MM-DDThh:mm:ssZ.
         self.creation_time = creation_time
         # The deletion protection information.
         self.deletion_protection_info = deletion_protection_info
         # The description of the NAT gateway.
         self.description = description
-        # Indicates whether the traffic monitoring feature is enabled. Valid values:
+        # Indicates whether gateway traffic monitoring is enabled. Valid values:
         # 
-        # - **true**: The traffic monitoring feature is enabled.
-        # - **false**: The traffic monitoring feature is disabled.
+        # - **true**: Gateway traffic monitoring is enabled.
+        # - **false**: Gateway traffic monitoring is disabled.
         self.ecs_metric_enabled = ecs_metric_enabled
-        # Indicates whether the session log feature is enabled. Valid values:
+        # Indicates whether session logging is enabled. Valid values:
         # 
-        # - **true**: The session log feature is enabled.
-        # - **false**: The session log feature is disabled.
+        # - **true**: Session logging is enabled.
+        # 
+        # - **false**: Session logging is disabled.
         self.enable_session_log = enable_session_log
-        # The expiration time of the NAT gateway. The time is displayed in the YYYY-MM-DDThh:mm:ssZ format in UTC.
+        # The expiration time of the NAT gateway. The time follows the ISO 8601 standard in the YYYY-MM-DDThh:mm:ssZ format. The time is displayed in UTC.
         self.expired_time = expired_time
-        # The information about the DNAT table.
+        # The DNAT table information.
         self.forward_table = forward_table
-        # The information about the FULLNAT table.
+        # The FULLNAT table information.
         self.full_nat_table = full_nat_table
-        # The elastic IP addresses (EIPs) that are associated with the Internet NAT gateway.
+        # The elastic IP addresses (EIPs) associated with the Internet NAT gateway.
         self.ip_list = ip_list
-        # The session log configuration.
+        # The IPv6 configuration information.
+        self.ipv_6config = ipv_6config
+        # The session log configuration information.
         self.log_delivery = log_delivery
         # The name of the NAT gateway.
         self.name = name
         # The ID of the NAT gateway.
         self.nat_gateway_id = nat_gateway_id
-        # The type of the Internet NAT gateway. The value is **Enhanced**, which indicates an enhanced NAT gateway.
+        # The type of the Internet NAT gateway. Currently, the value is **Enhanced**, which indicates an enhanced NAT gateway.
         self.nat_type = nat_type
-        # The type of the NAT gateway. Valid values:
+        # The network type of the NAT gateway. Valid values:
         # 
         # - **internet**: Internet NAT gateway.
         # - **intranet**: VPC NAT gateway.
@@ -105,17 +109,17 @@ class GetNatGatewayAttributeResponseBody(DaraModel):
         self.region_id = region_id
         # The request ID.
         self.request_id = request_id
-        # The ID of the resource group.
+        # The resource group ID.
         self.resource_group_id = resource_group_id
-        # The information about the SNAT table.
+        # The SNAT table information.
         self.snat_table = snat_table
         # The status of the NAT gateway. Valid values:
         # 
-        # - **Creating**: The NAT gateway is being created. Creating a NAT gateway is an asynchronous operation. The NAT gateway remains in the **Creating** state until the operation is complete.
-        # - **Available**: The NAT gateway is available. This is the stable state of a NAT gateway after it is created.
-        # - **Modifying**: The NAT gateway is being modified. Modifying the specifications of a NAT gateway is an asynchronous operation. The NAT gateway remains in the **Modifying** state until the operation is complete.
-        # - **Deleting**: The NAT gateway is being deleted. Deleting a NAT gateway is an asynchronous operation. The NAT gateway remains in the **Deleting** state until the operation is complete.
-        # - **Converting**: The NAT gateway is being upgraded. Upgrading a standard NAT gateway to an enhanced NAT gateway is an asynchronous operation. The NAT gateway remains in the **Converting** state until the operation is complete.
+        # - **Creating**: The NAT gateway is being created. Creating a NAT gateway is an asynchronous operation. The NAT gateway remains in the **Creating** state until it is created.
+        # - **Available**: The NAT gateway is available. This is a stable state after the NAT gateway is created.
+        # - **Modifying**: The NAT gateway is being modified. Modifying the specifications of a NAT gateway is an asynchronous operation. The NAT gateway remains in the **Modifying** state until it is modified.
+        # - **Deleting**: The NAT gateway is being deleted. Deleting a NAT gateway is an asynchronous operation. The NAT gateway remains in the **Deleting** state until it is deleted.
+        # - **Converting**: The NAT gateway is being upgraded. Upgrading a standard NAT gateway to an enhanced NAT gateway is an asynchronous operation. The NAT gateway remains in the **Converting** state until it is upgraded.
         self.status = status
         # The ID of the VPC to which the NAT gateway belongs.
         self.vpc_id = vpc_id
@@ -135,6 +139,8 @@ class GetNatGatewayAttributeResponseBody(DaraModel):
             for v1 in self.ip_list:
                  if v1:
                     v1.validate()
+        if self.ipv_6config:
+            self.ipv_6config.validate()
         if self.log_delivery:
             self.log_delivery.validate()
         if self.private_info:
@@ -187,6 +193,9 @@ class GetNatGatewayAttributeResponseBody(DaraModel):
         if self.ip_list is not None:
             for k1 in self.ip_list:
                 result['IpList'].append(k1.to_map() if k1 else None)
+
+        if self.ipv_6config is not None:
+            result['Ipv6Config'] = self.ipv_6config.to_map()
 
         if self.log_delivery is not None:
             result['LogDelivery'] = self.log_delivery.to_map()
@@ -281,6 +290,10 @@ class GetNatGatewayAttributeResponseBody(DaraModel):
                 temp_model = main_models.GetNatGatewayAttributeResponseBodyIpList()
                 self.ip_list.append(temp_model.from_map(k1))
 
+        if m.get('Ipv6Config') is not None:
+            temp_model = main_models.GetNatGatewayAttributeResponseBodyIpv6Config()
+            self.ipv_6config = temp_model.from_map(m.get('Ipv6Config'))
+
         if m.get('LogDelivery') is not None:
             temp_model = main_models.GetNatGatewayAttributeResponseBodyLogDelivery()
             self.log_delivery = temp_model.from_map(m.get('LogDelivery'))
@@ -372,16 +385,19 @@ class GetNatGatewayAttributeResponseBodyPrivateInfo(DaraModel):
         iz_no: str = None,
         max_bandwidth: int = None,
         private_ip_address: str = None,
+        private_ipv_6address: str = None,
         vswitch_id: str = None,
     ):
         # The instance ID of the elastic network interface controller (NIC).
         self.eni_instance_id = eni_instance_id
         # The zone to which the NAT gateway belongs.
         self.iz_no = iz_no
-        # The maximum bandwidth. Unit: Mbit/s.
+        # The maximum bandwidth value. Unit: Mbit/s.
         self.max_bandwidth = max_bandwidth
         # The private IP address.
         self.private_ip_address = private_ip_address
+        # The private IPv6 address.
+        self.private_ipv_6address = private_ipv_6address
         # The ID of the vSwitch to which the NAT gateway belongs.
         self.vswitch_id = vswitch_id
 
@@ -405,6 +421,9 @@ class GetNatGatewayAttributeResponseBodyPrivateInfo(DaraModel):
         if self.private_ip_address is not None:
             result['PrivateIpAddress'] = self.private_ip_address
 
+        if self.private_ipv_6address is not None:
+            result['PrivateIpv6Address'] = self.private_ipv_6address
+
         if self.vswitch_id is not None:
             result['VswitchId'] = self.vswitch_id
 
@@ -424,6 +443,9 @@ class GetNatGatewayAttributeResponseBodyPrivateInfo(DaraModel):
         if m.get('PrivateIpAddress') is not None:
             self.private_ip_address = m.get('PrivateIpAddress')
 
+        if m.get('PrivateIpv6Address') is not None:
+            self.private_ipv_6address = m.get('PrivateIpv6Address')
+
         if m.get('VswitchId') is not None:
             self.vswitch_id = m.get('VswitchId')
 
@@ -437,12 +459,12 @@ class GetNatGatewayAttributeResponseBodyLogDelivery(DaraModel):
         log_delivery_type: str = None,
         log_destination: str = None,
     ):
-        # The error message returned when session log delivery fails.
+        # The error message for session log delivery failure.
         self.deliver_logs_error_message = deliver_logs_error_message
-        # The delivery status of session logs. Valid values:
+        # The session log delivery status. Valid values:
         # 
-        # - **Succsess**: The delivery is successful.
-        # - **Failure**: The delivery failed.
+        # - **Succsess**: success.
+        # - **Failure**: failure.
         self.delivery_status = delivery_status
         # The destination type for session log delivery. Valid value:
         # 
@@ -489,6 +511,38 @@ class GetNatGatewayAttributeResponseBodyLogDelivery(DaraModel):
 
         return self
 
+class GetNatGatewayAttributeResponseBodyIpv6Config(DaraModel):
+    def __init__(
+        self,
+        ipv_6enabled: bool = None,
+    ):
+        # Indicates whether IPv6 is enabled. Valid values:
+        # 
+        # - **true**: IPv6 is enabled.
+        # 
+        # - **false**: IPv6 is disabled.
+        self.ipv_6enabled = ipv_6enabled
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        result = dict()
+        _map = super().to_map()
+        if _map is not None:
+            result = _map
+        if self.ipv_6enabled is not None:
+            result['Ipv6Enabled'] = self.ipv_6enabled
+
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('Ipv6Enabled') is not None:
+            self.ipv_6enabled = m.get('Ipv6Enabled')
+
+        return self
+
 class GetNatGatewayAttributeResponseBodyIpList(DaraModel):
     def __init__(
         self,
@@ -502,7 +556,7 @@ class GetNatGatewayAttributeResponseBodyIpList(DaraModel):
         self.ip_address = ip_address
         # The association status of the EIP that is associated with the Internet NAT gateway. Valid values:
         # 
-        # - **idle**: The EIP is not associated with an SNAT entry or a DNAT entry.
+        # - **idle**: The EIP is not associated with any SNAT or DNAT entry.
         # - **UsedBySnatTable**: The EIP is associated with an SNAT entry.
         # - **UsedByForwardTable**: The EIP is associated with a DNAT entry.
         self.using_status = using_status
@@ -652,12 +706,13 @@ class GetNatGatewayAttributeResponseBodyBillingConfig(DaraModel):
         internet_charge_type: str = None,
         spec: str = None,
     ):
-        # Indicates whether automatic payment is enabled. This parameter is returned when the **InstanceChargeType** parameter is set to **PrePaid**. Valid values:
+        # Indicates whether automatic payment is enabled. When the **InstanceChargeType** parameter is set to **PrePaid**, the following values are returned:
         # 
-        # - **false**: Automatic payment is disabled. You must complete the payment in the User Center after the order is generated.
-        # - **true**: Automatic payment is enabled. The order is automatically paid.
+        # - **false**: Automatic payment is disabled. After an order is generated, you must complete the payment in the User Center.
         # 
-        # If the **InstanceChargeType** parameter is set to **PostPaid**, this parameter is empty.
+        # - **true**: Automatic payment is enabled. Orders are automatically paid.
+        # 
+        # When the **InstanceChargeType** parameter is set to **PostPaid**, this parameter is empty.
         self.auto_pay = auto_pay
         # <props="china">The billing method of the NAT gateway. Valid values:
         # 
@@ -667,18 +722,18 @@ class GetNatGatewayAttributeResponseBodyBillingConfig(DaraModel):
         # 
         # <props="intl">The billing method of the NAT gateway. Valid value: **PostPaid** (pay-as-you-go).
         self.instance_charge_type = instance_charge_type
-        # The billing type of the NAT gateway instance. Valid values:
+        # The billing method of the NAT gateway instance. Valid values:
         # 
-        # - **PayBySpec**: billing by defined specifications.
-        # - **PayByLcu**: billing by usage.
+        # - **PayBySpec**: billed by defined specifications.
+        # - **PayByLcu**: billed by usage.
         self.internet_charge_type = internet_charge_type
-        # The specification of the Internet NAT gateway. This parameter is returned when the **InternetChargeType** parameter is set to **PayBySpec**. Valid values:
+        # The specification of the Internet NAT gateway. When **InternetChargeType** is set to **PayBySpec**, the following values are returned:
         # 
         # - **Small**: small.
         # - **Middle**: medium.
         # - **Large**: large.
         # 
-        # If the **InternetChargeType** parameter is set to **PayByLcu**, this parameter is empty.
+        # When **InternetChargeType** is set to **PayByLcu**, this parameter is empty.
         self.spec = spec
 
     def validate(self):
@@ -727,10 +782,11 @@ class GetNatGatewayAttributeResponseBodyAccessMode(DaraModel):
     ):
         # The access mode. Valid values:
         # 
-        # - **route**: route mode.
+        # - **route**: routing mode.
+        # 
         # - **tunnel**: tunnel mode.
         self.mode_value = mode_value
-        # The tunnel type. Valid value:
+        # The tunnel mode type. Valid values:
         # 
         # - **geneve**: Geneve.
         self.tunnel_type = tunnel_type

@@ -8,6 +8,7 @@ import signal
 import subprocess
 import time
 from argparse import SUPPRESS, Action, ArgumentParser
+from enum import Enum
 
 import pytest
 
@@ -259,11 +260,33 @@ def zsh_specs(completion, name, tmp_path):
     subprocess.check_call(['zsh', '-nc', completion])
     script = tmp_path / "completion.zsh"
     script.write_text(completion)
-    # `eval` so the script registers itself rather than running `compdef` (unavailable here)
-    values = subprocess.check_output(
-        ['zsh', '-f', '-c', f'eval "$(<{script})" 2>/dev/null; print -rl -- "${{(@){name}}}"'],
-        text=True)
-    return values.splitlines()
+    # `eval` so the script registers a hook rather than running `compdef` (unavailable here)
+    proc = subprocess.run(
+        ['zsh', '-f', '-c', f'eval "$(<{script})" && print -rl -- "${{(@){name}}}"'], text=True,
+        capture_output=True)
+    # `eval` before `compinit` must not fail on a missing `compdef` (#277)
+    assert proc.returncode == 0 and not proc.stderr, proc.stderr
+    return proc.stdout.splitlines()
+
+
+def test_zsh_eval_registers_after_compinit(tmp_path):
+    """`compinit` running after `eval`"""
+    if not shutil.which('zsh'):
+        pytest.skip("zsh not available")
+    script = tmp_path / "completion.zsh"
+    script.write_text(complete(ArgumentParser(prog="test"), "zsh"))
+    dump = tmp_path / ".zcompdump"
+    # `zsh -c` never reaches a prompt, so run prompt hooks the way zsh's prompt loop does
+    values = subprocess.check_output([
+        'zsh', '-f', '-c', f"""\
+eval "$(<{script})"
+autoload -Uz compinit
+compinit -u -d {dump}
+for hook in $precmd_functions; do "$hook"; done
+print -r -- "${{_comps[test]}}"
+print -r -- "${{precmd_functions}}"
+"""], text=True)
+    assert values.splitlines() == ["_shtab_test", ""]
 
 
 @pytest.mark.parametrize("help_text", [
@@ -300,6 +323,25 @@ def test_non_sequence_choices(shell, tmp_path):
         assert fish_candidates(completion, "myprog --mapping t") == ["two"]
     else:
         pytest.skip("WiP")
+
+
+@fix_shell
+def test_unorderable_choices(shell):
+    class Color(Enum):
+        RED = 1
+        GREEN = 2
+
+        def __str__(self):
+            return self.name
+
+    parser = ArgumentParser(prog="myprog", add_help=False)
+    parser.add_argument("color", type=Color.__getitem__, choices=list(Color))
+    completion = complete(parser, shell)
+    if shell == 'bash':
+        shell = Bash(completion)
+        shell.compgen('-W "${_shtab_myprog_pos_0_choices[*]}"', "R", "RED")
+    else:
+        assert "GREEN" in completion
 
 
 def test_zsh_remainder_custom_complete_has_optional_message_colon():
@@ -383,6 +425,29 @@ complete -C 'pathcomplete --config '
     assert "notes.txt" not in output
 
 
+def test_zsh_glob_spec(tmp_path):
+    """glob patterns must be passed to `_files -g` as filename patterns, not a qualifier."""
+    parser = ArgumentParser(prog="test", add_help=False)
+    parser.add_argument("--config").complete = shtab.glob("*.toml", "*.yml")
+    completion = complete(parser, "zsh")
+    specs = zsh_specs(completion, "_shtab_test_options", tmp_path)
+    assert specs == ["--config[config]:config:_files -g '*.toml *.yml'"]
+
+
+@pytest.mark.parametrize("patterns, expected", [
+    (("*.toml",), ["a.toml"]),
+    (("*.toml", "*.yml", "*.json"), ["a.toml", "b.yml", "c.json"]),])
+def test_zsh_glob_completion(change_dir, patterns, expected):
+    """Glob completion in zsh must actually complete matching files (single pattern too)."""
+    for name in ("a.toml", "b.yml", "c.json", "d.txt"):
+        (change_dir / name).touch()
+    parser = ArgumentParser(prog="globprog", add_help=False)
+    parser.add_argument("--config").complete = shtab.glob(*patterns)
+    completion = complete(parser, "zsh")
+    assert sorted(zsh_candidates(completion, "globprog --config ", change_dir,
+                                 "globprog")) == sorted(expected)
+
+
 def powershell_candidates(completion, cmdline):
     """Source `completion` in PowerShell, then return the completion candidates for `cmdline`."""
     if not shutil.which('pwsh'):
@@ -399,68 +464,188 @@ $results.CompletionMatches |
     return [line for line in proc.splitlines() if line.strip()]
 
 
-def tcsh_candidates(completion, cmdlines, cwd):
+def ps_cands(change_dir, parser):
+    """Create `target_dir` and return a `candidates(cmdline)` helper for `parser` (PowerShell)."""
+    (change_dir / "target_dir").mkdir()
+    completion = complete(parser, 'powershell')
+    return lambda cmdline: powershell_candidates(completion, cmdline)
+
+
+def clean_ansi(chunk):
+    return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
+
+
+class PtyShell:
     """
-    Return pty-driven completion candidates for each of `cmdlines`.
-
-    Reason: tcsh has no `complete -C` equivalent.
+    Fork `shell` in a pty under `cwd`, and drive interactive completion.
     """
-    pty = pytest.importorskip('pty')
-    if not shutil.which('tcsh'):
-        pytest.skip("tcsh not available")
-    script = cwd / "completion.tcsh"
-    script.write_text(completion)
-    prompt = "|candidates|"
-    pid, fd = pty.fork()
-    if pid == 0:   # child
-        os.chdir(cwd)
-        os.environ['TERM'] = 'xterm'
-        os.environ['COLUMNS'] = '999'
-        os.execvp('tcsh', ['tcsh', '-f', '-i'])
-    output = ""
+    shell: str | None = None
+    args: tuple[str, ...] = ()
+    term: str = 'dumb'
 
-    def clean(chunk):
-        return re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
+    def __init__(self, cwd):
+        self.cwd = cwd
+        self.output = ""
 
-    def read(num_prompts, timeout=10.0):
-        """read until `timeout` elapses or `num_prompts` seen, then drain"""
-        nonlocal output
+    def __enter__(self):
+        pty = pytest.importorskip('pty')
+        if not shutil.which(self.shell):
+            pytest.skip(f"{self.shell} not available")
+        self.pid, self.fd = pty.fork()
+        if self.pid == 0:  # child
+            os.chdir(self.cwd)
+            os.environ['TERM'] = self.term
+            os.environ['COLUMNS'] = '999'
+            os.execvp(self.shell, [self.shell, *self.args])
+        return self
+
+    def __exit__(self, *exc):
+        os.close(self.fd)
+        os.kill(self.pid, signal.SIGKILL)
+        os.waitpid(self.pid, 0)
+
+    def write(self, data):
+        os.write(self.fd, data.encode() if isinstance(data, str) else data)
+
+    def _read(self):
+        try:
+            chunk = os.read(self.fd, 1 << 16)
+        except OSError:
+            return None
+        return chunk or None
+
+    def read_until(self, condition, timeout=10.0, drain=0.2):
+        """read until `condition()` or `timeout`, then drain remaining output"""
         deadline = time.time() + timeout
-        while output.count(prompt) < num_prompts and time.time() < deadline:
-            if select.select([fd], [], [], 0.1)[0]:
-                try:
-                    chunk = os.read(fd, 1 << 16)
-                except OSError:
+        while not condition() and time.time() < deadline:
+            if select.select([self.fd], [], [], 0.1)[0]:
+                if (chunk := self._read()) is None:
                     break
-                if not chunk:
-                    break
-                output += clean(chunk)
-        # a command just finished, give tcsh a moment to enable its line editor again
-        while select.select([fd], [], [], 0.2)[0]:
-            output += clean(os.read(fd, 1 << 16))
-        return output
+                self.output += clean_ansi(chunk)
+        # a command just finished, give shell time to enable its line editor again
+        while select.select([self.fd], [], [], drain)[0]:
+            if (chunk := self._read()) is None:
+                break
+            self.output += clean_ansi(chunk)
+        return self.output
 
-    candidates = []
-    try:
+    def read_idle(self, idle=0.6, timeout=10.0):
+        """read until output is quiet for `idle` seconds, or `timeout`"""
+        last = time.time()
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if select.select([self.fd], [], [], 0.1)[0]:
+                if (chunk := self._read()) is None:
+                    break
+                self.output += clean_ansi(chunk)
+                last = time.time()
+            elif time.time() - last > idle:
+                break
+        return self.output
+
+
+class TcshShell(PtyShell):
+    """tcsh has no `complete -C` equivalent, so drive it with `autolist`."""
+    shell, args, term = 'tcsh', ('-f', '-i'), 'xterm'
+
+    def run(self, completion, cmdlines):
+        script = self.cwd / "completion.tcsh"
+        script.write_text(completion)
+        prompt = "|candidates|"
         # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
-        os.write(
-            fd,
-            f'set autolist\nsource {script}\nset prompt="{prompt[:1]}""{prompt[1:]}"\n'.encode())
-        read(1)
+        self.write(f'set autolist\nsource {script}\nset prompt="{prompt[:1]}""{prompt[1:]}"\n')
+        self.read_until(lambda: self.output.count(prompt) >= 1)
+        candidates = []
         for cmdline in cmdlines:
-            seen = len(output)
+            seen, prompts = len(self.output), self.output.count(prompt)
             # `autolist` lists the candidates, ^U then discards the line, \n asks for a new prompt
-            os.write(fd, cmdline.encode() + b"\t\x15\n")
-            chunk = read(output.count(prompt) + 1)[seen:].replace(prompt, "\n")
+            self.write(cmdline + "\t\x15\n")
+            chunk = self.read_until(
+                lambda prompts=prompts: self.output.count(prompt) > prompts)[seen:]
             # drop the echoed command line & the re-drawn prompt, leaving the listed candidates
             candidates.append([
-                word for line in chunk.splitlines() if line.strip() and cmdline.strip() not in line
-                for word in line.split()])
-    finally:
-        os.close(fd)
-        os.kill(pid, signal.SIGKILL)
-        os.waitpid(pid, 0)
-    return candidates
+                word for line in chunk.replace(prompt, "\n").splitlines()
+                if line.strip() and cmdline.strip() not in line for word in line.split()])
+        return candidates
+
+
+class ZshShell(PtyShell):
+    """zsh needs interactive ZLE, so drive it with `compadd` wrapped to record candidates."""
+    shell, args = 'zsh', ('-f', '-i')
+
+    def run(self, completion, cmdline, prog):
+        script = self.cwd / "completion.zsh"
+        script.write_text(completion)
+        candidate_file = self.cwd / "zsh_candidates.txt"
+        setup = self.cwd / "zsh_setup.zsh"
+        setup.write_text("setopt zle\n"
+                         "bindkey -e\n"
+                         "autoload -Uz compinit\n"
+                         "compinit -u -d {cwd}/.zcompdump\n"
+                         "compadd() {{\n"
+                         "  local -a _cap\n"
+                         '  builtin compadd -O _cap "$@"\n'
+                         "  local _c\n"
+                         '  for _c in "$_cap[@]"; do print -r -- "$_c" >> {candidate_file}; done\n'
+                         '  builtin compadd "$@"\n'
+                         "}}\n"
+                         'eval "$(<{script})"\n'
+                         "{prog}() {{ :; }}\n".format(cwd=self.cwd, candidate_file=candidate_file,
+                                                      script=script, prog=prog))
+        prompt = "|READY|"
+        self.write(f'PROMPT="{prompt}"\n')
+        self.write(f'. "{setup}"\n')
+        self.read_until(lambda: prompt in self.output)
+        # reset candidates, trigger completion on argument, clear line
+        candidate_file.write_text("")
+        self.write(cmdline + "\t")
+        self.read_idle()
+        self.write("\x15\n")
+        self.read_idle(idle=0.2)
+        return candidate_file.read_text().splitlines() if candidate_file.exists() else []
+
+
+class BashShell(PtyShell):
+    """
+    readline's post-processing (e.g. `-o filenames` appending `/` to dirs)
+    happens after `COMPREPLY` (invisible to `compgen`), so drive bash in a pty.
+    """
+    shell, args = 'bash', ('--norc', '--noprofile', '-i')
+
+    def run(self, completion, cmdlines):
+        script = self.cwd / "completion.bash"
+        script.write_text(completion)
+        prompt = "|candidates|"
+        self.write(f"source {script}; PS1='{prompt}'\n")
+        self.read_until(lambda: self.output.count(prompt) >= 1, drain=0.3)
+        candidates = []
+        for cmdline in cmdlines:
+            seen = len(self.output)
+            self.write(cmdline + "\t")
+            # typed line (echoed back) + readline's insertion
+            self.read_until(lambda cmdline=cmdline, seen=seen: cmdline in self.output[seen:],
+                            drain=0.3)
+            candidates.append(self.output[seen:])
+        self.write("\x15exit\n")  # discard the line & quit
+        self.read_until(lambda: True)
+        return candidates
+
+
+def tcsh_candidates(completion, cmdlines, cwd):
+    """Return pty-driven completion candidates for each of `cmdlines`."""
+    with TcshShell(cwd) as shell:
+        return shell.run(completion, cmdlines)
+
+
+def zsh_candidates(completion, cmdline, cwd, prog):
+    """
+    Drive an interactive zsh and return the candidates it offers for `cmdline`.
+
+    `completion` is sourced into a fresh zsh, whose `compadd` is wrapped to record
+    the candidate strings the completion functions hand to it.
+    """
+    with ZshShell(cwd) as shell:
+        return shell.run(completion, cmdline, prog)
 
 
 @pytest.fixture(scope="module")
@@ -533,68 +718,9 @@ def test_file_completion(shell, change_dir, test_parser):
 
 
 def bash_candidates(completion, cmdlines, cwd):
-    """
-    Return pty-driven completion candidates for each of `cmdlines`.
-
-    Reason: readline's post-processing (e.g. `-o filenames` appending `/` to dirs)
-    happens after `COMPREPLY` and is thus invisible to `compgen`-based tests.
-    """
-    pty = pytest.importorskip('pty')
-    if not shutil.which('bash'):
-        pytest.skip("bash not available")
-    script = cwd / "completion.bash"
-    script.write_text(completion)
-    prompt = "|candidates|"
-    pid, fd = pty.fork()
-    if pid == 0:   # child
-        os.chdir(cwd)
-        os.environ['TERM'] = 'dumb'
-        os.environ['COLUMNS'] = '999'
-        os.execvp('bash', ['bash', '--norc', '--noprofile', '-i'])
-    output = ""
-
-    def clean(chunk):
-        return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
-
-    def read(condition, timeout=10.0):
-        """read until `timeout` elapses or `condition()`, then drain"""
-        nonlocal output
-        deadline = time.time() + timeout
-        while not condition() and time.time() < deadline:
-            if select.select([fd], [], [], 0.1)[0]:
-                try:
-                    chunk = os.read(fd, 1 << 16)
-                except OSError:
-                    break
-                if not chunk:
-                    break
-                output += clean(chunk)
-        while select.select([fd], [], [], 0.3)[0]:
-            try:
-                chunk = os.read(fd, 1 << 16)
-            except OSError:
-                break
-            if not chunk:
-                break
-            output += clean(chunk)
-
-    candidates = []
-    try:
-        os.write(fd, f"source {script}; PS1='{prompt}'\n".encode())
-        read(lambda: output.count(prompt) >= 1)
-        for cmdline in cmdlines:
-            seen = len(output)
-            os.write(fd, cmdline.encode() + b"\t")
-            # the typed line is echoed back, followed by whatever readline inserted
-            read(lambda cmdline=cmdline, seen=seen: cmdline in output[seen:])
-            candidates.append(output[seen:])
-        os.write(fd, b"\x15exit\n") # discard the line & quit
-        read(lambda: True)
-    finally:
-        os.close(fd)
-        os.kill(pid, signal.SIGKILL)
-        os.waitpid(pid, 0)
-    return candidates
+    """Return pty-driven completion candidates for each of `cmdlines`."""
+    with BashShell(cwd) as shell:
+        return shell.run(completion, cmdlines)
 
 
 def test_bash_dir_collision(change_dir, test_parser):
@@ -610,15 +736,84 @@ def test_bash_dir_collision(change_dir, test_parser):
         "`-o filenames` must not apply readline filename post-processing globally"
     lines = bash_candidates(completion, ["myprog cre", "myprog create alpha sub"], change_dir)
     assert lines == [
-        "myprog create ",              # choices should take priority over dirs
-        "myprog create alpha subdir/", # dirs should still have trailing `/`
+        "myprog create ",  # choices should take priority over dirs
+        "myprog create alpha subdir/",  # dirs should still have trailing `/`
     ]
+
+
+@pytest.mark.parametrize(
+    "action", ["store_true", "store_false", "count", "store_const", "append_const", "custom"])
+def test_powershell_flag_before_positional(action, change_dir):
+    class CustomFlagAction(Action):
+        def __init__(self, option_strings, dest, **kwargs):
+            super().__init__(option_strings, dest, nargs=0, **kwargs)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            setattr(namespace, self.dest, True)
+
+    parser = ArgumentParser(prog="myprog")
+    if action == "custom":
+        parser.add_argument("--flag", action=CustomFlagAction)
+    elif action in ("store_const", "append_const"):
+        parser.add_argument("--flag", action=action, const=True)
+    else:
+        parser.add_argument("--flag", action=action)
+    parser.add_argument("dest").complete = shtab.DIRECTORY
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --flag target_") == [f"target_dir{os.sep}"]
+
+
+def test_powershell_flags_preserve_positional_progress(change_dir):
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("-v", action="count")
+    parser.add_argument("mode", choices=["fast", "slow"])
+    parser.add_argument("dest").complete = shtab.DIRECTORY
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --force -v -v f") == ["fast"]
+    assert cands("myprog fast --force -v target_") == [f"target_dir{os.sep}"]
+
+
+def test_powershell_flag_before_subcommand(change_dir):
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--force", action="store_true")
+    child = parser.add_subparsers(dest="command").add_parser("create", help="create a destination")
+    child.add_argument("--force", action="store_true")
+    child.add_argument("dest").complete = shtab.DIRECTORY
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --force cr") == ["create"]
+    assert cands("myprog --force create --force target_") == [f"target_dir{os.sep}"]
+
+
+def test_powershell_value_option_still_consumes_its_argument(change_dir):
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--format", choices=["json", "yaml"])
+    parser.add_argument("dest").complete = shtab.DIRECTORY
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --format j") == ["json"]
+    assert cands("myprog --force --format j") == ["json"]
+    assert cands("myprog --format json target_") == [f"target_dir{os.sep}"]
+    assert cands("myprog --format json --force target_") == [f"target_dir{os.sep}"]
 
 
 def test_powershell_single_token(test_parser, change_dir):
     completion = complete(test_parser, 'powershell')
     assert powershell_candidates(completion, "myprog --") == ["--help", "--repo"]
     assert powershell_candidates(completion, "myprog c") == ["create"]
+
+
+def test_powershell_case_sensitive_keys():
+    """Names differing only in case must not clash (#267)"""
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("-c", action="store_true", help="lower case")
+    parser.add_argument("-C", help="upper case")
+    subparsers = parser.add_subparsers()
+    subparsers.add_parser("a", help="lower a")
+    subparsers.add_parser("A", help="upper A")
+    completion = complete(parser, 'powershell')
+    assert powershell_candidates(completion, "myprog -") == ["-h", "--help", "-c", "-C"]
+    assert powershell_candidates(completion, "myprog ") == ["a", "A"]
 
 
 def test_fish_global_option_value(test_parser):
@@ -813,6 +1008,39 @@ def test_add_argument_to_group_typing():
     parser = ArgumentParser(prog="test")
     group = parser.add_argument_group("completion")
     assert shtab.add_argument_to(group) is group, "should return same object"
+
+
+@pytest.mark.parametrize("metavar", ["SHELL", "<shell>"])
+@pytest.mark.parametrize("grouped", [False, True])
+def test_add_argument_to_optional_metavar(metavar, grouped, capsys):
+    parser = ArgumentParser(prog="test")
+    target = parser.add_argument_group("completion") if grouped else parser
+    assert shtab.add_argument_to(target, ["-s", "--shell"], metavar=metavar) is target
+    assert f"--shell {metavar}" in parser.format_help()
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["--shell", "bash"])
+    assert exc.value.code == 0
+    assert capsys.readouterr().out.rstrip() == shtab.complete(parser, "bash").rstrip()
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["--shell", "invalid-shell"])
+    assert exc.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_add_argument_to_positional_metavar(capsys):
+    parser = ArgumentParser(prog="test")
+    sub = parser.add_subparsers().add_parser("completion")
+    shtab.add_argument_to(sub, "shell", parent=parser, metavar="SHELL")
+    assert "[SHELL]" in sub.format_help()
+    for args in (["completion", "bash"], ["completion"]):
+        with pytest.raises(SystemExit) as exc:
+            parser.parse_args(args)
+        assert exc.value.code == 0
+        assert capsys.readouterr().out.rstrip() == shtab.complete(parser, "bash").rstrip()
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["completion", "invalid-shell"])
+    assert exc.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
 
 
 @fix_shell

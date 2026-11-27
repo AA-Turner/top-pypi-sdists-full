@@ -2,7 +2,7 @@ import logging
 import traceback
 from typing import Union
 
-from sqlfluff.core.parser import BaseSegment
+from collate_sqlfluff.core.parser import BaseSegment
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
 from collate_sqllineage.core.models import (

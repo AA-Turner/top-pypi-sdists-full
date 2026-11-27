@@ -291,13 +291,15 @@ class Table:
     def __init__(
         self,
         field_specs,
-        summary_functions=[],
+        summary_functions=None,
         tableformat=None,
         max_lines=None,
         title='',
         tablewidth=None,
     ):
 
+        if summary_functions is None:
+            summary_functions = []
         self.max_lines = max_lines
         self.summary_functions = summary_functions
         self.field_specs = field_specs

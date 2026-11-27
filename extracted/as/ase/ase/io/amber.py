@@ -1,5 +1,3 @@
-# fmt: off
-
 import numpy as np
 
 import ase.units as units
@@ -7,23 +5,25 @@ import ase.units as units
 
 def write_amber_coordinates(atoms, filename):
     from scipy.io import netcdf_file
+
     with netcdf_file(filename, 'w', mmap=False) as fout:
         _write_amber_coordinates(atoms, fout)
 
 
 def read_amber_coordinates(filename):
     from scipy.io import netcdf_file
+
     with netcdf_file(filename, 'r', mmap=False) as fin:
         return _read_amber_coordinates(fin)
 
 
 def _write_amber_coordinates(atoms, fout):
     fout.Conventions = 'AMBERRESTART'
-    fout.ConventionVersion = "1.0"
+    fout.ConventionVersion = '1.0'
     fout.title = 'Ase-generated-amber-restart-file'
-    fout.application = "AMBER"
-    fout.program = "ASE"
-    fout.programVersion = "1.0"
+    fout.application = 'AMBER'
+    fout.program = 'ASE'
+    fout.programVersion = '1.0'
     fout.createDimension('cell_spatial', 3)
     fout.createDimension('label', 5)
     fout.createDimension('cell_angular', 3)
@@ -37,13 +37,11 @@ def _write_amber_coordinates(atoms, fout):
 
     natom = len(atoms)
     fout.createDimension('atom', natom)
-    coordinates = fout.createVariable('coordinates', 'd',
-                                      ('atom', 'spatial'))
+    coordinates = fout.createVariable('coordinates', 'd', ('atom', 'spatial'))
     coordinates.units = 'angstrom'
     coordinates[:] = atoms.get_positions()
 
-    velocities = fout.createVariable('velocities', 'd',
-                                     ('atom', 'spatial'))
+    velocities = fout.createVariable('velocities', 'd', ('atom', 'spatial'))
     velocities.units = 'angstrom/picosecond'
     # Amber's units of time are 1/20.455 ps
     # Any other units are ignored in restart files, so these
@@ -93,8 +91,7 @@ def _read_amber_coordinates(fin):
         all_velocities = fin.variables['velocities']
         if hasattr(all_velocities, 'units'):
             if all_velocities.units != b'angstrom/picosecond':
-                raise Exception(
-                    f'Unrecognised units {all_velocities.units}')
+                raise Exception(f'Unrecognised units {all_velocities.units}')
         if hasattr(all_velocities, 'scale_factor'):
             scale_factor = all_velocities.scale_factor
         else:
@@ -114,16 +111,15 @@ def _read_amber_coordinates(fin):
             all_angles = all_angles[-1]
         alpha, beta, gamma = all_angles
 
-        if (all(angle > 89.99 for angle in [alpha, beta, gamma]) and
-                all(angle < 90.01 for angle in [alpha, beta, gamma])):
-            atoms.set_cell(
-                np.array([[a, 0, 0],
-                          [0, b, 0],
-                          [0, 0, c]]))
+        if all(angle > 89.99 for angle in [alpha, beta, gamma]) and all(
+            angle < 90.01 for angle in [alpha, beta, gamma]
+        ):
+            atoms.set_cell(np.array([[a, 0, 0], [0, b, 0], [0, 0, c]]))
             atoms.set_pbc(True)
         else:
-            raise NotImplementedError('only rectangular cells are'
-                                      ' implemented in ASE-AMBER')
+            raise NotImplementedError(
+                'only rectangular cells are implemented in ASE-AMBER'
+            )
 
     else:
         atoms.set_pbc(False)

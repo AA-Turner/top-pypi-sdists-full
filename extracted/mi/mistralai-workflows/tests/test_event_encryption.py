@@ -2,6 +2,7 @@
 
 import base64
 import json
+from unittest.mock import patch
 
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -10,7 +11,10 @@ from mistralai.extra.workflows.encoding.config import PayloadEncryptionConfig, P
 from mistralai.extra.workflows.encoding.models import EncodedPayloadOptions
 from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 from pydantic import BaseModel
+from structlog.testing import capture_logs
+from temporalio.testing import WorkflowEnvironment
 
+from mistralai.workflows.core._events.event_context import EventContext
 from mistralai.workflows.core._events.event_encoder import (
     ENCRYPTED_PATCH_TYPE,
     EventPayloadEncoder,
@@ -37,6 +41,11 @@ from mistralai.workflows.protocol.v1.events import (
     WorkflowExecutionStarted,
     WorkflowExecutionStartedAttributes,
 )
+from mistralai.workflows.testing import create_test_worker_with_events
+
+from .fixtures_event_batch import ManualPatchEventsWorkflow
+from .fixtures_event_payload import ManualPayloadEventsWorkflow, publish_manual_payloads_activity
+from .utils import create_capturing_mock_event_publisher
 
 TEST_MAIN_KEY = AESGCM.generate_key(bit_length=128).hex()
 
@@ -119,6 +128,72 @@ def _activity_task_completed():
             task_id="act-1", activity_name="test-activity", result=JSONPayload(value=SECRET_DATA)
         ),
     )
+
+
+class TestManualEventEncryption:
+    @pytest.mark.asyncio
+    async def test_workflow_batch_preserves_partial_encryption_paths(self, temporal_env: WorkflowEnvironment) -> None:
+        events = []
+        async with EventContext(
+            create_capturing_mock_event_publisher(events),
+            payload_encoder=_create_payload_encoder(PayloadEncryptionMode.PARTIAL),
+        ):
+            async with create_test_worker_with_events(temporal_env, workflows=[ManualPatchEventsWorkflow]):
+                await temporal_env.client.execute_workflow(
+                    "manual_patch_events", id="manual-patch-encryption", task_queue="test-task-queue"
+                )
+
+        [event] = [e for e in events if isinstance(e, CustomTaskInProgress)]
+        [patch_value] = event.attributes.payload.value
+        assert patch_value.value["type"] == ENCRYPTED_PATCH_TYPE
+        assert _decrypt_value(patch_value.value["value"]) == "private"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("in_activity", "encrypted"),
+        [(False, True), (True, True), (False, False), (True, False)],
+        ids=["workflow-encrypted", "activity-encrypted", "workflow-unencrypted", "activity-unencrypted"],
+    )
+    async def test_unserializable_manual_payload_is_replaced_without_changing_valid_payloads(
+        self, temporal_env: WorkflowEnvironment, in_activity: bool, encrypted: bool
+    ) -> None:
+        events = []
+        async with EventContext(
+            create_capturing_mock_event_publisher(events),
+            payload_encoder=_create_payload_encoder() if encrypted else None,
+        ):
+            async with create_test_worker_with_events(
+                temporal_env,
+                workflows=[ManualPayloadEventsWorkflow],
+                activities=[publish_manual_payloads_activity],
+            ):
+                await temporal_env.client.execute_workflow(
+                    "manual_payload_events",
+                    in_activity,
+                    id=f"manual-payload-{in_activity}",
+                    task_queue="test-task-queue",
+                )
+
+        manual_events = [
+            event
+            for event in events
+            if isinstance(event, CustomTaskCompleted) and event.attributes.custom_task_type == "manual_payload"
+        ]
+        assert len(manual_events) == 2
+        payloads = {}
+        for event in manual_events:
+            payload = event.attributes.payload
+            assert payload is not None
+            if encrypted:
+                assert payload.encoding_options == [EncodedPayloadOptions.ENCRYPTED.value]
+                payloads[event.attributes.custom_task_id] = _decrypt_value(payload.value)
+            else:
+                assert not payload.encoding_options
+                payloads[event.attributes.custom_task_id] = payload.value
+        assert payloads == {
+            "unserializable": {"error": ErrorCode.UNSERIALIZABLE_PAYLOAD_ERROR.value},
+            "serializable": {"secret": "still-private"},
+        }
 
 
 class TestEventPayloadEncoder:
@@ -507,6 +582,28 @@ class TestUnserializablePayloads:
         event = _activity_task_started()
 
         assert _strip_unserializable_payloads(event) is event
+
+    def test_strip_does_not_log_serialization_error_message(self):
+        secret = "SYNTHETIC_SECRET"
+        event = _activity_task_started()
+
+        with (
+            patch.object(JSONPayload, "model_dump", side_effect=ValueError(secret)),
+            capture_logs() as logs,
+        ):
+            stripped = _strip_unserializable_payloads(event)
+
+        assert stripped.attributes.input.value == {"error": ErrorCode.UNSERIALIZABLE_PAYLOAD_ERROR.value}
+        assert secret not in str(logs)
+        assert logs == [
+            {
+                "event": "Replacing unserializable event payload",
+                "event_type": event.event_type,
+                "field": "input",
+                "error_type": "ValueError",
+                "log_level": "warning",
+            }
+        ]
 
     async def test_encode_falls_back_to_a_stripped_payload(self, event_encoder):
         event = ActivityTaskCompleted(

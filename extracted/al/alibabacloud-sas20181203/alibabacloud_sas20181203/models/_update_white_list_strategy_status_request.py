@@ -12,28 +12,28 @@ class UpdateWhiteListStrategyStatusRequest(DaraModel):
         status: int = None,
         strategy_ids: str = None,
     ):
-        # The language type for the request and response messages. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
-        # The source IP address of the request. You do not need to specify this parameter. The system automatically obtains this value.
+        # The source IP address of the request. You do not need to specify this parameter. The system automatically retrieves the value.
         self.source_ip = source_ip
-        # The policy status. Valid values:
-        # - **0**: Deleted.
-        # - **1**: Learning.
-        # - **2**: Paused.
-        # - **3**: Learning complete.
-        # - **4**: Active.
+        # The status of the policy. Valid values:
+        # - **0**: deleted
+        # - **1**: learning
+        # - **2**: paused
+        # - **3**: learning completed
+        # - **4**: effective
         # 
-        # > - Only a policy in the **Learning** state can be changed to the **Paused** state.
-        # > - Only a policy in the **Paused** state can be changed to the **Learning** state.
-        # > - Only a policy in the **Learning complete** state can be changed to the **Active** state.
+        # > - You can change the status from **Learning** only to **Paused**.
+        # > - You can change the status from **Paused** only to **Learning**.
+        # > - You can change the status from **Learning completed** only to **Effective**.
         # 
         # This parameter is required.
         self.status = status
         # The policy ID.
-        # >Call the [DescribeWhiteListStrategyList](~~DescribeWhiteListStrategyList~~) operation to obtain this parameter.
+        # > You can call the [DescribeWhiteListStrategyList](~~DescribeWhiteListStrategyList~~) operation to obtain the value of this parameter.
         # 
         # This parameter is required.
         self.strategy_ids = strategy_ids

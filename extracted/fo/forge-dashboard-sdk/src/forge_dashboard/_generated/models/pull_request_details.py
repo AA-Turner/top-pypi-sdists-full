@@ -31,6 +31,18 @@ class PullRequestDetails:
             comments (list[DetailsComment]): The conversation, oldest first, at most the first 50.
             comment_count (int): How many comments the forge has on the pull request.
             comments_truncated (bool): True when `commentCount` is more than the comments returned.
+            review_comment_count (int): How many review comments the pull request has, the ones on a line
+                of code, replies included. Only the number: the comments
+                themselves are not in `comments`, and `commentCount` leaves them
+                out too. A client says how many there are and links to the forge.
+                It counts what the row's `reviewComments` counts, but the two can
+                differ. On GitHub the row reads the first 30 review threads and
+                this reads the first 100, so the row can report fewer with nothing
+                new written. A Forgejo draft's row reports 0. This is also read
+                live, so it can be newer than the row.
+            review_comments_truncated (bool): True when the forge has more review threads than were counted, so
+                `reviewCommentCount` is a lower bound. GitHub only, past the first
+                100 threads; always false on Forgejo, where every review is read.
             release_notes (DetailsBody | None): For a release pull request, the release notes it will publish (a
                 release-please pull request's description is its changelog). Null
                 for any other pull request, and for a release pull request this
@@ -41,6 +53,8 @@ class PullRequestDetails:
     comments: list[DetailsComment]
     comment_count: int
     comments_truncated: bool
+    review_comment_count: int
+    review_comments_truncated: bool
     release_notes: DetailsBody | None
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -64,6 +78,10 @@ class PullRequestDetails:
 
         comments_truncated = self.comments_truncated
 
+        review_comment_count = self.review_comment_count
+
+        review_comments_truncated = self.review_comments_truncated
+
         release_notes: dict[str, Any] | None
         if isinstance(self.release_notes, DetailsBody):
             release_notes = self.release_notes.to_dict()
@@ -78,6 +96,8 @@ class PullRequestDetails:
             "comments": comments,
             "commentCount": comment_count,
             "commentsTruncated": comments_truncated,
+            "reviewCommentCount": review_comment_count,
+            "reviewCommentsTruncated": review_comments_truncated,
             "releaseNotes": release_notes,
         })
 
@@ -109,6 +129,10 @@ class PullRequestDetails:
 
         comments_truncated = d.pop("commentsTruncated")
 
+        review_comment_count = d.pop("reviewCommentCount")
+
+        review_comments_truncated = d.pop("reviewCommentsTruncated")
+
         def _parse_release_notes(data: object) -> DetailsBody | None:
             if data is None:
                 return data
@@ -132,6 +156,8 @@ class PullRequestDetails:
             comments=comments,
             comment_count=comment_count,
             comments_truncated=comments_truncated,
+            review_comment_count=review_comment_count,
+            review_comments_truncated=review_comments_truncated,
             release_notes=release_notes,
         )
 

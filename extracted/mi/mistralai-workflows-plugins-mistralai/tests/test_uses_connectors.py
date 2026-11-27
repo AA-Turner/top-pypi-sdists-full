@@ -10,13 +10,13 @@ import pytest
 
 from mistralai.workflows import get_workflow_definition, workflow
 from mistralai.workflows.core._graph import _CONNECTORS_META_KEY, _MISTRALAI_PLUGIN_KEY
-from mistralai.workflows.core.definition.workflow_definition import is_workflow_on_behalf_of
+from mistralai.workflows.core.definition.workflow_definition import is_workflow_on_behalf_of, mount_workflow
 from mistralai.workflows.plugins.mistralai.connectors import (
     ConnectorError,
     connector,
     uses_connectors,
 )
-from mistralai.workflows.plugins.mistralai.connectors.client import ToolCallClient
+from mistralai.workflows.plugins.mistralai.connectors.client import ConnectorClient
 from mistralai.workflows.plugins.mistralai.connectors.constants import (
     CONNECTORS_KEY,
     MISTRALAI_PLUGIN_KEY,
@@ -176,10 +176,10 @@ class TestNoConnectors:
 
 
 class TestConnectorSlot:
-    def test_call_returns_tool_call_client(self) -> None:
+    def test_call_returns_connector_client(self) -> None:
         slot = ConnectorSlot("github")
         client = slot()
-        assert isinstance(client, ToolCallClient)
+        assert isinstance(client, ConnectorClient)
         assert client.connector_name == "github"
         assert client._run_as is None
 
@@ -258,7 +258,7 @@ class TestConnectorRunAs:
         "build",
         [
             pytest.param(lambda: connector("slack", run_as="executor"), id="connector"),
-            pytest.param(lambda: ToolCallClient("slack", run_as="executor"), id="tool_call_client"),
+            pytest.param(lambda: ConnectorClient("slack", run_as="executor"), id="connector_client"),
         ],
     )
     def test_executor_run_as_is_rejected(self, build) -> None:
@@ -285,7 +285,8 @@ class TestRunAsDoesNotAffectOnBehalfOf:
                 return "done"
 
         assert get_workflow_definition(MyWorkflow).on_behalf_of is False
-        assert is_workflow_on_behalf_of("test-obo-auto") is False
+        with mount_workflow("test-obo-auto", MyWorkflow):
+            assert is_workflow_on_behalf_of("test-obo-auto") is False
 
     def test_default_run_as_does_not_enable_obo(self) -> None:
         @workflow.define(name="test-obo-default")
@@ -306,7 +307,8 @@ class TestRunAsDoesNotAffectOnBehalfOf:
                 return "done"
 
         assert get_workflow_definition(MyWorkflow).on_behalf_of is False
-        assert is_workflow_on_behalf_of("test-obo-deployment") is False
+        with mount_workflow("test-obo-deployment", MyWorkflow):
+            assert is_workflow_on_behalf_of("test-obo-deployment") is False
 
     def test_explicit_obo_preserved_with_auto(self) -> None:
         @workflow.define(name="test-obo-explicit", on_behalf_of=True)

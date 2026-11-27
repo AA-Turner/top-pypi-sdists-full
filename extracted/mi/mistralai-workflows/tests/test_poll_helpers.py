@@ -1,9 +1,11 @@
 import asyncio
+import json
 from typing import Any, Callable
 
 import httpx
 import pytest
 
+from mistralai.workflows.testing.constants import TEST_TASK_QUEUE
 from mistralai.workflows.testing.workflow_helpers import (
     execute_workflow_and_wait,
     poll_pending_inputs,
@@ -23,11 +25,13 @@ def no_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(asyncio, "sleep", instant_sleep)
 
 
-def _client(poll_responses: list[Responder]) -> httpx.AsyncClient:
+def _client(poll_responses: list[Responder], executions: list[httpx.Request] | None = None) -> httpx.AsyncClient:
     remaining = list(poll_responses)
 
     def handle(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/execute"):
+            if executions is not None:
+                executions.append(request)
             return httpx.Response(200, json={"execution_id": EXECUTION_ID})
         if not remaining:
             raise AssertionError("polled more times than expected")
@@ -82,8 +86,16 @@ class TestExecuteWorkflowAndWait:
         with pytest.raises(httpx.HTTPStatusError):
             await self._run(client)
 
-    async def test_client_error_propagates_immediately(self) -> None:
-        client = _client([_client_error()])
+    async def test_not_found_blip_is_tolerated(self) -> None:
+        # The execution row is not visible through the gateway immediately after creation.
+        client = _client([_client_error(), _status("COMPLETED")])
+
+        result = await self._run(client)
+
+        assert result["status"] == "COMPLETED"
+
+    async def test_persistent_not_found_propagates(self) -> None:
+        client = _client([_client_error() for _ in range(20)])
 
         with pytest.raises(httpx.HTTPStatusError):
             await self._run(client)
@@ -99,6 +111,26 @@ class TestExecuteWorkflowAndWait:
 
         with pytest.raises(TimeoutError, match="last known status: RUNNING"):
             await self._run(client, timeout_seconds=3)
+
+    @pytest.mark.parametrize(
+        ("routing", "expected_fields"),
+        [
+            ({}, {"task_queue": TEST_TASK_QUEUE}),
+            ({"task_queue": None}, {}),
+            ({"deployment_name": "deployment"}, {"deployment_name": "deployment"}),
+        ],
+        ids=["default-task-queue", "no-routing", "deployment-name-replaces-task-queue"],
+    )
+    async def test_execute_request_routing_fields(
+        self, routing: dict[str, Any], expected_fields: dict[str, Any]
+    ) -> None:
+        executions: list[httpx.Request] = []
+        client = _client([_status("COMPLETED")], executions)
+
+        async with client:
+            await execute_workflow_and_wait(client, "wf", {}, **routing)
+
+        assert [json.loads(request.content) for request in executions] == [{"input": {}, **expected_fields}]
 
 
 class TestPollWorkflowStatus:
@@ -120,8 +152,16 @@ class TestPollWorkflowStatus:
         with pytest.raises(httpx.HTTPStatusError):
             await self._run(client)
 
-    async def test_client_error_propagates_immediately(self) -> None:
-        client = _client([_client_error()])
+    async def test_not_found_blip_is_tolerated(self) -> None:
+        # The execution row is not visible through the gateway immediately after creation.
+        client = _client([_client_error(), _status("COMPLETED")])
+
+        result = await self._run(client)
+
+        assert result["status"] == "COMPLETED"
+
+    async def test_persistent_not_found_propagates(self) -> None:
+        client = _client([_client_error() for _ in range(20)])
 
         with pytest.raises(httpx.HTTPStatusError):
             await self._run(client)

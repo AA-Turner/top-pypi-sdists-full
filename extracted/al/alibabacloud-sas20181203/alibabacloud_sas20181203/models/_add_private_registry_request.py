@@ -21,11 +21,11 @@ class AddPrivateRegistryRequest(DaraModel):
         user_name: str = None,
         vpc_id: str = None,
     ):
-        # The domain name of the registry.
+        # The domain name of the repository.
         # 
         # This parameter is required.
         self.domain_name = domain_name
-        # The additional parameters for the image registry. This parameter is required when you use **quay**. The parameters include:
+        # The additional parameters for the image repository. This parameter is required when you use **quay**. The parameters include:
         # 
         # - **namespace**: The namespace.
         # - **authToken**: The authorization token.
@@ -48,9 +48,9 @@ class AddPrivateRegistryRequest(DaraModel):
         # 
         # This parameter is required.
         self.protocol_type = protocol_type
-        # The IP address of the registry.
+        # The IP address of the repository.
         # 
-        # Enter a valid IPv4 address that can be used to connect to the image registry. To specify a domain name for the image registry, use the DomainName parameter.
+        # Enter a valid IPv4 address that can be used to connect to the image repository. If you want to specify a domain name for the image repository, use the DomainName parameter.
         # 
         # This parameter is required.
         self.registry_host_ip = registry_host_ip
@@ -59,14 +59,13 @@ class AddPrivateRegistryRequest(DaraModel):
         # 
         # This parameter is required.
         self.registry_region_id = registry_region_id
-        # The type of the private image registry. Valid values:
+        # The type of the private image repository. Valid values:
         # - **harbor**: Harbor environment.
         # - **quay**: Quay environment.
         # 
         # This parameter is required.
         self.registry_type = registry_type
-        # The version of the image registry. Valid values:
-        # 
+        # The version of the image repository. Valid values:
         # 
         # - **V1**: Version 1.0.
         # - **V2**: Version 2.0.
@@ -75,7 +74,7 @@ class AddPrivateRegistryRequest(DaraModel):
         self.registry_version = registry_version
         # The number of images scanned per hour.
         self.trans_per_hour = trans_per_hour
-        # The username of the image registry.
+        # The username of the image repository.
         # 
         # This parameter is required.
         self.user_name = user_name

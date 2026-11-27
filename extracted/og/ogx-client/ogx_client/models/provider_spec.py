@@ -44,9 +44,8 @@ class ProviderSpec(BaseModel):
     pip_packages: Optional[List[Optional[StrictStr]]] = Field(default=None, description="The pip dependencies needed for this implementation")
     provider_data_validator: Optional[StrictStr] = None
     is_external: Optional[StrictBool] = Field(default=False, description="Notes whether this provider is an external provider.")
-    toolgroup_id: Optional[StrictStr] = None
     deps__: Optional[List[Optional[StrictStr]]] = None
-    __properties: ClassVar[list[str]] = ["api", "provider_type", "config_class", "api_dependencies", "optional_api_dependencies", "deprecation_warning", "deprecation_error", "module", "pip_packages", "provider_data_validator", "is_external", "toolgroup_id", "deps__"]
+    __properties: ClassVar[list[str]] = ["api", "provider_type", "config_class", "api_dependencies", "optional_api_dependencies", "deprecation_warning", "deprecation_error", "module", "pip_packages", "provider_data_validator", "is_external", "deps__"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -134,11 +133,6 @@ class ProviderSpec(BaseModel):
         if self.provider_data_validator is None and "provider_data_validator" in self.model_fields_set:
             _dict['provider_data_validator'] = None
 
-        # set to None if toolgroup_id (nullable) is None
-        # and model_fields_set contains the field
-        if self.toolgroup_id is None and "toolgroup_id" in self.model_fields_set:
-            _dict['toolgroup_id'] = None
-
         return _dict
 
     @classmethod
@@ -163,7 +157,6 @@ class ProviderSpec(BaseModel):
             "pip_packages": obj.get("pip_packages"),
             "provider_data_validator": obj.get("provider_data_validator"),
             "is_external": obj.get("is_external") if obj.get("is_external") is not None else False,
-            "toolgroup_id": obj.get("toolgroup_id"),
             "deps__": obj.get("deps__"),
             }.items() if k in obj
         })

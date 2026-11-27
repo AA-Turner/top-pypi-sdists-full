@@ -142,6 +142,7 @@ from coord.failure_triage import (
     BUCKET_INFRA,
     BUCKET_MECHANICAL,
     BUCKET_SUBSTANTIVE,
+    DiffStat,
     is_degraded_verdict,
 )
 from coord import machine_fault
@@ -187,6 +188,7 @@ from coord.merge_queue import (
     is_ci_pending_reason,
     is_ci_unreadable_reason,
     is_merge_gate_reserved_reason,
+    is_out_of_delta_full_review_reason,
     is_stale_smoke_reason as _mq_is_stale_smoke_reason,
     stale_smoke_anchor as _mq_stale_smoke_anchor,
 )
@@ -2340,11 +2342,28 @@ class GitMergeVerifier:
 
         Evidence is built from ``state.work_test_reason`` alone — the one
         failure text `coord drive` already has on hand for this issue,
-        without a second log fetch. ``diff_stat``/``declared_files``/
-        ``machine_capabilities`` are left at their empty defaults, same as
-        every other optional :func:`triage_failure` input this verifier has
-        no cheap way to produce; the deterministic infra/mechanical tiers
-        and the model tier all degrade gracefully without them.
+        without a second log fetch — and that SAME text is also forwarded
+        as ``failure_reason`` (#4130), so :func:`~coord.failure_triage.
+        triage_failure`'s deterministic infra/timeout-under-load tiers (which
+        scan ``failure_reason``/``terminal_reason`` directly, never
+        pre-extracted evidence) can actually fire for the Test stage — a
+        killed-at-timeout leg's own short, coordinator-authored marker
+        (``coord.agent.format_timeout_load_note``) carries no rustc/pytest
+        shape for `extract_failure_evidence` to pattern-match, so without
+        this it would silently fall through to the model tier instead.
+        ``diff_stat``/``declared_files``/
+        ``machine_capabilities`` are each a best-effort fetch —
+        :meth:`_diff_stat_for_test_state`/:meth:`_declared_files_for_test_state`/
+        :meth:`_machine_capabilities_for_state`. ``diff_stat``/
+        ``declared_files`` mirror what `coord.ci_fix.triage_ci_failure`
+        already feeds the SAME classifier on the CI-red edge (one
+        classifier, fed consistently, never a Test-edge call that quietly
+        runs the mechanical-confinement check blind); ``machine_
+        capabilities`` has no CI-red-edge counterpart today — the Test
+        edge is the only one with a "which host saw this" to feed. Any of
+        the three failing soft degrades that one input to its empty
+        default — the deterministic infra/mechanical tiers and the model
+        tier all degrade gracefully without them.
 
         #4100: gated by `coord.board_doctor_policy._triage_tier_enabled`
         on `self.config` — read fresh every call, so the SAME mid-run
@@ -2368,12 +2387,137 @@ class GitMergeVerifier:
             return None
         try:
             evidence = extract_failure_evidence(reason)
-            verdict = triage_failure(evidence=evidence)
+            verdict = triage_failure(
+                evidence=evidence,
+                diff_stat=self._diff_stat_for_test_state(state),
+                declared_files=self._declared_files_for_test_state(state),
+                machine_capabilities=self._machine_capabilities_for_state(state),
+                # #4130: lets the deterministic infra/timeout-under-load
+                # tiers see the same short, coordinator-authored text
+                # `evidence` was built from — see this method's own
+                # docstring for why `evidence` alone can't carry it.
+                failure_reason=reason,
+            )
         except Exception:  # noqa: BLE001 — classifier trouble must never block drive
             return None
         if is_degraded_verdict(verdict):
             return None
         return verdict
+
+    def _diff_stat_for_test_state(self, state: IssueState) -> DiffStat:
+        """Best-effort :class:`~coord.failure_triage.DiffStat` for *state*'s
+        work branch — the Test-edge counterpart of
+        `coord.ci_fix._diff_stat_for_entry`, feeding the SAME
+        mechanical-confinement check that function already feeds for the
+        CI-red and merge-failure edges (#2096). Compares *state*'s work
+        branch against the issue's own resolved base branch — the same
+        :func:`coord.branch_model.resolve_base_branch_for_issue_number`
+        call :meth:`has_scoped_review_candidate` already makes in this
+        class, falling back to `state.repo_default_branch` only when that
+        resolution itself fails. An epic-targeted issue's base is the epic
+        branch, not the repo default — comparing against the wrong one
+        would pull in every OTHER sibling issue's already-merged files,
+        making the mechanical-confinement check strictly more permissive
+        than it should be.
+
+        Fails soft to an empty ``DiffStat`` on any read failure (no
+        ``repo_github``/``work_branch`` yet, a throttled/malformed
+        compare, ...) — classification input, never a dispatch
+        precondition, same posture as every other best-effort fetch in
+        this class.
+        """
+        if not state.repo_github or not state.work_branch:
+            return DiffStat()
+        target_branch = state.repo_default_branch
+        repo_cfg = self.config.repo(state.repo) if self.config is not None else None
+        if repo_cfg is not None:
+            try:
+                from coord.branch_model import (  # noqa: PLC0415
+                    resolve_base_branch_for_issue_number,
+                )
+
+                target_branch = resolve_base_branch_for_issue_number(
+                    repo_cfg, repo_cfg.github, state.issue,
+                )
+            except Exception:  # noqa: BLE001 — fall back to the repo default
+                pass
+        try:
+            from coord import github_ops  # noqa: PLC0415
+
+            diff_text = github_ops.get_compare_diff(
+                state.repo_github, target_branch, state.work_branch,
+            )
+            if not diff_text:
+                return DiffStat()
+            return DiffStat(files=tuple(github_ops.diff_file_paths(diff_text)))
+        except Exception:  # noqa: BLE001 — see docstring
+            return DiffStat()
+
+    def _declared_files_for_test_state(self, state: IssueState) -> tuple[str, ...]:
+        """Best-effort ``## Files`` declaration for *state*'s issue —
+        read straight off the live issue body via
+        :func:`coord.overlap_predict.parse_declared_files`, the same
+        source `coord.ci_fix._fetch_issue_body`/``parse_declared_files``
+        use to feed the identical check on the CI-red edge (#2096).
+
+        Fails soft to ``()`` on any read failure (``gh`` missing,
+        rate-limited, a network blip, no recognised ``## Files`` block) —
+        classification input, never a dispatch precondition.
+        """
+        if not state.repo_github:
+            return ()
+        try:
+            from coord import github_ops  # noqa: PLC0415
+            from coord.overlap_predict import parse_declared_files  # noqa: PLC0415
+
+            issue_data = github_ops.get_issue(state.repo_github, state.issue)
+            body = str(issue_data.get("body") or "")
+            return tuple(parse_declared_files(body))
+        except Exception:  # noqa: BLE001 — see docstring
+            return ()
+
+    def _machine_capabilities_for_state(self, state: IssueState) -> tuple[str, ...]:
+        """The capabilities the machine that ran *state*'s Test leg
+        advertises — feeds `triage_failure`'s repro-capability inference,
+        so a mechanical verdict can say whether the SAME machine class can
+        reproduce the failure instead of guessing from the issue text
+        alone.
+
+        Reads `state.smoke_machine` — the Test stage's OWN child
+        (`type="smoke"`) assignment's host — never `state.work_machine`.
+        `coord.smoke.rank_smoke_machines` routes the Test stage
+        independently of the work leg (preferring it, not pinning to it),
+        so the two can genuinely differ.
+
+        Returns ``()`` — never raises, never guesses — for every case
+        where "the machine" isn't a single well-defined answer:
+
+        - the Test stage fanned out across more than one capability
+          partition (`coord.smoke_tags._parse_fanout_manifest` finds more
+          than one leg in `state.work_test_reason`'s manifest) — there is
+          no SINGLE machine to attribute the failure to, so this reports
+          "can't attribute" rather than crediting one leg's host to all of
+          them;
+        - no smoke child row recorded yet (`state.smoke_machine` empty);
+        - that machine name no longer resolves in `self.config` (removed,
+          renamed, or no config at all).
+        """
+        if self.config is None:
+            return ()
+        try:
+            from coord.smoke_tags import _parse_fanout_manifest  # noqa: PLC0415
+
+            legs = _parse_fanout_manifest(state.work_test_reason)
+        except Exception:  # noqa: BLE001 — see docstring: never guess
+            return ()
+        if legs is not None and len(legs) > 1:
+            return ()  # fanned out across multiple machines — no single answer
+        if not state.smoke_machine:
+            return ()
+        machine = next(
+            (m for m in self.config.machines if m.name == state.smoke_machine), None,
+        )
+        return tuple(machine.capabilities) if machine is not None else ()
 
     def has_scoped_review_candidate(self, state: IssueState) -> bool:
         """#4114: True when a prior APPROVED review for *state*'s work row
@@ -5041,6 +5185,7 @@ def _effective_merge_gate_reason(
         or is_ci_flaky_reason(state.merge_reason)
         or is_ci_unreadable_reason(state.merge_reason)
         or is_merge_gate_reserved_reason(state.merge_reason)
+        or is_out_of_delta_full_review_reason(state.merge_reason)
     ):
         return state.merge_reason, False
     fallback = _extract_gate_refusal_reason(counters.last_merge_diagnostic)
@@ -5964,6 +6109,38 @@ def _decide_merge(
                 "coord merge returned non-zero (or the merge lock timed out) "
                 "while re-checking the merge-gate reservation — re-checking "
                 "next poll"
+            ),
+            serialize_merge=True,
+        )
+
+    # The out-of-delta merge gate (`coord.merge_queue.
+    # is_out_of_delta_full_review_reason`) is the identical self-refreshing
+    # shape as the merge-gate reservation just above: a scoped re-review
+    # chain flagged something outside its own delta (or approved without
+    # resolving a prior finding), and the merge-queue gate itself already
+    # auto-dispatches the one full review that clears it
+    # (`dispatch_full_review_for_out_of_delta_gate`) the moment this reason
+    # is produced. Nothing about retrying resolves it faster than that
+    # review landing a verdict — but nothing else on this driver's own path
+    # re-reads the board to notice it cleared either, so this re-checks
+    # every poll, attempt-exempt, the same as the reservation case. A
+    # retry that finds the review still pending/in flight is a no-op on the
+    # dispatch side (`dispatch_review`'s own dedupe), so repeating this does
+    # not risk a second dispatch.
+    if is_out_of_delta_full_review_reason(state.merge_reason):
+        aid = state.merge_aid or state.work_aid
+        return Action(
+            kind=RUN,
+            label=(
+                "MERGE: out-of-delta gate requires a full review — "
+                f"re-checking, not spending an attempt: {state.merge_reason}"
+            ),
+            command=("merge", "--only", aid, "--method", opts.merge_method),
+            on_error="warn",
+            error_message=(
+                "coord merge returned non-zero (or the merge lock timed out) "
+                "while re-checking the out-of-delta full-review gate — "
+                "re-checking next poll"
             ),
             serialize_merge=True,
         )

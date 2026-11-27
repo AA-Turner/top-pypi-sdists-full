@@ -12,6 +12,7 @@ class GetRouteTargetGroupResponseBody(DaraModel):
         self,
         config_mode: str = None,
         create_time: str = None,
+        ip_version: str = None,
         region_id: str = None,
         request_id: str = None,
         resource_group_id: str = None,
@@ -29,6 +30,8 @@ class GetRouteTargetGroupResponseBody(DaraModel):
         self.config_mode = config_mode
         # The time when the route target group was created. The time is displayed in UTC and follows the ISO 8601 standard in the YYYY-MM-DDThh:mm:ssZ format.
         self.create_time = create_time
+        # This parameter is required.
+        self.ip_version = ip_version
         # The ID of the region where the VPC to which the route target group belongs is deployed. You can call the DescribeRegions operation to query the region ID.
         self.region_id = region_id
         # The request ID.
@@ -80,6 +83,9 @@ class GetRouteTargetGroupResponseBody(DaraModel):
         if self.create_time is not None:
             result['CreateTime'] = self.create_time
 
+        if self.ip_version is not None:
+            result['IpVersion'] = self.ip_version
+
         if self.region_id is not None:
             result['RegionId'] = self.region_id
 
@@ -123,6 +129,9 @@ class GetRouteTargetGroupResponseBody(DaraModel):
 
         if m.get('CreateTime') is not None:
             self.create_time = m.get('CreateTime')
+
+        if m.get('IpVersion') is not None:
+            self.ip_version = m.get('IpVersion')
 
         if m.get('RegionId') is not None:
             self.region_id = m.get('RegionId')

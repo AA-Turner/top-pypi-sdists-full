@@ -480,7 +480,9 @@ def write_bag_trajectory(
 def save_res_file(
     zip_path: PathStrHandle,
     result_obj: result.Result,
+    *,
     confirm_overwrite: bool = False,
+    compress: bool = True,
 ) -> None:
     """
     save results to a zip file that can be deserialized with load_res_file()
@@ -488,6 +490,7 @@ def save_res_file(
     :param result_obj: evo.core.result.Result instance
     :param confirm_overwrite: whether to require user interaction
            to overwrite existing files
+    :param compress: whether to deflate-compress the zip file contents
     """
     if isinstance(zip_path, (str, Path)):
         logger.debug("Saving results to %s...", zip_path)
@@ -495,7 +498,8 @@ def save_res_file(
             zip_path
         ):
             return
-    with zipfile.ZipFile(zip_path, "w") as archive:
+    compression = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
+    with zipfile.ZipFile(zip_path, "w", compression=compression) as archive:
         archive.writestr("info.json", json.dumps(result_obj.info))
         archive.writestr("stats.json", json.dumps(result_obj.stats))
         for name, array in result_obj.np_arrays.items():
@@ -555,13 +559,16 @@ def load_res_file(
                 name = Path(filename).stem
                 result_obj.add_np_array(name, array)
         if load_trajectories:
+            # Strip only the format suffix added by save_res_file() so the
+            # original trajectory name / path is preserved.
             tum_files = [f for f in file_list if f.endswith(".tum")]
             for filename in tum_files:
                 with io.TextIOWrapper(
                     archive.open(filename, mode="r")
                 ) as traj_buffer:
                     traj = read_tum_trajectory_file(traj_buffer)
-                    name = Path(filename).stem
+                    name = filename.removesuffix(".tum")
+                    traj.name = name
                     result_obj.add_trajectory(name, traj)
             kitti_files = [f for f in file_list if f.endswith(".kitti")]
             for filename in kitti_files:
@@ -569,7 +576,8 @@ def load_res_file(
                     archive.open(filename, mode="r")
                 ) as path_buffer:
                     path = read_kitti_poses_file(path_buffer)
-                    name = Path(filename).stem
+                    name = filename.removesuffix(".kitti")
+                    path.name = name
                     result_obj.add_trajectory(name, path)
     return result_obj
 

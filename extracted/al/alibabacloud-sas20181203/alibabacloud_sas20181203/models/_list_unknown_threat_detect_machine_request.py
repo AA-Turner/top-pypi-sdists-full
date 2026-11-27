@@ -25,7 +25,7 @@ class ListUnknownThreatDetectMachineRequest(DaraModel):
         # - **4**: confirmed
         # - **8**: marked as false positive
         # - **16**: processing
-        # - **32**: handled
+        # - **32**: resolved
         # - **64**: expired
         # - **604**: marked as false positive by the system
         self.event_status = event_status
@@ -42,8 +42,8 @@ class ListUnknownThreatDetectMachineRequest(DaraModel):
         self.status = status
         # The whitelist mode. Valid values:
         # 
-        # - **hash**: the hash of the process
-        # - **path**: the path of the process
+        # - **hash**: process hash
+        # - **path**: process path
         self.study_mode = study_mode
         # The end time of the time range when the model was created. The value is a UNIX timestamp in milliseconds.
         self.study_time_end = study_time_end

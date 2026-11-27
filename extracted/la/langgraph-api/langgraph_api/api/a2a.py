@@ -42,6 +42,7 @@ from langgraph_api.api.a2ui import (
 from langgraph_api.config import (
     A2A_A2UI_ENABLED,
     A2A_A2UI_TOOL_CALL_RESULTS,
+    A2A_ALLOWED_DATA_MIME_TYPES,
     A2A_ALLOWED_TOOL_CALL_RESULTS,
 )
 from langgraph_api.errors import UserInterrupt, UserRollback
@@ -1190,6 +1191,29 @@ def _content_block_to_a2a_file_part(block: dict[str, Any]) -> dict[str, Any]:
     return {"kind": "file", "file": file_obj}
 
 
+def _data_block_to_a2a_part(
+    block: dict[str, Any],
+    *,
+    a2ui: A2UIContext,
+    a2ui_direction: Literal["client", "server"],
+) -> dict[str, Any] | None:
+    metadata = block.get("metadata") if isinstance(block.get("metadata"), dict) else {}
+    mime_type = metadata.get("mimeType")
+    if is_a2ui_mime_type(mime_type):
+        return a2ui.part_for(block.get("data"), metadata, direction=a2ui_direction)
+    if mime_type not in A2A_ALLOWED_DATA_MIME_TYPES:
+        return None
+    data = block.get("data")
+    if not isinstance(data, dict):
+        if a2ui.drop_invalid:
+            logger.warning("Dropping non-object data block", mime_type=mime_type)
+            return None
+        raise InvalidAgentResponseError(
+            f"Data content block with mimeType '{mime_type}' must contain a JSON object."
+        )
+    return {"kind": "data", "data": data, "metadata": metadata}
+
+
 def _content_to_a2a_parts(
     content: Any,
     *,
@@ -1219,12 +1243,9 @@ def _content_to_a2a_parts(
             if isinstance(text, str):
                 text_parts.append(text)
         elif isinstance(block, dict) and block.get("type") == "data":
-            metadata = (
-                block.get("metadata") if isinstance(block.get("metadata"), dict) else {}
+            part = _data_block_to_a2a_part(
+                block, a2ui=a2ui, a2ui_direction=a2ui_direction
             )
-            if not is_a2ui_mime_type(metadata.get("mimeType")):
-                continue
-            part = a2ui.part_for(block.get("data"), metadata, direction=a2ui_direction)
             if part is not None:
                 flush_text()
                 parts.append(part)

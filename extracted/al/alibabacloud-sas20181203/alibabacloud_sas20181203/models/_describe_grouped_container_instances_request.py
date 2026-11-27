@@ -11,36 +11,39 @@ class DescribeGroupedContainerInstancesRequest(DaraModel):
         current_page: int = None,
         field_value: str = None,
         group_field: str = None,
+        include_multicloud: bool = None,
         logical_exp: str = None,
         page_size: int = None,
     ):
-        # The conditions for searching assets. This parameter is in JSON format. Separate multiple conditions with commas (,). Example: `[{"name":"riskStatus","value":"YES"},{"name":"riskLevel","value":"2"}]`.
-        # > You can search for assets by instance ID, instance name, VPC ID, region, public IP address, and other conditions. Call [DescribeCriteria](~~DescribeCriteria~~) to query the supported search conditions.
+        # The conditions for searching assets. The value is in JSON format. Separate multiple conditions with commas (,). Example: `[{"name":"riskStatus","value":"YES"},{"name":"riskLevel","value":"2"}]`.
+        # > You can search for assets by using conditions such as the instance ID, instance name, VPC ID, region, and public IP address. You can call the [DescribeCriteria](~~DescribeCriteria~~) operation to query the supported search conditions.
         self.criteria = criteria
-        # The page number of the page to return. Default value: **1**, which indicates that the first page is returned.
+        # The page number of the page to return. Default value: **1**.
         self.current_page = current_page
-        # The search condition for the specified group type. Set the search condition based on the type specified by GroupField:
-        # - If **GroupField** is set to **pod**: specify the pod name to query.
-        # - If **GroupField** is set to **appName**: specify the application name to query.
-        # - If **GroupField** is set to **namespace**: specify the namespace to query.
-        # - If **GroupField** is set to **clusterId**: specify the cluster ID to query.
-        # - If **GroupField** is set to **image**: specify the image name to query.
-        # > All the preceding search conditions support fuzzy match.
+        # The search condition for different group types. Specify the search condition based on the value of GroupField:
+        # - If **GroupField** is set to **pod**, specify the name of the pod to query.
+        # - If **GroupField** is set to **appName**, specify the name of the application to query.
+        # - If **GroupField** is set to **namespace**, specify the namespace to query.
+        # - If **GroupField** is set to **clusterId**, specify the ID of the cluster to query.
+        # - If **GroupField** is set to **image**, specify the name of the image to query.
+        # > Fuzzy search is supported for all the preceding search conditions.
         self.field_value = field_value
         # The group type to query. Valid values:
-        # - **pod**: pod
-        # - **appName**: application name
-        # - **namespace**: namespace
-        # - **clusterId**: cluster ID
+        # - **pod**: pod.
+        # - **appName**: application name.
+        # - **namespace**: namespace.
+        # - **clusterId**: cluster ID.
         # - **image**: image.
         # 
         # This parameter is required.
         self.group_field = group_field
+        # Specifies whether to enable the unified multi-cloud directory. This parameter takes effect only when GroupField is set to clusterId. If this parameter is omitted or set to false, the historical query logic is used.
+        self.include_multicloud = include_multicloud
         # The logical relationship among multiple search conditions. Valid values:
-        # - **OR**: The search conditions are evaluated with a logical OR.
-        # - **AND**: The search conditions are evaluated with a logical AND.
+        # - **OR**: The logical relationship among multiple conditions is **OR**.
+        # - **AND**: The logical relationship among multiple conditions is **AND**.
         self.logical_exp = logical_exp
-        # The number of container assets to display on each page when paging is used. Default value: **20**, which indicates that 20 container assets are displayed on each page.
+        # Settings for paging in a paged query, specifying the number of container assets to return on each page. Default value: **20**, which indicates that 20 container asset entries are displayed on each page.
         # > Do not leave PageSize empty.
         self.page_size = page_size
 
@@ -64,6 +67,9 @@ class DescribeGroupedContainerInstancesRequest(DaraModel):
         if self.group_field is not None:
             result['GroupField'] = self.group_field
 
+        if self.include_multicloud is not None:
+            result['IncludeMulticloud'] = self.include_multicloud
+
         if self.logical_exp is not None:
             result['LogicalExp'] = self.logical_exp
 
@@ -85,6 +91,9 @@ class DescribeGroupedContainerInstancesRequest(DaraModel):
 
         if m.get('GroupField') is not None:
             self.group_field = m.get('GroupField')
+
+        if m.get('IncludeMulticloud') is not None:
+            self.include_multicloud = m.get('IncludeMulticloud')
 
         if m.get('LogicalExp') is not None:
             self.logical_exp = m.get('LogicalExp')

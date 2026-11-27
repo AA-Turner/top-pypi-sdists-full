@@ -25,55 +25,48 @@ class CreateOpaStrategyNewShrinkRequest(DaraModel):
         un_scaned_image: bool = None,
         white_list: List[str] = None,
     ):
-        # The risks that you want to detect by using the rule.
+        # The details of the alert content included in the policy.
         self.alarm_detail_shrink = alarm_detail_shrink
         # The cluster ID.
-        # 
-        # > This parameter is deprecated.
+        # >Notice: **[Deprecated]**</notice>
         self.cluster_id = cluster_id
         # The cluster name.
         # 
-        # > This parameter is deprecated.
+        # >Notice: **[Deprecated]**</notice>
         self.cluster_name = cluster_name
-        # The rule description.
+        # The policy description.
         self.description = description
-        # The image names.
+        # The list of image names.
         self.image_name = image_name
-        # The container tags.
+        # The list of container labels.
         self.label = label
-        # Specifies whether the rule supports malicious Internet images. Valid values:
+        # Specifies whether the policy supports malicious images from the Internet. Valid values:
         # 
-        # - **true**
-        # 
-        # - **false**
+        # - **true**: Supported.
+        # - **false**: Not supported.
         self.malicious_image = malicious_image
-        # The action that is performed when the rule is hit. Valid values:
+        # The action to perform when the policy is matched. Valid values:
         # 
-        # - **1**: trigger alerts
-        # 
-        # - **2**: block
-        # 
-        # - **3**: allow
+        # - **1**: Alert.
+        # - **2**: Block.
+        # - **3**: Allow.
         self.rule_action = rule_action
-        # The application scope of the rule.
+        # The list of policy scopes.
         self.scopes = scopes
-        # The rule ID.
+        # The policy ID.
+        # >You can call the [ListOpaClusterStrategyNew](https://help.aliyun.com/document_detail/2623574.html) operation to obtain this parameter.
         # 
-        # > You can call the [ListOpaClusterStrategyNew](https://help.aliyun.com/document_detail/2623574.html) operation to query the rule ID.
-        # 
-        # > This parameter is invalid when you create a rule.
+        # <notice>This parameter does not take effect when you create a policy.
         self.strategy_id = strategy_id
-        # The rule name.
+        # The policy name.
         self.strategy_name = strategy_name
-        # The ID of the rule template.
-        # 
-        # > You can call the [GetOpaStrategyTemplateSummary](https://help.aliyun.com/document_detail/2539952.html) operation to query the ID of the rule template.
+        # The policy template ID.
+        # >You can call the [GetOpaStrategyTemplateSummary](https://help.aliyun.com/document_detail/2539952.html) operation to obtain this parameter.
         self.strategy_template_id = strategy_template_id
-        # Specifies whether the rule supports unscanned images. Valid values:
+        # Specifies whether the policy supports unscanned images. Valid values:
         # 
-        # - **true**
-        # 
-        # - **false**
+        # - **true**: Supported.
+        # - **false**: Not supported.
         self.un_scaned_image = un_scaned_image
         # The whitelist.
         self.white_list = white_list
@@ -192,23 +185,21 @@ class CreateOpaStrategyNewShrinkRequestScopes(DaraModel):
         cluster_id: str = None,
         namespace_list: List[str] = None,
     ):
-        # The ID of the cluster node to which the rule is applied.
+        # The instance ID of the policy in the cluster.
         # 
-        # > This parameter is not required when you create the instance.
+        # >Notice: This parameter is not required when you create a policy.
         self.ack_policy_instance_id = ack_policy_instance_id
-        # Specifies whether to include all namespaces. Valid values:
+        # Specifies whether all namespaces are included. Valid values:
         # 
-        # - **1**: includes all namespaces.
-        # 
-        # - **0**: does not include all namespaces.
+        # - **1**: Yes.
+        # - **0**: No.
         self.all_namespace = all_namespace
-        # The ID of the cluster that is specified in the rule.
-        # 
-        # > You can call the [DescribeGroupedContainerInstances](https://help.aliyun.com/document_detail/421736.html) operation to query the cluster ID.
+        # The ID of the cluster included in the policy.
+        # >You can call the [DescribeGroupedContainerInstances](https://help.aliyun.com/document_detail/421736.html) operation to obtain this parameter.
         self.cluster_id = cluster_id
-        # The namespaces.
+        # The list of namespaces.
         # 
-        # > This parameter is valid only when the AllNamespace parameter is set to 0.
+        # >Notice: This parameter takes effect only when AllNamespace is set to 0.
         self.namespace_list = namespace_list
 
     def validate(self):

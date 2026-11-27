@@ -15,22 +15,20 @@ class ListHoneypotPresetRequest(DaraModel):
         page_size: int = None,
         preset_name: str = None,
     ):
-        # The number of the page to return. Default value: **1**.
+        # The page number of the page to return. Default value: **1**.
         self.current_page = current_page
         # The name of the honeypot image.
         self.honeypot_image_name = honeypot_image_name
-        # The language of the content within the request and response. Valid values:
-        # 
-        # *   **zh**: Chinese
-        # *   **en**: English
+        # The language of the request and response. Valid values:
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
-        # The ID of the management node.
+        # The unique ID of the honeypot management node.
         self.node_id = node_id
-        # The name of the management node.
+        # The name of the honeypot management node.
         self.node_name = node_name
-        # The number of entries to return on each page. Default value: 20. If you leave this parameter empty, 20 entries are returned on each page.
-        # 
-        # > We recommend that you do not leave this parameter empty.
+        # The maximum number of entries to return on each page in a paged query. The default number of entries per page in paging is 20. If the pagesize parameter is empty, 20 entries are returned by default.
+        # > Do not leave this parameter empty.
         self.page_size = page_size
         # The custom name of the honeypot template.
         self.preset_name = preset_name

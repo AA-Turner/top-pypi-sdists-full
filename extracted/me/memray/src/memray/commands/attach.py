@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import importlib.machinery
 import os
 import pathlib
 import platform
@@ -11,7 +12,6 @@ import signal
 import socket
 import subprocess
 import sys
-import sysconfig
 import tempfile
 import textwrap
 import threading
@@ -19,7 +19,6 @@ import threading
 import memray
 from memray._errors import MemrayCommandError
 
-from .live import LiveCommand
 from .run import _get_free_port
 
 try:
@@ -134,17 +133,20 @@ elif {mode!r} == "FOR_DURATION":
 
 def debugger_inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
     """Execute a file in a running Python process using a debugger."""
-    # The injecter is a limited-API extension, so its filename carries an ABI
-    # tag. That tag is normally "abi3", but free-threaded builds get their own
-    # stable ABI ("abi3t") starting in 3.15 (PEP 803). Earlier free-threaded
-    # builds (e.g. 3.14t) still use "abi3".
-    free_threaded = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
-    if free_threaded and sys.version_info >= (3, 15):
-        abi = "abi3t"
+    parent_dir = pathlib.Path(memray._memray.__file__).parent
+    possible_injecters = [
+        parent_dir / f"_inject{suffix}"
+        for suffix in importlib.machinery.EXTENSION_SUFFIXES
+    ]
+
+    for injecter in possible_injecters:
+        if injecter.exists():
+            break
     else:
-        abi = "abi3"
-    injecter = pathlib.Path(memray._memray.__file__).parent / f"_inject.{abi}.so"
-    assert injecter.exists()
+        raise RuntimeError(
+            "Can't find the _inject extension for this Python version. "
+            f" Tried: {[str(x) for x in possible_injecters]}"
+        )
 
     gdb_cmd = [
         "gdb",
@@ -368,28 +370,6 @@ class ErrorReaderThread(threading.Thread):
 
 
 class _DebuggerCommand:
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--method",
-            help="Method to use for injecting commands into the remote process",
-            type=str,
-            default="auto",
-            choices=["auto", "sys.remote_exec", "gdb", "lldb"],
-        )
-
-        parser.add_argument(
-            "-v",
-            "--verbose",
-            help="Print verbose debugging information.",
-            action="store_true",
-        )
-
-        parser.add_argument(
-            "pid",
-            help="Process id to affect",
-            type=int,
-        )
-
     def resolve_debugger(self, method: str, *, verbose: bool = False) -> str:
         if method == "auto":
             # Prefer gdb on Linux but lldb on macOS
@@ -441,72 +421,6 @@ class _DebuggerCommand:
 
 
 class AttachCommand(_DebuggerCommand):
-    """Begin tracking allocations in an already-started process"""
-
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "-o",
-            "--output",
-            metavar="FILE",
-            help=(
-                "Capture allocations into the given file"
-                " instead of starting a live tracking session"
-            ),
-        )
-        parser.add_argument(
-            "-f",
-            "--force",
-            help="If the output file already exists, overwrite it",
-            action="store_true",
-            default=False,
-        )
-
-        parser.add_argument(
-            "--aggregate",
-            help="Write aggregated stats to the output file instead of all allocations",
-            action="store_true",
-            default=False,
-        )
-
-        parser.add_argument(
-            "--native",
-            help="Track native (C/C++) stack frames as well",
-            action="store_true",
-            dest="native",
-            default=False,
-        )
-        parser.add_argument(
-            "--follow-fork",
-            action="store_true",
-            help="Record allocations in child processes forked from the tracked script",
-            default=False,
-        )
-        parser.add_argument(
-            "--trace-python-allocators",
-            action="store_true",
-            help="Record allocations made by the pymalloc allocator",
-            default=False,
-        )
-        compression = parser.add_mutually_exclusive_group()
-        compression.add_argument(
-            "--compress-on-exit",
-            help="Compress the resulting file using lz4 after tracking completes",
-            default=True,
-            action="store_true",
-        )
-        compression.add_argument(
-            "--no-compress",
-            help="Do not compress the resulting file using lz4",
-            default=False,
-            action="store_true",
-        )
-
-        parser.add_argument(
-            "--duration", type=int, help="Duration to track for (in seconds)"
-        )
-
-        super().prepare_parser(parser)
-
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         verbose = args.verbose
         mode: TrackingMode = "ACTIVATE"
@@ -581,6 +495,12 @@ class AttachCommand(_DebuggerCommand):
         # already exited. If so we must ignore the extra KeyboardInterrupt.
         error_reader = ErrorReaderThread(client)
         error_reader.start()
+
+        # Imported lazily so that `memray attach -o <file>` (which never shows
+        # the live TUI) doesn't import the TUI, and therefore doesn't import
+        # textual/rich.
+        from .live import LiveCommand
+
         live = LiveCommand()
 
         with contextlib.suppress(KeyboardInterrupt):
@@ -602,8 +522,6 @@ class AttachCommand(_DebuggerCommand):
 
 
 class DetachCommand(_DebuggerCommand):
-    """End the tracking started by a previous ``memray attach`` call"""
-
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         verbose = args.verbose
         mode: TrackingMode = "DEACTIVATE"

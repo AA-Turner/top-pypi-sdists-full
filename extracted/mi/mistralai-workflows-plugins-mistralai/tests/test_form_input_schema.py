@@ -24,7 +24,7 @@ from mistralai.workflows.conversational import (
 )
 from mistralai.workflows.core._events.event_context import EventContext
 from mistralai.workflows.testing import (
-    create_capturing_mock_events_client,
+    create_capturing_mock_event_publisher,
     create_test_worker_with_events,
     wait_for_pending_inputs,
 )
@@ -306,7 +306,7 @@ def extract_label_from_events(captured_events: list[Any]) -> str | None:
 @pytest.mark.asyncio
 async def test_text_field_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -342,7 +342,7 @@ async def test_text_field_schema_in_event(temporal_env: WorkflowEnvironment) -> 
 @pytest.mark.asyncio
 async def test_text_field_with_pattern_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -376,7 +376,7 @@ async def test_text_field_with_pattern_in_event(temporal_env: WorkflowEnvironmen
 @pytest.mark.asyncio
 async def test_number_field_with_bounds_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -411,7 +411,7 @@ async def test_number_field_with_bounds_in_event(temporal_env: WorkflowEnvironme
 @pytest.mark.asyncio
 async def test_datetime_field_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -445,7 +445,7 @@ async def test_datetime_field_in_event(temporal_env: WorkflowEnvironment) -> Non
 @pytest.mark.asyncio
 async def test_date_field_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -480,7 +480,7 @@ async def test_date_field_in_event(temporal_env: WorkflowEnvironment) -> None:
 async def test_single_choice_field_in_event(temporal_env: WorkflowEnvironment) -> None:
     """Test that SingleChoice generates oneOf schema with const values."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -522,7 +522,7 @@ async def test_single_choice_field_in_event(temporal_env: WorkflowEnvironment) -
 @pytest.mark.asyncio
 async def test_complete_rfc_form_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -579,7 +579,7 @@ async def test_complete_rfc_form_schema_in_event(temporal_env: WorkflowEnvironme
 @pytest.mark.asyncio
 async def test_form_input_label_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -724,7 +724,7 @@ def test_single_choice_simple_strings_validation() -> None:
 async def test_multi_choice_field_in_event(temporal_env: WorkflowEnvironment) -> None:
     """Test that MultiChoice generates array schema with anyOf items."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -868,7 +868,7 @@ def test_multi_choice_all_options_selected() -> None:
 @pytest.mark.asyncio
 async def test_single_file_field_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -903,7 +903,7 @@ async def test_single_file_field_schema_in_event(temporal_env: WorkflowEnvironme
 @pytest.mark.asyncio
 async def test_multi_file_field_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -972,7 +972,7 @@ def test_file_field_multiple_validation() -> None:
 @pytest.mark.asyncio
 async def test_accept_decline_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -1015,7 +1015,7 @@ async def test_accept_decline_schema_in_event(temporal_env: WorkflowEnvironment)
 @pytest.mark.asyncio
 async def test_confirmation_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -1092,7 +1092,7 @@ def test_is_accepted_returns_false_for_decline() -> None:
 async def test_form_with_prefilled_values_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     """Test that emitted workflow event schema includes initial values as 'default' hints."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -1177,7 +1177,7 @@ class InvalidInitialValuesFormWorkflow(InteractiveWorkflow):
 async def test_invalid_prefilled_values_ignored_in_event(temporal_env: WorkflowEnvironment) -> None:
     """Invalid initial values should be silently dropped from the emitted schema."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -1218,7 +1218,7 @@ async def test_invalid_prefilled_values_ignored_in_event(temporal_env: WorkflowE
 @pytest.mark.asyncio
 async def test_single_file_with_metadata_field_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -1265,7 +1265,7 @@ async def test_single_file_with_metadata_field_schema_in_event(temporal_env: Wor
 @pytest.mark.asyncio
 async def test_multi_file_with_metadata_field_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(

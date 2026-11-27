@@ -120,7 +120,7 @@ def test_cellaware_bfgs():
     assert steps[0] == steps[1]
 
 
-def test_elasticity_tensor():
+def test_elasticity_tensor_bfgs():
     """Calculate the exact elasticity tensor. Create an optimizer with
     that exact hessian, and deform it slightly and verify that within
     the quadratic reqion, it only takes one step to get back.

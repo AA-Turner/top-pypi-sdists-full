@@ -507,6 +507,42 @@ def test_prefered_encoder():
         assert "libx264" == get_first_available_h264_encoder()
 
 
+def test_write_frames_windowed_stderr_fallback():
+    import io
+    import os
+    from unittest import mock
+    from imageio_ffmpeg import _io
+
+    captured = {}
+
+    class DummyProc:
+        def __init__(self, *args, **kwargs):
+            captured["stderr"] = kwargs.get("stderr")
+            self.stdin = io.BytesIO()
+            self.stdout = io.BytesIO()
+
+        def poll(self):
+            return 0
+
+        def wait(self, timeout=None):
+            return 0
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_path = os.path.join(tmpdir, "out.mp4")
+        with (
+            mock.patch.object(_io, "ISWIN", True),
+            mock.patch.object(_io, "get_ffmpeg_exe", return_value="ffmpeg"),
+            mock.patch.object(_io.sys, "stderr", None),
+            mock.patch.object(_io.subprocess, "Popen", DummyProc),
+        ):
+            gen = _io.write_frames(out_path, (16, 16), codec="libx264")
+            gen.send(None)
+            gen.send(b"\x00" * (16 * 16 * 3))
+            gen.close()
+
+    assert captured["stderr"] == subprocess.DEVNULL
+
+
 if __name__ == "__main__":
     setup_module()
     test_ffmpeg_version()
@@ -527,3 +563,17 @@ if __name__ == "__main__":
     test_write_macro_block_size()
     test_write_big_frames()
     test_write_audio_path()
+    test_write_frames_windowed_stderr_fallback()
+
+
+def test_read_interrupted_recording():
+    # A recording cut off before its moov atom was written (e.g. the camera lost power)
+    with open(test_file1, "rb") as f:
+        data = f.read()
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+        f.write(data[: len(data) // 2])
+    fname = f.name
+
+    with raises(IOError) as info:
+        next(imageio_ffmpeg.read_frames(fname))
+    assert "no moov atom" in str(info.value)

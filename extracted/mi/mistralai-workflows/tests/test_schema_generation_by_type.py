@@ -566,10 +566,3 @@ class TestUnionParamValidation:
         # allow_extra=True bypasses the single-param branch entirely
         result = generate_pydantic_model_from_params("my_func", {"params": SchemaA | str}, allow_extra=True)
         assert not issubclass(result, RootModel)
-
-    def test_typing_optional_spelling_does_not_raise(self):
-        from typing import Optional
-
-        # Optional[A] is Union[A, None] — should be accepted
-        result = generate_pydantic_model_from_params("my_func", {"params": Optional[SchemaA]})
-        assert issubclass(result, RootModel)

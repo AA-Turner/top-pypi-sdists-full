@@ -20,45 +20,39 @@ class ListAttackEventInfoRequest(DaraModel):
         # The attacked asset. You can specify the instance name, public IP address, or private IP address.
         self.attack_instance = attack_instance
         # The attack type. Valid values:
-        # - 9: SQL Server brute-force attacks
-        # - 5: SSH brute-force attacks
-        # - 6: RDP brute-force attacks
-        # - 101: Java Struts2 attack blocked
-        # - 102: Redis attack blocked
-        # - 103: China Chopper (AntSword) WebShell communication
-        # - 104: China Chopper WebShell communication
-        # - 133: XISE WebShell communication
-        # - 161: WebShell upload
-        # - 209: PHP WebShell upload
-        # - 210: JSP WebShell upload
-        # - 211: ASP WebShell upload
-        # - 215: Special extension WebShell upload
-        # - ai_webshell: WebShell upload intelligent defense
-        # - java_common_rce: Java common RCE vulnerability blocked
-        # - alinet_webrce: Adaptive web attack defense
+        # - 9: SQL Server brute-force attacks.
+        # - 5: SSH brute-force attacks.
+        # - 6: RDP brute-force attacks.
+        # - 101: Java Struts2 attack interception.
+        # - 102: Redis attack interception.
+        # - 103: AntSword WebShell communication.
+        # - 104: China Chopper WebShell communication.
+        # - 133: XISE WebShell communication.
+        # - 161: WebShell upload.
+        # - 209: PHP WebShell upload.
+        # - 210: JSP WebShell upload.
+        # - 211: ASP WebShell upload.
+        # - 215: WebShell upload with special suffix.
+        # - ai_webshell: Intelligent defense against WebShell upload.
+        # - java_common_rce: Interception of common Java RCE vulnerabilities.
+        # - alinet_webrce: Adaptive web attack defense.
         self.attack_type = attack_type
-        # The number of the page to return in a paging query.
+        # The page number of the current page for a paging query.
         self.current_page = current_page
-        # The Attack Target Ports of the Attack Target.
+        # The attack target ports.
         self.dst_port = dst_port
-        # The timestamp of the end time.
-        # 
-        # This parameter is required. If this parameter is not specified, the API returns HTTP 400.
+        # The timestamp of the end time. This parameter is required. If it is not provided, the API returns an HTTP 400 error.
         self.end_time = end_time
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # 
-        # - **zh**: Chinese
-        # - **en**: English
+        # - **zh**: Chinese.
+        # - **en**: English.
         self.lang = lang
-        # The maximum number of entries to return on each page in a paging query.
+        # The maximum number of entries per page for a paging query.
         self.page_size = page_size
-        # The Attack Source IP Addresses.
+        # The attack source IP addresses.
         self.src_ip = src_ip
-        # The timestamp of the start time.
-        # 
-        # This parameter is a UNIX timestamp. Unit: milliseconds.
-        # 
-        # This parameter is required. If this parameter is not specified, the API returns HTTP 400.
+        # The timestamp of the start time. The value is a UNIX timestamp in milliseconds. This parameter is required. If it is not provided, the API returns an HTTP 400 error.
         self.start_time = start_time
 
     def validate(self):

@@ -1470,6 +1470,7 @@ class Bitfab:
         simulation_plan: bool = True,
         integrations: Mapping[str, bool | str] | None = None,
         enabled: bool | None = None,
+        include_packages: Collection[str] | None = None,
     ):
         """Initialize the Bitfab client.
 
@@ -1553,6 +1554,13 @@ class Bitfab:
                 over both variables. Raises ValueError for a name the SDK
                 does not know.
             enabled: Deprecated alias for ``capture_enabled``. Warns once.
+            include_packages: Installed packages whose calls every
+                ``trace()`` root records like first-party calls, by import
+                name (``"stripe"``) or distribution name. A root's own
+                ``include_packages`` adds to this list. Only the package's own
+                code is recorded, not the packages it depends on. Raises
+                ValueError for a Bitfab package and TypeError for a single
+                string.
         """
         if enabled is not None:
             warn_once(
@@ -1613,6 +1621,8 @@ class Bitfab:
         # replay after any per-call mock_override (per-call wins). See replay().
         self._mock_overrides: list[MockOverride] = []
         self._max_captured_subtree_spans_in_code = max_captured_subtree_spans
+        self._include_packages = subtree.library_names(include_packages)
+        subtree.library_prefixes(self._include_packages)
         self._max_captured_subtree_spans_from_env: int | None = None
         self._max_captured_subtree_spans_env_read = False
         resolved_trace_across_threads = (
@@ -4883,6 +4893,7 @@ class Bitfab:
         max_payload_bytes_per_function: int | None = None,
         exclude: Collection[str] = (),
         include_wrappers: bool = False,
+        include_packages: Collection[str] = (),
     ) -> Callable[[Callable[P, T]], Callable[P, T]]:
         """EXPERIMENTAL. Records a root span AND a span for every first-party
         function called beneath it, at any depth, without wrapping them.
@@ -4972,15 +4983,34 @@ class Bitfab:
             exclude: Function names never recorded as descendant spans.
             include_wrappers: Record decorator wrappers too. Off by default; a
                 wrapper is identified by taking only ``*args, **kwargs``.
+            include_packages: Installed packages whose calls are recorded
+                beneath this root like first-party calls, by import name
+                (``"stripe"``) or distribution name
+                (``"google-cloud-storage"``). Added to
+                ``Bitfab(include_packages=...)``. Only the package's own code
+                is recorded; the packages it depends on stay skipped unless
+                named too. Its calls count toward ``max_depth``,
+                ``max_captured_subtree_spans``, and
+                ``max_payload_bytes_per_function``, and ``exclude`` and nodes
+                with capture off still omit them. A name that is not installed,
+                or is part of the standard library, warns once and is ignored.
 
         Returns:
             A decorator wrapping a function to trace it and its call subtree.
 
         Raises:
             MixedTracingError: If the root runs beneath an active ``span``.
+            ValueError: If ``include_packages`` names a Bitfab package.
+            TypeError: If ``include_packages`` is a single string.
         """
         span_type = type
         excluded = frozenset(exclude)
+        libraries = tuple(
+            dict.fromkeys(
+                (*self._include_packages, *subtree.library_names(include_packages))
+            )
+        )
+        library_prefixes = subtree.library_prefixes(libraries)
         self._simulation_plan.refresh()
 
         def decorator(fn: Callable[P, T]) -> Callable[P, T]:
@@ -5019,6 +5049,7 @@ class Bitfab:
                     emit=emit,
                     now=now_iso_timestamp,
                     roots=roots,
+                    libraries=library_prefixes,
                     max_depth=max_depth,
                     max_captured_subtree_spans=self._resolve_max_captured_subtree_spans(
                         max_captured_subtree_spans
@@ -6638,6 +6669,7 @@ class BitfabFunction:
         max_payload_bytes_per_function: int | None = None,
         exclude: Collection[str] = (),
         include_wrappers: bool = False,
+        include_packages: Collection[str] = (),
     ) -> Callable[[Callable[P, T]], Callable[P, T]]:
         """Create a trace decorator bound to this function's key.
 
@@ -6671,6 +6703,9 @@ class BitfabFunction:
                 count toward it.
             exclude: Function names never recorded as descendants.
             include_wrappers: Record decorator wrappers when True.
+            include_packages: Installed packages whose calls are recorded
+                like first-party calls, added to
+                ``Bitfab(include_packages=...)``. See ``client.trace``.
 
         Returns:
             A decorator wrapping a function as an automatically expanded trace
@@ -6686,6 +6721,7 @@ class BitfabFunction:
             max_payload_bytes_per_function=max_payload_bytes_per_function,
             exclude=exclude,
             include_wrappers=include_wrappers,
+            include_packages=include_packages,
         )
 
     def get_claude_agent_handler(self):

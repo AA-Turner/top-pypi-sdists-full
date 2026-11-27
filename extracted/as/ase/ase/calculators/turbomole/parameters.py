@@ -1,5 +1,3 @@
-# fmt: off
-
 # type: ignore
 """turbomole parameters management classes and functions"""
 
@@ -18,10 +16,27 @@ class TurbomoleParameters(dict):
     """class to manage turbomole parameters"""
 
     available_functionals = [
-        'slater-dirac-exchange', 's-vwn', 'vwn', 's-vwn_Gaussian', 'pwlda',
-        'becke-exchange', 'b-lyp', 'b-vwn', 'lyp', 'b-p', 'pbe', 'tpss',
-        'bh-lyp', 'b3-lyp', 'b3-lyp_Gaussian', 'pbe0', 'tpssh', 'lhf', 'oep',
-        'b97-d', 'b2-plyp'
+        'slater-dirac-exchange',
+        's-vwn',
+        'vwn',
+        's-vwn_Gaussian',
+        'pwlda',
+        'becke-exchange',
+        'b-lyp',
+        'b-vwn',
+        'lyp',
+        'b-p',
+        'pbe',
+        'tpss',
+        'bh-lyp',
+        'b3-lyp',
+        'b3-lyp_Gaussian',
+        'pbe0',
+        'tpssh',
+        'lhf',
+        'oep',
+        'b97-d',
+        'b2-plyp',
     ]
 
     # nested dictionary with parameters attributes
@@ -33,11 +48,11 @@ class TurbomoleParameters(dict):
             'key': 'automatic',
             'mapping': {
                 'to_control': lambda a: a / Ha,
-                'from_control': lambda a: a * Ha
+                'from_control': lambda a: a * Ha,
             },
             'type': float,
             'units': 'eV',
-            'updateable': True
+            'updateable': True,
         },
         'basis set definition': {
             'comment': 'used only in restart',
@@ -46,7 +61,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': list,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'basis set name': {
             'comment': 'current default from module "define"',
@@ -55,7 +70,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': str,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'closed-shell orbital shift': {
             'comment': 'does not work with automatic',
@@ -64,11 +79,11 @@ class TurbomoleParameters(dict):
             'key': 'closedshell',
             'mapping': {
                 'to_control': lambda a: a / Ha,
-                'from_control': lambda a: a * Ha
+                'from_control': lambda a: a * Ha,
             },
             'type': float,
             'units': 'eV',
-            'updateable': True
+            'updateable': True,
         },
         'damping adjustment step': {
             'comment': None,
@@ -77,7 +92,7 @@ class TurbomoleParameters(dict):
             'key': 'step',
             'type': float,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'default eht atomic orbitals': {
             'comment': None,
@@ -86,7 +101,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': bool,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'density convergence': {
             'comment': None,
@@ -96,7 +111,7 @@ class TurbomoleParameters(dict):
             'non-define': True,
             'type': float,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'density functional': {
             'comment': None,
@@ -105,7 +120,7 @@ class TurbomoleParameters(dict):
             'key': 'functional',
             'type': str,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'energy convergence': {
             'comment': 'jobex -energy <int>',
@@ -114,11 +129,11 @@ class TurbomoleParameters(dict):
             'key': None,
             'mapping': {
                 'to_control': lambda a: a / Ha,
-                'from_control': lambda a: a * Ha
+                'from_control': lambda a: a * Ha,
             },
             'type': float,
             'units': 'eV',
-            'updateable': True
+            'updateable': True,
         },
         'esp fit': {
             'comment': 'ESP fit',
@@ -128,7 +143,7 @@ class TurbomoleParameters(dict):
             'type': str,
             'units': None,
             'updateable': True,
-            'non-define': True
+            'non-define': True,
         },
         'fermi annealing factor': {
             'comment': None,
@@ -137,16 +152,16 @@ class TurbomoleParameters(dict):
             'key': 'tmfac',
             'type': float,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'fermi final temperature': {
             'comment': None,
-            'default': 300.,
+            'default': 300.0,
             'group': 'fermi',
             'key': 'tmend',
             'type': float,
             'units': 'Kelvin',
-            'updateable': True
+            'updateable': True,
         },
         'fermi homo-lumo gap criterion': {
             'comment': None,
@@ -155,20 +170,20 @@ class TurbomoleParameters(dict):
             'key': 'hlcrt',
             'mapping': {
                 'to_control': lambda a: a / Ha,
-                'from_control': lambda a: a * Ha
+                'from_control': lambda a: a * Ha,
             },
             'type': float,
             'units': 'eV',
-            'updateable': True
+            'updateable': True,
         },
         'fermi initial temperature': {
             'comment': None,
-            'default': 300.,
+            'default': 300.0,
             'group': 'fermi',
             'key': 'tmstrt',
             'type': float,
             'units': 'Kelvin',
-            'updateable': True
+            'updateable': True,
         },
         'fermi stopping criterion': {
             'comment': None,
@@ -177,11 +192,11 @@ class TurbomoleParameters(dict):
             'key': 'stop',
             'mapping': {
                 'to_control': lambda a: a / Ha,
-                'from_control': lambda a: a * Ha
+                'from_control': lambda a: a * Ha,
             },
             'type': float,
             'units': 'eV',
-            'updateable': True
+            'updateable': True,
         },
         'force convergence': {
             'comment': 'jobex -gcart <int>',
@@ -190,11 +205,11 @@ class TurbomoleParameters(dict):
             'key': None,
             'mapping': {
                 'to_control': lambda a: a / Ha * Bohr,
-                'from_control': lambda a: a * Ha / Bohr
+                'from_control': lambda a: a * Ha / Bohr,
             },
             'type': float,
             'units': 'eV/Angstrom',
-            'updateable': True
+            'updateable': True,
         },
         'geometry optimization iterations': {
             'comment': 'jobex -c <int>',
@@ -203,7 +218,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': int,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'grid size': {
             'comment': None,
@@ -212,7 +227,7 @@ class TurbomoleParameters(dict):
             'key': 'gridsize',
             'type': str,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'ground state': {
             'comment': 'only this is currently supported',
@@ -221,7 +236,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': bool,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'initial damping': {
             'comment': None,
@@ -230,7 +245,7 @@ class TurbomoleParameters(dict):
             'key': 'start',
             'type': float,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'initial guess': {
             'comment': '"eht", "hcore" or {"use": "<path/to/control>"}',
@@ -239,7 +254,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': (str, dict),
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'minimal damping': {
             'comment': None,
@@ -248,7 +263,7 @@ class TurbomoleParameters(dict):
             'key': 'min',
             'type': float,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'multiplicity': {
             'comment': None,
@@ -257,7 +272,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': int,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'non-automatic orbital shift': {
             'comment': None,
@@ -266,7 +281,7 @@ class TurbomoleParameters(dict):
             'key': 'noautomatic',
             'type': bool,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'numerical hessian': {
             'comment': 'NumForce will be used if dictionary exists',
@@ -275,7 +290,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': dict,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'point group': {
             'comment': 'only c1 supported',
@@ -284,7 +299,7 @@ class TurbomoleParameters(dict):
             'key': 'symmetry',
             'type': str,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'ri memory': {
             'comment': None,
@@ -293,7 +308,7 @@ class TurbomoleParameters(dict):
             'key': 'ricore',
             'type': int,
             'units': 'Megabyte',
-            'updateable': True
+            'updateable': True,
         },
         'rohf': {
             'comment': 'used only in restart',
@@ -302,7 +317,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': bool,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'scf energy convergence': {
             'comment': None,
@@ -311,11 +326,11 @@ class TurbomoleParameters(dict):
             'key': 'scfconv',
             'mapping': {
                 'to_control': lambda a: int(floor(-log10(a / Ha))),
-                'from_control': lambda a: 10**(-a) * Ha
+                'from_control': lambda a: 10 ** (-a) * Ha,
             },
             'type': float,
             'units': 'eV',
-            'updateable': True
+            'updateable': True,
         },
         'scf iterations': {
             'comment': None,
@@ -324,19 +339,19 @@ class TurbomoleParameters(dict):
             'key': 'scfiterlimit',
             'type': int,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'task': {
             'comment': '"energy calculation" = "energy", '
-                       '"gradient calculation" = "gradient", '
-                       '"geometry optimization" = "optimize", '
-                       '"normal mode analysis" = "frequencies"',
+            '"gradient calculation" = "gradient", '
+            '"geometry optimization" = "optimize", '
+            '"normal mode analysis" = "frequencies"',
             'default': 'energy',
             'group': None,
             'key': None,
             'type': str,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'title': {
             'comment': None,
@@ -345,7 +360,7 @@ class TurbomoleParameters(dict):
             'key': 'title',
             'type': str,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'total charge': {
             'comment': None,
@@ -354,7 +369,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': int,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'transition vector': {
             'comment': 'vector for transition state optimization',
@@ -364,7 +379,7 @@ class TurbomoleParameters(dict):
             'type': int,
             'units': None,
             'updateable': True,
-            'non-define': True
+            'non-define': True,
         },
         'uhf': {
             'comment': None,
@@ -373,7 +388,7 @@ class TurbomoleParameters(dict):
             'key': 'uhf',
             'type': bool,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'use basis set library': {
             'comment': 'only true implemented',
@@ -382,7 +397,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': bool,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'use dft': {
             'comment': None,
@@ -391,7 +406,7 @@ class TurbomoleParameters(dict):
             'key': 'dft',
             'type': bool,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'use fermi smearing': {
             'comment': None,
@@ -400,7 +415,7 @@ class TurbomoleParameters(dict):
             'key': 'fermi',
             'type': bool,
             'units': None,
-            'updateable': True
+            'updateable': True,
         },
         'use redundant internals': {
             'comment': None,
@@ -409,7 +424,7 @@ class TurbomoleParameters(dict):
             'key': None,
             'type': bool,
             'units': None,
-            'updateable': False
+            'updateable': False,
         },
         'use resolution of identity': {
             'comment': None,
@@ -418,8 +433,8 @@ class TurbomoleParameters(dict):
             'key': 'rij',
             'type': bool,
             'units': None,
-            'updateable': False
-        }
+            'updateable': False,
+        },
     }
 
     spec_names = {
@@ -431,7 +446,7 @@ class TurbomoleParameters(dict):
         'group': 'parameter_group',
         'units': 'parameter_units',
         'mapping': 'parameter_mapping',
-        'non-define': 'parameter_no_define'
+        'non-define': 'parameter_no_define',
     }
     # flat dictionaries with parameters attributes
     default_parameters = {}
@@ -566,8 +581,10 @@ class TurbomoleParameters(dict):
             if self.get('rohf'):
                 raise NotImplementedError('ROHF not implemented')
             if self['initial guess'] not in ['eht', 'hcore']:
-                if not (isinstance(self['initial guess'], dict) and
-                        'use' in self['initial guess'].keys()):
+                if not (
+                    isinstance(self['initial guess'], dict)
+                    and 'use' in self['initial guess'].keys()
+                ):
                     raise ValueError('Wrong input for initial guess')
             if not self['use basis set library']:
                 raise NotImplementedError('Explicit basis set definition')
@@ -667,8 +684,11 @@ class TurbomoleParameters(dict):
             fermi_str += '\n\n'
 
         damp_str = ''
-        damp_keys = ('initial damping', 'damping adjustment step',
-                     'minimal damping')
+        damp_keys = (
+            'initial damping',
+            'damping adjustment step',
+            'minimal damping',
+        )
         damp_pars = [params[k] for k in damp_keys]
         if any(damp_pars):
             damp_str = 'scf\ndamp\n'
@@ -681,15 +701,15 @@ class TurbomoleParameters(dict):
 
         define_str = define_str_tpl
         define_str = re.sub('__title__', params['title'], define_str)
-        define_str = re.sub('__basis_set__', params['basis set name'],
-                            define_str)
+        define_str = re.sub(
+            '__basis_set__', params['basis set name'], define_str
+        )
         define_str = re.sub('__charge_str__', charge_str, define_str)
         define_str = re.sub('__occ_str__', occ_str, define_str)
         define_str = re.sub('__norb_str__', norb_str, define_str)
         define_str = re.sub('__dft_str__', dft_str, define_str)
         define_str = re.sub('__ri_str__', ri_str, define_str)
-        define_str = re.sub('__single_atom_str__', single_atom_str,
-                            define_str)
+        define_str = re.sub('__single_atom_str__', single_atom_str, define_str)
         define_str = re.sub('__inter__', internals_str, define_str)
         define_str = re.sub('__scfiterlimit__', scfiter_str, define_str)
         define_str = re.sub('__fermi_str__', fermi_str, define_str)
@@ -704,8 +724,8 @@ class TurbomoleParameters(dict):
         params = {}
         pdgs = {
             p: parse_data_group(
-                read_data_group(
-                    self.parameter_group[p]), self.parameter_group[p]
+                read_data_group(self.parameter_group[p]),
+                self.parameter_group[p],
             )
             for p in self.parameter_group
             if self.parameter_group[p] and self.parameter_key[p]
@@ -734,7 +754,7 @@ class TurbomoleParameters(dict):
                         params[p] = None
                     elif isinstance(pdgs[p], str):
                         if self.parameter_type[p] is bool:
-                            params[p] = (pdgs[p] == self.parameter_key[p])
+                            params[p] = pdgs[p] == self.parameter_key[p]
                     else:
                         if self.parameter_key[p] not in list(pdgs[p].keys()):
                             if self.parameter_type[p] is bool:
@@ -760,8 +780,9 @@ class TurbomoleParameters(dict):
 
         # rohf, multiplicity and total charge
         orbs = results['molecular orbitals']
-        params['rohf'] = (bool(len(read_data_group('rohf'))) or
-                          bool(len(read_data_group('roothaan'))))
+        params['rohf'] = bool(len(read_data_group('rohf'))) or bool(
+            len(read_data_group('roothaan'))
+        )
         core_charge = 0
         if results['ecps']:
             for ecp in results['ecps']:

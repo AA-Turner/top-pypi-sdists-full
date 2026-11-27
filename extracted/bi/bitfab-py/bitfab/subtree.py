@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import importlib.metadata
+import importlib.util
 import inspect
 import os
 import site
@@ -18,7 +20,7 @@ import sysconfig
 import threading
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -93,8 +95,161 @@ def _library_prefixes() -> tuple[str, ...]:
 
 
 _LIBRARY_PREFIXES = _library_prefixes()
+_SDK_PREFIX = os.path.realpath(os.path.dirname(__file__)) + os.sep
+_STDLIB_PREFIXES = tuple(
+    os.path.realpath(value) + os.sep
+    for value in {
+        sysconfig.get_paths().get("stdlib"),
+        sysconfig.get_paths().get("platstdlib"),
+    }
+    if value
+)
+
+
+def _site_prefixes() -> tuple[str, ...]:
+    paths = {
+        sysconfig.get_paths().get("purelib"),
+        sysconfig.get_paths().get("platlib"),
+        *getattr(site, "getsitepackages", lambda: [])(),
+        getattr(site, "getusersitepackages", lambda: None)(),
+    }
+    return tuple(os.path.realpath(path) + os.sep for path in paths if path)
+
+
+_SITE_PREFIXES = _site_prefixes()
+
+
+def _is_standard_library(location: str) -> bool:
+    return location.startswith(_STDLIB_PREFIXES) and not location.startswith(
+        _SITE_PREFIXES
+    )
+
 
 _never_first_party: dict[str, bool] = {}
+_included_library_prefixes: tuple[str, ...] = ()
+_included_library_lock = threading.Lock()
+_resolved_libraries: dict[str, tuple[str, ...]] = {}
+
+
+def is_bitfab_library_name(name: str) -> bool:
+    normalized = _normalize_distribution(name)
+    return normalized == "bitfab" or name.split(".", 1)[0] == "bitfab"
+
+
+def library_names(value: Collection[str] | None) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        raise TypeError(
+            "include_packages takes a list of package names, such as "
+            f"include_packages=[{value!r}], not a single string."
+        )
+    names = tuple(dict.fromkeys(str(name).strip() for name in value))
+    for name in names:
+        if not name:
+            raise ValueError("include_packages cannot contain an empty name.")
+        if is_bitfab_library_name(name):
+            raise ValueError(
+                f"include_packages cannot name '{name}': Bitfab's own code is "
+                "never traced."
+            )
+    return names
+
+
+def _normalize_distribution(name: str) -> str:
+    return name.strip().lower().replace("_", "-").replace(".", "-")
+
+
+def _spec_locations(name: str) -> tuple[str, ...]:
+    try:
+        spec = importlib.util.find_spec(name)
+    except (ImportError, ValueError):
+        return ()
+    if spec is None:
+        return ()
+    if spec.submodule_search_locations:
+        return tuple(
+            os.path.realpath(location) + os.sep
+            for location in spec.submodule_search_locations
+        )
+    if spec.origin and os.path.isfile(spec.origin):
+        return (os.path.realpath(spec.origin),)
+    return ()
+
+
+def _import_names_of_distribution(name: str) -> tuple[str, ...]:
+    wanted = _normalize_distribution(name)
+    try:
+        mapping = importlib.metadata.packages_distributions()
+    except Exception:
+        return ()
+    return tuple(
+        sorted(
+            module
+            for module, distributions in mapping.items()
+            if any(_normalize_distribution(d) == wanted for d in distributions)
+        )
+    )
+
+
+def _resolve_library(name: str) -> tuple[str, ...]:
+    locations = _spec_locations(name) if name.isidentifier() else ()
+    if not locations:
+        locations = tuple(
+            location
+            for module in _import_names_of_distribution(name)
+            for location in _spec_locations(module)
+        )
+    usable = tuple(
+        location
+        for location in locations
+        if not location.startswith(_SDK_PREFIX) and not _is_standard_library(location)
+    )
+    if not usable:
+        reason = (
+            "is part of the standard library, which is not a dependency"
+            if locations
+            else "is not installed"
+        )
+        warn_once(
+            f"include-library-unresolved:{name}",
+            f"include_packages names '{name}', which {reason}; its calls are "
+            "not recorded.",
+        )
+    return usable
+
+
+def library_prefixes(names: tuple[str, ...]) -> tuple[str, ...]:
+    prefixes: list[str] = []
+    added: list[str] = []
+    with _included_library_lock:
+        global _included_library_prefixes
+        for name in names:
+            resolved = _resolved_libraries.get(name)
+            if resolved is None:
+                resolved = _resolve_library(name)
+                _resolved_libraries[name] = resolved
+            for prefix in resolved:
+                prefixes.append(prefix)
+                if prefix not in _included_library_prefixes:
+                    _included_library_prefixes = (*_included_library_prefixes, prefix)
+                    added.append(prefix)
+        switched_off = bool(added) and _switched_off_inside(tuple(added))
+        if added:
+            _never_first_party.clear()
+    if switched_off and SUPPORTED:
+        with contextlib.suppress(Exception):
+            sys.monitoring.restart_events()
+    return tuple(dict.fromkeys(prefixes))
+
+
+def _switched_off_inside(prefixes: tuple[str, ...]) -> bool:
+    return any(
+        library
+        and not filename.startswith("<")
+        and os.path.realpath(filename).startswith(prefixes)
+        for filename, library in _never_first_party.items()
+    )
 
 
 def is_library_code(filename: str) -> bool:
@@ -112,7 +267,9 @@ def is_library_code(filename: str) -> bool:
         result = True
     else:
         real = os.path.realpath(filename)
-        result = real.startswith(_LIBRARY_PREFIXES)
+        result = real.startswith(_LIBRARY_PREFIXES) and not real.startswith(
+            _included_library_prefixes
+        )
 
     _never_first_party[filename] = result
     return result
@@ -237,6 +394,7 @@ class Session:
     emit: EmitSpan
     now: Callable[[], str]
     roots: tuple[str, ...]
+    libraries: tuple[str, ...] = ()
     max_depth: int | None = DEFAULT_MAX_DEPTH
     max_captured_subtree_spans: int = DEFAULT_MAX_CAPTURED_SUBTREE_SPANS
     max_payload_bytes_per_function: int = DEFAULT_MAX_PAYLOAD_BYTES_PER_FUNCTION
@@ -263,8 +421,8 @@ class Session:
             return cached
         real = os.path.realpath(filename)
         result = os.path.basename(real)
-        for root in self.roots:
-            if real.startswith(root):
+        for root in (*self.roots, *self.libraries):
+            if root.endswith(os.sep) and real.startswith(root):
                 package = os.path.basename(root.rstrip(os.sep))
                 tail = real[len(root) :].split(os.sep)
                 result = "/".join((package, *tail)) if package else "/".join(tail)
@@ -279,7 +437,12 @@ class Session:
         cached = self._owns_cache.get(filename)
         if cached is not None:
             return cached
-        result = bool(self.roots) and os.path.realpath(filename).startswith(self.roots)
+        real = os.path.realpath(filename)
+        result = (bool(self.roots) and real.startswith(self.roots)) or (
+            bool(self.libraries)
+            and real.startswith(self.libraries)
+            and not real.startswith(_SDK_PREFIX)
+        )
         self._owns_cache[filename] = result
         return result
 

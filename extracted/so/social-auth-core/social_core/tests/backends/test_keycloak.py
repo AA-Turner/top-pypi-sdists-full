@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 import time
+from typing import cast
 
 import jwt
+import responses
 
 from social_core.exceptions import AuthResponseError
+from social_core.utils import get_querystring, parse_qs
 
 from .oauth import BaseAuthUrlTestMixin, OAuth2Test
 
@@ -130,6 +133,21 @@ class KeycloakOAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
     def test_login(self) -> None:
         self.do_login()
 
+    def test_email_allowlist_requires_verified_keycloak_claim(self) -> None:
+        self.strategy.set_settings(
+            {"SOCIAL_AUTH_KEYCLOAK_WHITELISTED_DOMAINS": ["example.com"]}
+        )
+        details = {"email": "john.doe@example.com"}
+        for response in (
+            {"email_verified": False},
+            {},
+            {"email_verified": None},
+            {"email_verified": "true"},
+        ):
+            with self.subTest(response=response):
+                self.assertFalse(self.backend.auth_allowed(response, details))
+        self.assertTrue(self.backend.auth_allowed({"email_verified": True}, details))
+
     def test_invalid_signature_raises_auth_token_error(self) -> None:
         header, payload, _signature = _encode(_PAYLOAD).split(".")
 
@@ -140,3 +158,44 @@ class KeycloakOAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
 
     def test_partial_pipeline(self) -> None:
         self.do_partial_pipeline()
+
+    def _pkce_requests(self) -> tuple[dict[str, str], dict[str, str]]:
+        auth_request = next(
+            r.request
+            for r in responses.calls
+            if cast("str", r.request.url).startswith(self.backend.authorization_url())
+        )
+        token_request = next(
+            r.request
+            for r in responses.calls
+            if cast("str", r.request.url).startswith(self.backend.access_token_url())
+        )
+        return get_querystring(cast("str", auth_request.url)), parse_qs(
+            token_request.body
+        )
+
+    def test_pkce_disabled_by_default(self) -> None:
+        self.do_login()
+
+        auth_query, token_body = self._pkce_requests()
+        self.assertIsNone(auth_query.get("code_challenge"))
+        self.assertIsNone(auth_query.get("code_challenge_method"))
+        self.assertIsNone(token_body.get("code_verifier"))
+
+    def test_pkce_can_be_enabled_by_setting(self) -> None:
+        self.strategy.set_settings(
+            {**self.extra_settings(), "SOCIAL_AUTH_KEYCLOAK_USE_PKCE": True}
+        )
+
+        self.do_login()
+
+        auth_query, token_body = self._pkce_requests()
+        self.assertIsNotNone(auth_query.get("code_challenge"))
+        self.assertIsNotNone(token_body.get("code_verifier"))
+        self.assertEqual(auth_query.get("code_challenge_method"), "S256")
+        self.assertEqual(
+            self.backend.generate_code_challenge(
+                token_body.get("code_verifier"), "S256"
+            ),
+            auth_query.get("code_challenge"),
+        )

@@ -50,6 +50,8 @@ class BatchRequest(BaseModel, Generic[T]):
     max_tokens: int | None = Field(default=1000)
     temperature: float | None = Field(default=0.1)
 
+    strict: bool = True
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def get_json_schema(self) -> dict[str, Any]:
@@ -58,35 +60,19 @@ class BatchRequest(BaseModel, Generic[T]):
 
     def to_openai_format(self) -> dict[str, Any]:
         """Convert to OpenAI batch format with JSON schema"""
+        from instructor.v2.providers.openai.schema import make_strict_schema
+
         schema = self.get_json_schema()
+        if self.strict:
+            schema = make_strict_schema(schema)
 
-        # OpenAI strict mode requires additionalProperties to be false
-        def make_strict_schema(schema_dict):
-            """Recursively add additionalProperties: false for OpenAI strict mode"""
-            if isinstance(schema_dict, dict):
-                if "type" in schema_dict:
-                    if schema_dict["type"] == "object":
-                        schema_dict["additionalProperties"] = False
-                    elif schema_dict["type"] == "array" and "items" in schema_dict:
-                        schema_dict["items"] = make_strict_schema(schema_dict["items"])
-
-                # Recursively process properties
-                if "properties" in schema_dict:
-                    for prop_name, prop_schema in schema_dict["properties"].items():
-                        schema_dict["properties"][prop_name] = make_strict_schema(
-                            prop_schema
-                        )
-
-                # Process definitions/defs
-                for key in ["definitions", "$defs"]:
-                    if key in schema_dict:
-                        for def_name, def_schema in schema_dict[key].items():
-                            schema_dict[key][def_name] = make_strict_schema(def_schema)
-
-            return schema_dict
-
-        strict_schema = make_strict_schema(schema.copy())
-
+        if self.model == "gpt-6-luna":
+            options: dict[str, Any] = {
+                "max_completion_tokens": self.max_tokens,
+                "reasoning_effort": "none",
+            }
+        else:
+            options = {"max_tokens": self.max_tokens}
         return {
             "custom_id": self.custom_id,
             "method": "POST",
@@ -94,16 +80,36 @@ class BatchRequest(BaseModel, Generic[T]):
             "body": {
                 "model": self.model,
                 "messages": self.messages,
-                "max_tokens": self.max_tokens,
+                **options,
                 "temperature": self.temperature,
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {
                         "name": self.response_model.__name__,
-                        "strict": True,
-                        "schema": strict_schema,
+                        "strict": self.strict,
+                        "schema": schema,
                     },
                 },
+            },
+        }
+
+    def to_mistral_format(self) -> dict[str, Any]:
+        """Serialize one Mistral request. The job sets the model for all requests."""
+        from mistralai.extra import response_format_from_pydantic_model
+
+        response_format = response_format_from_pydantic_model(self.response_model)
+        # SDK 1 returns a Pydantic model; SDK 2 returns the wire dictionary.
+        if isinstance(response_format, BaseModel):
+            response_format = response_format.model_dump(
+                by_alias=True, exclude_none=True
+            )
+        return {
+            "custom_id": self.custom_id,
+            "body": {
+                "messages": self.messages,
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
+                "response_format": response_format,
             },
         }
 
@@ -136,7 +142,6 @@ class BatchRequest(BaseModel, Generic[T]):
         params: dict[str, Any] = {
             "model": self.model,
             "max_tokens": self.max_tokens,
-            "temperature": self.temperature,
             "messages": filtered_messages,
             "tools": [
                 {
@@ -147,6 +152,9 @@ class BatchRequest(BaseModel, Generic[T]):
             ],
             "tool_choice": {"type": "tool", "name": "extract_data"},
         }
+
+        if self.temperature is not None and self.model != "claude-haiku-5-5":
+            params["temperature"] = self.temperature
 
         # Add system parameter if system message exists
         if system_message:
@@ -163,6 +171,8 @@ class BatchRequest(BaseModel, Generic[T]):
         """Save batch request to file or BytesIO buffer in provider-specific format"""
         if provider == "openai":
             data = self.to_openai_format()
+        elif provider == "mistral":
+            data = self.to_mistral_format()
         elif provider == "anthropic":
             data = self.to_anthropic_format()
         else:
@@ -171,7 +181,7 @@ class BatchRequest(BaseModel, Generic[T]):
         json_line = json.dumps(data) + "\n"
 
         if isinstance(file_path_or_buffer, str):
-            with open(file_path_or_buffer, "a") as f:
+            with open(file_path_or_buffer, "a", encoding="utf-8") as f:
                 f.write(json_line)
         elif isinstance(file_path_or_buffer, io.BytesIO):
             file_path_or_buffer.write(json_line.encode("utf-8"))

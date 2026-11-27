@@ -15,20 +15,20 @@ class GetCheckSummaryRequest(DaraModel):
         task_sources: List[str] = None,
         vendors: List[str] = None,
     ):
-        # Specifies whether to return check item statistics information, including the number of check items published by the system and the number of check items currently owned by the user. Default value: **false**. Valid values:
-        # - **true**: Returns the statistics information.
-        # - **false**: Does not return the statistics information.
+        # Specifies whether to return the statistics information of check items, including the number of check items published by the system and the number of check items currently owned by the user. Default value: **false**. Valid values:
+        # - **true**: Returns the statistics.
+        # - **false**: Does not return the statistics.
         self.is_item_statistic = is_item_statistic
-        # The language type for requests and responses.
+        # The language of the request and response messages.
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
-        # The ID of the member accounts in the resource directory.
-        # >Invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        # The ID of the Alibaba Cloud account of the member accounts in the resource folder.
+        # >You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
         # The list of task sources.
         self.task_sources = task_sources
-        # The list of cloud service providers.
+        # The list of cloud providers.
         self.vendors = vendors
 
     def validate(self):

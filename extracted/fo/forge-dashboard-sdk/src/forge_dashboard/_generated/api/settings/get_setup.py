@@ -78,7 +78,8 @@ def sync_detailed(
     be asked it is empty and `installationsUnavailable` is true.
     Repository counts come from the last refresh of the board, and
     `refreshed` says whether one has finished since this process started,
-    so zero before that means "not known yet", not "none".
+    so zero before that means "not known yet", not "none". It is also
+    false while a forge's first read is still running.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -114,7 +115,8 @@ def sync(
     be asked it is empty and `installationsUnavailable` is true.
     Repository counts come from the last refresh of the board, and
     `refreshed` says whether one has finished since this process started,
-    so zero before that means "not known yet", not "none".
+    so zero before that means "not known yet", not "none". It is also
+    false while a forge's first read is still running.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -145,7 +147,8 @@ async def asyncio_detailed(
     be asked it is empty and `installationsUnavailable` is true.
     Repository counts come from the last refresh of the board, and
     `refreshed` says whether one has finished since this process started,
-    so zero before that means "not known yet", not "none".
+    so zero before that means "not known yet", not "none". It is also
+    false while a forge's first read is still running.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -181,7 +184,8 @@ async def asyncio(
     be asked it is empty and `installationsUnavailable` is true.
     Repository counts come from the last refresh of the board, and
     `refreshed` says whether one has finished since this process started,
-    so zero before that means "not known yet", not "none".
+    so zero before that means "not known yet", not "none". It is also
+    false while a forge's first read is still running.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

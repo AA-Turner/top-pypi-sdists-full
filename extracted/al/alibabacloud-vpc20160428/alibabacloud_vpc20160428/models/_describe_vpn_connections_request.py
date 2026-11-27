@@ -40,6 +40,8 @@ class DescribeVpnConnectionsRequest(DaraModel):
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
         # The list of tags bound to the IPsec-VPN connection.
+        # 
+        # You can specify up to 20 tags at a time.
         self.tag = tag
         # The ID of the IPsec-VPN connection.
         self.vpn_connection_id = vpn_connection_id
@@ -153,6 +155,10 @@ class DescribeVpnConnectionsRequestTag(DaraModel):
         # You can specify up to 20 tag keys at a time.
         self.key = key
         # The tag value.
+        # 
+        # The tag value can be up to 128 characters in length and can be an empty string. The tag value cannot start with `aliyun` or `acs:` and cannot contain `http://` or `https://`.
+        # 
+        # Each tag key corresponds to a tag value. You can specify up to 20 tag values at a time.
         self.value = value
 
     def validate(self):

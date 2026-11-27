@@ -15,12 +15,12 @@ class DocAiJobStatusResponse(UniversalBaseModel):
 
     status: str = pydantic.Field()
     """
-    Current status of the job. Terminal statuses: `completed`, `partially_completed`, `failed`, `rejected`.
+    Current status of the job. Parse and Extract: `pending`, `running`, then a terminal status. Split and Classify start at `accepted`. Terminal statuses: `completed`, `partially_completed`, `failed`, `rejected`.
     """
 
     pipeline: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Job pipeline: `parse` or `extract`. Classify and Split jobs report `type` instead.
+    Job pipeline: `digitise` for Parse jobs or `extract` for Extract jobs. Classify and Split jobs report `type` instead.
     """
 
     usage: DocAiUsage

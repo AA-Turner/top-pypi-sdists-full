@@ -1,5 +1,3 @@
-# fmt: off
-
 import warnings
 
 import numpy as np
@@ -20,16 +18,20 @@ eos_names = [
 
 
 def taylor(V, E0, beta, alpha, V0):
-    'Taylor Expansion up to 3rd order about V0'
+    "Taylor Expansion up to 3rd order about V0"
 
-    E = E0 + beta / 2 * (V - V0)**2 / V0 + alpha / 6 * (V - V0)**3 / V0
+    E = E0 + beta / 2 * (V - V0) ** 2 / V0 + alpha / 6 * (V - V0) ** 3 / V0
     return E
 
 
 def murnaghan(V, E0, B0, BP, V0):
-    'From PRB 28,5480 (1983'
+    "From PRB 28,5480 (1983"
 
-    E = E0 + B0 * V / BP * (((V0 / V)**BP) / (BP - 1) + 1) - V0 * B0 / (BP - 1)
+    E = (
+        E0
+        + B0 * V / BP * (((V0 / V) ** BP) / (BP - 1) + 1)
+        - V0 * B0 / (BP - 1)
+    )
     return E
 
 
@@ -42,9 +44,11 @@ def birch(V, E0, B0, BP, V0):
     case where n=0
     """
 
-    E = (E0 +
-         9 / 8 * B0 * V0 * ((V0 / V)**(2 / 3) - 1)**2 +
-         9 / 16 * B0 * V0 * (BP - 4) * ((V0 / V)**(2 / 3) - 1)**3)
+    E = (
+        E0
+        + 9 / 8 * B0 * V0 * ((V0 / V) ** (2 / 3) - 1) ** 2
+        + 9 / 16 * B0 * V0 * (BP - 4) * ((V0 / V) ** (2 / 3) - 1) ** 3
+    )
     return E
 
 
@@ -55,17 +59,19 @@ def birchmurnaghan(V, E0, B0, BP, V0):
     inversed expression for eta.
     """
 
-    eta = (V0 / V)**(1 / 3)
-    E = E0 + 9 * B0 * V0 / 16 * (eta**2 - 1)**2 * (
-        6 + BP * (eta**2 - 1) - 4 * eta**2)
+    eta = (V0 / V) ** (1 / 3)
+    E = E0 + 9 * B0 * V0 / 16 * (eta**2 - 1) ** 2 * (
+        6 + BP * (eta**2 - 1) - 4 * eta**2
+    )
     return E
 
 
 def check_birchmurnaghan():
     from sympy import Rational, diff, simplify, symbols
+
     v, b, bp, v0 = symbols('v b bp v0')
-    x = (v0 / v)**Rational(2, 3)
-    e = 9 * b * v0 * (x - 1)**2 * (6 + bp * (x - 1) - 4 * x) / 16
+    x = (v0 / v) ** Rational(2, 3)
+    e = 9 * b * v0 * (x - 1) ** 2 * (6 + bp * (x - 1) - 4 * x) / 16
     print(e)
     B = diff(e, v, 2) * v
     BP = -v * diff(B, v) / b
@@ -74,9 +80,9 @@ def check_birchmurnaghan():
 
 
 def pouriertarantola(V, E0, B0, BP, V0):
-    'Pourier-Tarantola equation from PRB 70, 224107'
+    "Pourier-Tarantola equation from PRB 70, 224107"
 
-    eta = (V / V0)**(1 / 3)
+    eta = (V / V0) ** (1 / 3)
     squiggle = -3 * np.log(eta)
 
     E = E0 + B0 * V0 * squiggle**2 / 6 * (3 + squiggle * (BP - 2))
@@ -84,13 +90,15 @@ def pouriertarantola(V, E0, B0, BP, V0):
 
 
 def vinet(V, E0, B0, BP, V0):
-    'Vinet equation from PRB 70, 224107'
+    "Vinet equation from PRB 70, 224107"
 
-    eta = (V / V0)**(1 / 3)
+    eta = (V / V0) ** (1 / 3)
 
-    E = (E0 + 2 * B0 * V0 / (BP - 1)**2 *
-         (2 - (5 + 3 * BP * (eta - 1) - 3 * eta) *
-          np.exp(-3 * (BP - 1) * (eta - 1) / 2)))
+    E = E0 + 2 * B0 * V0 / (BP - 1) ** 2 * (
+        2
+        - (5 + 3 * BP * (eta - 1) - 3 * eta)
+        * np.exp(-3 * (BP - 1) * (eta - 1) / 2)
+    )
     return E
 
 
@@ -132,12 +140,12 @@ def anton_schmidt(
     """
     n = -0.5 * bp0
     e_infinity = e0 + b0 * v0 / (n + 1) ** 2
-    e = b0 * v0 / (n + 1) * (v / v0)**(n + 1) * (np.log(v / v0) - 1 / (n + 1))
+    e = b0 * v0 / (n + 1) * (v / v0) ** (n + 1) * (np.log(v / v0) - 1 / (n + 1))
     return e + e_infinity
 
 
 def p3(V, c0, c1, c2, c3):
-    'polynomial fit'
+    "polynomial fit"
 
     E = c0 + c1 * V + c2 * V**2 + c3 * V**3
     return E
@@ -203,6 +211,8 @@ class EquationOfState:
     --------
     >>> from ase.build import bulk
     >>> from ase.calculators.emt import EMT
+    >>> import numpy as np
+    >>> from ase.eos import EquationOfState
     >>> atoms = bulk('Al')
     >>> atoms.calc = EMT()
     >>> cell = atoms.cell.copy()
@@ -309,7 +319,8 @@ class EquationOfState:
         if warn and not (minvol < self.v0 < maxvol):
             warnings.warn(
                 'The minimum volume of your fit is not in '
-                'your volumes.  You may not have a minimum in your dataset!')
+                'your volumes.  You may not have a minimum in your dataset!'
+            )
 
         return self.v0, self.e0, self.B
 
@@ -319,7 +330,7 @@ class EquationOfState:
 
         x = np.linspace(min(self.v), max(self.v), 100)
         if self.eos_string == 'sj':
-            y = self.fit0(x**-(1 / 3))
+            y = self.fit0(x ** -(1 / 3))
         else:
             y = self.func(x, *self.eos_parameters)
 
@@ -357,7 +368,7 @@ class EquationOfState:
 
         """
 
-        fit0 = np.poly1d(np.polyfit(self.v**-(1 / 3), self.e, 3))
+        fit0 = np.poly1d(np.polyfit(self.v ** -(1 / 3), self.e, 3))
         fit1 = np.polyder(fit0, 1)
         fit2 = np.polyder(fit1, 1)
 
@@ -380,25 +391,30 @@ class EquationOfState:
 def plot(eos_string, e0, v0, B, x, y, v, e, ax=None):
     if ax is None:
         import matplotlib.pyplot as plt
+
         ax = plt.gca()
 
     ax.plot(x, y, ls='-', color='C3')  # By default red line
-    ax.plot(v, e, ls='', marker='o', mec='C0',
-            mfc='C0')  # By default blue marker
+    ax.plot(
+        v, e, ls='', marker='o', mec='C0', mfc='C0'
+    )  # By default blue marker
 
     try:
         ax.set_xlabel('volume [Å$^3$]')
         ax.set_ylabel('energy [eV]')
-        ax.set_title('%s: E: %.3f eV, V: %.3f Å$^3$, B: %.3f GPa' %
-                     (eos_string, e0, v0,
-                      B / kJ * 1.e24))
+        ax.set_title(
+            '%s: E: %.3f eV, V: %.3f Å$^3$, B: %.3f GPa'
+            % (eos_string, e0, v0, B / kJ * 1.0e24)
+        )
 
     except ImportError:  # XXX what would cause this error?  LaTeX?
         warnings.warn('Could not use LaTeX formatting')
         ax.set_xlabel('volume [L(length)^3]')
         ax.set_ylabel('energy [E(energy)]')
-        ax.set_title('%s: E: %.3f E, V: %.3f L^3, B: %.3e E/L^3' %
-                     (eos_string, e0, v0, B))
+        ax.set_title(
+            '%s: E: %.3f E, V: %.3f L^3, B: %.3e E/L^3'
+            % (eos_string, e0, v0, B)
+        )
 
     return ax
 
@@ -436,17 +452,18 @@ def calculate_eos(atoms, npoints=5, eps=0.04, trajectory=None, callback=None):
 
     if isinstance(trajectory, str):
         from ase.io import Trajectory
+
         trajectory = Trajectory(trajectory, 'w', atoms)
 
     if trajectory is not None:
-        trajectory.set_description({'type': 'eos',
-                                    'npoints': npoints,
-                                    'eps': eps})
+        trajectory.set_description(
+            {'type': 'eos', 'npoints': npoints, 'eps': eps}
+        )
 
     try:
         energies = []
         volumes = []
-        for x in np.linspace(1 - eps, 1 + eps, npoints)**(1 / 3):
+        for x in np.linspace(1 - eps, 1 + eps, npoints) ** (1 / 3):
             atoms.set_cell(x * c0, scale_atoms=True)
             volumes.append(atoms.get_volume())
             energies.append(atoms.get_potential_energy())
@@ -465,34 +482,46 @@ def calculate_eos(atoms, npoints=5, eps=0.04, trajectory=None, callback=None):
 class CLICommand:
     """Calculate EOS from one or more trajectory files.
 
-    See https://ase-lib.org/tutorials/eos/eos.html for
-    more information.
+    See :ref:`eos_example` for more information.
     """
 
     @staticmethod
     def add_arguments(parser):
         parser.add_argument('trajectories', nargs='+', metavar='trajectory')
-        parser.add_argument('-p', '--plot', action='store_true',
-                            help='Plot EOS fit.  Default behaviour is '
-                            'to write results of fit.')
-        parser.add_argument('-t', '--type', default='sj',
-                            help='Type of fit.  Must be one of {}.'
-                            .format(', '.join(eos_names)))
+        parser.add_argument(
+            '-p',
+            '--plot',
+            action='store_true',
+            help='Plot EOS fit.  Default behaviour is to write results of fit.',
+        )
+        parser.add_argument(
+            '-t',
+            '--type',
+            default='sj',
+            help='Type of fit.  Must be one of {}.'.format(
+                ', '.join(eos_names)
+            ),
+        )
 
     @staticmethod
     def run(args):
         from ase.io import read
 
         if not args.plot:
-            print('# filename                '
-                  'points     volume    energy  bulk modulus')
-            print('#                         '
-                  '          [Ang^3]      [eV]         [GPa]')
+            print(
+                '# filename                '
+                'points     volume    energy  bulk modulus'
+            )
+            print(
+                '#                         '
+                '          [Ang^3]      [eV]         [GPa]'
+            )
         for name in args.trajectories:
             if name == '-':
                 # Special case - used by ASE's GUI:
                 import pickle
                 import sys
+
                 v, e = pickle.load(sys.stdin.buffer)
             else:
                 if '@' in name:
@@ -509,8 +538,10 @@ class CLICommand:
                 try:
                     v0, e0, B = eos.fit()
                 except ValueError as ex:
-                    print('{:30}{:2}    {}'
-                          .format(name, len(v), ex.message))
+                    print('{:30}{:2}    {}'.format(name, len(v), ex.message))
                 else:
-                    print('{:30}{:2} {:10.3f}{:10.3f}{:14.3f}'
-                          .format(name, len(v), v0, e0, B / kJ * 1.0e24))
+                    print(
+                        '{:30}{:2} {:10.3f}{:10.3f}{:14.3f}'.format(
+                            name, len(v), v0, e0, B / kJ * 1.0e24
+                        )
+                    )

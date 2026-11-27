@@ -1,5 +1,3 @@
-# fmt: off
-
 import re
 
 import numpy as np
@@ -26,9 +24,9 @@ def index_pattern(lines: list[str], pattern: str) -> int:
     raise ValueError
 
 
-def read_forces(lines: list[str],
-                ii: int,
-                atoms: Atoms) -> tuple[list[tuple[float, float, float]], int]:
+def read_forces(
+    lines: list[str], ii: int, atoms: Atoms
+) -> tuple[list[tuple[float, float, float]], int]:
     f = []
     for i in range(ii + 1, ii + 1 + len(atoms)):
         try:
@@ -39,8 +37,10 @@ def read_forces(lines: list[str],
     return f, i
 
 
-def read_stresses(lines: list[str],
-                  ii: int,) -> tuple[list[tuple[float, float, float]], int]:
+def read_stresses(
+    lines: list[str],
+    ii: int,
+) -> tuple[list[tuple[float, float, float]], int]:
     s = []
     for i in range(ii + 1, ii + 4):
         try:
@@ -99,7 +99,7 @@ def process_block(lines, q, is_first):
             del lines[i + 2]  # old format
         cell: list[float | list[float]] = []
         pbc = []
-        for line in lines[i + 2:i + 5]:
+        for line in lines[i + 2 : i + 5]:
             words = line.split()
             if len(words) == 5:  # old format
                 cell.append(float(words[2]))
@@ -122,8 +122,7 @@ def process_block(lines, q, is_first):
             mom = float(words[-1].rstrip(')'))
             magmoms.append(mom)
     if len(symbols):
-        atoms = Atoms(symbols=symbols, positions=positions,
-                      cell=cell, pbc=pbc)
+        atoms = Atoms(symbols=symbols, positions=positions, cell=cell, pbc=pbc)
     else:
         atoms = Atoms(cell=cell, pbc=pbc)
 
@@ -165,12 +164,13 @@ def process_block(lines, q, is_first):
     else:
         fields = lines[ii].split()
         try:
+
             def strip(string):
                 for rubbish in '[],':
                     string = string.replace(rubbish, '')
                 return string
-            eFermi = [float(strip(fields[-2])),
-                      float(strip(fields[-1]))]
+
+            eFermi = [float(strip(fields[-2])), float(strip(fields[-1]))]
         except ValueError:
             eFermi = float(fields[-1])
 
@@ -250,10 +250,12 @@ def process_block(lines, q, is_first):
     else:
         name = lines[ii - 1].strip()
         # save uncorrected values
-        parameters.update({
-            'calculator': 'gpaw',
-            'uncorrected_energy': e,
-        })
+        parameters.update(
+            {
+                'calculator': 'gpaw',
+                'uncorrected_energy': e,
+            }
+        )
         line = lines[ii + 1]
         assert line.startswith('energy:')
         e = float(line.split()[-1])
@@ -271,11 +273,17 @@ def process_block(lines, q, is_first):
     else:
         magmoms = None
     if e is not None or f is not None:
-        calc = SinglePointDFTCalculator(atoms, energy=e, forces=f,
-                                        dipole=dipole, magmoms=magmoms,
-                                        efermi=eFermi,
-                                        bzkpts=bz_kpts, ibzkpts=ibz_kpts,
-                                        stress=stress_tensor)
+        calc = SinglePointDFTCalculator(
+            atoms,
+            energy=e,
+            forces=f,
+            dipole=dipole,
+            magmoms=magmoms,
+            efermi=eFermi,
+            bzkpts=bz_kpts,
+            ibzkpts=ibz_kpts,
+            stress=stress_tensor,
+        )
         calc.name = name
         calc.parameters = parameters
         if energy_contributions is not None:

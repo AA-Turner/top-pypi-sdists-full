@@ -29,7 +29,7 @@ class ModifyBackupPolicyRequest(DaraModel):
         # The content of the policy that you want to modify. The value is a JSON string that contains the following fields:
         # 
         # - **Source**: the server directories to be protected. To protect all directories, set this field to [].
-        # - **Include**: the types of files to be protected. Examples: "\\*.jpg" and "\\*.doc".
+        # - **Include**: the types of files to be protected. Examples: "\*.jpg" and "\*.doc".
         # - **Exclude**: the custom directories to be excluded. To exclude the "/home/user" directory, call the DescribeExcludeSystemPath operation to obtain all directories and then add the directories to be excluded. Example: exclude the "/home/user" directory.
         # - **Schedule**: the start time and interval of the data backup task. Specify a time during off-peak hours and avoid exact hours.
         # 

@@ -29,6 +29,8 @@ class SetupResponse:
             github (SetupGitHub):
             forgejo (SetupForgejo):
             refreshed (bool): Whether the board has finished a refresh since the process started.
+                False while a forge's first read is still running, since its
+                repositories can't be counted yet.
      """
 
     github: SetupGitHub

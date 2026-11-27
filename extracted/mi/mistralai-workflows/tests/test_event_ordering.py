@@ -54,8 +54,7 @@ def mock_activity_info() -> Mock:
 @pytest.fixture
 def mock_workflows_client() -> AsyncMock:
     client = AsyncMock()
-    client.send_event_async = AsyncMock(return_value=None)
-    client.send_events_batch_async = AsyncMock(return_value=None)
+    client.publish = AsyncMock(return_value=None)
     return client
 
 
@@ -80,10 +79,39 @@ class TestEventContextSequentialPublishing:
             for event in events:
                 await event_context.publish_event(event)
 
-        assert mock_workflows_client.send_event_async.call_count == 3
-        calls = mock_workflows_client.send_event_async.call_args_list
+        assert mock_workflows_client.publish.call_count == 3
+        calls = mock_workflows_client.publish.call_args_list
         for i, c in enumerate(calls):
-            assert c.kwargs["event"]["event_id"] == f"evt-{i}"
+            assert c.args[0][0].event_id == f"evt-{i}"
+
+
+class TestManualEventBatchPublishing:
+    @pytest.mark.asyncio
+    async def test_empty_batch_does_not_publish(self, mock_workflows_client: AsyncMock) -> None:
+        await EventContext(mock_workflows_client).publish_events_batch([])
+        mock_workflows_client.publish.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_standalone_batch_exhaustion_raises_a_retryable_failure(
+        self, mock_workflows_client: AsyncMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(event_context_module, "_PUBLISH_RETRY_BUDGET_SECONDS", 0)
+        mock_workflows_client.publish.side_effect = httpx.ConnectError("down")
+        async with EventContext(mock_workflows_client) as context:
+            with pytest.raises(ApplicationError) as exc_info:
+                await context.publish_events_batch([_make_event()])
+
+        assert exc_info.value.type == EVENT_PUBLISH_FAILED_ERROR_TYPE
+        assert not exc_info.value.non_retryable
+        mock_workflows_client.publish.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_cancellation_propagates(self, mock_workflows_client: AsyncMock) -> None:
+        mock_workflows_client.publish.side_effect = asyncio.CancelledError()
+        async with EventContext(mock_workflows_client) as context:
+            with pytest.raises(asyncio.CancelledError):
+                await context.publish_events_batch([_make_event()])
+        mock_workflows_client.publish.assert_awaited_once()
 
 
 class TestBackgroundEventPublisherConcurrency:
@@ -97,11 +125,10 @@ class TestBackgroundEventPublisherConcurrency:
         """Verify that when multiple events are queued, they're sent in a single batch call."""
         batch_calls = []
 
-        async def track_batch_send(*, events: list, **kwargs) -> None:
+        async def track_batch_send(events: list[WorkflowEvent]) -> None:
             batch_calls.append(len(events))
 
-        mock_workflows_client.send_event_async = AsyncMock()
-        mock_workflows_client.send_events_batch_async = AsyncMock(side_effect=track_batch_send)
+        mock_workflows_client.publish = AsyncMock(side_effect=track_batch_send)
 
         async with event_context:
             events = [_make_event(i) for i in range(10)]
@@ -114,8 +141,6 @@ class TestBackgroundEventPublisherConcurrency:
         # Should have made a single batch call with all 10 events
         assert len(batch_calls) == 1
         assert batch_calls[0] == 10
-        # Single event endpoint should never be called
-        assert mock_workflows_client.send_event_async.call_count == 0
 
     @pytest.mark.asyncio
     async def test_concurrent_background_tasks_ordered_by_queue(
@@ -127,19 +152,13 @@ class TestBackgroundEventPublisherConcurrency:
         events_sent: list[str] = []
         send_lock = asyncio.Lock()
 
-        async def track_send(*, event, **kwargs) -> None:
-            await asyncio.sleep(0.01)
-            async with send_lock:
-                events_sent.append(event["event_id"])
-
-        async def track_send_batch(*, events, **kwargs) -> None:
+        async def track_send_batch(events: list[WorkflowEvent]) -> None:
             await asyncio.sleep(0.01)
             async with send_lock:
                 for e in events:
-                    events_sent.append(e["event_id"])
+                    events_sent.append(e.event_id)
 
-        mock_workflows_client.send_event_async = track_send
-        mock_workflows_client.send_events_batch_async = track_send_batch
+        mock_workflows_client.publish = track_send_batch
 
         async with event_context:
             events = [_make_event(i) for i in range(5)]
@@ -163,13 +182,13 @@ class TestBackgroundEventPublisherConcurrency:
         slow_send_started = False
         slow_send_finished = False
 
-        async def slow_send(*, event, **kwargs) -> None:
+        async def slow_send(events: list[WorkflowEvent]) -> None:
             nonlocal slow_send_started, slow_send_finished
             slow_send_started = True
             await asyncio.sleep(0.2)
             slow_send_finished = True
 
-        mock_workflows_client.send_event_async = slow_send
+        mock_workflows_client.publish = slow_send
 
         async with event_context:
             event = _make_event()
@@ -191,16 +210,11 @@ class TestBackgroundEventPublisherConcurrency:
         event_count = 1000
         events_sent = []
 
-        async def slow_send(*, event, **kwargs) -> None:
-            await asyncio.sleep(0.015)
-            events_sent.append(event)
-
-        async def slow_send_batch(*, events, **kwargs) -> None:
+        async def slow_send_batch(events: list[WorkflowEvent]) -> None:
             await asyncio.sleep(0.015)
             events_sent.extend(events)
 
-        mock_workflows_client.send_event_async = slow_send
-        mock_workflows_client.send_events_batch_async = slow_send_batch
+        mock_workflows_client.publish = slow_send_batch
 
         async with event_context:
             for i in range(event_count):
@@ -223,10 +237,10 @@ class TestBackgroundEventPublisherConcurrency:
             background_publisher.publish_event_background(event)
 
             await background_publisher.drain()
-            assert mock_workflows_client.send_event_async.call_count == 1
+            assert mock_workflows_client.publish.call_count == 1
 
             await background_publisher.drain()
-            assert mock_workflows_client.send_event_async.call_count == 1
+            assert mock_workflows_client.publish.call_count == 1
 
             await background_publisher.shutdown()
 
@@ -259,8 +273,7 @@ class TestBackgroundEventPublisherConcurrency:
 
         assert exc_info.value.type == EVENT_PUBLISH_FAILED_ERROR_TYPE
         assert exc_info.value.non_retryable
-        mock_workflows_client.send_events_batch_async.assert_not_called()
-        mock_workflows_client.send_event_async.assert_not_called()
+        mock_workflows_client.publish.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_transient_failures_are_retried_without_blocking_the_producer(
@@ -274,14 +287,14 @@ class TestBackgroundEventPublisherConcurrency:
         sent: list[str] = []
         failures_left = 2
 
-        async def flaky_send(*, event: dict, **kwargs: object) -> None:
+        async def flaky_send(events: list[WorkflowEvent]) -> None:
             nonlocal failures_left
             if failures_left:
                 failures_left -= 1
                 raise httpx.ConnectError("down")
-            sent.append(event["event_id"])
+            sent.extend(event.event_id for event in events)
 
-        mock_workflows_client.send_event_async = AsyncMock(side_effect=flaky_send)
+        mock_workflows_client.publish = AsyncMock(side_effect=flaky_send)
 
         async with event_context:
             background_publisher.publish_event_background(_make_event(0))
@@ -304,7 +317,7 @@ class TestBackgroundEventPublisherConcurrency:
     ) -> None:
         monkeypatch.setattr(event_context_module, "_PUBLISH_RETRY_INITIAL_BACKOFF_SECONDS", 0.01)
         monkeypatch.setattr(event_context_module, "_PUBLISH_RETRY_BUDGET_SECONDS", 0.05)
-        mock_workflows_client.send_event_async = AsyncMock(side_effect=httpx.ConnectError("down"))
+        mock_workflows_client.publish = AsyncMock(side_effect=httpx.ConnectError("down"))
 
         async with event_context:
             background_publisher.publish_event_background(_make_event(0))
@@ -314,7 +327,7 @@ class TestBackgroundEventPublisherConcurrency:
 
         assert exc_info.value.type == EVENT_PUBLISH_FAILED_ERROR_TYPE
         assert not exc_info.value.non_retryable
-        assert mock_workflows_client.send_event_async.call_count > 1
+        assert mock_workflows_client.publish.call_count > 1
 
     @pytest.mark.asyncio
     async def test_too_large_batch_split_shares_one_retry_budget(
@@ -330,8 +343,13 @@ class TestBackgroundEventPublisherConcurrency:
             "too large",
             httpx.Response(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, request=httpx.Request("POST", "http://api/events")),
         )
-        mock_workflows_client.send_events_batch_async = AsyncMock(side_effect=too_large)
-        mock_workflows_client.send_event_async = AsyncMock(side_effect=httpx.ConnectError("down"))
+
+        async def reject(events: list[WorkflowEvent]) -> None:
+            if len(events) > 1:
+                raise too_large
+            raise httpx.ConnectError("down")
+
+        mock_workflows_client.publish = AsyncMock(side_effect=reject)
 
         async with event_context:
             for i in range(10):
@@ -353,17 +371,12 @@ class TestTaskEventOrdering:
     ) -> None:
         events_sent = []
 
-        async def track_send(*, event, **kwargs) -> None:
-            await asyncio.sleep(0.01)
-            events_sent.append(_event_adapter.validate_python(event))
-
-        async def track_send_batch(*, events, **kwargs) -> None:
+        async def track_send_batch(events: list[WorkflowEvent]) -> None:
             await asyncio.sleep(0.01)
             for e in events:
                 events_sent.append(_event_adapter.validate_python(e))
 
-        mock_workflows_client.send_event_async = track_send
-        mock_workflows_client.send_events_batch_async = track_send_batch
+        mock_workflows_client.publish = track_send_batch
 
         async with event_context:
             with patch(
@@ -404,19 +417,13 @@ class TestTaskEventOrdering:
         events_sent = []
         send_lock = asyncio.Lock()
 
-        async def track_send(*, event, **kwargs) -> None:
-            await asyncio.sleep(0.01)
-            async with send_lock:
-                events_sent.append(_event_adapter.validate_python(event))
-
-        async def track_send_batch(*, events, **kwargs) -> None:
+        async def track_send_batch(events: list[WorkflowEvent]) -> None:
             await asyncio.sleep(0.01)
             async with send_lock:
                 for e in events:
                     events_sent.append(_event_adapter.validate_python(e))
 
-        mock_workflows_client.send_event_async = track_send
-        mock_workflows_client.send_events_batch_async = track_send_batch
+        mock_workflows_client.publish = track_send_batch
 
         async def run_task(task_type: str) -> None:
             with patch(
@@ -468,15 +475,11 @@ class TestRaceConditionPrevention:
     ) -> None:
         events_sent = []
 
-        async def track_send(*, event, **kwargs) -> None:
-            events_sent.append(_event_adapter.validate_python(event))
-
-        async def track_send_batch(*, events, **kwargs) -> None:
+        async def track_send_batch(events: list[WorkflowEvent]) -> None:
             for e in events:
                 events_sent.append(_event_adapter.validate_python(e))
 
-        mock_workflows_client.send_event_async = track_send
-        mock_workflows_client.send_events_batch_async = track_send_batch
+        mock_workflows_client.publish = track_send_batch
 
         async with event_context:
             with patch(
@@ -516,15 +519,11 @@ class TestRaceConditionPrevention:
     ) -> None:
         events_sent = []
 
-        async def track_send(*, event, **kwargs) -> None:
-            events_sent.append(_event_adapter.validate_python(event))
-
-        async def track_send_batch(*, events, **kwargs) -> None:
+        async def track_send_batch(events: list[WorkflowEvent]) -> None:
             for e in events:
                 events_sent.append(_event_adapter.validate_python(e))
 
-        mock_workflows_client.send_event_async = track_send
-        mock_workflows_client.send_events_batch_async = track_send_batch
+        mock_workflows_client.publish = track_send_batch
 
         async with event_context:
             with patch(

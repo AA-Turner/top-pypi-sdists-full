@@ -10,8 +10,7 @@ from PyPDFForm import BlankPage, Fields, PdfWrapper
 from PyPDFForm.lib.constants import Annots, Subtype, Widget
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
-def test_bulk_create_fields_stress_max(pdf_samples, request):
+def test_bulk_create_fields_stress_max(pdf_samples, request, assert_same_pdf):
     expected_path = os.path.join(
         pdf_samples, "bulk_create_fields", "test_bulk_create_fields_stress_max.pdf"
     )
@@ -82,12 +81,10 @@ def test_bulk_create_fields_stress_max(pdf_samples, request):
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
+        assert_same_pdf(obj.read(), expected)
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
-def test_bulk_create_fields_stress_max_mixed(pdf_samples, request):
+def test_bulk_create_fields_stress_max_mixed(pdf_samples, request, assert_same_pdf):
     expected_path = os.path.join(
         pdf_samples,
         "bulk_create_fields",
@@ -160,8 +157,7 @@ def test_bulk_create_fields_stress_max_mixed(pdf_samples, request):
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
+        assert_same_pdf(obj.read(), expected)
 
 
 def test_bulk_create_fields_does_not_duplicate_widgets():
@@ -210,3 +206,25 @@ def test_bulk_create_fields_does_not_duplicate_widgets():
                 widget_count += 1
 
     assert widget_count == len(fields)
+
+
+def test_bulk_create_fields_failure_creates_nothing(
+    template_stream, assert_widgets_match_output
+):
+    obj = PdfWrapper(template_stream)
+    obj.widgets["test"].x = 200
+    original = obj.read()
+    widgets = dict(obj.widgets)
+
+    # the image field is created before the text field fails
+    with pytest.raises(TypeError):
+        obj.bulk_create_fields(
+            [
+                Fields.ImageField("new_image", 1, 100, 100),
+                Fields.TextField("new_text", 1, "100", 100),
+            ]
+        )
+
+    assert obj.widgets == widgets
+    assert obj.read() == original
+    assert_widgets_match_output(obj)

@@ -128,6 +128,7 @@ class TestInstance(testing.PyLXDTestCase):
 
     def test_all_with_fields_ignored_for_recursion_1(self):
         """fields is silently ignored when recursion is not 2."""
+        testing.add_api_extension_helper(self, ["instances_state_selective_recursion"])
         self.add_rule(
             {
                 "json": {
@@ -192,11 +193,11 @@ class TestInstance(testing.PyLXDTestCase):
             {
                 "text": not_found,
                 "method": "GET",
-                "url": r"^http://pylxd.test/1.0/instances/an-missing-instance$",
+                "url": r"^http://pylxd.test/1.0/instances/a-missing-instance$",
             }
         )
 
-        name = "an-missing-instance"
+        name = "a-missing-instance"
 
         self.assertRaises(
             exceptions.LXDAPIException, models.Instance.get, self.client, name
@@ -215,11 +216,11 @@ class TestInstance(testing.PyLXDTestCase):
             {
                 "text": not_found,
                 "method": "GET",
-                "url": r"^http://pylxd.test/1.0/instances/an-missing-instance$",
+                "url": r"^http://pylxd.test/1.0/instances/a-missing-instance$",
             }
         )
 
-        name = "an-missing-instance"
+        name = "a-missing-instance"
 
         self.assertRaises(
             exceptions.LXDAPIException, models.Instance.get, self.client, name
@@ -391,11 +392,11 @@ class TestInstance(testing.PyLXDTestCase):
             {
                 "text": not_found,
                 "method": "GET",
-                "url": r"^http://pylxd.test/1.0/instances/an-missing-instance$",
+                "url": r"^http://pylxd.test/1.0/instances/a-missing-instance$",
             }
         )
 
-        name = "an-missing-instance"
+        name = "a-missing-instance"
 
         self.assertFalse(models.Instance.exists(self.client, name))
 
@@ -420,11 +421,11 @@ class TestInstance(testing.PyLXDTestCase):
             {
                 "text": not_found,
                 "method": "GET",
-                "url": r"^http://pylxd.test/1.0/instances/an-missing-instance$",
+                "url": r"^http://pylxd.test/1.0/instances/a-missing-instance$",
             }
         )
 
-        an_instance = models.Instance(self.client, name="an-missing-instance")
+        an_instance = models.Instance(self.client, name="a-missing-instance")
 
         self.assertRaises(exceptions.LXDAPIException, an_instance.sync)
 
@@ -441,11 +442,11 @@ class TestInstance(testing.PyLXDTestCase):
             {
                 "text": not_found,
                 "method": "GET",
-                "url": r"^http://pylxd.test/1.0/instances/an-missing-instance$",
+                "url": r"^http://pylxd.test/1.0/instances/a-missing-instance$",
             }
         )
 
-        an_instance = models.Instance(self.client, name="an-missing-instance")
+        an_instance = models.Instance(self.client, name="a-missing-instance")
 
         self.assertRaises(exceptions.LXDAPIException, an_instance.sync)
 
@@ -465,6 +466,38 @@ class TestInstance(testing.PyLXDTestCase):
         an_instance.save(wait=True)
 
         self.assertTrue(an_instance.ephemeral)
+
+    def test_save_twice_sends_current_volatile_keys(self):
+        """A second save sends the volatile keys LXD set on the first (#569)."""
+        url = "http://pylxd.test/1.0/instances/an-instance"
+        metadata = self.client.api.instances["an-instance"].get().json()["metadata"]
+
+        def serve(config):
+            self.add_rule(
+                {
+                    "json": {
+                        "type": "sync",
+                        "metadata": {**metadata, "config": config},
+                    },
+                    "method": "GET",
+                    "url": rf"^{url}$",
+                }
+            )
+
+        serve({"volatile.idmap.next": "old"})
+        an_instance = models.Instance.get(self.client, "an-instance")
+        an_instance.config["raw.idmap"] = "uid 1000 1000"
+        # LXD recomputes volatile.idmap.next when raw.idmap changes.
+        serve({"raw.idmap": "uid 1000 1000", "volatile.idmap.next": "new"})
+
+        an_instance.save(wait=True)
+        an_instance.save(wait=True)
+
+        put = self.last_matching_request("PUT", url)
+        self.assertEqual(
+            {"raw.idmap": "uid 1000 1000", "volatile.idmap.next": "new"},
+            put.json()["config"],
+        )
 
     def test_rename(self):
         an_instance = models.Instance(self.client, name="an-instance")
@@ -1068,6 +1101,7 @@ class TestFiles(testing.PyLXDTestCase):
         self.assertEqual(headers["X-LXD-mode"], "0123")
         self.assertEqual(headers["X-LXD-uid"], "1")
         self.assertEqual(headers["X-LXD-gid"], "2")
+        self.assertEqual(headers["Content-Type"], "application/octet-stream")
         # use a str mode this type
         self.instance.files.put("/tmp/putted", data, mode="456")
         headers = _capture["headers"]

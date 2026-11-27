@@ -3,12 +3,14 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <sstream>
 
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <utility>
@@ -57,11 +59,30 @@ removeSuffix(const std::string& s, const std::string& suffix)
     return s.substr(0, s.size() - suffix.size());
 }
 
+std::string
+parentDirectory(const std::string& path)
+{
+    size_t pos = path.find_last_of('/');
+    if (pos == std::string::npos) {
+        return ".";
+    }
+    if (pos == 0) {
+        return "/";
+    }
+    return path.substr(0, pos);
+}
+
 void
 compressFile(const std::string& filename) noexcept
 {
+    std::string tmp_dir = parentDirectory(filename) + "/memray-XXXXXX";
+    if (nullptr == ::mkdtemp(tmp_dir.data())) {
+        std::perror("Failed to create a temporary directory to compress into");
+        return;
+    }
+
+    std::string tmp_filename = tmp_dir + "/out.lz4";
     std::ifstream in_file(filename);
-    std::string tmp_filename = filename + ".lz4.tmp";
     std::ofstream out_file(tmp_filename);
     bool success = true;
     constexpr size_t bufsize = 4 * 1024;
@@ -85,11 +106,22 @@ compressFile(const std::string& filename) noexcept
 
     if (!success) {
         std::cerr << "Failed to compress input file" << std::endl;
-        ::unlink(tmp_filename.c_str());
-    } else if (0 != std::rename(tmp_filename.c_str(), filename.c_str())) {
-        std::perror("Error moving compressed file back to original name");
-        ::unlink(tmp_filename.c_str());
+    } else {
+        mode_t mode = 0644;
+        struct stat statbuf;
+        if (0 == ::stat(filename.c_str(), &statbuf)) {
+            mode = statbuf.st_mode & 0777;
+        }
+
+        if (0 != ::chmod(tmp_filename.c_str(), mode)) {
+            std::perror("Failed to set the compressed file's permissions");
+        } else if (0 != std::rename(tmp_filename.c_str(), filename.c_str())) {
+            std::perror("Failed to rename the compressed file to the orignal filename");
+        }
     }
+
+    ::unlink(tmp_filename.c_str());
+    ::rmdir(tmp_dir.c_str());
 }
 
 }  // unnamed namespace
@@ -120,6 +152,7 @@ FileSink::writeAll(const char* data, size_t length)
         d_bufferNeedle += toCopy;
         data += toCopy;
         length -= toCopy;
+        d_maxWrittenPos = std::max(d_maxWrittenPos, d_bufferOffset + (d_bufferNeedle - d_buffer));
     }
     return true;
 }
@@ -201,13 +234,24 @@ FileSink::seek(off_t offset, int whence)
 bool
 FileSink::grow(size_t needed)
 {
-    static size_t pagesize = sysconf(_SC_PAGESIZE);
-    // Grow to next multiple of the page size that is strictly > 110% of current size + needed
-    size_t new_size = (d_fileSize + needed) * 1.1;
-    new_size = (new_size / pagesize + 1) * pagesize;
-    assert(new_size > d_fileSize);  // check for overflow
+    // Grow to some multiple of maxSurplus, overallocating by up to maxSurplus.
+    // The maximum surplus is 4KiB until we reach 4MiB, then 4MiB afterwards.
+    const size_t fourKiB = 4 * 1024;
+    const size_t fourMiB = 4 * 1024 * 1024;
+    size_t newSize = d_fileSize + needed;
+    const size_t maxSurplus = (newSize < fourMiB) ? fourKiB : fourMiB;
+    newSize = (newSize / maxSurplus + 1) * maxSurplus;
 
-    off_t delta = new_size - d_fileSize;
+    // Ensure we're ending on a page boundary.
+    static size_t pageSize = sysconf(_SC_PAGESIZE);
+    newSize = (newSize + pageSize - 1) / pageSize * pageSize;
+
+    if (newSize < d_fileSize) {
+        LOG(ERROR) << "Integer overflow while growing output file.";
+        return false;
+    }
+
+    off_t delta = newSize - d_fileSize;
     int rc;
     do {
         // posix_fallocate returns an error number instead of setting errno
@@ -233,7 +277,7 @@ FileSink::grow(size_t needed)
         return false;
     }
 
-    d_fileSize = new_size;
+    d_fileSize = newSize;
     assert(static_cast<off_t>(d_fileSize) == lseek(d_fd, 0, SEEK_END));
 
     return true;
@@ -266,6 +310,16 @@ FileSink::~FileSink()
         if (0 != munmap(d_buffer, BUFFER_SIZE)) {
             LOG(ERROR) << "Failed to unmap output file: " << strerror(errno);
         }
+
+        int rc;
+        do {
+            rc = ::ftruncate(d_fd, d_maxWrittenPos);
+        } while (rc < 0 && errno == EINTR);
+        if (rc < 0) {
+            LOG(WARNING) << "Failed to truncate output file (reading it will be slower): "
+                         << strerror(errno);
+        }
+
         d_buffer = d_bufferNeedle = d_bufferEnd = nullptr;
     }
     if (d_fd != -1) {

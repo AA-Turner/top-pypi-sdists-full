@@ -28,6 +28,7 @@ class HttpBackend(Protocol):
     ConnectTimeout: type[httpx.ConnectTimeout]
     ReadTimeout: type[httpx.ReadTimeout]
     WriteTimeout: type[httpx.WriteTimeout]
+    PoolTimeout: type[httpx.PoolTimeout]
     RemoteProtocolError: type[httpx.RemoteProtocolError]
 
 

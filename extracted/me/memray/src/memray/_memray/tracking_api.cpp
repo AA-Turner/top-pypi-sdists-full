@@ -321,11 +321,7 @@ PythonStackTracker::emitPendingPushesAndPops()
     if (!d_stack->empty()) {
         PyThreadState* ts = PyGILState_GetThisThreadState();
         if (!ts || ts->c_profilefunc != PyTraceFunction) {
-            // Note: clear() will call back into emitPendingPushesAndPops() to
-            //       emit the pops, but we won't call back into clear() because
-            //       the stack has already been emptied.
             clear();
-            return;
         }
     }
 
@@ -426,8 +422,6 @@ PythonStackTracker::reloadStackIfTrackerChanged()
 void
 PythonStackTracker::populateShadowStack()
 {
-    installGreenletTraceFunctionIfNeeded();
-
     clear();
 
     PyFrameObject* frame = PyEval_GetFrame();
@@ -585,6 +579,7 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
 
     // Clear any old TLS stack, emitting pops for frames that had been pushed.
     this->clear();
+    emitPendingPushesAndPops();
 
     // Save current TID on old greenlet. Print errors but otherwise ignore them.
     PyObject* tid = PyLong_FromUnsignedLong(t_tid);
@@ -608,7 +603,7 @@ PythonStackTracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     populateShadowStack();
 }
 
-std::unique_ptr<std::mutex> Tracker::s_mutex(new std::mutex);
+std::unique_ptr<TrackerMutex> Tracker::s_mutex(new TrackerMutex);
 pthread_key_t Tracker::s_native_unwind_vector_key;
 std::unique_ptr<Tracker> Tracker::s_instance_owner;
 std::atomic<Tracker*> Tracker::s_instance = nullptr;
@@ -806,7 +801,6 @@ PythonStackTracker::clear()
     d_num_pending_pops +=
             std::count_if(d_stack->begin(), d_stack->end(), [](const auto& f) { return f.isEmitted(); });
     d_stack->clear();
-    emitPendingPushesAndPops();
 }
 
 Tracker::Tracker(
@@ -830,9 +824,10 @@ Tracker::Tracker(
         // call malloc, hitting our malloc hook). POSIX guarantees multiple
         // rounds of TLS destruction if destructors call pthread_setspecific.
         // Note: If this raises an exception, the call_once can be retried.
-        if (0 != pthread_key_create(&s_native_unwind_vector_key, [](void* data) {
-                delete static_cast<std::vector<NativeTrace::ip_t>*>(data);
-            }))
+        if (0
+            != pthread_key_create(
+                    &s_native_unwind_vector_key,
+                    [](void* data) { delete static_cast<std::vector<NativeTrace::ip_t>*>(data); }))
         {
             throw std::runtime_error{"Failed to create pthread key"};
         }
@@ -848,7 +843,7 @@ Tracker::Tracker(
                 }
                 RecursionGuard guard;
 
-                std::unique_lock<std::mutex> lock(*s_mutex);
+                std::unique_lock lock(*s_mutex);
                 Tracker* tracker = Tracker::getTracker();
                 if (tracker) {
                     tracker->forgetCodeObject(code);
@@ -863,7 +858,7 @@ Tracker::Tracker(
             }
             RecursionGuard guard;
 
-            std::unique_lock<std::mutex> lock(*s_mutex);
+            std::unique_lock lock(*s_mutex);
             Tracker* tracker = Tracker::getTracker();
             if (tracker) {
                 tracker->forgetCodeObject((PyCodeObject*)code);
@@ -871,6 +866,8 @@ Tracker::Tracker(
         });
 #endif
     });
+
+    hooks::ensureArrowHooksAreValid();
 
     d_writer->setMainTidAndSkippedFrames(thread_id(), computeMainTidSkip());
     if (!d_writer->writeHeader(false)) {
@@ -886,7 +883,7 @@ Tracker::Tracker(
         registerReferenceTrackingHooks();
     }
     if (d_trace_python_allocators) {
-        registerPymallocHooks();
+        hooks::registerPymallocHooks();
     }
     d_background_thread = std::make_unique<BackgroundThread>(d_writer, memory_interval);
     d_background_thread->start();
@@ -903,7 +900,7 @@ Tracker::~Tracker()
     d_background_thread->stop();
 
     {
-        std::scoped_lock<std::mutex> lock(*s_mutex);
+        std::scoped_lock lock(*s_mutex);
         d_patcher.restore_symbols();
     }
 
@@ -912,13 +909,13 @@ Tracker::~Tracker()
         gstate = PyGILState_Ensure();
 
         if (d_reference_tracking) {
-            std::scoped_lock<std::mutex> lock(*s_mutex);
+            std::scoped_lock lock(*s_mutex);
             unregisterReferenceTrackingHooks();
         }
 
         if (d_trace_python_allocators) {
-            std::scoped_lock<std::mutex> lock(*s_mutex);
-            unregisterPymallocHooks();
+            std::scoped_lock lock(*s_mutex);
+            hooks::unregisterPymallocHooks();
         }
 
         PythonStackTracker::removeProfileHooks();
@@ -926,7 +923,7 @@ Tracker::~Tracker()
         PyGILState_Release(gstate);
     }
 
-    std::scoped_lock<std::mutex> lock(*s_mutex);
+    std::scoped_lock lock(*s_mutex);
     d_tracked_objects.clear();
     d_writer->writeTrailer();
     d_writer->writeHeader(true);
@@ -996,7 +993,7 @@ Tracker::BackgroundThread::captureMemorySnapshot()
         return false;
     }
 
-    std::lock_guard<std::mutex> lock(*s_mutex);
+    std::lock_guard lock(*s_mutex);
     if (!d_writer->writeRecord(MemoryRecord{now, rss})) {
         if (Tracker::isActive()) {
             std::cerr << "Failed to write output, deactivating tracking" << std::endl;
@@ -1078,7 +1075,7 @@ Tracker::childFork()
 
     // Likewise, leak our old mutex, and re-create it.
     (void)s_mutex.release();
-    s_mutex.reset(new std::mutex);
+    s_mutex.reset(new TrackerMutex);
 
     // Save a reference to the old tracker (if any), then unset our singleton.
     Tracker* old_tracker = s_instance;
@@ -1113,7 +1110,7 @@ Tracker::childFork()
             old_tracker->d_reference_tracking));
 
     StopTheWorldGuard stop_the_world;
-    std::unique_lock<std::mutex> lock(*s_mutex);
+    std::unique_lock lock(*s_mutex);
     PythonStackTracker::recordAllStacks(*s_instance_owner);
     tracking_api::Tracker::activate();
     RecursionGuard::setValue(false);
@@ -1235,6 +1232,8 @@ Tracker::trackObjectImpl(PyObject* obj, int event, const std::optional<NativeTra
 void
 Tracker::invalidate_module_cache_impl()
 {
+    // libarrow can be loaded after tracking starts.
+    hooks::ensureArrowHooksAreValid();
     d_patcher.overwrite_symbols();
     updateModuleCacheImpl();
 }
@@ -1363,7 +1362,7 @@ Tracker::unregisterReferenceTrackingHooks() const noexcept
 std::unordered_set<PyObject*>
 Tracker::getSurvivingObjects()
 {
-    std::scoped_lock<std::mutex> lock(*s_mutex);
+    std::scoped_lock lock(*s_mutex);
     RecursionGuard guard;
 
     std::unordered_set<PyObject*> surviving_objects;
@@ -1495,7 +1494,7 @@ Tracker::createTracker(
             reference_tracking));
 
     StopTheWorldGuard stop_the_world;
-    std::unique_lock<std::mutex> lock(*s_mutex);
+    std::unique_lock lock(*s_mutex);
     PythonStackTracker::recordAllStacks(*s_instance_owner);
     tracking_api::Tracker::activate();
     Py_RETURN_NONE;
@@ -1513,49 +1512,6 @@ Tracker*
 Tracker::getTracker()
 {
     return s_instance;
-}
-
-static struct
-{
-    PyMemAllocatorEx raw;
-    PyMemAllocatorEx mem;
-    PyMemAllocatorEx obj;
-} s_orig_pymalloc_allocators;
-
-void
-Tracker::registerPymallocHooks() const noexcept
-{
-    assert(d_trace_python_allocators);
-    PyMemAllocatorEx alloc;
-
-    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &alloc);
-    if (alloc.free == &intercept::pymalloc_free) {
-        // Nothing to do; our hooks are already installed.
-        return;
-    }
-
-    alloc.malloc = intercept::pymalloc_malloc;
-    alloc.calloc = intercept::pymalloc_calloc;
-    alloc.realloc = intercept::pymalloc_realloc;
-    alloc.free = intercept::pymalloc_free;
-    PyMem_GetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
-    PyMem_GetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
-    PyMem_GetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
-    alloc.ctx = &s_orig_pymalloc_allocators.raw;
-    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &alloc);
-    alloc.ctx = &s_orig_pymalloc_allocators.mem;
-    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &alloc);
-    alloc.ctx = &s_orig_pymalloc_allocators.obj;
-    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &alloc);
-}
-
-void
-Tracker::unregisterPymallocHooks() const noexcept
-{
-    assert(d_trace_python_allocators);
-    PyMem_SetAllocator(PYMEM_DOMAIN_RAW, &s_orig_pymalloc_allocators.raw);
-    PyMem_SetAllocator(PYMEM_DOMAIN_MEM, &s_orig_pymalloc_allocators.mem);
-    PyMem_SetAllocator(PYMEM_DOMAIN_OBJ, &s_orig_pymalloc_allocators.obj);
 }
 
 // Trace Function interface
@@ -1600,7 +1556,7 @@ Tracker::handleGreenletSwitch(PyObject* from, PyObject* to)
     }
 
     // Grab the Tracker lock, as this may need to write pushes/pops.
-    std::unique_lock<std::mutex> lock(*s_mutex);
+    std::unique_lock lock(*s_mutex);
     RecursionGuard guard;
 
     PythonStackTracker::get().handleGreenletSwitch(from, to);
@@ -1632,7 +1588,9 @@ install_trace_function()
     }
 
     PyEval_SetProfile(PyTraceFunction, nullptr);
-    PythonStackTracker::get().populateShadowStack();
+    PythonStackTracker& tracker = PythonStackTracker::get();
+    tracker.installGreenletTraceFunctionIfNeeded();
+    tracker.populateShadowStack();
 }
 
 }  // namespace memray::tracking_api

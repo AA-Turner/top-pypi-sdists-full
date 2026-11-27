@@ -1,4 +1,3 @@
-# fmt: off
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from itertools import islice
@@ -19,9 +18,9 @@ def normalize(a):
 
 def complete_camera_vectors(look=None, up=None, right=None):
     """Creates the camera (or look) basis vectors from user input and
-     will autocomplete missing vector or non-orthogonal vectors using dot
-     products. The look direction will be maintained, up direction has higher
-     priority than right direction"""
+    will autocomplete missing vector or non-orthogonal vectors using dot
+    products. The look direction will be maintained, up direction has higher
+    priority than right direction"""
 
     # ensure good input
     if look is not None:
@@ -49,8 +48,8 @@ def complete_camera_vectors(look=None, up=None, right=None):
         r = normalize(np.cross(l, u))  # ensures complete perpendicularity
         u = normalize(np.cross(r, u))
     else:
-        raise ValueError('''At least two camera vectors of <look>, <up>,
- or <right> must be specified''')
+        raise ValueError("""At least two camera vectors of <look>, <up>,
+ or <right> must be specified""")
     return l, u, r
 
 
@@ -58,12 +57,13 @@ def get_cell_vertex_points(cell, disp=(0.0, 0.0, 0.0)):
     """Returns 8x3 list of the cell vertex coordinates"""
     cell_vertices = np.empty((2, 2, 2, 3))
     displacement = np.array(disp)
+
     for c1 in range(2):
         for c2 in range(2):
             for c3 in range(2):
                 cell_vertices[c1, c2, c3] = [c1, c2, c3] @ cell + displacement
-    cell_vertices.shape = (8, 3)
-    return cell_vertices
+
+    return cell_vertices.reshape((8, 3))
 
 
 def update_line_order_for_atoms(L, T, D, atoms, radii):
@@ -72,8 +72,10 @@ def update_line_order_for_atoms(L, T, D, atoms, radii):
     r2 = radii**2
     for n in range(len(L)):
         d = D[T[n]]
-        if ((((R - L[n] - d)**2).sum(1) < r2) &
-                (((R - L[n] + d)**2).sum(1) < r2)).any():
+        if (
+            (((R - L[n] - d) ** 2).sum(1) < r2)
+            & (((R - L[n] + d) ** 2).sum(1) < r2)
+        ).any():
             T[n] = -1
     return T
 
@@ -97,12 +99,20 @@ SHOW_CELL_AND_FIT_TO_CELL = 3
 
 class PlottingVariables:
     # removed writer - self
-    def __init__(self, atoms, rotation='', show_unit_cell=2,
-                 radii=None, bbox=None, colors=None, scale=20,
-                 maxwidth=500, extra_offset=(0., 0.),
-                 auto_bbox_size=1.05,
-                 auto_image_plane_z='front_all',
-                 ):
+    def __init__(
+        self,
+        atoms,
+        rotation='',
+        show_unit_cell=2,
+        radii=None,
+        bbox=None,
+        colors=None,
+        scale=20,
+        maxwidth=500,
+        extra_offset=(0.0, 0.0),
+        auto_bbox_size=1.05,
+        auto_image_plane_z='front_all',
+    ):
 
         assert show_unit_cell in (0, 1, 2, 3)
         """Handles camera/paper space transformations used for rendering, 2D
@@ -212,8 +222,9 @@ class PlottingVariables:
         out = {
             'bbox': self.get_bbox(),
             'rotation': self.rotation,
-            'scale':    self.scale,
-            'colors': self.colors}
+            'scale': self.scale,
+            'colors': self.colors,
+        }
         return out
 
     @property
@@ -253,8 +264,9 @@ class PlottingVariables:
 
         # bbox_auto is the bbox that matches the show_unit_cell option
         if has_cell(self.atoms) and self.show_unit_cell in (
-            SHOW_CELL_AND_FIT_TO_ALL, SHOW_CELL_AND_FIT_TO_CELL):
-
+            SHOW_CELL_AND_FIT_TO_ALL,
+            SHOW_CELL_AND_FIT_TO_CELL,
+        ):
             if self.show_unit_cell == SHOW_CELL_AND_FIT_TO_ALL:
                 bbox_auto = bbox_combined
             else:
@@ -292,7 +304,8 @@ class PlottingVariables:
             offset[2] = bbox_auto[1, 2]
         else:
             raise ValueError(
-                f'bad image plane setting {self.auto_image_plane_z!r}')
+                f'bad image plane setting {self.auto_image_plane_z!r}'
+            )
 
         # since we are moving the origin in the image plane (camera coordinates)
         self.offset += offset
@@ -326,9 +339,9 @@ class PlottingVariables:
         yhi = ylo + self.h
         return np.array([xlo, ylo, xhi, yhi]) / self.scale
 
-    def set_rotation_from_camera_directions(self,
-                                            look=None, up=None, right=None,
-                                            scaled_position=False):
+    def set_rotation_from_camera_directions(
+        self, look=None, up=None, right=None, scaled_position=False
+    ):
 
         if scaled_position:
             if look is not None:
@@ -367,12 +380,15 @@ class PlottingVariables:
         positions = self.atoms.get_positions()
 
         if self.show_unit_cell in (
-            SHOW_CELL, SHOW_CELL_AND_FIT_TO_ALL, SHOW_CELL_AND_FIT_TO_CELL):
-
+            SHOW_CELL,
+            SHOW_CELL_AND_FIT_TO_ALL,
+            SHOW_CELL_AND_FIT_TO_CELL,
+        ):
             L, T, D = cell_to_lines(self, cell)
             cell_verts_in_atom_coords = get_cell_vertex_points(cell, disp)
             cell_vertices = self.to_image_plane_positions(
-                cell_verts_in_atom_coords)
+                cell_verts_in_atom_coords
+            )
             T = update_line_order_for_atoms(L, T, D, self.atoms, self.radii)
             # D are a positions in the image plane,
             # not sure why it's setup like this
@@ -404,8 +420,9 @@ class PlottingVariables:
 
     def to_atom_positions(self, im_positions):
         """Converts image plane positions to atomic coordinates."""
-        positions = ((im_positions + self.offset) /
-                     self.scale) @ self.rotation.T
+        positions = (
+            (im_positions + self.offset) / self.scale
+        ) @ self.rotation.T
         return positions
 
     def get_bbox_from_atoms(self, atoms, im_radii):
@@ -455,7 +472,7 @@ def cell_to_lines(writer, cell):
     nlines = 0
     nsegments = []
     for c in range(3):
-        d = np.sqrt((cell[c]**2).sum())
+        d = np.sqrt((cell[c] ** 2).sum())
         n = max(2, int(d / 0.3))
         nsegments.append(n)
         nlines += 4 * n
@@ -495,36 +512,45 @@ def make_patch_list(writer):
                 if (np.sum([v for v in site_occ.values()])) < 1.0:
                     # fill with white
                     fill = '#ffffff'
-                    patch = Circle(xy, r, facecolor=fill,
-                                   edgecolor='black')
+                    patch = Circle(xy, r, facecolor=fill, edgecolor='black')
                     patch_list.append(patch)
 
                 start = 0
                 # start with the dominant species
-                for sym, occ in sorted(site_occ.items(),
-                                       key=lambda x: x[1],
-                                       reverse=True):
+                for sym, occ in sorted(
+                    site_occ.items(), key=lambda x: x[1], reverse=True
+                ):
                     if np.round(occ, decimals=4) == 1.0:
-                        patch = Circle(xy, r, facecolor=writer.colors[a],
-                                       edgecolor='black')
+                        patch = Circle(
+                            xy, r, facecolor=writer.colors[a], edgecolor='black'
+                        )
                         patch_list.append(patch)
                     else:
                         # jmol colors for the moment
-                        extent = 360. * occ
+                        extent = 360.0 * occ
                         patch = Wedge(
-                            xy, r, start, start + extent,
+                            xy,
+                            r,
+                            start,
+                            start + extent,
                             facecolor=default_colors[atomic_numbers[sym]],
-                            edgecolor='black')
+                            edgecolor='black',
+                        )
                         patch_list.append(patch)
                         start += extent
 
             else:
                 # why are there more positions than atoms?
                 # is this related to the cell?
-                if ((xy[1] + r > 0) and (xy[1] - r < writer.h) and
-                        (xy[0] + r > 0) and (xy[0] - r < writer.w)):
-                    patch = Circle(xy, r, facecolor=writer.colors[a],
-                                   edgecolor='black')
+                if (
+                    (xy[1] + r > 0)
+                    and (xy[1] - r < writer.h)
+                    and (xy[0] + r > 0)
+                    and (xy[0] - r < writer.w)
+                ):
+                    patch = Circle(
+                        xy, r, facecolor=writer.colors[a], edgecolor='black'
+                    )
                     patch_list.append(patch)
         else:
             a -= writer.natoms
@@ -612,11 +638,14 @@ def verify_cell_for_export(cell, check_orthorhombric=True):
     """
 
     if check_orthorhombric and not cell.orthorhombic:
-        raise ValueError('To export to this format, the cell needs to be '
-                         'orthorhombic.')
+        raise ValueError(
+            'To export to this format, the cell needs to be orthorhombic.'
+        )
     if cell.rank < 3:
-        raise ValueError('To export to this format, the cell size needs '
-                         'to be set: current cell is {}.'.format(cell))
+        raise ValueError(
+            'To export to this format, the cell size needs '
+            'to be set: current cell is {}.'.format(cell)
+        )
 
 
 def verify_dictionary(atoms, dictionary, dictionary_name):
@@ -643,13 +672,18 @@ def verify_dictionary(atoms, dictionary, dictionary_name):
     # Check if we have enough key
     for key in set(atoms.symbols):
         if key not in dictionary:
-            raise ValueError('Missing the {} key in the `{}` dictionary.'
-                             ''.format(key, dictionary_name))
+            raise ValueError(
+                'Missing the {} key in the `{}` dictionary.'.format(
+                    key, dictionary_name
+                )
+            )
 
 
 def segment_list(data, segment_size):
     """Segments a list into sublists of a specified size."""
-    return [data[i:i + segment_size] for i in range(0, len(data), segment_size)]
+    return [
+        data[i : i + segment_size] for i in range(0, len(data), segment_size)
+    ]
 
 
 def validate_comment_line(comment: str, name: str = 'Comment line') -> str:

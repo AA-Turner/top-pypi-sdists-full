@@ -24,7 +24,7 @@ class DescribeCheckWarningMachinesRequest(DaraModel):
         self.check_id = check_id
         # The number of the page to return. Default value: **1**.
         self.current_page = current_page
-        # The instance ID of the asset that you don\\"t want to query.
+        # The instance ID of the asset that you don\"t want to query.
         self.filter_uuid = filter_uuid
         # The instance ID of the asset.
         self.instance_id = instance_id

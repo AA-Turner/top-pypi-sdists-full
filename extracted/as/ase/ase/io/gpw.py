@@ -1,6 +1,5 @@
-# fmt: off
-
 """Read gpw-file from GPAW."""
+
 import ase.io.ulm as ulm
 from ase import Atoms
 from ase.calculators.singlepoint import (
@@ -44,18 +43,27 @@ def read_gpw(filename):
         bz2ibz=bz2ibz,
         # New gpw-files may have "non_collinear_magmom(s)" which ASE
         # doesn't know:
-        **{property: value
-           for property, value in reader.results.asdict().items()
-           if property in all_properties})
+        **{
+            property: value
+            for property, value in reader.results.asdict().items()
+            if property in all_properties
+        },
+    )
 
     if kpts is not None:
         atoms.calc.kpts = []
-        for spin, (eps_kn, f_kn) in enumerate(zip(wfs.eigenvalues,
-                                                  wfs.occupations)):
-            for kpt, (weight, eps_n, f_n) in enumerate(zip(kpts.weights,
-                                                           eps_kn, f_kn)):
+        eps_skn = wfs.eigenvalues
+        f_skn = wfs.occupations
+        if eps_skn.ndim == 2:  # non-collinear, stored without a spin axis
+            eps_skn = eps_skn[None]
+            f_skn = f_skn[None]
+        for spin, (eps_kn, f_kn) in enumerate(zip(eps_skn, f_skn)):
+            for kpt, (weight, eps_n, f_n) in enumerate(
+                zip(kpts.weights, eps_kn, f_kn)
+            ):
                 atoms.calc.kpts.append(
-                    SinglePointKPoint(weight, spin, kpt, eps_n, f_n))
+                    SinglePointKPoint(weight, spin, kpt, eps_n, f_n)
+                )
     reader.close()
 
     return atoms
@@ -63,6 +71,7 @@ def read_gpw(filename):
 
 def read_old_gpw(filename):
     from gpaw.io.tar import Reader
+
     r = Reader(filename)
     positions = r.get('CartesianPositions') * Bohr
     numbers = r.get('AtomicNumbers')
@@ -77,10 +86,7 @@ def read_old_gpw(filename):
     else:
         forces = None
 
-    atoms = Atoms(positions=positions,
-                  numbers=numbers,
-                  cell=cell,
-                  pbc=pbc)
+    atoms = Atoms(positions=positions, numbers=numbers, cell=cell, pbc=pbc)
     if tags.any():
         atoms.set_tags(tags)
 
@@ -91,18 +97,18 @@ def read_old_gpw(filename):
         magmoms = None
         magmom = None
 
-    atoms.calc = SinglePointDFTCalculator(atoms, energy=energy,
-                                          forces=forces,
-                                          magmoms=magmoms,
-                                          magmom=magmom)
+    atoms.calc = SinglePointDFTCalculator(
+        atoms, energy=energy, forces=forces, magmoms=magmoms, magmom=magmom
+    )
     kpts = []
     if r.has_array('IBZKPoints'):
-        for w, kpt, eps_n, f_n in zip(r.get('IBZKPointWeights'),
-                                      r.get('IBZKPoints'),
-                                      r.get('Eigenvalues'),
-                                      r.get('OccupationNumbers')):
-            kpts.append(SinglePointKPoint(w, kpt[0], kpt[1],
-                                          eps_n[0], f_n[0]))
+        for w, kpt, eps_n, f_n in zip(
+            r.get('IBZKPointWeights'),
+            r.get('IBZKPoints'),
+            r.get('Eigenvalues'),
+            r.get('OccupationNumbers'),
+        ):
+            kpts.append(SinglePointKPoint(w, kpt[0], kpt[1], eps_n[0], f_n[0]))
     atoms.calc.kpts = kpts
 
     return atoms

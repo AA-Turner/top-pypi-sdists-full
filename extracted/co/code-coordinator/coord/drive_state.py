@@ -203,6 +203,13 @@ class IssueState:
     # polling `test_state == "running"` forever against a child that has
     # already finished.
     smoke_failure_reason: str = ""
+    # The host that actually ran *this* Test leg — `coord.smoke.
+    # rank_smoke_machines` routes the Test stage independently of the work
+    # leg (and since #3182 can fan a diff out across several legs on
+    # several machines at once), so `work_machine` is NOT a safe proxy for
+    # "the machine that produced `work_test_reason`". Sourced the same way
+    # `review_machine` is, off the smoke child row's own `machine_name`.
+    smoke_machine: str = ""
 
     active_count: int = 0
     active_types: tuple[str, ...] = ()
@@ -429,6 +436,33 @@ def project(payload: dict, repo: str, issue: int, config: Any) -> IssueState:
             and a.get("review_of_assignment_id") == work_aid
         ]
     )
+    # #4171: coord.review.dispatch_scoped_review deliberately keeps the
+    # OLDER round's review_of_assignment_id on a scoped re-review (so the
+    # merge-queue's chain-based mq.has_approved_review still recognises it),
+    # which makes it invisible to the exact-match above. A request-changes
+    # scoped verdict then reads as "no review at all" and the drive loop
+    # waits forever instead of dispatching the next fix round. Fall back to
+    # the most recently dispatched review on the issue when it was clearly
+    # dispatched FOR this work row — strictly after this row finished — since
+    # a review dispatched later than this round's own finish cannot be the
+    # stale earlier-round verdict the comment above guards against.
+    if review is None:
+        _finished_at_raw = (work or {}).get("finished_at")
+        try:
+            _work_finished_at = (
+                float(_finished_at_raw) if _finished_at_raw is not None else None
+            )
+        except (TypeError, ValueError):
+            _work_finished_at = None
+        if _work_finished_at is not None:
+            review = _latest(
+                [
+                    a
+                    for a in mine
+                    if a.get("type") == "review"
+                    and (a.get("dispatched_at") or 0.0) > _work_finished_at
+                ]
+            )
     smoke = _latest(
         [
             a
@@ -580,6 +614,7 @@ def project(payload: dict, repo: str, issue: int, config: Any) -> IssueState:
         smoke_aid=g(smoke, "assignment_id"),
         smoke_status=g(smoke, "status"),
         smoke_failure_reason=g(smoke, "failure_reason"),
+        smoke_machine=g(smoke, "machine_name"),
         active_count=len(active),
         active_types=tuple(sorted({(a.get("type") or "?") for a in active})),
         merge_status=(merge_entry or {}).get("status") or "",

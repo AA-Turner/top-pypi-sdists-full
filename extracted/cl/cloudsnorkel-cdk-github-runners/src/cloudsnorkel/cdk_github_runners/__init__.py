@@ -13,6 +13,8 @@ r'''
 
 Use this CDK construct to create ephemeral [self-hosted GitHub runners](https://docs.github.com/en/actions/hosting-your-own-runners/about-self-hosted-runners) on-demand inside your AWS account.
 
+* 🛡️ Battle tested in production since 2022, from small teams to large organizations
+* 📈 Scales to hundreds of runner types and as many runners as your AWS quotas allow, with serverless orchestration
 * 🧩 Easy to configure GitHub integration with a web-based interface
 * 🧠 Customizable runners with decent defaults
 * 🏃🏻 Multiple runner configurations controlled by labels
@@ -28,687 +30,23 @@ Self-hosted runners in AWS are useful when:
 
 Ephemeral (or on-demand) runners are the [recommended way by GitHub](https://docs.github.com/en/actions/hosting-your-own-runners/autoscaling-with-self-hosted-runners#using-ephemeral-runners-for-autoscaling) for auto-scaling, and they make sure all jobs run with a clean image. Runners are started on-demand. You don't pay unless a job is running.
 
-## Table of Contents
-
-* [API](#api)
-* [Providers](#providers)
-
-  * [Job Isolation](#job-isolation)
-* [Installation](#installation)
-* [Customizing](#customizing)
-
-  * [Composite Providers](#composite-providers)
-  * [Custom Provider Selection](#custom-provider-selection)
-  * [Warm Runners](#warm-runners)
-  * [Compliance](#compliance)
-* [Examples](#examples)
-* [Architecture](#architecture)
-* [Troubleshooting](#troubleshooting)
-
-  * [Rebuilding runner images](#rebuilding-runner-images)
-* [Monitoring](#monitoring)
-* [Getting Help](#getting-help)
-* [Contributing](#contributing)
-* [Sponsors](#sponsors)
-* [Other Options](#other-options)
-
-## API
-
-The best way to browse API documentation is on [Constructs Hub](https://constructs.dev/packages/@cloudsnorkel/cdk-github-runners/). It is available in all supported programming languages.
-
-## Providers
-
-A runner provider creates compute resources on-demand and uses [actions/runner](https://github.com/actions/runner) to start a runner.
-
-|                  | EC2               | CodeBuild                  | Fargate        | ECS            | Lambda        | Lambda MicroVM |
-|------------------|-------------------|----------------------------|----------------|----------------|---------------|----------------|
-| **Time limit**   | Unlimited         | 36 hours (default 1 hour)  | Unlimited      | Unlimited      | 15 minutes    | 8 hours (default 1 hour) |
-| **vCPUs**        | Unlimited         | 2, 4, 8, or 72             | 0.25 to 4      | Unlimited      | 1 to 6        | 0.25 to 4      |
-| **RAM**          | Unlimited         | 3gb, 7gb, 15gb, or 145gb   | 512mb to 30gb  | Unlimited      | 128mb to 10gb | 512mb to 8gb   |
-| **Storage**      | Unlimited         | 50gb to 824gb              | 20gb to 200gb  | Unlimited      | Up to 10gb    | Up to 10gb     |
-| **Architecture** | x86_64, ARM64     | x86_64, ARM64              | x86_64, ARM64  | x86_64, ARM64  | x86_64, ARM64 | x86_64, ARM64  |
-| **GPU**          | ✔                 | ✔                         | ❌              | ✔              | ❌           | ❌             |
-| **sudo**         | ✔                 | ✔                         | ✔              | ✔              | ❌           | ❌              |
-| **Docker**       | ✔                 | ✔ (Linux only)            | ❌              | ✔              | ❌           | ❌             |
-| **Spot pricing** | ✔                 | ❌                         | ✔              | ✔              | ❌           | ❌             |
-| **OS**           | Linux, Windows    | Linux, Windows             | Linux, Windows | Linux, Windows | Linux         | Linux          |
-
-The best provider to use mostly depends on your current infrastructure. When in doubt, CodeBuild is always a good choice. Execution history and logs are easy to view, and it has no restrictive limits unless you need to run for more than 8 hours.
-
-* EC2 is useful when you want runners to have complete access to the host
-* ECS is useful when you want to control the infrastructure, like leaving the runner host running for faster startups
-* Lambda is useful for short jobs that can work within time, size and readonly system constraints
-* Lambda MicroVM is useful when you want Lambda pricing and start-up time, but a real kernel, a writable disk and more than 15 minutes
-
-### Job Isolation
-
-Every job gets a new runner, but not every provider gives every job its own machine. EC2, CodeBuild, and Fargate run each job on its own instance, build, or task. ECS and Lambda can run different jobs on the same machine, so jobs that can run on the same ECS cluster or Lambda function should be treated as one trust boundary.
-
-* **ECS** runs jobs as containers on a shared cluster of long-lived instances. With `dockerInDocker` enabled, which is the default for Linux, runner containers are privileged. A job running in a privileged container can take over the instance. From there it can access other jobs running on the same instance, and leave processes behind that affect jobs that run on it later. If you bring your own `capacityProvider`, its launch template must also require IMDSv2 with a hop limit of 1, or even unprivileged jobs can take the instance role.
-* **Lambda** reuses execution environments between jobs. A job can leave processes behind that can access or affect later jobs running on the same function. We do clear up `/tmp` between jobs which is the only writable filesystem available.
-
-To keep jobs of different trust levels apart:
-
-* Don't run untrusted code, like pull requests from forks of public repositories, on an ECS or Lambda provider that also runs jobs with access to secrets.
-* Use separate providers for different trust levels. Labels alone don't keep untrusted workflows off a provider, as any workflow can request any label. Use [runner groups](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/managing-access-to-self-hosted-runners-using-groups) limited to specific repositories or workflows. For ECS, give each provider its own cluster.
-* Disable `dockerInDocker` on ECS if your jobs don't need Docker.
-* If jobs of different trust levels must share a provider, use EC2, CodeBuild, or Fargate. EC2 and CodeBuild also support Docker.
-
-All jobs running on the same provider, regardless of the type, share the provider's IAM role, security groups, network access, and anything granted to `grantPrincipal`, so only grant what every job on the provider may use.
-
-If you are using ECS or Lambda to maximize runner provisioning speed, you could also consider [warm runners](#warm-runners).
-
-## Installation
-
-1. Install and use the appropriate package
-
-   <details><summary>Python</summary>
-
-   ### Install
-
-   Available on [PyPI](https://pypi.org/project/cloudsnorkel.cdk-github-runners).
-
-   ```bash
-   pip install cloudsnorkel.cdk-github-runners
-   ```
-
-   ### Use
-
-   ```python
-   from aws_cdk import App, Stack
-   from cloudsnorkel.cdk_github_runners import GitHubRunners
-
-   app = App()
-   stack = Stack(app, "github-runners")
-   GitHubRunners(stack, "runners")
-
-   app.synth()
-   ```
-
-   </details>
-   <details><summary>TypeScript or JavaScript</summary>
-
-   ### Install
-
-   Available on [npm](https://www.npmjs.com/package/@cloudsnorkel/cdk-github-runners).
-
-   ```bash
-   npm i @cloudsnorkel/cdk-github-runners
-   ```
-
-   ### Use
-
-   ```python
-   import { App, Stack } from 'aws-cdk-lib';
-   import { GitHubRunners } from '@cloudsnorkel/cdk-github-runners';
-
-   const app = new App();
-   const stack = new Stack(app, 'github-runners');
-   new GitHubRunners(stack, 'runners');
-
-   app.synth();
-   ```
-
-   </details>
-   <details><summary>Java</summary>
-
-   ### Install
-
-   Available on [Maven](https://central.sonatype.com/artifact/com.cloudsnorkel/cdk.github.runners/).
-
-   ```xml
-   <dependency>
-      <groupId>com.cloudsnorkel</groupId>
-      <artifactId>cdk.github.runners</artifactId>
-   </dependency>
-   ```
-
-   ### Use
-
-   ```java
-   import software.amazon.awscdk.App;
-   import software.amazon.awscdk.Stack;
-   import com.cloudsnorkel.cdk.github.runners.GitHubRunners;
-
-   public class Example {
-     public static void main(String[] args){
-       App app = new App();
-       Stack stack = new Stack(app, "github-runners");
-       GitHubRunners.Builder.create(stack, "runners").build();
-
-       app.synth();
-     }
-   }
-   ```
-
-   </details>
-   <details><summary>Go</summary>
-
-   ### Install
-
-   Available on [GitHub](https://pkg.go.dev/github.com/CloudSnorkel/cdk-github-runners-go/cloudsnorkelcdkgithubrunners).
-
-   ```bash
-   go get github.com/CloudSnorkel/cdk-github-runners-go/cloudsnorkelcdkgithubrunners
-   ```
-
-   ### Use
-
-   ```go
-   package main
-
-   import (
-     "github.com/CloudSnorkel/cdk-github-runners-go/cloudsnorkelcdkgithubrunners"
-     "github.com/aws/aws-cdk-go/awscdk/v2"
-     "github.com/aws/jsii-runtime-go"
-   )
-
-   func main() {
-     app := awscdk.NewApp(nil)
-     stack := awscdk.NewStack(app, jsii.String("github-runners"), &awscdk.StackProps{})
-     cloudsnorkelcdkgithubrunners.NewGitHubRunners(stack, jsii.String("runners"), &cloudsnorkelcdkgithubrunners.GitHubRunnersProps{})
-
-     app.Synth(nil)
-   }
-   ```
-
-   </details>
-   <details><summary>.NET</summary>
-
-   ### Install
-
-   Available on [Nuget](https://www.nuget.org/packages/CloudSnorkel.Cdk.Github.Runners/).
-
-   ```bash
-   dotnet add package CloudSnorkel.Cdk.Github.Runners
-   ```
-
-   ### Use
-
-   ```csharp
-   using Amazon.CDK;
-   using CloudSnorkel;
-
-   namespace Example
-   {
-     sealed class Program
-     {
-       public static void Main(string[] args)
-       {
-         var app = new App();
-         var stack = new Stack(app, "github-runners");
-         new GitHubRunners(stack, "runners");
-         app.Synth();
-       }
-     }
-   }
-   ```
-
-   </details>
-2. Use `GitHubRunners` construct in your code (starting with default arguments is fine)
-3. Deploy your stack
-4. Look for the status command output similar to `aws --region us-east-1 lambda invoke --function-name status-XYZ123 status.json`
-
-   ```
-    ✅  github-runners-test
-
-   ✨  Deployment time: 260.01s
-
-   Outputs:
-   github-runners-test.runnersstatuscommand4A30F0F5 = aws --region us-east-1 lambda invoke --function-name github-runners-test-runnersstatus1A5771C0-mvttg8oPQnQS status.json
-   ```
-5. Execute the status command (you may need to specify `--profile` too) and open the resulting `status.json` file
-6. Open the URL in `github.setup.url` from `status.json` or [manually setup GitHub](SETUP_GITHUB.md) integration as an app or with personal access token
-7. Run status command again to confirm `github.auth.status` and `github.webhook.status` are OK
-8. Trigger a GitHub action that has a `self-hosted` label with `runs-on: [self-hosted, codebuild]` (or non-default labels you set in step 2)
-9. If the action is not successful, see [troubleshooting](#Troubleshooting)
+## Documentation
+
+Everything you need is on **[ghr.cloudsnorkel.com](https://ghr.cloudsnorkel.com)**, with code in TypeScript, Python, Java, C# and Go.
+
+* [Getting Started](https://ghr.cloudsnorkel.com/guide/getting-started)
+* [Providers](https://ghr.cloudsnorkel.com/guide/providers)
+* [Customizing](https://ghr.cloudsnorkel.com/guide/customizing)
+* [Security](https://ghr.cloudsnorkel.com/guide/security)
+* [Compliance](https://ghr.cloudsnorkel.com/guide/compliance)
+* [Monitoring](https://ghr.cloudsnorkel.com/guide/monitoring)
+* [Cost](https://ghr.cloudsnorkel.com/guide/cost)
+* [Troubleshooting](https://ghr.cloudsnorkel.com/guide/troubleshooting)
+* [API Reference](https://ghr.cloudsnorkel.com/api/)
+
+## Demo
 
 [![Demo](demo-thumbnail.jpg)](https://youtu.be/wlyv_3V8lIw)
-
-## Customizing
-
-The default providers configured by `GitHubRunners` are useful for testing but probably not too much for actual production work. They run in the default VPC or no VPC and have no added IAM permissions. You would usually want to configure the providers yourself.
-
-For example:
-
-```python
-let vpc: ec2.Vpc;
-let runnerSg: ec2.SecurityGroup;
-let dbSg: ec2.SecurityGroup;
-let bucket: s3.Bucket;
-
-// create a custom CodeBuild provider
-const myProvider = new CodeBuildRunnerProvider(this, 'codebuild runner', {
-   labels: ['my-codebuild'],
-   vpc: vpc,
-   securityGroups: [runnerSg],
-});
-// grant some permissions to the provider
-bucket.grantReadWrite(myProvider);
-dbSg.connections.allowFrom(runnerSg, ec2.Port.tcp(3306), 'allow runners to connect to MySQL database');
-
-// create the runner infrastructure
-new GitHubRunners(this, 'runners', {
-   providers: [myProvider],
-});
-```
-
-Another way to customize runners is by modifying the image used to spin them up. The image contains the [runner](https://github.com/actions/runner), any required dependencies, and integration code with the provider. You may choose to customize this image by adding more packages, for example.
-
-```python
-const myBuilder = FargateRunnerProvider.imageBuilder(this, 'image builder');
-myBuilder.addComponent(
-  RunnerImageComponent.custom({ commands: ['apt install -y nginx xz-utils'] }),
-);
-
-const myProvider = new FargateRunnerProvider(this, 'fargate runner', {
-   labels: ['customized-fargate'],
-   imageBuilder: myBuilder,
-});
-
-// create the runner infrastructure
-new GitHubRunners(this, 'runners', {
-   providers: [myProvider],
-});
-```
-
-Your workflow will then look like:
-
-```yaml
-name: self-hosted example
-on: push
-jobs:
-  self-hosted:
-    runs-on: [self-hosted, customized-fargate]
-    steps:
-      - run: echo hello world
-```
-
-Windows images can also be customized the same way.
-
-```python
-const myWindowsBuilder = FargateRunnerProvider.imageBuilder(this, 'Windows image builder', {
-   architecture: Architecture.X86_64,
-   os: Os.WINDOWS,
-});
-myWindowsBuilder.addComponent(
-   RunnerImageComponent.custom({
-     name: 'Ninja',
-     commands: [
-       'Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip" -OutFile ninja.zip',
-       'Expand-Archive ninja.zip -DestinationPath C:\\actions',
-       'del ninja.zip',
-     ],
-   }),
-);
-
-const myProvider = new FargateRunnerProvider(this, 'fargate runner', {
-   labels: ['customized-windows-fargate'],
-   imageBuilder: myWindowsBuilder,
-});
-
-new GitHubRunners(this, 'runners', {
-   providers: [myProvider],
-});
-```
-
-The runner OS and architecture is determined by the image it is set to use. For example, to create a Fargate runner provider for ARM64 set the `architecture` property for the image builder to `Architecture.ARM64` in the image builder properties.
-
-```python
-new GitHubRunners(this, 'runners', {
-   providers: [
-      new FargateRunnerProvider(this, 'fargate runner', {
-         labels: ['arm64', 'fargate'],
-         imageBuilder: FargateRunnerProvider.imageBuilder(this, 'image builder', {
-            architecture: Architecture.ARM64,
-            os: Os.LINUX_UBUNTU,
-         }),
-      }),
-   ],
-});
-```
-
-### Composite Providers
-
-Composite providers allow you to combine multiple runner providers with different strategies. There are two types:
-
-**Fallback Strategy**: Try providers in order until one succeeds. Useful for trying spot instances first, then falling back to on-demand if spot capacity is unavailable.
-
-```python
-// Try spot instances first, fall back to on-demand if spot is unavailable
-const ecsFallback = CompositeProvider.fallback(this, 'ECS Fallback', [
-  new EcsRunnerProvider(this, 'ECS Spot', {
-    labels: ['ecs', 'linux', 'x64'],
-    spot: true,
-    // ... other config
-  }),
-  new EcsRunnerProvider(this, 'ECS On-Demand', {
-    labels: ['ecs', 'linux', 'x64'],
-    spot: false,
-    // ... other config
-  }),
-]);
-
-new GitHubRunners(this, 'runners', {
-  providers: [ecsFallback],
-});
-```
-
-**Weighted Distribution Strategy**: Randomly select a provider based on weights. Useful for distributing load across multiple availability zones or instance types.
-
-```python
-// Distribute 60% of traffic to AZ-1, 40% to AZ-2
-const distributedProvider = CompositeProvider.distribute(this, 'Fargate Distribution', [
-  {
-    weight: 3, // 3/(3+2) = 60%
-    provider: new FargateRunnerProvider(this, 'Fargate AZ-1', {
-      labels: ['fargate', 'linux', 'x64'],
-      subnetSelection: vpc.selectSubnets({
-        availabilityZones: [vpc.availabilityZones[0]],
-      }),
-      // ... other config
-    }),
-  },
-  {
-    weight: 2, // 2/(3+2) = 40%
-    provider: new FargateRunnerProvider(this, 'Fargate AZ-2', {
-      labels: ['fargate', 'linux', 'x64'],
-      subnetSelection: vpc.selectSubnets({
-        availabilityZones: [vpc.availabilityZones[1]],
-      }),
-      // ... other config
-    }),
-  },
-]);
-
-new GitHubRunners(this, 'runners', {
-  providers: [distributedProvider],
-});
-```
-
-**Important**: All providers in a composite must have the exact same labels. This ensures any provisioned runner can match the labels requested by the GitHub workflow job.
-
-### Custom Provider Selection
-
-By default, providers are selected based on label matching: the first provider that has all the labels requested by the job is selected. You can customize this behavior using a provider selector Lambda function to:
-
-* Filter out certain jobs (prevent runner provisioning)
-* Dynamically select a provider based on job characteristics (repository, branch, time of day, etc.)
-* Customize labels for the runner (add, remove, or modify labels dynamically)
-
-The selector function receives the full GitHub webhook payload, a map of all available providers and their labels, and the default provider/labels that would have been selected. It returns the provider to use (or `undefined` to skip runner creation) and the labels to assign to the runner.
-
-**Example: Route jobs to different providers based on repository**
-
-```python
-import { ComputeType } from 'aws-cdk-lib/aws-codebuild';
-import { Function, Code, Runtime } from 'aws-cdk-lib/aws-lambda';
-import { GitHubRunners, CodeBuildRunnerProvider } from '@cloudsnorkel/cdk-github-runners';
-
-const defaultProvider = new CodeBuildRunnerProvider(this, 'default', {
-  labels: ['custom-runner', 'default'],
-});
-const productionProvider = new CodeBuildRunnerProvider(this, 'production', {
-  labels: ['custom-runner', 'production'],
-  computeType: ComputeType.LARGE,
-});
-
-const providerSelector = new Function(this, 'provider-selector', {
-  runtime: Runtime.NODEJS_LATEST,
-  handler: 'index.handler',
-  code: Code.fromInline(`
-    exports.handler = async (event) => {
-      const { payload, providers, defaultProvider, defaultLabels } = event;
-
-      // Route production repos to dedicated provider
-      if (payload.repository.name.includes('prod')) {
-        return {
-          provider: '${productionProvider.node.path}',
-          labels: ['custom-runner', 'production', 'modified-via-selector'],
-        };
-      }
-
-      // Filter out draft PRs
-      if (payload.workflow_job.head_branch?.startsWith('draft/')) {
-        return { provider: undefined }; // Skip runner provisioning
-      }
-
-      // Use default for everything else
-      return {
-        provider: defaultProvider,
-        labels: defaultLabels,
-      };
-    };
-  `),
-});
-
-new GitHubRunners(this, 'runners', {
-   providers: [defaultProvider, productionProvider],
-   providerSelector: providerSelector,
-});
-```
-
-**Example: Add dynamic labels based on job metadata**
-
-```python
-const providerSelector = new Function(this, 'provider-selector', {
-  runtime: Runtime.NODEJS_LATEST,
-  handler: 'index.handler',
-  code: Code.fromInline(`
-    exports.handler = async (event) => {
-      const { payload, defaultProvider, defaultLabels } = event;
-
-      // Add branch name as a label
-      const branch = payload.workflow_job.head_branch || 'unknown';
-      const labels = [...(defaultLabels || []), 'branch:' + branch];
-
-      return {
-        provider: defaultProvider,
-        labels: labels,
-      };
-    };
-  `),
-});
-```
-
-**Important considerations:**
-
-* ⚠️ **Label matching responsibility**: You are responsible for ensuring the selected provider's labels match what the job requires. If labels don't match, the runner will be provisioned but GitHub Actions won't assign the job to it.
-* ⚠️ **No guarantee of assignment**: Provider selection only determines which provider will provision a runner. GitHub Actions may still route the job to any available runner with matching labels. For reliable provider assignment, consider repo-level runner registration (the default).
-* ⚡ **Performance**: The selector runs synchronously during webhook processing. Keep it fast and efficient—the webhook has a 30-second timeout total.
-
-### Warm Runners
-
-Warm runners are pre-provisioned and stay idle until a job arrives, reducing startup latency. Use `AlwaysOnWarmRunner` for 24/7 pools or `ScheduledWarmRunner` for time-windowed pools. You specify the provider directly.
-
-```python
-import { AlwaysOnWarmRunner, CodeBuildRunnerProvider, GitHubRunners } from '@cloudsnorkel/cdk-github-runners';
-
-const provider = new CodeBuildRunnerProvider(this, 'provider', { labels: ['codebuild', 'linux'] });
-const runners = new GitHubRunners(this, 'runners', { providers: [provider] });
-
-new AlwaysOnWarmRunner(this, 'warm', {
-  runners,
-  provider,
-  count: 2,
-  owner: 'my-org',
-  repo: 'my-repo',
-});
-```
-
-Warm runner pools can be stacked. If you want 2 warm runners always available but 3 during peak work hours, you can create one pool with 2 runners always on and another pool with 1 runner during work hours.
-
-```python
-import { aws_events as events, Duration } from 'aws-cdk-lib';
-import { AlwaysOnWarmRunner, ScheduledWarmRunner, CodeBuildRunnerProvider, GitHubRunners } from '@cloudsnorkel/cdk-github-runners';
-
-const provider = new CodeBuildRunnerProvider(this, 'provider', { labels: ['codebuild', 'linux'] });
-const runners = new GitHubRunners(this, 'runners', { providers: [provider] });
-
-new AlwaysOnWarmRunner(this, 'warm', {
-  runners,
-  provider,
-  count: 2,
-  owner: 'my-org',
-  repo: 'my-repo',
-});
-
-new ScheduledWarmRunner(this, 'work hours warm', {
-  runners,
-  provider,
-  count: 1,
-  owner: 'my-org',
-  repo: 'my-repo',
-  schedule: events.Schedule.cron({ hour: '13', minute: '0', weekDay: 'MON-FRI' }),
-  duration: Duration.hours(2),
-});
-```
-
-See the [warm-runners example](examples/typescript/warm-runners/) for a complete setup.
-
-### Compliance
-
-Compliance frameworks like HIPAA, PCI DSS, and NIST 800-53 often ask for your own encryption keys and limited Lambda concurrency. `Compliance` applies those to everything this library creates in a scope, like a stack or a whole app. Settings of the closest scope win.
-
-```python
-Compliance.of(this).encrypt({ key, logs: logsKey });  // logs get their own key, everything else uses `key`
-Compliance.of(gpuProvider).encrypt({ storage: gpuKey });  // stricter key for one provider
-Compliance.of(this).limitLambdaConcurrency({ maxJobStarts: 50 });  // jobs you expect to start at once
-```
-
-Synth warns about runner resources that no scope covers, like image builders in another stack. The key needs to be in a stack that every other stack can use. Adding a key to an existing deployment rebuilds runner images.
-
-See the [compliance example](examples/typescript/compliance/) for a complete setup.
-
-## Examples
-
-We provide comprehensive examples in the [`examples/`](examples/) folder to help you get started quickly:
-
-### Getting Started
-
-* **[Simple CodeBuild](examples/typescript/simple-codebuild/)** - Basic setup with just a CodeBuild provider (also available in [Python](examples/python/simple-codebuild/))
-* **[Warm Runners](examples/typescript/warm-runners/)** - Pre-provisioned runners for low-latency job starts (also available in [Python](examples/python/warm-runners/))
-
-### Provider Configuration
-
-* **[Composite Provider](examples/typescript/composite-provider/)** - Fallback and weighted distribution strategies (also available in [Python](examples/python/composite-provider/))
-* **[Provider Selector](examples/typescript/provider-selector/)** - Custom provider selection with Lambda function (also available in [Python](examples/python/provider-selector/))
-* **[EC2 Windows Provider](examples/typescript/ec2-windows-provider/)** - EC2 configuration for Windows runners (also available in [Python](examples/python/ec2-windows-provider/))
-* **[Split Stacks](examples/typescript/split-stacks/)** - Split image builders and providers across multiple stacks (also available in [Python](examples/python/split-stacks/))
-
-### Compute & Performance
-
-* **[Compute Options](examples/typescript/compute-options/)** - Configure CPU, memory, and instance types for different providers (also available in [Python](examples/python/compute-options/))
-* **[Spot Instances](examples/typescript/spot-instances/)** - Use spot instances for cost savings across EC2, Fargate, and ECS (also available in [Python](examples/python/spot-instances/))
-* **[Storage Options](examples/typescript/storage-options/)** - Custom EBS storage options for EC2 runners (also available in [Python](examples/python/storage-options/))
-* **[ECS Scaling](examples/typescript/ecs-scaling/)** - Custom autoscaling group scaling policies for ECS providers (also available in [Python](examples/python/ecs-scaling/))
-
-### Security & Access
-
-* **[IAM Permissions](examples/typescript/iam-permissions/)** - Grant AWS IAM permissions to runners (also available in [Python](examples/python/iam-permissions/))
-* **[Network Access](examples/typescript/network-access/)** - Configure network access with VPCs and security groups (also available in [Python](examples/python/network-access/))
-* **[Access Control](examples/typescript/access-control/)** - Configure access control for webhook and setup functions (also available in [Python](examples/python/access-control/))
-* **[Compliance](examples/typescript/compliance/)** - Encrypt with your own KMS keys, limit Lambda concurrency, and log API requests (also available in [Python](examples/python/compliance/))
-
-### Customization
-
-* **[Add Software](examples/typescript/add-software/)** - Add custom software to runner images (also available in [Python](examples/python/add-software/))
-* **[Job Hooks](examples/typescript/job-hooks/)** - Run a script before every job using GitHub Actions runner hooks (also available in [Python](examples/python/job-hooks/))
-* **[GPU](examples/typescript/gpu/)** - GPU support with NVIDIA drivers across EC2, CodeBuild, and ECS (also available in [Python](examples/python/gpu/))
-
-### Enterprise & Monitoring
-
-* **[GHES](examples/typescript/ghes/)** - Configure runners for GitHub Enterprise Server (also available in [Python](examples/python/ghes/))
-* **[Monitoring](examples/typescript/monitoring/)** - Set up CloudWatch alarms and SNS notifications (also available in [Python](examples/python/monitoring/))
-
-Each example is self-contained with its own dependencies and README. Start with the simple examples and work your way up to more advanced configurations.
-
-Another good and very full example is the [integration test](test/default.integ.ts).
-
-If you have more to share, please open a PR adding examples to the `examples` folder.
-
-## Architecture
-
-![Architecture diagram](architecture.svg)
-
-## Troubleshooting
-
-Runners are started in response to a webhook coming in from GitHub. If there are any issues starting the runner like missing capacity or transient API issues, the provider will keep retrying for 24 hours. GitHub itself will cancel the job if it can't find a runner for 24 hours. If your jobs don't start, follow the steps below to examine all parts of this workflow.
-
-Configuration problems that we can detect up-front fail the orchestrator with a `RunnerConfigurationError` before any instance, build, or task is started. The error message says what needs to be fixed. These are still retried like any other error, so a configuration fixed within the 24 hours GitHub keeps the job queued still gets a runner and the job still runs.
-
-1. Always start with the status function, make sure no errors are reported, and confirm all status codes are OK
-2. Make sure `runs-on` in the workflow matches the expected labels set in the runner provider
-3. Diagnose relevant executions of the orchestrator step function by visiting the URL in `troubleshooting.stepFunctionUrl` from `status.json`
-
-   1. If the execution failed, check your runner provider configuration for errors
-   2. If the execution is still running for a long time, check the execution events to see why runner starting is being retried
-   3. If there are no relevant executions, move to the next step
-4. Confirm the webhook Lambda was called by visiting the URL in `troubleshooting.webhookHandlerUrl` from `status.json`
-
-   1. If it's not called or logs errors, confirm the webhook settings on the GitHub side
-   2. If you see too many errors, make sure you're only sending `workflow_job` events
-5. When using GitHub app, make sure there are active installations in `github.auth.app.installations`
-6. If runners start but never pick up a job and get stopped with `IdleRunner`, their runner version may be too old. Runners can't update themselves, and GitHub stops sending jobs to runners that are not updated within 30 days of a new runner release, or right away for a critical security update. [Rebuild your runner images](#rebuilding-runner-images) to fix it
-7. If organization-level runners never pick up jobs from public repositories, check the runner group settings. By default, only private repositories can use runners in a runner group. You can allow public repositories in the [runner group repository access settings](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/managing-access-to-self-hosted-runners-using-groups#changing-which-repositories-can-access-a-runner-group), but make sure you understand the [security risks](#job-isolation) first
-
-All logs are saved in CloudWatch.
-
-* Log group names can be found in `status.json` for each provider, image builder, and other parts of the system
-* Some useful Logs Insights queries can be enabled with `GitHubRunners.createLogsInsightsQueries()`
-
-To get `status.json`, check out the CloudFormation stack output for a command that generates it. The command looks like:
-
-```
-aws --region us-east-1 lambda invoke --function-name status-XYZ123 status.json
-```
-
-### Rebuilding runner images
-
-Runner images are rebuilt every `rebuildInterval` (7 days by default). To rebuild all of them right now, run this with the name of the every stack your runners are built in. It starts every image builder in the stack and prints the build ids. Runners pick up the new images as soon as the builds finish.
-
-```sh
-STACK=my-runners-stack
-resources() {
-  aws cloudformation list-stack-resources --stack-name "$STACK" --output text \
-    --query "StackResourceSummaries[?ResourceType=='$1'].PhysicalResourceId"
-}
-for project in $(resources AWS::CodeBuild::Project); do
-  # skip runner projects of CodeBuild providers, we only want image builders
-  aws codebuild batch-get-projects --names "$project" --output text --query 'projects[0].description' \
-    | grep -q '^Build docker image for self-hosted GitHub runner' \
-    && aws codebuild start-build --project-name "$project" --output text --query 'build.id'
-done
-for pipeline in $(resources AWS::ImageBuilder::ImagePipeline); do
-  aws imagebuilder start-image-pipeline-execution --image-pipeline-arn "$pipeline" --output text --query 'imageBuildVersionArn'
-done
-```
-
-Make sure you use `failedImageBuildsTopic()` to get notified of any failed builds.
-
-## Monitoring
-
-There are three important ways to monitor your runners:
-
-1. Make sure runners don't fail to start. When that happens, jobs may sit and wait. Use `GitHubRunners.metricFailed()` to get a metric for the number of failed runner starts. You should use this metric to trigger an alarm.
-2. Make sure our management functions don't fail. When that happens, webhooks may be dropped and jobs may never get a runner. Use `GitHubRunners.metricLambdaErrors()` to get a metric for the number of failed invocations across all management Lambda functions. You should use this metric to trigger an alarm.
-3. Make sure runner images don't fail to build. Failed runner image builds mean you will get stuck with out-of-date software on your runners. It may lead to security vulnerabilities, or it may lead to slower runner start-ups as the runner software itself needs to be updated. Use `GitHubRunners.failedImageBuildsTopic()` to get SNS topic that gets notified of failed runner image builds. You should subscribe to this topic.
-
-Other useful metrics to track:
-
-1. Use `GitHubRunners.metricJobCompleted()` to get a metric for the number of completed jobs broken down by labels and job success.
-2. Use `GitHubRunners.metricTime()` to get a metric for the total time a runner is running. This includes the overhead of starting the runner.
-3. Use `GitHubRunners.metricStolenRunners()` to get a metric for number of runners detected as stolen by another job. Anything over zero can indicate a misconfiguration or GitHub webhook issues.
-4. Use `GitHubRunners.metricJobsMatchingMultipleProviders()` to get a metric for the number of jobs whose labels matched more than one provider and may run on any of them. Anything over zero means some workflows should ask for more labels.
-
-Use `GitHubRunners.createDashboard()` to get a CloudWatch dashboard with all of these metrics in one place. It's split
-into sections for jobs, runners, runner assignment and management functions. Each section explains what its numbers
-mean and which ones to alarm on.
-
-## Known Issues
-
-1. Runner images built during a failed deployment are not rolled back. If your stack fails to deploy after an image was already built, the new image will stay in use. The image will be automatically replaced on the next build interval, but that might take up to 7 days with default settings (`rebuildInterval`). It's recommended to not leave stacks in `UPDATE_ROLLBACK_COMPLETE` state. Deploying again with the configuration you want will rebuild the images and get everything back in sync.
-2. Library downgrades are not well tested. We work hard to keep backwards compatibility, but downgrading to an older version of the library may lead to unexpected issues. For example, downgrading from 0.16.1 may result in runner images being deleted. They will be rebuilt on the next build interval, but that might take up to 7 days with default settings (`rebuildInterval`). It's recommended to not downgrade the library unless you know what you're doing.
 
 ## Getting Help
 
@@ -862,29 +200,27 @@ class AlwaysOnWarmRunner(
 
     Registration level must match the one selected during setup.
 
-    :see:
-
-    https://github.com/CloudSnorkel/cdk-github-runners/blob/main/SETUP_GITHUB.md
-
     **Limitations**
 
     - Jobs will still trigger provisioning of on-demand runners, even if a warm runner ends up being used.
     - You may briefly see more than ``count`` runners when changing config or at rotation.
     - To remove: set ``count`` to 0, deploy, wait for warm runners to stop, then remove and deploy again.
-    If you don't follow this procedure, warm runners may linger until they expire.
+      If you don't follow this procedure, warm runners may linger until they expire.
     - Provider failures or timeouts (like Lambda provider timing out after 15 minutes) will result in a
-    gap in coverage until the retry succeeds. Current retry mechanism has built-in back-off rate and
-    can be tweaked using ``retryOptions``. This will be improved in the future.
+      gap in coverage until the retry succeeds. Current retry mechanism has built-in back-off rate and
+      can be tweaked using ``retryOptions``. This will be improved in the future.
 
     Example::
 
-    new AlwaysOnWarmRunner(stack, 'AlwaysOnLinux', {
-    runners,
-    provider: myProvider,
-    count: 3,
-    owner: 'my-org',
-    repo: 'my-repo',
-    });
+       new AlwaysOnWarmRunner(stack, 'AlwaysOnLinux', {
+         runners,
+         provider: myProvider,
+         count: 3,
+         owner: 'my-org',
+         repo: 'my-repo',
+       });
+
+    :see: https://ghr.cloudsnorkel.com/guide/setup-github
     '''
 
     def __init__(
@@ -905,7 +241,7 @@ class AlwaysOnWarmRunner(
         :param count: Number of warm runners to maintain.
         :param owner: GitHub owner where runners will be registered (org or user login).
         :param provider: Provider to use. Warm runners bypass the provider selector — they always use this provider, regardless of job characteristics. Labels cannot be modified.
-        :param runners: The GitHubRunners construct that owns the shared warm runner infrastructure.
+        :param runners: The {@link GitHubRunners} construct that owns the shared warm runner infrastructure.
         :param registration_level: Registration level — must match how your runners are set up in GitHub. Choose 'org' for org-wide runners, 'repo' for repo-level. See the setup wizard for choosing repo vs org. Default: 'repo'
         :param repo: Repository name (without owner) where runners will be registered. Required when ``registrationLevel`` is 'repo'.
         '''
@@ -953,7 +289,7 @@ class AlwaysOnWarmRunnerProps:
         :param count: Number of warm runners to maintain.
         :param owner: GitHub owner where runners will be registered (org or user login).
         :param provider: Provider to use. Warm runners bypass the provider selector — they always use this provider, regardless of job characteristics. Labels cannot be modified.
-        :param runners: The GitHubRunners construct that owns the shared warm runner infrastructure.
+        :param runners: The {@link GitHubRunners} construct that owns the shared warm runner infrastructure.
         :param registration_level: Registration level — must match how your runners are set up in GitHub. Choose 'org' for org-wide runners, 'repo' for repo-level. See the setup wizard for choosing repo vs org. Default: 'repo'
         :param repo: Repository name (without owner) where runners will be registered. Required when ``registrationLevel`` is 'repo'.
         '''
@@ -1003,7 +339,7 @@ class AlwaysOnWarmRunnerProps:
 
     @builtins.property
     def runners(self) -> "GitHubRunners":
-        '''The GitHubRunners construct that owns the shared warm runner infrastructure.'''
+        '''The {@link GitHubRunners} construct that owns the shared warm runner infrastructure.'''
         result = self._values.get("runners")
         assert result is not None, "Required property 'runners' is missing"
         return typing.cast("GitHubRunners", result)
@@ -1017,7 +353,7 @@ class AlwaysOnWarmRunnerProps:
 
         :default: 'repo'
 
-        :see: https://github.com/CloudSnorkel/cdk-github-runners/blob/main/SETUP_GITHUB.md
+        :see: https://ghr.cloudsnorkel.com/guide/setup-github
         '''
         result = self._values.get("registration_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1069,7 +405,7 @@ class ApiGatewayAccessProps:
         '''
         :param access_log_group: Log group for access logs, with one JSON line for each request. API Gateway can only write logs once the account has a CloudWatch Logs role. See https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-logging.html Default: no access logs
         :param allowed_ips: List of IP addresses in CIDR notation that are allowed to access the API Gateway. If not specified on public API Gateway, all IP addresses are allowed. If not specified on private API Gateway, no IP addresses are allowed (but specified security groups are).
-        :param allowed_security_groups: List of security groups that are allowed to access the API Gateway. Only works for private API Gateways with {@link allowedVpc}.
+        :param allowed_security_groups: List of security groups that are allowed to access the API Gateway. Only works for private API Gateways with {@link ApiGatewayAccessProps.allowedVpc}.
         :param allowed_vpc: Create a private API Gateway and allow access from the specified VPC.
         :param allowed_vpc_endpoints: Create a private API Gateway and allow access from the specified VPC endpoints. Use this to make use of existing VPC endpoints or to share an endpoint between multiple functions. The VPC endpoint must point to ``ec2.InterfaceVpcEndpointAwsService.APIGATEWAY``. No other settings are supported when using this option. All endpoints will be allowed access, but only the first one will be used as the URL by the runner system for setting up the webhook, and as setup URL.
         :param logging_level: Level of execution logs. API Gateway writes them to its own log group named ``API-Gateway-Execution-Logs_{rest-api-id}/{stage}``. Like access logs, these need a CloudWatch Logs role in the account. Default: no execution logs
@@ -1127,7 +463,7 @@ class ApiGatewayAccessProps:
     ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''List of security groups that are allowed to access the API Gateway.
 
-        Only works for private API Gateways with {@link allowedVpc}.
+        Only works for private API Gateways with {@link ApiGatewayAccessProps.allowedVpc}.
         '''
         result = self._values.get("allowed_security_groups")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
@@ -1497,7 +833,7 @@ class BaseImage(
 
         Uses AWS Deep Learning AMIs for Linux (Ubuntu, Amazon Linux 2, Amazon Linux 2023).
         For Windows, subscribe to NVIDIA RTX Virtual Workstation in AWS Marketplace, then use
-        {@link fromMarketplaceProductId} with the product ID.
+        {@link BaseImage.fromMarketplaceProductId} with the product ID.
 
         :param os: Target operating system.
         :param architecture: Target architecture.
@@ -1699,8 +1035,8 @@ class Compliance(
     The scope can be an app, a stage, a stack, or a single construct like a runner provider. Settings of the closest scope win, so you can set a key
     for a whole stack and a stricter one for a single provider. Resources you create yourself are not changed.
 
-    Once anything uses ``Compliance``, synth warns about runner resources in the same stage that no scope covers. Like other aspects, an app
-    scope doesn't reach into nested stages, so use ``Compliance.of(stage)`` for those::
+    Once anything uses {@link Compliance}, synth warns about runner resources in the same stage that no scope covers. Like other aspects, an app
+    scope doesn't reach into nested stages, so call {@link Compliance.of} on those stages too::
 
        Compliance.of(stack).encrypt({ key });
        Compliance.of(gpuProvider).encrypt({ storage: gpuKey });
@@ -2128,7 +1464,7 @@ class GitHubRunners(
 ):
     '''Create all the required infrastructure to provide self-hosted GitHub runners.
 
-    It creates a webhook, secrets, and a step function to orchestrate all runs. Secrets are not automatically filled. See README.md for instructions on how to setup GitHub integration.
+    It creates a webhook, secrets, and a step function to orchestrate all runs. Secrets are not automatically filled. See https://ghr.cloudsnorkel.com/guide/setup-github for instructions on how to setup GitHub integration.
 
     By default, this will create a runner provider of each available type with the defaults. This is good enough for the initial setup stage when you just want to get GitHub integration working::
 
@@ -2195,12 +1531,12 @@ class GitHubRunners(
         :param provider_selector: Optional Lambda function to customize provider selection logic and label assignment. - The function receives the webhook payload along with default provider and its labels as {@link ProviderSelectorInput } - The function returns a selected provider and its labels as {@link ProviderSelectorResult } - You can decline to provision a runner by returning undefined as the provider in the selector result - You can fully customize the labels for the about-to-be-provisioned runner (add, remove, modify, dynamic labels, etc.) - Labels don't have to match the labels originally configured for the provider, but see warnings below - This function will be called synchronously during webhook processing, so it should be fast and efficient (webhook limit is 30 seconds total) **WARNING: It is your responsibility to ensure the selected provider's labels match the job's required labels. If you return the wrong labels, the runner will be created but GitHub Actions will not assign the job to it.** **WARNING: Provider selection is not a guarantee that a specific provider will be assigned for the job. GitHub Actions may assign the job to any runner with matching labels. The provider selector only determines which provider's runner will be *created*, but GitHub Actions may route the job to any available runner with the required labels.** **For reliable provider assignment based on job characteristics, consider using repo-level runner registration where you can control which runners are available for specific repositories. This information is also available while using the setup wizard.
         :param require_self_hosted_label: Whether to require the ``self-hosted`` label. If ``true``, the runner will only start if the workflow job explicitly requests the ``self-hosted`` label. Be careful when setting this to ``false``. Avoid setting up providers with generic label requirements like ``linux`` as they may match workflows that are not meant to run on self-hosted runners. Default: true
         :param retry_options: Options to retry operation in case of failure like missing capacity, or API quota issues. GitHub jobs time out after not being able to get a runner for 24 hours. You should not retry for more than 24 hours. Retries use full jitter, so total time spent waiting is about half the sum of min(interval * backoffRate ^ attempt, maxDelay) over all attempts. Default: retry 210 times over a bit more than 24 hours
-        :param security_groups: Security groups attached to all management functions. Use this to provide outbound access from management functions to GitHub Enterprise Server hosted inside a VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting. **Note:** Defining inbound rules on this security group does nothing. This security group only controls outbound access FROM the management functions. To limit access TO the webhook or setup functions, use {@link webhookAccess} and {@link setupAccess} instead.
-        :param setup_access: Access configuration for the setup function. Once you finish the setup process, you can set this to ``LambdaAccess.noAccess()`` to remove access to the setup function. You can also use ``LambdaAccess.apiGateway({ allowedIps: ['my-ip/0']})`` to limit access to your IP only. Default: LambdaAccess.lambdaUrl()
-        :param status_access: Access configuration for the status function. This function returns a lot of sensitive information about the runner, so you should only allow access to it from trusted IPs, if at all. Default: LambdaAccess.noAccess()
-        :param vpc: VPC used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting and will run outside the VPC. Make sure the selected VPC and subnets have access to the following with either NAT Gateway or VPC Endpoints: - GitHub Enterprise Server - Secrets Manager - SQS - Step Functions - DynamoDB - Lambda (only with {@link providerSelector}) - CloudFormation (status function only) - EC2 - ECR (status function only)
+        :param security_groups: Security groups attached to all management functions. Use this to provide outbound access from management functions to GitHub Enterprise Server hosted inside a VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting. **Note:** Defining inbound rules on this security group does nothing. This security group only controls outbound access FROM the management functions. To limit access TO the webhook or setup functions, use {@link GitHubRunnersProps.webhookAccess} and {@link GitHubRunnersProps.setupAccess} instead.
+        :param setup_access: Access configuration for the setup function. Once you finish the setup process, you can set this to {@link LambdaAccess.noAccess} to remove access to the setup function. You can also use ``LambdaAccess.apiGateway({ allowedIps: ['my-ip/0']})`` to limit access to your IP only. Default: {@link LambdaAccess.lambdaUrl }
+        :param status_access: Access configuration for the status function. This function returns a lot of sensitive information about the runner, so you should only allow access to it from trusted IPs, if at all. Default: {@link LambdaAccess.noAccess }
+        :param vpc: VPC used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting and will run outside the VPC. Make sure the selected VPC and subnets have access to the following with either NAT Gateway or VPC Endpoints: - GitHub Enterprise Server - Secrets Manager - SQS - Step Functions - DynamoDB - Lambda (only with {@link GitHubRunnersProps.providerSelector}) - CloudFormation (status function only) - EC2 - ECR (status function only)
         :param vpc_subnets: VPC subnets used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting.
-        :param webhook_access: Access configuration for the webhook function. This function is called by GitHub when a new workflow job is scheduled. For an extra layer of security, you can set this to ``LambdaAccess.apiGateway({ allowedIps: LambdaAccess.githubWebhookIps() })``. You can also set this to ``LambdaAccess.apiGateway({allowedVpc: vpc, allowedIps: ['GHES.IP.ADDRESS/32']})`` if your GitHub Enterprise Server is hosted in a VPC. This will create an API Gateway endpoint that's only accessible from within the VPC. *WARNING*: changing access type may change the URL. When the URL changes, you must update GitHub as well. Default: LambdaAccess.lambdaUrl()
+        :param webhook_access: Access configuration for the webhook function. This function is called by GitHub when a new workflow job is scheduled. For an extra layer of security, you can set this to ``LambdaAccess.apiGateway({ allowedIps: LambdaAccess.githubWebhookIps() })``. You can also set this to ``LambdaAccess.apiGateway({allowedVpc: vpc, allowedIps: ['GHES.IP.ADDRESS/32']})`` if your GitHub Enterprise Server is hosted in a VPC. This will create an API Gateway endpoint that's only accessible from within the VPC. *WARNING*: changing access type may change the URL. When the URL changes, you must update GitHub as well. Default: {@link LambdaAccess.lambdaUrl }
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c1a45de07d09ed9f4fd0b9051aeff4571ceda633f49c0b30a5058ad6d72fad18)
@@ -2240,8 +1576,8 @@ class GitHubRunners(
           were runners stopped before getting a job?
         - **Management functions (orchestration)**: is GitHub reaching the webhook, and is any of our code failing?
 
-        **WARNING:** this method calls {@link metricJobCompleted}, {@link metricStolenRunners}, {@link metricStoppedRunners} and
-        {@link metricJobsMatchingMultipleProviders} which create metric filters. These resources may incur cost.
+        **WARNING:** this method calls {@link GitHubRunners.metricJobCompleted}, {@link GitHubRunners.metricStolenRunners}, {@link GitHubRunners.metricStoppedRunners} and
+        {@link GitHubRunners.metricJobsMatchingMultipleProviders} which create metric filters. These resources may incur cost.
 
         This dashboard is very basic. Pull requests and issues are welcome to improve it.
 
@@ -2317,7 +1653,7 @@ class GitHubRunners(
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''Metric for failed runner executions.
 
-        A failed runner usually means the runner failed to start and so a job was never executed. It doesn't necessarily mean the job was executed and failed. For that, see {@link metricJobCompleted}.
+        A failed runner usually means the runner failed to start and so a job was never executed. It doesn't necessarily mean the job was executed and failed. For that, see {@link GitHubRunners.metricJobCompleted}.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
@@ -2424,7 +1760,7 @@ class GitHubRunners(
         We start a runner from the first matching provider, but GitHub may give such a job a runner from any of them, including one started for
         another job. Stolen runner detection starts another runner for the job left behind, but the job itself may run on a provider you didn't
         expect. Anything over zero means some workflows ask for too few labels. Add labels to those jobs so they match only one provider. Use the
-        "Jobs matching multiple providers" CloudWatch Logs Insights query created by {@link createLogsInsightsQueries} to find them.
+        "Jobs matching multiple providers" CloudWatch Logs Insights query created by {@link GitHubRunners.createLogsInsightsQueries} to find them.
 
         Jobs routed by a provider selector are not counted, as the selector picks the provider.
 
@@ -2476,7 +1812,7 @@ class GitHubRunners(
         jobs may not have gotten a runner. You should use this metric to trigger an alarm.
 
         Only unhandled errors are counted here, as reported by Lambda itself. Errors that are handled and logged, like a webhook with a bad signature,
-        are not failed invocations. Use the "Webhook errors" and "Orchestration errors" queries created by {@link createLogsInsightsQueries} to find
+        are not failed invocations. Use the "Webhook errors" and "Orchestration errors" queries created by {@link GitHubRunners.createLogsInsightsQueries} to find
         those.
 
         Management functions created after this method is called are not included. Call it last if you use warm runners.
@@ -2517,7 +1853,7 @@ class GitHubRunners(
         '''Metric for the number of runners that were stolen by a job that shouldn't have been assigned to them.
 
         A high number here means your runners are shared with jobs you didn't mean to serve. Use the "Stolen runners"
-        CloudWatch Logs Insights query created by {@link createLogsInsightsQueries} to see which repositories and jobs
+        CloudWatch Logs Insights query created by {@link GitHubRunners.createLogsInsightsQueries} to see which repositories and jobs
         are taking them.
 
         This metric has two dimensions:
@@ -2578,7 +1914,7 @@ class GitHubRunners(
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''Metric for the number of runners we stopped on purpose before they got a job.
 
-        These step function executions end up as aborted and not failed, so they don't show up in {@link metricFailed}.
+        These step function executions end up as aborted and not failed, so they don't show up in {@link GitHubRunners.metricFailed}.
 
         This metric has one dimension, ``Reason``, which is the error the step function was stopped with:
 
@@ -2641,7 +1977,7 @@ class GitHubRunners(
 
         A successful execution doesn't always mean a runner was started. It can be successful even without any label matches.
 
-        A successful runner doesn't mean the job it executed was successful. For that, see {@link metricJobCompleted}.
+        A successful runner doesn't mean the job it executed was successful. For that, see {@link GitHubRunners.metricJobCompleted}.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
@@ -2804,12 +2140,12 @@ class GitHubRunnersProps:
         :param provider_selector: Optional Lambda function to customize provider selection logic and label assignment. - The function receives the webhook payload along with default provider and its labels as {@link ProviderSelectorInput } - The function returns a selected provider and its labels as {@link ProviderSelectorResult } - You can decline to provision a runner by returning undefined as the provider in the selector result - You can fully customize the labels for the about-to-be-provisioned runner (add, remove, modify, dynamic labels, etc.) - Labels don't have to match the labels originally configured for the provider, but see warnings below - This function will be called synchronously during webhook processing, so it should be fast and efficient (webhook limit is 30 seconds total) **WARNING: It is your responsibility to ensure the selected provider's labels match the job's required labels. If you return the wrong labels, the runner will be created but GitHub Actions will not assign the job to it.** **WARNING: Provider selection is not a guarantee that a specific provider will be assigned for the job. GitHub Actions may assign the job to any runner with matching labels. The provider selector only determines which provider's runner will be *created*, but GitHub Actions may route the job to any available runner with the required labels.** **For reliable provider assignment based on job characteristics, consider using repo-level runner registration where you can control which runners are available for specific repositories. This information is also available while using the setup wizard.
         :param require_self_hosted_label: Whether to require the ``self-hosted`` label. If ``true``, the runner will only start if the workflow job explicitly requests the ``self-hosted`` label. Be careful when setting this to ``false``. Avoid setting up providers with generic label requirements like ``linux`` as they may match workflows that are not meant to run on self-hosted runners. Default: true
         :param retry_options: Options to retry operation in case of failure like missing capacity, or API quota issues. GitHub jobs time out after not being able to get a runner for 24 hours. You should not retry for more than 24 hours. Retries use full jitter, so total time spent waiting is about half the sum of min(interval * backoffRate ^ attempt, maxDelay) over all attempts. Default: retry 210 times over a bit more than 24 hours
-        :param security_groups: Security groups attached to all management functions. Use this to provide outbound access from management functions to GitHub Enterprise Server hosted inside a VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting. **Note:** Defining inbound rules on this security group does nothing. This security group only controls outbound access FROM the management functions. To limit access TO the webhook or setup functions, use {@link webhookAccess} and {@link setupAccess} instead.
-        :param setup_access: Access configuration for the setup function. Once you finish the setup process, you can set this to ``LambdaAccess.noAccess()`` to remove access to the setup function. You can also use ``LambdaAccess.apiGateway({ allowedIps: ['my-ip/0']})`` to limit access to your IP only. Default: LambdaAccess.lambdaUrl()
-        :param status_access: Access configuration for the status function. This function returns a lot of sensitive information about the runner, so you should only allow access to it from trusted IPs, if at all. Default: LambdaAccess.noAccess()
-        :param vpc: VPC used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting and will run outside the VPC. Make sure the selected VPC and subnets have access to the following with either NAT Gateway or VPC Endpoints: - GitHub Enterprise Server - Secrets Manager - SQS - Step Functions - DynamoDB - Lambda (only with {@link providerSelector}) - CloudFormation (status function only) - EC2 - ECR (status function only)
+        :param security_groups: Security groups attached to all management functions. Use this to provide outbound access from management functions to GitHub Enterprise Server hosted inside a VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting. **Note:** Defining inbound rules on this security group does nothing. This security group only controls outbound access FROM the management functions. To limit access TO the webhook or setup functions, use {@link GitHubRunnersProps.webhookAccess} and {@link GitHubRunnersProps.setupAccess} instead.
+        :param setup_access: Access configuration for the setup function. Once you finish the setup process, you can set this to {@link LambdaAccess.noAccess} to remove access to the setup function. You can also use ``LambdaAccess.apiGateway({ allowedIps: ['my-ip/0']})`` to limit access to your IP only. Default: {@link LambdaAccess.lambdaUrl }
+        :param status_access: Access configuration for the status function. This function returns a lot of sensitive information about the runner, so you should only allow access to it from trusted IPs, if at all. Default: {@link LambdaAccess.noAccess }
+        :param vpc: VPC used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting and will run outside the VPC. Make sure the selected VPC and subnets have access to the following with either NAT Gateway or VPC Endpoints: - GitHub Enterprise Server - Secrets Manager - SQS - Step Functions - DynamoDB - Lambda (only with {@link GitHubRunnersProps.providerSelector}) - CloudFormation (status function only) - EC2 - ECR (status function only)
         :param vpc_subnets: VPC subnets used for all management functions. Use this with GitHub Enterprise Server hosted that's inaccessible from outside the VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting.
-        :param webhook_access: Access configuration for the webhook function. This function is called by GitHub when a new workflow job is scheduled. For an extra layer of security, you can set this to ``LambdaAccess.apiGateway({ allowedIps: LambdaAccess.githubWebhookIps() })``. You can also set this to ``LambdaAccess.apiGateway({allowedVpc: vpc, allowedIps: ['GHES.IP.ADDRESS/32']})`` if your GitHub Enterprise Server is hosted in a VPC. This will create an API Gateway endpoint that's only accessible from within the VPC. *WARNING*: changing access type may change the URL. When the URL changes, you must update GitHub as well. Default: LambdaAccess.lambdaUrl()
+        :param webhook_access: Access configuration for the webhook function. This function is called by GitHub when a new workflow job is scheduled. For an extra layer of security, you can set this to ``LambdaAccess.apiGateway({ allowedIps: LambdaAccess.githubWebhookIps() })``. You can also set this to ``LambdaAccess.apiGateway({allowedVpc: vpc, allowedIps: ['GHES.IP.ADDRESS/32']})`` if your GitHub Enterprise Server is hosted in a VPC. This will create an API Gateway endpoint that's only accessible from within the VPC. *WARNING*: changing access type may change the URL. When the URL changes, you must update GitHub as well. Default: {@link LambdaAccess.lambdaUrl }
         '''
         if isinstance(log_options, dict):
             log_options = LogOptions(**log_options)
@@ -2954,7 +2290,7 @@ class GitHubRunnersProps:
 
         **For reliable provider assignment based on job characteristics, consider using repo-level runner registration where you can control which runners are available for specific repositories. This information is also available while using the setup wizard.
 
-        :see: https://github.com/CloudSnorkel/cdk-github-runners/blob/main/SETUP_GITHUB.md
+        :see: https://ghr.cloudsnorkel.com/guide/setup-github
         '''
         result = self._values.get("provider_selector")
         return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"], result)
@@ -2995,7 +2331,7 @@ class GitHubRunnersProps:
 
         **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting.
 
-        **Note:** Defining inbound rules on this security group does nothing. This security group only controls outbound access FROM the management functions. To limit access TO the webhook or setup functions, use {@link webhookAccess} and {@link setupAccess} instead.
+        **Note:** Defining inbound rules on this security group does nothing. This security group only controls outbound access FROM the management functions. To limit access TO the webhook or setup functions, use {@link GitHubRunnersProps.webhookAccess} and {@link GitHubRunnersProps.setupAccess} instead.
         '''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
@@ -3004,9 +2340,9 @@ class GitHubRunnersProps:
     def setup_access(self) -> typing.Optional["LambdaAccess"]:
         '''Access configuration for the setup function.
 
-        Once you finish the setup process, you can set this to ``LambdaAccess.noAccess()`` to remove access to the setup function. You can also use ``LambdaAccess.apiGateway({ allowedIps: ['my-ip/0']})`` to limit access to your IP only.
+        Once you finish the setup process, you can set this to {@link LambdaAccess.noAccess} to remove access to the setup function. You can also use ``LambdaAccess.apiGateway({ allowedIps: ['my-ip/0']})`` to limit access to your IP only.
 
-        :default: LambdaAccess.lambdaUrl()
+        :default: {@link LambdaAccess.lambdaUrl }
         '''
         result = self._values.get("setup_access")
         return typing.cast(typing.Optional["LambdaAccess"], result)
@@ -3017,7 +2353,7 @@ class GitHubRunnersProps:
 
         This function returns a lot of sensitive information about the runner, so you should only allow access to it from trusted IPs, if at all.
 
-        :default: LambdaAccess.noAccess()
+        :default: {@link LambdaAccess.noAccess }
         '''
         result = self._values.get("status_access")
         return typing.cast(typing.Optional["LambdaAccess"], result)
@@ -3035,7 +2371,7 @@ class GitHubRunnersProps:
         - SQS
         - Step Functions
         - DynamoDB
-        - Lambda (only with {@link providerSelector})
+        - Lambda (only with {@link GitHubRunnersProps.providerSelector})
         - CloudFormation (status function only)
         - EC2
         - ECR (status function only)
@@ -3066,7 +2402,7 @@ class GitHubRunnersProps:
 
         *WARNING*: changing access type may change the URL. When the URL changes, you must update GitHub as well.
 
-        :default: LambdaAccess.lambdaUrl()
+        :default: {@link LambdaAccess.lambdaUrl }
         '''
         result = self._values.get("webhook_access")
         return typing.cast(typing.Optional["LambdaAccess"], result)
@@ -3087,7 +2423,7 @@ class GitHubRunnersProps:
 class ICompositeProvider(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
     '''Interface for composite runner providers that combine multiple sub-providers.
 
-    Unlike IRunnerProvider, composite providers do not have connections, grant capabilities,
+    Unlike {@link IRunnerProvider}, composite providers do not have connections, grant capabilities,
     or log groups as they delegate to their sub-providers.
 
     Note that this interface cannot be implemented by external code. Use {@link CompositeProvider } factory methods.
@@ -3119,7 +2455,7 @@ class _ICompositeProviderProxy(
 ):
     '''Interface for composite runner providers that combine multiple sub-providers.
 
-    Unlike IRunnerProvider, composite providers do not have connections, grant capabilities,
+    Unlike {@link IRunnerProvider}, composite providers do not have connections, grant capabilities,
     or log groups as they delegate to their sub-providers.
 
     Note that this interface cannot be implemented by external code. Use {@link CompositeProvider } factory methods.
@@ -3534,7 +2870,7 @@ class LambdaAccess(
 
         :param access_log_group: Log group for access logs, with one JSON line for each request. API Gateway can only write logs once the account has a CloudWatch Logs role. See https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-logging.html Default: no access logs
         :param allowed_ips: List of IP addresses in CIDR notation that are allowed to access the API Gateway. If not specified on public API Gateway, all IP addresses are allowed. If not specified on private API Gateway, no IP addresses are allowed (but specified security groups are).
-        :param allowed_security_groups: List of security groups that are allowed to access the API Gateway. Only works for private API Gateways with {@link allowedVpc}.
+        :param allowed_security_groups: List of security groups that are allowed to access the API Gateway. Only works for private API Gateways with {@link ApiGatewayAccessProps.allowedVpc}.
         :param allowed_vpc: Create a private API Gateway and allow access from the specified VPC.
         :param allowed_vpc_endpoints: Create a private API Gateway and allow access from the specified VPC endpoints. Use this to make use of existing VPC endpoints or to share an endpoint between multiple functions. The VPC endpoint must point to ``ec2.InterfaceVpcEndpointAwsService.APIGATEWAY``. No other settings are supported when using this option. All endpoints will be allowed access, but only the first one will be used as the URL by the runner system for setting up the webhook, and as setup URL.
         :param logging_level: Level of execution logs. API Gateway writes them to its own log group named ``API-Gateway-Execution-Logs_{rest-api-id}/{stage}``. Like access logs, these need a CloudWatch Logs role in the account. Default: no execution logs
@@ -3634,9 +2970,9 @@ class LambdaRunnerProvider(
     Creates a Docker-based function that gets executed for each job.
 
     Execution environments can be reused between jobs. All jobs that can run on the same function should be equally trusted. See
-    https://github.com/CloudSnorkel/cdk-github-runners#job-isolation
+    https://ghr.cloudsnorkel.com/guide/security#job-isolation
 
-    This construct is not meant to be used by itself. It should be passed in the providers property for GitHubRunners.
+    This construct is not meant to be used by itself. It should be passed in the {@link GitHubRunnersProps.providers } property for {@link GitHubRunners }.
     '''
 
     def __init__(
@@ -3720,28 +3056,28 @@ class LambdaRunnerProvider(
 
         You can customize the OS, architecture, VPC, subnet, security groups, etc. by passing in props.
 
-        You can add components to the image builder by calling ``imageBuilder.addComponent()``.
+        You can add components to the image builder by calling {@link IConfigurableRunnerImageBuilder.addComponent }.
 
         The default OS is Amazon Linux 2023 running on x64 architecture.
 
         Included components:
 
-        - ``RunnerImageComponent.requiredPackages()``
-        - ``RunnerImageComponent.runnerUser()``
-        - ``RunnerImageComponent.git()``
-        - ``RunnerImageComponent.githubCli()``
-        - ``RunnerImageComponent.awsCli()``
-        - ``RunnerImageComponent.githubRunner()``
-        - ``RunnerImageComponent.lambdaEntrypoint()``
+        - {@link RunnerImageComponent.requiredPackages}
+        - {@link RunnerImageComponent.runnerUser}
+        - {@link RunnerImageComponent.git}
+        - {@link RunnerImageComponent.githubCli}
+        - {@link RunnerImageComponent.awsCli}
+        - {@link RunnerImageComponent.githubRunner}
+        - {@link RunnerImageComponent.lambdaEntrypoint}
 
         :param scope: -
         :param id: -
-        :param architecture: Image architecture. Default: Architecture.X86_64
-        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
-        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
-        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param architecture: Image architecture. Default: {@link Architecture.X86_64 }
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a {@link BaseImage} instance created using static factory methods: - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')`` - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)`` - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')`` - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a {@link BaseContainerImage} instance created using static factory methods: - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')`` - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
-        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         :param components: Components to install on the image. Default: none
         :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
         :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY
@@ -3918,7 +3254,7 @@ class MicroVmRunnerProvider(
     MicroVMs sit between Lambda and EC2. They boot from a snapshot in about a second, they have a writable disk and a
     real kernel, and they can run for up to eight hours.
 
-    This construct is not meant to be used by itself. It should be passed in the providers property for GitHubRunners.
+    This construct is not meant to be used by itself. It should be passed in the {@link GitHubRunnersProps.providers } property for {@link GitHubRunners }.
 
     This provider is experimental and may change in the future.
 
@@ -4005,7 +3341,7 @@ class MicroVmRunnerProvider(
 
         You can customize the OS, architecture, VPC, subnet, security groups, etc. by passing in props.
 
-        You can add components to the image builder by calling ``imageBuilder.addComponent()``.
+        You can add components to the image builder by calling {@link IConfigurableRunnerImageBuilder.addComponent }.
 
         The default OS is Amazon Linux 2023 running on x64 architecture.
 
@@ -4015,22 +3351,22 @@ class MicroVmRunnerProvider(
 
         Included components:
 
-        - ``RunnerImageComponent.requiredPackages()``
-        - ``RunnerImageComponent.runnerUser()``
-        - ``RunnerImageComponent.git()``
-        - ``RunnerImageComponent.githubCli()``
-        - ``RunnerImageComponent.awsCli()``
-        - ``RunnerImageComponent.githubRunner()``
-        - ``RunnerImageComponent.microVmEntrypoint()``
+        - {@link RunnerImageComponent.requiredPackages}
+        - {@link RunnerImageComponent.runnerUser}
+        - {@link RunnerImageComponent.git}
+        - {@link RunnerImageComponent.githubCli}
+        - {@link RunnerImageComponent.awsCli}
+        - {@link RunnerImageComponent.githubRunner}
+        - {@link RunnerImageComponent.microVmEntrypoint}
 
         :param scope: -
         :param id: -
-        :param architecture: Image architecture. Default: Architecture.X86_64
-        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
-        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
-        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param architecture: Image architecture. Default: {@link Architecture.X86_64 }
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a {@link BaseImage} instance created using static factory methods: - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')`` - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)`` - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')`` - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a {@link BaseContainerImage} instance created using static factory methods: - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')`` - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
-        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         :param components: Components to install on the image. Default: none
         :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
         :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY
@@ -4216,7 +3552,7 @@ class ProviderRetryOptions:
         It also means the average wait is half the calculated interval, and that's what the 24 hours are calculated from.
 
         :param backoff_rate: Multiplication for how much longer the wait interval gets on every retry. Default: 2
-        :param interval: How much time to wait after first retryable failure. This interval will be multiplied by {@link backoffRate} each retry, up to {@link maxDelay}. Default: 1 minute
+        :param interval: How much time to wait after first retryable failure. This interval will be multiplied by {@link ProviderRetryOptions.backoffRate} each retry, up to {@link ProviderRetryOptions.maxDelay}. Default: 1 minute
         :param max_attempts: How many times to retry. Default: 210
         :param max_delay: Maximum wait between retries. Without it, exponential backoff quickly grows to hours between attempts, so a job can end up waiting hours for a runner even though capacity came back minutes after it failed. Don't go too low either. A lower maximum needs more attempts to cover the same 24 hours, and every attempt adds to the execution history that Step Functions caps at 25,000 events. Default: 15 minutes
         :param retry: Set to true to retry provider on supported failures. Which failures generate a retry depends on the specific provider. Default: true
@@ -4253,7 +3589,7 @@ class ProviderRetryOptions:
     def interval(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''How much time to wait after first retryable failure.
 
-        This interval will be multiplied by {@link backoffRate} each retry, up to {@link maxDelay}.
+        This interval will be multiplied by {@link ProviderRetryOptions.backoffRate} each retry, up to {@link ProviderRetryOptions.maxDelay}.
 
         :default: 1 minute
         '''
@@ -4742,12 +4078,12 @@ class RunnerImageBuilderProps:
         wait_on_deploy: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param architecture: Image architecture. Default: Architecture.X86_64
-        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
-        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
-        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param architecture: Image architecture. Default: {@link Architecture.X86_64 }
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a {@link BaseImage} instance created using static factory methods: - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')`` - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)`` - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')`` - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a {@link BaseContainerImage} instance created using static factory methods: - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')`` - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
-        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         :param components: Components to install on the image. Default: none
         :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
         :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY
@@ -4825,7 +4161,7 @@ class RunnerImageBuilderProps:
     def architecture(self) -> typing.Optional["Architecture"]:
         '''Image architecture.
 
-        :default: Architecture.X86_64
+        :default: {@link Architecture.X86_64 }
         '''
         result = self._values.get("architecture")
         return typing.cast(typing.Optional["Architecture"], result)
@@ -4836,7 +4172,7 @@ class RunnerImageBuilderProps:
     ) -> typing.Optional["AwsImageBuilderRunnerImageBuilderProps"]:
         '''Options specific to AWS Image Builder.
 
-        Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
+        Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
         '''
         result = self._values.get("aws_image_builder_options")
         return typing.cast(typing.Optional["AwsImageBuilderRunnerImageBuilderProps"], result)
@@ -4845,18 +4181,18 @@ class RunnerImageBuilderProps:
     def base_ami(self) -> typing.Optional["BaseImage"]:
         '''Base AMI from which runner AMIs will be built.
 
-        This can be a BaseImage instance created using static factory methods:
+        This can be a {@link BaseImage} instance created using static factory methods:
 
-        - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID
-        - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.)
-        - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object
-        - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name
-        - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID
-        - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image
+        - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')``
+        - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')``
+        - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)``
+        - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')``
+        - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')``
+        - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')``
 
         For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter.
 
-        :default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
+        :default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
         '''
         result = self._values.get("base_ami")
         return typing.cast(typing.Optional["BaseImage"], result)
@@ -4865,16 +4201,16 @@ class RunnerImageBuilderProps:
     def base_docker_image(self) -> typing.Optional["BaseContainerImage"]:
         '''Base image from which Docker runner images will be built.
 
-        This can be a BaseContainerImage instance created using static factory methods:
+        This can be a {@link BaseContainerImage} instance created using static factory methods:
 
-        - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub
-        - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild)
-        - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public
-        - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string
+        - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')``
+        - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')``
+        - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')``
+        - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')``
 
-        When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}.
+        When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}.
 
-        :default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         '''
         result = self._values.get("base_docker_image")
         return typing.cast(typing.Optional["BaseContainerImage"], result)
@@ -4891,7 +4227,7 @@ class RunnerImageBuilderProps:
     def code_build_options(self) -> typing.Optional["CodeBuildRunnerImageBuilderProps"]:
         '''Options specific to CodeBuild image builder.
 
-        Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         '''
         result = self._values.get("code_build_options")
         return typing.cast(typing.Optional["CodeBuildRunnerImageBuilderProps"], result)
@@ -5138,7 +4474,7 @@ class RunnerImageComponent(
 
         It is not recommended to use this component to pass secrets. Instead, use GitHub Secrets or AWS Secrets Manager.
 
-        Must be used after the {@link githubRunner} component.
+        Must be used after the {@link RunnerImageComponent.githubRunner} component.
 
         :param vars: -
         '''
@@ -5221,7 +4557,7 @@ class RunnerImageComponent(
         ```ACTIONS_RUNNER_HOOK_JOB_COMPLETED`` <https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/run-scripts>`_
         environment variable. GitHub passes job context to the script as environment variables such as ``GITHUB_REPOSITORY`` and ``GITHUB_RUN_ID``.
 
-        Must be used after the {@link githubRunner} component.
+        Must be used after the {@link RunnerImageComponent.githubRunner} component.
 
         :param source_path: path to a local script file to run after every job.
         '''
@@ -5240,7 +4576,7 @@ class RunnerImageComponent(
         ```ACTIONS_RUNNER_HOOK_JOB_STARTED`` <https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/run-scripts>`_
         environment variable. GitHub passes job context to the script as environment variables such as ``GITHUB_REPOSITORY`` and ``GITHUB_RUN_ID``.
 
-        Must be used after the {@link githubRunner} component.
+        Must be used after the {@link RunnerImageComponent.githubRunner} component.
 
         :param source_path: path to a local script file to run before every job.
         '''
@@ -5260,7 +4596,7 @@ class RunnerImageComponent(
     def micro_vm_entrypoint(cls) -> "RunnerImageComponent":
         '''(experimental) A component to set up the required MicroVM entrypoint for Lambda MicroVM runners.
 
-        Must be used *after* the {@link githubRunner} component.
+        Must be used *after* the {@link RunnerImageComponent.githubRunner} component.
 
         :stability: experimental
         '''
@@ -5604,48 +4940,46 @@ class ScheduledWarmRunner(
 
     Registration level must match the one selected during setup.
 
-    :see:
-
-    https://github.com/CloudSnorkel/cdk-github-runners/blob/main/SETUP_GITHUB.md
-
     **Limitations**
 
-    - **No deployment-fill**: Unlike ``AlwaysOnWarmRunner``, scheduled warm runners do not get an initial
-    fill on deploy. The first fill happens at the next schedule occurrence. If you deploy at 1pm for
-    a 2pm schedule, runners will not appear until 2pm.
+    - **No deployment-fill**: Unlike {@link AlwaysOnWarmRunner}, scheduled warm runners do not get an initial
+      fill on deploy. The first fill happens at the next schedule occurrence. If you deploy at 1pm for
+      a 2pm schedule, runners will not appear until 2pm.
     - Jobs will still trigger provisioning of on-demand runners, even if a warm runner ends up being used.
     - You may briefly see more than ``count`` runners when changing config or at rotation.
     - To remove: set ``count`` to 0, deploy, wait for warm runners to stop, then remove and deploy again.
-    If you don't follow this procedure, warm runners may linger until they expire.
+      If you don't follow this procedure, warm runners may linger until they expire.
     - Provider failures or timeouts (like Lambda provider timing out after 15 minutes) will result in a
-    gap in coverage until the retry succeeds. Current retry mechanism has built-in back-off rate and
-    can be tweaked using ``retryOptions``. This will be improved in the future.
+      gap in coverage until the retry succeeds. Current retry mechanism has built-in back-off rate and
+      can be tweaked using ``retryOptions``. This will be improved in the future.
 
     Example::
 
-    // Cron: fill at 1pm on weekdays
-    new ScheduledWarmRunner(stack, 'Business Hours', {
-    runners,
-    provider: myProvider,
-    count: 3,
-    owner: 'my-org',
-    repo: 'my-repo',
-    schedule: events.Schedule.cron({ hour: '13', minute: '0', weekDay: 'MON-FRI' }),
-    duration: cdk.Duration.hours(2),
-    });
+       // Cron: fill at 1pm on weekdays
+       new ScheduledWarmRunner(stack, 'Business Hours', {
+         runners,
+         provider: myProvider,
+         count: 3,
+         owner: 'my-org',
+         repo: 'my-repo',
+         schedule: events.Schedule.cron({ hour: '13', minute: '0', weekDay: 'MON-FRI' }),
+         duration: cdk.Duration.hours(2),
+       });
 
     Example::
 
-    // Rate: fill every 12 hours
-    new ScheduledWarmRunner(stack, 'Every 12 Hours', {
-    runners,
-    provider: myProvider,
-    count: 2,
-    owner: 'my-org',
-    repo: 'my-repo',
-    schedule: events.Schedule.rate(cdk.Duration.hours(5)),
-    duration: cdk.Duration.hours(12),
-    });
+       // Rate: fill every 12 hours
+       new ScheduledWarmRunner(stack, 'Every 12 Hours', {
+         runners,
+         provider: myProvider,
+         count: 2,
+         owner: 'my-org',
+         repo: 'my-repo',
+         schedule: events.Schedule.rate(cdk.Duration.hours(5)),
+         duration: cdk.Duration.hours(12),
+       });
+
+    :see: https://ghr.cloudsnorkel.com/guide/setup-github
     '''
 
     def __init__(
@@ -5669,7 +5003,7 @@ class ScheduledWarmRunner(
         :param duration: How long the warm runners should be maintained from the fill time (schedule). Defines the end of the window (schedule time + duration).
         :param owner: GitHub owner where runners will be registered (org or user login).
         :param provider: Provider to use. Warm runners bypass the provider selector — they always use this provider, regardless of job characteristics. Labels cannot be modified.
-        :param runners: The GitHubRunners construct that owns the shared warm runner infrastructure.
+        :param runners: The {@link GitHubRunners} construct that owns the shared warm runner infrastructure.
         :param schedule: When to start filling the pool (e.g. start of business hours).
         :param registration_level: Registration level — must match how your runners are set up in GitHub. Choose 'org' for org-wide runners, 'repo' for repo-level. See the setup wizard for choosing repo vs org. Default: 'repo'
         :param repo: Repository name (without owner) where runners will be registered. Required when ``registrationLevel`` is 'repo'.
@@ -5725,7 +5059,7 @@ class ScheduledWarmRunnerProps:
         :param duration: How long the warm runners should be maintained from the fill time (schedule). Defines the end of the window (schedule time + duration).
         :param owner: GitHub owner where runners will be registered (org or user login).
         :param provider: Provider to use. Warm runners bypass the provider selector — they always use this provider, regardless of job characteristics. Labels cannot be modified.
-        :param runners: The GitHubRunners construct that owns the shared warm runner infrastructure.
+        :param runners: The {@link GitHubRunners} construct that owns the shared warm runner infrastructure.
         :param schedule: When to start filling the pool (e.g. start of business hours).
         :param registration_level: Registration level — must match how your runners are set up in GitHub. Choose 'org' for org-wide runners, 'repo' for repo-level. See the setup wizard for choosing repo vs org. Default: 'repo'
         :param repo: Repository name (without owner) where runners will be registered. Required when ``registrationLevel`` is 'repo'.
@@ -5791,7 +5125,7 @@ class ScheduledWarmRunnerProps:
 
     @builtins.property
     def runners(self) -> "GitHubRunners":
-        '''The GitHubRunners construct that owns the shared warm runner infrastructure.'''
+        '''The {@link GitHubRunners} construct that owns the shared warm runner infrastructure.'''
         result = self._values.get("runners")
         assert result is not None, "Required property 'runners' is missing"
         return typing.cast("GitHubRunners", result)
@@ -5812,7 +5146,7 @@ class ScheduledWarmRunnerProps:
 
         :default: 'repo'
 
-        :see: https://github.com/CloudSnorkel/cdk-github-runners/blob/main/SETUP_GITHUB.md
+        :see: https://ghr.cloudsnorkel.com/guide/setup-github
         '''
         result = self._values.get("registration_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6113,7 +5447,7 @@ class CodeBuildRunnerProvider(
 
     Creates a project that gets started for each job.
 
-    This construct is not meant to be used by itself. It should be passed in the providers property for GitHubRunners.
+    This construct is not meant to be used by itself. It should be passed in the {@link GitHubRunnersProps.providers } property for {@link GitHubRunners }.
     '''
 
     def __init__(
@@ -6143,7 +5477,7 @@ class CodeBuildRunnerProvider(
         :param group: GitHub Actions runner group name. If specified, the runner will be registered with this group name. Setting a runner group can help managing access to self-hosted runners. It requires a paid GitHub account and organization level runner registration. The group must exist or the runner will not start. Users will still be able to trigger this runner with the correct labels. But the runner will only be able to run jobs from repos allowed to use the group. Default: undefined
         :param image_builder: Runner image builder used to build Docker images containing GitHub Runner and all requirements. The image builder must contain the {@link RunnerImageComponent.docker} component unless ``dockerInDocker`` is set to false. The image builder determines the OS and architecture of the runner. Default: CodeBuildRunnerProvider.imageBuilder()
         :param labels: GitHub Actions labels used for this provider. These labels are used to identify which provider should spawn a new on-demand runner. Every job sends a webhook with the labels it's looking for based on runs-on. We match the labels from the webhook with the labels specified here. If all the labels specified here are present in the job's labels, this provider will be chosen and spawn a new runner. Default: ['codebuild']
-        :param security_groups: Security groups to assign to this instance. Default: a new security group, if {@link vpc } is used
+        :param security_groups: Security groups to assign to this instance. Default: a new security group, if {@link CodeBuildRunnerProviderProps.vpc } is used
         :param subnet_selection: Where to place the network interfaces within the VPC. Default: no subnet
         :param timeout: The number of minutes after which AWS CodeBuild stops the build if it's not complete. For valid values, see the timeoutInMinutes field in the AWS CodeBuild User Guide. Default: Duration.hours(1)
         :param vpc: VPC to launch the runners in. Default: no VPC
@@ -6200,28 +5534,28 @@ class CodeBuildRunnerProvider(
 
         You can customize the OS, architecture, VPC, subnet, security groups, etc. by passing in props.
 
-        You can add components to the image builder by calling ``imageBuilder.addComponent()``.
+        You can add components to the image builder by calling {@link IConfigurableRunnerImageBuilder.addComponent }.
 
         The default OS is Ubuntu running on x64 architecture.
 
         Included components:
 
-        - ``RunnerImageComponent.requiredPackages()``
-        - ``RunnerImageComponent.runnerUser()``
-        - ``RunnerImageComponent.git()``
-        - ``RunnerImageComponent.githubCli()``
-        - ``RunnerImageComponent.awsCli()``
-        - ``RunnerImageComponent.docker()``
-        - ``RunnerImageComponent.githubRunner()``
+        - {@link RunnerImageComponent.requiredPackages}
+        - {@link RunnerImageComponent.runnerUser}
+        - {@link RunnerImageComponent.git}
+        - {@link RunnerImageComponent.githubCli}
+        - {@link RunnerImageComponent.awsCli}
+        - {@link RunnerImageComponent.docker}
+        - {@link RunnerImageComponent.githubRunner}
 
         :param scope: -
         :param id: -
-        :param architecture: Image architecture. Default: Architecture.X86_64
-        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
-        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
-        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param architecture: Image architecture. Default: {@link Architecture.X86_64 }
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a {@link BaseImage} instance created using static factory methods: - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')`` - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)`` - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')`` - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a {@link BaseContainerImage} instance created using static factory methods: - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')`` - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
-        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         :param components: Components to install on the image. Default: none
         :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
         :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY
@@ -6338,7 +5672,7 @@ class CodeBuildRunnerProviderProps(RunnerProviderProps):
         :param group: GitHub Actions runner group name. If specified, the runner will be registered with this group name. Setting a runner group can help managing access to self-hosted runners. It requires a paid GitHub account and organization level runner registration. The group must exist or the runner will not start. Users will still be able to trigger this runner with the correct labels. But the runner will only be able to run jobs from repos allowed to use the group. Default: undefined
         :param image_builder: Runner image builder used to build Docker images containing GitHub Runner and all requirements. The image builder must contain the {@link RunnerImageComponent.docker} component unless ``dockerInDocker`` is set to false. The image builder determines the OS and architecture of the runner. Default: CodeBuildRunnerProvider.imageBuilder()
         :param labels: GitHub Actions labels used for this provider. These labels are used to identify which provider should spawn a new on-demand runner. Every job sends a webhook with the labels it's looking for based on runs-on. We match the labels from the webhook with the labels specified here. If all the labels specified here are present in the job's labels, this provider will be chosen and spawn a new runner. Default: ['codebuild']
-        :param security_groups: Security groups to assign to this instance. Default: a new security group, if {@link vpc } is used
+        :param security_groups: Security groups to assign to this instance. Default: a new security group, if {@link CodeBuildRunnerProviderProps.vpc } is used
         :param subnet_selection: Where to place the network interfaces within the VPC. Default: no subnet
         :param timeout: The number of minutes after which AWS CodeBuild stops the build if it's not complete. For valid values, see the timeoutInMinutes field in the AWS CodeBuild User Guide. Default: Duration.hours(1)
         :param vpc: VPC to launch the runners in. Default: no VPC
@@ -6514,7 +5848,7 @@ class CodeBuildRunnerProviderProps(RunnerProviderProps):
     ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''Security groups to assign to this instance.
 
-        :default: a new security group, if {@link vpc } is used
+        :default: a new security group, if {@link CodeBuildRunnerProviderProps.vpc } is used
         '''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
@@ -6571,7 +5905,7 @@ class Ec2RunnerProvider(
 ):
     '''GitHub Actions runner provider using EC2 to execute jobs.
 
-    This construct is not meant to be used by itself. It should be passed in the providers property for GitHubRunners.
+    This construct is not meant to be used by itself. It should be passed in the {@link GitHubRunnersProps.providers } property for {@link GitHubRunners }.
     '''
 
     def __init__(
@@ -6664,29 +5998,29 @@ class Ec2RunnerProvider(
 
         You can customize the OS, architecture, VPC, subnet, security groups, etc. by passing in props.
 
-        You can add components to the image builder by calling ``imageBuilder.addComponent()``.
+        You can add components to the image builder by calling {@link IConfigurableRunnerImageBuilder.addComponent }.
 
         The default OS is Ubuntu running on x64 architecture.
 
         Included components:
 
-        - ``RunnerImageComponent.requiredPackages()``
-        - ``RunnerImageComponent.cloudWatchAgent()``
-        - ``RunnerImageComponent.runnerUser()``
-        - ``RunnerImageComponent.git()``
-        - ``RunnerImageComponent.githubCli()``
-        - ``RunnerImageComponent.awsCli()``
-        - ``RunnerImageComponent.docker()``
-        - ``RunnerImageComponent.githubRunner()``
+        - {@link RunnerImageComponent.requiredPackages}
+        - {@link RunnerImageComponent.cloudWatchAgent}
+        - {@link RunnerImageComponent.runnerUser}
+        - {@link RunnerImageComponent.git}
+        - {@link RunnerImageComponent.githubCli}
+        - {@link RunnerImageComponent.awsCli}
+        - {@link RunnerImageComponent.docker}
+        - {@link RunnerImageComponent.githubRunner}
 
         :param scope: -
         :param id: -
-        :param architecture: Image architecture. Default: Architecture.X86_64
-        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
-        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
-        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param architecture: Image architecture. Default: {@link Architecture.X86_64 }
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a {@link BaseImage} instance created using static factory methods: - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')`` - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)`` - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')`` - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a {@link BaseContainerImage} instance created using static factory methods: - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')`` - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
-        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         :param components: Components to install on the image. Default: none
         :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
         :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY
@@ -7049,9 +6383,9 @@ class EcsRunnerProvider(
     infrastructure to spin up.
 
     Jobs share instances, and by default run in privileged containers on Linux that can take over the instance. All jobs that can run on the same
-    cluster should be equally trusted. See https://github.com/CloudSnorkel/cdk-github-runners#job-isolation
+    cluster should be equally trusted. See https://ghr.cloudsnorkel.com/guide/security#job-isolation
 
-    This construct is not meant to be used by itself. It should be passed in the providers property for GitHubRunners.
+    This construct is not meant to be used by itself. It should be passed in the {@link GitHubRunnersProps.providers } property for {@link GitHubRunners }.
     '''
 
     def __init__(
@@ -7177,28 +6511,28 @@ class EcsRunnerProvider(
 
         You can customize the OS, architecture, VPC, subnet, security groups, etc. by passing in props.
 
-        You can add components to the image builder by calling ``imageBuilder.addComponent()``.
+        You can add components to the image builder by calling {@link IConfigurableRunnerImageBuilder.addComponent }.
 
         The default OS is Ubuntu running on x64 architecture.
 
         Included components:
 
-        - ``RunnerImageComponent.requiredPackages()``
-        - ``RunnerImageComponent.runnerUser()``
-        - ``RunnerImageComponent.git()``
-        - ``RunnerImageComponent.githubCli()``
-        - ``RunnerImageComponent.awsCli()``
-        - ``RunnerImageComponent.docker()``
-        - ``RunnerImageComponent.githubRunner()``
+        - {@link RunnerImageComponent.requiredPackages}
+        - {@link RunnerImageComponent.runnerUser}
+        - {@link RunnerImageComponent.git}
+        - {@link RunnerImageComponent.githubCli}
+        - {@link RunnerImageComponent.awsCli}
+        - {@link RunnerImageComponent.docker}
+        - {@link RunnerImageComponent.githubRunner}
 
         :param scope: -
         :param id: -
-        :param architecture: Image architecture. Default: Architecture.X86_64
-        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
-        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
-        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param architecture: Image architecture. Default: {@link Architecture.X86_64 }
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a {@link BaseImage} instance created using static factory methods: - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')`` - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)`` - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')`` - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a {@link BaseContainerImage} instance created using static factory methods: - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')`` - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
-        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         :param components: Components to install on the image. Default: none
         :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
         :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY
@@ -7497,7 +6831,7 @@ class EcsRunnerProviderProps(RunnerProviderProps):
 
         :default: a new cluster
 
-        :see: https://github.com/CloudSnorkel/cdk-github-runners#job-isolation
+        :see: https://ghr.cloudsnorkel.com/guide/security#job-isolation
         '''
         result = self._values.get("cluster")
         return typing.cast(typing.Optional["_aws_cdk_aws_ecs_ceddda9d.Cluster"], result)
@@ -7524,7 +6858,7 @@ class EcsRunnerProviderProps(RunnerProviderProps):
 
         :default: true
 
-        :see: https://github.com/CloudSnorkel/cdk-github-runners#job-isolation
+        :see: https://ghr.cloudsnorkel.com/guide/security#job-isolation
         '''
         result = self._values.get("docker_in_docker")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -7763,7 +7097,7 @@ class FargateRunnerProvider(
 
     Creates a task definition with a single container that gets started for each job.
 
-    This construct is not meant to be used by itself. It should be passed in the providers property for GitHubRunners.
+    This construct is not meant to be used by itself. It should be passed in the {@link GitHubRunnersProps.providers } property for {@link GitHubRunners }.
     '''
 
     def __init__(
@@ -7859,27 +7193,27 @@ class FargateRunnerProvider(
 
         You can customize the OS, architecture, VPC, subnet, security groups, etc. by passing in props.
 
-        You can add components to the image builder by calling ``imageBuilder.addComponent()``.
+        You can add components to the image builder by calling {@link IConfigurableRunnerImageBuilder.addComponent }.
 
         The default OS is Ubuntu running on x64 architecture.
 
         Included components:
 
-        - ``RunnerImageComponent.requiredPackages()``
-        - ``RunnerImageComponent.runnerUser()``
-        - ``RunnerImageComponent.git()``
-        - ``RunnerImageComponent.githubCli()``
-        - ``RunnerImageComponent.awsCli()``
-        - ``RunnerImageComponent.githubRunner()``
+        - {@link RunnerImageComponent.requiredPackages}
+        - {@link RunnerImageComponent.runnerUser}
+        - {@link RunnerImageComponent.git}
+        - {@link RunnerImageComponent.githubCli}
+        - {@link RunnerImageComponent.awsCli}
+        - {@link RunnerImageComponent.githubRunner}
 
         :param scope: -
         :param id: -
-        :param architecture: Image architecture. Default: Architecture.X86_64
-        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
-        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
-        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param architecture: Image architecture. Default: {@link Architecture.X86_64 }
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a {@link BaseImage} instance created using static factory methods: - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')`` - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)`` - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')`` - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a {@link BaseContainerImage} instance created using static factory methods: - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')`` - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
-        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         :param components: Components to install on the image. Default: none
         :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
         :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY
@@ -8857,12 +8191,12 @@ class RunnerImageBuilder(
         '''
         :param scope: -
         :param id: -
-        :param architecture: Image architecture. Default: Architecture.X86_64
-        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
-        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
-        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param architecture: Image architecture. Default: {@link Architecture.X86_64 }
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a {@link BaseImage} instance created using static factory methods: - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')`` - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)`` - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')`` - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a {@link BaseContainerImage} instance created using static factory methods: - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')`` - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
-        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         :param components: Components to install on the image. Default: none
         :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
         :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY
@@ -8932,12 +8266,12 @@ class RunnerImageBuilder(
 
         :param scope: -
         :param id: -
-        :param architecture: Image architecture. Default: Architecture.X86_64
-        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when builderType is RunnerImageBuilderType.AWS_IMAGE_BUILDER.
-        :param base_ami: Base AMI from which runner AMIs will be built. This can be a BaseImage instance created using static factory methods: - ``BaseImage.fromAmiId('ami-12345')`` - Use an AMI ID - ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - Use any string (ARN, AMI ID, etc.) - ``BaseImage.fromSsmParameter(parameter)`` - Use an SSM parameter object - ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - Use an SSM parameter by name - ``BaseImage.fromMarketplaceProductId('product-id')`` - Use a Marketplace product ID - ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` - Use an AWS-provided Image Builder image For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, Ubuntu 24.04 AMI for Os.LINUX_UBUNTU_2404, latest Amazon Linux 2 AMI for Os.LINUX_AMAZON_2, latest Windows Server 2022 AMI for Os.WINDOWS
-        :param base_docker_image: Base image from which Docker runner images will be built. This can be a BaseContainerImage instance created using static factory methods: - ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - Use DockerHub - ``BaseContainerImage.fromEcr(repo, 'latest')`` - Use ECR (automatically grants permissions with CodeBuild) - ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - Use ECR Public - ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` - Use any string When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for Os.LINUX_UBUNTU and Os.LINUX_UBUNTU_2204, public.ecr.aws/lts/ubuntu:24.04 for Os.LINUX_UBUNTU_2404, public.ecr.aws/amazonlinux/amazonlinux:2 for Os.LINUX_AMAZON_2, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for Os.WINDOWS
+        :param architecture: Image architecture. Default: {@link Architecture.X86_64 }
+        :param aws_image_builder_options: Options specific to AWS Image Builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.AWS_IMAGE_BUILDER}.
+        :param base_ami: Base AMI from which runner AMIs will be built. This can be a {@link BaseImage} instance created using static factory methods: - {@link BaseImage.fromAmiId}: use an AMI ID, like ``BaseImage.fromAmiId('ami-12345')`` - {@link BaseImage.fromString}: use any string (ARN, AMI ID, etc.), like ``BaseImage.fromString('arn:aws:imagebuilder:...')`` - {@link BaseImage.fromSsmParameter}: use an SSM parameter object, like ``BaseImage.fromSsmParameter(parameter)`` - {@link BaseImage.fromSsmParameterName}: use an SSM parameter by name, like ``BaseImage.fromSsmParameterName('/aws/service/ami/...')`` - {@link BaseImage.fromMarketplaceProductId}: use a Marketplace product ID, like ``BaseImage.fromMarketplaceProductId('product-id')`` - {@link BaseImage.fromImageBuilder}: use an AWS-provided Image Builder image, like ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` For example ``BaseImage.fromImageBuilder(scope, 'ubuntu-server-22-lts-x86')`` would always use the latest version of Ubuntu 22.04 in each build. If you want a specific version, you can pass the version as the third parameter. Default: latest Ubuntu 22.04 AMI for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, Ubuntu 24.04 AMI for {@link Os.LINUX_UBUNTU_2404 }, latest Amazon Linux 2 AMI for {@link Os.LINUX_AMAZON_2 }, latest Windows Server 2022 AMI for {@link Os.WINDOWS }
+        :param base_docker_image: Base image from which Docker runner images will be built. This can be a {@link BaseContainerImage} instance created using static factory methods: - {@link BaseContainerImage.fromDockerHub}: use DockerHub, like ``BaseContainerImage.fromDockerHub('ubuntu', '22.04')`` - {@link BaseContainerImage.fromEcr}: use ECR (automatically grants permissions with CodeBuild), like ``BaseContainerImage.fromEcr(repo, 'latest')`` - {@link BaseContainerImage.fromEcrPublic}: use ECR Public, like ``BaseContainerImage.fromEcrPublic('lts', 'ubuntu', '22.04')`` - {@link BaseContainerImage.fromString}: use any string, like ``BaseContainerImage.fromString('public.ecr.aws/lts/ubuntu:22.04')`` When using private images from a different account or not on ECR, you may need to include additional setup commands with {@link RunnerImageBuilderProps.dockerSetupCommands}. Default: public.ecr.aws/lts/ubuntu:22.04 for {@link Os.LINUX_UBUNTU } and {@link Os.LINUX_UBUNTU_2204 }, public.ecr.aws/lts/ubuntu:24.04 for {@link Os.LINUX_UBUNTU_2404 }, public.ecr.aws/amazonlinux/amazonlinux:2 for {@link Os.LINUX_AMAZON_2 }, mcr.microsoft.com/windows/servercore:ltsc2019-amd64 for {@link Os.WINDOWS }
         :param builder_type: Default: CodeBuild for Linux Docker image, AWS Image Builder for Windows Docker image and any AMI
-        :param code_build_options: Options specific to CodeBuild image builder. Only used when builderType is RunnerImageBuilderType.CODE_BUILD.
+        :param code_build_options: Options specific to CodeBuild image builder. Only used when {@link RunnerImageBuilderProps.builderType} is {@link RunnerImageBuilderType.CODE_BUILD}.
         :param components: Components to install on the image. Default: none
         :param docker_setup_commands: Additional commands to run on the build host before starting the Docker runner image build. Use this to execute commands such as ``docker login`` or ``aws ecr get-login-password`` to pull private base images. Default: []
         :param log_removal_policy: Removal policy for logs of image builds. If deployment fails on the custom resource, try setting this to ``RemovalPolicy.RETAIN``. This way the CodeBuild logs can still be viewed, and you can see why the build failed. We try to not leave anything behind when removed. But sometimes a log staying behind is useful. Default: RemovalPolicy.DESTROY

@@ -14,6 +14,7 @@ import opentelemetry.trace
 import temporalio
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 from opentelemetry.trace import StatusCode
+from opentelemetry.util.types import Attributes as OtelAttributes
 from temporalio.client import Interceptor
 from temporalio.contrib.opentelemetry import TracingInterceptor, TracingWorkflowInboundInterceptor, workflow
 from temporalio.contrib.pydantic import PydanticPayloadConverter
@@ -22,6 +23,7 @@ from temporalio.converter import PayloadConverter
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.encoding.trace_encoder import TraceEncoder
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.tracing._otel_config import (
     FORCE_SPAN_ID_ATTRIBUTE,
     FORCE_TRACE_ID_ATTRIBUTE,
@@ -30,8 +32,11 @@ from mistralai.workflows.core.tracing._otel_config import (
 from mistralai.workflows.core.tracing.utils import (
     CUSTOM_TRACING_ATTRIBUTES,
     USER_TRACEPARENT_HEADER,
-    WORKFLOW_EXECUTION_ID_ATTRIBUTE,
     get_span_attributes,
+)
+from mistralai.workflows.core.tracing.workflow_context import (
+    WORKFLOW_EXECUTION_ID_ATTRIBUTE,
+    workflow_context_span_attributes,
     workflow_execution_span_attributes,
 )
 from mistralai.workflows.exceptions import ErrorCode
@@ -151,6 +156,23 @@ class _MistralTracingWorkflowInboundInterceptor(TracingWorkflowInboundIntercepto
         self._maybe_emit_workflow_root_span()
         return await super().execute_workflow(input)
 
+    def _completed_span(
+        self,
+        span_name: str,
+        *,
+        additional_attributes: OtelAttributes = None,
+        **kwargs: Any,
+    ) -> None:
+        # Every workflow-side span (RunWorkflow, StartActivity, CompleteWorkflow, the root
+        # StartWorkflow and the WorkflowInit/WorkflowReport recordings) funnels through here.
+        # The real span is created host-side by the extern, where workflow.info() cannot be
+        # relied on, so merge the workflow context here in the sandbox where it is available.
+        # Attributes already set by the caller win over the context ones.
+        context_attributes = workflow_context_span_attributes()
+        if context_attributes:
+            additional_attributes = {**context_attributes, **(additional_attributes or {})}
+        super()._completed_span(span_name, additional_attributes=additional_attributes, **kwargs)
+
     def _maybe_emit_workflow_root_span(self) -> None:
         # Emit once, from the first run of the chain; continue-as-new/reset runs inherit it via propagation.
         # This runs inside Temporal's deterministic sandbox, which can't create real OTel spans, so we
@@ -241,7 +263,7 @@ class TraceDataSerializer:
             converted = self._converter.to_payload(obj)
             serialized = self._get_trace_encoder().encode_trace_data(converted.data.decode())
         except Exception as e:
-            logger.warning("Failed to serialize trace data", error=str(e))
+            logger.warning("Failed to serialize trace data", **extract_error_context(e))
             return UNSERIALIZABLE_TRACE_DATA
 
         if len(serialized) > TraceDataSerializer.MAX_ARG_TRACE_SIZE:

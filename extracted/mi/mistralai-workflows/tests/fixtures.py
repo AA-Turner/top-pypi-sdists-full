@@ -1,3 +1,4 @@
+import asyncio
 from datetime import timedelta
 
 import temporalio.workflow
@@ -70,13 +71,6 @@ class PureWorkflow:
         return f"Workflow says: {name}"
 
 
-@workflow.define(name="workflow_with_display_name", workflow_display_name="My Friendly Workflow")
-class WorkflowWithDisplayName:
-    @workflow.entrypoint
-    async def run(self, name: str) -> str:
-        return f"Display name workflow says: {name}"
-
-
 @workflow.define(name="failing_workflow")
 class FailingWorkflow:
     @workflow.entrypoint
@@ -87,6 +81,19 @@ class FailingWorkflow:
             f"Intentional failure: {message}",
             non_retryable=True,
         )
+
+
+@workflow.define(name="parked_workflow_with_failing_cleanup")
+class ParkedWorkflowWithFailingCleanup:
+    @workflow.entrypoint
+    async def run(self, outcome: str) -> None:
+        try:
+            await workflow.wait_condition(lambda: False)
+        except BaseException as exc:
+            if outcome == "cancelled":
+                raise asyncio.CancelledError from exc
+            if outcome == "failed":
+                raise RuntimeError("cleanup failed") from exc
 
 
 @workflow.define(name="child_workflow")
@@ -108,11 +115,63 @@ class ParentWorkflow:
         return f"Parent got: {child_result}"
 
 
+@activity()
+async def block_until_cancelled() -> None:
+    await asyncio.Event().wait()
+
+
+@workflow.define(name="cancelled_in_activity_workflow")
+class CancelledInActivityWorkflow:
+    @workflow.entrypoint
+    async def run(self, name: str) -> None:
+        await block_until_cancelled()
+
+
+@workflow.define(name="cancelled_in_child_parent_workflow")
+class CancelledInChildParentWorkflow:
+    @workflow.entrypoint
+    async def run(self, name: str) -> None:
+        await workflow.execute_workflow(CancelledInActivityWorkflow, params=ChildWorkflowParams(name=name))
+
+
+@workflow.define(name="cancels_own_activity_workflow")
+class CancelsOwnActivityWorkflow:
+    """Cancels its own activity, with no cancel requested for the run, and lets the error propagate."""
+
+    def __init__(self) -> None:
+        self.cancel_requested = False
+
+    @workflow.signal()
+    async def cancel_activity(self) -> None:
+        self.cancel_requested = True
+
+    @workflow.entrypoint
+    async def run(self, name: str) -> None:
+        task = asyncio.ensure_future(block_until_cancelled())
+        await workflow.wait_condition(lambda: self.cancel_requested)
+        task.cancel()
+        await task
+
+
+@workflow.define(name="cancelled_while_waiting_workflow")
+class CancelledWhileWaitingWorkflow:
+    @workflow.entrypoint
+    async def run(self, name: str) -> None:
+        await workflow.wait_condition(lambda: False)
+
+
 @workflow.define(name="child_workflow_custom_execute")
 class ChildWorkflowCustomExecute:
     @workflow.entrypoint
     async def execute(self, name: str) -> str:
         return f"Child with custom entrypoint says: {name}"
+
+
+@workflow.define(name="custom_entrypoint_parent_workflow")
+class CustomEntrypointParentWorkflow:
+    @workflow.entrypoint
+    async def run(self, name: str) -> str:
+        return await workflow.execute_workflow(ChildWorkflowCustomExecute, params=ChildWorkflowParams(name=name))
 
 
 class PersonData(BaseModel):
@@ -130,12 +189,6 @@ class ProcessingResult(BaseModel):
 class MultiParamInput(BaseModel):
     name: str
     count: int
-
-
-class MultiParamWithPrefixInput(BaseModel):
-    name: str
-    count: int
-    prefix: str
 
 
 @workflow.define(name="pydantic_child_workflow")
@@ -217,24 +270,6 @@ class NestedParentWorkflow:
     async def run(self, value: str) -> str:
         result = await workflows.execute_workflow(NestedChildLevel1, params=NestedWorkflowParams(value=value))
         return f"L0[{result}]"
-
-
-@workflow.define(name="standalone_workflow_with_pydantic")
-class StandaloneWorkflowWithPydantic:
-    @workflow.entrypoint
-    async def run(self, person: PersonData) -> ProcessingResult:
-        full_name = f"{person.first_name} {person.last_name}"
-        is_adult = person.age >= 18
-        message = f"Standalone: {full_name} is {'an adult' if is_adult else 'a minor'}"
-        return ProcessingResult(full_name=full_name, is_adult=is_adult, message=message)
-
-
-@workflow.define(name="standalone_workflow_with_multi_args")
-class StandaloneWorkflowWithMultiArgs:
-    @workflow.entrypoint
-    async def run(self, name: str, count: int, prefix: str) -> str:
-        items = ", ".join([f"{prefix}{name}" for _ in range(count)])
-        return f"Generated: {items}"
 
 
 class FireAndForgetChildParams(BaseModel):

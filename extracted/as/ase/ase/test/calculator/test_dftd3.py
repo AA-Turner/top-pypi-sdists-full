@@ -208,3 +208,10 @@ def test_non_dftd3_property(factory):
     magmoms = atoms.get_magnetic_moments()
     assert magmoms == pytest.approx(dft.dummy_magmoms(atoms))
     print('magmoms', magmoms)
+
+
+def test_bad_parameter(factory):
+    from ase.calculators.dftd3 import PureDFTD3
+
+    with pytest.raises(TypeError):
+        PureDFTD3(potatoes=42)

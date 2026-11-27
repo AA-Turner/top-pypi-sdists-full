@@ -1,3 +1,4 @@
+import gc
 import warnings
 import weakref
 
@@ -18,6 +19,12 @@ class Observers:
         self.observer_weakrefs.append((weakref.ref(obj), name))
 
     def notify(self):
+        # Methods of windows that were closed already can be left behind, which
+        # will lead to _tkinter.TclErrors, if they are registered here, because
+        # they try to call Tk functions on windows that don't exist anymore
+        # (issue ase/ase#1909)
+        # The easy fix is to run garbage collection before sending out notices:
+        gc.collect()
         # We should probably add an event class to these callbacks.
         weakrefs_still_alive = []
         for weak_ref, name in self.observer_weakrefs:

@@ -5,11 +5,11 @@ from ase.data.colors import jmol_colors
 def view_sage_jmol(atoms, repeat=None, *args, **kwargs):
     try:
         from .sage.plot.plot3d.shapes import ColorCube, Sphere
-    except Exception:  # XXX Which kind of exception exactly?
+    except Exception as err:
         raise ImportError(
             'view_sage_jmol requires sage (http://www.sagemath.org/) '
-            + 'and is intended to be used directly in the browser'
-        )
+            'and is intended to be used directly in the browser'
+        ) from err
 
     if repeat is not None:
         atoms = atoms.repeat(repeat)

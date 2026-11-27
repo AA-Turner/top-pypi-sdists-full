@@ -8,12 +8,15 @@ class ListClientAlertModeRequest(DaraModel):
     def __init__(
         self,
         mode: str = None,
+        resource_directory_account_id: int = None,
     ):
-        # The protection mode. Valid values:
-        # 
-        # - **strict**: Strict mode. This mode has a certain risk of false positives. Use this mode during critical event protection periods.
-        # - **balance**: Balanced mode. This mode detects more suspicious risks while reducing false positives.
+        # Specifies the protection mode. Valid values:
+        # - **strict**: Strict mode. Defense mode has a certain risk of false positives and is recommended for use during critical event protection.
+        # - **balance**: Balance mode. Defense mode detects more suspicious risks while reducing false positives.
         self.mode = mode
+        # The ID of the member accounts in the resource folder (Alibaba Cloud account).
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to retrieve this parameter.
+        self.resource_directory_account_id = resource_directory_account_id
 
     def validate(self):
         pass
@@ -26,12 +29,18 @@ class ListClientAlertModeRequest(DaraModel):
         if self.mode is not None:
             result['Mode'] = self.mode
 
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         return result
 
     def from_map(self, m: dict = None):
         m = m or dict()
         if m.get('Mode') is not None:
             self.mode = m.get('Mode')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         return self
 

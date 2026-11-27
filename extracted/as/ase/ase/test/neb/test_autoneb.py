@@ -11,8 +11,7 @@ from ase.optimize import BFGS, QuasiNewton
 
 
 @pytest.mark.optimize()
-def test_autoneb(asap3, testdir):
-    EMT = asap3.EMT
+def test_autoneb(testdir):
     fmax = 0.02
 
     # Pt atom adsorbed in a hollow site:

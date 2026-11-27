@@ -43,10 +43,11 @@ def test_bulk(Cbulk, testdir):
         name=name,
         delta=delta,
         supercell=(1, 1, 1),
+        use_mean_minimum_images=False,
     )
     rm.run()
 
-    pz = PlaczekStaticPhonons(Cbulk, name=name)
+    pz = PlaczekStaticPhonons(Cbulk, name=name, use_mean_minimum_images=False)
     e_phonons = pz.get_energies()
     assert len(e_vib) == len(e_phonons)
     assert e_vib[3:] == approx(e_phonons[3:], 1)
@@ -68,10 +69,13 @@ def test_bulk_kpts(Cbulk, testdir):
         name=name,
         delta=0.05,
         supercell=(2, 1, 1),
+        use_mean_minimum_images=False,
     )
     rm.run()
 
-    pz = PlaczekStaticPhonons(Cbulk, name=name, supercell=(2, 1, 1))
+    pz = PlaczekStaticPhonons(
+        Cbulk, name=name, supercell=(2, 1, 1), use_mean_minimum_images=False
+    )
     energies_1kpt = pz.get_energies()
     pz.kpts = (2, 1, 1)
     energies_2kpts = pz.get_energies()

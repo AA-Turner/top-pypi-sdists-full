@@ -313,16 +313,16 @@ class RunCache:
         """Invoked during the compilation of a model node.
 
         Automatically clones selected incremental models when appropriate, except
-        during dbt compile because compile must not create or mutate relations.
+        during dbt compile / docs generate because they must not create or mutate relations.
 
         Args:
             node: The model node being compiled.
         """
-        if self._is_dbt_compile_command:
-            # we dont need to trigger off all the metadata prefetches on `dbt compile`
+        if self._is_compile_only_command:
+            # we dont need to trigger off all the metadata prefetches on `dbt compile` / `dbt docs generate`
             # or pre-emptively make dev clones of deferred relations
-            # the metadata prefetches are used for making cache decisions, but `dbt compile`
-            # doesnt make cache decisions
+            # the metadata prefetches are used for making cache decisions, but these commands
+            # dont make cache decisions
             return
 
         try:
@@ -342,13 +342,13 @@ class RunCache:
             self._try_clone(node)
 
     @cached_property
-    def _is_dbt_compile_command(self) -> bool:
-        """Whether the top-level dbt command is compile.
+    def _is_compile_only_command(self) -> bool:
+        """Whether the top-level dbt command only compiles nodes: `dbt compile` or `dbt docs generate`.
 
         dbt also invokes model compile hooks while running commands like run and build.
-        Those commands can still clone; only dbt compile must avoid relation mutations.
+        Those commands can still clone; compile-only commands must avoid relation mutations.
         """
-        return get_dbt_command_name(getattr(self._config, "args", None)) == "compile"
+        return get_dbt_command_name(getattr(self._config, "args", None)) in ("compile", "generate")
 
     def get_defer_relation(self, node: ManifestNode) -> t.Optional[DeferRelation]:
         """Returns a DeferRelation for the given node if it should be deferred.

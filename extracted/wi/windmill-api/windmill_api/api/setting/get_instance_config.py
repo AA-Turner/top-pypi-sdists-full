@@ -6,15 +6,24 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.get_instance_config_response_200 import GetInstanceConfigResponse200
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
-def _get_kwargs() -> Dict[str, Any]:
+def _get_kwargs(
+    *,
+    dangerously_reveal_secrets: Union[Unset, None, bool] = UNSET,
+) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["dangerously_reveal_secrets"] = dangerously_reveal_secrets
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
         "url": "/settings/instance_config",
+        "params": params,
     }
 
 
@@ -45,8 +54,12 @@ def _build_response(
 def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
+    dangerously_reveal_secrets: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetInstanceConfigResponse200]:
     """get full instance config (global settings + worker configs)
+
+    Args:
+        dangerously_reveal_secrets (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -56,7 +69,9 @@ def sync_detailed(
         Response[GetInstanceConfigResponse200]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        dangerously_reveal_secrets=dangerously_reveal_secrets,
+    )
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -68,8 +83,12 @@ def sync_detailed(
 def sync(
     *,
     client: Union[AuthenticatedClient, Client],
+    dangerously_reveal_secrets: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetInstanceConfigResponse200]:
     """get full instance config (global settings + worker configs)
+
+    Args:
+        dangerously_reveal_secrets (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -81,14 +100,19 @@ def sync(
 
     return sync_detailed(
         client=client,
+        dangerously_reveal_secrets=dangerously_reveal_secrets,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
+    dangerously_reveal_secrets: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetInstanceConfigResponse200]:
     """get full instance config (global settings + worker configs)
+
+    Args:
+        dangerously_reveal_secrets (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -98,7 +122,9 @@ async def asyncio_detailed(
         Response[GetInstanceConfigResponse200]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        dangerously_reveal_secrets=dangerously_reveal_secrets,
+    )
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -108,8 +134,12 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
+    dangerously_reveal_secrets: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetInstanceConfigResponse200]:
     """get full instance config (global settings + worker configs)
+
+    Args:
+        dangerously_reveal_secrets (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -122,5 +152,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            dangerously_reveal_secrets=dangerously_reveal_secrets,
         )
     ).parsed

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: repo-standards
-Version: 8.8.0
+Version: 8.22.0
 Summary: Deterministic pull-request sizing and reviewed repository policy
 Keywords: architecture,github-actions,lint,openapi,repository
 Author: sarj-ai
@@ -12,11 +12,11 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Dist: conventional-pre-commit==4.4.0
-Requires-Dist: markdown-it-py==4.2.0
-Requires-Dist: pyyaml>=6.0.3,<7
-Requires-Dist: pydantic>=2.14.1,<3
-Requires-Dist: typer>=0.27.3,<1
+Requires-Dist: conventional-pre-commit==4.5.0
+Requires-Dist: markdown-it-py==4.3.0
+Requires-Dist: pyyaml>=6.0.4,<7
+Requires-Dist: pydantic>=2.14.4,<3
+Requires-Dist: typer>=0.29.3,<1
 Requires-Python: >=3.14, <3.16
 Project-URL: Homepage, https://engineering.sarj.ai/projects/repo-standards/
 Project-URL: Repository, https://github.com/sarj-ai/repo-standards
@@ -26,23 +26,14 @@ Description-Content-Type: text/markdown
 
 # repo-standards
 
-`repo-standards` measures pull-request review size without executing repository code.
-
-## Where rules belong
-
-- Exact tracked-tree facts—filenames, placement, topology, migrations, pull-request size,
-  ownership, delivery/GitHub state, and repository-wide API/document sets—belong here.
-- Source and configuration semantics for Python, TypeScript, SQL, Terraform/HCL, Markdown,
-  YAML, JSON, and shell belong in `sarj-ai/code-standards`.
+`repo-standards` checks repository and pull-request policy without executing code.
 
 ## Run it
 
-Sarj repositories should use the single Code Standards setup path. It installs the canonical
-staged repository check, managed commit-message check, and authoritative pull-request history
-workflow without creating a second Python environment:
+Sarj repositories should use the single Code Standards setup path:
 
 ```bash
-uvx --no-config --isolated --python 3.14 --from code-standards code-standards setup
+uvx --no-config --isolated --python 3.15 --from code-standards code-standards setup
 code-standards doctor
 ```
 
@@ -59,8 +50,7 @@ uv tool install repo-standards
 repo-standards pull-request size . --base origin/main
 ```
 
-Upgrade with `uv tool upgrade repo-standards`. Automation should pin the package version or
-the GitHub Action's full commit SHA.
+Automation should pin the package version or the GitHub Action's full commit SHA.
 
 ## Safety model
 
@@ -90,5 +80,5 @@ publication or GitHub Release from the same verified source revision.
 ## GitHub Action
 
 ```yaml
-- uses: sarj-ai/repo-standards@2f3b5aabceaa7ec6b605bf10d718bf9eff2c9e10 # v8.8.0
+- uses: sarj-ai/repo-standards@825c85dd45833c51aeda472bda3e7d4e7ddd9925 # v8.22.0
 ```

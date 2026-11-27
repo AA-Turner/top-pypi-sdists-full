@@ -41,7 +41,6 @@ class TestToolDef(unittest.TestCase):
         model = ToolDef()
         if include_optional:
             return ToolDef(
-                toolgroup_id = '',
                 name = '',
                 description = '',
                 input_schema = { },

@@ -33,7 +33,11 @@ def png_scraper(block, block_vars, gallery_conf):
     return figure_rst(image_names, gallery_conf['src_dir'])
 
 
-def mol_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
+def mol_role(role, rawtext, text, lineno, inliner, options=None, content=None):
+    if content is None:
+        content = []
+    if options is None:
+        options = {}
     n = []
     t = ''
     while text:
@@ -54,8 +58,12 @@ def mol_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
 
 
 def git_role_tmpl(
-    urlroot, role, rawtext, text, lineno, inliner, options={}, content=[]
+    urlroot, role, rawtext, text, lineno, inliner, options=None, content=None
 ):
+    if content is None:
+        content = []
+    if options is None:
+        options = {}
     env = inliner.document.settings.env
     srcdir = Path(env.srcdir)
     project_root = srcdir.parent
@@ -91,7 +99,11 @@ def git_role_tmpl(
     return [node], []
 
 
-def git_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
+def git_role(role, rawtext, text, lineno, inliner, options=None, content=None):
+    if content is None:
+        content = []
+    if options is None:
+        options = {}
     return git_role_tmpl(
         'https://gitlab.com/ase/ase/blob/master/',
         role,
@@ -152,10 +164,12 @@ def create_png_files(raise_exceptions=False):
         def write_pov(
             filename,
             atoms,
-            povray_settings={},
+            povray_settings=None,
             isosurface_data=None,
             **generic_projection_settings,
         ):
+            if povray_settings is None:
+                povray_settings = {}
             write_png(
                 Path(filename).with_suffix('.png'),
                 atoms,
@@ -191,7 +205,7 @@ def create_png_files(raise_exceptions=False):
 
                 plt.figure()
                 try:
-                    runpy.run_path(pyname)
+                    runpy.run_path(pyname, run_name='__main__')
                 except KeyboardInterrupt:
                     return
                 except Exception:

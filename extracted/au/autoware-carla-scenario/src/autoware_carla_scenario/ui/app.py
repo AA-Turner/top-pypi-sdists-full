@@ -171,9 +171,15 @@ def _session_dir_or_404(session_type: str, date: str, time: str) -> Path:
     under the base (:func:`cases.session_dir`: an unknown type, ``..``, a
     separator, or a path that resolves outside ``multirun/`` / ``outputs/``)
     or there is no such directory: a session that does not exist has no page,
-    rather than an empty one."""
+    rather than an empty one. So does a ``single`` or ``batch`` URL whose
+    type is not the directory's (:func:`cases.session_type_matches`): the two
+    share ``outputs/``, and neither is shown as the other (#2543)."""
     directory = cases.session_dir(_base_path(), session_type, date, time)
-    if directory is None or not directory.is_dir():
+    if (
+        directory is None
+        or not directory.is_dir()
+        or not cases.session_type_matches(directory, session_type)
+    ):
         raise HTTPException(status_code=404)
     return directory
 
@@ -646,6 +652,23 @@ async def run_scenarios(request: Request) -> dict[str, str] | JSONResponse:
         return _refused(str(exc))
     if not scenario_names:
         return _refused(f"No scenarios match '{scenario}'")
+    if is_scenario_glob(scenario):
+        # The glob's scenarios that do not fit the map are skipped, with a
+        # warning, as a batch of the same glob skips them (#2253).  Composes
+        # Hydra and resolves the map: on a worker thread, as a sweep is.
+        from ..map_fit import NothingFitsError  # noqa: PLC0415
+        from .sweep_resolver import fitting_scenarios  # noqa: PLC0415
+
+        try:
+            scenario_names = await asyncio.to_thread(
+                fitting_scenarios,
+                scenario,
+                scenario_names,
+                extra_overrides,
+                expanding=bool(sweeper),
+            )
+        except NothingFitsError as exc:
+            return _refused(str(exc))
 
     if sweeper:
         # Expand each scenario's sweep in-process (no CARLA), as
@@ -851,7 +874,10 @@ def _parse_ref(ref: str) -> tuple[str, str, str] | None:
     if len(parts) != 3:
         return None
     session_type, date, time = parts
-    if cases.session_dir(_base_path(), session_type, date, time) is None:
+    directory = cases.session_dir(_base_path(), session_type, date, time)
+    # A single run's URL does not name a batch, nor a batch's a single run
+    # (#2543).
+    if directory is None or not cases.session_type_matches(directory, session_type):
         return None
     return session_type, date, time
 
@@ -1138,8 +1164,15 @@ async def slurm_submission() -> dict[str, Any]:
 
 
 def _slurm_batch(date: str, time: str) -> Path:
+    """The directory of SLURM batch *date*/*time*, or 404: one whose manifest
+    is a symbolic link, or under a ``slurm`` that is one, is no batch, as
+    its session page counts it (``cases._own_member``, #2543); its panel
+    must not show what the link names either."""
     directory = cases.session_dir(_base_path(), "batch", date, time)
-    if directory is None or not (directory / "slurm" / "manifest.json").is_file():
+    if (
+        directory is None
+        or cases._own_member(directory, "slurm", "manifest.json") is None
+    ):
         raise HTTPException(status_code=404, detail="Not a SLURM batch")
     return directory
 
@@ -1179,7 +1212,9 @@ async def slurm_action(
             return JSONResponse(
                 status_code=503, content={"ok": False, "output": reason}
             )
-    args = [action, str(directory)]
+    # Acting on no record reached through a symbolic link, as the panel
+    # shows none (#2549).
+    args = ["--own-files", action, str(directory)]
     if action == "resubmit":
         try:
             body = await _json_object(request)

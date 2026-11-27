@@ -129,3 +129,25 @@ def test_from_sdk_error(body, status_code, kwargs, expected_message, expected_ty
     assert result.type == expected_type
     assert result.status == expected_status
     assert result.code == expected_code
+
+
+class TestFromApiClientError:
+    def test_pool_timeout_says_the_request_was_not_sent(self) -> None:
+        result = WorkflowsException.from_api_client_error(
+            httpx.PoolTimeout(""),
+            message="Failed to register workflow specs",
+            code=ErrorCode.POST_WORKFLOWS_REGISTER_ERROR,
+        )
+
+        assert result.type == "client_pool_exhausted"
+        assert result.message.startswith("Failed to register workflow specs: request not sent")
+        assert "MISTRAL_WORKFLOWS_HTTP_MAX_CONNECTIONS" in result.message
+        assert result.code == ErrorCode.POST_WORKFLOWS_REGISTER_ERROR
+        assert result.is_transient()
+
+    def test_other_timeouts_keep_the_generic_connection_error(self) -> None:
+        result = WorkflowsException.from_api_client_error(httpx.ReadTimeout("timed out"), message="Failed")
+
+        assert result.type == "httpx_error"
+        assert result.message == "Failed: timed out"
+        assert result.status == HTTPStatus.BAD_GATEWAY

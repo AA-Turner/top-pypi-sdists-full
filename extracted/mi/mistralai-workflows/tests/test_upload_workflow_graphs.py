@@ -1,12 +1,14 @@
 import asyncio
 import json
+import threading
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import httpx
 import pytest
 
-from mistralai.workflows.core._dataflow import CONTROL_FLOW_VIEW
+from mistralai.workflows.core._dataflow import CONTROL_FLOW_VIEW, expand_views
 from mistralai.workflows.core._graph import build_graph_statically
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.graph_summaries import NodeSummary, SummariseError, SummaryResult
@@ -407,15 +409,21 @@ class TestUploadWorkflowGraphs:
         client = _make_client()
         ref = _make_ref()
 
-        with patch("mistralai.workflows.core._graph.build_graph_dynamically", side_effect=RuntimeError("parse failed")):
+        with patch(
+            "mistralai.workflows.core._graph.build_graph_dynamically",
+            side_effect=RuntimeError(f"parse failed: {_LEAK_SECRET} in /customer/workflow.py"),
+        ):
             await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
 
         http_client = client.sdk_configuration.async_client
         http_client.send.assert_called_once()
         sent_request: httpx.Request = http_client.send.call_args[0][0]
-        body = json.loads(sent_request.content)
+        raw_body = sent_request.content.decode()
+        body = json.loads(raw_body)
         assert body["graph_data"] is None
-        assert "parse failed" in body["error"]
+        assert body["error"] == "RuntimeError"
+        assert _LEAK_SECRET not in raw_body
+        assert "/customer/workflow.py" not in raw_body
 
     async def test_http_failure_is_swallowed(self) -> None:
         client = _make_client(status_code=500)
@@ -480,6 +488,42 @@ class TestUploadWorkflowGraphs:
             await _upload_workflow_graphs(refs=refs, classes=classes, client=client)
 
         assert peak == _GRAPH_SUMMARY_CONCURRENCY
+
+    async def test_analyses_one_workflow_at_a_time(self) -> None:
+        client = _make_client()
+        refs = [_make_ref(uuid4(), uuid4()) for _ in range(4)]
+        classes = [FakeWorkflow] * len(refs)
+        lock = threading.Lock()
+        active = 0
+        peak = 0
+
+        def track(work):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            time.sleep(0.02)
+            result = work()
+            with lock:
+                active -= 1
+            return result
+
+        with (
+            patch(
+                "mistralai.workflows.core._graph.build_graph_dynamically",
+                side_effect=lambda cls: track(_fake_graph),
+            ),
+            patch(
+                "mistralai.workflows.core._dataflow.expand_views",
+                side_effect=lambda cf_dict: track(lambda: expand_views(cf_dict)),
+            ),
+            _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
+        ):
+            await _upload_workflow_graphs(refs=refs, classes=classes, client=client)
+
+        assert peak == 1
+        assert client.sdk_configuration.async_client.send.await_count == len(refs)
 
     async def test_summary_queue_has_one_shared_deadline_per_workflow(self) -> None:
         client = _make_client()

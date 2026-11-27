@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncGenerator, Generator, Iterable
 
 
 MAX_JSON_EXTRACTION_CHARS = 1024 * 1024
 MAX_JSON_DEPTH = 128
+_JSON_START = re.compile(r"[\[{]")
 
 
 def extract_json_from_codeblock(content: str) -> str:
@@ -19,241 +21,210 @@ def extract_json_from_codeblock(content: str) -> str:
     prompt and was referenced in the model's reasoning. Returning the first
     object allowed prompt-injection to hijack the parsed output.
     """
-    if len(content) > MAX_JSON_EXTRACTION_CHARS:
+    return _last_json_span(content) or content
+
+
+def _last_json_span(content: str) -> str | None:
+    size = len(content)
+    if size > MAX_JSON_EXTRACTION_CHARS:
         raise ValueError("JSON extraction input exceeds the 1 MiB character limit")
     decoder = json.JSONDecoder()
-    last_valid: str | None = None
-    consumed = 0
+    last_span: tuple[int, int] | None = None
+    position = 0
     # A failed decode may inspect the entire remaining suffix (including an
     # unterminated string). Charge that upper bound, not the error position.
     # Successful spans are disjoint. This bounds total decoding work linearly
     # while retaining recovery after malformed brackets or quoted prose.
-    remaining_work = 16 * len(content)
-    for index, char in enumerate(content):
-        if index < consumed or char not in "{[":
-            continue
-        if remaining_work < len(content) - index:
+    remaining_work = 16 * size
+    while match := _JSON_START.search(content, position):
+        index = match.start()
+        if remaining_work < size - index:
             raise ValueError("JSON extraction malformed-input work limit exceeded")
         try:
             value, end = decoder.raw_decode(content, index)
         except json.JSONDecodeError:
-            remaining_work -= len(content) - index
+            remaining_work -= size - index
+            position = index + 1
             continue
         except RecursionError as exc:
             raise ValueError("JSON extraction nesting limit exceeded") from exc
+        # The opener guarantees a container root. Scalars cannot add depth.
         pending = [(value, 1)]
         while pending:
             node, depth = pending.pop()
-            if isinstance(node, (dict, list)):
-                if depth > MAX_JSON_DEPTH:
-                    raise ValueError(
-                        "JSON extraction nesting exceeds the 128 level limit"
-                    )
-                children = node.values() if isinstance(node, dict) else node
-                pending.extend((child, depth + 1) for child in children)
+            if depth > MAX_JSON_DEPTH:
+                raise ValueError("JSON extraction nesting exceeds the 128 level limit")
+            children = node.values() if isinstance(node, dict) else node
+            for child in children:
+                if type(child) is dict or type(child) is list:
+                    pending.append((child, depth + 1))
         remaining_work -= end - index
-        last_valid = content[index:end]
-        consumed = end
-    return last_valid if last_valid is not None else content
+        last_span = index, end
+        position = end
+    if last_span is None:
+        return None
+    start, end = last_span
+    return content[start:end]
 
 
-def extract_json_from_stream(chunks: Iterable[str]) -> Generator[str, None, None]:
-    """Extract JSON characters from a plain-text or fenced streaming response."""
-    in_codeblock = False
-    codeblock_delimiter_count = 0
-    json_started = False
-    in_string = False
-    escape_next = False
-    delimiter_stack: list[str] = []
-    buffer: list[str] = []
-    codeblock_buffer: list[str] = []
-    last_invalid_candidate: str | None = None
-    emitted_valid_candidate = False
+class _SingleModelStream:
+    """Buffer at most one bounded response so the final JSON span wins."""
 
-    for chunk in chunks:
+    def __init__(self) -> None:
+        self.chunks: list[str] = []
+        self.size = 0
+
+    def append(self, chunk: str) -> None:
+        self.size += len(chunk)
+        if self.size > MAX_JSON_EXTRACTION_CHARS:
+            raise ValueError("JSON extraction input exceeds the 1 MiB character limit")
+        if chunk:
+            self.chunks.append(chunk)
+
+    def result(self) -> Generator[str, None, None]:
+        content = "".join(self.chunks)
+        span = _last_json_span(content)
+        if span is None:
+            # Retain incomplete input so a truncated stream can produce a partial model.
+            yield from extract_json_from_stream(self.chunks)
+        elif span == content.strip():
+            # Preserve partial snapshots at the original chunk boundaries.
+            yield from self.chunks
+        else:
+            yield span
+
+
+class _MultiModelStream:
+    """Separate fenced output from prose while scanning each input character once."""
+
+    def __init__(self, prefer_fenced: bool, *, group_candidates: bool = False) -> None:
+        self.group_candidates = group_candidates
+        self.prefer_fenced = prefer_fenced
+        self.in_fence = False
+        self.saw_fence = False
+        self.ticks = 0
+        self.quoted = False
+        self.escaped = False
+        self.stack: list[str] = []
+        self.buffer: list[str] = []
+        self.deferred: list[str] = []
+        self.last_invalid: str | None = None
+        self.has_valid = False
+        self.size = 0
+
+    def _parts(self, candidate: str) -> Iterable[str]:
+        # The Iterable scanner can consume a whole candidate. Preserve the
+        # character-sized chunks returned by public extraction by default.
+        return (candidate,) if self.group_candidates else candidate
+
+    def feed(self, chunk: str) -> Generator[str, None, None]:
+        self.size += len(chunk)
+        if self.size > MAX_JSON_EXTRACTION_CHARS:
+            raise ValueError("JSON extraction input exceeds the 1 MiB character limit")
         for char in chunk:
-            if not in_codeblock and char == "`" and not (json_started and in_string):
-                codeblock_buffer.append(char)
-                if len(codeblock_buffer) == 3:
-                    in_codeblock = True
-                    codeblock_delimiter_count = 0
-                    codeblock_buffer = []
+            if not self.quoted and char == "`":
+                self.ticks += 1
+                if self.ticks == 3:
+                    self.ticks = 0
+                    if self.in_fence and self.buffer:
+                        yield from self.buffer
+                    if not self.in_fence and not self.saw_fence and self.prefer_fenced:
+                        self.deferred.clear()
+                        self.last_invalid = None
+                        self.has_valid = False
+                    self.in_fence = not self.in_fence
+                    self.saw_fence = True
+                    self.stack.clear()
+                    self.buffer.clear()
                 continue
-            if codeblock_buffer and char != "`":
-                codeblock_buffer = []
+            self.ticks = 0
+            if self.prefer_fenced and self.saw_fence and not self.in_fence:
+                continue
+            if not self.stack and char not in "{[":
+                continue
 
-            if in_codeblock and not json_started:
-                if char == "`":
-                    codeblock_delimiter_count += 1
-                    if codeblock_delimiter_count == 3:
-                        in_codeblock = False
-                        codeblock_delimiter_count = 0
-                    continue
-                if codeblock_delimiter_count > 0:
-                    codeblock_delimiter_count = 0
-
+            self.buffer.append(char)
+            if self.escaped:
+                self.escaped = False
+            elif char == "\\" and self.quoted:
+                self.escaped = True
+            elif char == '"':
+                self.quoted = not self.quoted
+            elif not self.quoted:
                 if char in "{[":
-                    json_started = True
-                    delimiter_stack.append("}" if char == "{" else "]")
-                    buffer.append(char)
-                continue
-
-            if json_started:
-                if escape_next:
-                    escape_next = False
-                elif char == "\\" and in_string:
-                    escape_next = True
-                    buffer.append(char)
-                    continue
-                elif char == '"':
-                    in_string = not in_string
-
-                if in_codeblock and not in_string:
-                    if char == "`":
-                        codeblock_delimiter_count += 1
-                        if codeblock_delimiter_count == 3:
-                            in_codeblock = False
-                            yield from buffer
-                            buffer = []
-                            json_started = False
-                            break
-                        continue
-                    if codeblock_delimiter_count > 0:
-                        codeblock_delimiter_count = 0
-
-                if not in_string:
-                    if char in "{[":
-                        delimiter_stack.append("}" if char == "{" else "]")
-                    elif delimiter_stack and char == delimiter_stack[-1]:
-                        delimiter_stack.pop()
-                        if not delimiter_stack:
-                            buffer.append(char)
-                            candidate = "".join(buffer)
-                            buffer = []
-                            json_started = False
-                            try:
-                                json.loads(candidate)
-                            except ValueError:
-                                last_invalid_candidate = candidate
-                                continue
-                            emitted_valid_candidate = True
-                            last_invalid_candidate = None
-                            yield from candidate
+                    self.stack.append("}" if char == "{" else "]")
+                    if len(self.stack) > MAX_JSON_DEPTH:
+                        raise ValueError(
+                            "JSON extraction nesting exceeds the 128 level limit"
+                        )
+                elif char == self.stack[-1]:
+                    self.stack.pop()
+                    if not self.stack:
+                        candidate = "".join(self.buffer)
+                        self.buffer.clear()
+                        try:
+                            json.loads(candidate)
+                        except ValueError:
+                            self.last_invalid = candidate
                             continue
+                        self.has_valid = True
+                        self.last_invalid = None
+                        if self.in_fence or not self.prefer_fenced:
+                            yield from self._parts(candidate)
+                        else:
+                            self.deferred.append(candidate)
 
-                buffer.append(char)
-                continue
+    def finish(self) -> Generator[str, None, None]:
+        for candidate in self.deferred:
+            yield from self._parts(candidate)
+        if self.buffer:
+            yield from self.buffer
+        elif not self.has_valid and self.last_invalid is not None:
+            yield from self.last_invalid
 
-            if not in_codeblock and not json_started and char in "{[":
-                json_started = True
-                delimiter_stack.append("}" if char == "{" else "]")
-                buffer.append(char)
 
-    if json_started and buffer:
-        yield from buffer
-    elif not emitted_valid_candidate and last_invalid_candidate is not None:
-        yield from last_invalid_candidate
+def extract_json_from_stream(
+    chunks: Iterable[str],
+    *,
+    single_model: bool = False,
+    prefer_fenced: bool = True,
+    _group_candidates: bool = False,
+) -> Generator[str, None, None]:
+    """Prefer fenced Markdown output; set prefer_fenced=False for eager bare JSON."""
+    if single_model:
+        selection = _SingleModelStream()
+        for chunk in chunks:
+            selection.append(chunk)
+        yield from selection.result()
+        return
+    selection_multi = _MultiModelStream(
+        prefer_fenced, group_candidates=_group_candidates
+    )
+    for chunk in chunks:
+        yield from selection_multi.feed(chunk)
+    yield from selection_multi.finish()
 
 
 async def extract_json_from_stream_async(
     chunks: AsyncGenerator[str, None],
+    *,
+    single_model: bool = False,
+    prefer_fenced: bool = True,
+    _group_candidates: bool = False,
 ) -> AsyncGenerator[str, None]:
-    """Async counterpart to :func:`extract_json_from_stream`."""
-    in_codeblock = False
-    codeblock_delimiter_count = 0
-    json_started = False
-    in_string = False
-    escape_next = False
-    delimiter_stack: list[str] = []
-    buffer: list[str] = []
-    codeblock_buffer: list[str] = []
-    last_invalid_candidate: str | None = None
-    emitted_valid_candidate = False
-
+    """Asynchronous counterpart of extract_json_from_stream."""
+    if single_model:
+        selection = _SingleModelStream()
+        async for chunk in chunks:
+            selection.append(chunk)
+        for part in selection.result():
+            yield part
+        return
+    selection_multi = _MultiModelStream(
+        prefer_fenced, group_candidates=_group_candidates
+    )
     async for chunk in chunks:
-        for char in chunk:
-            if not in_codeblock and char == "`" and not (json_started and in_string):
-                codeblock_buffer.append(char)
-                if len(codeblock_buffer) == 3:
-                    in_codeblock = True
-                    codeblock_delimiter_count = 0
-                    codeblock_buffer = []
-                continue
-            if codeblock_buffer and char != "`":
-                codeblock_buffer = []
-
-            if in_codeblock and not json_started:
-                if char == "`":
-                    codeblock_delimiter_count += 1
-                    if codeblock_delimiter_count == 3:
-                        in_codeblock = False
-                        codeblock_delimiter_count = 0
-                    continue
-                if codeblock_delimiter_count > 0:
-                    codeblock_delimiter_count = 0
-
-                if char in "{[":
-                    json_started = True
-                    delimiter_stack.append("}" if char == "{" else "]")
-                    buffer.append(char)
-                continue
-
-            if json_started:
-                if escape_next:
-                    escape_next = False
-                elif char == "\\" and in_string:
-                    escape_next = True
-                    buffer.append(char)
-                    continue
-                elif char == '"':
-                    in_string = not in_string
-
-                if in_codeblock and not in_string:
-                    if char == "`":
-                        codeblock_delimiter_count += 1
-                        if codeblock_delimiter_count == 3:
-                            in_codeblock = False
-                            for buffered_char in buffer:
-                                yield buffered_char
-                            buffer = []
-                            json_started = False
-                            break
-                        continue
-                    if codeblock_delimiter_count > 0:
-                        codeblock_delimiter_count = 0
-
-                if not in_string:
-                    if char in "{[":
-                        delimiter_stack.append("}" if char == "{" else "]")
-                    elif delimiter_stack and char == delimiter_stack[-1]:
-                        delimiter_stack.pop()
-                        if not delimiter_stack:
-                            buffer.append(char)
-                            candidate = "".join(buffer)
-                            buffer = []
-                            json_started = False
-                            try:
-                                json.loads(candidate)
-                            except ValueError:
-                                last_invalid_candidate = candidate
-                                continue
-                            emitted_valid_candidate = True
-                            last_invalid_candidate = None
-                            for buffered_char in candidate:
-                                yield buffered_char
-                            continue
-
-                buffer.append(char)
-                continue
-
-            if not in_codeblock and not json_started and char in "{[":
-                json_started = True
-                delimiter_stack.append("}" if char == "{" else "]")
-                buffer.append(char)
-
-    if json_started and buffer:
-        for buffered_char in buffer:
-            yield buffered_char
-    elif not emitted_valid_candidate and last_invalid_candidate is not None:
-        for buffered_char in last_invalid_candidate:
-            yield buffered_char
+        for part in selection_multi.feed(chunk):
+            yield part
+    for part in selection_multi.finish():
+        yield part

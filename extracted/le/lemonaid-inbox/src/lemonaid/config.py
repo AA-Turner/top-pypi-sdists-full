@@ -25,6 +25,7 @@ from . import (
     status_registry,
     tasks_config,
     watch_config,
+    web_config,
 )
 from .inbox import context_use, snooze_time
 from .usage import settings
@@ -232,6 +233,10 @@ class TuiConfig:
     grove_pan_rows: int = 1
     # Let a zoomed block's trees grow past a grown tree's size.
     grove_big_trees: bool = False
+    # Stand the lemons in no group in the packhouse at the grove's middle; off, they are block 0.
+    grove_packhouse: bool = False
+    # The number of the lemons in no group, 0 or 1; the groups are numbered from the next one.
+    grove_first_block: int = 0
     # Seconds a working lemon's pulse takes, from rest to darkest and back.
     grove_pulse_seconds: float = 4.5
     # How solid the grove window's background is: 1 hides the terminal under it, lower shows it through.
@@ -445,6 +450,7 @@ class Config:
     tasks: tasks_config.TasksConfig = field(default_factory=tasks_config.TasksConfig)
     restore: restore_config.RestoreConfig = field(default_factory=restore_config.RestoreConfig)
     slack: slack_config.SlackConfig = field(default_factory=slack_config.SlackConfig)
+    web: web_config.WebConfig = field(default_factory=web_config.WebConfig)
 
     def get_handler(self, channel: str) -> str | None:
         """Get the handler for a channel, using pattern matching."""
@@ -802,6 +808,8 @@ def _parse_config(data: dict[str, Any]) -> Config:
         grove_pan_columns=max(1, int(tui_data.get("grove_pan_columns", 2))),
         grove_pan_rows=max(1, int(tui_data.get("grove_pan_rows", 1))),
         grove_big_trees=bool(tui_data.get("grove_big_trees", False)),
+        grove_packhouse=bool(tui_data.get("grove_packhouse", False)),
+        grove_first_block=min(1, max(0, int(tui_data.get("grove_first_block", 0)))),
         grove_pulse_seconds=max(0.5, float(tui_data.get("grove_pulse_seconds", 4.5))),
         grove_window_opacity=min(1.0, max(0.2, float(tui_data.get("grove_window_opacity", 1.0)))),
         status_pulse_seconds=max(0.0, float(tui_data.get("status_pulse_seconds", 10.0))),
@@ -925,6 +933,7 @@ def _parse_config(data: dict[str, Any]) -> Config:
         restore=restore_config.parse(data.get("restore", {})),
         codex=codex_config.parse(data.get("codex", {})),
         slack=slack_config.parse(data.get("slack", {})),
+        web=web_config.parse(data.get("web", {})),
     )
 
 

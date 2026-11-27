@@ -17,7 +17,7 @@ class Data(BaseModel):
     path: str
     """Path to the file in the storage system"""
 
-    size: float
+    size: int
     """Size of the file in bytes"""
 
 

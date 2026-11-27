@@ -87,6 +87,28 @@ H 0.0000000000 2.0036577752 6.0109733255
 H 1.4168000000 0.0000000000 6.0109733255
 """
 
+pw_input_text_alat = """
+&CONTROL
+    calculation = 'relax'
+/
+&SYSTEM
+  ibrav = 0
+  A = 12.345
+  nat = 2
+  ntyp = 1
+/
+/
+CELL_PARAMETERS {alat}
+  1.000000000000000   0.000000000000000   0.000000000000000
+  0.000000000000000   0.764737380129484   0.000000000000000
+ -0.143022030455843   0.000000000000000   2.450680956957325
+ATOMIC_SPECIES
+   C   12.01060   C.UPF
+ATOMIC_POSITIONS {crystal}
+C       0.1831220347     0.4624219248     0.2738429946
+C       0.8168779653     0.9624219248     0.7261570054
+"""
+
 # Trimmed to only include lines of relevance
 pw_output_text = """
 
@@ -567,6 +589,19 @@ def test_get_atomic_species():
     )
 
 
+def test_pw_input_alat() -> None:
+    """Test if .pwi with CELL_PARAMETER {alat} can be parsed."""
+    atoms = read_espresso_in(io.StringIO(pw_input_text_alat))
+    cell_ref = 12.345 * np.array(
+        [
+            [+1.000000000000000, +0.000000000000000, +0.000000000000000],
+            [+0.000000000000000, +0.764737380129484, +0.000000000000000],
+            [-0.143022030455843, +0.000000000000000, +2.450680956957325],
+        ]
+    )
+    np.testing.assert_allclose(atoms.cell, cell_ref)
+
+
 def test_pw_output():
     """Read pw output file."""
     with open('pw_output.pwo', 'w') as pw_output_f:
@@ -575,6 +610,16 @@ def test_pw_output():
     pw_output_traj = ase.io.read('pw_output.pwo', index=':')
     assert len(pw_output_traj) == 2
     assert pw_output_traj[1].get_volume() > pw_output_traj[0].get_volume()
+
+    assert len(pw_output_traj[1].constraints) == 1
+    constraint = pw_output_traj[1].constraints[0]
+    assert isinstance(constraint, FixAtoms)
+    assert (constraint.get_indices() == [0]).all()
+
+    # Shortcoming of pw output format: constraints are only available in the
+    # ATOMIC_POSITIONS blocks printed after each relaxation step, not in the
+    # header lines from which the first image is extracted
+    assert len(pw_output_traj[0].constraints) == 0
 
 
 def test_pw_output_cell():

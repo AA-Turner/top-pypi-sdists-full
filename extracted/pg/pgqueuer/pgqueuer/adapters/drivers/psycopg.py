@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING, Self
 
-from pgqueuer.core import logconfig
-from pgqueuer.core.tm import cancel_and_wait
 from pgqueuer.ports.driver import Driver, NotifyCallback, SyncDriver
 
 if TYPE_CHECKING:
     import psycopg
+
+
+def discard_outcome(task: asyncio.Task[None]) -> None:
+    """Mark *task*'s exception as retrieved so asyncio does not log it."""
+    if not task.cancelled():
+        task.exception()
 
 
 class PsycopgDriver(Driver):
@@ -20,12 +25,6 @@ class PsycopgDriver(Driver):
     execute queries and listen for notifications. It uses ``AsyncRawCursor`` with
     ``dict_row`` row factory to accept PostgreSQL-native ``$1, $2`` placeholders
     directly and return results as dictionaries without manual construction.
-
-    Notifications use the ``notifies()`` generator which waits on the
-    connection fd for incoming data — truly event-driven, no polling.
-    The generator is run with ``stop_after=1`` so it releases the
-    connection lock after each notification batch, allowing queries
-    to proceed.
 
     The driver does not close the provided connection; callers should
     close it manually or manage it with an async context manager.
@@ -107,12 +106,13 @@ class PsycopgDriver(Driver):
         One watcher per connection: psycopg gives each notification to a single notifies() reader.
         """
         while not self.shutdown.is_set():
-            async for note in self._connection.notifies(timeout=1.0, stop_after=1):
+            # psycopg has no lock-free wait; each slice delays a query by at most this long.
+            async for note in self._connection.notifies(timeout=0.05, stop_after=1):
                 for callback in list(self._listeners.get(note.channel, [])):
                     try:
                         callback(note.payload)
                     except Exception:
-                        logconfig.logger.exception(
+                        logging.getLogger("pgqueuer").exception(
                             "Unhandled error in NOTIFY callback for channel %s",
                             note.channel,
                         )
@@ -133,7 +133,9 @@ class PsycopgDriver(Driver):
 
         del self._listeners[channel]
         if not self._listeners and self._watcher is not None:
-            await cancel_and_wait(self._watcher)
+            self._watcher.add_done_callback(discard_outcome)
+            self._watcher.cancel()
+            await asyncio.wait({self._watcher})
             self._watcher = None
         await self._connection.execute(sql.SQL("UNLISTEN {}").format(sql.Identifier(channel)))
 

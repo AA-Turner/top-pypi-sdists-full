@@ -1344,10 +1344,12 @@ class MVSplitResidualUpdate(Module):
         init_alpha = 0.,
         init_beta = 0.03,
         learned = False,
+        causal = False,
         **kwargs
     ):
         super().__init__()
         self.learned = learned
+        self.causal = causal
 
         if learned:
             self.to_alpha = nn.Linear(dim, dim)
@@ -1365,9 +1367,20 @@ class MVSplitResidualUpdate(Module):
     def prepare(self, residual):
         return residual, residual, dict()
 
+    def seq_mean(self, t, mask = None):
+        if not self.causal:
+            return masked_mean(t, mask = mask, dim = -2, keepdim = True)
+
+        # causal prefix mean - each token only averages over itself and the past
+
+        mask = default(mask, lambda: torch.ones(t.shape[:-1], device = t.device, dtype = torch.bool))
+        mask = rearrange(mask, 'b n -> b n 1')
+
+        return (t * mask).cumsum(dim = -2) / mask.cumsum(dim = -2).clamp(min = 1)
+
     def forward(self, x, residual, mask = None, **kwargs):
-        mean_x = masked_mean(x, mask = mask, dim = -2, keepdim = True)
-        mean_residual = masked_mean(residual, mask = mask, dim = -2, keepdim = True)
+        mean_x = self.seq_mean(x, mask = mask)
+        mean_residual = self.seq_mean(residual, mask = mask)
 
         alpha = self.to_alpha(mean_x) if self.learned else self.alpha
         beta = self.to_beta(mean_x) if self.learned else self.beta
@@ -3554,7 +3567,7 @@ class AttentionLayers(Module):
             elif orthog_residual:
                 residual_fn = OrthogonalResidualUpdate
             elif mv_split_residual:
-                residual_fn = MVSplitResidualUpdate
+                residual_fn = partial(MVSplitResidualUpdate, causal = causal)
             else:
                 residual_fn = Residual
 
@@ -3616,6 +3629,10 @@ class AttentionLayers(Module):
         # determine whether can cache kv
 
         self.can_cache_kv = all([module.can_cache_kv for module in self.modules() if isinstance(module, Attention)])
+
+        # causal mv split residual needs the prefix mean, which is not part of the kv cache
+
+        self.can_cache_kv &= not (mv_split_residual and causal)
 
     def attn_qk_clip_(
         self,

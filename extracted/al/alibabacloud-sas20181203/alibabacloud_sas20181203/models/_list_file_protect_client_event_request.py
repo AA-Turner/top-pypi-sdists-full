@@ -27,11 +27,11 @@ class ListFileProtectClientEventRequest(DaraModel):
     ):
         # The list of alert notification levels.
         self.alert_levels = alert_levels
-        # The number of the page to return in a paged query.
+        # The page number of the current page in a paging query.
         self.current_page = current_page
         # The end timestamp.
         self.end_time = end_time
-        # The file path.
+        # The path of the file.
         self.file_path = file_path
         # The ID of the asset instance.
         self.instance_id = instance_id
@@ -39,7 +39,7 @@ class ListFileProtectClientEventRequest(DaraModel):
         self.instance_name = instance_name
         # The public IP address.
         self.internet_ip = internet_ip
-        # The private IP address.
+        # The internal IP address.
         self.intranet_ip = intranet_ip
         # The type of operation performed on the file. Valid values:
         # 
@@ -47,23 +47,23 @@ class ListFileProtectClientEventRequest(DaraModel):
         # - **WRITE**: File write.
         # - **READ**: File read.
         # - **RENAME**: File rename.
-        # - **CHOWN**: Setting the file owner and file group.
+        # - **CHOWN**: Change of file owner and group.
         self.operation = operation
-        # The maximum number of entries to return on each page in a paged query.
+        # The maximum number of entries to return per page in a paging query.
         self.page_size = page_size
-        # The process path.
+        # The path of the process.
         self.proc_path = proc_path
-        # The name of the configuration rule.
+        # The name of the configured rule.
         self.rule_name = rule_name
-        # The start time. This value is a UNIX timestamp in milliseconds.
+        # The start time. The value is a UNIX timestamp in milliseconds.
         self.start_time = start_time
-        # The event status. Valid values:
+        # The status of the event. Valid values:
         # - **0**: Unhandled.
         # - **1**: Handled.
         # - **2**: Whitelisted.
         self.status = status
         # The UUID of the server to query.
-        # >You can call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain this parameter.
+        # > You can call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain this parameter.
         self.uuid = uuid
 
     def validate(self):

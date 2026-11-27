@@ -18,17 +18,15 @@ class ModifyPostPayModuleSwitchRequest(DaraModel):
         post_pay_module_switch: str = None,
         post_pay_module_switch_obj: main_models.ModifyPostPayModuleSwitchRequestPostPayModuleSwitchObj = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies whether to perform a dry run on the request. Valid values:
-        # - **true**: Performs a dry run only and does not perform the actual operation.
-        # - **false**: Performs the actual operation.
+        # Specifies whether to only precheck the request. Valid values: true (only prechecks the request and does not perform the actual operation) and false (performs the actual operation).
         self.dry_run = dry_run
-        # The switch configuration of the EDR module.
+        # The switch configurations for the EDR module.
         self.edr_module_switch = edr_module_switch
-        # Specifies whether to enable the free trial. Default value: false. You cannot modify this parameter.
+        # Specifies whether to use the free trial. Default value: false. You cannot modify this parameter.
         self.free_trial = free_trial
-        # Specifies whether to automatically bind new assets to the host and container protection feature. Valid values:
+        # Specifies whether to automatically bind new assets to host and container protection. Valid values:
         # 
         # - **0**: disabled
         # - **1**: enabled
@@ -42,28 +40,28 @@ class ModifyPostPayModuleSwitchRequest(DaraModel):
         self.post_paid_host_auto_bind_version = post_paid_host_auto_bind_version
         # The pay-as-you-go instance ID. This parameter is required.
         # 
-        # > Invoke the [DescribeVersionConfig](~~DescribeVersionConfig~~) operation to obtain this parameter.
+        # > Invoke the [DescribeVersionConfig](~~DescribeVersionConfig~~) operation to obtain the value of this parameter.
         self.post_pay_instance_id = post_pay_instance_id
         # The switch status of pay-as-you-go modules. The value is a JSON string. Valid values:
         # - Key:
-        #   - **VUL**: Vulnerability remediation module
-        #   - **CSPM**: Cloud Security Posture Management (CSPM) module
-        #   - **AGENTLESS**: Agentless detection module
-        #   - **SERVERLESS**: Serverless security module
-        #   - **CTDR**: Cloud Threat Detection and Response (CTDR) module
-        #   - **POST_HOST**: Host and container security module
-        #   - **SDK**: Malicious file detection SDK module
-        #   - **RASP**: Application protection module
-        #   - **CTDR_STORAGE**: Log management module
-        #   - **ANTI_RANSOMWARE**: Anti-ransomware module
+        #   - **VUL**: vulnerability fixing module
+        #   - **CSPM**: cloud security posture management module
+        #   - **AGENTLESS**: agentless detection module
+        #   - **SERVERLESS**: serverless security module
+        #   - **CTDR**: threat analysis and response module
+        #   - **POST_HOST**: host and container security module
+        #   - **SDK**: malicious file detection SDK module
+        #   - **RASP**: application protection module
+        #   - **CTDR_STORAGE**: log management module
+        #   - **ANTI_RANSOMWARE**: anti-ransomware management
         # - Value: 0 indicates disabled, and 1 indicates enabled.
         # 
         # > The values of modules that are not specified remain unchanged.
         # 
-        # <notice>This parameter has the same meaning as the PostPayModuleSwitchObj parameter. If both parameters are specified, the value of PostPayModuleSwitch takes precedence.
+        # <notice>This parameter has the same meaning as the PostPayModuleSwitchObj parameter. If both parameters are specified, the value of PostPayModuleSwitch takes precedence.</notice>
         self.post_pay_module_switch = post_pay_module_switch
-        # The switch status of pay-as-you-go modules.
-        # >Notice: This parameter has the same meaning as the PostPayModuleSwitch parameter. If both parameters are specified, the value of PostPayModuleSwitch takes precedence.
+        # The switches of pay-as-you-go modules.
+        # >Notice: This parameter has the same meaning as the PostPayModuleSwitch parameter. If both parameters are specified, the value of PostPayModuleSwitch takes precedence.</notice>
         self.post_pay_module_switch_obj = post_pay_module_switch_obj
 
     def validate(self):
@@ -147,8 +145,10 @@ class ModifyPostPayModuleSwitchRequestPostPayModuleSwitchObj(DaraModel):
         anti_ransomware: int = None,
         basic_service: int = None,
         cspm: int = None,
+        cspm_instance: int = None,
         ctdr: int = None,
         ctdr_storage: int = None,
+        image_scan: int = None,
         post_host: int = None,
         rasp: int = None,
         sdk: int = None,
@@ -156,11 +156,11 @@ class ModifyPostPayModuleSwitchRequestPostPayModuleSwitchObj(DaraModel):
         vul: int = None,
         web_lock: int = None,
     ):
-        # The Agentless detection module. Valid values:
+        # The agentless detection module. Valid values:
         # - **0**: disabled
         # - **1**: enabled
         self.agentless = agentless
-        # The AI digitalization feature.
+        # The AI digital human module.
         self.ai_digital = ai_digital
         # The anti-ransomware module. Valid values:
         # - **0**: disabled
@@ -170,13 +170,17 @@ class ModifyPostPayModuleSwitchRequestPostPayModuleSwitchObj(DaraModel):
         # - **0**: disabled
         # - **1**: enabled
         # 
-        # >Notice: You cannot manually modify the switch of the basic service module. If any other module is in the enabling status, this module is in the enabling status. If all other modules are in shutdown, this module is in shutdown.
+        # >Notice: You cannot manually modify the switch of the basic service module. If any other module is in the enabling status, this module is in the enabling status. If all other modules are shutdown, this module is shutdown.</notice>
         self.basic_service = basic_service
         # The cloud security configuration check module. Valid values:
         # - **0**: disabled
         # - **1**: enabled
         self.cspm = cspm
-        # The Cloud Threat Detection and Response (CTDR) module. Valid values:
+        # The Agentic cloud security configuration check module. Valid values:
+        # - **0**: disabled
+        # - **1**: enabled
+        self.cspm_instance = cspm_instance
+        # The threat analysis and response module. Valid values:
         # - **0**: disabled
         # - **1**: enabled
         self.ctdr = ctdr
@@ -184,6 +188,10 @@ class ModifyPostPayModuleSwitchRequestPostPayModuleSwitchObj(DaraModel):
         # - **0**: disabled
         # - **1**: enabled
         self.ctdr_storage = ctdr_storage
+        # The image scan module. Valid values:
+        # - **0**: disabled
+        # - **1**: enabled
+        self.image_scan = image_scan
         # The host and container security module. Valid values:
         # - **0**: disabled
         # - **1**: enabled
@@ -196,11 +204,11 @@ class ModifyPostPayModuleSwitchRequestPostPayModuleSwitchObj(DaraModel):
         # - **0**: disabled
         # - **1**: enabled
         self.sdk = sdk
-        # The Serverless security module. Valid values:
+        # The serverless security module. Valid values:
         # - **0**: disabled
         # - **1**: enabled
         self.serverless = serverless
-        # The vulnerability remediation module. Valid values:
+        # The vulnerability fixing module. Valid values:
         # - **0**: disabled
         # - **1**: enabled
         self.vul = vul
@@ -232,11 +240,17 @@ class ModifyPostPayModuleSwitchRequestPostPayModuleSwitchObj(DaraModel):
         if self.cspm is not None:
             result['Cspm'] = self.cspm
 
+        if self.cspm_instance is not None:
+            result['CspmInstance'] = self.cspm_instance
+
         if self.ctdr is not None:
             result['Ctdr'] = self.ctdr
 
         if self.ctdr_storage is not None:
             result['CtdrStorage'] = self.ctdr_storage
+
+        if self.image_scan is not None:
+            result['ImageScan'] = self.image_scan
 
         if self.post_host is not None:
             result['PostHost'] = self.post_host
@@ -275,11 +289,17 @@ class ModifyPostPayModuleSwitchRequestPostPayModuleSwitchObj(DaraModel):
         if m.get('Cspm') is not None:
             self.cspm = m.get('Cspm')
 
+        if m.get('CspmInstance') is not None:
+            self.cspm_instance = m.get('CspmInstance')
+
         if m.get('Ctdr') is not None:
             self.ctdr = m.get('Ctdr')
 
         if m.get('CtdrStorage') is not None:
             self.ctdr_storage = m.get('CtdrStorage')
+
+        if m.get('ImageScan') is not None:
+            self.image_scan = m.get('ImageScan')
 
         if m.get('PostHost') is not None:
             self.post_host = m.get('PostHost')
@@ -307,9 +327,7 @@ class ModifyPostPayModuleSwitchRequestEdrModuleSwitch(DaraModel):
         auto_bind: int = None,
         edr_host_usage: int = None,
     ):
-        # Specifies whether to enable automatic binding of new assets to EDR. Valid values:
-        # - **0**: disabled
-        # - **1**: enabled
+        # Specifies whether to enable automatic binding of new assets to EDR. Valid values: 0 (disabled) and 1 (enabled).
         self.auto_bind = auto_bind
         # The authorized quota for EDR hosts.
         self.edr_host_usage = edr_host_usage

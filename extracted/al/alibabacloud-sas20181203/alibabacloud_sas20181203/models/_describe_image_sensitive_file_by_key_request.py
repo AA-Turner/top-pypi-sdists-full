@@ -16,26 +16,24 @@ class DescribeImageSensitiveFileByKeyRequest(DaraModel):
         scan_range: List[str] = None,
         sensitive_file_key: str = None,
     ):
-        # Specifies the page number of the returned results. Default value: **1**.
+        # The number of the page to return. Default value: **1**.
         self.current_page = current_page
-        # The image UUID.
+        # The UUID of the image.
         # > You can call the [DescribeImageListBySensitiveFile](~~DescribeImageListBySensitiveFile~~) operation to obtain this parameter from the ImageInfos[].Uuid field in the response.
         # This parameter is required. If you do not specify this parameter, the API returns an HTTP 400 error with the error code -101.
-        # The ByKey suffix in the operation name indicates filtering by sensitive file type. To locate an image, you must specify this parameter (imageUuid). SensitiveFileKey is an optional filter condition for the sensitive file type.
+        # The "ByKey" in the operation name indicates filtering by sensitive file type. To locate the image, you must specify this parameter (imageUuid). SensitiveFileKey is an optional filter condition for the sensitive file type.
         self.image_uuid = image_uuid
-        # Specifies the language of the request and response. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # - **zh**: Chinese
         # - **en**: English
         self.lang = lang
-        # Specifies the maximum number of entries to return on each page in a paging query. Default value: **20**.
+        # The maximum number of entries to return on each page during paging in a paged query. Default value: **20**.
         self.page_size = page_size
         # The scan scope. Valid values:
-        # 
         # - **image**: image
         # - **container**: container
         self.scan_range = scan_range
-        # The sensitive file alerting type. Valid values:
-        # 
+        # The Alarm Metric for sensitive file alerting. Valid values:
         # - **npm_token**: NPM access token
         # - **ftp_cfg**: FTP configuration
         # - **google_oauth_key**: Google OAuth key
@@ -52,8 +50,8 @@ class DescribeImageSensitiveFileByKeyRequest(DaraModel):
         # - **aws_access_key**: AWS access key
         # - **esmtp_cfg**: ESMTP mail server configuration
         # - **docker_registry_cfg**: Docker image repository configuration
-        # - **pem**: PEM file
-        # - **common_cred**: common credential
+        # - **pem**: PEM
+        # - **common_cred**: Common credential
         # - **sftp_cfg**: SFTP connection configuration
         # - **grafana_token**: Grafana token
         # - **slack_token**: Slack token
@@ -67,11 +65,11 @@ class DescribeImageSensitiveFileByKeyRequest(DaraModel):
         # - **openssh_private_key**: OpenSSH private key
         # - **square_oauth**: Square OAuth credential
         # - **typeform_token**: Typeform token
-        # - **common_database_cfg**: common database connection configuration
+        # - **common_database_cfg**: Common database connection configuration
         # - **wordpress_database_cfg**: WordPress database configuration
         # - **googlecloud_api_key**: Google Cloud API key
-        # - **vscode_sftp**: VSCode SFTP configuration
-        # - **apache_htpasswd**: Apache htpasswd file
+        # - **vscode_sftp**: VS Code SFTP configuration
+        # - **apache_htpasswd**: Apache htpasswd
         # - **planetscale_token**: PlanetScale token
         # - **contentful_preview_token**: Contentful preview token
         # - **php_database_cfg**: PHP application database password
@@ -85,7 +83,7 @@ class DescribeImageSensitiveFileByKeyRequest(DaraModel):
         # - **pgp**: PGP encrypted file
         # - **stripe_skpk**: Stripe secret key
         # - **square_token**: Square access token
-        # - **rails_carrierwave**: Rails Carrierwave file upload credential
+        # - **rails_carrierwave**: Rails CarrierWave file upload credential
         # - **dbeaver_database_cfg**: DBeaver database configuration
         # - **robomongo_cred**: Robomongo credential
         # - **github_oauth_token**: GitHub OAuth access token
@@ -98,7 +96,7 @@ class DescribeImageSensitiveFileByKeyRequest(DaraModel):
         # - **microsoft_sdf**: Microsoft SQL CE database
         # - **kubernetes_dashboard_cred**: Kubernetes Dashboard user credential
         # - **atlassian_token**: Atlassian token
-        # - **rdp**: Remote Desktop Protocol (RDP) connection
+        # - **rdp**: remote desktop connection RDP
         # - **mailgun_key**: Mailgun webhook signing key
         # - **mailchimp_api_key**: Mailchimp API key
         # - **netrc_cfg**: .netrc configuration file
@@ -112,7 +110,7 @@ class DescribeImageSensitiveFileByKeyRequest(DaraModel):
         # - **databricks_token**: Databricks token
         # - **gitLab_personal_token**: GitLab personal access token
         # - **rails_master_key**: Rails master key
-        # - **sqlite**: SQLite3/SQLite database
+        # - **sqlite**: SQLite3 or SQLite database
         # - **firefox_logins**: Firefox logon configuration
         # - **mailgun_private_token**: Mailgun private token
         # - **joomla_cfg**: Joomla configuration
@@ -127,7 +125,7 @@ class DescribeImageSensitiveFileByKeyRequest(DaraModel):
         # - **huaweicloud_ak**: Huawei Cloud Secret Access Key
         # - **aws_s3cmd**: AWS S3cmd configuration
         # - **php_config**: PHP configuration
-        # - **common_private_key**: common private key type
+        # - **common_private_key**: Common private key type
         # - **microsoft_mdf**: Microsoft SQL database
         # - **mediawiki_cfg**: MediaWiki configuration
         # - **jenkins_cred**: Jenkins credential
@@ -146,7 +144,7 @@ class DescribeImageSensitiveFileByKeyRequest(DaraModel):
         # - **rails_app_token**: Rails app token
         # - **git_cred**: Git user credential
         # - **newrelic_api_key**: New Relic user API key
-        # - **github_hub**: hub configuration that stores GitHub tokens
+        # - **github_hub**: Hub configuration that stores GitHub tokens
         # - **rubygem**: RubyGems token
         self.sensitive_file_key = sensitive_file_key
 

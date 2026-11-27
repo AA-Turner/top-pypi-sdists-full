@@ -52,13 +52,13 @@ class GetFileProtectClientRuleDashboardResponseBodyData(DaraModel):
         protected_directories_count: int = None,
         protected_instances_count: int = None,
     ):
-        # The total number of web tamper-proofing licenses.
+        # The total number of file tamper-proofing authorizations.
         self.auth_total = auth_total
-        # The number of bound tamper-proofing licenses.
+        # The number of bound tamper-proofing authorizations.
         self.bind_count = bind_count
-        # The total number of web tamper-proofing rules.
+        # The total number of file tamper-proofing rules.
         self.protected_directories_count = protected_directories_count
-        # The total number of online web tamper-proofing clients.
+        # The total number of online file tamper-proofing clients.
         self.protected_instances_count = protected_instances_count
 
     def validate(self):

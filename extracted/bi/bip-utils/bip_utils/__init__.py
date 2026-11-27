@@ -63,6 +63,10 @@ from bip_utils.addr import (
     InjAddr,
     InjAddrDecoder,
     InjAddrEncoder,
+    KasAddr,
+    KasAddrDecoder,
+    KasAddrEncoder,
+    KasAddrTypes,
     MvrkAddr,
     MvrkAddrDecoder,
     MvrkAddrEncoder,
@@ -85,6 +89,9 @@ from bip_utils.addr import (
     NimAddr,
     NimAddrDecoder,
     NimAddrEncoder,
+    NostrAddr,
+    NostrAddrDecoder,
+    NostrAddrEncoder,
     OkexAddr,
     OkexAddrDecoder,
     OkexAddrEncoder,
@@ -231,6 +238,11 @@ from bip_utils.bip.bip44 import Bip44
 from bip_utils.bip.bip44_base import Bip44Changes, Bip44DepthError, Bip44Levels, Bip44PrivateKey, Bip44PublicKey
 from bip_utils.bip.bip49 import Bip49
 from bip_utils.bip.bip84 import Bip84
+
+# BIP85
+from bip_utils.bip.bip85 import Bip85, Bip85Drng
+
+# BIP86
 from bip_utils.bip.bip86 import Bip86
 
 # BIP coins configuration
@@ -359,12 +371,28 @@ from bip_utils.monero.mnemonic_polyseed import (
     MoneroPolyseedWordsNum,
 )
 
+# Nostr
+from bip_utils.nostr import NostrNsecDecoder, NostrNsecEncoder
+
 # SLIP32
 from bip_utils.slip.slip32 import (
     Slip32DeserializedKey,
     Slip32KeyDeserializer,
     Slip32PrivateKeySerializer,
     Slip32PublicKeySerializer,
+)
+
+# SLIP39
+from bip_utils.slip.slip39 import (
+    Slip39Languages,
+    Slip39Mnemonic,
+    Slip39MnemonicDecoder,
+    Slip39MnemonicEncoder,
+    Slip39MnemonicGenerator,
+    Slip39MnemonicValidator,
+    Slip39SeedGenerator,
+    Slip39Share,
+    Slip39WordsNum,
 )
 
 # Solana
@@ -449,6 +477,7 @@ from bip_utils.utils.crypto import (
     Sha256,
     Sha512,
     Sha512_256,
+    Shake256,
     XModemCrc,
 )
 from bip_utils.utils.misc import (

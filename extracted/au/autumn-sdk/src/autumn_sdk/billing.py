@@ -4416,6 +4416,7 @@ class Billing(BaseSDK):
         to_entity_id: OptionalNullable[str] = UNSET,
         customer_plan_id: OptionalNullable[str] = UNSET,
         swap: OptionalNullable[bool] = UNSET,
+        swap_scheduled_plans: OptionalNullable[bool] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -4429,6 +4430,7 @@ class Billing(BaseSDK):
         :param to_entity_id: The entity to move the plan to. Omit to move the plan to the customer level.
         :param customer_plan_id: The ID of the customer's plan instance, when several instances of plan_id match.
         :param swap: Swap plans: the destination's active plan in the same group moves to the source in the same request.
+        :param swap_scheduled_plans: With swap, also trade both scopes' scheduled plans in that group, so a pending downgrade follows its plan.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -4451,6 +4453,7 @@ class Billing(BaseSDK):
             plan_id=plan_id,
             customer_plan_id=customer_plan_id,
             swap=swap,
+            swap_scheduled_plans=swap_scheduled_plans,
         )
 
         req = self._build_request(
@@ -4521,6 +4524,7 @@ class Billing(BaseSDK):
         to_entity_id: OptionalNullable[str] = UNSET,
         customer_plan_id: OptionalNullable[str] = UNSET,
         swap: OptionalNullable[bool] = UNSET,
+        swap_scheduled_plans: OptionalNullable[bool] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -4534,6 +4538,7 @@ class Billing(BaseSDK):
         :param to_entity_id: The entity to move the plan to. Omit to move the plan to the customer level.
         :param customer_plan_id: The ID of the customer's plan instance, when several instances of plan_id match.
         :param swap: Swap plans: the destination's active plan in the same group moves to the source in the same request.
+        :param swap_scheduled_plans: With swap, also trade both scopes' scheduled plans in that group, so a pending downgrade follows its plan.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -4556,6 +4561,7 @@ class Billing(BaseSDK):
             plan_id=plan_id,
             customer_plan_id=customer_plan_id,
             swap=swap,
+            swap_scheduled_plans=swap_scheduled_plans,
         )
 
         req = self._build_request_async(

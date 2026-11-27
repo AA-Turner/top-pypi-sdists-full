@@ -60,7 +60,7 @@ def sync_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: GenerateNativeTriggerServiceConnectUrlJsonBody,
 ) -> Response[str]:
-    """generate connect url for native trigger service
+    """generate the authorize url of a connect made with the workspace OAuth app
 
     Args:
         workspace (str):
@@ -95,7 +95,7 @@ def sync(
     client: Union[AuthenticatedClient, Client],
     json_body: GenerateNativeTriggerServiceConnectUrlJsonBody,
 ) -> Optional[str]:
-    """generate connect url for native trigger service
+    """generate the authorize url of a connect made with the workspace OAuth app
 
     Args:
         workspace (str):
@@ -125,7 +125,7 @@ async def asyncio_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: GenerateNativeTriggerServiceConnectUrlJsonBody,
 ) -> Response[str]:
-    """generate connect url for native trigger service
+    """generate the authorize url of a connect made with the workspace OAuth app
 
     Args:
         workspace (str):
@@ -158,7 +158,7 @@ async def asyncio(
     client: Union[AuthenticatedClient, Client],
     json_body: GenerateNativeTriggerServiceConnectUrlJsonBody,
 ) -> Optional[str]:
-    """generate connect url for native trigger service
+    """generate the authorize url of a connect made with the workspace OAuth app
 
     Args:
         workspace (str):

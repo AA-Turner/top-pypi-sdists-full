@@ -17,26 +17,22 @@ class AddAssetSelectionCriteriaRequest(DaraModel):
         selection_key: str = None,
         target_operation_list: List[main_models.AddAssetSelectionCriteriaRequestTargetOperationList] = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies the conditions for searching for assets. The value of this parameter is in JSON format. Note that the parameter value is case-sensitive.
-        # > You can search for assets by using conditions such as the instance ID, instance name, VPC ID, region, and public IP address. You can call the [DescribeCriteria](~~DescribeCriteria~~) operation to query the supported search conditions.
+        # The conditions used to search for assets. This parameter is in JSON format. Note that the parameter is case-sensitive. You can search for assets by conditions such as instance ID, instance name, VPC ID, region, and public IP address. You can call the [DescribeCriteria](~~DescribeCriteria~~) operation to query supported search conditions.
         self.criteria = criteria
         # The operation type for the criteria. Valid values:
         # 
         # - **add**: Adds assets.
         # - **del**: Deletes assets.
         self.criteria_operation = criteria_operation
-        # Specifies whether to perform a dry run. Valid values:
-        # - true: performs a dry run. The system checks the request but does not perform the actual operation.
-        # - false: performs the actual operation.
-        # Default value: false.
+        # Specifies whether to precheck only this request. A value of true indicates that only the request is checked and the actual operation is not performed. A value of false indicates that the request is normally executed. Default value: false.
         self.dry_run = dry_run
         # The unique identifier for this asset selection.
         # 
         # This parameter is required.
         self.selection_key = selection_key
-        # The asset list.
+        # The list of assets.
         self.target_operation_list = target_operation_list
 
     def validate(self):
@@ -107,8 +103,8 @@ class AddAssetSelectionCriteriaRequestTargetOperationList(DaraModel):
     ):
         # The operation type. Valid values:
         # 
-        # - **add**: Add.
-        # - **del**: Delete.
+        # - **add**: Adds.
+        # - **del**: Deletes.
         self.operation = operation
         # The asset ID. If you select assets by machine, the value is the UUID of the machine. If you select assets by group, the value is the group ID. If you select assets by VPC, the value is the VPC ID.
         self.target = target

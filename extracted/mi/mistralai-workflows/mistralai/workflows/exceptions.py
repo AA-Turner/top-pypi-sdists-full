@@ -28,11 +28,15 @@ _HTTP_CONNECTION_ERRORS = (
     MISTRAL_HTTP.ConnectError,
     MISTRAL_HTTP.TimeoutException,
 )
+_HTTP_POOL_TIMEOUTS = (httpx.PoolTimeout, MISTRAL_HTTP.PoolTimeout)
+_CLIENT_POOL_EXHAUSTED_TYPE = "client_pool_exhausted"
 
 _TERMINAL_CODES: dict[str, str] = {
     # WF_1104 = WorkflowsErrorCode.WORKFLOW_REGISTRATION_FAILED (abraxas). It covers several refusals,
     # so the label names none of them. The registration call logs the server's reason.
     "WF_1104": "Worker stopped because the server refused workflow registration",
+    # The discovery check logs which mode the server requires and how to configure it.
+    "worker_payload_encryption_required": "Worker stopped because the server requires stronger payload encryption",
 }
 
 _TRANSIENT_STATUSES: frozenset[HTTPStatus] = frozenset(
@@ -60,6 +64,7 @@ class ErrorCode(StrEnum):
     STICKY_WORKER_SESSION_MISSING = "sticky_worker_session_missing"
 
     WORKFLOW_DEFINITION_ERROR = "workflow_definition_error"
+    CHILD_WORKFLOW_OUTSIDE_WORKFLOW = "child_workflow_outside_workflow"
     WORKFLOW_DESCRIPTION_ERROR = "workflow_description_error"
     WORKFLOW_ALREADY_STARTED = "workflow_already_started"
     WORKFLOW_NOT_FOUND = "workflow_not_found"
@@ -71,6 +76,7 @@ class ErrorCode(StrEnum):
 
     WORKER_REGISTRATION_ERROR = "worker_registration_error"
     WORKER_RUNTIME_CONFIG_ERROR = "worker_runtime_config_error"
+    WORKER_PAYLOAD_ENCRYPTION_REQUIRED = "worker_payload_encryption_required"
 
     AGENT_EXECUTION_ERROR = "agent_execution_error"
 
@@ -107,14 +113,14 @@ class WorkflowsException(Exception):
         self,
         message: str,
         status: HTTPStatus = HTTPStatus.INTERNAL_SERVER_ERROR,
-        code: ErrorCode = ErrorCode.TEMPORAL_SERVICE_ERROR,
+        code: ErrorCode | str = ErrorCode.TEMPORAL_SERVICE_ERROR,
         type: str = "invalid_request_error",
         logging_message: str | None = None,
         logging_properties: dict[str, Any] | None = None,
     ) -> None:
         self.status = status
         self.message = message
-        self.code = code
+        self.code: ErrorCode | str = code
         self.type = type
         self.logging_message = logging_message
         self.logging_properties = logging_properties or {}
@@ -269,6 +275,19 @@ class WorkflowsException(Exception):
                 pass
         if isinstance(exc, _HTTP_CONNECTION_ERRORS):
             status = HTTPStatus.BAD_GATEWAY
+        if isinstance(exc, _HTTP_POOL_TIMEOUTS):
+            # The status keeps it transient; the message and type say the server was never reached.
+            return cls(
+                message=(
+                    f"{message}: request not sent, no free connection in the client's HTTP connection pool "
+                    "(MISTRAL_WORKFLOWS_HTTP_MAX_CONNECTIONS)"
+                ),
+                code=code,
+                status=status,
+                type=_CLIENT_POOL_EXHAUSTED_TYPE,
+                logging_message=logging_message,
+                logging_properties=logging_properties,
+            )
         return cls(
             message=f"{message}: {exc}",
             code=code,

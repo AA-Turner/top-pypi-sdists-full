@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import itertools
 import uuid
+from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
 
@@ -366,11 +367,15 @@ async def test_max_concurrent_tasks(
 
 
 @pytest.mark.parametrize("fails", (False, True))
-async def test_run_drains_jobs_before_driver_exit(fails: bool) -> None:
-    """In-flight jobs finish while the driver, and its LISTEN, is still open (#896)."""
+async def test_run_drains_jobs_before_unlisten(fails: bool) -> None:
+    """In-flight jobs finish before the LISTEN goes (#896), and run never exits the driver."""
     events: list[str] = []
 
     class RecordingDriver(InMemoryDriver):
+        async def remove_listener(self, channel: str, callback: Callable[[str], None]) -> None:
+            events.append("unlisten")
+            await super().remove_listener(channel, callback)
+
         async def __aexit__(self, *_: object) -> None:
             events.append("driver exit")
 
@@ -391,7 +396,7 @@ async def test_run_drains_jobs_before_driver_exit(fails: bool) -> None:
     qm.shutdown.set()
     await asyncio.wait_for(run, timeout=5)
 
-    assert events == ["job done", "driver exit"]
+    assert events == ["job done", "unlisten"]
 
 
 async def test_run_failure_leaves_no_pending_lifecycle_tasks(
@@ -499,3 +504,15 @@ async def test_drain_shutdown_skips_while_tasks_are_in_flight(
     finally:
         blocker.set()
         await task_manager.gather_tasks()
+
+
+async def test_run_removes_its_listener(queries: InMemoryQueries) -> None:
+    """Each run() removes its listener when it stops (#1122).
+
+    Thus, the listeners on one driver do not increase from one run to the next.
+    """
+    qm = QueueManager(queries)
+    for _ in range(2):
+        qm.shutdown = asyncio.Event()
+        await qm.run(mode=QueueExecutionMode.drain)
+    assert queries.driver._listeners[qm.channel] == []

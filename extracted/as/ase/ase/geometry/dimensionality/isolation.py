@@ -1,5 +1,3 @@
-# fmt: off
-
 """
 Implements functions for extracting ('isolating') a low-dimensional material
 component in its own unit cell.
@@ -11,6 +9,7 @@ P.M. Larsen, M. Pandey, M. Strange, and K. W. Jacobsen
 Phys. Rev. Materials 3 034003, 2019
 https://doi.org/10.1103/PhysRevMaterials.3.034003
 """
+
 import collections
 import itertools
 
@@ -55,7 +54,7 @@ def select_cutoff(atoms):
     intervals = analyze_dimensionality(atoms, method='RDA', merge=False)
     dimtype = max(merge_intervals(intervals), key=lambda x: x.score).dimtype
     m = next(e for e in intervals if e.dimtype == dimtype)
-    if m.b == float("inf"):
+    if m.b == float('inf'):
         return m.a + 0.1
     else:
         return (m.a + m.b) / 2
@@ -66,7 +65,7 @@ def traverse_graph(atoms, kcutoff):
         kcutoff = select_cutoff(atoms)
 
     rda = rank_determination.RDA(len(atoms))
-    for (k, i, j, offset) in next_bond(atoms):
+    for k, i, j, offset in next_bond(atoms):
         if k > kcutoff:
             break
         rda.insert_bond(i, j, offset)
@@ -101,10 +100,10 @@ def select_chain_rotation(scaled):
     for s in scaled:
         vhat = np.array([s[0], s[1], 0])
         norm = np.linalg.norm(vhat)
-        if norm < 1E-6:
+        if norm < 1e-6:
             continue
         vhat /= norm
-        obj = np.sum(np.dot(scaled, vhat)**2)
+        obj = np.sum(np.dot(scaled, vhat) ** 2)
         best = max(best, (obj, vhat), key=lambda x: x[0])
     _, vhat = best
     cost, sint, _ = vhat
@@ -161,9 +160,8 @@ def construct_inplane_basis(atoms, k, v):
     basis_points = basis_points[indices]
 
     # identify primitive basis
-    best = (float("inf"), None)
+    best = (float('inf'), None)
     for u, v in itertools.combinations(basis_points, 2):
-
         basis = np.array([[0, 0, 0], u, v])
         if np.linalg.matrix_rank(basis) < 2:
             continue
@@ -205,10 +203,12 @@ def isolate_monolayer(atoms, components, k, v):
 
 
 def isolate_bulk(atoms, components, k, v):
-    positions, numbers = build_supercomponent(atoms, components, k, v,
-                                              anchor=False)
-    atoms = Atoms(numbers=numbers, positions=positions, cell=atoms.cell,
-                  pbc=[1, 1, 1])
+    positions, numbers = build_supercomponent(
+        atoms, components, k, v, anchor=False
+    )
+    atoms = Atoms(
+        numbers=numbers, positions=positions, cell=atoms.cell, pbc=[1, 1, 1]
+    )
     atoms.wrap(eps=0)
     return atoms
 

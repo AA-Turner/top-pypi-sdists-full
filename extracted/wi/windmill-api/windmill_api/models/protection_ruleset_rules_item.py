@@ -5,6 +5,7 @@ class ProtectionRulesetRulesItem(str, Enum):
     DISABLEDIRECTDEPLOYMENT = "DisableDirectDeployment"
     DISABLEWORKSPACEFORKING = "DisableWorkspaceForking"
     REQUIREISOLATEDFORKS = "RequireIsolatedForks"
+    REQUIRESSO = "RequireSso"
     RESTRICTANONYMOUSAPPDEPLOYMENT = "RestrictAnonymousAppDeployment"
     RESTRICTDEPLOYTODEPLOYERS = "RestrictDeployToDeployers"
     RESTRICTGUESTAPPDEPLOYMENT = "RestrictGuestAppDeployment"

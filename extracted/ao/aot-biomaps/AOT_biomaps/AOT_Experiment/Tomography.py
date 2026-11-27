@@ -172,7 +172,6 @@ class Tomography(Experiment):
             isGPU=isGPU,
             GPUdevice=GPUdevice,
             fieldDataPath=fieldDataPath,
-            tempFieldName=tempFieldName,
             nameBlock=nameBlock,
             generation_type=generation_type,
             show_log=show_log,

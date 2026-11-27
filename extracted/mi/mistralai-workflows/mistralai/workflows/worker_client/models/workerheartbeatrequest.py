@@ -2,6 +2,7 @@
 # @generated-id: 85f50bf1a14f
 
 from __future__ import annotations
+from .payloadencryptionlevel import PayloadEncryptionLevel
 from .workflowregistrationref_input import (
     WorkflowRegistrationRefInput,
     WorkflowRegistrationRefInputTypedDict,
@@ -19,6 +20,8 @@ class WorkerHeartbeatRequestTypedDict(TypedDict):
     r"""Human-readable name of this worker process (hostname or pod name)"""
     workflow_registration_refs: NotRequired[List[WorkflowRegistrationRefInputTypedDict]]
     r"""List of workflow registration references to heartbeat"""
+    payload_encryption_mode: NotRequired[PayloadEncryptionLevel]
+    r"""How much of a worker's payloads are encrypted, ordered from weakest to strongest."""
 
 
 class WorkerHeartbeatRequest(BaseModel):
@@ -31,9 +34,12 @@ class WorkerHeartbeatRequest(BaseModel):
     workflow_registration_refs: Optional[List[WorkflowRegistrationRefInput]] = None
     r"""List of workflow registration references to heartbeat"""
 
+    payload_encryption_mode: Optional[PayloadEncryptionLevel] = None
+    r"""How much of a worker's payloads are encrypted, ordered from weakest to strongest."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["workflow_registration_refs"])
+        optional_fields = set(["workflow_registration_refs", "payload_encryption_mode"])
         serialized = handler(self)
         m = {}
 

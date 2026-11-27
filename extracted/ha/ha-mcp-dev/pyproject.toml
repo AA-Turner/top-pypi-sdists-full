@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "ha-mcp-dev"
-version = "9.3.0.dev3729"
+version = "9.4.0.dev3764"
 description = "Configure and automate Home Assistant with Claude, ChatGPT, and other AI assistants."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
@@ -215,7 +215,7 @@ strict_config = true
 addopts = [
     "--verbose",
     "--tb=short",
-    "--maxfail=3",
+    "--continue-on-collection-errors",
     "-ra",
     "--durations=10",
     "-p",
@@ -284,6 +284,7 @@ log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 filterwarnings = [
     "error",
+    "default:syrupy.*selected test.*missing from collected items:UserWarning",
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
     "ignore::ResourceWarning",

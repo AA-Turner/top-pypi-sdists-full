@@ -29,10 +29,20 @@ class DocAiExtractResultsParams(typing_extensions.TypedDict):
 
     annotations: typing.Dict[str, typing.Any]
     """
-    Mirrors `result`, with each leaf replaced by its `confidence` and `sources`.
+    Mirrors `result`, with each leaf replaced by its `confidence` (0 to 1) and `sources` (`page_num`, `filename` and a `bbox_norm` box as `[x1, y1, x2, y2]`, each from 0 to 1). A field that was not found has `confidence` 0 and no sources.
     """
 
     version: int
     """
     Version of the schema or config used.
+    """
+
+    source_map: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    """
+    Maps each `document_id` used in `annotations[].sources` to its file.
+    """
+
+    documents: typing_extensions.NotRequired[typing.Sequence[typing.Dict[str, typing.Any]]]
+    """
+    One entry per input file.
     """

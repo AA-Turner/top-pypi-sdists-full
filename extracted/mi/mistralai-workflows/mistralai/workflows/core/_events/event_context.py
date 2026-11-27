@@ -3,34 +3,37 @@ from __future__ import annotations
 import asyncio
 import functools
 import time
+from collections.abc import Collection
 from contextvars import ContextVar, Token
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Optional, TypeGuard
+from typing import TYPE_CHECKING, Any, Optional, Protocol, TypeGuard
 
 import httpx
 import temporalio.activity
+import temporalio.workflow
 import tenacity
 from temporalio.exceptions import ApplicationError
 
-from mistralai.workflows.core._events.event_encoder import EventPayloadEncoder, maybe_encode_event
-from mistralai.workflows.core._events.event_route_publisher import EventRoutePublisher
+from mistralai.workflows.core._events.event_encoder import (
+    EventPayloadEncoder,
+    maybe_encode_event,
+)
+from mistralai.workflows.core._events.manual_publish import _publish_workflow_events
 from mistralai.workflows.core._logger import get_logger
-from mistralai.workflows.core.config.config import DEFAULT_EVENTS_API_VERSION, EventsApiVersion
+from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.logging import extract_error_context
-from mistralai.workflows.core.metrics import record_event_publish_retry
+from mistralai.workflows.core.metrics import record_event_dropped_too_large, record_event_publish_retry
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 from mistralai.workflows.exceptions import WorkflowsException
-from mistralai.workflows.protocol.v1.events import WorkflowEvent
+from mistralai.workflows.protocol.v1.events import WorkflowEvent, WorkflowEventCategory
 from mistralai.workflows.protocol.v2.worker import EVENT_ROUTE_TOKEN_EXPIRED_CODE, EVENT_ROUTE_TOKEN_INVALID_CODE
 from mistralai.workflows.worker_client.errors import NoResponseError, SDKError
-from mistralai.workflows.worker_client.events import Events
-from mistralai.workflows.worker_client.models import WorkflowEventRequestEventTypedDict
-from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 if TYPE_CHECKING:
     from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 
     from mistralai.workflows.core._events.event_route_token_manager import EventRouteTokenManager
+    from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 logger = get_logger(__name__)
 
@@ -68,12 +71,8 @@ _REFRESHABLE_ROUTE_TOKEN_CODES = frozenset({EVENT_ROUTE_TOKEN_EXPIRED_CODE, EVEN
 _TRANSIENT_ERROR_TYPES = (httpx.TransportError, TimeoutError, NoResponseError)
 
 
-class V1EventRouteForbiddenError(Exception):
-    """Raised when the worker forbids the v1 event route.
-
-    Triggered by ``EVENTS_API_VERSION=v2-only`` so v2 integration tests fail if any
-    event would be emitted over the v1 route.
-    """
+class _EventPublisher(Protocol):
+    async def publish(self, events: list[WorkflowEvent]) -> None: ...
 
 
 class EventContext:
@@ -85,32 +84,27 @@ class EventContext:
 
     def __init__(
         self,
-        events_client: Events,
-        worker_client: PrivateWorkerClient | None = None,
-        events_api_version: EventsApiVersion = DEFAULT_EVENTS_API_VERSION,
+        event_publisher: _EventPublisher,
         payload_encoder: PayloadEncoder | None = None,
         custom_event_payload_encoder: PayloadEncoder | None = None,
+        *,
+        worker_client: PrivateWorkerClient | None = None,
+        route_token_manager: EventRouteTokenManager | None = None,
+        emitted_event_categories: Collection[WorkflowEventCategory] | None = None,
     ) -> None:
-        self.events_client = events_client
+        self._event_publisher = event_publisher
         # Shared with other worker-side clients (sequences) so they reuse one route-token cache.
         self._worker_client = worker_client
+        self._route_token_manager = route_token_manager
+        # CUSTOM_TASK can't be turned off: consumers such as Vibe rely on its events.
+        self._emitted_event_categories = frozenset(
+            config.worker.emitted_event_categories if emitted_event_categories is None else emitted_event_categories
+        ) | {WorkflowEventCategory.CUSTOM_TASK}
         self._token: Optional[Token] = None
-        self._batch_events_supported: bool = True
-        # v2-only forbids any v1 fallback (used by v2 integration tests).
-        self._forbid_v1_event_route = events_api_version == EventsApiVersion.V2_ONLY
         # Only create EventPayloadEncoder when encryption is configured
         self._event_encoder: EventPayloadEncoder | None = (
             EventPayloadEncoder(payload_encoder, custom_event_payload_encoder)
             if payload_encoder is not None and payload_encoder.encryption_config is not None
-            else None
-        )
-        self._event_route_publisher = (
-            EventRoutePublisher(
-                worker_client,
-                events_api_version=events_api_version,
-                event_encoder=self._event_encoder,
-            )
-            if worker_client is not None
             else None
         )
 
@@ -120,9 +114,23 @@ class EventContext:
 
     @property
     def event_route_token_manager(self) -> EventRouteTokenManager | None:
-        if self._event_route_publisher is None:
-            return None
-        return self._event_route_publisher.route_token_manager
+        return self._route_token_manager
+
+    @property
+    def emitted_event_categories(self) -> frozenset[WorkflowEventCategory]:
+        return self._emitted_event_categories
+
+    def emits(self, category: WorkflowEventCategory) -> bool:
+        return category in self._emitted_event_categories
+
+    def emits_event(self, event: WorkflowEvent) -> bool:
+        # Only ACTIVITY is decided here, outside the history. WORKFLOW events are gated by the run's
+        # recorded snapshot, which already skipped the emitter: dropping one here would lose events of a
+        # run started before the setting changed, e.g. its COMPLETED after its STARTED was sent.
+        # The guarantee is per run (run_id): a workflow retry or continue-as-new starts a new run, which
+        # records its own snapshot, so its events may follow a newer setting.
+        category = event.event_type.category
+        return category != WorkflowEventCategory.ACTIVITY or self.emits(category)
 
     @staticmethod
     def has_context() -> bool:
@@ -165,35 +173,56 @@ class EventContext:
         await self.publish_events_batch([event])
 
     async def publish_events_batch(self, events: list[WorkflowEvent]) -> None:
-        """Publish multiple workflow events in a single batch request.
+        """Publish events, retrying temporary failures and raising WorkflowEventPublishFailed otherwise.
+
+        Workflow calls wait for durable local-activity retries. Activity and standalone calls retry
+        for up to a minute before raising. Oversized batches are split; only oversized events are dropped.
 
         Args:
             events: List of workflow events to publish.
         """
         if not events:
             return
-
-        await self._publish_events_batch_internal(events)
+        self._ensure_entered()
+        if temporalio.workflow.in_workflow():
+            await _publish_workflow_events(events)
+            return
+        events = [event for event in events if self.emits_event(event)]
+        if not events:
+            return
+        encoded = list(await asyncio.gather(*(self.encode_or_raise(event) for event in events)))
+        await self.publish_encoded_events_with_retry(encoded)
 
     async def publish_event_or_raise(self, event: WorkflowEvent) -> None:
         """Drop too-large events; raise transient failures to retry, a non-retryable ApplicationError otherwise."""
+        await self.publish_events_batch_or_raise([event])
+
+    async def publish_events_batch_or_raise(self, events: list[WorkflowEvent]) -> bool:
+        """Make one publish attempt; return False when the caller must split an oversized batch."""
         self._ensure_entered()
+        events = [event for event in events if self.emits_event(event)]
+        if not events:
+            return True
         try:
-            await self._send_events([await maybe_encode_event(event, self._event_encoder)])
+            encoded = list(await asyncio.gather(*(maybe_encode_event(event, self._event_encoder) for event in events)))
+            await self._event_publisher.publish(encoded)
         except asyncio.CancelledError as e:
             # Temporal cancels the emitter at its start-to-close timeout, before a hung request times out.
             details = temporalio.activity.cancellation_details()
             if details is not None and details.timed_out:
-                _on_emitter_retry(event, e)
+                _on_emitter_retry(events, e)
             raise
         except Exception as e:
             if _is_payload_too_large(e):
-                _log_dropped_too_large_event(event, e)
-                return
+                if len(events) > 1:
+                    return False
+                _log_dropped_too_large_event(events[0], e)
+                return True
             if not _is_permanent_publish_error(e):
-                _on_emitter_retry(event, e)
+                _on_emitter_retry(events, e)
                 raise
-            raise _permanent_publish_failure([event], e) from e
+            raise _permanent_publish_failure(events, e) from e
+        return True
 
     async def publish_encoded_events_with_retry(self, events: list[WorkflowEvent]) -> None:
         """Retry transient failures within a budget, then raise a retryable ApplicationError so the attempt re-runs.
@@ -201,6 +230,9 @@ class EventContext:
         Like publish_event_or_raise, drops a too-large event, but only that one rather than its whole batch.
         """
         self._ensure_entered()
+        events = [event for event in events if self.emits_event(event)]
+        if not events:
+            return
         await self._publish_with_retry(events, deadline=time.monotonic() + _PUBLISH_RETRY_BUDGET_SECONDS)
 
     async def _publish_with_retry(self, events: list[WorkflowEvent], deadline: float) -> None:
@@ -215,7 +247,7 @@ class EventContext:
                 reraise=True,
             ):
                 with attempt:
-                    await self._send_events(events)
+                    await self._event_publisher.publish(events)
         except Exception as e:
             if _is_payload_too_large(e):
                 if len(events) == 1:
@@ -241,62 +273,9 @@ class EventContext:
         except Exception as e:
             raise _permanent_publish_failure([event], e) from e
 
-    async def _publish_events_batch_internal(self, events: list[WorkflowEvent]) -> None:
-        self._ensure_entered()
-        if not events:
-            return
-
-        events = list(await asyncio.gather(*[maybe_encode_event(event, self._event_encoder) for event in events]))
-
-        try:
-            await self._send_events(events)
-        except V1EventRouteForbiddenError:
-            raise
-        except Exception as e:
-            logger.warning(
-                "Failed to send workflow event batch",
-                batch_size=len(events),
-                **extract_error_context(e),
-            )
-
     def _ensure_entered(self) -> None:
         if self._token is None:
             raise RuntimeError("EventContext not entered")
-
-    async def _send_events(self, events: list[WorkflowEvent]) -> None:
-        # v2 when configured; False falls through to v1, failures raise.
-        if self._event_route_publisher is not None and await self._event_route_publisher.try_publish_via_v2(
-            events, already_encoded=True
-        ):
-            return
-        if self._forbid_v1_event_route:
-            raise V1EventRouteForbiddenError(
-                "EVENTS_API_VERSION=v2-only but a v2 publish did not happen; refusing v1 fallback"
-            )
-        # Use single event endpoint for one event, batch endpoint for multiple
-        if len(events) == 1:
-            await self.events_client.send_event_async(event=self._translate_event(events[0]))
-            return
-        if not self._batch_events_supported:
-            await self._send_events_batch_fallback(events)
-            return
-        try:
-            await self.events_client.send_events_batch_async(events=[self._translate_event(e) for e in events])
-        except SDKError as e:
-            # originally implemented in https://github.com/mistralai/dashboard/pull/21280
-            if e.status_code == 404:
-                self._batch_events_supported = False
-                await self._send_events_batch_fallback(events)
-                return
-            raise
-
-    def _translate_event(self, event: WorkflowEvent) -> WorkflowEventRequestEventTypedDict:
-        return event.model_dump(mode="json")  # type: ignore
-
-    async def _send_events_batch_fallback(self, events: list[WorkflowEvent]) -> None:
-        """Fallback: send events one by one when the batch endpoint is not available."""
-        for event in events:
-            await self.events_client.send_event_async(event=self._translate_event(event))
 
 
 def activity_attempts_exhausted(info: temporalio.activity.Info) -> bool:
@@ -324,12 +303,12 @@ def _is_payload_too_large(error: Exception) -> bool:
     return http_error is not None and http_error.status == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
 
 
-def _on_emitter_retry(event: WorkflowEvent, error: BaseException) -> None:
-    record_event_publish_retry(1)
+def _on_emitter_retry(events: list[WorkflowEvent], error: BaseException) -> None:
+    record_event_publish_retry(len(events))
     logger.warning(
         "Retrying workflow event batch",
-        event_type=event.event_type,
-        **(extract_error_context(error) if isinstance(error, Exception) else {}),
+        event_types=list(dict.fromkeys(event.event_type for event in events)),
+        **extract_error_context(error),
     )
 
 
@@ -345,6 +324,7 @@ def _on_publish_retry(events: list[WorkflowEvent], retry_state: tenacity.RetryCa
 
 
 def _log_dropped_too_large_event(event: WorkflowEvent, error: Exception) -> None:
+    record_event_dropped_too_large()
     logger.error(
         "Dropping workflow event too large to publish", event_type=event.event_type, **extract_error_context(error)
     )
@@ -450,6 +430,8 @@ class BackgroundEventPublisher:
                     self._event_queue.task_done()
 
     def publish_event_background(self, event: WorkflowEvent) -> None:
+        if not self.event_context.emits_event(event):
+            return
         if self._sender_task is None:
             self._sender_task = asyncio.create_task(self._event_sender_loop())
         self._event_queue.put_nowait(event)

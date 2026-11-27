@@ -11,6 +11,13 @@ const STRIDE: usize = 4;
 const MAX_W: usize = 1280;
 const BUCKET_W: usize = 128;
 const BATCH: usize = 32;
+/// Most input pixels in one recognizer run. Natively a batch runs whole; on tract (the WebAssembly
+/// build) a wide batch runs a few lines at a time, at the batch's padded width, so its activations
+/// stay small enough for a 128 MB isolate. Lines don't interact, so the readings are the same.
+#[cfg(any(target_arch = "wasm32", feature = "ocria-tract"))]
+const RUN_PIXELS: usize = 4 * H * MAX_W;
+#[cfg(not(any(target_arch = "wasm32", feature = "ocria-tract")))]
+const RUN_PIXELS: usize = usize::MAX;
 
 /// Grey line image at height `H`, width scaled with the aspect ratio (`Recognizer._prep`).
 fn prep(crop: &Img, min_w: usize, max_w: usize) -> Img {
@@ -23,6 +30,10 @@ fn prep(crop: &Img, min_w: usize, max_w: usize) -> Img {
         resize_linear(&g, nw, H)
     }
 }
+
+/// A line's reading: text, mean confidence, and each word's horizontal extent as shares (0..1)
+/// of the line image (left to right; none for right-to-left readings, which are reordered).
+pub type Read = (String, f32, Vec<(f32, f32)>);
 
 pub struct Recognizer {
     pub(super) pool: SessionPool,
@@ -52,56 +63,96 @@ impl Recognizer {
         })
     }
 
-    /// (text, confidence) per crop. Lines are batched by width (sorted, 32 per batch, padded
+    /// (text, confidence, word spans) per crop. Lines are batched by width (sorted, 32 per batch, padded
     /// to a multiple of 128 px) exactly as the reference does: a line's output depends on the
     /// padded width it was run at.
-    pub fn read(&self, crops: &[&Img]) -> Result<Vec<(String, f32)>, OcriaError> {
+    pub fn read(&self, crops: &[&Img]) -> Result<Vec<Read>, OcriaError> {
         let lines: Vec<Img> = crops.iter().map(|c| prep(c, STRIDE * 2, MAX_W)).collect();
         let mut order: Vec<usize> = (0..lines.len()).collect();
         order.sort_by_key(|&i| lines[i].w);
-        let mut out = vec![(String::new(), 0f32); lines.len()];
-        for idx in order.chunks(BATCH) {
-            let maxw = idx.iter().map(|&i| lines[i].w).max().unwrap_or(1);
+        let mut out = vec![(String::new(), 0f32, Vec::new()); lines.len()];
+        for batch in order.chunks(BATCH) {
+            let maxw = batch.iter().map(|&i| lines[i].w).max().unwrap_or(1);
             let w = maxw.div_ceil(BUCKET_W) * BUCKET_W;
-            let mut x = vec![1f32; idx.len() * H * w];
-            for (j, &i) in idx.iter().enumerate() {
-                let l = &lines[i];
-                for y in 0..H {
-                    for xx in 0..l.w {
-                        x[(j * H + y) * w + xx] =
-                            (l.data[y * l.w + xx] as f64 / 127.5 - 1.0) as f32;
-                    }
-                }
-            }
-            let mut res = self.pool.infer([idx.len(), 1, H, w], x, &["ids", "conf"])?;
-            let (shape, ids) = res.i64("ids")?;
-            let (_, conf) = res.f32("conf")?;
-            let t_all = shape[1];
-            for (j, &i) in idx.iter().enumerate() {
-                let t = (lines[i].w / self.stride).min(t_all);
-                let (mut text, mut cs, mut prev) = (String::new(), Vec::new(), 0i64);
-                for k in 0..t {
-                    let c = ids[j * t_all + k];
-                    if c != 0 && c != prev {
-                        if let Some(s) = self.chars.get((c - 1) as usize) {
-                            text.push_str(s);
-                        }
-                        cs.push(conf[j * t_all + k]);
-                    }
-                    prev = c;
-                }
-                if self.visual_rtl && text.chars().any(is_rtl_char) {
-                    text = visual_to_logical(&text);
-                }
-                let mean = if cs.is_empty() {
-                    0.0
-                } else {
-                    (cs.iter().map(|&v| v as f64).sum::<f64>() / cs.len() as f64) as f32
-                };
-                out[i] = (text, mean);
+            for idx in batch.chunks((RUN_PIXELS / (H * w)).max(1)) {
+                self.read_run(&lines, idx, w, &mut out)?;
             }
         }
         Ok(out)
+    }
+
+    /// Read the lines `idx` in one run, padded to width `w`, into `out`.
+    fn read_run(
+        &self,
+        lines: &[Img],
+        idx: &[usize],
+        w: usize,
+        out: &mut [Read],
+    ) -> Result<(), OcriaError> {
+        let mut x = vec![1f32; idx.len() * H * w];
+        for (j, &i) in idx.iter().enumerate() {
+            let l = &lines[i];
+            for y in 0..H {
+                for xx in 0..l.w {
+                    x[(j * H + y) * w + xx] = (l.data[y * l.w + xx] as f64 / 127.5 - 1.0) as f32;
+                }
+            }
+        }
+        let mut res = self.pool.infer([idx.len(), 1, H, w], x, &["ids", "conf"])?;
+        let (shape, ids) = res.i64("ids")?;
+        let (_, conf) = res.f32("conf")?;
+        let t_all = shape[1];
+        for (j, &i) in idx.iter().enumerate() {
+            let t = (lines[i].w / self.stride).min(t_all);
+            let (mut text, mut cs, mut prev) = (String::new(), Vec::new(), 0i64);
+            // each word's first and last timestep: CTC emits a character at the step it is seen
+            let mut spans: Vec<(usize, usize)> = Vec::new();
+            let mut in_word = false;
+            for k in 0..t {
+                let c = ids[j * t_all + k];
+                if c != 0 && c != prev {
+                    if let Some(s) = self.chars.get((c - 1) as usize) {
+                        text.push_str(s);
+                        if s.trim().is_empty() {
+                            in_word = false;
+                        } else if in_word {
+                            if let Some(last) = spans.last_mut() {
+                                last.1 = k;
+                            }
+                        } else {
+                            spans.push((k, k));
+                            in_word = true;
+                        }
+                    }
+                    cs.push(conf[j * t_all + k]);
+                }
+                prev = c;
+            }
+            let mut words: Vec<(f32, f32)> = Vec::new();
+            if self.visual_rtl && text.chars().any(is_rtl_char) {
+                text = visual_to_logical(&text);
+            } else {
+                // as shares of the line image: a step covers `stride` input pixels; a glyph spans
+                // about a step either side of the one it is emitted at
+                let wl = lines[i].w.max(1) as f32;
+                let px = self.stride as f32;
+                words = spans
+                    .iter()
+                    .map(|&(a, b)| {
+                        let x0 = (a as f32 * px - px).max(0.0) / wl;
+                        let x1 = ((b + 1) as f32 * px + px).min(wl) / wl;
+                        (x0, x1)
+                    })
+                    .collect();
+            }
+            let mean = if cs.is_empty() {
+                0.0
+            } else {
+                (cs.iter().map(|&v| v as f64).sum::<f64>() / cs.len() as f64) as f32
+            };
+            out[i] = (text, mean, words);
+        }
+        Ok(())
     }
 }
 

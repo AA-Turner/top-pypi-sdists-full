@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: mcp-server-appwrite
-Version: 2.9.0
+Version: 2.9.2
 Summary: Build and deploy application backends. Add authentication, PostgreSQL/MySQL databases, vector databases, storage, serverless functions, realtime, messaging, hosting, domains, CDN and firewall.
 License-File: LICENSE
 Requires-Python: >=3.12
 Requires-Dist: anyio>=4.0.0
-Requires-Dist: appwrite-console<0.19,>=0.18.0
+Requires-Dist: appwrite-console<0.20,>=0.19.0
 Requires-Dist: cryptography>=44.0.0
 Requires-Dist: docstring-parser>=0.16
 Requires-Dist: httpcore>=1.0

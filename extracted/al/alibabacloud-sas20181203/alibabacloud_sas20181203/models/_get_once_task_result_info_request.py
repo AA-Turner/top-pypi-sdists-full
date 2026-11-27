@@ -7,59 +7,43 @@ from darabonba.model import DaraModel
 class GetOnceTaskResultInfoRequest(DaraModel):
     def __init__(
         self,
+        resource_directory_account_id: int = None,
         task_id: str = None,
         task_name: str = None,
         task_type: str = None,
     ):
-        # The ID of the one-time task.
+        # The ID of the member accounts in the resource folder. The member accounts are Alibaba Cloud accounts.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        self.resource_directory_account_id = resource_directory_account_id
+        # The ID of the scan task.
         # 
         # This parameter is required.
         self.task_id = task_id
-        # The name of the task. Valid values:
-        # 
-        # - **CLIENT_PROBLEM_CHECK**: client troubleshooting task
-        # 
-        # - **CLIENT_DEV_OPS**: cloud O\\&M task
-        # 
-        # - **ASSET_SECURITY_CHECK**: asset collection task
-        # 
-        # - **ASSETS_COLLECTION**: asset fingerprint collection task
-        # 
-        # - **IMAGE_SCAN**: container image scan task
-        # 
-        # - **AI_SECURITY_CHECK**: AI asset synchronization task
-        # 
-        # - **IDC_PROBE_SCAN**: IDC probe scan task
-        # 
-        # - **ATTACK_SURFACE_SCAN**: attack surface and boundary asset scan task
-        # 
-        # - **ASSET_EXPOSURE_SCAN**: asset exposure scan task
-        # 
-        # - **VUL_CHECK_TASK**: vulnerability scan task
+        # The node name. Valid values:
+        # - **CLIENT_PROBLEM_CHECK**: Client troubleshooting node.
+        # - **CLIENT_DEV_OPS**: Cloud O&M node.
+        # - **ASSET_SECURITY_CHECK**: Asset collection node.
+        # - **ASSETS_COLLECTION**: Asset Fingerprints collection node.
+        # - **IMAGE_SCAN**: Container image scan node.
+        # - **AI_SECURITY_CHECK**: AI asset synchronization node.
+        # - **IDC_PROBE_SCAN**: IDC probe scan node.
+        # - **ATTACK_SURFACE_SCAN**: Attack surface border asset scan node.
+        # - **ASSET_EXPOSURE_SCAN**: Asset exposure scan node.
+        # - **VUL_CHECK_TASK**: Vulnerability scanning node.
         # 
         # This parameter is required.
         self.task_name = task_name
-        # The type of the task. Valid values:
-        # 
-        # - **CLIENT_PROBLEM_CHECK**: client troubleshooting task
-        # 
-        # - **CLIENT_DEV_OPS**: cloud O\\&M task
-        # 
-        # - **ASSET_SECURITY_CHECK**: asset collection task
-        # 
-        # - **ASSETS_COLLECTION**: asset fingerprint collection task
-        # 
-        # - **IMAGE_SCAN**: container image scan task
-        # 
-        # - **AI_SECURITY_CHECK**: AI asset synchronization task
-        # 
-        # - **IDC_PROBE_SCAN**: IDC probe scan task
-        # 
-        # - **ATTACK_SURFACE_SCAN**: attack surface and boundary asset scan task
-        # 
-        # - **ASSET_EXPOSURE_SCAN**: asset exposure scan task
-        # 
-        # - **VUL_CHECK_TASK**: vulnerability scan task
+        # The node type. Valid values:
+        # - **CLIENT_PROBLEM_CHECK**: Client troubleshooting node.
+        # - **CLIENT_DEV_OPS**: Cloud O&M node.
+        # - **ASSET_SECURITY_CHECK**: Asset collection node.
+        # - **ASSETS_COLLECTION**: Asset Fingerprints collection node.
+        # - **IMAGE_SCAN**: Container image scan node.
+        # - **AI_SECURITY_CHECK**: AI asset synchronization node.
+        # - **IDC_PROBE_SCAN**: IDC probe scan node.
+        # - **ATTACK_SURFACE_SCAN**: Attack surface border asset scan node.
+        # - **ASSET_EXPOSURE_SCAN**: Asset exposure scan node.
+        # - **VUL_CHECK_TASK**: Vulnerability scanning node.
         # 
         # This parameter is required.
         self.task_type = task_type
@@ -72,6 +56,9 @@ class GetOnceTaskResultInfoRequest(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         if self.task_id is not None:
             result['TaskId'] = self.task_id
 
@@ -85,6 +72,9 @@ class GetOnceTaskResultInfoRequest(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
+
         if m.get('TaskId') is not None:
             self.task_id = m.get('TaskId')
 

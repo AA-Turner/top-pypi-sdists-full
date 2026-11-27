@@ -7,18 +7,18 @@ from darabonba.model import DaraModel
 class UpdateCommonSwitchConfigRequest(DaraModel):
     def __init__(
         self,
+        resource_directory_account_id: int = None,
         target_default: str = None,
         type: str = None,
     ):
-        # Specifies whether to turn on the switch for newly added servers. Valid values:
+        self.resource_directory_account_id = resource_directory_account_id
+        # Specifies whether the switch takes effect by default. Valid values:
         # 
-        # - **add**: yes
-        # 
-        # - **del**: no
+        # - **add**: Takes effect by default for newly added servers.
+        # - **del**: Does not take effect by default for newly added servers.
         self.target_default = target_default
-        # The type of the switch.
-        # 
-        # > You can call the [ListClientUserDefineRules](~~ListClientUserDefineRules~~) or [ListSystemClientRules](~~ListSystemClientRules~~) operation to obtain the type from the response parameter SwitchId.
+        # The general switch type.
+        # >You can obtain this parameter from the SwitchId response parameter of the [ListClientUserDefineRules](~~ListClientUserDefineRules~~) and [ListSystemClientRules](~~ListSystemClientRules~~) operations.
         self.type = type
 
     def validate(self):
@@ -29,6 +29,9 @@ class UpdateCommonSwitchConfigRequest(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         if self.target_default is not None:
             result['TargetDefault'] = self.target_default
 
@@ -39,6 +42,9 @@ class UpdateCommonSwitchConfigRequest(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
+
         if m.get('TargetDefault') is not None:
             self.target_default = m.get('TargetDefault')
 

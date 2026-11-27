@@ -111,6 +111,7 @@ class DescribeSnatTableEntriesResponseBodySnatTableEntriesSnatTableEntry(DaraMod
     def __init__(
         self,
         eip_affinity: str = None,
+        match_type: str = None,
         nat_gateway_id: str = None,
         network_interface_id: str = None,
         snat_entry_id: str = None,
@@ -120,8 +121,10 @@ class DescribeSnatTableEntriesResponseBodySnatTableEntriesSnatTableEntry(DaraMod
         source_cidr: str = None,
         source_vswitch_id: str = None,
         status: str = None,
+        tunnel_index: str = None,
     ):
         self.eip_affinity = eip_affinity
+        self.match_type = match_type
         self.nat_gateway_id = nat_gateway_id
         self.network_interface_id = network_interface_id
         self.snat_entry_id = snat_entry_id
@@ -131,6 +134,7 @@ class DescribeSnatTableEntriesResponseBodySnatTableEntriesSnatTableEntry(DaraMod
         self.source_cidr = source_cidr
         self.source_vswitch_id = source_vswitch_id
         self.status = status
+        self.tunnel_index = tunnel_index
 
     def validate(self):
         pass
@@ -142,6 +146,9 @@ class DescribeSnatTableEntriesResponseBodySnatTableEntriesSnatTableEntry(DaraMod
             result = _map
         if self.eip_affinity is not None:
             result['EipAffinity'] = self.eip_affinity
+
+        if self.match_type is not None:
+            result['MatchType'] = self.match_type
 
         if self.nat_gateway_id is not None:
             result['NatGatewayId'] = self.nat_gateway_id
@@ -170,12 +177,18 @@ class DescribeSnatTableEntriesResponseBodySnatTableEntriesSnatTableEntry(DaraMod
         if self.status is not None:
             result['Status'] = self.status
 
+        if self.tunnel_index is not None:
+            result['TunnelIndex'] = self.tunnel_index
+
         return result
 
     def from_map(self, m: dict = None):
         m = m or dict()
         if m.get('EipAffinity') is not None:
             self.eip_affinity = m.get('EipAffinity')
+
+        if m.get('MatchType') is not None:
+            self.match_type = m.get('MatchType')
 
         if m.get('NatGatewayId') is not None:
             self.nat_gateway_id = m.get('NatGatewayId')
@@ -203,6 +216,9 @@ class DescribeSnatTableEntriesResponseBodySnatTableEntriesSnatTableEntry(DaraMod
 
         if m.get('Status') is not None:
             self.status = m.get('Status')
+
+        if m.get('TunnelIndex') is not None:
+            self.tunnel_index = m.get('TunnelIndex')
 
         return self
 

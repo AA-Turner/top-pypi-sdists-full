@@ -92,8 +92,9 @@ def sync_detailed(
      Replaces the set of pull requests and default branches whose job
     lists the stream named by `streamId` sends as `run` events.
     The server lists a subject when it is newly watched, when its row
-    in a new snapshot changed (CI state, check counts, or a branch's
-    run), and when `refresh` is true. Nothing else costs a forge
+    in a new snapshot changed (CI state, check counts, a branch's run,
+    or a Forgejo pull request's head commit getting a newer status),
+    and when `refresh` is true. Nothing else costs a forge
     request. A failed listing is sent as an event with `error` set,
     and every snapshot after it tries again, changed or not, until a
     listing works.
@@ -139,8 +140,9 @@ def sync(
      Replaces the set of pull requests and default branches whose job
     lists the stream named by `streamId` sends as `run` events.
     The server lists a subject when it is newly watched, when its row
-    in a new snapshot changed (CI state, check counts, or a branch's
-    run), and when `refresh` is true. Nothing else costs a forge
+    in a new snapshot changed (CI state, check counts, a branch's run,
+    or a Forgejo pull request's head commit getting a newer status),
+    and when `refresh` is true. Nothing else costs a forge
     request. A failed listing is sent as an event with `error` set,
     and every snapshot after it tries again, changed or not, until a
     listing works.
@@ -181,8 +183,9 @@ async def asyncio_detailed(
      Replaces the set of pull requests and default branches whose job
     lists the stream named by `streamId` sends as `run` events.
     The server lists a subject when it is newly watched, when its row
-    in a new snapshot changed (CI state, check counts, or a branch's
-    run), and when `refresh` is true. Nothing else costs a forge
+    in a new snapshot changed (CI state, check counts, a branch's run,
+    or a Forgejo pull request's head commit getting a newer status),
+    and when `refresh` is true. Nothing else costs a forge
     request. A failed listing is sent as an event with `error` set,
     and every snapshot after it tries again, changed or not, until a
     listing works.
@@ -228,8 +231,9 @@ async def asyncio(
      Replaces the set of pull requests and default branches whose job
     lists the stream named by `streamId` sends as `run` events.
     The server lists a subject when it is newly watched, when its row
-    in a new snapshot changed (CI state, check counts, or a branch's
-    run), and when `refresh` is true. Nothing else costs a forge
+    in a new snapshot changed (CI state, check counts, a branch's run,
+    or a Forgejo pull request's head commit getting a newer status),
+    and when `refresh` is true. Nothing else costs a forge
     request. A failed listing is sent as an event with `error` set,
     and every snapshot after it tries again, changed or not, until a
     listing works.

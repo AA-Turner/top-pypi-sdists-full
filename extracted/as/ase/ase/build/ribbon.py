@@ -49,6 +49,15 @@ def graphene_nanoribbon(
         Magnitude of magnetic moment if magnetic.
     sheet: bool
         If true, make an infinite sheet instead of a ribbon (default: False)
+
+    Examples
+    --------
+    >>> from ase.build import graphene_nanoribbon
+    >>> gnr1 = graphene_nanoribbon(3, 4, type='armchair', saturated=True,
+    ...                            vacuum=3.5)
+    >>> gnr2 = graphene_nanoribbon(2, 6, type='zigzag', saturated=True,
+    ...                            C_H=1.1, C_C=1.4, vacuum=3.0,
+    ...                            magnetic=True, initial_mag=1.12)
     """
 
     if m % 1 != 0:

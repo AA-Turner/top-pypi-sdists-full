@@ -6,10 +6,14 @@
 
 from __future__ import annotations
 
+import locale
 import logging
 import os
 import warnings
+from codecs import BOM_UTF8
 from collections.abc import Iterable
+from contextlib import suppress
+from io import StringIO
 from pathlib import Path
 from typing import Literal
 
@@ -29,7 +33,7 @@ from trackers.eval.results import (
     IdentityMetrics,
     SequenceResult,
 )
-from trackers.io.mot import _prepare_mot_sequence, load_mot_file
+from trackers.io.mot import _MOT_READ_ENCODING, _MOTFrameData, _prepare_mot_sequence, load_mot_file
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +41,27 @@ SUPPORTED_METRICS = ["CLEAR", "HOTA", "Identity"]
 
 #: Sequence-name prefix of the MOT20 benchmark, whose ground truth needs the `mot20` class preset.
 _MOT20_SEQUENCE_PREFIX = "MOT20-"
+
+
+def _load_predictions(path: str | Path) -> dict[int, _MOTFrameData]:
+    """Load a tracker's MOT results, reading a file with no rows as a tracker that output nothing.
+
+    `trackers track` writes such a file for a video with no tracks, and it is a valid result that scores zero.
+    A ground-truth file with no rows stays an error in `load_mot_file`.
+
+    Args:
+        path: Path to the tracker's MOT format text file.
+
+    Returns:
+        Dictionary mapping frame numbers to the tracker's detections, empty if the file has no rows.
+    """
+    path = Path(path)
+    if path.exists():
+        # Decode as `load_mot_file` does, so a file holding only a byte order mark counts as having no rows.
+        with open(path, encoding=_MOT_READ_ENCODING) as f:
+            if not any(line.strip() for line in f):
+                return {}
+    return load_mot_file(path)
 
 
 def evaluate_mot_sequence(
@@ -74,8 +99,9 @@ def evaluate_mot_sequence(
 
     Raises:
         FileNotFoundError: If `gt_path` or `tracker_path` does not exist.
-        ValueError: If an unsupported metric family is requested, or if `class_config` is neither a supported
-            preset name nor a `MOTClassConfig`.
+        ValueError: If an unsupported metric family is requested, if `class_config` is neither a supported
+            preset name nor a `MOTClassConfig`, or if a ground-truth row not marked ignored has a class below 1
+            that `class_config` does not name.
 
     Examples:
         >>> from trackers.eval import evaluate_mot_sequence  # doctest: +SKIP
@@ -161,10 +187,10 @@ def _evaluate_mot_sequence_resolved(
     """
     # Load data
     gt_data = load_mot_file(gt_path)
-    tracker_data = load_mot_file(tracker_path)
+    tracker_data = _load_predictions(tracker_path)
 
     # Prepare sequence (compute IoU, remap IDs)
-    seq_data = _prepare_mot_sequence(gt_data, tracker_data, class_config=class_config)
+    seq_data = _prepare_mot_sequence(gt_data, tracker_data, class_config=class_config, ground_truth_path=gt_path)
 
     # Compute metrics
     clear_metrics: CLEARMetrics | None = None
@@ -270,7 +296,7 @@ def evaluate_mot_sequences(
             (flat layout).
         tracker_dir: Directory containing tracker prediction files (`{seq}.txt`).
         seqmap: Optional sequence map. If provided, only those sequences are
-            evaluated.
+            evaluated, and their ground-truth files guide layout detection.
         metrics: Metric families to compute. Supported values are
             `["CLEAR", "HOTA", "Identity"]`. Defaults to `["CLEAR"]`.
         threshold: IoU threshold for `CLEAR` and `Identity`. Defaults to `0.5`.
@@ -282,8 +308,9 @@ def evaluate_mot_sequences(
 
     Raises:
         FileNotFoundError: If `gt_dir` or `tracker_dir` does not exist.
-        ValueError: If no sequences are found, if an unsupported metric family is requested, or if `class_config`
-            is neither a supported preset name nor a `MOTClassConfig`.
+        ValueError: If no sequences are found, if an unsupported metric family is requested, if `class_config`
+            is neither a supported preset name nor a `MOTClassConfig`, or if a ground-truth row not marked ignored
+            has a class below 1 that `class_config` does not name.
 
     Examples:
         Auto-detect layout and evaluate all sequences:
@@ -315,35 +342,49 @@ def evaluate_mot_sequences(
     if not tracker_dir.exists():
         raise FileNotFoundError(f"Tracker directory not found: {tracker_dir}")
 
-    # Detect directory format
-    data_format = _detect_format(gt_dir)
-    logger.info("Detected format: %s", data_format)
-
-    # Get sequence list
-    if seqmap is not None:
-        sequences = _parse_seqmap(seqmap)
-    else:
+    seqmap_stat = None
+    if seqmap is None:
+        data_format = _detect_format(gt_dir)
         sequences = _discover_sequences(gt_dir, data_format)
+    else:
+        sequences = _parse_seqmap(seqmap)
+        seqmap_stat = Path(seqmap).stat()
+        data_format = _detect_format(gt_dir, sequences=sequences, seqmap_stat=seqmap_stat)
+    logger.info("Detected format: %s", data_format)
 
     if not sequences:
         raise ValueError(f"No sequences found in {gt_dir}")
 
     _warn_if_mot20_sequences_use_mot17_config(sequences, resolved_class_config)
+    return _evaluate_sequences(
+        [(name, _get_ground_truth_path(gt_dir, name, data_format)) for name in sequences],
+        tracker_dir,
+        validated_metrics,
+        threshold,
+        resolved_class_config,
+        seqmap_stat=seqmap_stat,
+    )
 
-    logger.info("Evaluating %d sequences...", len(sequences))
+
+def _evaluate_sequences(
+    ground_truth: list[tuple[str, Path]],
+    tracker_dir: Path,
+    metrics: list[str],
+    threshold: float,
+    class_config: MOTClassConfig,
+    *,
+    seqmap_stat: os.stat_result | None = None,
+) -> BenchmarkResult:
+    """Score explicit sequence and ground-truth pairs and combine their metrics."""
+    logger.info("Evaluating %d sequences...", len(ground_truth))
 
     # Evaluate each sequence
     sequence_results: dict[str, SequenceResult] = {}
 
-    for seq_name in sequences:
-        gt_path, tracker_path = _get_paths(
-            gt_dir=gt_dir,
-            tracker_dir=tracker_dir,
-            seq_name=seq_name,
-            data_format=data_format,
-        )
+    for seq_name, gt_path in ground_truth:
+        tracker_path = tracker_dir / f"{seq_name}.txt"
 
-        if not gt_path.exists():
+        if not gt_path.exists() or _is_seqmap_file(gt_path, seqmap_stat):
             raise FileNotFoundError(f"Ground truth file not found: {gt_path}")
         if not tracker_path.exists():
             raise FileNotFoundError(f"Tracker file not found: {tracker_path}")
@@ -352,13 +393,13 @@ def evaluate_mot_sequences(
             gt_path=gt_path,
             tracker_path=tracker_path,
             sequence=seq_name,
-            metrics=validated_metrics,
+            metrics=metrics,
             threshold=threshold,
-            class_config=resolved_class_config,
+            class_config=class_config,
         )
 
     # Compute aggregate metrics
-    aggregate = _aggregate_metrics(sequence_results, validated_metrics)
+    aggregate = _aggregate_metrics(sequence_results, metrics)
 
     return BenchmarkResult(
         sequences=sequence_results,
@@ -414,30 +455,60 @@ def _warn_if_mot20_sequences_use_mot17_config(sequence_names: Iterable[str], cla
     )
 
 
-def _detect_format(gt_dir: Path) -> Literal["flat", "mot"]:
+def _is_seqmap_file(path: Path, seqmap_stat: os.stat_result | None) -> bool:
+    """Check whether a candidate names the explicit sequence map.
+
+    Args:
+        path: Candidate path, which may be a link to the sequence map.
+        seqmap_stat: File identity of the explicit sequence map, if provided.
+
+    Returns:
+        Whether the path refers to the sequence map.
+    """
+    if seqmap_stat is not None:
+        with suppress(OSError):
+            return os.path.samestat(path.stat(), seqmap_stat)
+    return False
+
+
+def _detect_format(
+    gt_dir: Path, sequences: list[str] | None = None, *, seqmap_stat: os.stat_result | None = None
+) -> Literal["flat", "mot"]:
     """Auto-detect directory format.
 
     Args:
         gt_dir: Ground truth directory (direct parent of sequences).
+        sequences: Sequence names selected by an explicit map, when provided.
+        seqmap_stat: File identity of the sequence map to exclude from detection.
 
     Returns:
-        "flat" if .txt files exist in gt_dir, "mot" if sequence
-        subdirectories with gt/gt.txt exist.
+        The usual directory layout, unless only the other layout contains
+        every selected sequence.
     """
     # Check for flat format (*.txt files directly in gt_dir). Hidden files are skipped as
     # `_discover_sequences` skips them, so a stray `.notes.txt` cannot select the flat layout.
-    txt_files = [p for p in gt_dir.glob("*.txt") if not p.name.startswith(".")]
-    if txt_files:
-        return "flat"
+    flat_files = (path for path in gt_dir.glob("*.txt") if not path.name.startswith("."))
+    data_format: Literal["flat", "mot"] = "flat"
+    # Hidden MOT directories still count because a seqmap can select them.
+    if not any(not _is_seqmap_file(path, seqmap_stat) for path in flat_files) and any(
+        not _is_seqmap_file(path, seqmap_stat) for path in gt_dir.glob("*/gt/gt.txt")
+    ):
+        data_format = "mot"
 
-    # Check for MOT format (*/gt/gt.txt pattern - sequences directly in gt_dir). Hidden sequence
-    # directories still count here: a `seqmap` may list them explicitly.
-    mot_files = list(gt_dir.glob("*/gt/gt.txt"))
-    if mot_files:
-        return "mot"
+    if not sequences:
+        return data_format
 
-    # Default to flat
-    return "flat"
+    preferred_files = (_get_ground_truth_path(gt_dir, name, data_format) for name in sequences)
+    with suppress(OSError):
+        if all(path.is_file() and not _is_seqmap_file(path, seqmap_stat) for path in preferred_files):
+            return data_format
+
+    alternate: Literal["flat", "mot"] = "mot" if data_format == "flat" else "flat"
+    alternate_files = (_get_ground_truth_path(gt_dir, name, alternate) for name in sequences)
+    with suppress(OSError):
+        if all(path.is_file() and not _is_seqmap_file(path, seqmap_stat) for path in alternate_files):
+            return alternate
+    return data_format
 
 
 def _discover_sequences(
@@ -465,33 +536,32 @@ def _discover_sequences(
         )
 
 
-def _get_paths(
-    gt_dir: Path,
-    tracker_dir: Path,
-    seq_name: str,
-    data_format: Literal["flat", "mot"],
-) -> tuple[Path, Path]:
-    """Get GT and tracker file paths for a sequence.
+def _get_ground_truth_path(gt_dir: Path, seq_name: str, data_format: Literal["flat", "mot"]) -> Path:
+    """Get the ground-truth file path for a sequence.
 
     Args:
         gt_dir: Ground truth directory (direct parent of sequences).
-        tracker_dir: Tracker directory (contains {seq}.txt files).
         seq_name: Sequence name.
         data_format: Directory format.
 
     Returns:
-        Tuple of (gt_path, tracker_path).
+        Ground-truth file path for the given layout.
     """
     if data_format == "flat":
-        gt_path = gt_dir / f"{seq_name}.txt"
-    else:
-        # MOT format: gt_dir/{seq}/gt/gt.txt
-        gt_path = gt_dir / seq_name / "gt" / "gt.txt"
+        return gt_dir / f"{seq_name}.txt"
+    return gt_dir / seq_name / "gt" / "gt.txt"
 
-    # Tracker files are always flat: tracker_dir/{seq}.txt
-    tracker_path = tracker_dir / f"{seq_name}.txt"
 
-    return gt_path, tracker_path
+def _read_seqmap_text(seqmap_path: Path) -> str:
+    """Decode a seqmap using its UTF-8 BOM or the runtime's text encoding."""
+    data = seqmap_path.read_bytes()
+    if data.startswith(BOM_UTF8):
+        return data.decode(_MOT_READ_ENCODING)
+    # Unmarked bytes can be valid in both encodings, so preserve the runtime's original interpretation first.
+    try:
+        return data.decode(locale.getpreferredencoding(False))
+    except UnicodeDecodeError:
+        return data.decode("utf-8")
 
 
 def _parse_seqmap(seqmap_path: str | Path) -> list[str]:
@@ -501,8 +571,8 @@ def _parse_seqmap(seqmap_path: str | Path) -> list[str]:
         raise FileNotFoundError(f"Sequence map file not found: {seqmap_path}")
 
     sequences = []
-    with open(seqmap_path) as f:
-        for line in f:
+    with StringIO(_read_seqmap_text(seqmap_path), newline=None) as lines:
+        for line in lines:
             line = line.strip()
             # Skip empty lines, comments, and header
             if not line or line.startswith("#") or line.lower() == "name":

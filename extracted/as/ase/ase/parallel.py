@@ -1,5 +1,3 @@
-# fmt: off
-
 import atexit
 import functools
 import os
@@ -7,6 +5,8 @@ import pickle
 import sys
 import time
 import warnings
+from abc import abstractmethod
+from typing import Protocol
 
 import numpy as np
 
@@ -26,16 +26,88 @@ def paropen(name, mode='r', buffering=-1, encoding=None, comm=None):
 
 
 def parprint(*args, comm=None, **kwargs):
-    """MPI-safe print - prints only from master. """
+    """MPI-safe print - prints only from master."""
     if comm is None:
         comm = world
     if comm.rank == 0:
         print(*args, **kwargs)
 
 
-class DummyMPI:
+class MPICommunicator(Protocol):
+    """Limited interface to MPI communicator for ASE."""
+
+    rank: int
+    """Rank of this process on the communicator."""
+    size: int
+    """Number of processes on this communicator."""
+
+    @property
+    def backend(self) -> str:
+        """A string identifier for this Python MPI interface.
+
+        The purpose of this string is to be able to check that the
+        correct MPI implementation is in use.
+
+        Each implementing subclass of this protocol should normally
+        try to pick a string that will be distinct from those of other
+        implementations, whereas wrappers should normally return the
+        backend of the wrapped communicator.
+
+        ASE already provides the implementations 'serial' and 'ase-mpi4py'.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def sum(self, a: np.ndarray, root: int = -1) -> None:
+        """In-place sum over ranks.
+
+        The sum is computed only on the rank specified by root,
+        or all ranks if root is -1."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def sum_scalar(self, a, root: int = -1):
+        """Return the sum over ranks of a scalar.
+
+        See sum() for rules about root."""
+        raise NotImplementedError
+
+        # Input could be any kind of scalar, and we presumably want to
+        # return the same kind of scalar.  But actually, probably a
+        # python scalar becomes a numpy scalar in our various
+        # implementations.
+
+    def product(self, a: np.ndarray, root: int = -1) -> None:
+        """In-place product over ranks.
+
+        See sum() for rules about root."""
+        # This should be abstract, but due to an oversight,
+        # MPI4Py does not have it.  So now it is effectively optional.
+        raise NotImplementedError
+
+    @abstractmethod
+    def broadcast(self, a: np.ndarray, root: int) -> None:
+        """Broadcast array from root across all ranks."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def barrier(self) -> None:
+        """Wait until all ranks reach barrier."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def abort(self, code: int) -> None:
+        """Abort runtime with given error code."""
+        raise NotImplementedError
+
+    # The mpi4py communicator actually defines .split() as well, but
+    # probably we don't want to advertise that.
+
+
+class DummyMPI(MPICommunicator):
     rank = 0
     size = 1
+    backend = 'serial'
 
     def _returnval(self, a, root=-1):
         # MPI interface works either on numbers, in which case a number is
@@ -49,8 +121,9 @@ class DummyMPI:
 
     def sum(self, a, root=-1):
         if np.isscalar(a):
-            warnings.warn('Please use sum_scalar(...) for scalar arguments',
-                          FutureWarning)
+            warnings.warn(
+                'Please use sum_scalar(...) for scalar arguments', FutureWarning
+            )
         return self._returnval(a)
 
     def sum_scalar(self, a, root=-1):
@@ -65,6 +138,10 @@ class DummyMPI:
 
     def barrier(self):
         pass
+
+    def abort(self, code: int):
+        # Note: in practice we do not register an abort() call in serial.
+        raise SystemExit(code)
 
 
 class MPI:
@@ -95,28 +172,77 @@ class MPI:
 
         if self.comm is None:
             self.comm = _get_comm()
+
+        gpaw_asap_specific_attrs = {
+            'scatter',
+            'min',
+            'min_scalar',
+            'max',
+            'max_scalar',
+            'send',
+            'gather',
+            'all_gather',
+            'alltoallv',
+            'new_communicator',
+            'test',
+            'testall',
+            'wait',
+            'waitall',
+            'get_members',
+            'compare',
+            'translate_ranks',
+            'get_c_object',
+        }
+
+        if name in gpaw_asap_specific_attrs:
+            warnings.warn(
+                'In the future, unless ASE_PARALLEL_WORLD_HOOK is specified, '
+                'ase.parallel.world will provide only the '
+                'ase.parallel.MPICommunicator interface, '
+                f'and this does not include a {name!r} attribute.',
+                FutureWarning,
+            )
+
         return getattr(self.comm, name)
+
+
+def deprecated_mpi(name):
+    warnings.warn(
+        'MPI was initialized in ase.parallel using a legacy mechanism.  '
+        'In the future, this will result in a serial runtime '
+        'as far as ase.parallel is concerned.  Please use the '
+        'ASE_PARALLEL_WORLD_HOOK mechanism instead.  The legacy '
+        'initialization was triggered because no hook was specified, '
+        f'and the module {name} module was imported.',
+        FutureWarning,
+    )
 
 
 def _get_comm():
     """Get the correct MPI world object."""
     if 'mpi4py' in sys.modules:
+        deprecated_mpi('mpi4py')
         return MPI4PY()
     if '_gpaw' in sys.modules:
         world = _gpaw_world()
-        if world is not None:
+        if world is not None and getattr(world, 'backend', None) != 'serial':
+            deprecated_mpi('_gpaw')
             return world
     if '_asap' in sys.modules:
         world = _asap_world()
         if world is not None:
+            deprecated_mpi('_asap')
             return world
     return DummyMPI()
 
 
-class MPI4PY:
+class MPI4PY(MPICommunicator):
+    backend = 'ase-mpi4py'
+
     def __init__(self, mpi4py_comm=None):
         if mpi4py_comm is None:
             from mpi4py import MPI
+
             mpi4py_comm = MPI.COMM_WORLD
         self.comm = mpi4py_comm
 
@@ -148,8 +274,9 @@ class MPI4PY:
         else:
             b = self.comm.reduce(a, root)
         if np.isscalar(a):
-            warnings.warn('Please use sum_scalar(...) for scalar arguments',
-                          FutureWarning)
+            warnings.warn(
+                'Please use sum_scalar(...) for scalar arguments', FutureWarning
+            )
         return self._returnval(a, b)
 
     def sum_scalar(self, a, root=-1):
@@ -185,31 +312,13 @@ class MPI4PY:
         return self._returnval(a, b)
 
 
-class AsapCommWrapper:
-    """Compatibility hack to save people from trouble with older asap.
-
-    We can definitely remove this in 2027."""
-    def __init__(self, world):
-        self.world = world
-
-    def __getattr__(self, attr):
-        return getattr(self.world, attr)
-
-    def sum_scalar(self, a, root=-1):
-        buf = np.array([a])
-        self.world.sum(buf, root=root)
-        return buf[0]
-
-
 def _asap_world():
     import _asap
+
     try:
         world = _asap.Communicator()
-    except AttributeError:
+    except (AttributeError, RuntimeError):
         return None
-
-    if not hasattr(world, 'sum_scalar'):
-        world = AsapCommWrapper(world)
 
     return world
 
@@ -222,10 +331,35 @@ def _gpaw_world():
 
     # Return the actual public (possibly wrapper) object
     from gpaw.mpi import world
+
     return world
 
 
-world = MPI()
+# Note to implementors:
+#   Whoever sets this variable MUST check that it was not already set!
+#   If it is set in two places, there are two competing parallel
+#   mechanisms and that must be avoided.
+mpiworld_importpath = os.environ.get('ASE_PARALLEL_WORLD_HOOK')
+
+world: MPI | MPICommunicator
+
+if mpiworld_importpath is None:
+    # In the future this will be always serial!
+    # We should detect if we would set a real communicator here
+    # and issue a FutureWarning there.
+    mpiworld_module = None
+    world = MPI()
+
+    # Once we remove these MPI behaviours, all other MPI initialization
+    # code in ASE can be removed.
+else:
+    import importlib
+
+    mpiworld_module = importlib.import_module(mpiworld_importpath)
+    world = mpiworld_module.ASE_PARALLEL_WORLD_HOOK()
+    if world is None:
+        # The application declined to make a parallel MPI communicator
+        world = DummyMPI()
 
 
 def barrier():
@@ -263,8 +397,11 @@ def parallel_function(func):
     @functools.wraps(func)
     def new_func(*args, **kwargs):
         parallel = kwargs.pop('parallel', True)
-        if (world.size == 1 or
-            (args and getattr(args[0], 'serial', False)) or not parallel):
+        if (
+            world.size == 1
+            or (args and getattr(args[0], 'serial', False))
+            or not parallel
+        ):
             # Disable:
             return func(*args, **kwargs)
 
@@ -294,9 +431,11 @@ def parallel_generator(generator):
     @functools.wraps(generator)
     def new_generator(*args, **kwargs):
         parallel = kwargs.pop('parallel', True)
-        if (world.size == 1 or
-            (args and getattr(args[0], 'serial', False)) or
-                not parallel):
+        if (
+            world.size == 1
+            or (args and getattr(args[0], 'serial', False))
+            or not parallel
+        ):
             # Disable:
             for result in generator(*args, **kwargs):
                 yield result
@@ -336,8 +475,13 @@ def register_parallel_cleanup_function():
         error = getattr(sys, 'last_type', None)
         if error:
             sys.stdout.flush()
-            sys.stderr.write(('ASE CLEANUP (node %d): %s occurred.  ' +
-                              'Calling MPI_Abort!\n') % (world.rank, error))
+            sys.stderr.write(
+                (
+                    'ASE CLEANUP (node %d): %s occurred.  '
+                    + 'Calling MPI_Abort!\n'
+                )
+                % (world.rank, error)
+            )
             sys.stderr.flush()
             # Give other nodes a moment to crash by themselves (perhaps
             # producing helpful error messages):

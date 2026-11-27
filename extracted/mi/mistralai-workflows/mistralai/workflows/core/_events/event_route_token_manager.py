@@ -21,10 +21,6 @@ from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 _T = TypeVar("_T")
 
 
-class EventRouteUnavailableError(WorkflowsException):
-    """The API exposes no v2 event route, so the caller should use v1 instead."""
-
-
 def build_event_route_exception(
     exc: httpx.HTTPError,
     message: str,
@@ -44,15 +40,6 @@ def build_event_route_exception(
         parsed = None
     body = parsed if isinstance(parsed, dict) else None
     body_code = body.get("code") if body is not None else None
-
-    # The v2 routes tag their own 404s with a code, so an untagged one means the route is absent.
-    if exc.response.status_code == HTTPStatus.NOT_FOUND and body_code is None:
-        return EventRouteUnavailableError(
-            message="API does not expose the v2 event route",
-            code=translated.code,
-            status=translated.status,
-            type=translated.type,
-        )
 
     if body is None:
         return translated

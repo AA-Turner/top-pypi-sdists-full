@@ -1250,6 +1250,19 @@ def build_size_triage_briefing(
         "nothing filed."
     )
     lines.append("")
+    lines.append(
+        "Optionally declare `Removes:`, `Introduces:`, and `Consumes:` "
+        "lines (comma-separated symbol names — functions, types, or any "
+        "other named seam) to state which symbols each child deletes, "
+        "adds, or merely uses. If a LATER child's `Consumes:` names a "
+        "symbol an EARLIER child's `Introduces:` named, that later child "
+        "MUST also declare an `After:` edge to the earlier one — a "
+        "consumed symbol with no matching `After:` line is a verification "
+        "failure, the same as a prose-only dependency above. Omit all "
+        "three when a child's symbol sequencing doesn't matter — most "
+        "splits need none of them."
+    )
+    lines.append("")
 
     lines.append("## Required output format — HARD REQUIREMENT")
     lines.append(
@@ -1265,6 +1278,7 @@ def build_size_triage_briefing(
     lines.append("SIZE_TRIAGE_VERDICT: split")
     lines.append("## Child 1: <title>")
     lines.append("<one paragraph of rationale/scope>")
+    lines.append("Introduces: Foo.bar")
     lines.append("")
     lines.append("## Files")
     lines.append("- path/a.py")
@@ -1273,6 +1287,7 @@ def build_size_triage_briefing(
     lines.append("## Child 2: <title>")
     lines.append("<one paragraph of rationale/scope>")
     lines.append("After: Child 1")
+    lines.append("Consumes: Foo.bar")
     lines.append("")
     lines.append("## Files")
     lines.append("- path/c.py")
@@ -1310,6 +1325,18 @@ _SIZE_TRIAGE_FILES_HEADING_RE = re.compile(
 #: the scope prose ahead of a child's own `## Files` heading, never across
 #: the whole response — see `_split_after_declaration`.
 _SIZE_TRIAGE_AFTER_RE = re.compile(r"^After:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+#: #4175: a child's declared symbol sequencing — which named symbols
+#: (functions, types, APIs; free-form strings, never parsed as code) it
+#: removes, introduces, or merely consumes. Matched the same way `After:`
+#: is: only against the scope prose ahead of a child's own `## Files`
+#: heading — see `_split_symbol_declaration`.
+_SIZE_TRIAGE_REMOVES_RE = re.compile(r"^Removes:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+_SIZE_TRIAGE_INTRODUCES_RE = re.compile(
+    r"^Introduces:\s*(.+)$", re.IGNORECASE | re.MULTILINE
+)
+_SIZE_TRIAGE_CONSUMES_RE = re.compile(
+    r"^Consumes:\s*(.+)$", re.IGNORECASE | re.MULTILINE
+)
 SIZE_TRIAGE_END_MARKER = "END_SIZE_TRIAGE"
 
 
@@ -1342,6 +1369,38 @@ def _split_after_declaration(scope_text: str) -> tuple[str, tuple[int, ...]]:
             positions.append(n)
     remaining = scope_text[: match.start()] + scope_text[match.end() :]
     return remaining, tuple(positions)
+
+
+def _split_symbol_declaration(
+    scope_text: str, pattern: re.Pattern[str]
+) -> tuple[str, tuple[str, ...]]:
+    """Pull a `<Keyword>: symbol[, symbol...]` line matching *pattern*
+    (#4175 — one of `_SIZE_TRIAGE_REMOVES_RE`/`_INTRODUCES_RE`/`_CONSUMES_RE`)
+    out of *scope_text*, returning ``(scope_without_that_line, symbols)``.
+
+    *symbols* are free-form strings — this never attempts to parse them as
+    code, only to split the line's value on commas — in first-seen order,
+    deduplicated. ``()`` (and *scope_text* unchanged) when no matching line
+    is present, the same "absent means no declaration" posture
+    `_split_after_declaration` already uses for `After:`.
+
+    Only the FIRST matching line is recognised, matching `## Child N:`'s
+    own one-heading-per-child convention — a child declares at most one
+    `Removes:`/`Introduces:`/`Consumes:` line each, even though it may name
+    several symbols on it.
+    """
+    match = pattern.search(scope_text)
+    if match is None:
+        return scope_text, ()
+    symbols: list[str] = []
+    seen: set[str] = set()
+    for raw in match.group(1).split(","):
+        name = raw.strip()
+        if name and name not in seen:
+            seen.add(name)
+            symbols.append(name)
+    remaining = scope_text[: match.start()] + scope_text[match.end() :]
+    return remaining, tuple(symbols)
 
 
 def parse_size_triage_response(
@@ -1422,6 +1481,15 @@ def parse_size_triage_response(
         files_heading = _SIZE_TRIAGE_FILES_HEADING_RE.search(block)
         scope_text = block[: files_heading.start()] if files_heading else block
         scope_text, after_positions = _split_after_declaration(scope_text)
+        scope_text, removes = _split_symbol_declaration(
+            scope_text, _SIZE_TRIAGE_REMOVES_RE
+        )
+        scope_text, introduces = _split_symbol_declaration(
+            scope_text, _SIZE_TRIAGE_INTRODUCES_RE
+        )
+        scope_text, consumes = _split_symbol_declaration(
+            scope_text, _SIZE_TRIAGE_CONSUMES_RE
+        )
         files_likely = parse_declared_files(block)
         if not files_likely:
             raise SizeTriageError(
@@ -1436,6 +1504,9 @@ def parse_size_triage_response(
                 scope=scope_text.strip(),
                 files_likely=files_likely,
                 after=after_positions,
+                removes=removes,
+                introduces=introduces,
+                consumes=consumes,
             )
         )
 
@@ -1825,11 +1896,17 @@ def file_and_queue_split_proposal(
     Called only after :func:`coord.preflight_size.verify_split_proposal` has
     returned ``ok=True`` for *verification* — this function trusts
     ``verification.work_order`` and ``verification.epic_body`` without
-    re-validating them. ``work_order``'s nodes carry placeholder, 1-based
-    positions (both as ``issue_number`` and inside each node's ``after``
-    tuple) matching ``proposal.chunks``' order, not real GitHub issue
-    numbers — filing each child in order and remapping those positions to
-    the real numbers it gets back is this function's own job.
+    re-validating them. ``work_order``'s nodes carry placeholder positions
+    (both as ``issue_number`` and inside each node's ``after`` tuple), not
+    real GitHub issue numbers — filing each child in order and remapping
+    those positions to the real numbers it gets back is this function's
+    own job. Positions ``1..len(proposal.chunks)`` match ``proposal.
+    chunks``' order 1-for-1; a node with ``group == "sealed-amendment"``
+    (#4176) carries a synthetic position strictly above that range instead
+    — :func:`coord.preflight_size.sealed_amendment_numbers` is the one
+    place both this function and the verifier derive that numbering from,
+    so a real tracking issue gets filed for it here too, same as any
+    other node.
 
     Order of operations: resolve the original's own milestone (#4064 —
     every child, and a new tracker if one is filed, inherits it so none of
@@ -1907,7 +1984,11 @@ def file_and_queue_split_proposal(
         render_sub_issues,
         replace_sub_issues_section,
     )
-    from coord.preflight_size import build_slice_child_body, substitute_slice_tokens
+    from coord.preflight_size import (
+        build_slice_child_body,
+        sealed_amendment_numbers,
+        substitute_slice_tokens,
+    )
     from coord.state import enqueue_drive_queue, get_drive_queue_entry
 
     original = github_ops.get_issue(repo.github, proposal.issue_number)
@@ -1999,6 +2080,68 @@ def file_and_queue_split_proposal(
         github_ops.update_issue_body(
             repo.github, position_to_real[position], resolved_body,
         )
+
+    # #4176: `verification.work_order` may also carry synthetic
+    # `group: sealed-amendment` nodes — one ahead of any child whose
+    # `removes`/`introduces` symbol(s) `verify_split_proposal` found still
+    # referenced in the target repo's sealed acceptance paths. Those
+    # placeholder numbers aren't proposal chunk positions, so the loop
+    # above never files them; `sealed_amendment_numbers` (the same scheme
+    # `verify_split_proposal` used to build `verification.work_order` in
+    # the first place) maps each affected chunk's position back to its
+    # synthetic number, so a real tracking issue can be filed for it here
+    # and folded into `position_to_real` alongside every real child —
+    # `remapped_nodes` below looks both kinds of number up in that same
+    # dict, with no way to tell which is which once resolved.
+    amendment_numbers = sealed_amendment_numbers(
+        len(proposal.chunks), verification.sealed_amendments
+    )
+    for position, synthetic_number in amendment_numbers.items():
+        affected_real_number = position_to_real[position]
+        hits = [
+            a for a in verification.sealed_amendments
+            if a.chunk_position == position
+        ]
+        body_lines = [
+            f"Filed by the {origin}: splitting #{proposal.issue_number} "
+            f"found that #{affected_real_number} "
+            f"({proposal.chunks[position - 1].title!r}) removes or newly "
+            "requires symbol(s) still referenced in this repo's sealed "
+            "acceptance paths. Merging that child before these references "
+            "are amended would merge it partial over a sealed literal:",
+            "",
+        ]
+        for hit in hits:
+            body_lines.append(
+                f"- `{hit.symbol}` ({hit.declared_as}) referenced in: "
+                + ", ".join(hit.sealed_paths)
+            )
+        body_lines += [
+            "",
+            f"Blocks #{affected_real_number} until the sealed amendment "
+            "above is proposed, approved by a human, and applied verbatim "
+            "— never edited by a worker or a model. Sequence (see "
+            "docs/ORACLE_LOOP.md, 'Sealed amendment as data'):",
+            "",
+            "1. `coord acceptance propose-amendment --repo R --issue N "
+            "DIFF_FILE --touches PATH --rationale TEXT` — worker/planner, "
+            "in-session, writes the artifact.",
+            "2. `coord acceptance verify-amendment --repo R ARTIFACT_FILE` "
+            "— read-only, checks it in a scratch copy.",
+            "3. `coord acceptance approve-amendment --repo R ARTIFACT_FILE "
+            "--approved-by YOU` — a HUMAN only, never a model.",
+            "4. `coord acceptance apply-amendment --repo R "
+            "APPROVED_ARTIFACT_FILE` — a `test-author` leg, in its own "
+            "checkout, applies exactly the approved bytes as its own "
+            "commit and re-runs the sealed suite.",
+        ]
+        amendment_issue = github_ops.create_issue(
+            repo.github,
+            title=f"Sealed amendment needed before #{affected_real_number}",
+            body="\n".join(body_lines),
+            milestone=milestone_title,
+        )
+        position_to_real[synthetic_number] = amendment_issue["number"]
 
     remapped_nodes = tuple(
         WorkOrderNode(

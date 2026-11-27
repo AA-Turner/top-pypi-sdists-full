@@ -1,5 +1,3 @@
-# fmt: off
-
 """This is the implementation of the exciting I/O functions.
 
 The main roles these functions do is write exciting ground state
@@ -19,6 +17,7 @@ excitingtools.exciting_dict_parsers.groundstate_parser.parse_eigval
 Note: excitingtools must be installed using `pip install excitingtools` for
 the exciting io to work.
 """
+
 from pathlib import Path
 
 import ase
@@ -51,9 +50,13 @@ def parse_output(info_out_file_path):
 
 
 def write_input_xml_file(
-        file_name, atoms: ase.Atoms, ground_state_input: dict,
-        species_path, title=None,
-        properties_input: dict | None = None):
+    file_name,
+    atoms: ase.Atoms,
+    ground_state_input: dict,
+    species_path,
+    title=None,
+    properties_input: dict | None = None,
+):
     """Write input xml file for exciting calculation.
 
     Args:
@@ -79,16 +82,17 @@ def write_input_xml_file(
         properties_input = ExcitingPropertiesInput(**properties_input)
     else:
         properties_input = ExcitingPropertiesInput()
-    input_xml = ExcitingInputXML(structure=structure,
-                                 groundstate=ground_state,
-                                 properties=properties_input,
-                                 title=title)
+    input_xml = ExcitingInputXML(
+        structure=structure,
+        groundstate=ground_state,
+        properties=properties_input,
+        title=title,
+    )
 
     input_xml.write(file_name)
 
 
-def ase_atoms_from_exciting_input_xml(
-        input_xml_path: Path | str) -> ase.Atoms:
+def ase_atoms_from_exciting_input_xml(input_xml_path: Path | str) -> ase.Atoms:
     """Helper function to read structure from input.xml file.
 
     Note, this function operates on the input.xml file that is the input
@@ -107,5 +111,6 @@ def ase_atoms_from_exciting_input_xml(
     """
     from excitingtools.exciting_obj_parsers.input_xml import parse_input_xml
     from excitingtools.structure.ase_utilities import exciting_structure_to_ase
+
     structure = parse_input_xml(input_xml_path).structure
     return exciting_structure_to_ase(structure)

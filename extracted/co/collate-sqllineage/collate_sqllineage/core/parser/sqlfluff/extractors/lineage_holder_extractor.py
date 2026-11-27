@@ -2,7 +2,7 @@ from functools import reduce
 from operator import add
 from typing import List, Tuple
 
-from sqlfluff.core.parser import BaseSegment
+from collate_sqlfluff.core.parser import BaseSegment
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
 from collate_sqllineage.core.models import AnalyzerContext, SubQuery

@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, TypeVar, cast
 import temporalio
 import temporalio.activity
 import temporalio.common
+import temporalio.exceptions
 import temporalio.workflow
 import tenacity
 from pydantic import BaseModel
@@ -31,6 +32,7 @@ from mistralai.workflows.core.execution.sticky_session.sticky_worker_session imp
 )
 from mistralai.workflows.core.rate_limiting.rate_limit import (
     RateLimit,
+    _set_rate_limit_target,
     get_rate_limit,
     local_wait_rate_limit,
     set_rate_limit,
@@ -48,6 +50,13 @@ context_var_task_queue: ContextVar[str | None] = ContextVar("task_queue", defaul
 _context_var_is_inside_activity: ContextVar[bool] = ContextVar("is_inside_activity", default=False)
 
 T = TypeVar("T", bound=Callable[..., Any] | type)
+
+
+def _is_retryable_outside_workflow(error: BaseException) -> bool:
+    """Retry any exception except an ApplicationError marked non-retryable, which Temporal never retries either."""
+    if isinstance(error, temporalio.exceptions.ApplicationError) and error.non_retryable:
+        return False
+    return isinstance(error, Exception)
 
 
 def activity(
@@ -233,6 +242,7 @@ def _decorate_activity(
             if config.worker.local_retry_backoff_coefficient is not None
             else effective_backoff
         )
+        rate_limit_config = get_rate_limit(func)
 
         is_inside_activity = _context_var_is_inside_activity.get(False)
         token = _context_var_is_inside_activity.set(True)
@@ -263,10 +273,7 @@ def _decorate_activity(
                             message=f"Activity '{func.__name__}' is sticky to worker but no task queue is set. "
                             "Please call this activity inside `run_sticky_worker_session` context manager.",
                         )
-                elif rate_limit is not None:
-                    rate_limit_config = get_rate_limit(func)
-                    if rate_limit_config is None:
-                        raise ValueError(f"Activity '{func.__name__}' has rate limit but no rate limit config is set.")
+                elif rate_limit_config is not None:
                     task_queue = rate_limit_config.task_queue
                 else:
                     task_queue = config.get_effective_task_queue()
@@ -300,13 +307,11 @@ def _decorate_activity(
                     temporal_args = args
 
                 if is_local_activity_enabled():
-                    if rate_limit is not None:
+                    if rate_limit_config is not None:
                         logger.warning(
                             "Rate limiting is not supported for local activities",
                             activity_name=func.__name__,
-                            rate_limit_config=rate_limit.model_dump()
-                            if hasattr(rate_limit, "model_dump")
-                            else str(rate_limit),
+                            rate_limit_config=rate_limit_config.model_dump(),
                         )
                     if heartbeat_timeout is not None:
                         logger.warning(
@@ -336,17 +341,14 @@ def _decorate_activity(
                         ),
                     )
             else:
-                if rate_limit is not None:
-                    rate_limit_config = get_rate_limit(func)
-                    if rate_limit_config is None:
-                        raise ValueError(f"Activity '{func.__name__}' has rate limit but no rate limit config is set.")
+                if rate_limit_config is not None:
                     await local_wait_rate_limit(rate_limit_config)
 
                 local_func = (
                     func
                     if temporalio.activity.in_activity() or is_inside_activity
                     else tenacity.retry(
-                        retry=tenacity.retry_if_exception_type(Exception),
+                        retry=tenacity.retry_if_exception(_is_retryable_outside_workflow),
                         stop=tenacity.stop_after_attempt(effective_max_attempts),
                         wait=tenacity.wait_exponential(multiplier=effective_local_backoff),
                         reraise=True,
@@ -392,6 +394,8 @@ def _decorate_activity(
 
     if hasattr(func, "__temporal_activity_definition"):
         wrapper.__temporal_activity_definition = func.__temporal_activity_definition  # type: ignore[attr-defined]
+
+    _set_rate_limit_target(wrapper, func)
 
     # Store original function for reliable type resolution on Python 3.14+
     # (PEP 649: setting __annotate__ clears __annotations__ at the C level,

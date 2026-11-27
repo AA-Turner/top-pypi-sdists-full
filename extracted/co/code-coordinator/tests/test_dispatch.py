@@ -425,6 +425,29 @@ class TestDispatch:
         assert payload["workflow"] is True
 
     @patch("coord.dispatch.httpx.post")
+    def test_payload_carries_workflow_true_for_ultracode_work_proposal(
+        self, mock_post: MagicMock, config: Config,
+    ) -> None:
+        """#3722: `ultracode` implies the `coord:workflow` opt-in on a
+        `type="work"` proposal, even with no explicit `coord:workflow`
+        label — operators read "ultracode" as "do the most thorough thing",
+        which means running as a workflow, not just picking the opus
+        model."""
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"ok": True}
+        mock_post.return_value = mock_resp
+
+        p = Proposal(
+            id=1, machine_name="laptop", repo_name="api",
+            issue_number=3722, issue_title="run as a workflow via ultracode",
+            rationale="multi-agent leg", type="work",
+            issue_labels=["ultracode"],
+        )
+        dispatch(p, config)
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["workflow"] is True
+
+    @patch("coord.dispatch.httpx.post")
     def test_payload_omits_workflow_when_label_absent(
         self, mock_post: MagicMock, config: Config, proposal: Proposal,
     ) -> None:
@@ -455,6 +478,28 @@ class TestDispatch:
             issue_number=3681, issue_title="review the workflow change",
             rationale="review", type="review",
             issue_labels=["coord:workflow"],
+        )
+        dispatch(p, config)
+        payload = mock_post.call_args.kwargs["json"]
+        assert "workflow" not in payload
+
+    @patch("coord.dispatch.httpx.post")
+    def test_payload_omits_workflow_for_non_work_proposal_with_ultracode(
+        self, mock_post: MagicMock, config: Config,
+    ) -> None:
+        """#3722: `ultracode`'s workflow implication is gated to
+        `type="work"` the same way `coord:workflow` itself is — a review/
+        smoke/plan proposal carrying `ultracode` (e.g. from the same issue's
+        labels) never gets `workflow=True`."""
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"ok": True}
+        mock_post.return_value = mock_resp
+
+        p = Proposal(
+            id=1, machine_name="laptop", repo_name="api",
+            issue_number=3722, issue_title="review the ultracode change",
+            rationale="review", type="review",
+            issue_labels=["ultracode"],
         )
         dispatch(p, config)
         payload = mock_post.call_args.kwargs["json"]
@@ -2188,6 +2233,53 @@ class TestPreflightGuard:
         mock_dispatch_triage.assert_called_once()
 
 
+class TestSealedVerifyKwargs:
+    """#4176: `_sealed_verify_kwargs` is what wires `enforce_preflight_
+    guard`'s two real `verify_split_proposal` call sites onto check 7's
+    sealed-reference detection — both already have `config` and `repo` in
+    scope, so there is no reason that check should stay unreachable
+    outside the test suite."""
+
+    def test_empty_when_repo_has_no_acceptance_driver(self) -> None:
+        from coord.dispatch import _sealed_verify_kwargs
+
+        cfg = Config(repos=[Repo(name="api", github="acme/api")], machines=[])
+        assert _sealed_verify_kwargs(cfg, cfg.repo("api")) == {}
+
+    def test_empty_when_no_local_clone_resolves(self) -> None:
+        from coord.dispatch import _sealed_verify_kwargs
+
+        cfg = Config(
+            repos=[Repo(name="api", github="acme/api")],
+            machines=[],
+            acceptance=AcceptanceConfig(
+                drivers={"api": AcceptanceDriverConfig(kind="cli-pytest", run="pytest")}
+            ),
+        )
+        assert _sealed_verify_kwargs(cfg, cfg.repo("api")) == {}
+
+    def test_resolves_sealed_paths_and_root_when_clone_exists(self, tmp_path) -> None:
+        import socket
+
+        from coord.dispatch import _sealed_verify_kwargs
+
+        repo_root = tmp_path / "api"
+        (repo_root / "tests" / "acceptance").mkdir(parents=True)
+        cfg = Config(
+            repos=[Repo(name="api", github="acme/api")],
+            machines=[Machine(
+                name=socket.gethostname(), host="x", repos=["api"],
+                repo_paths={"api": str(repo_root)},
+            )],
+            acceptance=AcceptanceConfig(
+                drivers={"api": AcceptanceDriverConfig(kind="cli-pytest", run="pytest")}
+            ),
+        )
+        kwargs = _sealed_verify_kwargs(cfg, cfg.repo("api"))
+        assert kwargs["sealed_paths"] == ["tests/acceptance/"]
+        assert kwargs["sealed_repo_root"] == repo_root
+
+
 class TestPreflightGuardCrossBackendSplit:
     """#3866: the decomposition-rule check — a repo with a declared
     one-backend-per-issue rule (`PreflightGuardRepoConfig.backends`)
@@ -2909,6 +3001,104 @@ class TestNewIssueGuidance:
         dispatch(p, cfg)
         payload = mock_post.call_args.kwargs["json"]
         assert "new_issue_guidance" not in payload
+
+
+class TestPrecheckBriefingContract:
+    """#4166: a repo's declared `precheck` flows from repo config through
+    the dispatch payload for a work/fix proposal."""
+
+    @patch("coord.dispatch.httpx.post")
+    def test_payload_carries_precheck_for_work(
+        self, mock_post: MagicMock,
+    ) -> None:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"ok": True}
+        mock_post.return_value = mock_resp
+
+        precheck = "cargo clippy --all-targets -- -D warnings && cargo fmt --check"
+        cfg = Config(
+            repos=[Repo(name="api", github="acme/api", precheck=precheck)],
+            machines=[Machine(
+                name="laptop",
+                host="laptop.tailnet",
+                repos=["api"],
+                repo_paths={"api": "/home/user/src/api"},
+            )],
+        )
+        p = Proposal(
+            id=1,
+            machine_name="laptop",
+            repo_name="api",
+            issue_number=10,
+            issue_title="Fix bug",
+            rationale="fix",
+            type="fix",
+        )
+        dispatch(p, cfg)
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["precheck"] == precheck
+
+    @patch("coord.dispatch.httpx.post")
+    def test_payload_omits_precheck_when_not_configured(
+        self, mock_post: MagicMock,
+    ) -> None:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"ok": True}
+        mock_post.return_value = mock_resp
+
+        cfg = Config(
+            repos=[Repo(name="api", github="acme/api")],  # no precheck
+            machines=[Machine(
+                name="laptop",
+                host="laptop.tailnet",
+                repos=["api"],
+                repo_paths={"api": "/home/user/src/api"},
+            )],
+        )
+        p = Proposal(
+            id=1,
+            machine_name="laptop",
+            repo_name="api",
+            issue_number=10,
+            issue_title="Fix bug",
+            rationale="work",
+            type="work",
+        )
+        dispatch(p, cfg)
+        payload = mock_post.call_args.kwargs["json"]
+        assert "precheck" not in payload
+
+    @patch("coord.dispatch.httpx.post")
+    def test_payload_excludes_precheck_for_review_assignment(
+        self, mock_post: MagicMock,
+    ) -> None:
+        """A declared precheck is a work/fix-leg instruction only — a
+        review leg reads the diff, it doesn't push anything."""
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"ok": True}
+        mock_post.return_value = mock_resp
+
+        cfg = Config(
+            repos=[Repo(name="api", github="acme/api", precheck="make precheck")],
+            machines=[Machine(
+                name="laptop",
+                host="laptop.tailnet",
+                repos=["api"],
+                repo_paths={"api": "/home/user/src/api"},
+            )],
+        )
+        p = Proposal(
+            id=1,
+            machine_name="laptop",
+            repo_name="api",
+            issue_number=10,
+            issue_title="Fix bug",
+            rationale="review",
+            type="review",
+        )
+        dispatch(p, cfg)
+        payload = mock_post.call_args.kwargs["json"]
+        assert "precheck" not in payload
 
 
 class TestProviderDispatch:
@@ -5175,6 +5365,359 @@ class TestRouteWorkByLiveness:
         )
         assert result is not None
         assert result.machine_name == "macmini"
+
+
+# ── #4130: sole-capability Test-host reservation ────────────────────────────
+
+
+def _sole_cap_machines() -> list[Machine]:
+    return [
+        Machine(
+            name="macmini", host="macmini.tailnet", repos=["quadraui"],
+            repo_paths={"quadraui": "/home/user/src/quadraui"},
+            capabilities=["macos"],
+        ),
+        Machine(
+            name="dell64", host="dell64.tailnet", repos=["quadraui"],
+            repo_paths={"quadraui": "/home/user/src/quadraui"},
+            capabilities=["linux"],
+        ),
+    ]
+
+
+def _test_leg(machine_name: str, *, status: str = "running") -> Assignment:
+    return Assignment(
+        machine_name=machine_name, repo_name="quadraui", issue_number=2875,
+        issue_title="macOS test leg", type="smoke", status=status,
+    )
+
+
+class TestSoleTestCapabilities:
+    def test_capability_no_other_machine_declares_is_sole(self) -> None:
+        from coord.dispatch import sole_test_capabilities
+
+        machines = _sole_cap_machines()
+        assert sole_test_capabilities(machines[0], machines) == {"macos"}
+
+    def test_capability_shared_by_another_machine_is_not_sole(self) -> None:
+        from coord.dispatch import sole_test_capabilities
+
+        machines = _sole_cap_machines() + [
+            Machine(
+                name="macmini2", host="macmini2.tailnet", repos=["quadraui"],
+                capabilities=["macos"],
+            ),
+        ]
+        assert sole_test_capabilities(machines[0], machines) == frozenset()
+
+    def test_no_capabilities_at_all_is_empty(self) -> None:
+        from coord.dispatch import sole_test_capabilities
+
+        machines = [
+            Machine(name="plain", host="plain.tailnet", repos=["quadraui"]),
+        ]
+        assert sole_test_capabilities(machines[0], machines) == frozenset()
+
+
+class TestMachineReservedForTest:
+    def test_sole_capability_host_with_running_test_leg_is_reserved(self) -> None:
+        from coord.dispatch import machine_reserved_for_test
+
+        machines = _sole_cap_machines()
+        board = Board(active=[_test_leg("macmini")])
+        assert machine_reserved_for_test(machines[0], machines, board) is True
+
+    def test_sole_capability_host_with_pending_test_leg_is_reserved(self) -> None:
+        from coord.dispatch import machine_reserved_for_test
+
+        machines = _sole_cap_machines()
+        board = Board(active=[_test_leg("macmini", status="pending")])
+        assert machine_reserved_for_test(machines[0], machines, board) is True
+
+    def test_sole_capability_host_with_no_test_leg_is_not_reserved(self) -> None:
+        from coord.dispatch import machine_reserved_for_test
+
+        machines = _sole_cap_machines()
+        board = Board(active=[])
+        assert machine_reserved_for_test(machines[0], machines, board) is False
+
+    def test_non_sole_capability_host_is_never_reserved(self) -> None:
+        """`dell64` declares no capability at all here — a Test leg
+        running there (even `type="smoke"`, `pending`/`running`) reserves
+        nothing, since `sole_test_capabilities` is vacuously empty."""
+        from coord.dispatch import machine_reserved_for_test
+
+        machines = [
+            _sole_cap_machines()[0],
+            Machine(
+                name="dell64", host="dell64.tailnet", repos=["quadraui"],
+                repo_paths={"quadraui": "/home/user/src/quadraui"},
+            ),
+        ]
+        board = Board(active=[_test_leg("dell64")])
+        assert machine_reserved_for_test(machines[1], machines, board) is False
+
+    def test_a_done_test_leg_no_longer_reserves(self) -> None:
+        from coord.dispatch import machine_reserved_for_test
+
+        machines = _sole_cap_machines()
+        board = Board(active=[_test_leg("macmini", status="done")])
+        assert machine_reserved_for_test(machines[0], machines, board) is False
+
+    def test_a_work_leg_on_the_sole_capability_host_does_not_reserve_it(self) -> None:
+        """Only a `type="smoke"` leg reserves — a Work leg already running
+        there is not itself "the Test leg only this host can run"."""
+        from coord.dispatch import machine_reserved_for_test
+
+        machines = _sole_cap_machines()
+        work = Assignment(
+            machine_name="macmini", repo_name="quadraui", issue_number=1,
+            issue_title="some work", type="work", status="running",
+        )
+        board = Board(active=[work])
+        assert machine_reserved_for_test(machines[0], machines, board) is False
+
+
+class TestRouteWorkByTestReservation:
+    def test_no_board_returns_none(self) -> None:
+        from coord.dispatch import route_work_by_test_reservation
+
+        machines = _sole_cap_machines()
+        result = route_work_by_test_reservation(
+            proposed_machine_name="macmini", repo_name="quadraui",
+            machines=machines, board=None,
+        )
+        assert result is None
+
+    def test_unreserved_proposed_machine_returns_none(self) -> None:
+        from coord.dispatch import route_work_by_test_reservation
+
+        machines = _sole_cap_machines()
+        board = Board(active=[])
+        result = route_work_by_test_reservation(
+            proposed_machine_name="macmini", repo_name="quadraui",
+            machines=machines, board=board,
+        )
+        assert result is None
+
+    def test_reserved_proposed_machine_reroutes_to_an_unreserved_fallback(self) -> None:
+        from coord.dispatch import route_work_by_test_reservation
+
+        machines = _sole_cap_machines()
+        board = Board(active=[_test_leg("macmini")])
+        result = route_work_by_test_reservation(
+            proposed_machine_name="macmini", repo_name="quadraui",
+            machines=machines, board=board,
+        )
+        assert result is not None
+        assert result.machine_name == "dell64"
+        assert result.rerouted is True
+        assert any("reserved" in why for _, why in result.tried)
+
+    def test_every_candidate_reserved_signals_none_machine_name(self) -> None:
+        from coord.dispatch import route_work_by_test_reservation
+
+        machines = _sole_cap_machines() + [
+            Machine(
+                name="dell64b", host="dell64b.tailnet", repos=["quadraui"],
+                repo_paths={"quadraui": "/home/user/src/quadraui"},
+                capabilities=["windows"],
+            ),
+        ]
+        board = Board(active=[
+            _test_leg("macmini"),
+            _test_leg("dell64"),
+            Assignment(
+                machine_name="dell64b", repo_name="quadraui", issue_number=99,
+                issue_title="windows test leg", type="smoke", status="running",
+            ),
+        ])
+        result = route_work_by_test_reservation(
+            proposed_machine_name="macmini", repo_name="quadraui",
+            machines=machines, board=board,
+        )
+        assert result is not None
+        assert result.machine_name is None
+        assert result.rerouted is False
+
+    # ── #4130 review (blocking): capability-aware fallbacks ─────────────
+    #
+    # This gate runs AFTER `route_work_by_capability`, so the machine it is
+    # handed is already the capability-CHOSEN one whenever a rule matched.
+    # A capability-blind fallback search here silently undoes that: on the
+    # fleet this issue is named for (macmini the sole `macos` holder,
+    # dell64 `linux`-only), a `macos`-requiring diff capability-routed to
+    # macmini must not reroute to dell64 just because macmini is reserved
+    # for its own Test leg — that is the UNCONFIRMED-verdict hole
+    # (#2217/#2464) reopened by the very gate meant to make dispatch safer.
+
+    def test_refuses_rather_than_dropping_a_required_capability(self) -> None:
+        from coord.dispatch import route_work_by_test_reservation
+
+        machines = _sole_cap_machines()
+        board = Board(active=[_test_leg("macmini")])
+        result = route_work_by_test_reservation(
+            proposed_machine_name="macmini", repo_name="quadraui",
+            machines=machines, board=board,
+            files_likely=["quadraui/src/macos/window.rs"],
+            capability_rules=[
+                SmokeRule(files=["quadraui/src/macos/"], requires=["macos"]),
+            ],
+        )
+        assert result is not None
+        assert result.machine_name is None
+        assert result.rerouted is False
+        reasons = dict(result.tried)
+        assert "capability shortfall" in reasons["dell64"]
+        assert "macos" in reasons["dell64"]
+
+    def test_capability_covering_fallback_still_reroutes(self) -> None:
+        """A fallback that covers the same required capability is still a
+        valid reroute target — the floor rejects coverage REGRESSIONS, not
+        every reroute. `macmini`/`dell64` each keep their own SOLE
+        capability (`macos`/`linux`) but both declare `gtk`, so a diff
+        requiring only `gtk` meets the same coverage floor on either."""
+        from coord.dispatch import route_work_by_test_reservation
+
+        machines = [
+            Machine(
+                name="macmini", host="macmini.tailnet", repos=["quadraui"],
+                repo_paths={"quadraui": "/home/user/src/quadraui"},
+                capabilities=["macos", "gtk"],
+            ),
+            Machine(
+                name="dell64", host="dell64.tailnet", repos=["quadraui"],
+                repo_paths={"quadraui": "/home/user/src/quadraui"},
+                capabilities=["linux", "gtk"],
+            ),
+        ]
+        board = Board(active=[_test_leg("macmini")])
+        result = route_work_by_test_reservation(
+            proposed_machine_name="macmini", repo_name="quadraui",
+            machines=machines, board=board,
+            files_likely=["quadraui/src/gtk/window.rs"],
+            capability_rules=[
+                SmokeRule(files=["quadraui/src/gtk/"], requires=["gtk"]),
+            ],
+        )
+        assert result is not None
+        assert result.machine_name == "dell64"
+        assert result.rerouted is True
+
+
+class TestDispatchTestReservationRouting:
+    """#4130 end-to-end: `dispatch()` itself reroutes a `type="work"`
+    dispatch away from a reserved sole-capability Test host when *board*
+    is wired in, and refuses outright when every candidate is reserved."""
+
+    def _cfg(self) -> Config:
+        return Config(
+            repos=[Repo(name="quadraui", github="acme/quadraui", depends_on=[])],
+            machines=_sole_cap_machines(),
+        )
+
+    @patch("coord.dispatch.httpx.post")
+    def test_reroutes_around_a_reserved_host(self, mock_post) -> None:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"id": "assigned"}
+        mock_post.return_value = mock_resp
+
+        cfg = self._cfg()
+        board = Board(
+            repos=cfg.repos, machines=cfg.machines, active=[_test_leg("macmini")],
+        )
+        p = Proposal(
+            id=1, machine_name="macmini", repo_name="quadraui", issue_number=42,
+            issue_title="Fix a bug", rationale="", type="work",
+        )
+        dispatch(p, cfg, board=board)
+        assert p.machine_name == "dell64"
+        mock_post.assert_called_once()
+        assert "dell64.tailnet" in mock_post.call_args.args[0]
+
+    @patch("coord.dispatch.httpx.post")
+    def test_refuses_when_every_machine_is_reserved(self, mock_post) -> None:
+        cfg = Config(
+            repos=[Repo(name="quadraui", github="acme/quadraui", depends_on=[])],
+            machines=[_sole_cap_machines()[0]],
+        )
+        board = Board(
+            repos=cfg.repos, machines=cfg.machines, active=[_test_leg("macmini")],
+        )
+        p = Proposal(
+            id=1, machine_name="macmini", repo_name="quadraui", issue_number=42,
+            issue_title="Fix a bug", rationale="", type="work",
+        )
+        with pytest.raises(ValueError, match="reserved for a sole-capability Test leg"):
+            dispatch(p, cfg, board=board)
+        mock_post.assert_not_called()
+
+    @patch("coord.dispatch.httpx.post")
+    def test_opt_out_config_flag_disables_the_gate(self, mock_post) -> None:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"id": "assigned"}
+        mock_post.return_value = mock_resp
+
+        cfg = Config(
+            repos=[Repo(name="quadraui", github="acme/quadraui", depends_on=[])],
+            machines=[_sole_cap_machines()[0]],
+            smoke_tests=SmokeTestsConfig(reserve_sole_capability_hosts=False),
+        )
+        board = Board(
+            repos=cfg.repos, machines=cfg.machines, active=[_test_leg("macmini")],
+        )
+        p = Proposal(
+            id=1, machine_name="macmini", repo_name="quadraui", issue_number=42,
+            issue_title="Fix a bug", rationale="", type="work",
+        )
+        dispatch(p, cfg, board=board)
+        assert p.machine_name == "macmini"
+        mock_post.assert_called_once()
+
+    @patch("coord.dispatch.httpx.post")
+    def test_no_board_performs_no_check_at_all(self, mock_post) -> None:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"id": "assigned"}
+        mock_post.return_value = mock_resp
+
+        cfg = Config(
+            repos=[Repo(name="quadraui", github="acme/quadraui", depends_on=[])],
+            machines=[_sole_cap_machines()[0]],
+        )
+        p = Proposal(
+            id=1, machine_name="macmini", repo_name="quadraui", issue_number=42,
+            issue_title="Fix a bug", rationale="", type="work",
+        )
+        dispatch(p, cfg)
+        assert p.machine_name == "macmini"
+        mock_post.assert_called_once()
+
+    @patch("coord.dispatch.httpx.post")
+    def test_refuses_rather_than_dropping_a_required_capability(self, mock_post) -> None:
+        """#4130 review (blocking), end to end: `route_work_by_capability`
+        already chose `macmini` for this `macos`-requiring diff — the
+        reservation gate must not then silently hand the work to `dell64`
+        (`linux`-only), which can never run this diff's own suite."""
+        cfg = Config(
+            repos=[Repo(name="quadraui", github="acme/quadraui", depends_on=[])],
+            machines=_sole_cap_machines(),
+            smoke_tests=SmokeTestsConfig(
+                capability_rules=[
+                    SmokeRule(files=["quadraui/src/macos/"], requires=["macos"]),
+                ],
+            ),
+        )
+        board = Board(
+            repos=cfg.repos, machines=cfg.machines, active=[_test_leg("macmini")],
+        )
+        p = Proposal(
+            id=1, machine_name="macmini", repo_name="quadraui", issue_number=42,
+            issue_title="Fix a bug", rationale="", type="work",
+            files_likely=["quadraui/src/macos/window.rs"],
+        )
+        with pytest.raises(ValueError, match="reserved for a sole-capability Test leg"):
+            dispatch(p, cfg, board=board)
+        mock_post.assert_not_called()
 
 
 class TestDispatchLivenessRouting:

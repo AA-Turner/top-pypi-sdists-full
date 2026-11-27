@@ -30,16 +30,28 @@ def test_phonon_md_init(asap3, testdir):
         opt.run(fmax=0.001)
     positions0 = atoms.positions.copy()
 
-    phonons = Phonons(atoms, EMT(), supercell=(1, 1, 1), delta=0.05)
+    phonons = Phonons(
+        atoms,
+        EMT(),
+        supercell=(1, 1, 1),
+        delta=0.05,
+        use_mean_minimum_images=False,
+    )
 
     try:
         phonons.run()
         phonons.read()  # Why all this boilerplate?
     finally:
         phonons.clean()
-    matrices = phonons.get_force_constant()
+    C_avNav = phonons.get_force_constants()
+    with pytest.warns(FutureWarning):
+        C_NXX = phonons.get_force_constant()
 
-    K = matrices[0]
+    assert np.all(
+        C_NXX[0] == C_avNav[:, :, 0].reshape(len(atoms) * 3, len(atoms) * 3)
+    )
+
+    K = C_avNav[:, :, 0].reshape(len(atoms) * 3, len(atoms) * 3)
     T = 300
 
     atoms.calc = EMT()

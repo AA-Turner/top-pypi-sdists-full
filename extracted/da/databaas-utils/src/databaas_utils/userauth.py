@@ -34,6 +34,7 @@ import requests
 
 from databaas_utils.errors import AuthenticationError, ConfigurationError
 from databaas_utils.profiles import Profile, oidc_metadata
+from databaas_utils.settings import zitadel_project_scope
 from databaas_utils.tokenstore import TokenStore, default_store, store_lock
 
 TOKEN_TIMEOUT = 30
@@ -98,7 +99,7 @@ class UserLogin:
         if not self.project_id:
             # Zitadel puts the app's own project in the audience by default.
             return scope
-        return f"{scope} urn:zitadel:iam:org:project:id:{self.project_id}:aud"
+        return f"{scope} {zitadel_project_scope(self.project_id)}"
 
     def auth_header(self) -> str:
         """``Bearer <token>``, refreshing or logging in first if needed.

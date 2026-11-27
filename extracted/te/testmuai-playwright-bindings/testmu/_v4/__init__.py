@@ -68,6 +68,7 @@ from testmu._v4._helpers import (
     evaluate_network_assertion,
     evaluate_math,
     smartui_snapshot,
+    accessibility_scan,
     new_tab,
     switch_tab,
     close_tab,

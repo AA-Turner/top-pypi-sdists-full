@@ -9,6 +9,7 @@ from collections import OrderedDict, defaultdict
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from io import BytesIO
+from itertools import pairwise
 from zipfile import ZipFile
 import httpx
 from stream_unzip import stream_unzip
@@ -24,6 +25,7 @@ except Exception:
     eccodes = None  # type: ignore
     _ECCODES_AVAILABLE = False
 
+from . import dwdfire
 from .dwdairquality import AirQuality as AirQuality
 from .dwdradar import DWDRadar as DWDRadar
 from .dwdradar import NotInAreaError, RadarNotAvailableError
@@ -125,6 +127,10 @@ class WeatherDataType(Enum):
     )  # Unit: Degrees
     WIND_GUSTS = ("FX1", "maximum_wind_speed_last_hour")  # Unit: m/s
     PRECIPITATION = ("RR1c", "precipitation_amount_last_hour")  # Unit: kg/m^2
+    # Likely 1h precipitation range, derived from the MOSMIX_L exceedance
+    # probabilities in PRECIPITATION_EXCEEDANCE_LADDER. Not part of MOSMIX_S.
+    PRECIPITATION_MIN = ("precipitation_min", "")  # Unit: kg/m^2 - 10 % quantile
+    PRECIPITATION_MAX = ("precipitation_max", "")  # Unit: kg/m^2 - 90 % quantile
     PRECIPITATION_PROBABILITY = ("wwP", "")  # Unit: % (0..100)
     PRECIPITATION_DURATION = ("DRR1", "")  # Unit: s
     CLOUD_COVERAGE = ("N", "cloud_cover_total")  # Unit: % (0..100)
@@ -134,6 +140,26 @@ class WeatherDataType(Enum):
     FOG_PROBABILITY = ("wwM", "")  # Unit: % (0..100)
     HUMIDITY = ("humidity", "relative_humidity")  # Unit: %
     EVAPORATION = ("PEvap", "evaporation")  # Unit: kg/m2
+
+
+# MOSMIX_L elements giving the probability (%) of more than the threshold (mm)
+# of precipitation during the last hour, ordered by ascending threshold.
+PRECIPITATION_EXCEEDANCE_LADDER: tuple[tuple[str, float], ...] = (
+    ("R101", 0.1),
+    ("R102", 0.2),
+    ("R103", 0.3),
+    ("R105", 0.5),
+    ("R107", 0.7),
+    ("R110", 1.0),
+    ("R120", 2.0),
+    ("R130", 3.0),
+    ("R150", 5.0),
+    ("RR1o1", 10.0),
+    ("RR1w1", 15.0),
+    ("RR1u1", 25.0),
+)
+PRECIPITATION_MIN_QUANTILE = 0.1
+PRECIPITATION_MAX_QUANTILE = 0.9
 
 
 class ForecastDownloadError(RuntimeError):
@@ -151,6 +177,8 @@ class Weather:
     report_data = None
     weather_report = None
     uv_reports = {}
+    fire_indexes = {}
+    nearest_fire_index_station = None
     etags = None
     airquality_daily = None
     airquality_hourly = None
@@ -531,6 +559,49 @@ class Weather:
             else None
         )
 
+    def get_fire_index(
+        self, days_from_today: int, kind: str = "woodland", shouldUpdate=True
+    ) -> int | None:
+        """Fire danger level (1-5) of the nearest fire index station.
+
+        kind is "woodland" (WBI) or "grassland" (GLFI); days_from_today is 0-6.
+        """
+        if kind not in dwdfire.INDEXES:
+            print("kind must be 'woodland' or 'grassland'")
+            return None
+        if not 0 <= days_from_today <= 6:
+            print("days_from_today must be between 0 and 6")
+            return None
+        if kind not in self.fire_indexes and shouldUpdate:
+            self.download_fire_indexes()
+        report = self.fire_indexes.get(kind)
+        if not report:
+            return None
+        return report["values"][days_from_today]
+
+    def get_fire_index_station_name(self) -> str | None:
+        station = dwdfire.load_stations().get(self.nearest_fire_index_station or "")
+        return station["name"] if station else None
+
+    def download_fire_indexes(self):
+        try:
+            if self.nearest_fire_index_station is None:
+                self.nearest_fire_index_station = dwdfire.nearest_station_id(
+                    self.station["lat"],  # type: ignore
+                    self.station["lon"],  # type: ignore
+                )
+            for kind in dwdfire.INDEXES:
+                try:
+                    report = dwdfire.download_fire_index(
+                        kind, self.nearest_fire_index_station  # type: ignore
+                    )
+                except httpx.HTTPError:
+                    report = None  # not every station has both indexes
+                if report:
+                    self.fire_indexes[kind] = report
+        except Exception as error:
+            print(f"Error in download_fire_indexes: {type(error)} args: {error.args}")
+
     def get_apparent_temperature(self, shouldUpdate=True) -> float | None:
         """Get the current apparent/perceived temperature (gefühlte Temperatur).
 
@@ -910,6 +981,7 @@ class Weather:
         with_report=False,
         with_uv=True,
         with_apparent_temperature=False,
+        with_fire_index=False,
     ):
         if with_measurements and self.has_measurement(self.station_id):
             self.download_latest_report()
@@ -927,14 +999,21 @@ class Weather:
             self.download_uv_index()
         if with_apparent_temperature:
             self.download_apparent_temperature()
+        if with_fire_index:
+            self.download_fire_indexes()
 
     def get_weather_type(self, kmlTree, weatherDataType: WeatherDataType):
         """Parses the kml-File to the requested value and returns the items as array"""
+        return self.get_element_values(kmlTree, weatherDataType.value[0])
 
-        items = []
-        result = kmlTree.xpath(
+    def get_element_values(
+        self, kml_tree: etree._Element, element_name: str
+    ) -> list[float | None]:
+        """Return the values of a MOSMIX element, None for missing ones ("-")."""
+        items: list[float | None] = []
+        result = kml_tree.xpath(
             './kml:Document/kml:Placemark/kml:ExtendedData/dwd:Forecast[@dwd:elementName="{}"]/dwd:value'.format(
-                weatherDataType.value[0]
+                element_name
             ),
             namespaces=self.namespaces,
         )
@@ -961,6 +1040,13 @@ class Weather:
 
         def value(wdt):
             return self.get_weather_type(tree, wdt)
+
+        # Elements absent from the file (e.g. MOSMIX_S) count as missing values.
+        ladder_rows = [
+            self.get_element_values(tree, code) or [None] * len(timesteps)
+            for code, _ in PRECIPITATION_EXCEEDANCE_LADDER
+        ]
+        ladder_per_step = list(zip(*ladder_rows, strict=True))
 
         values = [
             (wdt, value(wdt))
@@ -995,6 +1081,24 @@ class Weather:
                         )
                     ],
                 ),
+                (
+                    WeatherDataType.PRECIPITATION_MIN,
+                    [
+                        self.get_precipitation_quantile(
+                            list(p), PRECIPITATION_MIN_QUANTILE
+                        )
+                        for p in ladder_per_step
+                    ],
+                ),
+                (
+                    WeatherDataType.PRECIPITATION_MAX,
+                    [
+                        self.get_precipitation_quantile(
+                            list(p), PRECIPITATION_MAX_QUANTILE
+                        )
+                        for p in ladder_per_step
+                    ],
+                ),
             ]
         )
         self.forecast_data = OrderedDict(
@@ -1027,13 +1131,14 @@ class Weather:
         ]
 
     def parse_condition(self, tree):
-        return [
-            elem.split(".")[0]
-            for elem in tree.xpath(
-                './kml:Document/kml:Placemark/kml:ExtendedData/dwd:Forecast[@dwd:elementName="ww"]/dwd:value',
-                namespaces=self.namespaces,
-            )[0].text.split()
-        ]
+        result = tree.xpath(
+            './kml:Document/kml:Placemark/kml:ExtendedData/dwd:Forecast[@dwd:elementName="ww"]/dwd:value',
+            namespaces=self.namespaces,
+        )
+        # Some KML files have no "ww" element; parse_kml then sets the condition to None
+        if len(result) == 0:
+            return []
+        return [elem.split(".")[0] for elem in result[0].text.split()]
 
     def get_relative_humidity(self, temperature, dewpoint):
         if None in (temperature, dewpoint):
@@ -1051,6 +1156,67 @@ class Weather:
             100 * math.exp((rh_c2 * TD / (rh_c3 + TD)) - (rh_c2 * T / (rh_c3 + T))),
             1,
         )
+
+    def get_precipitation_quantile(
+        self, probabilities: list[float | None], quantile: float
+    ) -> float | None:
+        """
+        Estimate a quantile of the 1h precipitation amount.
+
+        The MOSMIX exceedance probabilities form a curve P(amount > threshold).
+        The quantile q is the amount that is exceeded with probability 1 - q.
+
+        Args:
+        ----
+            probabilities: Probabilities in % per threshold of
+                PRECIPITATION_EXCEEDANCE_LADDER, in the same order. Missing
+                values are None.
+            quantile: Quantile to estimate, between 0 and 1.
+
+        Returns:
+        -------
+            The amount in kg/m^2, rounded to 2 decimals. 0.0 if the quantile is
+            below the lowest threshold (no rain). None if no probability is
+            available, if the quantile lies above the highest available
+            threshold, or if it lies below the lowest available threshold
+            while lower thresholds are missing (amount unknown).
+
+        """
+        points = [
+            (threshold, probability)
+            for (_, threshold), probability in zip(
+                PRECIPITATION_EXCEEDANCE_LADDER, probabilities, strict=True
+            )
+            if probability is not None
+        ]
+        if not points:
+            return None
+
+        # DWD calibrates each threshold separately, so a higher threshold can
+        # have a higher probability. Enforce a non-increasing curve.
+        curve: list[tuple[float, float]] = []
+        for threshold, probability in points:
+            capped = min(probability, curve[-1][1]) if curve else probability
+            curve.append((threshold, capped))
+
+        # Rounded, because (1 - 0.9) * 100 is 9.999999999999998 and would miss
+        # DWD's whole-number probabilities of exactly 10 %.
+        target = round((1 - quantile) * 100, 6)
+        if curve[0][1] < target:
+            # Only a dry result if the lowest threshold was actually available.
+            if curve[0][0] == PRECIPITATION_EXCEEDANCE_LADDER[0][1]:
+                return 0.0
+            return None
+        # A lone point has no pair to match, so check it explicitly.
+        if curve[0][1] == target:
+            return round(curve[0][0], 2)
+        for (x0, p0), (x1, p1) in pairwise(curve):
+            if p1 <= target <= p0:
+                if p0 == p1:
+                    return round(x0, 2)
+                # Linear interpolation of the amount where the curve hits target.
+                return round(x0 + (p0 - target) * (x1 - x0) / (p0 - p1), 2)
+        return None
 
     def parse_csv_row(self, row: dict):
         self.report_data = {

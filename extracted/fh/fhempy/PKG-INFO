@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhempy
-Version: 2.24.8
+Version: 2.24.9
 Summary: Python binding for FHEM to support Python modules
 License-File: LICENSE
 Author: Dominik Karall
@@ -16,7 +16,7 @@ Requires-Dist: async-upnp-client (==0.49.0)
 Requires-Dist: ifaddr (==0.2.0)
 Requires-Dist: markdown2 (==2.5.5)
 Requires-Dist: orjson (==3.13.0)
-Requires-Dist: packaging (==26.3)
+Requires-Dist: packaging (==26.4)
 Requires-Dist: pexpect (==4.9.0)
 Requires-Dist: pycryptodomex (==3.24.2)
 Requires-Dist: requests (==2.34.2)

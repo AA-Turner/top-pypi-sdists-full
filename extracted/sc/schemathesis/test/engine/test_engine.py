@@ -37,6 +37,7 @@ from schemathesis.specs.openapi.checks import (
 from test.apps.catalog.openapi import basic, error_feedback
 from test.apps.fragments import handlers
 from test.apps.fragments.schemas import linked_users
+from test.apps.runtime import OpenAPIApp
 from test.utils import EventStream
 
 IS_PYPY = platform.python_implementation() == "PyPy"
@@ -1119,6 +1120,113 @@ def test_connection_error(ctx):
     assert expected in str(errors[0].info)
 
 
+@pytest.mark.parametrize("phase", [PhaseName.FUZZING, PhaseName.STATEFUL_TESTING], ids=["fuzzing", "stateful"])
+def test_notes_present_before_the_run_are_not_deleted(ctx, app_runner, phase):
+    note = {
+        "type": "object",
+        "properties": {"id": {"type": "integer"}, "text": {"type": "string"}},
+        "required": ["id", "text"],
+    }
+    note_id = {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/notes": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "array", "items": {"$ref": "#/components/schemas/Note"}}
+                                }
+                            },
+                        }
+                    }
+                },
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"id": {"type": "integer"}, "text": {"type": "string"}},
+                                    "required": ["text"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Note"}}},
+                        }
+                    },
+                },
+            },
+            "/notes/{id}": {
+                "get": {
+                    "parameters": [note_id],
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Note"}}},
+                        },
+                        "404": {"description": "Not found"},
+                    },
+                },
+                "delete": {
+                    "parameters": [note_id],
+                    "responses": {"204": {"description": "Deleted"}, "404": {"description": "Not found"}},
+                },
+            },
+        },
+        components={"schemas": {"Note": note}},
+    )
+    present = {1, 2, 3}
+    notes = {number: {"id": number, "text": "kept"} for number in present}
+    deleted = []
+
+    @app.route("/notes", methods=["GET"])
+    def list_notes():
+        return flask.jsonify(list(notes.values()))
+
+    @app.route("/notes", methods=["POST"])
+    def create_note():
+        body = flask.request.get_json(silent=True)
+        if not isinstance(body, dict) or not isinstance(body.get("text"), str):
+            return flask.jsonify({"error": "invalid"}), 400
+        number = body.get("id")
+        if number not in notes:
+            number = 100 + len(notes) + len(deleted)
+        notes[number] = {"id": number, "text": body["text"]}
+        return flask.jsonify(notes[number]), 201
+
+    @app.route("/notes/<int:number>", methods=["GET"])
+    def get_note(number):
+        if number not in notes:
+            return flask.jsonify({"error": "missing"}), 404
+        return flask.jsonify(notes[number])
+
+    @app.route("/notes/<int:number>", methods=["DELETE"])
+    def delete_note(number):
+        if notes.pop(number, None) is None:
+            return flask.jsonify({"error": "missing"}), 404
+        deleted.append(number)
+        return "", 204
+
+    # Small ids are reached by guessing only after a few dozen cases.
+    EventStream(
+        schemathesis.openapi.from_url(app_runner.openapi_url(app)),
+        phases=[phase],
+        modes=[GenerationMode.POSITIVE],
+        max_examples=60,
+        seed=2,
+    ).execute()
+
+    assert (present & set(deleted), bool(deleted)) == (set(), True)
+
+
 def test_reserved_characters_in_operation_name(ctx):
     # See GH-992
     api = ctx.openapi.serve(basic.reserved())
@@ -1832,23 +1940,97 @@ def test_max_time_repeats_coverage_until_feedback_stops_arriving(ctx):
     assert _coverage_passes(stream) >= 3
 
 
-def test_max_time_cycles_do_not_repeat_the_same_cases(ctx):
-    # Repeating a phase is only worth the time if each cycle explores somewhere the last one did not.
-    api = ctx.openapi.apps.path_variable()
-    schema = schemathesis.openapi.from_url(api.schema_url)
-    stream = execute(schema, max_time=2, max_examples=20, seed=1, phases=[PhaseName.FUZZING])
-    rounds: list[set[str]] = []
+def _fuzzing_cycle_cases(stream) -> list[set[str]]:
+    cycles: list[set[str]] = []
     for event in stream.events:
         if isinstance(event, events.PhaseStarted) and event.phase.name == PhaseName.FUZZING:
-            rounds.append(set())
+            cycles.append(set())
         elif isinstance(event, events.ScenarioFinished) and event.phase == PhaseName.FUZZING:
-            rounds[-1].update(
+            cycles[-1].update(
                 str((case.value.path_parameters, case.value.query, case.value.body))
                 for case in event.recorder.cases.values()
             )
+    assert len(cycles) > 1, len(cycles)
+    return cycles
 
-    assert len(rounds) > 1, len(rounds)
-    assert rounds[1] - rounds[0], "cycle 2 generated nothing cycle 1 had not"
+
+def _cases_per_fuzzing_cycle(api, seed):
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    return _fuzzing_cycle_cases(execute(schema, max_time=2, max_examples=20, seed=seed, phases=[PhaseName.FUZZING]))
+
+
+def test_max_time_cycles_do_not_repeat_the_same_cases(ctx):
+    # Repeating a phase is only worth the time if each cycle explores somewhere the last one did not.
+    cycles = _cases_per_fuzzing_cycle(ctx.openapi.apps.path_variable(), seed=1)
+
+    assert cycles[1] - cycles[0], "cycle 2 generated nothing cycle 1 had not"
+
+
+def test_max_time_cycles_differ_between_consecutive_seeds(ctx):
+    api = ctx.openapi.apps.path_variable()
+
+    assert _cases_per_fuzzing_cycle(api, seed=1)[1] != _cases_per_fuzzing_cycle(api, seed=2)[0]
+
+
+def _keyed_items_app(ctx):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items/{key}": {
+                "get": {
+                    "parameters": [
+                        {"name": "key", "in": "path", "required": True, "schema": {"type": "string", "minLength": 1}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    return app
+
+
+@pytest.mark.parametrize(
+    ("database", "unique_inputs"),
+    [(False, False), (True, False), (False, True)],
+    ids=["database-off", "database-on", "unique-inputs"],
+)
+def test_max_time_cycles_keep_exploring_an_operation_that_failed(ctx, app_runner, tmp_path, database, unique_inputs):
+    # Each cycle restarts generation, which begins with the input that already failed.
+    app = _keyed_items_app(ctx)
+
+    @app.route("/items/<key>")
+    def items(key):
+        return "", 500
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    # A derandomized run, as under the CI profile, ignores the database.
+    schema.config.generation.update(
+        database=str(tmp_path) if database else "none", deterministic=False, unique_inputs=unique_inputs
+    )
+    cycles = _fuzzing_cycle_cases(execute(schema, max_time=2, max_examples=20, seed=1, phases=[PhaseName.FUZZING]))
+
+    assert cycles[1] - cycles[0], f"cycle 2 sent nothing new: {cycles[1]}"
+
+
+def test_max_time_cycles_keep_the_stored_failure_for_the_next_run(ctx, app_runner, tmp_path):
+    # Later cycles move past a known failure; replaying it there without failing would delete it from the database.
+    app = _keyed_items_app(ctx)
+    runs: list[list[str]] = []
+
+    @app.route("/items/<key>")
+    def items(key):
+        runs[-1].append(key)
+        return "", 500 if len(key) > 1 else 200
+
+    url = app_runner.openapi_url(app)
+    for _ in range(2):
+        runs.append([])
+        schema = schemathesis.openapi.from_url(url)
+        # A derandomized run, as under the CI profile, ignores the database.
+        schema.config.generation.update(database=str(tmp_path), deterministic=False)
+        execute(schema, max_time=2, max_examples=20, seed=1, phases=[PhaseName.FUZZING])
+
+    # Run 1 stores its failure shrunk to the minimal failing key.
+    assert runs[1][0] == "00"
 
 
 def test_max_time_stops_cycling_when_a_cycle_runs_nothing(ctx):
@@ -2457,3 +2639,46 @@ def test_operation_that_hung_in_earlier_phases_gets_a_shorter_timeout(ctx, app_r
         "Read timed out after 1.4 seconds",
         "Read timed out after 1.0 seconds",
     ]
+
+
+def test_fuzzing_does_not_copy_values_between_fields(ctx):
+    field = {"type": "string", "minLength": 6}
+    app, spec = ctx.openapi.make_flask_app(
+        {
+            "/notes": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"title": field, "text": field},
+                                    "required": ["title", "text"],
+                                    "additionalProperties": False,
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/notes", methods=["POST"])
+    def notes():
+        return flask.jsonify({})
+
+    api = ctx.openapi.serve(OpenAPIApp(spec=spec, server=app))
+    # Copies show up only after the first few dozen cases.
+    EventStream(
+        schemathesis.openapi.from_url(api.schema_url),
+        phases=[PhaseName.FUZZING],
+        modes=[GenerationMode.POSITIVE],
+        max_examples=100,
+        seed=1,
+    ).execute()
+
+    bodies = [request.json() for request in api.requests if request.path == "/notes"]
+    assert [body for body in bodies if body["title"] == body["text"] and len(set(body["title"])) > 1] == []

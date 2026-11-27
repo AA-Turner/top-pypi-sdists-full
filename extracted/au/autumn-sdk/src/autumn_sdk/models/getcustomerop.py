@@ -2610,6 +2610,8 @@ class GetCustomerResponseTypedDict(TypedDict):
     r"""The metadata for the customer."""
     send_email_receipts: bool
     r"""Whether to send email receipts to the customer."""
+    currency: Nullable[str]
+    r"""The currency this customer is billed in (e.g. usd, eur). Null if not set, in which case the organization's default currency is used."""
     billing_controls: GetCustomerBillingControlsTypedDict
     r"""Billing controls for the customer (auto top-ups, etc.)"""
     subscriptions: List[GetCustomerSubscriptionTypedDict]
@@ -2673,6 +2675,9 @@ class GetCustomerResponse(BaseModel):
 
     send_email_receipts: bool
     r"""Whether to send email receipts to the customer."""
+
+    currency: Nullable[str]
+    r"""The currency this customer is billed in (e.g. usd, eur). Null if not set, in which case the organization's default currency is used."""
 
     billing_controls: GetCustomerBillingControls
     r"""Billing controls for the customer (auto top-ups, etc.)"""
@@ -2745,6 +2750,7 @@ class GetCustomerResponse(BaseModel):
                 "email",
                 "fingerprint",
                 "stripe_id",
+                "currency",
                 "rewards",
                 "payment_method",
                 "billing_details",

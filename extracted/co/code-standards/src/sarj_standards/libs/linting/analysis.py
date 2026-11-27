@@ -48,7 +48,7 @@ from .result_cache import (
     file_identity,
     notice_outcomes,
 )
-from .runner import GroupedPaths, group_paths
+from .runner import SKILL_TEXT_RULES, GroupedPaths, group_paths
 
 
 _MILLISECONDS_PER_SECOND = 1_000
@@ -65,6 +65,7 @@ _EXCEPTION_PROPAGATION_FINGERPRINT_ANCHOR = (
     "This handler only copies the caught message into a generic error; review letting the original "
     "exception propagate while preserving intentional boundary contracts."
 )
+_AGENT_INSTRUCTION_BUDGET_FINGERPRINT_ANCHOR = "Keep agent instructions within 1,000 words."
 _IAC_PROJECT_RULES = frozenset({"no-unused-module-outputs", "no-unused-module-inputs", "no-dead-environment-input"})
 
 
@@ -314,6 +315,8 @@ def _fingerprint_anchor(diagnostic: Diagnostic) -> str:
         return _POST_CREATE_FINGERPRINT_ANCHOR
     if diagnostic.source == "sarj-python-lint" and diagnostic.rule_id == "prefer-exception-propagation":
         return _EXCEPTION_PROPAGATION_FINGERPRINT_ANCHOR
+    if diagnostic.source == "sarj-text-lint" and diagnostic.rule_id == "agent-instruction-budget":
+        return _AGENT_INSTRUCTION_BUDGET_FINGERPRINT_ANCHOR
     return diagnostic.message
 
 
@@ -705,11 +708,18 @@ def _text_report(
     sources: SourceCatalog,
     rule_ids: frozenset[str] | None = None,
 ) -> ToolReport | None:
-    if not grouped.text or rule_ids == frozenset():
+    skill_rules = SKILL_TEXT_RULES if rule_ids is None else SKILL_TEXT_RULES & rule_ids
+    batches = tuple(
+        (files, rules)
+        for files, rules in ((grouped.text, rule_ids), (grouped.skills, skill_rules))
+        if files and rules != frozenset()
+    )
+    if not batches:
         return None
     raise_if_cancelled(None)
     try:
-        return _run_text(grouped.text, root, sources=sources, rule_ids=rule_ids)
+        reports = [_run_text(files, root, sources=sources, rule_ids=rules) for files, rules in batches]
+        return replace(reports[0], diagnostics=tuple(item for report in reports for item in report.diagnostics))
     except Exception as exc:  # ruff: ignore[blind-except] -- retain results from independent analyzers.
         issue = ExecutionIssue("sarj-text-lint", "analyzer-failure", f"{type(exc).__name__}: {exc}")
         return ToolReport("sarj-text-lint", Completion.FAILED, issues=(issue,))

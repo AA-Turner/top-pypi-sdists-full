@@ -40,6 +40,7 @@ plumbing — keeping them apart avoids twisting both shapes.
 from __future__ import annotations
 
 import difflib
+import hashlib
 import logging
 import re
 import time
@@ -52,6 +53,12 @@ import httpx
 
 from coord import github_ops
 from coord.claim import review_covers
+# #4179: the single spelling of a sealed-amendment-apply commit's subject —
+# `acceptance_apply_amendment` is the only writer of a commit starting with
+# this; this module only ever reads it (see the SEALED_PATH_AUTHOR_TYPES
+# branch of `build_review_briefing` below). One shared constant instead of
+# a second copy of the same literal that could silently drift from it.
+from coord.commands.acceptance import SEALED_AMENDMENT_APPLY_COMMIT_SUBJECT_PREFIX
 from coord.config import Config, ReviewsConfig
 from coord.dispatch import AGENT_PORT, ASSIGN_POST_TIMEOUT_SECS
 from coord.prereview_gate import GateResult, run_prereview_gate
@@ -954,6 +961,275 @@ def extract_blocking_section(body: str) -> str:
     if all(_is_no_findings_line(line.strip()) for line in joined.splitlines() if line.strip()):
         return ""
     return joined
+
+
+# ── Epic tranche convention (#4189) ─────────────────────────────────────────
+# An epic/tracking issue can declare that part of its full scope is
+# deliberately deferred to a later issue (e.g. "deletion half deferred to
+# #4322") — CLAUDE.md's own `ISSUE_RESOLUTION: partial` allowance already
+# recognises "a tranche the issue defines" as a legitimate narrow partial.
+# Without surfacing that declaration to a reviewer scoped to ONE slice of the
+# epic, the reviewer has no way to tell "the epic explicitly deferred this"
+# apart from "the worker silently dropped scope" and would `request-changes`
+# for the former exactly as it should for the latter.
+_TRANCHE_CONVENTION_HEADING_RE = re.compile(
+    r"^#{1,6}\s*tranche convention\s*$", re.IGNORECASE
+)
+
+
+def extract_tranche_convention(body: str) -> str | None:
+    """Return the verbatim text of *body*'s ``## Tranche convention``
+    section, or ``None`` when there's no such heading or the section is
+    empty.
+
+    *body* is expected to be a milestone/epic tracking issue's own body —
+    callers resolve which issue that is (see
+    :func:`_fetch_tranche_convention_note`); this function only parses
+    whatever body it's handed. The heading match is exact (any ``#``-``##
+    ######`` level, case-insensitive, no trailing text) — same discipline
+    as every other section heading this repo parses
+    (:data:`coord.milestone_order._HEADING_RE` et al.) — so a loosely
+    worded aside that merely mentions a deferred issue number elsewhere in
+    the body is never mistaken for a deliberate declaration.
+    """
+    if not body:
+        return None
+    collected: list[str] = []
+    in_section = False
+    for raw in body.splitlines():
+        line = raw.rstrip()
+        if line.lstrip().startswith("#"):
+            if in_section:
+                break
+            in_section = bool(_TRANCHE_CONVENTION_HEADING_RE.match(line.strip()))
+            continue
+        if in_section:
+            collected.append(line)
+    text = "\n".join(collected).strip()
+    return text or None
+
+
+# ── Stable finding ids for a scoped re-review (#4187) ───────────────────────
+# A scoped re-review responding to a fix round used to be handed the whole
+# `## Blocking findings` section as one opaque blob of prose, so the
+# re-reviewer's own response could only say "yes/no, the fix round addressed
+# it" in equally unstructured prose — nothing a later gate could check
+# mechanically. Each individual finding gets a short, CONTENT-DERIVED id
+# (`finding_id`) instead: deterministic from the finding's own text, so the
+# SAME finding gets the SAME id every time it's re-derived (minting it at
+# briefing-build time and again at response-parsing time always agrees)
+# without needing anywhere to persist an id-to-text mapping.
+FINDING_ID_LEN = 6
+
+_BULLET_PREFIX_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s+")
+
+
+@dataclass(frozen=True)
+class BlockingFinding:
+    """One top-level item from a review's `## Blocking findings` section,
+    with its stable `id` (see `finding_id`). `text` is the item's own text,
+    bullet marker stripped, continuation/sub-bullet lines preserved verbatim
+    with their original indentation.
+    """
+
+    id: str
+    text: str
+
+
+def finding_id(text: str) -> str:
+    """Stable, content-derived id for one blocking-finding's text.
+
+    Deterministic (same text ⇒ same id, always) and short enough to write
+    inline as ``finding#<id>`` in a briefing/response without needing a
+    lookup table anywhere — the id IS the hash, so a caller holding only the
+    text (never an id it minted earlier) can still recognise which finding a
+    re-reviewer is referring to.
+    """
+    normalized = " ".join(text.strip().split())
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:FINDING_ID_LEN]
+
+
+def parse_blocking_findings(body: str) -> list[BlockingFinding]:
+    """Split *body*'s `## Blocking findings` section (`extract_blocking_section`)
+    into individual top-level items, each given a stable `finding_id`.
+
+    A line is a NEW item only when it starts a top-level bullet (`_BULLET_RE`
+    matched with zero leading whitespace) — anything else (a continuation
+    line, a nested sub-bullet) is folded into the item currently being
+    collected. A section with no recognisable bullets at all (free prose, no
+    `- `/`* `/`1. ` markers) is returned as a single item so it still gets an
+    id rather than being silently dropped.
+
+    Returns ``[]`` when `extract_blocking_section` finds nothing (including
+    an explicit "none" section) — mirrors that function's own empty-means-
+    empty contract.
+    """
+    section = extract_blocking_section(body)
+    if not section:
+        return []
+    items: list[list[str]] = []
+    for raw in section.splitlines():
+        if raw.strip() and not raw[:1].isspace() and _BULLET_RE.match(raw):
+            items.append([_BULLET_PREFIX_RE.sub("", raw, count=1).rstrip()])
+        elif items:
+            items[-1].append(raw.rstrip())
+        else:
+            # No top-level bullet seen yet — free prose; start the first
+            # (and, until a real bullet appears, only) item with it.
+            items.append([raw.rstrip()])
+    findings: list[BlockingFinding] = []
+    for lines in items:
+        text = "\n".join(lines).strip("\n").strip()
+        if not text:
+            continue
+        findings.append(BlockingFinding(id=finding_id(text), text=text))
+    return findings
+
+
+def format_findings_with_ids(findings: list[BlockingFinding]) -> str:
+    """Render *findings* (`parse_blocking_findings`) as a bulleted list, each
+    item prefixed with its `finding#<id>` tag — what a scoped re-review
+    briefing shows instead of the opaque prose blob (#4187)."""
+    rendered: list[str] = []
+    for f in findings:
+        lines = f.text.splitlines() or [""]
+        first = f"- `finding#{f.id}`: {lines[0]}"
+        # A continuation line that already carries its own leading
+        # whitespace (a nested sub-bullet `parse_blocking_findings`
+        # preserved verbatim from the original review body) is already
+        # indented relative to the top-level bullet it came from — adding
+        # another 2 spaces on top would double-indent it. Only flat prose
+        # with no indentation of its own (e.g. a wrapped paragraph) needs
+        # the 2-space nudge to render as part of this bullet.
+        rest = [line if line[:1].isspace() else f"  {line}" for line in lines[1:]]
+        rendered.append("\n".join([first, *rest]))
+    return "\n".join(rendered)
+
+
+@dataclass(frozen=True)
+class ScopedRereviewClassification:
+    """A scoped re-review's structured response to the prior round's
+    id-tagged blocking findings (#4187) — parsed by
+    `parse_scoped_rereview_classification`.
+
+    `resolved_ids`/`unresolved_ids` cover the PRIOR findings only, keyed by
+    `finding_id`. Every prior id not explicitly listed under `resolved:`
+    counts as unresolved (fail-closed — see that function's docstring).
+    A nonempty `unresolved_ids` on a round whose own verdict is `approve`
+    is a contradiction (the round approved without confirming it resolved
+    everything it was asked to) and, like `new_blocking_out_of_delta`,
+    triggers `coord.merge_queue.out_of_delta_full_review_pending`'s
+    full-review gate. `new_blocking_in_delta` and `new_blocking_out_of_delta`
+    are freeform finding texts (no prior id — these are NEW), kept apart
+    because only the latter triggers that same gate.
+    """
+
+    resolved_ids: frozenset[str]
+    unresolved_ids: frozenset[str]
+    new_blocking_in_delta: tuple[str, ...]
+    new_blocking_out_of_delta: tuple[str, ...]
+
+
+_RESOLVED_LINE_RE = re.compile(r"(?im)^[ \t]*resolved:[ \t]*(.*)$")
+_UNRESOLVED_LINE_RE = re.compile(r"(?im)^[ \t]*unresolved:[ \t]*(.*)$")
+
+
+def _split_finding_ids(text: str) -> frozenset[str]:
+    """Parse a `resolved:`/`unresolved:` line's comma/whitespace-separated
+    ``finding#<id>`` tokens into a set of bare ids.
+
+    An explicit "nothing here" value (`_is_no_findings_line` — "none",
+    "n/a", "(none)", ...) returns the empty set rather than minting a
+    bogus id out of the punctuation: without this, a reviewer who
+    legitimately writes ``unresolved: none`` would get a phantom id in
+    `ScopedRereviewClassification.unresolved_ids` that matches no real
+    prior finding but still reads as nonempty — exactly the "approved
+    despite an unresolved id" condition `out_of_delta_full_review_pending`
+    (`coord.merge_queue`) treats as a contradiction requiring a full
+    review, firing on a response that was actually clean.
+    """
+    if _is_no_findings_line(text.strip()):
+        return frozenset()
+    out: set[str] = set()
+    for tok in re.split(r"[,\s]+", text.strip()):
+        cleaned = tok.strip().strip("`").strip()
+        if cleaned.lower().startswith("finding#"):
+            cleaned = cleaned[len("finding#"):]
+        if cleaned:
+            out.add(cleaned)
+    return frozenset(out)
+
+
+def _bullets_under_heading(body: str, heading_substr: str) -> tuple[str, ...]:
+    """Bullet (or plain-text) lines under the first heading in *body* whose
+    lowercased text contains *heading_substr*, up to the next heading of any
+    level. An explicit "none" line (`_is_no_findings_line`) contributes
+    nothing — mirrors `extract_blocking_section`'s own empty convention."""
+    capturing = False
+    collected: list[str] = []
+    for raw in (body or "").splitlines():
+        line = raw.rstrip()
+        if line.lstrip().startswith("#"):
+            if capturing:
+                break
+            capturing = heading_substr in line.lstrip("#").strip().lower()
+            continue
+        if not capturing:
+            continue
+        stripped = line.strip()
+        if not stripped or _is_no_findings_line(stripped):
+            continue
+        collected.append(_BULLET_PREFIX_RE.sub("", line, count=1).strip())
+    return tuple(collected)
+
+
+def parse_scoped_rereview_classification(
+    body: str, prior_ids: Iterable[str] = (),
+) -> ScopedRereviewClassification:
+    """Parse a scoped re-review's structured response to id-tagged prior
+    findings (#4187) — the counterpart `build_scoped_review_briefing`'s
+    fix-round path asks the reviewer to write.
+
+    Fail-closed, matching every other verdict-evidence parser in this module
+    (`classify_blocking_evidence`'s docstring): a prior id the response never
+    mentions under `resolved:` is `unresolved`, never silently dropped —
+    including when the response has no `resolved:`/`unresolved:` lines at
+    all (an un-upgraded or malformed response carries every prior finding
+    forward as still outstanding).
+    """
+    # `finditer`, not `search`: a reviewer who wraps a long id list across
+    # two `resolved:`/`unresolved:` lines must have BOTH folded in, not
+    # just the first match (#4187 review) — silently dropping the
+    # remainder would still be fail-closed-safe (an id only ever falls OUT
+    # of `resolved` that way, never falsely INTO it), but there's no
+    # reason to lose real data when every match is free to fold together.
+    resolved = frozenset().union(
+        *(_split_finding_ids(m.group(1)) for m in _RESOLVED_LINE_RE.finditer(body or "")),
+    )
+    explicit_unresolved = frozenset().union(
+        *(_split_finding_ids(m.group(1)) for m in _UNRESOLVED_LINE_RE.finditer(body or "")),
+    )
+    prior = frozenset(prior_ids)
+    unresolved = explicit_unresolved | (prior - resolved)
+    resolved = resolved - unresolved  # a conflicting id is never "resolved"
+    new_in_delta = _bullets_under_heading(body or "", "new blocking findings (in delta)")
+    # #4187 review: this heading's own text must NOT contain "blocking" —
+    # `_bucket_for_heading` (used by `extract_blocking_section` and every
+    # downstream consumer of it) maps any heading containing that substring
+    # into the `blocking` bucket, which would make an out-of-delta finding
+    # (deliberately non-blocking for THIS round) read as blocking to every
+    # other reader. "non-blocking" matches the `nonblocking` bucket instead
+    # (checked first in `_ORDERED_BUCKETS`), which is the correct bucket for
+    # it.
+    new_out_of_delta = _bullets_under_heading(
+        body or "", "new non-blocking findings (out of delta)",
+    )
+    return ScopedRereviewClassification(
+        resolved_ids=resolved,
+        unresolved_ids=unresolved,
+        new_blocking_in_delta=new_in_delta,
+        new_blocking_out_of_delta=new_out_of_delta,
+    )
 
 
 def extract_nits_section(body: str) -> str:
@@ -2648,6 +2924,7 @@ def build_review_briefing(
     gate_a_exempt_warning: str | None = None,
     exempt_dependency_warnings: list[str] | None = None,
     oracle_contract_note: str | None = None,
+    tranche_convention_note: str | None = None,
 ) -> str:
     """Assemble the reviewer's prompt. Pure function — easy to test.
 
@@ -2801,6 +3078,20 @@ def build_review_briefing(
     mandatory ``request-changes``) posture: a stale dependency doesn't make
     THIS diff wrong, it means an earlier exemption's promise wasn't kept, so
     the reviewer is told rather than asked to act on it.
+
+    *tranche_convention_note* (#4189) is the pre-computed
+    :func:`extract_tranche_convention` text pulled from this issue's
+    milestone's tracking (epic) issue, when that issue's body declares a
+    ``## Tranche convention`` section (e.g. "deletion half deferred to
+    #4322") — or ``None`` when there's no milestone, no tracking issue, no
+    such section, or the fetch failed. Same pure-function,
+    pre-fetched-by-the-caller contract as *gate_a_exempt_warning* above.
+    Rendered right after the issue body, since — like *oracle_contract_note*
+    — it reframes what's in scope for the whole review: a reviewer with no
+    visibility into the epic's own deferred-scope declaration has no way to
+    tell "the epic explicitly deferred this to another issue" apart from
+    "the worker silently dropped scope", and would request changes for the
+    former exactly as it should for the latter.
     """
 
     lines: list[str] = []
@@ -2835,6 +3126,25 @@ def build_review_briefing(
         lines.append("")
         lines.append(issue_body.strip())
     lines.append("")
+
+    if tranche_convention_note:
+        # #4189: the epic's own declared scope deferral, surfaced BEFORE the
+        # generic checklist/diff — same "reframes what's in scope" priority
+        # as oracle_contract_note immediately below, not a footnote.
+        lines.append(
+            "## Epic tranche convention — read before judging scope (#4189)"
+        )
+        lines.append("")
+        lines.append(
+            "This issue's milestone's tracking (epic) issue declares a "
+            "tranche convention — scope the epic itself already deferred "
+            "to another issue, and NOT something this PR silently dropped. "
+            "Do not `request-changes` for anything this convention already "
+            "covers:"
+        )
+        lines.append("")
+        lines.append(tranche_convention_note)
+        lines.append("")
 
     if oracle_contract_note:
         # #3212 "Related mitigation": the same contract/mocks pointer the
@@ -3035,6 +3345,35 @@ def build_review_briefing(
                     "violation. Do **not** request-changes solely because this "
                     "diff touches the sealed acceptance tree — only flag it if the "
                     "diff also touches anything outside that tree."
+                )
+            if not _mandatory_sealed_paths and any(
+                msg.startswith(SEALED_AMENDMENT_APPLY_COMMIT_SUBJECT_PREFIX)
+                and "Approved-by:" in msg
+                and "Approved-at:" in msg
+                for msg in (commit_messages or [])
+            ):
+                # #4179, docs/ORACLE_LOOP.md "Sealed amendment as data" step
+                # 4: a commit with this subject is `coord acceptance
+                # apply-amendment` applying bytes a HUMAN already approved
+                # (never a model) — expected, not something this diff
+                # invented. Scope/tamper (anything outside sealed_paths) is
+                # already covered above; the one thing left for the
+                # reviewer to judge is the amendment's OWN effect, which
+                # this note keeps separate from "is this diff OK".
+                lines.append("")
+                lines.append("### Sealed-amendment apply commit")
+                lines.append("")
+                lines.append(
+                    "One of the commits above applies a sealed-amendment "
+                    "artifact a human approved outside this session "
+                    "(`coord acceptance approve-amendment` → "
+                    "`apply-amendment`) — its own commit message carries "
+                    "`Approved-by:`/`Approved-at:`/`Refs #N` for the issue "
+                    "the amendment unblocks. If the sealed suite is red "
+                    "after that commit, that is a finding on the issue it "
+                    "names, not a defect in this diff: do not request-"
+                    "changes asking for the amendment or the sealed suite "
+                    "itself to be edited further to make it pass."
                 )
             if sealed_entrypoints:
                 # #1552: the entry point is sealed, but the allowance on it is
@@ -3447,7 +3786,7 @@ def _resolve_pr_base_branch(
     repo,
     *,
     milestone_fetcher=None,
-) -> str:
+) -> tuple[str, int | None]:
     """Resolve the PR base branch for `completed` (#1077's develop_branch /
     milestone routing).
 
@@ -3455,15 +3794,24 @@ def _resolve_pr_base_branch(
     (#2844) so an early PR-open and the later review dispatch always agree
     on the base — opening against the wrong base would surface as a PR that
     `find_pr_for_branch` still finds, but whose diff nobody intended.
+
+    Returns ``(base_branch, milestone_number)``. The milestone number is
+    ``None`` both when the repo never opted into ``develop_branch`` (no
+    fetch is attempted here at all) and when the fetch ran and found none —
+    a caller that needs to tell those two apart checks
+    ``getattr(repo, "develop_branch", None)`` itself, same as this function
+    does (:func:`dispatch_review` does, to decide whether this fetch already
+    covers its own milestone lookup or a separate one is needed, #4189).
     """
     base_branch = repo.default_branch
+    milestone_number = None
     if getattr(repo, "develop_branch", None):
         from coord.branch_model import resolve_base_branch  # noqa: PLC0415
 
         fetch_milestone = milestone_fetcher or _fetch_issue_milestone_number
         milestone_number = fetch_milestone(repo.github, completed.issue_number)
         base_branch = resolve_base_branch(repo, milestone_number)
-    return base_branch
+    return base_branch, milestone_number
 
 
 def _fetch_gate_a_exempt_warning(
@@ -3541,6 +3889,67 @@ def _fetch_oracle_loop_contract_note(
     )
 
 
+def _fetch_tranche_convention_note(
+    repo: Repo,
+    milestone_number: int | None,
+    *,
+    open_issue_lister=None,
+    closed_epic_lister=None,
+) -> str | None:
+    """(#4189) Resolve *milestone_number*'s tracking (epic) issue and return
+    :func:`extract_tranche_convention` of its body — or ``None`` when there
+    is no milestone, no tracking issue is found under it, the section is
+    absent/empty, or the fetch failed.
+
+    Kept as a module-level name, sibling to :func:`_fetch_gate_a_exempt_warning`
+    / :func:`_fetch_oracle_loop_contract_note` above, same rationale: a test
+    can stub the two fetchers directly without reaching into
+    :mod:`coord.github_ops`. Takes *milestone_number* already resolved
+    rather than an *issue_number* it would re-resolve: its one caller
+    (:func:`dispatch_review`) resolves that number independently of
+    ``config.acceptance.has_driver`` — "has an acceptance driver" is not a
+    proxy for "the epic declared a tranche convention", so this is resolved
+    for every repo. It reuses whichever milestone fetch already ran
+    earlier in that dispatch (the ``develop_branch`` fetch, or the Gate-A
+    advisories' fetch) when one is in hand, and pays exactly one fresh `gh`
+    round-trip otherwise.
+
+    Resolves the tracking issue the SAME way :func:`coord.plans.
+    find_tracking_issue` already does everywhere else this fleet needs that
+    reverse lookup (milestone → epic) — open issues plus closed epics,
+    filtered to the one carrying :data:`coord.milestone_order.
+    TRACKING_ISSUE_LABEL` under this milestone — rather than re-deriving a
+    second, independent "which issue is the epic" rule here (CLAUDE.md:
+    "one question, one answer"). Both ``get_open_issues``/``get_closed_epics``
+    already request ``body`` on every item, so this needs no extra `gh`
+    call beyond the two list fetches to get the tracking issue's body too.
+
+    *open_issue_lister*/*closed_epic_lister* default to
+    :func:`coord.github_ops.get_open_issues` / :func:`~coord.github_ops.
+    get_closed_epics`; inject stubs in tests so this advisory lookup never
+    shells out live. Fail-open, same posture as every other best-effort
+    fetch ahead of a review briefing: a missing milestone, no tracking
+    issue, or a transient fetch failure all return ``None`` rather than
+    raise — advisory surfacing, never a gate.
+    """
+    if milestone_number is None:
+        return None
+
+    from coord.plans import find_tracking_issue  # noqa: PLC0415
+
+    list_open = open_issue_lister or github_ops.get_open_issues
+    list_closed = closed_epic_lister or github_ops.get_closed_epics
+    try:
+        candidates = list_open(repo.github) + list_closed(repo.github)
+    except Exception:  # noqa: BLE001 — fail-open: advisory, never blocking
+        return None
+
+    tracking = find_tracking_issue(milestone_number, candidates)
+    if tracking is None:
+        return None
+    return extract_tranche_convention(tracking.get("body") or "")
+
+
 def open_pr_for_completed_work(
     completed: Assignment,
     config: Config,
@@ -3576,7 +3985,7 @@ def open_pr_for_completed_work(
     if repo is None or not completed.branch:
         return None
 
-    base_branch = _resolve_pr_base_branch(
+    base_branch, _ = _resolve_pr_base_branch(
         completed, repo, milestone_fetcher=milestone_fetcher
     )
 
@@ -4239,6 +4648,9 @@ def dispatch_review(
     compare_diff_fetcher=None,
     gate_a_manifest_fetcher=None,
     exempt_dependency_issue_is_closed_fetcher=None,
+    tranche_open_issue_lister=None,
+    tranche_closed_epic_lister=None,
+    require_full_review_for_out_of_delta_gate: bool = False,
 ) -> Assignment | None:
     """Open a PR for `completed` and dispatch a review assignment.
 
@@ -4333,6 +4745,28 @@ def dispatch_review(
     layer (a manifest/parse failure yields no warnings), but the dependency
     check itself is fail-CLOSED once a manifest is in hand — see
     :func:`coord.acceptance.verify_exempt_dependency`'s docstring.
+
+    *tranche_open_issue_lister*/*tranche_closed_epic_lister* are the
+    ``open_issue_lister``/``closed_epic_lister`` passed through to
+    :func:`_fetch_tranche_convention_note` (#4189). Default to
+    :func:`coord.github_ops.get_open_issues` / :func:`~coord.github_ops.
+    get_closed_epics`; inject stubs in tests so this advisory lookup never
+    shells out to a live ``gh``. Entirely fail-open — see that function's
+    docstring.
+
+    *require_full_review_for_out_of_delta_gate* lets exactly one caller —
+    the out-of-delta merge gate's own auto-dispatch — through the "one
+    review per leg" guard below for a leg that already carries an approved
+    *scoped* verdict. That gate's whole point is to require a SECOND,
+    full-diff review on top of a scoped approval, so the ordinary single-
+    review invariant does not apply here. It also disables the #4002
+    `check_already_approved` SHA-match at the per-item gate below for the
+    same reason: that leg's current head IS the one the scoped approval
+    covers, so leaving the check on would deny the exact dispatch this
+    flag exists to make. Every other guard (the active-dispatch dedupe,
+    the atomic claim, the terminal-work/TOS checks) still runs unchanged,
+    so this still dispatches at most once per leg while a review is
+    pending or in flight for it.
     """
     # #1627: every early-exit guard below used to be a bare `return None`,
     # collapsing 11 distinct outcomes into one signal the caller couldn't
@@ -4436,42 +4870,49 @@ def dispatch_review(
     # where *completed*'s own snapshot is stale but the verdict already
     # landed durably — see that function's docstring for why the claim
     # table alone cannot close this gap.
-    if completed.review_verdict is not None:
-        return _deny(
-            f"assignment {completed.assignment_id} already has a recorded "
-            f"review verdict {completed.review_verdict!r} — refusing a "
-            "second review (#3670)"
-        )
-
-    from coord.state import has_recorded_review_verdict  # noqa: PLC0415
-
-    if has_recorded_review_verdict(completed.assignment_id):
-        return _deny(
-            f"assignment {completed.assignment_id} already has a recorded "
-            "review verdict in the database — refusing a second review "
-            "(#3670, stale board snapshot)"
-        )
-
-    # A scoped re-review that covered this leg carries the leg only in
-    # `review_scoped_work_id` until `propagate_review_verdict` re-points it,
-    # so neither check above sees it yet. Its verdict is about to land on
-    # this leg; a second, full review would only repeat it.
-    _scoped_cover = next(
-        (
-            a for a in list(board.active) + list(board.completed)
-            if a.review_scoped_work_id == completed.assignment_id
-            and review_covers(
-                a, completed.assignment_id, include_dead=False, board=board,
+    #
+    # Both this and the scoped-cover check right below are skipped when
+    # *require_full_review_for_out_of_delta_gate* is set — that caller is
+    # dispatching the SECOND, full review the out-of-delta gate requires on
+    # top of an already-recorded scoped approval, so the condition these
+    # checks refuse is exactly the one it means to produce.
+    if not require_full_review_for_out_of_delta_gate:
+        if completed.review_verdict is not None:
+            return _deny(
+                f"assignment {completed.assignment_id} already has a recorded "
+                f"review verdict {completed.review_verdict!r} — refusing a "
+                "second review (#3670)"
             )
-        ),
-        None,
-    )
-    if _scoped_cover is not None:
-        return _deny(
-            f"assignment {completed.assignment_id} is already covered by "
-            f"scoped review {_scoped_cover.assignment_id} "
-            f"({_scoped_cover.status}) — refusing a second review"
+
+        from coord.state import has_recorded_review_verdict  # noqa: PLC0415
+
+        if has_recorded_review_verdict(completed.assignment_id):
+            return _deny(
+                f"assignment {completed.assignment_id} already has a recorded "
+                "review verdict in the database — refusing a second review "
+                "(#3670, stale board snapshot)"
+            )
+
+        # A scoped re-review that covered this leg carries the leg only in
+        # `review_scoped_work_id` until `propagate_review_verdict` re-points
+        # it, so neither check above sees it yet. Its verdict is about to
+        # land on this leg; a second, full review would only repeat it.
+        _scoped_cover = next(
+            (
+                a for a in list(board.active) + list(board.completed)
+                if a.review_scoped_work_id == completed.assignment_id
+                and review_covers(
+                    a, completed.assignment_id, include_dead=False, board=board,
+                )
+            ),
+            None,
         )
+        if _scoped_cover is not None:
+            return _deny(
+                f"assignment {completed.assignment_id} is already covered by "
+                f"scoped review {_scoped_cover.assignment_id} "
+                f"({_scoped_cover.status}) — refusing a second review"
+            )
 
     # Dedupe: don't fire a second review if one's already in flight for this
     # completed work assignment. This in-memory check is a fast path only —
@@ -4565,9 +5006,50 @@ def dispatch_review(
         except Exception:  # noqa: BLE001 — fail-safe: missing SHA is not blocking
             pass
 
+        if require_full_review_for_out_of_delta_gate:
+            # The out-of-delta gate's whole point is a SECOND, full review
+            # on top of a head a *scoped* round already approved — but
+            # once a FULL (non-scoped) review has itself approved this
+            # exact head, the gate has already cleared (see
+            # `_out_of_delta_review_gate`) and nothing should dispatch
+            # another metered review for it. This is the "more rigorous
+            # check than a bare SHA match" that justifies bypassing the
+            # #4002 check below for a scoped-only approval, without
+            # reopening it for a head a full review already cleared.
+            from coord import merge_queue as mq  # noqa: PLC0415
+
+            if mq.full_review_already_approves_head(
+                board,
+                assignment_id=completed.assignment_id,
+                branch=completed.branch,
+                branch_head_sha=review_head_sha,
+            ):
+                return _deny(
+                    f"{completed.repo_name}#{completed.issue_number}'s "
+                    f"current head {(review_head_sha or '?')[:12]} already "
+                    "has a full (non-scoped) approving review in its work "
+                    "chain — the out-of-delta gate should already be "
+                    "clear; refusing a redundant dispatch"
+                )
+
         # #4002: the per-item gate — one review per (repo, issue) in flight
         # at a time, and never against a head already approved in this
         # work's chain. See `claim_review_item_dispatch_gate`'s docstring.
+        #
+        # *require_full_review_for_out_of_delta_gate* skips the SHA-match
+        # half of this gate (`check_already_approved=False`) for exactly
+        # the same reason it skips the #3670 checks above: the caller's own
+        # out-of-delta verdict already established that this exact head —
+        # approved only by a scoped round — still needs a full review, so
+        # the #4002 "head already approved" refusal would otherwise deny
+        # the very dispatch this gate exists to make (mirrors
+        # `dispatch_scoped_review`'s `is_base_move` use of the same
+        # parameter, for the same kind of already-verified-elsewhere head).
+        # The check immediately above already ruled out the one case this
+        # bypass would otherwise wrongly let through — a head a full review
+        # has already approved — so disabling it here is safe; the
+        # in-flight/dedupe half of the gate (one lease per (repo, issue))
+        # still applies unchanged.
         _item_allowed, _item_deny_reason = claim_review_item_dispatch_gate(
             repo_name=completed.repo_name,
             issue_number=effective_issue_number(completed),
@@ -4577,6 +5059,7 @@ def dispatch_review(
             board=board,
             branch_sha_fetcher=branch_sha_fetcher,
             head_sha=review_head_sha,
+            check_already_approved=not require_full_review_for_out_of_delta_gate,
         )
         if not _item_allowed:
             return _deny(_item_deny_reason)
@@ -4645,7 +5128,7 @@ def dispatch_review(
         # `branch` payload field below, so they never disagree. The milestone
         # lookup itself is skipped entirely (no `gh` call) when the repo hasn't
         # opted in — a non-opted-in repo pays zero extra cost.
-        base_branch = _resolve_pr_base_branch(
+        base_branch, _develop_branch_milestone_number = _resolve_pr_base_branch(
             completed, repo, milestone_fetcher=milestone_fetcher
         )
 
@@ -4823,6 +5306,18 @@ def dispatch_review(
         # uses at merge time to fingerprint `branch_patch_id` — so the two
         # sides of the "did the content change" question are always computed
         # the same way, whether or not a PR happens to exist yet.
+        #
+        # Diffs against the already-resolved `review_head_sha` (fetched
+        # live above, before this branch opened), not the bare
+        # `completed.branch` ref name, whenever that resolution succeeded —
+        # same reasoning as `dispatch_scoped_review`'s own live-head
+        # resolution: two separate live reads of a ref name can each
+        # observe a different commit if a push lands in between, so diffing
+        # against the sha already recorded as `review_head_sha` is the only
+        # way to guarantee the diff shown here and the sha this review is
+        # recorded against can't end up naming two different commits. Falls
+        # back to the ref name when the sha resolution failed, same
+        # fail-open posture as everywhere else in this function.
         _diff = diff_fetcher or github_ops.pr_diff
         if pr:
             full_diff_text = _diff(repo.github, pr["number"], max_chars=None)
@@ -4830,7 +5325,7 @@ def dispatch_review(
             _compare_diff_pre_pr = compare_diff_fetcher or github_ops.get_compare_diff
             try:
                 full_diff_text = _compare_diff_pre_pr(
-                    repo.github, base_branch, completed.branch
+                    repo.github, base_branch, review_head_sha or completed.branch
                 )
             except Exception:  # noqa: BLE001 — fail-safe: missing diff is not blocking
                 full_diff_text = None
@@ -5129,6 +5624,38 @@ def dispatch_review(
         except Exception:  # noqa: BLE001 — fail-open: advisory, never blocking
             oracle_contract_note_text = None
 
+        # #4189: does this issue's milestone's tracking (epic) issue declare
+        # a tranche convention? Resolved independently of
+        # `config.acceptance.has_driver` — that predicate means "does this
+        # repo run the oracle loop", unrelated to whether the epic declared
+        # deferred scope, so every repo (including the ones with no
+        # acceptance driver configured) gets this lookup. Reuses whichever
+        # milestone fetch already ran earlier on THIS dispatch instead of
+        # paying twice: `_resolve_pr_base_branch`'s `develop_branch` fetch
+        # above when the repo opted into that git model, or
+        # `_gate_a_milestone_number`'s fetch when the repo has an
+        # acceptance driver. Only a repo with NEITHER pays a fresh `gh`
+        # call here.
+        if getattr(repo, "develop_branch", None):
+            _tranche_milestone_number = _develop_branch_milestone_number
+        elif config.acceptance.has_driver(repo.name):
+            _tranche_milestone_number = _gate_a_milestone_number
+        else:
+            try:
+                _tranche_milestone_number = _fetch_ms(
+                    repo.github, completed.issue_number
+                )
+            except Exception:  # noqa: BLE001 — fail-open: advisory, never blocking
+                _tranche_milestone_number = None
+        try:
+            tranche_convention_note_text = _fetch_tranche_convention_note(
+                repo, _tranche_milestone_number,
+                open_issue_lister=tranche_open_issue_lister,
+                closed_epic_lister=tranche_closed_epic_lister,
+            )
+        except Exception:  # noqa: BLE001 — fail-open: advisory, never blocking
+            tranche_convention_note_text = None
+
         # #3674: the pre-review mechanical gate runs FIRST, ahead of the
         # #3180 sealed-path/coordinator-doc check below — both are "mechanical,
         # before a review leg is spent" short-circuits, but this one's checks
@@ -5319,6 +5846,7 @@ def dispatch_review(
                 gate_a_exempt_warning=gate_a_exempt_warning_text,
                 exempt_dependency_warnings=exempt_dependency_warnings_text,
                 oracle_contract_note=oracle_contract_note_text,
+                tranche_convention_note=tranche_convention_note_text,
             )
 
             payload = {
@@ -6518,6 +7046,14 @@ def build_scoped_review_briefing(
     missing line must never silently read as "resolved".
     """
     is_fix_round = prior_verdict != "approve"
+    # #4187: each prior blocking finding gets a stable, content-derived id
+    # (`finding_id`) so this briefing can say "finding #id: text" instead of
+    # handing the whole section over as one opaque blob, and the
+    # re-reviewer's response (parsed by `parse_scoped_rereview_classification`)
+    # can classify each one by id rather than free prose.
+    prior_findings = (
+        parse_blocking_findings(prior_findings_body) if is_fix_round and prior_findings_body else []
+    )
     lines: list[str] = []
     lines.append(f"# Scoped re-review: {repo_github} PR #{pr_number}")
     lines.append("")
@@ -6547,6 +7083,14 @@ def build_scoped_review_briefing(
             (prior_findings_body or "(prior findings text unavailable)").strip()
         )
         lines.append("")
+        if prior_findings:
+            lines.append(
+                "### Prior blocking findings, with stable ids (classify EVERY "
+                "one of these by id below)"
+            )
+            lines.append("")
+            lines.append(format_findings_with_ids(prior_findings))
+            lines.append("")
     elif is_base_move:
         # #3917/#3935/#3948: the branch itself never moved — only the base
         # it merges against did — so there is no delta *of diffs* to show
@@ -6697,6 +7241,61 @@ def build_scoped_review_briefing(
             "re-raise non-blocking concerns or nits from the prior review as "
             "new blocking findings — they were already non-blocking."
         )
+        if prior_findings:
+            lines.append("")
+            lines.append(
+                "2a. Classify EVERY one of the id-tagged findings above, by "
+                "id, in a new `## Finding resolution` section inside "
+                "`REVIEW_BODY:` (in addition to the three required headings "
+                "below) — two lines, each listing the relevant ids "
+                "comma-separated:"
+            )
+            lines.append("")
+            lines.append("```")
+            lines.append("## Finding resolution")
+            # #4187 review: a PLACEHOLDER id, never one of the real ids
+            # above — a reviewer who copies this block verbatim without
+            # actually checking must not end up marking a real finding
+            # resolved by accident (the fail-closed design's entire point
+            # is that an unchecked finding reads as unresolved, not the
+            # reverse).
+            lines.append("resolved: finding#abc123 (replace with real ids, or `(none)`)")
+            lines.append("unresolved: finding#def456 (likewise, or `(none)`)")
+            lines.append("```")
+            lines.append("")
+            lines.append(
+                "An id you omit from BOTH lines is read as `unresolved` "
+                "(fail-closed) — never as resolved by default; list every id "
+                "exactly once."
+            )
+            lines.append("")
+            lines.append(
+                "2b. If, while reading the delta, you spot a genuinely NEW "
+                "blocking problem — not one of the ids above — list it under "
+                "one of two headings depending on where it lives, each "
+                "inside `REVIEW_BODY:`:"
+            )
+            lines.append("")
+            lines.append(
+                "- `## New blocking findings (in delta)` — a new bug the "
+                "delta ITSELF introduces. Treat exactly like any other "
+                "blocking finding: `request-changes`."
+            )
+            lines.append(
+                "- `## New non-blocking findings (out of delta)` — something "
+                "you noticed OUTSIDE the delta you were scoped to review "
+                "(code this round never touched). Do **not** "
+                "`request-changes` for this alone — list it here instead; "
+                "the coordinator records it as non-blocking for THIS round "
+                "but will require one full, non-scoped review of the whole "
+                "PR before it can merge. Use this exact heading text — not "
+                "'blocking', which is reserved for a finding that blocks "
+                "THIS round's own verdict."
+            )
+            lines.append(
+                "Write `None.` under a heading that doesn't apply — same "
+                "convention as the three required headings."
+            )
     elif is_base_move:
         lines.append(
             "2. `approve` unless the diff, read against the new base, now "
@@ -6760,6 +7359,14 @@ def build_scoped_review_briefing(
         "all three: `## Blocking findings`, `## Non-blocking concerns`, "
         "`## Nits`. Write the single line `None.` under a heading with "
         "nothing under it."
+        + (
+            " PLUS, for this fix round, the three additional headings "
+            "from step 2a/2b above: `## Finding resolution`, "
+            "`## New blocking findings (in delta)`, `## New non-blocking "
+            "findings (out of delta)`."
+            if is_fix_round and prior_findings
+            else ""
+        )
     )
     lines.append(
         "FORMAT CONTRACT — `REVIEW_VERDICT:`, `REVIEW_BODY:`, and "
@@ -6811,15 +7418,22 @@ def dispatch_scoped_review(
     ``coord.merge_queue.QueuedMerge``.
 
     *diff_fetcher* defaults to :func:`coord.github_ops.get_compare_diff`
-    (``(repo, base, ref) -> str | None``); inject a stub in tests. Fetches
-    the diff *prior_review* covered (``target_branch...prior_review.
-    review_head_sha``) and the branch's current diff (``target_branch...
-    entry.branch``), computes the resolution delta between them, and — only
-    when that delta is non-empty — dispatches a review briefed on just the
-    delta. Returns ``None`` (caller falls back to a full :func:`dispatch_review`)
-    when either diff can't be fetched, the delta comes back empty, no
-    reviewer machine is available, or every candidate agent rejects the
-    dispatch — never guesses at scope from partial information.
+    (``(repo, base, ref) -> str | None``); inject a stub in tests. Resolves
+    ``entry.branch``'s live head sha first — the same resolution this
+    dispatch records as ``review_head_sha`` — and fetches the branch's
+    current diff against that resolved sha rather than against the bare
+    ref name whenever the resolution succeeds, so the diff shown to the
+    reviewer and the sha this dispatch records can't name two different
+    commits (falls back to the ref name on a sha-fetch failure, same as a
+    diff fetch failure further down — fail-open, never blocking). Also
+    fetches the diff *prior_review* covered (``target_branch...
+    prior_review.review_head_sha``), computes the resolution delta between
+    the two, and — only when that delta is non-empty — dispatches a review
+    briefed on just the delta. Returns ``None`` (caller falls back to a
+    full :func:`dispatch_review`) when either diff can't be fetched, the
+    delta comes back empty, no reviewer machine is available, or every
+    candidate agent rejects the dispatch — never guesses at scope from
+    partial information.
 
     Returns the new review Assignment (already appended to ``board.active``,
     with ``review_scoped=True`` and ``review_scope_base_sha=prior_review.
@@ -6963,9 +7577,33 @@ def dispatch_scoped_review(
 
     base_branch = entry.target_branch or repo.default_branch
 
+    # Resolve the branch's live head sha ONCE, before fetching any diff, and
+    # fetch every diff against that exact commit rather than against
+    # `entry.branch`'s ref name. `get_compare_diff` always resolves a ref
+    # name to whatever is current at the moment of that call — two separate
+    # calls against the ref name (one for the diff, a later one for
+    # `review_head_sha`) could each observe a different commit if a push
+    # lands in between, so the sha this review is recorded against could
+    # end up naming a commit whose content the reviewer was never actually
+    # shown. Resolving first and diffing against the resolved sha closes
+    # that window: whatever gets diffed and whatever gets recorded as
+    # `review_head_sha` are provably the same commit.
+    _get_sha = branch_sha_fetcher or github_ops.get_branch_sha
+    review_head_sha: str | None = None
+    try:
+        review_head_sha = _get_sha(repo.github, entry.branch)
+    except Exception:  # noqa: BLE001 — fail-safe: missing SHA is not blocking
+        pass
+
+    # Diff against the resolved sha itself whenever it's available, rather
+    # than the bare ref name, so the diff just fetched and `review_head_sha`
+    # below can never name two different commits. Falls back to the ref
+    # name on the (rare) sha-fetch failure — same as before this sha was
+    # ever resolved up front — so a transient `branch_sha_fetcher` failure
+    # still gets a diff, just without the same-commit guarantee.
     _diff = diff_fetcher or github_ops.get_compare_diff
     try:
-        new_diff = _diff(repo.github, base_branch, entry.branch)
+        new_diff = _diff(repo.github, base_branch, review_head_sha or entry.branch)
     except Exception:  # noqa: BLE001
         new_diff = None
 
@@ -7090,13 +7728,6 @@ def dispatch_scoped_review(
         issue_labels=cached_issue_labels(entry.repo_name, entry.issue_number),
     )
     review_model_wire = config.models.resolve(review_model_alias)
-
-    _get_sha = branch_sha_fetcher or github_ops.get_branch_sha
-    review_head_sha: str | None = None
-    try:
-        review_head_sha = _get_sha(repo.github, entry.branch)
-    except Exception:  # noqa: BLE001 — fail-safe: missing SHA is not blocking
-        pass
 
     # #3787 review round 2 (blocking): this scoped path reaches the same
     # request-changes -> fix -> re-review bounce chain `dispatch_review`

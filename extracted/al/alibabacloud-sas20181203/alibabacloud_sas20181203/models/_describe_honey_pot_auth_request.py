@@ -9,9 +9,9 @@ class DescribeHoneyPotAuthRequest(DaraModel):
         self,
         lang: str = None,
     ):
-        # The language of the request and response. Default value: **zh**. Valid values:
+        # Specifies the language of the request and response. Default value: **zh**. Valid values:
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
 
     def validate(self):

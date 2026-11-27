@@ -38,11 +38,11 @@ class MirrorForce(FixConstraint):
     between atom1-2 and atom3-4:
 
     >>> from ase.build import bulk
-
-    >>> atoms = bulk('Cu', 'fcc', a=3.6)
+    >>> from ase.constraints import FixBondLength, MirrorForce
+    >>> atoms = bulk('Cu', 'fcc', a=3.6, cubic=True)
     >>> atom1, atom2, atom3, atom4 = atoms[:4]
-    >>> con1 = MirrorForce(atom1, atom2)
-    >>> con2 = FixBondLength(atom3, atom4)
+    >>> con1 = MirrorForce(0, 1)
+    >>> con2 = FixBondLength(2, 3)
     >>> atoms.set_constraint([con1, con2])
 
     """

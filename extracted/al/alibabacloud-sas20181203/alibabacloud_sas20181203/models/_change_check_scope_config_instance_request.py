@@ -14,13 +14,14 @@ class ChangeCheckScopeConfigInstanceRequest(DaraModel):
         delete_asset_uuids: List[str] = None,
         selection_key: str = None,
     ):
-        # The UUIDs of the cloud assets to add.
+        # The list of UUIDs of the cloud assets to add.
         self.add_asset_uuids = add_asset_uuids
-        # The ID of the scan scope configuration. You can call the [GetCheckScopeConfig](~~GetCheckScopeConfig~~) operation to obtain the ID.
+        # The ID of the scan scope configuration.
+        # >You can call the [GetCheckScopeConfig](~~GetCheckScopeConfig~~) operation to obtain this parameter.
         # 
         # This parameter is required.
         self.config_id = config_id
-        # The UUIDs of the cloud assets to delete.
+        # The list of UUIDs of the cloud assets to delete.
         self.delete_asset_uuids = delete_asset_uuids
         # The cross-page select-all key.
         self.selection_key = selection_key

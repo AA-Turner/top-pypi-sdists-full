@@ -57,3 +57,10 @@ def test_unconstrained_forces(neb: NEB) -> None:
         forces_unconstrained = atoms.get_forces(apply_constraint=False)
         forces_constrained = atoms.get_forces(apply_constraint=True)
         assert not np.allclose(forces_unconstrained, forces_constrained)
+
+
+def test_other_properties(neb: NEB) -> None:
+    """Test if NEB images have properties other than `energy` and `forces`."""
+    for atoms in neb.iterimages():
+        for key in ('energy', 'forces', 'stress'):
+            assert key in atoms.calc.results

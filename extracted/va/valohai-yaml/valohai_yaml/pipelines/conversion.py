@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypedDict, Union
+from typing import Any, TypedDict, Union
 
 from valohai_yaml.objs import (
     Config,
@@ -9,13 +9,12 @@ from valohai_yaml.objs import (
     Node,
     Pipeline,
     PipelineParameter,
+    Step,
     Task,
     TaskNode,
 )
 from valohai_yaml.objs.pipelines.override import Override
-
-if TYPE_CHECKING:
-    from collections.abc import MutableMapping
+from valohai_yaml.utils import snake_case_keys
 
 ConvertedObject = dict[str, Any]
 
@@ -29,6 +28,11 @@ class VariantExpression(TypedDict):
 
 ExpressionValue = Union[str, int, bool, float, VariantExpression]
 
+# Step fields that are named differently in the API's execution template.
+STEP_TO_TEMPLATE_FIELD_RENAMES = {
+    "stop_condition": "stop_expression",
+}
+
 
 class ConvertedPipeline(TypedDict):
     """TypedDict for converted Pipeline object."""
@@ -36,6 +40,7 @@ class ConvertedPipeline(TypedDict):
     edges: list[ConvertedObject]
     nodes: list[ConvertedObject]
     parameters: dict[str, ConvertedObject]
+    tags: list[str]
 
 
 class PipelineConverter:
@@ -57,6 +62,7 @@ class PipelineConverter:
             "edges": [edge.get_expanded() for edge in pipeline.edges],
             "nodes": [self.convert_node(node) for node in pipeline.nodes],
             "parameters": {parameter.name: self.convert_parameter(parameter) for parameter in pipeline.parameters},
+            "tags": list(pipeline.tags),
         }
 
     def convert_parameter(self, parameter: PipelineParameter) -> ConvertedObject:
@@ -79,10 +85,10 @@ class PipelineConverter:
             return self.convert_executionlike_node(node)
         if isinstance(node, DeploymentNode):
             return self.convert_deployment_node(node)
-        return node.serialize()  # Assume default serialization works
+        return snake_case_keys(node.serialize())  # Assume default serialization works
 
     def convert_deployment_node(self, node: DeploymentNode) -> ConvertedObject:
-        node_data = node.serialize()
+        node_data = snake_case_keys(node.serialize())
         node_data["commit"] = self.commit_identifier
         node_data["endpoint_configurations"] = {
             f"{name}": {
@@ -99,7 +105,7 @@ class PipelineConverter:
         self,
         node: ExecutionNode | TaskNode,
     ) -> ConvertedObject:
-        node_data = node.serialize()
+        node_data = snake_case_keys(node.serialize())
         node_data.pop("override", None)  # we'll use the actual object, not the serialization
         node_commit = node_data.pop("commit", None)
 
@@ -112,32 +118,15 @@ class PipelineConverter:
                 raise ValueError(f"Task {task_name} not found in {self.config}")
             step_name = task_blueprint.step
 
-        step_data: MutableMapping[str, Any]
         if not node_commit or node_commit == self.commit_identifier:
             # Local step, let's do validation and merging properly
             step = self.config.get_step_by(name=step_name)
             if not step:  # pragma: no cover
                 raise ValueError(f"Step {step_name} not found in {self.config}")
-            step_data = step.serialize()
-            runtime_config = step_data.setdefault("runtime_config", {})
-            if "no-output-timeout" in step_data:
-                runtime_config.setdefault(
-                    "no_output_timeout",
-                    step_data.pop("no-output-timeout"),
-                )
-            override = Override.merge_with_step(node.override, step)
-            overridden_to_template = Override.serialize_to_template(override)
-            step_data.update(overridden_to_template)
+            step_data = get_local_step_template_data(step, node.override)
         else:
-            # This is a remote step reference.
-            # Just add in overrides and hope for the best...
-            step_data = node.override.serialize() if node.override else {}
-
-        # Folded in after the override merge, so that a node can override the step's value.
-        # `None` means "not set anywhere"; an explicit `false` is kept.
-        autorestart = step_data.pop("autorestart", None)
-        if autorestart is not None:
-            step_data.setdefault("runtime_config", {})["autorestart"] = autorestart
+            # This is a remote step reference, so we can't merge with the step
+            step_data = get_remote_step_template_data(node.override)
 
         commit = node_commit or self.commit_identifier
 
@@ -151,11 +140,7 @@ class PipelineConverter:
         }
 
         if task_blueprint:
-            task_to_template = Task.serialize_to_template(task_blueprint)
-            task_variant_parameters = task_to_template.pop("variant_parameters", None)
-            node_data["template"].update(task_to_template)
-            if task_variant_parameters:
-                node_data["template"].setdefault("parameters", {}).update(task_variant_parameters)
+            apply_task_blueprint(node_data["template"], task_blueprint)
 
         return node_data
 
@@ -166,3 +151,44 @@ class PipelineConverter:
                 rules={"value": expression},
             )
         return expression
+
+
+def get_local_step_template_data(step: Step, override: Override | None) -> ConvertedObject:
+    """Build template data for a step available locally, merging the node's overrides into it."""
+    step_data = snake_case_keys(step.serialize())
+    runtime_config = step_data.setdefault("runtime_config", {})
+    if "no_output_timeout" in step_data:
+        runtime_config.setdefault("no_output_timeout", step_data.pop("no_output_timeout"))
+    step_data.update(Override.serialize_to_template(Override.merge_with_step(override, step)))
+    return finalize_template_data(step_data)
+
+
+def get_remote_step_template_data(override: Override | None) -> ConvertedObject:
+    """Build template data for a step not available locally; only the node's overrides are known."""
+    step_data = Override.serialize_to_template(override) if override else {}
+    # Don't send empty mappings, to not override a remote step's defaults with nothing
+    for key in ("inputs", "parameters"):
+        if not step_data.get(key):
+            step_data.pop(key, None)
+    return finalize_template_data(step_data)
+
+
+def finalize_template_data(step_data: ConvertedObject) -> ConvertedObject:
+    # Folded in after the override merge, so that a node can override the step's value.
+    # `None` means "not set anywhere"; an explicit `false` is kept.
+    autorestart = step_data.pop("autorestart", None)
+    if autorestart is not None:
+        step_data.setdefault("runtime_config", {})["autorestart"] = autorestart
+    step_data = {STEP_TO_TEMPLATE_FIELD_RENAMES.get(key, key): value for key, value in step_data.items()}
+    return {key: value for key, value in step_data.items() if key not in Step.METADATA_FIELDS}
+
+
+def apply_task_blueprint(template: ConvertedObject, task_blueprint: Task) -> None:
+    task_to_template = Task.serialize_to_template(task_blueprint)
+    task_variant_parameters = task_to_template.pop("variant_parameters", None)
+    task_tags = task_to_template.pop("tags", [])
+    template.update(task_to_template)
+    if task_variant_parameters:
+        template.setdefault("parameters", {}).update(task_variant_parameters)
+    if task_tags:
+        template["tags"] = list(dict.fromkeys([*template.get("tags", []), *task_tags]))

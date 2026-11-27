@@ -11,10 +11,16 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from __future__ import annotations
+
 import os
 import warnings
+from typing import TYPE_CHECKING, Any
 
 from pylxd import exceptions
+
+if TYPE_CHECKING:
+    from pylxd.client import Client
 
 MISSING = object()
 
@@ -38,6 +44,15 @@ class Attribute:
         self.readonly = readonly
         self.optional = optional
 
+    if TYPE_CHECKING:
+        # ModelType replaces declarations with slots, so instances hold the
+        # attribute's value rather than this object.
+        def __get__(self, instance: Any, owner: Any) -> Any:
+            """Return the value held by the model instance."""
+
+        def __set__(self, instance: Any, value: Any) -> None:
+            """Store a value on the model instance."""
+
 
 class Manager:
     """A manager declaration.
@@ -46,12 +61,30 @@ class Manager:
     attribute.
     """
 
+    if TYPE_CHECKING:
+        # ModelType replaces declarations with slots, so instances hold the
+        # manager rather than this object.
+        def __get__(self, instance: Any, owner: Any) -> Any:
+            """Return the value held by the model instance."""
+
+        def __set__(self, instance: Any, value: Any) -> None:
+            """Store a value on the model instance."""
+
 
 class Parent:
     """A parent declaration.
 
     Child managers must keep a reference to their parent.
     """
+
+    if TYPE_CHECKING:
+        # ModelType replaces declarations with slots, so instances hold the
+        # parent model rather than this object.
+        def __get__(self, instance: Any, owner: Any) -> Any:
+            """Return the value held by the model instance."""
+
+        def __set__(self, instance: Any, value: Any) -> None:
+            """Store a value on the model instance."""
 
 
 class ModelType(type):
@@ -126,6 +159,7 @@ class Model(metaclass=ModelType):
 
     NotFound = exceptions.NotFound
     __slots__ = ["client", "__dirty__"]
+    client: Client
 
     def __init__(self, client, **kwargs):
         self.__dirty__ = set()
@@ -277,6 +311,11 @@ class Model(metaclass=ModelType):
         This method should write the new data to the server via marshalling.
         It should be a no-op when the object is not dirty, to prevent needless
         I/O.
+
+        With ``wait=True`` the object is synced back once the update has
+        finished, as LXD may change some fields itself (for example volatile
+        keys on instances). With ``wait=False`` it is left as it was, so call
+        :meth:`sync` before saving it again.
         """
         marshalled = self.marshall()
         response = self.api.put(json=marshalled)
@@ -284,6 +323,12 @@ class Model(metaclass=ModelType):
         # Use helper method for JSON parsing
         self._handle_async_response(response, wait)
         self.__dirty__.clear()
+
+        # Without a refresh, the next save() would send the old values of
+        # fields the server changed and LXD can reject them, e.g. a stale
+        # volatile.idmap.next in a restricted project.
+        if wait:
+            self.sync(rollback=True)
 
     def delete(self, wait=False):
         """Delete an object from the server."""

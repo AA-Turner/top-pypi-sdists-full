@@ -48,16 +48,20 @@ def force_temperature(
     """
 
     if unit == 'K':
-        target_temp = temperature * units.kB
+        target_temperature = temperature
     elif unit == 'eV':
-        target_temp = temperature
+        target_temperature = temperature / units.kB
     else:
         raise UnitError(f"'{unit}' is not supported, use 'K' or 'eV'.")
 
-    if temperature > eps_temp:
-        ndof = atoms.get_number_of_degrees_of_freedom()
-        current_temp = 2 * atoms.get_kinetic_energy() / ndof
-        scale = target_temp / current_temp
+    temperature_atoms = atoms.get_temperature()
+
+    if (temperature_atoms < eps_temp) and (target_temperature > 0.0):
+        msg = 'Cannot rescale system at 0 K to finite temperature.'
+        raise RuntimeError(msg)
+
+    if target_temperature > 0.0:
+        scale = target_temperature / temperature_atoms
     else:
         scale = 0.0
 

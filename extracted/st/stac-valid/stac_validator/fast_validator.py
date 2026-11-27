@@ -9,6 +9,7 @@ import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from urllib.parse import urljoin
 
 import click
 import fastjsonschema  # type: ignore
@@ -139,6 +140,9 @@ VALIDATOR_BUILDS: Dict[Any, "Future[Any]"] = {}
 CACHE_LOCK = threading.Lock()
 # Dynamically determine writable cache directory across environments
 LOCAL_SCHEMA_DIR = get_cache_directory()
+
+# Default cap on "next" pages followed per paginated API endpoint
+DEFAULT_MAX_PAGES = 1000
 
 # Shared HTTP session with keep-alive connection pooling and retries for crawler workloads.
 HTTP_SESSION = requests.Session()
@@ -704,6 +708,12 @@ class FastValidator:
         verbose: bool = False,
         limit: Optional[int] = None,
         validate_geometry: bool = False,
+        max_depth: Optional[int] = None,
+        headers: Optional[Dict[str, str]] = None,
+        timeout: float = 15,
+        session: Optional[requests.Session] = None,
+        keep_documents: bool = False,
+        max_pages: Optional[int] = None,
     ):
         self.stac_file = stac_file
         self.quiet = quiet
@@ -711,6 +721,28 @@ class FastValidator:
         self.verbose = verbose
         self.limit = limit
         self.validate_geometry = validate_geometry
+        # Maximum recursion depth (root = 0); None means unlimited
+        self.max_depth = max_depth
+        # Transport for STAC resource fetches; schema fetching always uses
+        # the module-level HTTP_SESSION
+        self.timeout = timeout
+        self.session = session or HTTP_SESSION
+        self.headers = headers
+        # Opt-in result path -> loaded document map for consumers that need
+        # the documents without re-fetching
+        self.keep_documents = keep_documents
+        self.loaded_objects: Dict[str, Any] = {}
+        # Maximum "next" pages consumed per paginated endpoint, counting the
+        # first page; 0 follows every page, None uses the default cap.
+        # Endpoints cut short by the cap are recorded as
+        # (first page path, pages consumed).
+        if max_pages is not None and max_pages < 0:
+            raise ValueError("max_pages must be 0 or greater")
+        self.max_pages = DEFAULT_MAX_PAGES if max_pages is None else max_pages
+        self.truncated_endpoints: List[Tuple[str, int]] = []
+        # Per-thread sessions for parallel fetches (requests.Session is not
+        # documented thread-safe)
+        self._thread_local = threading.local()
         self.message: List[Dict[str, Any]] = []
 
     def _validate_datetime_range(self, data: Dict[str, Any]) -> None:
@@ -817,14 +849,60 @@ class FastValidator:
         for ext_schema in extensions:
             validate_with_ref_resolver(ext_schema, item)
 
+    @staticmethod
+    def _resolve_link_path(file_path: str, href: str) -> str:
+        """Resolve a link href relative to the document containing it.
+
+        os.path.normpath collapses "//" to "/", which corrupts URLs like
+        "https://host" into "https:/host", so URL bases use urljoin instead.
+        """
+        if href.startswith("http"):
+            return href
+        if file_path.startswith("http"):
+            return urljoin(file_path, href)
+        return os.path.normpath(os.path.join(os.path.dirname(file_path), href))
+
+    def _session_for_current_thread(self) -> requests.Session:
+        """Return the session to use on the current thread.
+
+        requests.Session is not documented thread-safe, so worker threads in
+        the parallel prefetch get their own session mirroring the base one.
+        A user-supplied session is always used as-is (its thread-safety is
+        the caller's responsibility).
+        """
+        if self.session is not HTTP_SESSION:
+            return self.session
+        if threading.current_thread() is threading.main_thread():
+            return HTTP_SESSION
+        sess = getattr(self._thread_local, "session", None)
+        if sess is None:
+            sess = requests.Session()
+            sess.mount("http://", _http_adapter)
+            sess.mount("https://", _http_adapter)
+            sess.headers.update(HTTP_SESSION.headers)
+            # Preserve instance-level overrides, e.g. a monkeypatched get()
+            override = HTTP_SESSION.__dict__.get("get")
+            if override is not None:
+                sess.get = override  # type: ignore[method-assign]
+            self._thread_local.session = sess
+        return sess
+
     def _load_json_resource(self, resource_path: str) -> Dict[str, Any]:
         if resource_path.startswith("http"):
-            response = HTTP_SESSION.get(resource_path, timeout=15)
+            # Only pass headers when configured so custom sessions and
+            # patched HTTP_SESSION.get signatures keep working
+            kwargs: Dict[str, Any] = {"timeout": self.timeout}
+            if self.headers:
+                kwargs["headers"] = self.headers
+            response = self._session_for_current_thread().get(resource_path, **kwargs)
             response.raise_for_status()
-            return response.json()
-
-        with open(resource_path, "r") as f:
-            return json.load(f)
+            data = response.json()
+        else:
+            with open(resource_path, "r") as f:
+                data = json.load(f)
+        if self.keep_documents:
+            self.loaded_objects[resource_path] = data
+        return data
 
     def _get_parallel_fetch_workers(self, item_count: int) -> int:
         return max(1, min(8, item_count))
@@ -865,7 +943,7 @@ class FastValidator:
         return results_parallel
 
     def _prefetch_api_collection_resources(
-        self, collection_url: str
+        self, collection_url: str, remaining_capacity: Optional[int] = None
     ) -> Tuple[str, Optional[Dict[str, Dict[str, Any]]], Optional[Exception]]:
         try:
             collection_data = self._load_json_resource(collection_url)
@@ -873,7 +951,10 @@ class FastValidator:
             return collection_url, None, exc
 
         resources = {collection_url: collection_data}
-        base_dir = collection_url.rsplit("/", 1)[0]
+
+        # Don't fetch items pages when the result limit is already exhausted
+        if remaining_capacity is not None and remaining_capacity <= 0:
+            return collection_url, resources, None
 
         for link in collection_data.get("links", []):
             if link.get("rel") != "items":
@@ -883,24 +964,27 @@ class FastValidator:
             if not href:
                 continue
 
-            if href.startswith("http"):
-                items_path = href
-            else:
-                items_path = os.path.normpath(os.path.join(base_dir, href))
+            items_path = self._resolve_link_path(collection_url, href)
 
             try:
                 resources[items_path] = self._load_json_resource(items_path)
-            except Exception:
-                pass
+            except Exception as exc:
+                # The link loop retries and reports the failure; log so the
+                # prefetch error itself isn't invisible
+                logger.warning("Prefetch failed for %s: %s", items_path, exc)
 
         return collection_url, resources, None
 
     def _prefetch_api_collection_resources_batch(
-        self, collection_urls: List[str]
+        self,
+        collection_urls: List[str],
+        remaining_capacity: Optional[int] = None,
     ) -> List[Tuple[str, Optional[Dict[str, Dict[str, Any]]], Optional[Exception]]]:
         if len(collection_urls) <= 1:
             return [
-                self._prefetch_api_collection_resources(collection_url)
+                self._prefetch_api_collection_resources(
+                    collection_url, remaining_capacity
+                )
                 for collection_url in collection_urls
             ]
 
@@ -912,7 +996,11 @@ class FastValidator:
                     Tuple[str, Optional[Dict[str, Dict[str, Any]]], Optional[Exception]]
                 ]
             ] = [
-                executor.submit(self._prefetch_api_collection_resources, collection_url)
+                executor.submit(
+                    self._prefetch_api_collection_resources,
+                    collection_url,
+                    remaining_capacity,
+                )
                 for collection_url in collection_urls
             ]
             return [future.result() for future in futures]
@@ -1020,8 +1108,35 @@ class FastValidator:
         try:
             data = self._load_json_resource(self.stac_file)
         except Exception as e:
-            click.secho(f"❌ Error reading {self.stac_file}: {e}", fg="red", bold=True)
+            if not self.quiet:
+                click.secho(
+                    f"❌ Error reading {self.stac_file}: {e}", fg="red", bold=True
+                )
             self.valid = False
+            self.message = [
+                {
+                    "path": self.stac_file,
+                    "id": "unknown",
+                    "valid_stac": False,
+                    "stac_type": "unknown",
+                    "stac_version": "unknown",
+                    "error_message": f"Failed to load: {e}",
+                }
+            ]
+            return
+
+        if not isinstance(data, dict):
+            self.valid = False
+            self.message = [
+                {
+                    "path": self.stac_file,
+                    "id": "unknown",
+                    "valid_stac": False,
+                    "stac_type": "unknown",
+                    "stac_version": "unknown",
+                    "error_message": "Root document is not a JSON object.",
+                }
+            ]
             return
 
         # Detect payload structure
@@ -1335,10 +1450,48 @@ class FastValidator:
                 if self.stac_file.startswith("http")
                 else os.path.abspath(self.stac_file)
             )
+            if self.keep_documents:
+                # Results reference root_path (abspath for local files),
+                # while _load_json_resource keys the map by stac_file
+                self.loaded_objects.setdefault(root_path, root_data)
         except Exception as e:
-            click.secho(f"❌ Error reading {self.stac_file}: {e}", fg="red", bold=True)
+            if not self.quiet:
+                click.secho(
+                    f"❌ Error reading {self.stac_file}: {e}", fg="red", bold=True
+                )
             self.valid = False
+            self.message = [
+                {
+                    "path": self.stac_file,
+                    "id": "unknown",
+                    "valid_stac": False,
+                    "stac_type": "unknown",
+                    "stac_version": "unknown",
+                    "error_message": f"Failed to load: {e}",
+                }
+            ]
             return
+
+        if not isinstance(root_data, dict):
+            self.valid = False
+            self.message = [
+                {
+                    "path": root_path,
+                    "id": "unknown",
+                    "valid_stac": False,
+                    "stac_type": "unknown",
+                    "stac_version": "unknown",
+                    "error_message": "Root document is not a JSON object.",
+                }
+            ]
+            return
+
+        if "conformsTo" in root_data and not self.quiet:
+            click.secho(
+                "⚠️  STAC API detected; only 'child'/'item' links are followed "
+                "in recursive mode. Use --api or run_api() to traverse API links.",
+                fg="yellow",
+            )
 
         # Recursively validate the root and all children
         results = []
@@ -1354,51 +1507,52 @@ class FastValidator:
                 fg="yellow",
             )
 
-        # Display results
-        click.echo("\n" + "=" * 55)
-        click.secho("📊 RECURSIVE VALIDATION SUMMARY", bold=True, fg="blue")
-        click.echo("=" * 55)
-
-        valid_count = sum(1 for r in results if r["valid_stac"])
-        invalid_count = len(results) - valid_count
-        elapsed_ms = (time.perf_counter() - start_time) * 1000
-
-        click.echo(f"Total Objects Validated: {len(results)}")
-        click.echo(f"Valid Objects:           {valid_count}")
-        click.echo(f"Invalid Objects:         {invalid_count}")
-        click.echo(f"Execution Time:          {elapsed_ms:.2f} ms")
-
-        if invalid_count > 0:
+        if not self.quiet:
+            # Display results
             click.echo("\n" + "=" * 55)
-            click.secho("🚨 INVALID OBJECTS", bold=True, fg="red")
+            click.secho("📊 RECURSIVE VALIDATION SUMMARY", bold=True, fg="blue")
             click.echo("=" * 55)
 
-            # Group errors by message
-            error_groups = {}
-            for result in results:
-                if not result["valid_stac"]:
-                    error_msg = result.get("error_message", "Unknown error")
-                    if error_msg not in error_groups:
-                        error_groups[error_msg] = []
-                    # Store both path and ID for better identification
-                    object_id = result.get("id", "unknown")
-                    error_groups[error_msg].append(
-                        {"path": result["path"], "id": object_id}
-                    )
+            valid_count = sum(1 for r in results if r["valid_stac"])
+            invalid_count = len(results) - valid_count
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
 
-            # Display grouped errors
-            for error_msg, items in error_groups.items():
-                click.echo(f"\n❌ {error_msg}")
-                click.echo(f"   Affected Objects: {len(items)}")
-                # Show first 5 examples
-                for item in items[:5]:
-                    item_id = item["id"] if item["id"] != "unknown" else ""
-                    if item_id:
-                        click.echo(f"   - {item['path']} (ID: {item_id})")
-                    else:
-                        click.echo(f"   - {item['path']}")
-                if len(items) > 5:
-                    click.echo(f"   ... and {len(items) - 5} more")
+            click.echo(f"Total Objects Validated: {len(results)}")
+            click.echo(f"Valid Objects:           {valid_count}")
+            click.echo(f"Invalid Objects:         {invalid_count}")
+            click.echo(f"Execution Time:          {elapsed_ms:.2f} ms")
+
+            if invalid_count > 0:
+                click.echo("\n" + "=" * 55)
+                click.secho("🚨 INVALID OBJECTS", bold=True, fg="red")
+                click.echo("=" * 55)
+
+                # Group errors by message
+                error_groups = {}
+                for result in results:
+                    if not result["valid_stac"]:
+                        error_msg = result.get("error_message", "Unknown error")
+                        if error_msg not in error_groups:
+                            error_groups[error_msg] = []
+                        # Store both path and ID for better identification
+                        object_id = result.get("id", "unknown")
+                        error_groups[error_msg].append(
+                            {"path": result["path"], "id": object_id}
+                        )
+
+                # Display grouped errors
+                for error_msg, items in error_groups.items():
+                    click.echo(f"\n❌ {error_msg}")
+                    click.echo(f"   Affected Objects: {len(items)}")
+                    # Show first 5 examples
+                    for item in items[:5]:
+                        item_id = item["id"] if item["id"] != "unknown" else ""
+                        if item_id:
+                            click.echo(f"   - {item['path']} (ID: {item_id})")
+                        else:
+                            click.echo(f"   - {item['path']}")
+                    if len(items) > 5:
+                        click.echo(f"   ... and {len(items) - 5} more")
 
         # Set overall validity
         self.valid = all(r.get("valid_stac", False) for r in results)
@@ -1422,9 +1576,40 @@ class FastValidator:
                 if self.stac_file.startswith("http")
                 else os.path.abspath(self.stac_file)
             )
+            if self.keep_documents:
+                # Results reference root_path (abspath for local files),
+                # while _load_json_resource keys the map by stac_file
+                self.loaded_objects.setdefault(root_path, root_data)
         except Exception as e:
-            click.secho(f"❌ Error reading {self.stac_file}: {e}", fg="red", bold=True)
+            if not self.quiet:
+                click.secho(
+                    f"❌ Error reading {self.stac_file}: {e}", fg="red", bold=True
+                )
             self.valid = False
+            self.message = [
+                {
+                    "path": self.stac_file,
+                    "id": "unknown",
+                    "valid_stac": False,
+                    "stac_type": "unknown",
+                    "stac_version": "unknown",
+                    "error_message": f"Failed to load: {e}",
+                }
+            ]
+            return
+
+        if not isinstance(root_data, dict):
+            self.valid = False
+            self.message = [
+                {
+                    "path": root_path,
+                    "id": "unknown",
+                    "valid_stac": False,
+                    "stac_type": "unknown",
+                    "stac_version": "unknown",
+                    "error_message": "Root document is not a JSON object.",
+                }
+            ]
             return
 
         # Recursively validate the root and all children (API mode)
@@ -1450,55 +1635,81 @@ class FastValidator:
                 fg="yellow",
             )
 
-        # Display results
-        click.echo("\n" + "=" * 55)
-        click.secho("📊 STAC API VALIDATION SUMMARY", bold=True, fg="blue")
-        click.echo("=" * 55)
+        if self.truncated_endpoints and not self.quiet:
+            click.secho(
+                f"⚠️  Pagination cap ({self.max_pages} pages) reached; "
+                "results are incomplete for:",
+                fg="yellow",
+            )
+            for endpoint, pages in self.truncated_endpoints:
+                click.secho(f"   {endpoint} ({pages} pages)", fg="yellow", dim=True)
 
-        valid_count = sum(1 for r in results if r["valid_stac"])
-        invalid_count = len(results) - valid_count
-        elapsed_ms = (time.perf_counter() - start_time) * 1000
-
-        click.echo(f"Total Objects Validated: {len(results)}")
-        click.echo(f"Valid Objects:           {valid_count}")
-        click.echo(f"Invalid Objects:         {invalid_count}")
-        click.echo(f"Execution Time:          {elapsed_ms:.2f} ms")
-
-        if invalid_count > 0:
+        if not self.quiet:
+            # Display results
             click.echo("\n" + "=" * 55)
-            click.secho("🚨 INVALID OBJECTS", bold=True, fg="red")
+            click.secho("📊 STAC API VALIDATION SUMMARY", bold=True, fg="blue")
             click.echo("=" * 55)
 
-            # Group errors by message
-            error_groups = {}
-            for result in results:
-                if not result["valid_stac"]:
-                    error_msg = result.get("error_message", "Unknown error")
-                    if error_msg not in error_groups:
-                        error_groups[error_msg] = []
-                    # Store both path and ID for better identification
-                    object_id = result.get("id", "unknown")
-                    error_groups[error_msg].append(
-                        {"path": result["path"], "id": object_id}
-                    )
+            valid_count = sum(1 for r in results if r["valid_stac"])
+            invalid_count = len(results) - valid_count
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
 
-            # Display grouped errors
-            for error_msg, items in error_groups.items():
-                click.echo(f"\n❌ {error_msg}")
-                click.echo(f"   Affected Objects: {len(items)}")
-                # Show first 5 examples
-                for item in items[:5]:
-                    item_id = item["id"] if item["id"] != "unknown" else ""
-                    if item_id:
-                        click.echo(f"   - {item['path']} (ID: {item_id})")
-                    else:
-                        click.echo(f"   - {item['path']}")
-                if len(items) > 5:
-                    click.echo(f"   ... and {len(items) - 5} more")
+            click.echo(f"Total Objects Validated: {len(results)}")
+            click.echo(f"Valid Objects:           {valid_count}")
+            click.echo(f"Invalid Objects:         {invalid_count}")
+            click.echo(f"Execution Time:          {elapsed_ms:.2f} ms")
+
+            if invalid_count > 0:
+                click.echo("\n" + "=" * 55)
+                click.secho("🚨 INVALID OBJECTS", bold=True, fg="red")
+                click.echo("=" * 55)
+
+                # Group errors by message
+                error_groups = {}
+                for result in results:
+                    if not result["valid_stac"]:
+                        error_msg = result.get("error_message", "Unknown error")
+                        if error_msg not in error_groups:
+                            error_groups[error_msg] = []
+                        # Store both path and ID for better identification
+                        object_id = result.get("id", "unknown")
+                        error_groups[error_msg].append(
+                            {"path": result["path"], "id": object_id}
+                        )
+
+                # Display grouped errors
+                for error_msg, items in error_groups.items():
+                    click.echo(f"\n❌ {error_msg}")
+                    click.echo(f"   Affected Objects: {len(items)}")
+                    # Show first 5 examples
+                    for item in items[:5]:
+                        item_id = item["id"] if item["id"] != "unknown" else ""
+                        if item_id:
+                            click.echo(f"   - {item['path']} (ID: {item_id})")
+                        else:
+                            click.echo(f"   - {item['path']}")
+                    if len(items) > 5:
+                        click.echo(f"   ... and {len(items) - 5} more")
 
         # Set overall validity
         self.valid = all(r.get("valid_stac", False) for r in results)
         self.message = results
+
+    def _next_page_path(
+        self, page_data: Dict[str, Any], page_path: str, visited: Set[str]
+    ) -> Optional[str]:
+        """Resolve the "next" pagination link of an API page, if unvisited."""
+        for link in page_data.get("links", []):
+            if isinstance(link, dict) and link.get("rel") == "next":
+                href = link.get("href", "")
+                if not href:
+                    return None
+                next_path = self._resolve_link_path(page_path, href)
+                if next_path in visited:
+                    return None
+                visited.add(next_path)
+                return next_path
+        return None
 
     def _validate_recursive(
         self,
@@ -1534,14 +1745,36 @@ class FastValidator:
             )
             return
 
+        # User-configured depth cap: objects at or beyond it are skipped
+        if self.max_depth is not None and depth >= self.max_depth:
+            return
+
         if self._limit_reached(results):
             return
+
+        # Determine STAC type - could be "Catalog", "Collection", or "Feature"
+        # (Item). STAC <1.0 documents lack a "type" member, so infer
+        # structurally: 'extent' marks a Collection (a bare 'license' does not -
+        # pre-1.0 catalogs may carry one), anything else is a Catalog.
+        raw_type = data.get("type")
+        if raw_type in ("Feature", "Collection", "Catalog"):
+            stac_type = {
+                "Feature": "item",
+                "Collection": "collection",
+                "Catalog": "catalog",
+            }[raw_type]
+        elif raw_type:
+            stac_type = str(raw_type).lower()
+        else:
+            stac_type = "collection" if "extent" in data else "catalog"
+
+        stac_version = data.get("stac_version", "unknown")
 
         # Log progress in API mode
         if is_api and not self.quiet:
             self._progress_count += 1
             object_id = data.get("id", "unknown")
-            object_type = data.get("type", "unknown")
+            object_type = raw_type if raw_type else stac_type.capitalize()
             if collection_id and object_type == "Feature":
                 click.secho(
                     f"  [{self._progress_count}] Validating {object_type}: {object_id} (Collection: {collection_id})",
@@ -1554,19 +1787,6 @@ class FastValidator:
                     fg="cyan",
                     dim=True,
                 )
-
-        # Determine STAC type - could be "Catalog", "Collection", or "Feature" (Item)
-        raw_type = data.get("type", "unknown")
-        if raw_type == "Feature":
-            stac_type = "item"
-        elif raw_type == "Collection":
-            stac_type = "collection"
-        elif raw_type == "Catalog":
-            stac_type = "catalog"
-        else:
-            stac_type = raw_type.lower() if raw_type else "unknown"
-
-        stac_version = data.get("stac_version", "unknown")
 
         # Validate current object using get_validator (same as run() does)
         # Skip validation for STAC API responses (they have conformsTo instead of stac_extensions)
@@ -1637,16 +1857,14 @@ class FastValidator:
             return
 
         # Process child links
-        base_dir = (
-            os.path.dirname(file_path)
-            if not file_path.startswith("http")
-            else file_path.rsplit("/", 1)[0]
-        )
         links = data.get("links", [])
 
         for link in links:
             if self._limit_reached(results):
                 break
+
+            if not isinstance(link, dict):
+                continue
 
             rel = link.get("rel", "")
             href = link.get("href", "")
@@ -1654,8 +1872,22 @@ class FastValidator:
             # Determine if we should follow this link based on mode
             should_follow = False
             if is_api:
-                # API mode: follow "data" (collections), "child", "item", and "items" links
-                if rel in ["data", "child", "item", "items"] and href:
+                # API mode: follow "data" (collections), "catalogs"/"collections"
+                # index endpoints, "child", "item", "items", and "next"
+                # pagination links
+                if (
+                    rel
+                    in [
+                        "data",
+                        "catalogs",
+                        "collections",
+                        "child",
+                        "item",
+                        "items",
+                        "next",
+                    ]
+                    and href
+                ):
                     should_follow = True
             else:
                 # Local mode: follow "child" and "item" links only
@@ -1663,11 +1895,12 @@ class FastValidator:
                     should_follow = True
 
             if should_follow:
+                # Don't fetch children that would exceed the depth cap
+                if self.max_depth is not None and depth + 1 >= self.max_depth:
+                    break
+
                 # Resolve relative path
-                if href.startswith("http"):
-                    child_path = href
-                else:
-                    child_path = os.path.normpath(os.path.join(base_dir, href))
+                child_path = self._resolve_link_path(file_path, href)
 
                 if child_path in visited:
                     continue
@@ -1687,60 +1920,147 @@ class FastValidator:
                             )
                         child_data = self._load_json_resource(child_path)
 
+                    if not isinstance(child_data, dict):
+                        results.append(
+                            {
+                                "path": child_path,
+                                "valid_stac": False,
+                                "error_message": "Linked resource is not a JSON object.",
+                            }
+                        )
+                        continue
+
+                    # A "next" page continues the endpoint that produced it,
+                    # and "catalogs"/"collections" rels point at index
+                    # endpoints like "data" - route them by content.
+                    effective_rel = rel
+                    if rel == "next" or rel in ("catalogs", "collections"):
+                        if isinstance(child_data.get("features"), list):
+                            effective_rel = "items"
+                        elif isinstance(
+                            child_data.get("collections"), list
+                        ) or isinstance(child_data.get("catalogs"), list):
+                            effective_rel = "data"
+
                     # If this is a collections list endpoint, extract individual collections
-                    if rel == "data" and is_api and isinstance(child_data, dict):
-                        collections = child_data.get("collections", [])
+                    if effective_rel == "data" and is_api:
+                        # "collections" and "catalogs" payloads are both index
+                        # lists of {id}-bearing members
+                        collections = child_data.get("collections") or child_data.get(
+                            "catalogs"
+                        )
+                        if not isinstance(collections, list):
+                            collections = []
                         if collections:
-                            # This is a collections list - process each collection
-                            collection_urls = []
-                            for collection in collections:
-                                collection_id = collection.get("id")
-                                if collection_id:
-                                    collection_urls.append(
-                                        f"{child_path.rstrip('/')}/{collection_id}"
+                            # This is a collections list - process each
+                            # collection, following "next" pagination
+                            page_data = child_data
+                            page_path = child_path
+                            pages_followed = 0
+                            while collections:
+                                collection_urls = []
+                                for collection in collections:
+                                    collection_id = collection.get("id")
+                                    if collection_id:
+                                        collection_urls.append(
+                                            f"{page_path.split('?')[0].rstrip('/')}/{collection_id}"
+                                        )
+
+                                # Avoid prefetching beyond remaining validation capacity.
+                                if self.limit is not None:
+                                    remaining = max(1, self.limit - len(results))
+                                    collection_urls = collection_urls[:remaining]
+
+                                # The collections being prefetched consume the
+                                # remaining slots themselves, so items pages
+                                # are only fetched when capacity is left over
+                                remaining_capacity = None
+                                if self.limit is not None:
+                                    remaining_capacity = (
+                                        self.limit - len(results) - len(collection_urls)
                                     )
 
-                            # Avoid prefetching beyond remaining validation capacity.
-                            if self.limit is not None:
-                                remaining = max(1, self.limit - len(results))
-                                collection_urls = collection_urls[:remaining]
+                                for (
+                                    collection_url,
+                                    prefetched_collection_resources,
+                                    load_error,
+                                ) in self._prefetch_api_collection_resources_batch(
+                                    collection_urls, remaining_capacity
+                                ):
+                                    if self._limit_reached(results):
+                                        break
 
-                            for (
-                                collection_url,
-                                prefetched_collection_resources,
-                                load_error,
-                            ) in self._prefetch_api_collection_resources_batch(
-                                collection_urls
-                            ):
+                                    if load_error is not None:
+                                        results.append(
+                                            {
+                                                "path": collection_url,
+                                                "valid_stac": False,
+                                                "error_message": f"Failed to load: {str(load_error)}",
+                                            }
+                                        )
+                                        continue
+
+                                    visited.add(collection_url)
+                                    if prefetched_collection_resources is None:
+                                        continue
+                                    collection_data = prefetched_collection_resources[
+                                        collection_url
+                                    ]
+
+                                    self._validate_recursive(
+                                        collection_data,
+                                        collection_url,
+                                        results,
+                                        visited,
+                                        is_api,
+                                        prefetched_resources=prefetched_collection_resources,
+                                        depth=depth + 1,
+                                    )
+
                                 if self._limit_reached(results):
                                     break
 
-                                if load_error is not None:
+                                next_path = self._next_page_path(
+                                    page_data, page_path, visited
+                                )
+                                if next_path is None:
+                                    break
+                                if (
+                                    self.max_pages
+                                    and pages_followed + 1 >= self.max_pages
+                                ):
+                                    self.truncated_endpoints.append(
+                                        (child_path, pages_followed + 1)
+                                    )
+                                    # The capped page was resolved only to
+                                    # detect the truncation — release it so
+                                    # the same URL can be reached via other
+                                    # links later in the walk
+                                    visited.discard(next_path)
+                                    break
+                                try:
+                                    page_data = self._load_json_resource(next_path)
+                                except Exception as e:
                                     results.append(
                                         {
-                                            "path": collection_url,
+                                            "path": next_path,
                                             "valid_stac": False,
-                                            "error_message": f"Failed to load: {str(load_error)}",
+                                            "error_message": f"Failed to load: {str(e)}",
                                         }
                                     )
-                                    continue
-
-                                visited.add(collection_url)
-                                if prefetched_collection_resources is None:
-                                    continue
-                                collection_data = prefetched_collection_resources[
-                                    collection_url
-                                ]
-
-                                self._validate_recursive(
-                                    collection_data,
-                                    collection_url,
-                                    results,
-                                    visited,
-                                    is_api,
-                                    prefetched_resources=prefetched_collection_resources,
-                                    depth=depth + 1,
-                                )
+                                    break
+                                if not isinstance(page_data, dict):
+                                    results.append(
+                                        {
+                                            "path": next_path,
+                                            "valid_stac": False,
+                                            "error_message": "Linked resource is not a JSON object.",
+                                        }
+                                    )
+                                    break
+                                page_path = next_path
+                                pages_followed += 1
+                                collections = page_data.get("collections", [])
                         else:
                             # Not a collections list, validate as normal
                             self._validate_recursive(
@@ -1752,27 +2072,62 @@ class FastValidator:
                                 depth=depth + 1,
                             )
                     # If this is an items endpoint (GeoJSON FeatureCollection), validate only Features
-                    elif rel == "items" and is_api and isinstance(child_data, dict):
-                        features = child_data.get("features")
+                    elif effective_rel == "items" and is_api:
+                        page_data = child_data
+                        page_path = child_path
+                        pages_followed = 0
+                        while isinstance(page_data.get("features"), list):
+                            # Extract collection ID from URL (e.g., /collections/{id}/items)
+                            collection_id_from_items: Optional[str] = None
+                            if "/collections/" in page_path:
+                                parts = page_path.split("/collections/")
+                                if len(parts) > 1:
+                                    collection_parts = parts[1].split("/items")
+                                    collection_id_from_items = (
+                                        collection_parts[0]
+                                        if collection_parts
+                                        else None
+                                    )
 
-                        # Extract collection ID from URL (e.g., /collections/{id}/items)
-                        collection_id_from_items: Optional[str] = None
-                        if "/collections/" in child_path:
-                            parts = child_path.split("/collections/")
-                            if len(parts) > 1:
-                                collection_parts = parts[1].split("/items")
-                                collection_id_from_items = (
-                                    collection_parts[0] if collection_parts else None
-                                )
-
-                        # Validate each feature item from the items page, not the FeatureCollection container.
-                        if isinstance(features, list):
-                            for feature in features:
+                            # Validate each feature item from the items page, not the FeatureCollection container.
+                            for feature in page_data["features"]:
                                 if self._limit_reached(results):
                                     break
 
-                                item_id = feature.get("id", "unknown")
-                                item_path = f"{child_path}#{item_id}"
+                                item_id = (
+                                    feature.get("id", "unknown")
+                                    if isinstance(feature, dict)
+                                    else "unknown"
+                                )
+                                item_path = f"{page_path}#{item_id}"
+
+                                # Skip items already validated on an earlier
+                                # page of this endpoint
+                                dedup_key = (
+                                    "item:"
+                                    + (
+                                        collection_id_from_items
+                                        or page_path.split("?")[0]
+                                    )
+                                    + f"#{item_id}"
+                                )
+                                if dedup_key in visited:
+                                    continue
+                                visited.add(dedup_key)
+
+                                if not isinstance(feature, dict):
+                                    results.append(
+                                        {
+                                            "path": item_path,
+                                            "valid_stac": False,
+                                            "error_message": "Item is not a JSON object.",
+                                        }
+                                    )
+                                    continue
+
+                                if self.keep_documents:
+                                    self.loaded_objects[item_path] = feature
+
                                 self._validate_recursive(
                                     feature,
                                     item_path,
@@ -1782,6 +2137,47 @@ class FastValidator:
                                     collection_id_from_items,
                                     depth=depth + 1,
                                 )
+
+                            if self._limit_reached(results):
+                                break
+
+                            next_path = self._next_page_path(
+                                page_data, page_path, visited
+                            )
+                            if next_path is None:
+                                break
+                            if self.max_pages and pages_followed + 1 >= self.max_pages:
+                                self.truncated_endpoints.append(
+                                    (child_path, pages_followed + 1)
+                                )
+                                # The capped page was resolved only to
+                                # detect the truncation — release it so the
+                                # same URL can be reached via other links
+                                # later in the walk
+                                visited.discard(next_path)
+                                break
+                            try:
+                                page_data = self._load_json_resource(next_path)
+                            except Exception as e:
+                                results.append(
+                                    {
+                                        "path": next_path,
+                                        "valid_stac": False,
+                                        "error_message": f"Failed to load: {str(e)}",
+                                    }
+                                )
+                                break
+                            if not isinstance(page_data, dict):
+                                results.append(
+                                    {
+                                        "path": next_path,
+                                        "valid_stac": False,
+                                        "error_message": "Linked resource is not a JSON object.",
+                                    }
+                                )
+                                break
+                            page_path = next_path
+                            pages_followed += 1
                     else:
                         # Recursively validate child
                         self._validate_recursive(

@@ -22,6 +22,8 @@ class DocAiGetResultsResponse_Extract(UniversalBaseModel):
     result: typing.Dict[str, typing.Any]
     annotations: typing.Dict[str, typing.Any]
     version: int
+    source_map: typing.Optional[typing.Dict[str, typing.Any]] = None
+    documents: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -33,8 +35,8 @@ class DocAiGetResultsResponse_Extract(UniversalBaseModel):
             extra = pydantic.Extra.allow
 
 
-class DocAiGetResultsResponse_Parse(UniversalBaseModel):
-    type: typing.Literal["parse"] = "parse"
+class DocAiGetResultsResponse_Digitise(UniversalBaseModel):
+    type: typing.Literal["digitise"] = "digitise"
     job_id: str
     status: str
     usage: DocAiUsage
@@ -92,7 +94,7 @@ class DocAiGetResultsResponse_Split(UniversalBaseModel):
 DocAiGetResultsResponse = typing_extensions.Annotated[
     typing.Union[
         DocAiGetResultsResponse_Extract,
-        DocAiGetResultsResponse_Parse,
+        DocAiGetResultsResponse_Digitise,
         DocAiGetResultsResponse_Classify,
         DocAiGetResultsResponse_Split,
     ],

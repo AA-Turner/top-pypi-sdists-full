@@ -14,7 +14,7 @@ class ListHoneypotAlarmEventsResponseBody(DaraModel):
         page_info: main_models.ListHoneypotAlarmEventsResponseBodyPageInfo = None,
         request_id: str = None,
     ):
-        # The alert events.
+        # The list of alert events.
         self.honeypot_alarm_events = honeypot_alarm_events
         # The pagination information.
         self.page_info = page_info
@@ -72,13 +72,13 @@ class ListHoneypotAlarmEventsResponseBodyPageInfo(DaraModel):
         page_size: int = None,
         total_count: int = None,
     ):
-        # The number of entries returned on the current page.
+        # The number of entries returned on the current page when paging.
         self.count = count
-        # The page number of the returned page.
+        # The current page number.
         self.current_page = current_page
         # The number of entries returned per page. Default value: 100.
         self.page_size = page_size
-        # The total number of entries returned.
+        # The total number of entries.
         self.total_count = total_count
 
     def validate(self):
@@ -135,31 +135,31 @@ class ListHoneypotAlarmEventsResponseBodyHoneypotAlarmEvents(DaraModel):
     ):
         # The event ID.
         self.alarm_event_id = alarm_event_id
-        # The name of the alert event.
+        # The alert event name.
         self.alarm_event_name = alarm_event_name
-        # The type of the alert event.
+        # The alert event type.
         self.alarm_event_type = alarm_event_type
         # The unique identifier of the alert event.
         self.alarm_unique_info = alarm_unique_info
-        # The total number of times that the alert event was generated.
+        # The total number of occurrences of the event.
         self.event_count = event_count
-        # The timestamp that indicates the time when the alert event was first detected. Unit: milliseconds.
+        # The timestamp when the event was first detected. Unit: milliseconds.
         self.first_time = first_time
-        # The timestamp that indicates the time when the alert event was last detected. Unit: milliseconds.
+        # The timestamp when the event was last detected. Unit: milliseconds.
         self.last_time = last_time
-        # The risk information.
+        # The list of risk summaries.
         self.merge_field_list = merge_field_list
-        # The handling status of the alert event. Valid values:
+        # The processing status of the alert event. Valid values:
         # 
-        # *   **1**: pending
-        # *   **2**: ignored
-        # *   **4**: confirmed
+        # - **1**: Pending
+        # - **2**: Ignored
+        # - **4**: Confirmed
         self.operate_status = operate_status
         # The risk level. Valid values:
         # 
-        # *   **2**: low
-        # *   **3**: medium
-        # *   **4**: high
+        # - **2**: Low risk
+        # - **3**: Medium risk
+        # - **4**: High risk
         self.risk_level = risk_level
 
     def validate(self):
@@ -252,13 +252,13 @@ class ListHoneypotAlarmEventsResponseBodyHoneypotAlarmEventsMergeFieldList(DaraM
         field_type: str = None,
         field_value: str = None,
     ):
-        # The extended value that corresponds to the field key.
+        # The extended value of the field key.
         self.field_ext_info = field_ext_info
         # The key of the field.
         self.field_key = field_key
-        # The type of the field. You can ignore this internal parameter.
+        # The field type. This is an internal field and can be ignored.
         self.field_type = field_type
-        # The value that corresponds to the field key.
+        # The value of the field key.
         self.field_value = field_value
 
     def validate(self):

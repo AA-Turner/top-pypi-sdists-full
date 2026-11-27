@@ -11,27 +11,29 @@ from __future__ import annotations
 import re
 import types
 import warnings
-from collections.abc import AsyncGenerator, Callable, Generator, Iterable
+from collections.abc import AsyncGenerator, Callable, Generator, Iterable, Mapping
 from contextvars import ContextVar
 from copy import deepcopy
 from functools import cache
 from functools import reduce
+from inspect import Parameter, signature
 from operator import or_
 from typing import (  # noqa: UP035
     Any,
     Generic,
-    List,  # needed for runtime check against typing.List annotations from user code
     NoReturn,
     Optional,
     TypeVar,
     Union,
+    cast,
     get_args,
     get_origin,
 )
 
 from jiter import from_json
-from pydantic import BaseModel, create_model
+from pydantic import AliasChoices, AliasPath, BaseModel, create_model
 from pydantic.fields import FieldInfo
+from pydantic_core import PydanticUndefined
 
 from instructor.v2.dsl.json_tracker import JsonCompleteness, is_json_complete
 
@@ -95,8 +97,44 @@ class PartialLiteralMixin:
         )
 
 
-def remove_control_chars(s):
-    return re.sub(r"[\x00-\x1F\x7F-\x9F]", "", s)
+def remove_control_chars(s: str) -> str:
+    """Remove raw C0 characters that can make streamed JSON invalid.
+
+    DEL and C1 characters (U+007F–U+009F) are valid JSON string content and
+    must be preserved. Escaped control characters are left unchanged.
+    """
+    return re.sub(r"[\x00-\x1F]", "", s)
+
+
+class _JsonControlCharSanitizer:
+    """Repair controls outside strings without deleting valid string content.
+
+    Each stream owns its lexical state, including escapes split across chunks.
+    This only sanitizes controls; JSON parsing and completeness stay downstream.
+    """
+
+    def __init__(self) -> None:
+        self._in_string = False
+        self._escaped = False
+
+    def __call__(self, chunk: str) -> str:
+        result: list[str] = []
+        # C0 removal can join a backslash and quote. Track the repaired text,
+        # not the raw chunk, so removed characters never consume an escape.
+        for char in remove_control_chars(chunk):
+            if self._in_string:
+                if self._escaped:
+                    self._escaped = False
+                elif char == "\\":
+                    self._escaped = True
+                elif char == '"':
+                    self._in_string = False
+            elif char == '"':
+                self._in_string = True
+            elif "\x7f" <= char <= "\x9f":
+                continue
+            result.append(char)
+        return "".join(result)
 
 
 def process_potential_object(potential_object, partial_mode, partial_model, **kwargs):
@@ -110,18 +148,18 @@ def process_potential_object(potential_object, partial_mode, partial_model, **kw
     adds BaseModel support in the future, this could potentially be simplified.
     See: https://docs.pydantic.dev/latest/concepts/partial_validation/
     """
-    json_str = potential_object.strip() or "{}"
+    json_str = potential_object.strip()
+    has_json = bool(json_str)
+    json_str = json_str or "{}"
     parsed = from_json(json_str.encode(), partial_mode=partial_mode)
 
     tracker = JsonCompleteness()
-    tracker.analyze(json_str)
+    tracker._analyze(json_str, parsed if partial_mode == "trailing-strings" else None)
 
     # Get original model for validation
     original_model = getattr(partial_model, "_original_model", None)
 
-    # Check if root is complete AND has actual data (not just empty {})
     root_complete = tracker.is_root_complete()
-    has_data = bool(parsed) if isinstance(parsed, dict) else True
 
     validation_kwargs = {
         key: value
@@ -130,14 +168,71 @@ def process_potential_object(potential_object, partial_mode, partial_model, **kw
         in {"context", "strict", "extra", "from_attributes", "by_alias", "by_name"}
     }
 
-    if root_complete and has_data and original_model is not None:
-        # Root object is complete with data - validate against original model
+    if root_complete and has_json and original_model is not None:
+        # Root object is complete - validate against original model
         return original_model.model_validate(parsed, **validation_kwargs)
-    # Object is incomplete or empty - build instance using model_construct (no validation)
+    # Input is incomplete or absent - build instance using model_construct (no validation)
     model_for_construct = (
         original_model if original_model is not None else partial_model
     )
-    return _build_partial_object(parsed, model_for_construct, tracker, "", **kwargs)
+    return _build_partial_object(
+        parsed, model_for_construct, tracker, "", **validation_kwargs
+    )
+
+
+def _streamed_field(
+    data: dict[str, Any], name: str, info: FieldInfo, parent: str
+) -> tuple[Any, str, str] | None:
+    """Find the first available input alias and its path in the raw JSON."""
+    alias = info.validation_alias
+    if alias is None:
+        if name in data:
+            return data[name], f"{parent}.{name}" if parent else name, name
+        return None
+    candidates = alias.choices if isinstance(alias, AliasChoices) else [alias]
+    for candidate in (*candidates, name):
+        if isinstance(candidate, str) and candidate in data:
+            path = f"{parent}.{candidate}" if parent else candidate
+            return data[candidate], path, candidate
+        if isinstance(candidate, AliasPath):
+            value = candidate.search_dict_for_path(data)
+            if value is PydanticUndefined:
+                continue
+            path = parent
+            container: Any = data
+            for part in candidate.path:
+                if isinstance(part, int):
+                    index = part if part >= 0 else len(container) + part
+                    path += f"[{index}]"
+                else:
+                    path = f"{path}.{part}" if path else part
+                container = container[part]
+            return value, path, str(candidate.path[0])
+    return None
+
+
+def _get_partial_default(field: FieldInfo) -> Any:
+    factory = field.default_factory
+    if factory is None:
+        return field.get_default()
+
+    # Match Pydantic's single-required-argument factory contract without relying
+    # on FieldInfo.default_factory_takes_validated_data (absent in early 2.10).
+    try:
+        parameters = list(signature(factory).parameters.values())
+    except (TypeError, ValueError):
+        parameters = []
+    if (
+        len(parameters) == 1
+        and parameters[0].kind
+        in {Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD}
+        and parameters[0].default is Parameter.empty
+    ):
+        # Partial fields are not validated yet. Let model_validate compute this
+        # default once the containing object's JSON is complete.
+        return None
+
+    return cast(Callable[[], Any], factory)()
 
 
 def _build_partial_object(
@@ -161,99 +256,92 @@ def _build_partial_object(
 
     result: dict[str, Any] = {}
 
-    for field_name in data:
-        field_value = data[field_name]
-        field_path = f"{path}.{field_name}" if path else field_name
-
-        if field_value is None:
-            result[field_name] = None
+    consumed: set[str] = set()
+    missing = []
+    for field_name, field_info in model.model_fields.items():
+        match = _streamed_field(data, field_name, field_info, path)
+        if match is None:
+            missing.append((field_name, field_info))
             continue
+        field_value, field_path, source_key = match
+        consumed.add(source_key)
 
-        field_complete = tracker.is_path_complete(field_path)
-        field_info = model.model_fields.get(field_name)
-        field_type = field_info.annotation if field_info else None
-
-        if field_complete and field_type is not None:
-            _base_model = _unwrap_optional_base_model(field_type)
-            if _base_model is not None:
-                result[field_name] = _base_model.model_validate(field_value, **kwargs)
-                continue
-
-        if isinstance(field_value, dict):
-            nested_model = (
-                _unwrap_optional_base_model(field_type)
-                if field_type is not None
-                else None
-            )
-
-            if nested_model:
-                result[field_name] = _build_partial_object(
-                    field_value, nested_model, tracker, field_path, **kwargs
-                )
-            else:
-                result[field_name] = field_value
-        elif isinstance(field_value, list):
-            result[field_name] = _build_partial_list(
-                field_value, model, field_name, tracker, field_path, **kwargs
-            )
-        else:
-            result[field_name] = field_value
+        result[field_name] = _build_partial_value(
+            field_value, field_info.annotation, tracker, field_path, **kwargs
+        )
 
     # Set missing fields to None or empty nested models
-    for field_name, field_info in model.model_fields.items():
-        if field_name not in result:
-            field_type = field_info.annotation
-            if isinstance(field_type, type) and issubclass(field_type, BaseModel):
-                result[field_name] = _build_partial_object(
-                    {}, field_type, tracker, "", **kwargs
-                )
-            elif field_info.is_required():
-                result[field_name] = None
-            else:
-                result[field_name] = field_info.get_default(call_default_factory=True)
-
-    return model.model_construct(**result)
-
-
-def _build_partial_list(
-    items: list,
-    original_model: type[BaseModel] | None,
-    field_name: str,
-    tracker: JsonCompleteness,
-    path: str,
-    **kwargs: Any,
-) -> list:
-    """Build a partial list, validating complete items."""
-    result = []
-
-    item_type = None
-    if original_model:
-        field_info = original_model.model_fields.get(field_name)
-        if field_info:
-            field_type = field_info.annotation
-            if get_origin(field_type) in (list, List):  # noqa: UP006
-                args = get_args(field_type)
-                if args:
-                    item_type = args[0]
-
-    for i, item in enumerate(items):
-        item_path = f"{path}[{i}]"
-        item_complete = tracker.is_path_complete(item_path)
-
-        _item_model = _unwrap_optional_base_model(item_type) if item_type else None
-        if item_complete and _item_model is not None and isinstance(item, dict):
-            result.append(_item_model.model_validate(item, **kwargs))
-            continue
-
-        if _item_model is not None and isinstance(item, dict):
-            result.append(
-                _build_partial_object(item, _item_model, tracker, item_path, **kwargs)
+    for field_name, field_info in missing:
+        field_type = field_info.annotation
+        if not field_info.is_required():
+            result[field_name] = _get_partial_default(field_info)
+        elif isinstance(field_type, type) and issubclass(field_type, BaseModel):
+            result[field_name] = _build_partial_object(
+                {}, field_type, tracker, "", **kwargs
             )
-            continue
+        else:
+            result[field_name] = None
 
-        result.append(item)
+    instance = model.model_construct(**result)
+    # model_construct also considers aliases. Keep the values already resolved
+    # above when two fields share an input key or use another field's name.
+    instance.__dict__.update(result)
+    if instance.__pydantic_extra__ is not None:
+        instance.__pydantic_extra__.clear()
+        instance.__pydantic_extra__.update(
+            {key: value for key, value in data.items() if key not in consumed}
+        )
+    return instance
 
-    return result
+
+def _build_partial_value(
+    value: Any, annotation: Any, tracker: JsonCompleteness, path: str, **kwargs: Any
+) -> Any:
+    if value is None:
+        return None
+    model = _unwrap_optional_base_model(annotation)
+    if model is not None:
+        if tracker.is_path_complete(path):
+            return model.model_validate(value, **kwargs)
+        return _build_partial_object(value, model, tracker, path, **kwargs)
+
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+    if origin in UNION_ORIGINS:
+        non_none = [arg for arg in args if arg is not type(None)]
+        if len(non_none) == 1:
+            annotation = non_none[0]
+            origin, args = get_origin(annotation), get_args(annotation)
+    if origin is list and args and isinstance(value, list):
+        return [
+            _build_partial_value(item, args[0], tracker, f"{path}[{index}]", **kwargs)
+            for index, item in enumerate(value)
+        ]
+    if origin is tuple and args and isinstance(value, (list, tuple)):
+        variadic = len(args) == 2 and args[1] is Ellipsis
+        return tuple(
+            _build_partial_value(
+                item,
+                args[0] if variadic else args[index],
+                tracker,
+                f"{path}[{index}]",
+                **kwargs,
+            )
+            if variadic or index < len(args)
+            else item
+            for index, item in enumerate(value)
+        )
+    if (
+        isinstance(origin, type)
+        and issubclass(origin, Mapping)
+        and len(args) == 2
+        and isinstance(value, dict)
+    ):
+        return {
+            key: _build_partial_value(item, args[1], tracker, f"{path}.{key}", **kwargs)
+            for key, item in value.items()
+        }
+    return value
 
 
 def _process_generic_arg(
@@ -411,9 +499,14 @@ class PartialBase(Generic[T_Model]):
     ) -> Generator[T_Model, None, None]:
         if stream_extractor is None:
             raise ValueError("stream_extractor is required for streaming responses")
-        json_chunks = stream_extractor(completion)
-        parser = chunk_parser or cls.model_from_chunks
-        yield from parser(json_chunks, **kwargs)
+        try:
+            json_chunks = stream_extractor(completion)
+            parser = chunk_parser or cls.model_from_chunks
+            yield from parser(json_chunks, **kwargs)
+        finally:
+            close = getattr(completion, "close", None)
+            if callable(close):
+                close()
 
     @classmethod
     async def from_streaming_response_async(
@@ -427,16 +520,28 @@ class PartialBase(Generic[T_Model]):
     ) -> AsyncGenerator[T_Model, None]:
         if stream_extractor is None:
             raise ValueError("stream_extractor is required for streaming responses")
-        json_chunks = stream_extractor(completion)
-        parser = chunk_parser or cls.model_from_chunks_async
-        async for item in parser(json_chunks, **kwargs):
-            yield item
+        from inspect import isawaitable
+
+        try:
+            json_chunks = stream_extractor(completion)
+            parser = chunk_parser or cls.model_from_chunks_async
+            async for item in parser(json_chunks, **kwargs):
+                yield item
+        finally:
+            close = getattr(completion, "aclose", None) or getattr(
+                completion, "close", None
+            )
+            if callable(close):
+                result = close()
+                if isawaitable(result):
+                    await result
 
     @classmethod
     def model_from_chunks(
         cls, json_chunks: Iterable[Any], **kwargs: Any
     ) -> Generator[T_Model, None, None]:
         potential_object = ""
+        sanitize = _JsonControlCharSanitizer()
         partial_model = cls.get_partial_model()
         # Always use trailing-strings mode to preserve incomplete data during streaming
         # PartialLiteralMixin is deprecated - completeness-based validation handles Literals
@@ -450,7 +555,7 @@ class PartialBase(Generic[T_Model]):
                     chunk = str(chunk)
                 except Exception:
                     continue
-            potential_object += remove_control_chars(chunk)
+            potential_object += sanitize(chunk)
             obj = process_potential_object(
                 potential_object, partial_mode, partial_model, **kwargs
             )
@@ -477,6 +582,7 @@ class PartialBase(Generic[T_Model]):
         cls, json_chunks: AsyncGenerator[str, None], **kwargs: Any
     ) -> AsyncGenerator[T_Model, None]:
         potential_object = ""
+        sanitize = _JsonControlCharSanitizer()
         partial_model = cls.get_partial_model()
         # Always use trailing-strings mode to preserve incomplete data during streaming
         # PartialLiteralMixin is deprecated - completeness-based validation handles Literals
@@ -490,7 +596,7 @@ class PartialBase(Generic[T_Model]):
                     chunk = str(chunk)
                 except Exception:
                     continue
-            potential_object += remove_control_chars(chunk)
+            potential_object += sanitize(chunk)
             obj = process_potential_object(
                 potential_object, partial_mode, partial_model, **kwargs
             )

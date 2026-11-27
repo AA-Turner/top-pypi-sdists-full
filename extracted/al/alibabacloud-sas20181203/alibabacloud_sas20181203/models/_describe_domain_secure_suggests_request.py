@@ -10,11 +10,11 @@ class DescribeDomainSecureSuggestsRequest(DaraModel):
         lang: str = None,
         source_ip: str = None,
     ):
-        # The language of the request and response. Default value: **zh**. Valid values:
-        # - **zh**: Chinese
+        # Specifies the language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang
-        # The IP address of the access source.
+        # The source IP address.
         self.source_ip = source_ip
 
     def validate(self):

@@ -20,7 +20,7 @@ False
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -218,6 +218,32 @@ class EntityKind:
     contacts: (
         Callable[[Any], Mapping[str, tuple[str, tuple[float, float] | None]]] | None
     ) = None
+    #: ``(entity, mall, relative_yaw) -> Sequence[Action] | None``: the actions
+    #: that show a world member from the angle the camera sees it at (an#734,
+    #: reeleehq/cutan#173). Called once per framed shot for each shown member that
+    #: has a :attr:`an.ir.schema.WorldMember.facing`; ``entity`` is the member,
+    #: ``relative_yaw`` the camera's yaw about it in degrees, in ``(-180, 180]``
+    #: relative to where it faces: ``0`` the camera is in front, ``±180`` behind,
+    #: ``+90`` the member faces screen-right. The answer is actions, not a view
+    #: name, because the view is the genre's vocabulary (a ``view`` swap, a
+    #: mirroring ``scale_x``); they are put at ``t=0`` AHEAD of the shot's own, so
+    #: an author's explicit swap at 0 still wins. ``None`` or empty: nothing. A hook
+    #: that raises or gives anything but actions is reported as a ``view`` note on the
+    #: shot and adds nothing; a camera straight above the member gives no call (a
+    #: note). A member's ``facing`` is a yaw in the frame it starts the shot in.
+    #: **Mirroring (an#868, level 21):** a ``set`` of the member's own ``scale_x``
+    #: among the actions is a SIGN, not a scale: ``-1`` mirrors it (a profile that
+    #: faces the other way), ``1`` does not. The lowering composes it with the
+    #: world's scale, at rest and over the keys it gives a member the camera sees
+    #: move, and takes it out of the actions (a native ``set`` would have replaced
+    #: the world's scale). The last such ``set`` wins. Only a plain ``set`` of ``-1`` or
+    #: ``1`` is one (any other form is a ``view`` note and dropped). A kind that
+    #: mirrors should give a sign every time (``1`` too), since a ``continue:``
+    #: carries the last. An author's own ``scale_x`` is absolute and drops the
+    #: mirror; an attached member is not mirrored with its host; the builder's root
+    #: ``scale_x`` is taken to be 1.
+    #: Since ``an.genres.API_LEVEL`` 20.
+    view_for: Callable[[Any, Any, float], Sequence[Any] | None] | None = None
 
 
 #: When a check runs: once before the shots, once per shot, once after them.

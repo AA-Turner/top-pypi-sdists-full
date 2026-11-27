@@ -1,5 +1,3 @@
-# fmt: off
-
 """ASE calculator for the LAMMPS classical MD code"""
 # lammps.py (2011/03/29)
 #
@@ -20,12 +18,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
 # USA or see <https://www.gnu.org/licenses/>.
 
-
 import os
 import shlex
 import shutil
 import subprocess
-import warnings
 from contextlib import ExitStack
 from re import IGNORECASE
 from re import compile as re_compile
@@ -47,7 +43,7 @@ from ase.data import atomic_masses, chemical_symbols
 from ase.io.lammpsdata import write_lammps_data
 from ase.io.lammpsrun import read_lammps_dump
 
-__all__ = ["LAMMPS"]
+__all__ = ['LAMMPS']
 
 
 class LAMMPS(Calculator):
@@ -132,9 +128,14 @@ class LAMMPS(Calculator):
         print("Energy ", NiH.get_potential_energy())
     """
 
-    name = "lammpsrun"
-    implemented_properties = ["energy", "free_energy", "forces", "stress",
-                              "energies"]
+    name = 'lammpsrun'
+    implemented_properties = [
+        'energy',
+        'free_energy',
+        'forces',
+        'stress',
+        'energies',
+    ]
 
     # parameters to choose options in LAMMPSRUN
     ase_parameters: dict[str, Any] = dict(
@@ -150,38 +151,65 @@ class LAMMPS(Calculator):
         verbose=False,
         write_velocities=False,
         binary_dump=True,  # bool - use binary dump files (full
-                           # precision but long long ids are casted to
-                           # double)
-        lammps_options="-echo log -screen none -log /dev/stdout",
+        # precision but long long ids are casted to
+        # double)
+        lammps_options='-echo log -screen none -log /dev/stdout',
         trajectory_out=None,  # file object, if is not None the
-                              # trajectory will be saved in it
+        # trajectory will be saved in it
     )
 
     # parameters forwarded to LAMMPS
     lammps_parameters = dict(
         boundary=None,  # bounadry conditions styles
-        units="metal",  # str - Which units used; some potentials
-                        # require certain units
-        atom_style="atomic",
+        units='metal',  # str - Which units used; some potentials
+        # require certain units
+        atom_style='atomic',
         special_bonds=None,
         # potential informations
-        pair_style="lj/cut 2.5",
-        pair_coeff=["* * 1 1"],
+        pair_style='lj/cut 2.5',
+        pair_coeff=['* * 1 1'],
         masses=None,
         pair_modify=None,
         # variables controlling the output
         thermo_args=[
-            "step", "temp", "press", "cpu", "pxx", "pyy", "pzz",
-            "pxy", "pxz", "pyz", "ke", "pe", "etotal", "vol", "lx",
-            "ly", "lz", "atoms", ],
-        dump_properties=["id", "type", "x", "y", "z", "vx", "vy",
-                         "vz", "fx", "fy", "fz", ],
+            'step',
+            'temp',
+            'press',
+            'cpu',
+            'pxx',
+            'pyy',
+            'pzz',
+            'pxy',
+            'pxz',
+            'pyz',
+            'ke',
+            'pe',
+            'etotal',
+            'vol',
+            'lx',
+            'ly',
+            'lz',
+            'atoms',
+        ],
+        dump_properties=[
+            'id',
+            'type',
+            'x',
+            'y',
+            'z',
+            'vx',
+            'vy',
+            'vz',
+            'fx',
+            'fy',
+            'fz',
+        ],
         dump_period=1,  # period of system snapshot saving (in MD steps)
     )
 
     default_parameters = dict(ase_parameters, **lammps_parameters)
 
-    def __init__(self, label="lammps", **kwargs):
+    def __init__(self, label='lammps', **kwargs):
         super().__init__(label=label, **kwargs)
 
         self.prism = None
@@ -201,23 +229,25 @@ class LAMMPS(Calculator):
         self._lmp_handle = None  # To handle the lmp process
 
         if self.parameters['tmp_dir'] is None:
-            self.parameters['tmp_dir'] = mkdtemp(prefix="LAMMPS-")
+            self.parameters['tmp_dir'] = mkdtemp(prefix='LAMMPS-')
         else:
             self.parameters['tmp_dir'] = os.path.realpath(
-                self.parameters['tmp_dir'])
+                self.parameters['tmp_dir']
+            )
             if not os.path.isdir(self.parameters['tmp_dir']):
                 os.mkdir(self.parameters['tmp_dir'], 0o755)
 
         for f in self.parameters['files']:
             shutil.copy(
-                f, os.path.join(self.parameters['tmp_dir'],
-                                os.path.basename(f)))
+                f, os.path.join(self.parameters['tmp_dir'], os.path.basename(f))
+            )
 
     def get_lammps_command(self):
         cmd = self.parameters.get('command')
 
         if cmd is None:
             from ase.config import cfg
+
             envvar = f'ASE_{self.name.upper()}_COMMAND'
             cmd = cfg.get(envvar)
 
@@ -259,9 +289,7 @@ class LAMMPS(Calculator):
     def _lmp_alive(self):
         # Return True if this calculator is currently handling a running
         # lammps process
-        return self._lmp_handle and not isinstance(
-            self._lmp_handle.poll(), int
-        )
+        return self._lmp_handle and not isinstance(self._lmp_handle.poll(), int)
 
     def _lmp_end(self):
         # Close lammps input and wait for lammps to end. Return process
@@ -278,8 +306,7 @@ class LAMMPS(Calculator):
             return err
 
     def set_missing_parameters(self):
-        """Verify that all necessary variables are set.
-        """
+        """Verify that all necessary variables are set."""
         symbols = self.atoms.get_chemical_symbols()
         # If unspecified default to atom types in alphabetic order
         if not self.parameters.get('specorder'):
@@ -290,13 +317,11 @@ class LAMMPS(Calculator):
             self.parameters['masses'] = []
             for type_id, specie in enumerate(self.parameters['specorder']):
                 mass = atomic_masses[chemical_symbols.index(specie)]
-                self.parameters['masses'] += [
-                    f"{type_id + 1:d} {mass:f}"
-                ]
+                self.parameters['masses'] += [f'{type_id + 1:d} {mass:f}']
 
         # set boundary condtions
         if not self.parameters.get('boundary'):
-            b_str = " ".join(["fp"[int(x)] for x in self.atoms.pbc])
+            b_str = ' '.join(['fp'[int(x)] for x in self.atoms.pbc])
             self.parameters['boundary'] = b_str
 
     def run(self, set_atoms=False):
@@ -307,22 +332,18 @@ class LAMMPS(Calculator):
             self._run(set_atoms, exitstack)
 
     def _run(self, set_atoms, exitstack):
-        pbc = self.atoms.get_pbc()
-        if all(pbc):
-            cell = self.atoms.get_cell()
-        elif not any(pbc):
-            # large enough cell for non-periodic calculation -
+        cell = self.atoms.get_cell()
+        if np.all(cell == 0.0):  # without cell
+            # large enough cell if it does not exist -
             # LAMMPS shrink-wraps automatically via input command
             #       "periodic s s s"
             # below
             cell = 2 * np.max(np.abs(self.atoms.get_positions())) * np.eye(3)
-        else:
-            warnings.warn(
-                "semi-periodic ASE cell detected - translation "
-                + "to proper LAMMPS input cell might fail"
-            )
-            cell = self.atoms.get_cell()
-        self.prism = Prism(cell)
+        self.prism = Prism(
+            cell,
+            pbc=self.atoms.get_pbc(),
+            reduce_cell=self.parameters['reduce_cell'],
+        )
 
         self.set_missing_parameters()
         self.calls += 1
@@ -331,30 +352,30 @@ class LAMMPS(Calculator):
         tempdir = self.parameters['tmp_dir']
 
         # setup file names for LAMMPS calculation
-        label = f"{self.label}{self.calls:>06}"
-        lammps_in = uns_mktemp(
-            prefix="in_" + label, dir=tempdir
+        label = f'{self.label}{self.calls:>06}'
+        lammps_in = uns_mktemp(prefix='in_' + label, dir=tempdir)
+        lammps_log = uns_mktemp(prefix='log_' + label, dir=tempdir)
+        lammps_trj_fd = exitstack.enter_context(
+            NamedTemporaryFile(
+                prefix='trj_' + label,
+                suffix=('.bin' if self.parameters['binary_dump'] else ''),
+                dir=tempdir,
+                delete=(not self.parameters['keep_tmp_files']),
+            )
         )
-        lammps_log = uns_mktemp(
-            prefix="log_" + label, dir=tempdir
-        )
-        lammps_trj_fd = exitstack.enter_context(NamedTemporaryFile(
-            prefix="trj_" + label,
-            suffix=(".bin" if self.parameters['binary_dump'] else ""),
-            dir=tempdir,
-            delete=(not self.parameters['keep_tmp_files']),
-        ))
         lammps_trj = lammps_trj_fd.name
         if self.parameters['no_data_file']:
             lammps_data = None
         else:
-            lammps_data_fd = exitstack.enter_context(NamedTemporaryFile(
-                prefix="data_" + label,
-                dir=tempdir,
-                delete=(not self.parameters['keep_tmp_files']),
-                mode='w',
-                encoding='ascii'
-            ))
+            lammps_data_fd = exitstack.enter_context(
+                NamedTemporaryFile(
+                    prefix='data_' + label,
+                    dir=tempdir,
+                    delete=(not self.parameters['keep_tmp_files']),
+                    mode='w',
+                    encoding='ascii',
+                )
+            )
             write_lammps_data(
                 lammps_data_fd,
                 self.atoms,
@@ -374,7 +395,7 @@ class LAMMPS(Calculator):
             command = self.get_lammps_command()
             # Attempt to (re)start lammps
             self._lmp_handle = subprocess.Popen(
-                shlex.split(command, posix=(os.name == "posix")),
+                shlex.split(command, posix=(os.name == 'posix')),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 text=True,
@@ -384,7 +405,7 @@ class LAMMPS(Calculator):
         # Create thread reading lammps stdout (for reference, if requested,
         # also create lammps_log, although it is never used)
         if self.parameters['keep_tmp_files']:
-            lammps_log_fd = exitstack.enter_context(open(lammps_log, "w"))
+            lammps_log_fd = exitstack.enter_context(open(lammps_log, 'w'))
             fd = SpecialTee(lmp_handle.stdout, lammps_log_fd)
         else:
             fd = lmp_handle.stdout
@@ -394,7 +415,7 @@ class LAMMPS(Calculator):
         # write LAMMPS input (for reference, also create the file lammps_in,
         # although it is never used)
         if self.parameters['keep_tmp_files']:
-            lammps_in_fd = exitstack.enter_context(open(lammps_in, "w"))
+            lammps_in_fd = exitstack.enter_context(open(lammps_in, 'w'))
             fd = SpecialTee(lmp_handle.stdin, lammps_in_fd)
         else:
             fd = lmp_handle.stdin
@@ -417,17 +438,18 @@ class LAMMPS(Calculator):
         exitcode = lmp_handle.poll()
         if exitcode and exitcode != 0:
             raise RuntimeError(
-                "LAMMPS exited in {} with exit code: {}."
-                "".format(tempdir, exitcode)
+                'LAMMPS exited in {} with exit code: {}.'.format(
+                    tempdir, exitcode
+                )
             )
 
         # A few sanity checks
         if len(self.thermo_content) == 0:
-            raise RuntimeError("Failed to retrieve any thermo_style-output")
-        if int(self.thermo_content[-1]["atoms"]) != len(self.atoms):
+            raise RuntimeError('Failed to retrieve any thermo_style-output')
+        if int(self.thermo_content[-1]['atoms']) != len(self.atoms):
             # This obviously shouldn't happen, but if prism.fold_...() fails,
             # it could
-            raise RuntimeError("Atoms have gone missing")
+            raise RuntimeError('Atoms have gone missing')
 
         trj_atoms = read_lammps_dump(
             infileobj=lammps_trj,
@@ -448,30 +470,26 @@ class LAMMPS(Calculator):
             self.trajectory_out.write(trj_atoms)
 
         tc = self.thermo_content[-1]
-        self.results["energy"] = convert(
-            tc["pe"], "energy", self.parameters["units"], "ASE"
+        self.results['energy'] = convert(
+            tc['pe'], 'energy', self.parameters['units'], 'ASE'
         )
-        self.results["free_energy"] = self.results["energy"]
-        self.results['forces'] = convert(self.forces.copy(),
-                                         'force',
-                                         self.parameters['units'],
-                                         'ASE')
+        self.results['free_energy'] = self.results['energy']
+        self.results['forces'] = convert(
+            self.forces.copy(), 'force', self.parameters['units'], 'ASE'
+        )
         stress = np.array(
-            [-tc[i] for i in ("pxx", "pyy", "pzz", "pyz", "pxz", "pxy")]
+            [-tc[i] for i in ('pxx', 'pyy', 'pzz', 'pyz', 'pxz', 'pxy')]
         )
 
         # We need to apply the Lammps rotation stuff to the stress:
         xx, yy, zz, yz, xz, xy = stress
-        stress_tensor = np.array([[xx, xy, xz],
-                                  [xy, yy, yz],
-                                  [xz, yz, zz]])
+        stress_tensor = np.array([[xx, xy, xz], [xy, yy, yz], [xz, yz, zz]])
         stress_atoms = self.prism.tensor2_to_ase(stress_tensor)
-        stress_atoms = stress_atoms[[0, 1, 2, 1, 0, 0],
-                                    [0, 1, 2, 2, 2, 1]]
+        stress_atoms = stress_atoms[[0, 1, 2, 1, 0, 0], [0, 1, 2, 2, 2, 1]]
         stress = stress_atoms
 
-        self.results["stress"] = convert(
-            stress, "pressure", self.parameters["units"], "ASE"
+        self.results['stress'] = convert(
+            stress, 'pressure', self.parameters['units'], 'ASE'
         )
 
     def __enter__(self):
@@ -487,18 +505,18 @@ class LAMMPS(Calculator):
         # read_log depends on that the first (three) thermo_style custom args
         # can be capitalized and matched against the log output. I.e.
         # don't use e.g. 'ke' or 'cpu' which are labeled KinEng and CPU.
-        mark_re = r"^\s*" + r"\s+".join(
+        mark_re = r'^\s*' + r'\s+'.join(
             [x.capitalize() for x in self.parameters['thermo_args'][0:3]]
         )
         _custom_thermo_mark = re_compile(mark_re)
 
         # !TODO: regex-magic necessary?
         # Match something which can be converted to a float
-        f_re = r"([+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?|nan|inf))"
-        n_args = len(self.parameters["thermo_args"])
+        f_re = r'([+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?|nan|inf))'
+        n_args = len(self.parameters['thermo_args'])
         # Create a re matching exactly N white space separated floatish things
         _custom_thermo_re = re_compile(
-            r"^\s*" + r"\s+".join([f_re] * n_args) + r"\s*$", flags=IGNORECASE
+            r'^\s*' + r'\s+'.join([f_re] * n_args) + r'\s*$', flags=IGNORECASE
         )
 
         thermo_content = []
@@ -566,7 +584,7 @@ class SpecialTee:
 
     def readlines(self, *args, **kwargs):
         data = self._orig_fd.readlines(*args, **kwargs)
-        self._out_fd.write("".join(data))
+        self._out_fd.write(''.join(data))
         return data
 
     def flush(self):

@@ -15,7 +15,7 @@ class DescribeAllImageBaselineResponseBody(DaraModel):
     ):
         # The details of the image baseline check list.
         self.image_baselines = image_baselines
-        # The ID of the request. The ID is used to locate logs and troubleshoot issues.
+        # The ID of the request. You can use the ID to locate logs and troubleshoot issues.
         self.request_id = request_id
 
     def validate(self):
@@ -91,7 +91,7 @@ class DescribeAllImageBaselineResponseBodyImageBaselinesBaselineClassList(DaraMo
     ):
         # The alias of the baseline category.
         self.alias = alias
-        # The list of baseline main items.
+        # The list of primary baseline items.
         self.baseline_name_list = baseline_name_list
         # The type key of the baseline category.
         self.class_key = class_key
@@ -144,13 +144,13 @@ class DescribeAllImageBaselineResponseBodyImageBaselinesBaselineClassListBaselin
         class_key: str = None,
         name_key: str = None,
     ):
-        # The alias of the baseline main item.
+        # The alias of the primary baseline item.
         self.alias = alias
         # The list of baseline sub-items.
         self.baseline_item_list = baseline_item_list
-        # The type key of the baseline main item.
+        # The type key of the primary baseline item.
         self.class_key = class_key
-        # The name key of the baseline main item.
+        # The name key of the primary baseline item.
         self.name_key = name_key
 
     def validate(self):
@@ -209,11 +209,11 @@ class DescribeAllImageBaselineResponseBodyImageBaselinesBaselineClassListBaselin
     ):
         # The alias of the baseline sub-item.
         self.alias = alias
-        # The type key of the baseline main item.
+        # The type key of the primary baseline item.
         self.class_key = class_key
         # The name key of the baseline sub-item.
         self.item_key = item_key
-        # The name key of the baseline main item.
+        # The name key of the primary baseline item.
         self.name_key = name_key
 
     def validate(self):

@@ -8,7 +8,7 @@ into the Instructor client via the ``cache=...`` keyword::
     from instructor.cache import AutoCache
 
     cache = AutoCache(maxsize=10_000)
-    client = from_provider("openai/gpt-4o", cache=cache)
+    client = from_provider("openai/gpt-6-luna", cache=cache)
 
 The cache object must implement :class:`BaseCache`.  A minimal
 requirement is to expose synchronous ``get`` / ``set`` methods (async
@@ -30,8 +30,6 @@ from enum import Enum
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Any
-import logging
-
 from pydantic import BaseModel
 
 __all__ = [
@@ -123,14 +121,32 @@ def _import_diskcache():  # pragma: no cover – only executed when requested
 
 
 class DiskCache(BaseCache):
-    """Wrapper around `diskcache.Cache`."""
+    """Persistent, thread-safe storage for strings, bytes, and JSON values."""
 
     def __init__(self, directory: str = ".instructor_cache", **kwargs: Any):
+        from pathlib import Path
+
         diskcache = _import_diskcache()
-        self._cache = diskcache.Cache(directory, **kwargs)
+        from ._disk import InlineDisk
+
+        if "disk" in kwargs:
+            raise TypeError("DiskCache uses its own inline data codec")
+        root = Path(directory).expanduser()
+        root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if any(
+            (root / name).is_symlink()
+            for name in ("cache.db", "cache.db-wal", "cache.db-shm", "cache.db-journal")
+        ):
+            raise ValueError("DiskCache database files must be local regular files")
+        self._cache = diskcache.Cache(str(root), disk=InlineDisk, **kwargs)
 
     def get(self, key: str) -> Any | None:  # noqa: ANN401
-        return self._cache.get(key)
+        from ._disk import UnsafeCacheEntry
+
+        try:
+            return self._cache.get(key)
+        except UnsafeCacheEntry:
+            return None
 
     def set(self, key: str, value: Any, ttl: int | None = None) -> None:  # noqa: ANN401
         if ttl is None:
@@ -241,6 +257,7 @@ def make_cache_key(
             "generation_config",
             "inferenceConfig",
             "additionalModelRequestFields",
+            "extra_body",
         )
         generation = {}
         for field in generation_fields:
@@ -362,10 +379,18 @@ def make_request_cache_key(
 
     def encode(value: Any) -> Any:
         if isinstance(value, BaseModel):
-            return value.model_dump(mode="json")
+            return encode(value.model_dump(mode="json"))
         if isinstance(value, type) and issubclass(value, BaseModel):
-            return value.model_json_schema()
-        raise TypeError(f"Unsupported cache identity value: {type(value).__name__}")
+            return encode(value.model_json_schema())
+        if isinstance(value, dict):
+            # JSON coerces mapping keys to strings, aliasing distinct policies
+            # such as {1: "allowed"} and {"1": "allowed"} in validation context.
+            if any(not isinstance(key, str) for key in value):
+                raise TypeError("Cache identity mappings require string keys")
+            return {key: encode(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [encode(item) for item in value]
+        return value
 
     try:
         payload = {
@@ -380,17 +405,10 @@ def make_request_cache_key(
             "context": context,
             "strict": strict,
         }
-        data = json.dumps(payload, sort_keys=True, default=encode, allow_nan=False)
+        data = json.dumps(encode(payload), sort_keys=True, allow_nan=False)
     except (TypeError, ValueError, AttributeError, RecursionError):
         return None
     return hashlib.sha256(data.encode()).hexdigest()
-
-
-# -------------------------------------------------------------------------
-# Convenience helpers used by patch.py to avoid duplication
-# -------------------------------------------------------------------------
-
-logger = logging.getLogger("instructor.cache")
 
 
 def load_cached_response(
@@ -402,93 +420,15 @@ def load_cached_response(
     strict: bool | None = None,
 ):  # noqa: ANN201
     """Return parsed model if *key* exists in *cache* else None."""
-    from instructor.v2.validation.async_validators import reject_async_validators
+    from instructor.v2.core.cache_response import load_cached_response as load
 
-    reject_async_validators(response_model)
-    cached = cache.get(key)
-    if cached is None:
-        return None
-    import json
-
-    try:
-        data = json.loads(cached)
-        model_json = data["model"]
-        raw_json = data.get("raw")
-    except Exception:  # noqa: BLE001
-        model_json = cached
-        raw_json = None
-
-    obj = response_model.model_validate_json(model_json, context=context, strict=strict)
-    if raw_json is not None:
-        # `_raw_response` is an internal attribute used by Instructor; it may not
-        # be declared on the Pydantic model type.
-        try:
-            # Try to deserialize as JSON and reconstruct object structure
-            import json
-
-            raw_data = json.loads(raw_json)
-
-            # Check if this looks like a Pydantic-serialized object (has proper structure)
-            if isinstance(raw_data, dict) and any(
-                key in raw_data for key in ["id", "object", "model", "choices"]
-            ):
-                # Looks like a proper completion object - use SimpleNamespace reconstruction
-                from types import SimpleNamespace
-
-                object.__setattr__(
-                    obj,
-                    "_raw_response",
-                    json.loads(raw_json, object_hook=lambda d: SimpleNamespace(**d)),
-                )
-                logger.debug("Restored raw response as SimpleNamespace object")
-            else:
-                # Plain dict/list - keep as-is
-                object.__setattr__(obj, "_raw_response", raw_data)
-                logger.debug("Restored raw response as plain data structure")
-        except (json.JSONDecodeError, TypeError):
-            # Not valid JSON - probably string fallback
-            object.__setattr__(obj, "_raw_response", raw_json)
-            logger.debug(
-                "Restored raw response as string (original could not be fully serialized)"
-            )
-    logger.debug("cache hit: %s", key)
-    return obj
+    return load(cache, key, response_model, context=context, strict=strict)
 
 
 def store_cached_response(
     cache: BaseCache, key: str, model: BaseModel, ttl: int | None = None
 ) -> None:  # noqa: D401
     """Serialize *model* and optional raw response to JSON and cache it."""
-    raw_resp = getattr(model, "_raw_response", None)
-    if raw_resp is not None:
-        try:
-            # Try Pydantic model serialization first (OpenAI, Anthropic, etc.)
-            raw_resp_dump = getattr(raw_resp, "model_dump_json", None)
-            if callable(raw_resp_dump):
-                raw_json = raw_resp_dump()
-            else:
-                raise AttributeError("raw_resp has no model_dump_json")
-            logger.debug("Cached raw response as Pydantic JSON")
-        except (AttributeError, TypeError):
-            # Fallback for non-Pydantic responses (custom providers, plain dicts, etc.)
-            try:
-                raw_json = json.dumps(raw_resp, default=str)
-                logger.debug(
-                    "Cached raw response as plain JSON (provider may not support full reconstruction)"
-                )
-            except (TypeError, ValueError):
-                # Final fallback - string representation
-                raw_json = str(raw_resp)
-                logger.warning(
-                    "Raw response could not be serialized as JSON, using string fallback. "
-                    "create_with_completion may not fully restore original object structure."
-                )
-    else:
-        raw_json = None
+    from instructor.v2.core.cache_response import store_cached_response as store
 
-    payload = {
-        "model": model.model_dump_json(),  # type: ignore[attr-defined]
-        "raw": raw_json,
-    }
-    cache.set(key, json.dumps(payload), ttl=ttl)
-    logger.debug("cache store: %s", key)
+    store(cache, key, model, ttl=ttl)

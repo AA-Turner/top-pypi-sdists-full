@@ -13,17 +13,16 @@ class ModifyStartVulScanRequest(DaraModel):
         types: str = None,
         uuids: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You must use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You can use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies whether to perform a dry run on the request. Valid values:
-        # - true: performs a dry run only. The system checks the request but does not perform the actual operation.
-        # - false: performs the request.
-        # Default value: false.
+        # Specifies whether to only precheck the request. Valid values:
+        # - true: Only prechecks the request and does not perform the actual operation.
+        # - false: Performs the actual operation.
         self.dry_run = dry_run
-        # The ID of the main account of the member accounts in the resource folder.
-        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        # The ID of the primary account of the resource folder member accounts.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to query the parameter.
         self.resource_directory_account_id = resource_directory_account_id
-        # Settings for the vulnerability types to be detected by the quick scan feature. Valid values:
+        # Settings for the vulnerability types detected by the one-click scan feature. Valid values:
         # - **cve**: Linux software vulnerability.
         # - **sys**: Windows system vulnerability.
         # - **cms**: Web-CMS vulnerability.
@@ -36,7 +35,7 @@ class ModifyStartVulScanRequest(DaraModel):
         # The list of server UUIDs. Separate multiple UUIDs with commas (,).
         # 
         # 
-        # > You can call the [DescribeCloudCenterInstances](https://help.aliyun.com/document_detail/421726.html) operation to obtain the UUIDs.
+        # > You can call the [DescribeCloudCenterInstances](https://help.aliyun.com/document_detail/421726.html) operation to query the UUIDs.
         self.uuids = uuids
 
     def validate(self):

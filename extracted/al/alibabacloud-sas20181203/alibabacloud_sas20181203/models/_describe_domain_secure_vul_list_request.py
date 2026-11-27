@@ -14,14 +14,14 @@ class DescribeDomainSecureVulListRequest(DaraModel):
     ):
         # The identifier of the request source. Set the value to sas.
         self.from_ = from_
-        # The language type of the request and response. Default value: **zh**. Valid values:
+        # Specifies the language of the request and response. Default value: **zh**. Valid values:
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
-        # The IP address of the access source.
+        # The source IP address.
         self.source_ip = source_ip
         # The vulnerability type. Valid values:
-        #    - **app**: application vulnerability.
+        # - **app**: application vulnerability
         self.type = type
 
     def validate(self):

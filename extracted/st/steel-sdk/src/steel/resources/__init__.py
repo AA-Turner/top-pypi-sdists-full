@@ -8,6 +8,14 @@ from .files import (
     FilesResourceWithStreamingResponse,
     AsyncFilesResourceWithStreamingResponse,
 )
+from .vaults import (
+    VaultsResource,
+    AsyncVaultsResource,
+    VaultsResourceWithRawResponse,
+    AsyncVaultsResourceWithRawResponse,
+    VaultsResourceWithStreamingResponse,
+    AsyncVaultsResourceWithStreamingResponse,
+)
 from .api_keys import (
     APIKeysResource,
     AsyncAPIKeysResource,
@@ -56,6 +64,14 @@ from .credentials import (
     CredentialsResourceWithStreamingResponse,
     AsyncCredentialsResourceWithStreamingResponse,
 )
+from .secret_connections import (
+    SecretConnectionsResource,
+    AsyncSecretConnectionsResource,
+    SecretConnectionsResourceWithRawResponse,
+    AsyncSecretConnectionsResourceWithRawResponse,
+    SecretConnectionsResourceWithStreamingResponse,
+    AsyncSecretConnectionsResourceWithStreamingResponse,
+)
 
 __all__ = [
     "APIKeysResource",
@@ -94,10 +110,22 @@ __all__ = [
     "AsyncProjectsResourceWithRawResponse",
     "ProjectsResourceWithStreamingResponse",
     "AsyncProjectsResourceWithStreamingResponse",
+    "SecretConnectionsResource",
+    "AsyncSecretConnectionsResource",
+    "SecretConnectionsResourceWithRawResponse",
+    "AsyncSecretConnectionsResourceWithRawResponse",
+    "SecretConnectionsResourceWithStreamingResponse",
+    "AsyncSecretConnectionsResourceWithStreamingResponse",
     "SessionsResource",
     "AsyncSessionsResource",
     "SessionsResourceWithRawResponse",
     "AsyncSessionsResourceWithRawResponse",
     "SessionsResourceWithStreamingResponse",
     "AsyncSessionsResourceWithStreamingResponse",
+    "VaultsResource",
+    "AsyncVaultsResource",
+    "VaultsResourceWithRawResponse",
+    "AsyncVaultsResourceWithRawResponse",
+    "VaultsResourceWithStreamingResponse",
+    "AsyncVaultsResourceWithStreamingResponse",
 ]

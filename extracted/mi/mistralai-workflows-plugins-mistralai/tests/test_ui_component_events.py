@@ -15,7 +15,7 @@ from mistralai.workflows.plugins.mistralai import (
 from mistralai.workflows.plugins.mistralai.conversational_ui_components import LLM_UI_VERSION, Markdown
 from mistralai.workflows.testing import (
     compare_itemwise,
-    create_capturing_mock_events_client,
+    create_capturing_mock_event_publisher,
     create_test_worker_with_events,
     custom_task_completed,
     custom_task_started,
@@ -43,7 +43,7 @@ class UIComponentWorkflow:
 @pytest.mark.asyncio
 async def test_ui_component_emits_events(temporal_env: WorkflowEnvironment) -> None:
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     expected_state = {
         "contentChunks": [

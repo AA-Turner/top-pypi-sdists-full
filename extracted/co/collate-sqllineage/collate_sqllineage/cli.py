@@ -25,7 +25,7 @@ def main(args=None) -> None:
     logging.config.dictConfig(DEFAULT_LOGGING)
 
     parser = argparse.ArgumentParser(
-        prog="sqllineage", description="SQL Lineage Parser."
+        prog="collate-sqllineage", description="SQL Lineage Parser."
     )
     parser.add_argument(
         "-e", metavar="<quoted-query-string>", help="SQL from command line"

@@ -11,21 +11,23 @@ if typing.TYPE_CHECKING:
     from .doc_ai_get_results_response import (
         DocAiGetResultsResponse,
         DocAiGetResultsResponse_Classify,
+        DocAiGetResultsResponse_Digitise,
         DocAiGetResultsResponse_Extract,
-        DocAiGetResultsResponse_Parse,
         DocAiGetResultsResponse_Split,
     )
     from .doc_ai_parse_request_content_type import DocAiParseRequestContentType
+    from .doc_ai_parse_request_output_format import DocAiParseRequestOutputFormat
     from .format import Format
 _dynamic_imports: typing.Dict[str, str] = {
     "DocAiExtractRequestMode": ".doc_ai_extract_request_mode",
     "DocAiExtractRequestOutputFormat": ".doc_ai_extract_request_output_format",
     "DocAiGetResultsResponse": ".doc_ai_get_results_response",
     "DocAiGetResultsResponse_Classify": ".doc_ai_get_results_response",
+    "DocAiGetResultsResponse_Digitise": ".doc_ai_get_results_response",
     "DocAiGetResultsResponse_Extract": ".doc_ai_get_results_response",
-    "DocAiGetResultsResponse_Parse": ".doc_ai_get_results_response",
     "DocAiGetResultsResponse_Split": ".doc_ai_get_results_response",
     "DocAiParseRequestContentType": ".doc_ai_parse_request_content_type",
+    "DocAiParseRequestOutputFormat": ".doc_ai_parse_request_output_format",
     "Format": ".format",
 }
 
@@ -56,9 +58,10 @@ __all__ = [
     "DocAiExtractRequestOutputFormat",
     "DocAiGetResultsResponse",
     "DocAiGetResultsResponse_Classify",
+    "DocAiGetResultsResponse_Digitise",
     "DocAiGetResultsResponse_Extract",
-    "DocAiGetResultsResponse_Parse",
     "DocAiGetResultsResponse_Split",
     "DocAiParseRequestContentType",
+    "DocAiParseRequestOutputFormat",
     "Format",
 ]

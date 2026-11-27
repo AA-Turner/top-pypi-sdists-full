@@ -2,22 +2,19 @@ import asyncio
 import base64
 import json
 import time
-import warnings
 from typing import Any, NamedTuple
 
 import httpx
 import pytest
+from pydantic import SecretStr
 
 from mistralai.workflows._mistral_http import MISTRAL_HTTP
-from mistralai.workflows.client import (
-    _get_async_client,
-    _get_sync_client,
-    get_mistral_client,
-    should_use_executor_credentials,
-)
+from mistralai.workflows.client import _get_async_client, _get_sync_client, get_mistral_client
+from mistralai.workflows.core import graph_summaries
 from mistralai.workflows.core.auth import RunAs, StaticTokenProvider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
+from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import WorkflowError
 from mistralai.workflows.models import WorkflowContext
 
@@ -163,10 +160,6 @@ class _Rejection(NamedTuple):
     message: str
 
 
-_STRICT_EXECUTOR_POLICIES = [
-    pytest.param({"run_as": RunAs.EXECUTOR}, id="executor"),
-    pytest.param({"use_executor_credentials": True}, id="legacy-executor"),
-]
 _STRICT_EXECUTOR_REJECTIONS = [
     pytest.param(_Rejection(_context("alice", obo=False), "on_behalf_of=True"), id="non-obo"),
     pytest.param(_Rejection(None, "workflow context"), id="no-context"),
@@ -197,17 +190,9 @@ class TestAuthenticationPolicies:
             assert server.requests[-1].headers["Authorization"] == "Bearer deployment-key"
         assert not server.exchanges
 
-    @pytest.mark.parametrize("policy", _STRICT_EXECUTOR_POLICIES)
-    async def test_strict_executor_uses_executor_jwt(self, make_client, server, policy):
-        client = make_client(token_provider=StaticTokenProvider("deployment-key"), **policy)
-        with define_context(_context("alice")):
-            await _get(client)
-        assert server.requests[-1].headers["Authorization"] == f"Bearer {server.tokens['alice']}"
-
     @pytest.mark.parametrize("rejection", _STRICT_EXECUTOR_REJECTIONS)
-    @pytest.mark.parametrize("policy", _STRICT_EXECUTOR_POLICIES)
-    async def test_strict_executor_never_sends_without_identity(self, make_client, server, policy, rejection):
-        client = make_client(token_provider=StaticTokenProvider("deployment-key"), **policy)
+    async def test_strict_executor_never_sends_without_identity(self, make_client, server, rejection):
+        client = make_client(token_provider=StaticTokenProvider("deployment-key"), run_as=RunAs.EXECUTOR)
         with define_context(rejection.context), pytest.raises(WorkflowError, match=rejection.message) as error:
             await _get(client)
         assert error.value.non_retryable
@@ -222,83 +207,85 @@ class TestAuthenticationPolicies:
             await _get(client)
         assert "Authorization" not in server.requests[-1].headers
 
-    @pytest.mark.parametrize("mode", list(RunAs))
-    def test_conflicting_legacy_option_is_rejected(self, factory, mode, server):
-        with pytest.raises(ValueError, match="conflicts"):
-            factory(run_as=mode, use_executor_credentials=True)
+    @pytest.mark.parametrize(
+        "api_headers, token_provider, expected",
+        [
+            pytest.param(
+                {"X-Deployment": "worker"},
+                StaticTokenProvider("deployment-key"),
+                {"x-deployment": "worker", "authorization": "Bearer deployment-key"},
+                id="custom-header",
+            ),
+            pytest.param(
+                {"Authorization": "Bearer header-key"},
+                None,
+                {"authorization": "Bearer header-key"},
+                id="header-auth-no-key",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("run_as", [RunAs.DEPLOYMENT, RunAs.AUTO])
+    async def test_non_obo_requests_carry_deployment_credentials(
+        self, make_client, server, monkeypatch, api_headers, token_provider, expected, run_as
+    ):
+        monkeypatch.setattr(config.worker, "mistral_api_headers", api_headers)
+        client = make_client(token_provider=token_provider, run_as=run_as)
+        with define_context(_context(obo=False)):
+            await _get(client)
+        assert {name: server.requests[-1].headers.get(name) for name in expected} == expected
 
     def test_invalid_mode_is_rejected(self, factory, server):
         with pytest.raises(ValueError):
             factory(run_as="typo")
 
-
-@pytest.fixture
-async def make_mistral_client(server):
-    clients = []
-
-    def make(**kwargs):
-        kwargs.setdefault("token_provider", StaticTokenProvider("deployment-key"))
-        clients.append(get_mistral_client(server_url="https://api.example", **kwargs))
-        return clients[-1]
-
-    yield make
-    for client in clients:
-        await _close(client.sdk_configuration.async_client)
-        client.sdk_configuration.client.close()
+    def test_identity_must_be_chosen(self, factory, server):
+        with pytest.raises(TypeError, match="run_as"):
+            factory()
 
 
 class TestMistralClient:
-    async def test_same_sdk_instance_uses_request_context_for_sync_and_async(self, make_mistral_client, server):
-        client = make_mistral_client(run_as=RunAs.AUTO)
-        # mistralai 2.9.3 metadata uses httpx; client-python/pyproject.toml 3.x uses httpx2.
-        assert isinstance(client.sdk_configuration.async_client, MISTRAL_HTTP.AsyncClient)
-        assert isinstance(client.sdk_configuration.client, MISTRAL_HTTP.Client)
-        for context in [_context("alice"), _context(obo=False), _context("bob")]:
-            with define_context(context):
+    def test_v3_positional_executor_flag_is_rejected(self, server):
+        with pytest.raises(TypeError, match="positional"):
+            get_mistral_client("https://api.example", "deployment-key", True)
+
+    async def test_default_identity_follows_each_request_context_for_sync_and_async(self, server):
+        client = get_mistral_client(
+            server_url="https://api.example",
+            token_provider=StaticTokenProvider("deployment-key"),
+        )
+        try:
+            # mistralai 2.9.3 metadata uses httpx; client-python/pyproject.toml 3.x uses httpx2.
+            assert isinstance(client.sdk_configuration.async_client, MISTRAL_HTTP.AsyncClient)
+            assert isinstance(client.sdk_configuration.client, MISTRAL_HTTP.Client)
+            for context in [_context("alice"), _context(obo=False), _context("bob")]:
+                with define_context(context):
+                    await client.models.list_async()
+                    await asyncio.to_thread(client.models.list)
+                calls = [req for req in server.requests if not req.url.path.endswith("/executor-identity-token")]
+                expected = server.tokens[context.execution_token] if context.on_behalf_of else "deployment-key"
+                assert [req.headers["Authorization"] for req in calls[-2:]] == [f"Bearer {expected}"] * 2
+            with define_context(None), pytest.raises(WorkflowError, match="AUTO requires a workflow context"):
                 await client.models.list_async()
-                await asyncio.to_thread(client.models.list)
-            calls = [req for req in server.requests if not req.url.path.endswith("/executor-identity-token")]
-            expected = server.tokens[context.execution_token] if context.on_behalf_of else "deployment-key"
-            assert [req.headers["Authorization"] for req in calls[-2:]] == [f"Bearer {expected}"] * 2
+        finally:
+            await _close(client.sdk_configuration.async_client)
+            client.sdk_configuration.client.close()
 
 
-class _IdentityWarningCase(NamedTuple):
-    run_as: RunAs | None
-    context: WorkflowContext | None
-    warning: str | None
-
-
-_V4_IDENTITY_WARNING_CASES = [
-    pytest.param(_IdentityWarningCase(None, _context("alice"), "on_behalf_of workflow"), id="default-obo"),
-    pytest.param(_IdentityWarningCase(None, None, "outside a workflow execution"), id="default-no-context"),
-    pytest.param(_IdentityWarningCase(None, _context(obo=False), None), id="default-non-obo"),
-    pytest.param(_IdentityWarningCase(RunAs.DEPLOYMENT, _context("alice"), None), id="explicit-deployment"),
-    pytest.param(_IdentityWarningCase(RunAs.DEPLOYMENT, None, None), id="explicit-deployment-no-context"),
-]
-
-
-class TestV4IdentityWarnings:
-    @pytest.mark.parametrize("case", _V4_IDENTITY_WARNING_CASES)
-    async def test_default_identity_warns_only_where_v4_differs(self, make_mistral_client, server, case):
-        client = make_mistral_client(run_as=case.run_as)
-        with define_context(case.context), warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            await client.models.list_async()
-            client.models.list()
-
-        future_warnings = [w for w in caught if issubclass(w.category, FutureWarning)]
-        assert len(future_warnings) == (2 if case.warning else 0)
-        assert all(case.warning in str(w.message) and w.filename == __file__ for w in future_warnings)
-        assert [req.headers["Authorization"] for req in server.requests] == ["Bearer deployment-key"] * 2
+class TestOutOfWorkflowClients:
+    @pytest.fixture(autouse=True)
+    def deployment_config(self, server, monkeypatch):
+        monkeypatch.setattr(config.common, "mistral_api_key", SecretStr("deployment-key"))
+        monkeypatch.setattr(config.worker, "server_url", "https://api.example")
+        monkeypatch.setattr(graph_summaries, "_cached_client", None)
 
     @pytest.mark.parametrize(
-        "context,expected",
-        [pytest.param(_context("alice"), True, id="obo"), pytest.param(_context(obo=False), False, id="non-obo")],
+        "build", [get_worker_client, graph_summaries._get_client], ids=["worker-client", "graph-summaries"]
     )
-    def test_should_use_executor_credentials_is_deprecated(self, context, expected):
-        with define_context(context), pytest.warns(FutureWarning, match=r"run_as=RunAs\.AUTO"):
-            assert should_use_executor_credentials() is expected
-
-    def test_legacy_executor_flag_warns(self, make_mistral_client):
-        with pytest.warns(FutureWarning, match=r"run_as=RunAs\.EXECUTOR"):
-            make_mistral_client(use_executor_credentials=True)
+    async def test_uses_deployment_identity_without_workflow_context(self, build, server):
+        client = build().sdk_configuration.async_client
+        try:
+            with define_context(None):
+                await _get(client)
+        finally:
+            await _close(client)
+        assert server.requests[-1].headers["Authorization"] == "Bearer deployment-key"

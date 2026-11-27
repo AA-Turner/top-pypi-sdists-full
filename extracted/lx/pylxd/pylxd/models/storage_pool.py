@@ -11,7 +11,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from __future__ import annotations
+
+from typing import cast
+
+import requests
+
 from pylxd import managers
+from pylxd.client import Client, _APINode
 from pylxd.models import _model as model
 
 
@@ -50,7 +57,7 @@ class StoragePool(model.Model):
     __hash__ = None  # type: ignore  # unhashable, consistent with defining __eq__
 
     @classmethod
-    def get(cls, client, name):
+    def get(cls, client: Client, name: str) -> StoragePool:
         """Get a storage_pool by name.
 
         Implements GET /1.0/storage-pools/<name>
@@ -72,7 +79,7 @@ class StoragePool(model.Model):
         return storage_pool
 
     @classmethod
-    def all(cls, client):
+    def all(cls, client: Client) -> list[StoragePool]:
         """Get all storage_pools.
 
         Implements GET /1.0/storage-pools
@@ -98,7 +105,7 @@ class StoragePool(model.Model):
         return storage_pools
 
     @classmethod
-    def create(cls, client, definition, wait=True):
+    def create(cls, client: Client, definition: dict, wait: bool = True) -> StoragePool:
         """Create a storage_pool from config.
 
         Implements POST /1.0/storage-pools
@@ -126,7 +133,8 @@ class StoragePool(model.Model):
         :type client: :class:`pylxd.client.Client`
         :param definition: the fields to pass to the LXD API endpoint
         :type definition: dict
-        :param wait: Whether to wait for async operations to complete.
+        :param wait: Whether to wait for async operations to complete. If
+            False, the returned object contains only its name.
         :type wait: bool
         :returns: a storage pool if successful, raises NotFound if not found
         :rtype: :class:`pylxd.models.storage_pool.StoragePool`
@@ -140,11 +148,14 @@ class StoragePool(model.Model):
 
         # Use helper method for async handling
         cls._handle_async_response_for_client(client, response, wait)
-        storage_pool = cls.get(client, definition["name"])
+        if wait:
+            storage_pool = cls.get(client, definition["name"])
+        else:
+            storage_pool = cls(client, name=definition["name"])
         return storage_pool
 
     @classmethod
-    def exists(cls, client, name):
+    def exists(cls, client: Client, name: str) -> bool:
         """Determine whether a storage pool exists.
 
         A convenience method to determine a pool exists.  However, it is better
@@ -169,7 +180,7 @@ class StoragePool(model.Model):
             return False
 
     @property
-    def api(self):
+    def api(self) -> _APINode:
         """Provides an object with the endpoint:
 
         /1.0/storage-pools/<self.name>
@@ -181,7 +192,7 @@ class StoragePool(model.Model):
         """
         return self.client.api.storage_pools[self.name]
 
-    def save(self, wait=False):
+    def save(self, wait: bool = False):
         """Save the model using PUT back to the LXD server.
 
         Implements PUT /1.0/storage-pools/<self.name> *automagically*
@@ -203,7 +214,7 @@ class StoragePool(model.Model):
         # Note this method exists so that it is documented via sphinx.
         super().save(wait=wait)
 
-    def delete(self, wait=False):
+    def delete(self, wait: bool = False):
         """Delete the storage pool.
 
         Implements DELETE /1.0/storage-pools/<self.name>
@@ -218,7 +229,7 @@ class StoragePool(model.Model):
         # Note this method exists so that it is documented via sphinx.
         super().delete(wait=wait)
 
-    def put(self, put_object, wait=False):
+    def put(self, put_object: dict, wait: bool = False):
         """Put the storage pool.
 
         Implements PUT /1.0/storage-pools/<self.name>
@@ -242,7 +253,7 @@ class StoragePool(model.Model):
         # Note this method exists so that it is documented via sphinx.
         super().put(put_object, wait)
 
-    def patch(self, patch_object, wait=False):
+    def patch(self, patch_object: dict, wait: bool = False):
         """Patch the storage pool.
 
         Implements PATCH /1.0/storage-pools/<self.name>
@@ -278,7 +289,7 @@ class StorageResources(model.Model):
     inodes = model.Attribute(readonly=True)
 
     @classmethod
-    def get(cls, storage_pool):
+    def get(cls, storage_pool: StoragePool) -> StorageResources:
         """Get a storage_pool resource for a named pool
 
         Implements GET /1.0/storage-pools/<pool>/resources
@@ -324,7 +335,7 @@ class StorageVolume(model.Model):
     storage_pool = model.Parent()
 
     @property
-    def api(self):
+    def api(self) -> _APINode:
         """Provides an object with the endpoint:
 
         /1.0/storage-pools/<storage_pool.name>/volumes/<self.type>/<self.name>
@@ -334,7 +345,7 @@ class StorageVolume(model.Model):
         :returns: an API node with the named endpoint
         :rtype: :class:`pylxd.client._APINode`
         """
-        return self.storage_pool.api.volumes[self.type][self.name]
+        return cast(_APINode, self.storage_pool.api.volumes[self.type][self.name])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -354,8 +365,8 @@ class StorageVolume(model.Model):
     __hash__ = None  # type: ignore  # unhashable, consistent with defining __eq__
 
     @classmethod
-    def all(cls, storage_pool):
-        """Get all the volumnes for this storage pool.
+    def all(cls, storage_pool: StoragePool) -> list[StorageVolume]:
+        """Get all the volumes for this storage pool.
 
         Implements GET /1.0/storage-pools/<name>/volumes
 
@@ -382,15 +393,7 @@ class StorageVolume(model.Model):
         for volume in response.json()["metadata"]:
             _type, name = volume.split("/")[-2:]
             # for each type, convert to the string that will work with GET
-            if _type == "container":
-                _type = "container"
-            elif _type == "virtual-machine":
-                _type = "virtual-machine"
-            elif _type == "instance":
-                _type = "instance"
-            elif _type == "image":
-                _type = "image"
-            else:
+            if _type not in ("container", "virtual-machine", "instance", "image"):
                 _type = "custom"
             volumes.append(
                 cls(
@@ -403,7 +406,7 @@ class StorageVolume(model.Model):
         return volumes
 
     @classmethod
-    def get(cls, storage_pool, _type, name):
+    def get(cls, storage_pool: StoragePool, _type: str, name: str) -> StorageVolume:
         """Get a StorageVolume by type and name.
 
         Implements GET /1.0/storage-pools/<pool>/volumes/<type>/<name>
@@ -417,7 +420,7 @@ class StorageVolume(model.Model):
         :type _type: str
         :param name: the name of the storage volume to get
         :type name: str
-        :returns: a storage pool if successful, raises NotFound if not found
+        :returns: a storage volume if successful, raises NotFound if not found
         :rtype: :class:`pylxd.models.storage_pool.StorageVolume`
         :raises: :class:`pylxd.exceptions.NotFound`
         :raises: :class:`pylxd.exceptions.LXDAPIExtensionNotAvailable` if the
@@ -435,7 +438,7 @@ class StorageVolume(model.Model):
 
     @classmethod
     # def create(cls, storage_pool, definition, wait=True, *args):
-    def create(cls, storage_pool, *args, **kwargs):
+    def create(cls, storage_pool: StoragePool, *args, **kwargs) -> StorageVolume:
         """Create a 'custom' Storage Volume in the associated storage pool.
 
         Implements POST /1.0/storage-pools/<pool>/volumes/custom
@@ -471,6 +474,7 @@ class StorageVolume(model.Model):
         :type definition: dict
         :param wait: wait until an async action has completed (default True)
         :type wait: bool
+        If wait is False, the returned volume contains only its name and type.
         :returns: a storage pool volume if successful, raises NotFound if not
             found
         :rtype: :class:`pylxd.models.storage_pool.StorageVolume`
@@ -488,18 +492,32 @@ class StorageVolume(model.Model):
         # right positional parameters.
         storage_pool.client.assert_has_api_extension("storage")
         wait = kwargs.get("wait", True)
+        if not args:
+            raise ValueError("missing 'definition' parameter")
+
         definition = args[-1]
-        assert isinstance(definition, dict)
-        assert "name" in definition
+        if not isinstance(definition, dict):
+            raise TypeError("'definition' parameter must be a dict")
+
+        if "name" not in definition:
+            raise ValueError("'definition' parameter must include a 'name' key")
+
         response = storage_pool.api.volumes.custom.post(json=definition)
 
         # Use class method helper for async handling
         cls._handle_async_response_for_client(storage_pool.client, response, wait)
 
-        volume = cls.get(storage_pool, "custom", definition["name"])
-        return volume
+        if wait:
+            return cls.get(storage_pool, "custom", definition["name"])
 
-    def rename(self, _input, wait=False):
+        return cls(
+            storage_pool.client,
+            storage_pool=storage_pool,
+            type="custom",
+            name=definition["name"],
+        )
+
+    def rename(self, _input: dict, wait: bool = False) -> dict[str, str]:
         """Rename a storage volume
 
         This requires api_extension: 'storage_api_volume_rename'.
@@ -534,18 +552,24 @@ class StorageVolume(model.Model):
         :raises: :class:`pylxd.exceptions.LXDAPIException` if the storage pool
             volume couldn't be renamed.
         """
-        assert isinstance(_input, dict)
-        assert "name" in _input
-        assert "pool" in _input
+        self.client.assert_has_api_extension("storage_api_volume_rename")
+
+        if not isinstance(_input, dict):
+            raise TypeError("'_input' must be a dict")
+        if "name" not in _input:
+            raise ValueError("'_input' parameter must include a 'name' key")
+        if "pool" not in _input:
+            raise ValueError("'_input' parameter must include a 'pool' key")
         response = self.api.post(json=_input)
 
         # Use instance method helper for async handling
         self._handle_async_response(response, wait)
 
         self.name = _input["name"]
-        return response.json()["metadata"]
+        metadata: dict[str, str] = dict(response.json()["metadata"])
+        return metadata
 
-    def put(self, put_object, wait=False):
+    def put(self, put_object: dict, wait: bool = False):
         """Put the storage volume.
 
         Implements: PUT /1.0/storage-pools/<pool>/volumes/<type>/<name>
@@ -576,7 +600,7 @@ class StorageVolume(model.Model):
         # Note this method exists so that it is documented via sphinx.
         super().put(put_object, wait)
 
-    def patch(self, patch_object, wait=False):
+    def patch(self, patch_object: dict, wait: bool = False):
         """Patch the storage volume.
 
         Implements: PATCH /1.0/storage-pools/<pool>/volumes/<type>/<name>
@@ -598,7 +622,7 @@ class StorageVolume(model.Model):
         # Note this method exists so that it is documented via sphinx.
         super().patch(patch_object, wait)
 
-    def save(self, wait=False):
+    def save(self, wait: bool = False):
         """Save the model using PUT back to the LXD server.
 
         Implements: PUT /1.0/storage-pools/<pool>/volumes/<type>/<name>
@@ -622,7 +646,7 @@ class StorageVolume(model.Model):
         # Note this method exists so that it is documented via sphinx.
         super().save(wait=wait)
 
-    def delete(self, wait=False):
+    def delete(self, wait: bool = False):
         """Delete the storage pool.
 
         Implements: DELETE /1.0/storage-pools/<pool>/volumes/<type>/<name>
@@ -641,7 +665,7 @@ class StorageVolume(model.Model):
         # Note this method exists so that it is documented via sphinx.
         super().delete(wait=wait)
 
-    def restore_from(self, snapshot_name, wait=False):
+    def restore_from(self, snapshot_name: str, wait: bool = False) -> requests.Response:
         """Restore this volume from a snapshot using its name.
 
         Attempts to restore a volume using a snapshot identified by its name.
@@ -659,6 +683,8 @@ class StorageVolume(model.Model):
             operation result)
         :rtype: :class:`requests.Response`
         """
+        self.client.assert_has_api_extension("storage")
+        self.client.assert_has_api_extension("storage_api_volume_snapshots")
         response = self.api.put(json={"restore": snapshot_name})
 
         # Handle both sync and async responses for endpoint changing from sync to async
@@ -698,7 +724,7 @@ class StorageVolumeSnapshot(model.Model):
     __hash__ = None  # type: ignore  # unhashable, consistent with defining __eq__
 
     @property
-    def api(self):
+    def api(self) -> _APINode:
         """Provides an object with the endpoint:
 
         /1.0/storage-pools/<volume.storage_pool.name>/volumes/<volume.type>/<volume.name>/snapshots/<self.name>
@@ -708,10 +734,12 @@ class StorageVolumeSnapshot(model.Model):
         :returns: an API node with the named endpoint
         :rtype: :class:`pylxd.client._APINode`
         """
-        return self.volume.api[self._endpoint][self.name]
+        return cast(_APINode, self.volume.api[self._endpoint][self.name])
 
     @classmethod
-    def __parse_snapshot_json(cls, volume, snapshot_json):
+    def __parse_snapshot_json(
+        cls, volume: StorageVolume, snapshot_json: dict
+    ) -> StorageVolumeSnapshot:
         snapshot_object = cls(volume.client, volume=volume, **snapshot_json)
 
         # Snapshot names are namespaced in LXD, as volume-name/snapshot-name.
@@ -742,7 +770,7 @@ class StorageVolumeSnapshot(model.Model):
         return snapshot_object
 
     @classmethod
-    def get(cls, volume, name):
+    def get(cls, volume: StorageVolume, name: str) -> StorageVolumeSnapshot:
         """Get a :class:`pylxd.models.StorageVolumeSnapshot` by its name.
 
         Implements GET /1.0/storage-pools/<pool>/volumes/custom/<volume_name>/snapshots/<name>
@@ -767,7 +795,9 @@ class StorageVolumeSnapshot(model.Model):
         return cls.__parse_snapshot_json(volume, response.json()["metadata"])
 
     @classmethod
-    def all(cls, volume, use_recursion=False):
+    def all(
+        cls, volume: StorageVolume, use_recursion: bool = False
+    ) -> list[StorageVolumeSnapshot] | list[str]:
         """Get all :class:`pylxd.models.StorageVolumeSnapshot` objects related to a certain volume.
         If use_recursion is unset or set to False, a list of snapshot names is returned.
         If use_recursion is set to True, a list of :class:`pylxd.models.StorageVolumeSnapshot` objects is returned
@@ -805,60 +835,70 @@ class StorageVolumeSnapshot(model.Model):
         ]
 
     @classmethod
-    def create(cls, volume, name=None, expires_at=None, wait=True):
+    def create(
+        cls,
+        volume: StorageVolume,
+        name: str | None = None,
+        expires_at: str | None = None,
+        wait: bool = True,
+    ) -> StorageVolumeSnapshot:
         """Create new :class:`pylxd.models.StorageVolumeSnapshot` object from the current volume state using the given attributes.
 
         Implements POST /1.0/storage-pools/<pool>/volumes/custom/<volume_name>/snapshots
 
         :param volume: :class:`pylxd.models.StorageVolume` object that represents the target volume to take the snapshot from
         :type volume: :class:`pylxd.models.StorageVolume`
-        :param name: Optional parameter. Name of the created snapshot. The snapshot will be called "snap{index}" by default.
+        :param name: Name of the created snapshot. Required when wait is False;
+            otherwise the snapshot will be called "snap{index}" by default.
         :type name: str
         :param expires_at: Optional parameter. Expiration time for the created snapshot in ISO 8601 format. No expiration date by default.
         :type expires_at: str
         :param wait: Whether to wait for async operations to complete.
         :type wait: bool
         :returns: a storage volume snapshot if successful, raises an exception otherwise.
-        :rtype: :class:`pylxd.models.StorageVolume`
+        :rtype: :class:`pylxd.models.StorageVolumeSnapshot`
         :raises: :class:`pylxd.exceptions.LXDAPIExtensionNotAvailable` if the
             'storage_api_volume_snapshots' api extension is missing.
         :raises: :class:`pylxd.exceptions.LXDAPIException` if the the operation fails.
+        :raises ValueError: if wait is False and name is not provided.
         """
         volume.client.assert_has_api_extension("storage_api_volume_snapshots")
+
+        if not wait and not name:
+            raise ValueError("Snapshot name must be provided when wait=False.")
 
         response = volume.api.snapshots.post(
             json={"name": name, "expires_at": expires_at}
         )
 
         operation = None
+        response_json = response.json()
 
-        # Only parse JSON if we need to wait for async responses
-        if wait:
-            response_json = response.json()
+        # Handle async responses when waiting is requested
+        if wait and response_json.get("type") == "async":
+            operation = volume.client.operations.wait_for_operation(
+                response_json["operation"]
+            )
 
-            # Handle both sync and async responses
-            if response_json["type"] == "async":
-                operation = volume.client.operations.wait_for_operation(
-                    response_json["operation"]
-                )
-            else:
-                # Return the snapshot immediately without waiting for completion
-                return volume.snapshots.get(name)
-
-        # Extract the snapshot name from the response JSON in case it was not provided
+        # Extract the snapshot name in case it was not provided
         if not name:
+            metadata = response_json.get("metadata")
             if operation and "storage_volume_snapshots" in operation.resources:
                 name = operation.resources["storage_volume_snapshots"][0].split("/")[-1]
+            elif isinstance(metadata, dict) and "name" in metadata:
+                name = metadata["name"].split("/")[-1]
             else:
-                # If using LXD 4.0, the snapshot name isn't provided on the request response
-                # so grab the latest snapshot name instead.
-                name = volume.snapshots.all()[-1].split("/")[-1]
+                # If the name isn't provided in the response, fetch the latest snapshot name.
+                latest_snapshot = volume.snapshots.all()[-1]
+                name = getattr(latest_snapshot, "name", latest_snapshot.split("/")[-1])
 
-        snapshot = volume.snapshots.get(name)
-        return snapshot
+        if not wait:
+            return cls(volume.client, volume=volume, name=name)
+
+        return cls.get(volume, name)
 
     @classmethod
-    def exists(cls, volume, name):
+    def exists(cls, volume: StorageVolume, name: str) -> bool:
         """Determine whether a volume snapshot exists in LXD.
 
         :param name: Name of the desired snapshot.
@@ -873,7 +913,7 @@ class StorageVolumeSnapshot(model.Model):
         except cls.NotFound:
             return False
 
-    def rename(self, new_name, wait=True):
+    def rename(self, new_name: str, wait: bool = True):
         """Rename a storage volume snapshot.
 
         Implements POST /1.0/storage-pools/<pool>/volumes/custom/<volume_name>/snapshot/<name>
@@ -893,7 +933,7 @@ class StorageVolumeSnapshot(model.Model):
 
         self.name = new_name
 
-    def restore(self, wait=False):
+    def restore(self, wait: bool = False):
         """Restore the volume from this snapshot.
 
         Attempts to restore a custom volume using this snapshot.
@@ -905,7 +945,7 @@ class StorageVolumeSnapshot(model.Model):
         """
         self.volume.restore_from(self.name, wait)
 
-    def delete(self, wait=False):
+    def delete(self, wait: bool = False):
         """Delete this storage pool snapshot.
 
         Implements: DELETE /1.0/storage-pools/<pool>/volumes/custom/<volume_name>/snapshot/<name>

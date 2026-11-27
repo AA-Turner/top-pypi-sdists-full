@@ -360,7 +360,7 @@ def test_read_input_data(data) -> None:
     """Test reading functionality of input.data."""
     testfile_name = 'input.data_test'
 
-    with open(testfile_name, 'wt', encoding='utf-8') as outfile:
+    with open(testfile_name, 'w', encoding='utf-8') as outfile:
         outfile.write(data['sample_input'])
 
     input_data = read(testfile_name, format='runnerdata', index=':')
@@ -441,5 +441,5 @@ def test_write_input_data(data) -> None:
     testfile_name = 'input.data_test'
     write(testfile_name, input_data, format='runnerdata', fmt='20.7f')
 
-    with open(testfile_name, 'rt', encoding='utf-8') as infile:
+    with open(testfile_name, encoding='utf-8') as infile:
         assert infile.read() == data['ref_output']

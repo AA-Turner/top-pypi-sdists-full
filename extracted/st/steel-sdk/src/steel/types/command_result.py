@@ -18,15 +18,14 @@ __all__ = [
     "ReloadResult",
     "SnapshotResult",
     "ClickResult",
-    "DblclickResult",
     "HoverResult",
     "FocusResult",
     "TypeResult",
     "FillResult",
     "PressResult",
-    "KeydownResult",
-    "KeyupResult",
+    "KeyboardResult",
     "MouseResult",
+    "ReleaseResult",
     "SelectResult",
     "CheckResult",
     "UncheckResult",
@@ -43,6 +42,7 @@ __all__ = [
     "FindResultMatch",
     "TabResult",
     "TabResultTab",
+    "DialogResult",
 ]
 
 
@@ -58,6 +58,9 @@ class NavigateResult(BaseModel):
 
     error: Optional[CommandErrorInfo] = None
 
+    loading: Optional[bool] = None
+    """The page was still loading when the command returned."""
+
     url: Optional[str] = None
 
 
@@ -72,6 +75,9 @@ class BackResult(BaseModel):
     ok: bool
 
     error: Optional[CommandErrorInfo] = None
+
+    loading: Optional[bool] = None
+    """The page was still loading when the command returned."""
 
     navigated: Optional[bool] = None
     """False when there was no history entry."""
@@ -91,6 +97,9 @@ class ForwardResult(BaseModel):
 
     error: Optional[CommandErrorInfo] = None
 
+    loading: Optional[bool] = None
+    """The page was still loading when the command returned."""
+
     navigated: Optional[bool] = None
     """False when there was no history entry."""
 
@@ -108,6 +117,9 @@ class ReloadResult(BaseModel):
     ok: bool
 
     error: Optional[CommandErrorInfo] = None
+
+    loading: Optional[bool] = None
+    """The page was still loading when the command returned."""
 
     url: Optional[str] = None
 
@@ -145,26 +157,10 @@ class ClickResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
 
-
-class DblclickResult(BaseModel):
-    """Result of a dblclick command."""
-
-    command: Literal["dblclick"]
-
-    effect: Literal["none", "applied", "unknown"]
-    """What happened to the page: nothing, a change, or a possible change."""
-
-    ok: bool
-
-    dialog: Optional[CommandDialog] = None
-    """A dialog that the command opened. It blocks the tab until it closes."""
-
-    error: Optional[CommandErrorInfo] = None
-
-    loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 class HoverResult(BaseModel):
@@ -212,7 +208,10 @@ class TypeResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 class FillResult(BaseModel):
@@ -231,7 +230,10 @@ class FillResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 class PressResult(BaseModel):
@@ -244,19 +246,28 @@ class PressResult(BaseModel):
 
     ok: bool
 
+    answered: Optional[str] = None
+    """The id of the dialog that the key answered.
+
+    Absent when the key went to the page.
+    """
+
     dialog: Optional[CommandDialog] = None
     """A dialog that the command opened. It blocks the tab until it closes."""
 
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
-class KeydownResult(BaseModel):
-    """Result of a keydown command."""
+class KeyboardResult(BaseModel):
+    """Result of a keyboard command."""
 
-    command: Literal["keydown"]
+    command: Literal["keyboard"]
 
     effect: Literal["none", "applied", "unknown"]
     """What happened to the page: nothing, a change, or a possible change."""
@@ -269,26 +280,10 @@ class KeydownResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
 
-
-class KeyupResult(BaseModel):
-    """Result of a keyup command."""
-
-    command: Literal["keyup"]
-
-    effect: Literal["none", "applied", "unknown"]
-    """What happened to the page: nothing, a change, or a possible change."""
-
-    ok: bool
-
-    dialog: Optional[CommandDialog] = None
-    """A dialog that the command opened. It blocks the tab until it closes."""
-
-    error: Optional[CommandErrorInfo] = None
-
-    loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 class MouseResult(BaseModel):
@@ -307,7 +302,38 @@ class MouseResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
+
+
+class ReleaseResult(BaseModel):
+    """Result of a release command."""
+
+    command: Literal["release"]
+
+    effect: Literal["none", "applied", "unknown"]
+    """What happened to the page: nothing, a change, or a possible change."""
+
+    ok: bool
+
+    button: Optional[Literal["left", "right", "middle"]] = None
+    """The mouse button that was let go."""
+
+    dialog: Optional[CommandDialog] = None
+    """A dialog that the command opened. It blocks the tab until it closes."""
+
+    error: Optional[CommandErrorInfo] = None
+
+    keys: Optional[List[str]] = None
+    """The keys that were let go."""
+
+    loading: Optional[bool] = None
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 class SelectResult(BaseModel):
@@ -326,7 +352,10 @@ class SelectResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
     selected: Optional[List[str]] = None
     """The values of the selected options."""
@@ -350,7 +379,10 @@ class CheckResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 class UncheckResult(BaseModel):
@@ -371,7 +403,10 @@ class UncheckResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 class UploadResult(BaseModel):
@@ -392,7 +427,10 @@ class UploadResult(BaseModel):
     files: Optional[List[str]] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 class DragResult(BaseModel):
@@ -411,7 +449,10 @@ class DragResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 class GetResult(BaseModel):
@@ -435,6 +476,11 @@ class GetResult(BaseModel):
     A number for count. { x, y, width, height } or null for box. A list of locators
     for locator.
     """
+
+    what: Optional[Literal["text", "html", "markdown", "value", "attr", "title", "url", "count", "box", "locator"]] = (
+        None
+    )
+    """What was read. It tells the type of value."""
 
 
 class IsResult(BaseModel):
@@ -505,7 +551,10 @@ class EvalResult(BaseModel):
     error: Optional[CommandErrorInfo] = None
 
     loading: Optional[bool] = None
-    """The command started a navigation that was still loading when it returned."""
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
     value: Optional[object] = None
     """The result of the script as JSON."""
@@ -592,9 +641,34 @@ class TabResult(BaseModel):
 
     error: Optional[CommandErrorInfo] = None
 
+    loading: Optional[bool] = None
+    """The page was still loading when the command returned."""
+
     tab: Optional[str] = None
 
     tabs: Optional[List[TabResultTab]] = None
+
+
+class DialogResult(BaseModel):
+    """Result of a dialog command."""
+
+    command: Literal["dialog"]
+
+    effect: Literal["none", "applied", "unknown"]
+    """What happened to the page: nothing, a change, or a possible change."""
+
+    ok: bool
+
+    dialog: Optional[CommandDialog] = None
+    """A dialog that the command opened. It blocks the tab until it closes."""
+
+    error: Optional[CommandErrorInfo] = None
+
+    loading: Optional[bool] = None
+    """The page was still loading when the command returned."""
+
+    opened: Optional[List[str]] = None
+    """The ids of tabs that opened while the command ran."""
 
 
 CommandResult: TypeAlias = Annotated[
@@ -605,15 +679,14 @@ CommandResult: TypeAlias = Annotated[
         ReloadResult,
         SnapshotResult,
         ClickResult,
-        DblclickResult,
         HoverResult,
         FocusResult,
         TypeResult,
         FillResult,
         PressResult,
-        KeydownResult,
-        KeyupResult,
+        KeyboardResult,
         MouseResult,
+        ReleaseResult,
         SelectResult,
         CheckResult,
         UncheckResult,
@@ -628,6 +701,7 @@ CommandResult: TypeAlias = Annotated[
         ScrollResult,
         FindResult,
         TabResult,
+        DialogResult,
     ],
     PropertyInfo(discriminator="command"),
 ]

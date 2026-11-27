@@ -144,7 +144,16 @@ fn ocr_units(
             bold: None,
             q: 0,
             minor: false,
-            words: Vec::new(),
+            // OCR word boxes (when the engine measured them): a line read across a ruled cell
+            // boundary is cut there by the lattice
+            words: if it.words.len() >= 2 {
+                it.words
+                    .iter()
+                    .map(|(x0, x1, w)| (*x0 as f64 * sx, *x1 as f64 * sx, w.clone()))
+                    .collect()
+            } else {
+                Vec::new()
+            },
         });
         proj.push(Some(features::Proj {
             feat_text: it.faint.then(|| faint_mask(t)),
@@ -642,12 +651,81 @@ fn run_page_framed(
         if g.len() < 2 {
             continue;
         }
-        let grid = decode::decode_grid(&du, &g, &logits, opt);
+        let mut grid = decode::decode_grid(&du, &g, &logits, opt);
+        // rules are in page points, cell boxes in the reading frame: the same on upright text
+        let mut ruled = false;
+        if let Some(r) = rules.filter(|_| g.iter().all(|&i| units[i].q == 0)) {
+            let words: Vec<&[(f64, f64, String)]> =
+                units.iter().map(|u| u.words.as_slice()).collect();
+            match grid.lattice(&r.h, &r.v, &du, &words, &g) {
+                Some(l) => {
+                    grid = l;
+                    ruled = true;
+                }
+                None => grid.merge_unruled_rows(&r.h),
+            }
+        }
         // one column is a list or a stack of lines, not a table (seen on OCR pages: a
         // signature block's lines grouped into a 1-wide grid); tables of contents, charts and
         // multi-column prose read as grids are no tables either
-        if grid.n_cols < 2 || grid.is_toc() || grid.is_chart() || grid.is_prose() {
+        // (a grid drawn in ruling lines is no table of contents)
+        if grid.n_cols < 2 || (!ruled && grid.is_toc()) || grid.is_chart() || grid.is_prose() {
             continue;
+        }
+        let mut g = g;
+        if g.iter().all(|&i| units[i].q == 0) {
+            g.extend(grid.place_rotated(&units, &minor));
+            // OCR text inside the table on a page with a text layer (outline / picture columns)
+            if let Some(s) = sig.filter(|_| !input.ocr) {
+                let (sx, sy) = (
+                    input.wh.0 / s.width.max(1.0) as f64,
+                    input.wh.1 / s.height.max(1.0) as f64,
+                );
+                let t = grid
+                    .cells
+                    .iter()
+                    .filter(|c| !c.text.trim().is_empty())
+                    .fold(
+                        [
+                            f64::INFINITY,
+                            f64::INFINITY,
+                            f64::NEG_INFINITY,
+                            f64::NEG_INFINITY,
+                        ],
+                        |a, c| {
+                            [
+                                a[0].min(c.bx[0]),
+                                a[1].min(c.bx[1]),
+                                a[2].max(c.bx[2]),
+                                a[3].max(c.bx[3]),
+                            ]
+                        },
+                    );
+                let items: Vec<([f64; 4], String)> = s
+                    .items
+                    .iter()
+                    .filter(|it| it.ocr && !it.text.trim().is_empty())
+                    .map(|it| {
+                        let [x, y, w, h] = it.bx;
+                        (
+                            [
+                                x as f64 * sx,
+                                y as f64 * sy,
+                                (x + w) as f64 * sx,
+                                (y + h) as f64 * sy,
+                            ],
+                            it.text.clone(),
+                        )
+                    })
+                    .filter(|(b, _)| {
+                        let (cx, cy) = ((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0);
+                        t[0] <= cx && cx <= t[2] && t[1] <= cy && cy <= t[3]
+                    })
+                    .collect();
+                if !items.is_empty() {
+                    grid.place_ocr(&items);
+                }
+            }
         }
         let mut b = [
             f64::INFINITY,

@@ -16,7 +16,6 @@ from optparse import OptionParser
 import mozfile
 import mozinfo
 import requests
-from six import PY3, reraise
 
 try:
     import pefile
@@ -38,14 +37,7 @@ class InvalidBinary(Exception):
 
 
 class InvalidSource(Exception):
-    """Thrown when the specified source is not a recognized file type.
-
-    Supported types:
-    Linux:   tar.gz, tar.bz2
-    Mac:     dmg
-    Windows: zip, exe
-
-    """
+    """Thrown when the specified source is not a recognized file type."""
 
 
 class UninstallError(Exception):
@@ -53,10 +45,8 @@ class UninstallError(Exception):
 
 
 def _readPlist(path):
-    if PY3:
-        with open(path, "rb") as fp:
-            return plistlib.load(fp)
-    return plistlib.readPlist(path)
+    with open(path, "rb") as fp:
+        return plistlib.load(fp)
 
 
 def get_binary(path, app_name):
@@ -98,23 +88,33 @@ def get_binary(path, app_name):
     return binary
 
 
-def install(src, dest):
-    """Install a zip, exe, tar.gz, tar.bz2 or dmg file, and return the path of
+def install(src, dest, verify=True, dmg_tool=None, hfs_tool=None):
+    """Install a zip, exe, tar.gz, tar.bz2, tar.xz or dmg file, and return the path of
     the installation folder.
 
     :param src: Path to the install file
     :param dest: Path to install to (to ensure we do not overwrite any existent
                  files the folder should not exist yet)
+    :param verify: Whether to verify the checksum of a dmg file when mounting it.
+                   Only affects dmg files on macOS; other formats verify
+                   integrity as part of extraction.
+    :param dmg_tool: Path to the libdmg-hfsplus `dmg` tool. Together with
+                     `hfs_tool`, lets a dmg file be extracted without mounting
+                     it. Defaults to the DMG_TOOL build config or environment variable,
+                     then to `dmg/dmg` in MOZ_FETCHES_DIR.
+    :param hfs_tool: Path to the libdmg-hfsplus `hfsplus` tool. Defaults to the
+                     HFS_TOOL build config or environment variable, then to `dmg/hfsplus` in
+                     MOZ_FETCHES_DIR.
     """
     if not is_installer(src):
-        msg = "{} is not a valid installer file".format(src)
+        msg = f"{src} is not a valid installer file"
         if "://" in src:
             try:
-                return _install_url(src, dest)
+                return _install_url(src, dest, verify=verify)
             except Exception:
                 exc, val, tb = sys.exc_info()
-                error = InvalidSource("{} ({})".format(msg, val))
-                reraise(InvalidSource, error, tb)
+                error = InvalidSource(f"{msg} ({val})")
+                raise error.with_traceback(tb)
         raise InvalidSource(msg)
 
     src = os.path.realpath(src)
@@ -128,14 +128,19 @@ def install(src, dest):
     trbk = None
     try:
         install_dir = None
-        if src.lower().endswith(".dmg"):
-            install_dir = _install_dmg(src, dest)
+        if src.lower().endswith(".msix"):
+            # MSIX packages _are_ ZIP files, so we need to look for them first.
+            install_dir = _install_msix(src)
+        elif src.lower().endswith(".dmg"):
+            install_dir = _install_dmg(
+                src, dest, verify=verify, dmg_tool=dmg_tool, hfs_tool=hfs_tool
+            )
         elif src.lower().endswith(".exe"):
             install_dir = _install_exe(src, dest)
-        elif src.lower().endswith(".msix"):
-            install_dir = _install_msix(src)
         elif zipfile.is_zipfile(src) or tarfile.is_tarfile(src):
             install_dir = mozfile.extract(src, dest)[0]
+        else:
+            raise InvalidSource(f"{src} is not a valid installer file")
 
         return install_dir
 
@@ -154,9 +159,9 @@ def install(src, dest):
                     pass
         if issubclass(cls, Exception):
             error = InstallError('Failed to install "%s (%s)"' % (src, str(exc)))
-            reraise(InstallError, error, trbk)
+            raise error.with_traceback(trbk)
         # any other kind of exception like KeyboardInterrupt is just re-raised.
-        reraise(cls, exc, trbk)
+        raise exc.with_traceback(trbk)
 
     finally:
         # trbk won't get GC'ed due to circular reference
@@ -168,9 +173,9 @@ def is_installer(src):
     """Tests if the given file is a valid installer package.
 
     Supported types:
-    Linux:   tar.gz, tar.bz2
-    Mac:     dmg
-    Windows: zip, exe
+    All: zip, tar.gz, tar.bz2, tar.xz
+    Linux, Mac: dmg
+    Windows: exe, msix
 
     On Windows pefile will be used to determine if the executable is the
     right type, if it is installed on the system.
@@ -182,14 +187,16 @@ def is_installer(src):
     if not os.path.isfile(src):
         return False
 
-    if mozinfo.isLinux:
-        return tarfile.is_tarfile(src)
-    elif mozinfo.isMac:
+    if mozinfo.isWin and src.lower().endswith(".msix"):
+        # MSIX packages _are_ ZIP files, so look for them first.
+        return True
+    if zipfile.is_zipfile(src):
+        return True
+    if tarfile.is_tarfile(src):
+        return True
+    if mozinfo.isMac or mozinfo.isLinux:
         return src.lower().endswith(".dmg")
-    elif mozinfo.isWin:
-        if zipfile.is_zipfile(src):
-            return True
-
+    if mozinfo.isWin:
         if os.access(src, os.X_OK) and src.lower().endswith(".exe"):
             if has_pefile:
                 # try to determine if binary is actually a gecko installer
@@ -204,7 +211,7 @@ def is_installer(src):
                 # pefile not available, just assume a proper binary was passed in
                 return True
 
-        return False
+    return False
 
 
 def uninstall(install_folder):
@@ -238,7 +245,7 @@ def uninstall(install_folder):
         if os.path.isfile(log_file):
             trbk = None
             try:
-                cmdArgs = ["%s\\uninstall\helper.exe" % install_folder, "/S"]
+                cmdArgs = ["%s\\uninstall\\helper.exe" % install_folder, "/S"]
                 result = subprocess.call(cmdArgs)
                 if result != 0:
                     raise Exception("Execution of uninstaller failed.")
@@ -258,7 +265,7 @@ def uninstall(install_folder):
                 error = UninstallError(
                     "Failed to uninstall %s (%s)" % (install_folder, str(ex))
                 )
-                reraise(UninstallError, error, trbk)
+                raise error.with_traceback(trbk)
 
             finally:
                 # trbk won't get GC'ed due to circular reference
@@ -270,13 +277,16 @@ def uninstall(install_folder):
     mozfile.remove(install_folder)
 
 
-def _install_url(url, dest):
+def _install_url(url, dest, verify=True):
     """Saves a url to a temporary file, and passes that through to the
     install function.
 
     :param url: Url to the install file
     :param dest: Path to install to (to ensure we do not overwrite any existent
                  files the folder should not exist yet)
+    :param verify: Whether to verify the checksum of a dmg file when attaching it.
+                   Only affects dmg files on macOS; other formats verify
+                   integrity as part of extraction.
     """
     r = requests.get(url, stream=True)
     name = tempfile.mkstemp()[1]
@@ -284,56 +294,167 @@ def _install_url(url, dest):
         with open(name, "w+b") as fh:
             for chunk in r.iter_content(chunk_size=16 * 1024):
                 fh.write(chunk)
-        result = install(name, dest)
+        result = install(name, dest, verify=verify)
     finally:
         mozfile.remove(name)
     return result
 
 
-def _install_dmg(src, dest):
+def _find_dmg_tools(dmg_tool=None, hfs_tool=None):
+    substs = {}
+    try:
+        import buildconfig
+
+        substs = buildconfig.substs
+    except ImportError:
+        pass
+    fetches_dir = os.environ.get("MOZ_FETCHES_DIR")
+
+    def find(tool, var, name):
+        tool = tool or substs.get(var) or os.environ.get(var)
+        if not tool and fetches_dir:
+            path = os.path.join(fetches_dir, "dmg", name)
+            if os.path.isfile(path):
+                tool = path
+        return tool
+
+    return find(dmg_tool, "DMG_TOOL", "dmg"), find(hfs_tool, "HFS_TOOL", "hfsplus")
+
+
+def _install_dmg(src, dest_app, verify=True, dmg_tool=None, hfs_tool=None):
     """Extract a dmg file into the destination folder and return the
     application folder.
 
     src -- DMG image which has to be extracted
     dest -- the path to extract to
+    verify -- whether to verify the checksum of the image when mounting it
+    dmg_tool, hfs_tool -- libdmg-hfsplus tools to extract the image without
+                          mounting it
 
     """
-    appDir = None
-    try:
-        # According to the Apple doc, the hdiutil output is stable and is based on the tab
-        # separators
-        # Therefor, $3 should give us the mounted path
-        appDir = (
-            subprocess.check_output(
-                'hdiutil attach -nobrowse -noautoopen "%s"'
-                "|grep /Volumes/"
-                "|awk 'BEGIN{FS=\"\t\"} {print $3}'" % str(src),
-                shell=True,
-            )
-            .strip()
-            .decode("ascii")
+    dmg_tool, hfs_tool = _find_dmg_tools(dmg_tool, hfs_tool)
+    if dmg_tool and hfs_tool:
+        return _install_dmg_extract(src, dest_app, dmg_tool, hfs_tool)
+    if mozinfo.isLinux:
+        raise InstallError(
+            "DMG_TOOL and HFS_TOOL are required to install a dmg on Linux"
         )
 
-        for appFile in os.listdir(appDir):
-            if appFile.endswith(".app"):
-                appName = appFile
+    def _detach_with_retry(volume, retries=4, delay=0.25):
+        for i in range(retries):
+            try:
+                subprocess.check_call(f'hdiutil detach "{volume}" -quiet', shell=True)
+                return
+            except subprocess.CalledProcessError as e:
+                # 16 == EBUSY
+                if e.returncode != 16 or i == retries - 1:
+                    raise
+                time.sleep(delay)
+
+        # Final fallback (CI-safe)
+        subprocess.check_call(f'hdiutil detach "{volume}" -force -quiet', shell=True)
+
+    app_dir = None
+    try:
+        macos_major = int(str(mozinfo.os_version).split(".")[0])
+        if macos_major >= 27:
+            # Use diskutil instead of hdiutil on macOS 27+. On macOS 27,
+            # `hdiutil attach` is deprecated and prints deprecation warnings
+            # on stderr. Use thew newer `diskutil` command instead.
+            output = subprocess.check_output(
+                [
+                    "diskutil",
+                    "image",
+                    "attach",
+                    "--plist",
+                    "--readOnly",
+                    "--nobrowse",
+                    src,
+                ],
+                stderr=subprocess.STDOUT,
+            )
+            entities = plistlib.loads(output)["system-entities"]
+            app_dir = next(
+                (e["mount-point"] for e in entities if "mount-point" in e), None
+            )
+            if not app_dir:
+                raise InstallError(f"No mounted volume found for {src}")
+        else:
+            # `hdiutil attach` is now deprecated (macOS 27+). Limit its use
+            # to older macOS versions. According to the Apple docs, the hdiutil
+            # output is stable and is based on the tab separators. Therefore,
+            # $3 should give us the mounted path.
+            verify_flag = "" if verify else " -noverify"
+            app_dir = (
+                subprocess
+                .check_output(
+                    f'hdiutil attach -noautoopen -nobrowse -readonly{verify_flag} "{src}"'
+                    "| grep /Volumes/ | awk 'BEGIN{FS=\"\t\"} {print $3}'",
+                    shell=True,
+                    stderr=subprocess.STDOUT,
+                )
+                .strip()
+                .decode("utf-8")
+            )
+
+        app_name = None
+        for entry in os.listdir(app_dir):
+            if entry.endswith(".app"):
+                app_name = entry
                 break
 
-        mounted_path = os.path.join(appDir, appName)
+        if not app_name:
+            raise InstallError(f"No .app bundle found in {src}")
 
-        dest = os.path.join(dest, appName)
+        src_app = os.path.join(app_dir, app_name)
+        dest_app = os.path.join(dest_app, app_name)
 
         # copytree() would fail if dest already exists.
-        if os.path.exists(dest):
-            raise InstallError('App bundle "%s" already exists.' % dest)
+        if os.path.exists(dest_app):
+            raise InstallError(f"App bundle already exists: {dest_app}")
 
-        shutil.copytree(mounted_path, dest, False)
+        shutil.copytree(src_app, dest_app, False)
 
     finally:
-        if appDir:
-            subprocess.check_call('hdiutil detach "%s" -quiet' % appDir, shell=True)
+        if app_dir:
+            try:
+                _detach_with_retry(app_dir)
+            except Exception as e:
+                # Log, but do not override the original exception
+                print(f"Warning: failed to detach {app_dir}: {e}")
 
-    return dest
+    return dest_app
+
+
+def _install_dmg_extract(src, dest, dmg_tool, hfs_tool):
+    """Extract the .app bundle of a dmg file into dest without mounting the
+    image, and return the path of the bundle."""
+    tmpdir = tempfile.mkdtemp(dir=dest)
+    try:
+        hfs_file = os.path.join(tmpdir, "image.hfs")
+        contents = os.path.join(tmpdir, "contents")
+        os.mkdir(contents)
+        subprocess.check_call(
+            [dmg_tool, "extract", src, hfs_file], stdout=subprocess.DEVNULL
+        )
+        subprocess.check_call(
+            [hfs_tool, hfs_file, "extractall", "/", contents],
+            stdout=subprocess.DEVNULL,
+        )
+
+        app_name = next((e for e in os.listdir(contents) if e.endswith(".app")), None)
+        if not app_name:
+            raise InstallError(f"No .app bundle found in {src}")
+
+        dest_app = os.path.join(dest, app_name)
+        if os.path.exists(dest_app):
+            raise InstallError(f"App bundle already exists: {dest_app}")
+
+        os.rename(os.path.join(contents, app_name), dest_app)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+    return dest_app
 
 
 def _install_exe(src, dest):
@@ -375,13 +496,29 @@ def _get_msix_install_location(pkg):
                             cmd = (
                                 f'powershell.exe "Get-AppxPackage" "-Name" "{pkgname}"'
                             )
+                            # Powershell "helpfully" wraps long lines and there's
+                            # no tidy way to tell it not to, so we'll have to
+                            # reconstruct the value. Output could look like this:
+                            # InstallLocation   : C:\Program
+                            #                     Files\WindowsApps\...
+                            # Don't strip trailing spaces. The space between
+                            # "Program" and "Files" is at the end of the first
+                            # line. (Not in this comment, due to linting.)
+                            location = None
                             for line in (
-                                subprocess.check_output(cmd)
+                                subprocess
+                                .check_output(cmd)
                                 .decode("utf-8")
                                 .splitlines()
                             ):
                                 if line.startswith("InstallLocation"):
-                                    return "C:{}".format(line.split(":")[-1].strip())
+                                    location = line[line.find(": ") + 2 :]
+                                elif location is not None:
+                                    if line.startswith(" "):
+                                        location += line.lstrip()
+                                    else:
+                                        break
+                            return location
 
     raise Exception(f"Couldn't find install location of {pkg}")
 
@@ -407,13 +544,20 @@ def install_cli(argv=sys.argv[1:]):
         "--destination",
         dest="dest",
         default=os.getcwd(),
-        help="Directory to install application into. " '[default: "%default"]',
+        help='Directory to install application into. [default: "%default"]',
     )
     parser.add_option(
         "--app",
         dest="app",
         default="firefox",
         help="Application being installed. [default: %default]",
+    )
+    parser.add_option(
+        "--no-verify",
+        dest="verify",
+        action="store_false",
+        default=True,
+        help="Skip checksum verification when attaching a dmg file.",
     )
 
     (options, args) = parser.parse_args(argv)
@@ -426,7 +570,7 @@ def install_cli(argv=sys.argv[1:]):
     if os.path.isdir(src):
         binary = get_binary(src, app_name=options.app)
     else:
-        install_path = install(src, options.dest)
+        install_path = install(src, options.dest, verify=options.verify)
         binary = get_binary(install_path, app_name=options.app)
 
     print(binary)

@@ -183,7 +183,7 @@ class LangevinBAOAB(MolecularDynamics):
         # promote to ndarray to simplify code below
         externalstress = np.asarray(externalstress)
         if externalstress.shape == ():
-            externalstress = externalstress.reshape((-1))
+            externalstress = externalstress.reshape(-1)
 
         # reshape to scalar (iff hydrostatic) or 3x3 matrix (general var cell)
         if self.hydrostatic:
@@ -460,10 +460,14 @@ class LangevinBAOAB(MolecularDynamics):
         velocities due to barostat velocity
         """
         if self.hydrostatic:
+            # cf. Eq. (5b) in Quigley and Probert
             return (1.0 + 3.0 / self.Ndof) * self.p_eps / self.barostat_mass
         else:
+            # cf. Eq. (23b) in Quigley and Probert
+            # `p_eps` is a 3x3 matrix, so the scalar trace term must be
+            # multiplied by the identity rather than broadcast to all elements.
             return (
-                self.p_eps + (1.0 / self.Ndof) * np.trace(self.p_eps)
+                self.p_eps + np.trace(self.p_eps) / self.Ndof * np.identity(3)
             ) / self.barostat_mass
 
     def step(self):

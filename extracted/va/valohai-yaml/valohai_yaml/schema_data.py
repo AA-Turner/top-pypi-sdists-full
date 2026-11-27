@@ -6,11 +6,19 @@ from valohai_yaml.objs.pipelines.types import edge_types
 
 SCHEMATA: dict[str, dict[str, Any]] = {}
 
-edge_types_list = " | ".join(edge_types)
+edge_types_list = " | ".join(sorted(edge_types))
 
 
 def register(schema: dict) -> None:
     SCHEMATA[schema["$id"]] = schema
+
+
+def _tags_prop(description: str) -> dict[str, Any]:
+    return {
+        "description": description,
+        "items": {"maxLength": 64, "pattern": "\\S", "type": "string"},
+        "type": "array",
+    }
 
 
 def _get_execution_and_task_node_props(type: str) -> dict[str, Any]:
@@ -282,8 +290,18 @@ register(
         "$id": "https://valohai.com/schemas/file-item",
         "additionalProperties": False,
         "properties": {
+            "default": {
+                "description": "The default URL for the file, e.g. a `datum://`, `model://` or `dataset://` URI.",
+                "type": "string",
+            },
             "description": {"description": "The description of the file.", "type": "string"},
             "name": {"description": "The symbolic name of this file.", "type": "string"},
+            "optional": {
+                "default": False,
+                "description": "Whether this file is optional.\n"
+                "An endpoint may be deployed without a value for an optional file.",
+                "type": "boolean",
+            },
             "path": {
                 "description": "Relative path of the file from the endpoint's working directory. For example "
                 '"data/serialized_model.hdf5".',
@@ -619,6 +637,7 @@ register(
                 "(inputs, command, commit hash, parameters, step's configuration).",
                 "type": "boolean",
             },
+            "tags": _tags_prop("Tags to add to runs of this pipeline."),
         },
         "required": ["edges", "name", "nodes"],
         "title": "Pipeline Blueprint",
@@ -738,6 +757,7 @@ register(
                 "type": "string",
             },
             "stop-condition": {"type": "string"},
+            "tags": _tags_prop("Tags to add to executions of this step."),
             "time-limit": {
                 "description": 'The time limit for the step (in seconds or as a string, e.g. "1h 30m 5s"). '
                 'An unspecified value means "no timeout".',
@@ -788,6 +808,7 @@ register(
             },
             "step": {"description": "The step to run with.", "type": "string"},
             "stop-condition": {"type": "string"},
+            "tags": _tags_prop("Tags to add to this task and the executions it creates."),
             "type": {"type": "string"},
         },
         "required": ["name", "step"],

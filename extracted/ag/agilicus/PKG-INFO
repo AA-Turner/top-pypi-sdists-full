@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agilicus
-Version: 1.451.26
+Version: 1.451.30
 Summary: Agilicus SDK
 License: MIT
 License-File: LICENSE.txt
@@ -23,7 +23,7 @@ Requires-Dist: click-shell (>=2.1)
 Requires-Dist: colorama (>=0.4.6)
 Requires-Dist: cryptography (>=50.0.2)
 Requires-Dist: dateparser (>=1.5.1)
-Requires-Dist: httpx (>=0.28.1)
+Requires-Dist: httpx (>=0.29.0)
 Requires-Dist: keyring (>=25.7.0)
 Requires-Dist: keyrings.alt (>=5.0.2,<6.0)
 Requires-Dist: oauth2client (>=4.1.3,<4.2.0)

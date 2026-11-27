@@ -16,99 +16,67 @@ class DescribeAttackAnalysisDataRequest(DaraModel):
         start_time: int = None,
         type: str = None,
     ):
-        # Specifies whether to encode the value of the **client_url** field in the query results by using the Base64 algorithm. Valid values:
+        # Specifies whether to perform Base64 encoding on **client_url** in the query results. Valid values:
         # 
         # - **true**: yes
-        # 
         # - **false**: no
         self.base_64 = base_64
-        # The number of the page to return. Pages start from page **1**.
+        # The number of the page to return. Pages start from **1**.
         # 
-        # > If the Type parameter is set to **DETAILS**, you must specify the CurrentPage parameter.
+        # > If you set Type to **DETAILS**, this parameter is required.
         self.current_page = current_page
-        # The condition that is used to filter attack events.
-        # 
-        # > The following list describes the valid values of crack_type:
-        # 
-        # - 3: brute-force attack on MySQL
-        # 
-        # - 4: FTP brute-force attack
-        # 
-        # - 5: SSH brute-force attack
-        # 
-        # - 6: RDP brute-force attack
-        # 
-        # - 9: brute-force attack on Microsoft SQL Server
-        # 
-        # - 101: intercepted attack on Java Struts 2
-        # 
-        # - 102: intercepted attack on Redis
-        # 
-        # - 103: communication with AntSword Webshell
-        # 
-        # - 104: communication with China Chopper Webshell
-        # 
-        # - 133: communication with XISE Webshell
-        # 
-        # - sqli: SQL injection
-        # 
-        # - codei: code execution
-        # 
-        # - xss: cross-site scripting (XSS)
-        # 
-        # - lfi: local file inclusion
-        # 
-        # - rfi: remote file inclusion
-        # 
-        # - webshell: trojan script
-        # 
-        # - upload: vulnerability upload
-        # 
-        # - path: directory traversal
-        # 
-        # - bypass: unauthorized access
-        # 
-        # - csrf: cross-site request forgery (CSRF)
-        # 
-        # - crlf: carriage return line feed (CRLF)
-        # 
-        # - other: others
+        # The filter conditions for attack events.
+        # > Description of the crack_type field:
+        # > - 3: MySQL brute-force attacks
+        # > - 4: FTP brute-force attacks
+        # > - 5: SSH brute-force attacks
+        # > - 6: RDP brute-force attacks
+        # > - 9: SQL Server brute-force attacks
+        # > - 101: Java Struts2 attack interception
+        # > - 102: Redis attack interception
+        # > - 103: AntSword WebShell communication
+        # > - 104: China Chopper WebShell communication
+        # > - 133: XISE WebShell communication
+        # > - sqli: SQL injection
+        # > - codei: code execution
+        # > - xss: XSS attack
+        # > - lfi: local file inclusion (LFI)
+        # > - rfi: remote file inclusion (RFI)
+        # > - webshell: web shell
+        # > - upload: upload vulnerability
+        # > - path: directory traversal
+        # > - bypass: unauthorized access
+        # > - csrf: CSRF
+        # > - crlf: CRLF
+        # > - other: other
         self.data = data
-        # The timestamp when the attack stops. Unit: seconds.
+        # The timestamp when the attack ended. Unit: seconds.
         # 
         # This parameter is required.
         self.end_time = end_time
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
+        # The language of the request and response messages. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
-        # 
         # - **en**: English
         self.lang = lang
-        # The number of entries to return on each page.
-        # 
-        # > If the Type parameter is set to **DETAILS**, you must specify the PageSize parameter.
+        # Settings for the paged query: the number of attack events to return on each paging page.
+        # > If you set Type to **DETAILS**, this parameter is required.
         self.page_size = page_size
-        # The timestamp at which the attack starts. By default, the statistics of the previous seven days are queried. Unit: seconds.
-        # 
-        # > The start time that you specify must be within the previous 40 days.
+        # The timestamp when the attack started. By default, the data of the last 7 days is queried. Unit: seconds.
+        # > The start time can only be within the last 40 days.
         # 
         # This parameter is required.
         self.start_time = start_time
-        # The details of attack analysis. Valid values:
+        # The details of the attack analysis. Valid values:
         # 
-        # - **TOTAL**: number of attacks
+        # - **TOTAL**: the number of attacks
+        # - **TREND**: the attack trend
+        # - **PIE_CHART**: Attack Type Distribution
+        # - **SOURCE_TOP**: the top 5 attack sources
+        # - **CLIENT_TOP**: the top 5 attacked assets
+        # - **DETAILS**: the list of attack details
         # 
-        # - **TREND**: attack trend
-        # 
-        # - **PIE_CHART**: distribution of attacks by type
-        # 
-        # - **SOURCE_TOP**: top 5 attack sources
-        # 
-        # - **CLIENT_TOP**: top 5 attacked assets
-        # 
-        # - **DETAILS**: attack details
-        # 
-        # > If the Type parameter is set to **DETAILS**, you must specify the CurrentPage and PageSize parameters.
+        # > If you set Type to **DETAILS**, the paging parameters are required.
         # 
         # This parameter is required.
         self.type = type

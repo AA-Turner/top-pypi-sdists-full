@@ -2,6 +2,7 @@ import functools
 import importlib
 import inspect
 from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
 
 
 class BaseManager:
@@ -24,6 +25,12 @@ class BaseManager:
             setattr(self, name, func)
         return super().__init__()
 
+    if TYPE_CHECKING:
+        # __init__ copies the target model's classmethods onto the manager
+        # at runtime, so mypy cannot see them.
+        def __getattr__(self, name: str) -> Any:
+            """Return a classmethod copied from the target model."""
+
 
 class CertificateManager(BaseManager):
     manager_for = "pylxd.models.Certificate"
@@ -43,6 +50,10 @@ class VirtualMachineManager(BaseManager):
 
 class ImageManager(BaseManager):
     manager_for = "pylxd.models.Image"
+
+
+class ImageRegistryManager(BaseManager):
+    manager_for = "pylxd.models.ImageRegistry"
 
 
 class NetworkManager(BaseManager):
@@ -93,6 +104,10 @@ class ClusterCertificateManager(BaseManager):
     manager_for = "pylxd.models.ClusterCertificate"
 
 
+class ClusterLinkManager(BaseManager):
+    manager_for = "pylxd.models.ClusterLink"
+
+
 class ClusterManager(BaseManager):
     manager_for = "pylxd.models.Cluster"
 
@@ -101,6 +116,7 @@ class ClusterManager(BaseManager):
         self._client = client
         self.members = ClusterMemberManager(client)
         self.certificate = ClusterCertificateManager(client)
+        self.links = ClusterLinkManager(client)
 
 
 @contextmanager

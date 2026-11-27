@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-regex
-Version: 2026.11.24.20261126
+Version: 2026.11.25.20261127
 Summary: Typing stubs for regex
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`regex`](https://github.com/mrabarnett/mrab-regex) package. It can be used by type checkers
 to check code that uses `regex`. This version of
 `types-regex` aims to provide accurate annotations for
-`regex==2026.11.24`.
+`regex==2026.11.25`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -34,7 +34,7 @@ This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.1
 * [pyrefly](https://pyrefly.org/) 1.5.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.105
+* [ty](https://docs.astral.sh/ty/) 0.0.107
 
 It was generated from typeshed commit
-[`70ee240799d3b2636e2a919be077adf0f979c82f`](https://github.com/python/typeshed/commit/70ee240799d3b2636e2a919be077adf0f979c82f).
+[`43d4b09bc6feda6a1ba952867c19edf8e99a4cb4`](https://github.com/python/typeshed/commit/43d4b09bc6feda6a1ba952867c19edf8e99a4cb4).

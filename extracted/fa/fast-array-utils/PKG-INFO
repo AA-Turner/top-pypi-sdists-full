@@ -1,35 +1,34 @@
 Metadata-Version: 2.5
 Name: fast-array-utils
-Version: 1.5.1
+Version: 1.6.0
 Summary: Fast array utilities with minimal dependencies.
 Project-URL: Issue Tracker, https://github.com/scverse/fast-array-utils/issues
 Project-URL: Source Code, https://github.com/scverse/fast-array-utils
-Project-URL: Documentation, https://icb-fast-array-utils.readthedocs-hosted.com/
+Project-URL: Documentation, https://fast-array-utils.scverse.org/
 Author-email: "Philipp A." <flying-sheep@web.de>
 License-Expression: MPL-2.0
 License-File: LICENSE.rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Requires-Python: >=3.12
+Requires-Python: >=3.13
 Requires-Dist: array-api-compat
-Requires-Dist: numpy>=2
+Requires-Dist: numpy>=2.1
 Provides-Extra: accel
-Requires-Dist: numba>=0.57; extra == 'accel'
+Requires-Dist: numba>=0.61; extra == 'accel'
 Provides-Extra: dask
 Requires-Dist: dask>=2023.6.1; extra == 'dask'
 Provides-Extra: full
 Requires-Dist: dask>=2023.6.1; extra == 'full'
 Requires-Dist: h5py; extra == 'full'
-Requires-Dist: numba>=0.57; extra == 'full'
-Requires-Dist: scipy>=1.13; extra == 'full'
+Requires-Dist: numba>=0.61; extra == 'full'
+Requires-Dist: scipy>=1.15; extra == 'full'
 Requires-Dist: zarr; extra == 'full'
 Provides-Extra: sparse
-Requires-Dist: scipy>=1.13; extra == 'sparse'
+Requires-Dist: scipy>=1.15; extra == 'sparse'
 Provides-Extra: testing
 Requires-Dist: packaging; extra == 'testing'
 Description-Content-Type: text/x-rst

@@ -1,5 +1,3 @@
-# fmt: off
-
 """bundletrajectory - a module for I/O from large MD simulations.
 
 The BundleTrajectory class writes trajectory into a directory with the
@@ -81,10 +79,18 @@ class BundleTrajectory:
     singleprecision=False:
         Store floating point data in single precision (ulm backend only).
     """
+
     slavelog = True  # Log from all nodes
 
-    def __init__(self, filename, mode='r', atoms=None, backup=True,
-                 backend='ulm', singleprecision=False):
+    def __init__(
+        self,
+        filename,
+        mode='r',
+        atoms=None,
+        backup=True,
+        backend='ulm',
+        singleprecision=False,
+    ):
         self.state = 'constructing'
         self.filename = filename
         self.pre_observers = []  # callback functions before write is performed
@@ -108,16 +114,18 @@ class BundleTrajectory:
         "Set default values for internal parameters."
         self.version = 1
         self.subtype = 'normal'
-        self.datatypes = {'positions': True,
-                          'numbers': 'once',
-                          'tags': 'once',
-                          'masses': 'once',
-                          'momenta': True,
-                          'forces': True,
-                          'energy': True,
-                          'energies': False,
-                          'stress': False,
-                          'magmoms': True}
+        self.datatypes = {
+            'positions': True,
+            'numbers': 'once',
+            'tags': 'once',
+            'masses': 'once',
+            'momenta': True,
+            'forces': True,
+            'energy': True,
+            'energies': False,
+            'stress': False,
+            'magmoms': True,
+        }
 
     def _set_backend(self, backend):
         """Set the backed doing the actual I/O."""
@@ -129,7 +137,8 @@ class BundleTrajectory:
         else:
             raise NotImplementedError(
                 'This version of ASE cannot use BundleTrajectory '
-                'with backend "%s"' % self.backend_name)
+                'with backend "%s"' % self.backend_name
+            )
 
     def write(self, atoms=None):
         """Write the atoms to the file.
@@ -164,14 +173,16 @@ class BundleTrajectory:
         datatypes = {}
         for k, v in self.datatypes.items():
             if v == 'once':
-                v = (self.nframes == 0)
+                v = self.nframes == 0
             datatypes[k] = v
 
         # Write 'small' data structures.  They are written jointly.
-        smalldata = {'pbc': atoms.get_pbc(),
-                     'cell': atoms.get_cell(),
-                     'natoms': atoms.get_global_number_of_atoms(),
-                     'constraints': atoms.constraints}
+        smalldata = {
+            'pbc': atoms.get_pbc(),
+            'cell': atoms.get_cell(),
+            'natoms': atoms.get_global_number_of_atoms(),
+            'constraints': atoms.constraints,
+        }
         if datatypes.get('energy'):
             try:
                 smalldata['energy'] = atoms.get_potential_energy()
@@ -206,8 +217,9 @@ class BundleTrajectory:
                 self.datatypes['momenta'] = False
         if datatypes.get('magmoms'):
             if atoms.has('initial_magmoms'):
-                self.backend.write(framedir, 'magmoms',
-                                   atoms.get_initial_magnetic_moments())
+                self.backend.write(
+                    framedir, 'magmoms', atoms.get_initial_magnetic_moments()
+                )
             else:
                 self.datatypes['magmoms'] = False
         if datatypes.get('forces'):
@@ -227,7 +239,7 @@ class BundleTrajectory:
                 self.backend.write(framedir, 'energies', x)
                 del x
         # Write any extra data
-        for (label, source, once) in self.extra_data:
+        for label, source, once in self.extra_data:
             if self.nframes == 0 or not once:
                 if source is not None:
                     x = source()
@@ -320,8 +332,7 @@ class BundleTrajectory:
                 self.logfile.write(text + '\n')
                 self.logfile.flush()
         else:
-            raise RuntimeError('Cannot write to log file in mode ' +
-                               self.state)
+            raise RuntimeError('Cannot write to log file in mode ' + self.state)
 
     # __getitem__ is the main reading method.
     def __getitem__(self, n):
@@ -334,8 +345,9 @@ class BundleTrajectory:
         if n < 0:
             n += self.nframes
         if n < 0 or n >= self.nframes:
-            raise IndexError('Trajectory index %d out of range [0, %d['
-                             % (n, self.nframes))
+            raise IndexError(
+                'Trajectory index %d out of range [0, %d[' % (n, self.nframes)
+            )
 
         framedir = os.path.join(self.filename, 'F' + str(n))
         framezero = os.path.join(self.filename, 'F0')
@@ -351,11 +363,11 @@ class BundleTrajectory:
             self.atom_id = None
         atoms = Atoms(**data)
         natoms = smalldata['natoms']
-        for name in ('positions', 'numbers', 'tags', 'masses',
-                     'momenta'):
+        for name in ('positions', 'numbers', 'tags', 'masses', 'momenta'):
             if self.datatypes.get(name):
-                atoms.arrays[name] = self._read_data(framezero, framedir,
-                                                     name, self.atom_id)
+                atoms.arrays[name] = self._read_data(
+                    framezero, framedir, name, self.atom_id
+                )
                 assert len(atoms.arrays[name]) == natoms
 
         # Create the atoms object
@@ -368,11 +380,13 @@ class BundleTrajectory:
                 magmoms = self.backend.read(framedir, 'magmoms')
             else:
                 magmoms = None
-            calc = SinglePointCalculator(atoms,
-                                         energy=smalldata.get('energy'),
-                                         forces=forces,
-                                         stress=smalldata.get('stress'),
-                                         magmoms=magmoms)
+            calc = SinglePointCalculator(
+                atoms,
+                energy=smalldata.get('energy'),
+                forces=forces,
+                stress=smalldata.get('stress'),
+                magmoms=magmoms,
+            )
             atoms.calc = calc
         return atoms
 
@@ -388,8 +402,9 @@ class BundleTrajectory:
         if n < 0:
             n += self.nframes
         if n < 0 or n >= self.nframes:
-            raise IndexError('Trajectory index %d out of range [0, %d['
-                             % (n, self.nframes))
+            raise IndexError(
+                'Trajectory index %d out of range [0, %d[' % (n, self.nframes)
+            )
         framedir = os.path.join(self.filename, 'F' + str(n))
         framezero = os.path.join(self.filename, 'F0')
         return self._read_data(framezero, framedir, name, self.atom_id)
@@ -424,9 +439,10 @@ class BundleTrajectory:
         if self.master:
             lfn = os.path.join(self.filename, 'log.txt')
         else:
-            lfn = os.path.join(self.filename, ('log-node%d.txt' %
-                                               (world.rank,)))
-        self.logfile = open(lfn, 'a', 1)   # Append to log if it exists.
+            lfn = os.path.join(
+                self.filename, ('log-node%d.txt' % (world.rank,))
+            )
+        self.logfile = open(lfn, 'a', 1)  # Append to log if it exists.
         if hasattr(self, 'logdata'):
             for text in self.logdata:
                 self.logfile.write(text + '\n')
@@ -452,9 +468,11 @@ class BundleTrajectory:
             barrier()  # all must have time to see it exists
             if not self.is_bundle(self.filename, allowempty=True):
                 raise OSError(
-                    'Filename "' + self.filename +
-                    '" already exists, but is not a BundleTrajectory.' +
-                    ' Cowardly refusing to remove it.')
+                    'Filename "'
+                    + self.filename
+                    + '" already exists, but is not a BundleTrajectory.'
+                    + ' Cowardly refusing to remove it.'
+                )
             if self.is_empty_bundle(self.filename):
                 barrier()
                 self.log(f'Deleting old "{self.filename}" as it is empty')
@@ -462,7 +480,8 @@ class BundleTrajectory:
             elif not backup:
                 barrier()
                 self.log(
-                    f'Deleting old "{self.filename}" as backup is turned off.')
+                    f'Deleting old "{self.filename}" as backup is turned off.'
+                )
                 self.delete_bundle(self.filename)
             else:
                 barrier()
@@ -480,7 +499,7 @@ class BundleTrajectory:
         self._make_bundledir(self.filename)
         self.state = 'prewrite'
         self._write_metadata({})
-        self._write_nframes(0)    # Mark new bundle as empty
+        self._write_nframes(0)  # Mark new bundle as empty
         self._open_log()
         self.nframes = 0
 
@@ -496,12 +515,14 @@ class BundleTrajectory:
         self.metadata = metadata
         if metadata['version'] > self.version:
             raise NotImplementedError(
-                'This version of ASE cannot read a BundleTrajectory version ' +
-                str(metadata['version']))
+                'This version of ASE cannot read a BundleTrajectory version '
+                + str(metadata['version'])
+            )
         if metadata['subtype'] not in ('normal', 'split'):
             raise NotImplementedError(
-                'This version of ASE cannot read BundleTrajectory subtype ' +
-                metadata['subtype'])
+                'This version of ASE cannot read BundleTrajectory subtype '
+                + metadata['subtype']
+            )
         self.subtype = metadata['subtype']
         if metadata['backend'] == 'ulm':
             self.singleprecision = metadata['ulm.singleprecision']
@@ -516,7 +537,7 @@ class BundleTrajectory:
             self.pythonmajor = 2  # Assume written with Python 2.
         # We need to know if we are running Python 3.X and try to read
         # a bundle written with Python 2.X
-        self.backend.readpy2 = (self.pythonmajor == 2)
+        self.backend.readpy2 = self.pythonmajor == 2
         self.state = 'read'
 
     def _open_append(self, atoms, backend):
@@ -547,20 +568,24 @@ class BundleTrajectory:
         if metadata['version'] != self.version:
             raise NotImplementedError(
                 'Cannot append to a BundleTrajectory version '
-                '%s (supported version is %s)' % (str(metadata['version']),
-                                                  str(self.version)))
+                '%s (supported version is %s)'
+                % (str(metadata['version']), str(self.version))
+            )
         if metadata['subtype'] not in ('normal', 'split'):
             raise NotImplementedError(
                 'This version of ASE cannot append to BundleTrajectory '
-                'subtype ' + metadata['subtype'])
+                'subtype ' + metadata['subtype']
+            )
         self.subtype = metadata['subtype']
         if metadata['backend'] == 'ulm':
             self.singleprecision = metadata['ulm.singleprecision']
         self._set_backend(metadata['backend'])
         self.nframes = self._read_nframes()
         self._open_log()
-        self.log('Opening "%s" in append mode (nframes=%i)' % (self.filename,
-                                                               self.nframes))
+        self.log(
+            'Opening "%s" in append mode (nframes=%i)'
+            % (self.filename, self.nframes)
+        )
         self.state = 'write'
         self.atoms = atoms
 
@@ -616,7 +641,7 @@ class BundleTrajectory:
         if not filename.is_dir():
             return False
         if allowempty and not os.listdir(filename):
-            return True   # An empty BundleTrajectory
+            return True  # An empty BundleTrajectory
         metaname = filename / 'metadata.json'
         if metaname.is_file():
             mdata = jsonio.decode(metaname.read_text())
@@ -634,7 +659,7 @@ class BundleTrajectory:
 
         Assumes that it is a bundle."""
         if not os.listdir(filename):
-            return True   # Empty folders are empty bundles.
+            return True  # Empty folders are empty bundles.
         with open(os.path.join(filename, 'frames'), 'rb') as fd:
             nframes = int(fd.read())
 
@@ -695,8 +720,7 @@ class BundleTrajectory:
                 time.sleep(1)
                 i += 1
             if i > 10:
-                self.log('Waiting %d seconds for %s to appear!'
-                         % (i, filename))
+                self.log('Waiting %d seconds for %s to appear!' % (i, filename))
 
     def _make_framedir(self, frame):
         """Make subdirectory for the frame.
@@ -753,17 +777,28 @@ class UlmBundleBackend:
         self.singleprecision = singleprecision
 
         # Integer data may be downconverted to the following types
-        self.integral_dtypes = ['uint8', 'int8', 'uint16', 'int16',
-                                'uint32', 'int32', 'uint64', 'int64']
+        self.integral_dtypes = [
+            'uint8',
+            'int8',
+            'uint16',
+            'int16',
+            'uint32',
+            'int32',
+            'uint64',
+            'int64',
+        ]
         # Dict comprehensions not supported in Python 2.6 :-(
-        self.int_dtype = {k: getattr(np, k)
-                          for k in self.integral_dtypes}
-        self.int_minval = {k: np.iinfo(self.int_dtype[k]).min
-                           for k in self.integral_dtypes}
-        self.int_maxval = {k: np.iinfo(self.int_dtype[k]).max
-                           for k in self.integral_dtypes}
-        self.int_itemsize = {k: np.dtype(self.int_dtype[k]).itemsize
-                             for k in self.integral_dtypes}
+        self.int_dtype = {k: getattr(np, k) for k in self.integral_dtypes}
+        self.int_minval = {
+            k: np.iinfo(self.int_dtype[k]).min for k in self.integral_dtypes
+        }
+        self.int_maxval = {
+            k: np.iinfo(self.int_dtype[k]).max for k in self.integral_dtypes
+        }
+        self.int_itemsize = {
+            k: np.dtype(self.int_dtype[k]).itemsize
+            for k in self.integral_dtypes
+        }
 
     def write_small(self, framedir, smalldata):
         "Write small data to be written jointly."
@@ -790,10 +825,11 @@ class UlmBundleBackend:
                     data = int(data.flat[0])  # Convert to standard integer
                 else:
                     for typ in self.integral_dtypes:
-                        if (minval >= self.int_minval[typ] and
-                            maxval <= self.int_maxval[typ] and
-                                data.itemsize > self.int_itemsize[typ]):
-
+                        if (
+                            minval >= self.int_minval[typ]
+                            and maxval <= self.int_maxval[typ]
+                            and data.itemsize > self.int_itemsize[typ]
+                        ):
                             # Convert to smaller type
                             stored_as = typ
                             data = data.astype(self.int_dtype[typ])
@@ -807,11 +843,13 @@ class UlmBundleBackend:
                     data = data.astype(np.float32)
             fn = os.path.join(framedir, name + '.ulm')
             with ulmopen(fn, 'w') as fd:
-                fd.write(shape=shape,
-                         dtype=dtype,
-                         stored_as=stored_as,
-                         all_identical=all_identical,
-                         data=data)
+                fd.write(
+                    shape=shape,
+                    dtype=dtype,
+                    stored_as=stored_as,
+                    all_identical=all_identical,
+                    data=data,
+                )
 
     def read_small(self, framedir):
         "Read small data."
@@ -824,8 +862,7 @@ class UlmBundleBackend:
         with ulmopen(fn, 'r') as fd:
             if fd.all_identical:
                 # Only a single data value
-                data = np.zeros(fd.shape,
-                                dtype=getattr(np, fd.dtype)) + fd.data
+                data = np.zeros(fd.shape, dtype=getattr(np, fd.dtype)) + fd.data
             elif fd.dtype == fd.stored_as:
                 # Easy, the array can be returned as-is.
                 data = fd.data
@@ -862,8 +899,9 @@ class UlmBundleBackend:
                     else:
                         info['shape'][0] += fd.shape[0]
                         assert info['type'] == fd.dtype
-                        info['identical'] = (info['identical']
-                                             and fd.all_identical)
+                        info['identical'] = (
+                            info['identical'] and fd.all_identical
+                        )
             info['shape'] = tuple(info['shape'])
             return info
 
@@ -938,9 +976,9 @@ def write_bundletrajectory(filename, images, append=False):
         calc = atoms.calc
         if hasattr(calc, 'calculation_required'):
             for quantity in ('energy', 'forces', 'stress', 'magmoms'):
-                traj.select_data(quantity,
-                                 not calc.calculation_required(atoms,
-                                                               [quantity]))
+                traj.select_data(
+                    quantity, not calc.calculation_required(atoms, [quantity])
+                )
         traj.write(atoms)
     traj.close()
 
@@ -963,7 +1001,7 @@ def print_bundletrajectory_info(filename):
     print(f'Metadata information of BundleTrajectory "{filename}":')
     for k, v in metadata.items():
         if k != 'datatypes':
-            print(f"  {k}: {v}")
+            print(f'  {k}: {v}')
     with open(os.path.join(filename, 'frames'), 'rb') as fd:
         nframes = int(fd.read())
     print('Number of frames: %i' % (nframes,))
@@ -978,7 +1016,8 @@ def print_bundletrajectory_info(filename):
         backend = UlmBundleBackend(True, False)
     else:
         raise NotImplementedError(
-            f'Backend {metadata["backend"]} not supported.')
+            f'Backend {metadata["backend"]} not supported.'
+        )
     frame = os.path.join(filename, 'F0')
     small = backend.read_small(frame)
     print('Contents of first frame:')
@@ -1017,11 +1056,12 @@ def print_bundletrajectory_info(filename):
 
 def main():
     import optparse
+
     parser = optparse.OptionParser(
-        usage='python -m ase.io.bundletrajectory '
-        'a.bundle [b.bundle ...]',
+        usage='python -m ase.io.bundletrajectory a.bundle [b.bundle ...]',
         description='Print information about '
-        'the contents of one or more bundletrajectories.')
+        'the contents of one or more bundletrajectories.',
+    )
     _opts, args = parser.parse_args()
     for name in args:
         print_bundletrajectory_info(name)

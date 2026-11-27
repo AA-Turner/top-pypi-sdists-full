@@ -158,6 +158,34 @@ def cambiar_motivo_activo(valor: Optional[CambiarMotivo], *, en_consulta_general
     return bool(valor.activo)
 
 
+#: 0.6.103 / 0.6.57.16 — «Cuándo entra» la IA del camino (2026-11-26, Colegio de Profesionales de Higiene): la acción de IA de la RESPUESTA
+#: de un camino (`ia_responde`, `precalificar`, `agendar`) puede hablar enseguida, pegada a la bienvenida (lo de
+#: siempre), o esperar a que el cliente responda. Con `cuando_responde` api-chatty pone la IA en el chat con el estado
+#: del motivo activo pero SIN pedirle un turno: la IA contesta el próximo mensaje del cliente por el camino de siempre
+#: (el mismo mecanismo que «Si responde → Lo gestiona la IA»), y si no responde corren los seguimientos del camino.
+#: Vale sólo cuando en esa entrada sale una bienvenida (sin bienvenida, la IA entra enseguida: si no, el mensaje del
+#: cliente quedaría sin respuesta) y sólo en la respuesta del camino: una rama de precalificación no puede esperar.
+#: Se hereda con la acción. Un documento sin el campo lee `enseguida` (lo de hoy).
+CuandoEntra = Literal["enseguida", "cuando_responde"]
+ENSEGUIDA = "enseguida"
+CUANDO_RESPONDE = "cuando_responde"
+
+
+def campo_cuando_entra() -> Any:
+    return Field(
+        default=ENSEGUIDA,
+        description=(
+            "Cuándo entra la IA del camino: enseguida (junto con la bienvenida) o cuando_responde (espera el próximo "
+            "mensaje del cliente; si no responde, corren los seguimientos)"
+        ),
+    )
+
+
+def espera_respuesta(accion: Any) -> bool:
+    """¿La acción de IA espera a que el cliente responda? (`cuando_entra == "cuando_responde"`)."""
+    return getattr(accion, "cuando_entra", ENSEGUIDA) == CUANDO_RESPONDE
+
+
 class _AccionBase(BaseModel):
     """Base de toda acción. `tipo` es el discriminador: se serializa SIEMPRE, también con
     exclude_unset (un PATCH que lo omite deja un documento que no se puede volver a leer)."""
@@ -187,6 +215,8 @@ class AccionIaResponde(_AccionBase):
     mensaje_al_derivar: Optional[str] = campo_mensaje_al_derivar()
     # 0.6.16: «Pasar a otro motivo» (ver `CambiarMotivo`).
     cambiar_motivo: Optional[CambiarMotivo] = campo_cambiar_motivo()
+    # «Cuándo entra» (ver `CuandoEntra`).
+    cuando_entra: CuandoEntra = campo_cuando_entra()
 
     @field_validator("derivar_cuando")
     @classmethod
@@ -214,6 +244,8 @@ class AccionAgendar(_AccionBase):
     mensaje_al_derivar: Optional[str] = campo_mensaje_al_derivar()
     # 0.6.16: «Pasar a otro motivo» (ver `CambiarMotivo`).
     cambiar_motivo: Optional[CambiarMotivo] = campo_cambiar_motivo()
+    # «Cuándo entra» (ver `CuandoEntra`).
+    cuando_entra: CuandoEntra = campo_cuando_entra()
     # 0.6.57.1: «Recordatorios del turno» del motivo (ver `turno.RecordatoriosDelTurno`). None = vale la
     # config del agente (`pgp_configs.avisos_de_reunion`), como hasta ahora; con valor, gana la del motivo.
     recordatorios: Optional[RecordatoriosDelTurno] = Field(

@@ -4,8 +4,10 @@
 
 
 class CLICommand:
-    """Analyze the dimensionality of the bonded clusters in a structure, using
-    the scoring parameter described in:
+    """Analyze dimensionality of structure.
+
+    This tool analyzes the dimensionality of the bonded clusters in a
+    structure using the scoring parameter described in:
 
     "Definition of a scoring parameter to identify low-dimensional materials
     components",  P.M. Larsen, M. Pandey, M. Strange, and K. W. Jacobsen
@@ -34,6 +36,7 @@ class CLICommand:
 
     If the `--display-all` option is used, all dimensionality classifications
     are displayed.
+
     """
 
     @staticmethod

@@ -52,13 +52,13 @@ class GetClusterCheckSummaryResponseBodyData(DaraModel):
         not_pass_low_count: int = None,
         not_pass_medium_count: int = None,
     ):
-        # The total number of check items that failed the check.
+        # The total number of failed check items.
         self.not_pass_count = not_pass_count
-        # The number of check items with a high-risk level that failed the check.
+        # The number of failed high-risk check items.
         self.not_pass_high_count = not_pass_high_count
-        # The number of check items with a low-risk level that failed the check.
+        # The number of failed low-risk check items.
         self.not_pass_low_count = not_pass_low_count
-        # The number of check items with a medium-risk level that failed the check.
+        # The number of failed medium-risk check items.
         self.not_pass_medium_count = not_pass_medium_count
 
     def validate(self):

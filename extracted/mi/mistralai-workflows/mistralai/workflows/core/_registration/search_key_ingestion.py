@@ -23,7 +23,7 @@ Values are stored UNENCRYPTED.
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping, Sequence
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from datetime import date, timedelta
 from enum import Enum
 from itertools import islice
@@ -54,7 +54,7 @@ from mistralai.workflows.core.config.config import (
 )
 from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
-from mistralai.workflows.core.worker_client import get_worker_client
+from mistralai.workflows.core.worker_client import borrow_worker_client, get_worker_client
 from mistralai.workflows.worker_client.errors.no_response_error import NoResponseError
 from mistralai.workflows.worker_client.errors.responsevalidationerror import ResponseValidationError
 from mistralai.workflows.worker_client.errors.sdkerror import SDKError
@@ -81,6 +81,7 @@ _RETRYABLE_STATUS_CODES = frozenset({408, 429})
 _MAX_REQUEST_ATTEMPTS = 3
 _RETRY_BACKOFF_SECONDS = 0.2
 _REQUEST_TIMEOUT_SECONDS = 10.0
+_REQUEST_TIMEOUT_MS = int(_REQUEST_TIMEOUT_SECONDS * 1000)
 
 
 def _raise_invalid(message: str) -> NoReturn:
@@ -220,6 +221,7 @@ async def _upsert_search_keys_impl(
                 temporal_workflow_id=temporal_workflow_id,
                 temporal_run_id=temporal_run_id,
                 search_key_metadata=metadata,
+                timeout_ms=_REQUEST_TIMEOUT_MS,
             ),
             search_key_metadata,
         )
@@ -243,7 +245,14 @@ async def _delete_search_keys_impl(
             temporal_workflow_id=temporal_workflow_id,
             temporal_run_id=temporal_run_id,
             keys=keys,
+            timeout_ms=_REQUEST_TIMEOUT_MS,
         )
+
+
+def _search_key_client() -> AbstractAsyncContextManager[PrivateWorkerClient]:
+    return borrow_worker_client(
+        lambda: get_worker_client(headers=get_deployment_headers(), timeout=_REQUEST_TIMEOUT_SECONDS)
+    )
 
 
 # Neither Temporal's RetryPolicy nor @activity's tenacity covers this branch (activity.py).
@@ -263,7 +272,7 @@ async def _upsert_search_keys(
     temporal_run_id: str,
     search_key_metadata: dict[str, str | None],
 ) -> None:
-    async with get_worker_client(headers=get_deployment_headers(), timeout=_REQUEST_TIMEOUT_SECONDS) as client:
+    async with _search_key_client() as client:
         try:
             await _upsert_search_keys_impl(client, temporal_workflow_id, temporal_run_id, search_key_metadata)
         except (SDKError, NoResponseError) as exc:
@@ -275,7 +284,7 @@ async def _upsert_search_keys(
 
 @activity(name=DELETE_SEARCH_KEYS_ACTIVITY_NAME, _allow_reserved_name=True)
 async def _delete_search_keys(temporal_workflow_id: str, temporal_run_id: str, keys: list[str]) -> None:
-    async with get_worker_client(headers=get_deployment_headers(), timeout=_REQUEST_TIMEOUT_SECONDS) as client:
+    async with _search_key_client() as client:
         try:
             await _delete_search_keys_impl(client, temporal_workflow_id, temporal_run_id, keys)
         except (SDKError, NoResponseError) as exc:
@@ -315,7 +324,7 @@ async def _dispatch(
                 ),
             )
         else:
-            async with get_worker_client(headers=get_deployment_headers(), timeout=_REQUEST_TIMEOUT_SECONDS) as client:
+            async with _search_key_client() as client:
                 await direct_fn(client, ctx.execution_id, run_id, payload)
     except (
         SDKError,

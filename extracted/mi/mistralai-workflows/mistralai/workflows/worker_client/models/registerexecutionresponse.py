@@ -4,6 +4,9 @@
 from __future__ import annotations
 from mistralai.workflows.worker_client.types import (
     BaseModel,
+    Nullable,
+    OptionalNullable,
+    UNSET,
     UNSET_SENTINEL,
     UnrecognizedStr,
 )
@@ -27,6 +30,8 @@ class RegisterExecutionResponseTypedDict(TypedDict):
     created: bool
     metadata_status: NotRequired[RegisterExecutionResponseMetadataStatus]
     r"""How search_key_metadata was persisted: 'ok', or 'partial' (a value was truncated if too long). A database write error aborts registration so the worker retries."""
+    on_behalf_of: NotRequired[Nullable[bool]]
+    r"""Whether the run executes on behalf of a user. A continued run keeps the flag its execution started with."""
 
 
 class RegisterExecutionResponse(BaseModel):
@@ -37,18 +42,30 @@ class RegisterExecutionResponse(BaseModel):
     metadata_status: Optional[RegisterExecutionResponseMetadataStatus] = "ok"
     r"""How search_key_metadata was persisted: 'ok', or 'partial' (a value was truncated if too long). A database write error aborts registration so the worker retries."""
 
+    on_behalf_of: OptionalNullable[bool] = UNSET
+    r"""Whether the run executes on behalf of a user. A continued run keeps the flag its execution started with."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["metadata_status"])
+        optional_fields = set(["metadata_status", "on_behalf_of"])
+        nullable_fields = set(["on_behalf_of"])
         serialized = handler(self)
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k, serialized.get(n))
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
             if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
                     m[k] = val
 
         return m

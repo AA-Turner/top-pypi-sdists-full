@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,6 +16,10 @@ from mistralai.client.models.mcptool import MCPTool
 from mistralai.client.models.mcptoolmeta import MCPToolMeta
 from mistralai.client.models.mcpuitoolmeta import MCPUIToolMeta
 from mistralai.extra.workflows.encoding.config import PayloadEncryptionMode
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.trace import StatusCode
 from pydantic import SecretStr
 
 from mistralai.workflows.core.auth import RunAs
@@ -231,6 +236,102 @@ class TestConnectorToolCallErrorHandling:
             )
 
             assert isinstance(result, dict)
+
+
+@pytest.fixture
+def span_exporter() -> Iterator[InMemorySpanExporter]:
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    with patch(
+        "mistralai.workflows.plugins.mistralai.connectors.activities.tracer",
+        provider.get_tracer(__name__),
+    ):
+        yield exporter
+
+
+@pytest.fixture
+def connectors_api() -> Iterator[AsyncMock]:
+    with patch("mistralai.workflows.plugins.mistralai.connectors.activities.get_mistral_client") as mock_get_client:
+        mock_client = AsyncMock()
+        mock_get_client.return_value = mock_client
+        yield mock_client.beta.connectors
+
+
+class TestConnectorToolCallSpan:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("connector_id", "expected_connector_attributes"),
+        [
+            pytest.param(
+                "0b7e6c1a-3f2d-4c5e-9a8b-1d2e3f4a5b6c",
+                {"mistral.connector.id": "0b7e6c1a-3f2d-4c5e-9a8b-1d2e3f4a5b6c"},
+                id="with-connector-id",
+            ),
+            pytest.param(None, {}, id="without-connector-id"),
+        ],
+    )
+    async def test_success_emits_execute_tool_span(
+        self,
+        span_exporter: InMemorySpanExporter,
+        connectors_api: AsyncMock,
+        connector_id: str | None,
+        expected_connector_attributes: dict[str, str],
+    ) -> None:
+        connectors_api.call_tool_async.return_value = _make_response()
+
+        await connector_tool_call.__wrapped__(
+            connector_id_or_name=connector_id or "slack",
+            tool_name="slack_send_message",
+            arguments={"text": "hello"},
+            connector_id=connector_id,
+        )
+
+        (span,) = span_exporter.get_finished_spans()
+        assert span.name == "execute_tool slack_send_message"
+        assert span.status.status_code == StatusCode.OK
+        assert dict(span.attributes or {}) == {
+            "gen_ai.operation.name": "execute_tool",
+            "gen_ai.tool.name": "slack_send_message",
+            "gen_ai.tool.type": "function",
+            **expected_connector_attributes,
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("call_outcome", "expected_error"),
+        [
+            pytest.param(
+                {"return_value": _make_response(text="boom", is_error=True)},
+                ConnectorToolCallError,
+                id="mcp-error-response",
+            ),
+            pytest.param(
+                {"side_effect": RuntimeError("connection reset")},
+                RuntimeError,
+                id="client-exception",
+            ),
+        ],
+    )
+    async def test_failure_marks_span_as_error(
+        self,
+        span_exporter: InMemorySpanExporter,
+        connectors_api: AsyncMock,
+        call_outcome: dict[str, object],
+        expected_error: type[Exception],
+    ) -> None:
+        connectors_api.call_tool_async.configure_mock(**call_outcome)
+
+        with pytest.raises(expected_error):
+            await connector_tool_call.__wrapped__(
+                connector_id_or_name="github",
+                tool_name="issue_write",
+            )
+
+        (span,) = span_exporter.get_finished_spans()
+        assert span.status.status_code == StatusCode.ERROR
+        assert (span.attributes or {})["error.type"] == expected_error.__qualname__
+        assert [event.name for event in span.events] == ["exception"]
 
 
 class TestConnectorToolCallMcpApps:

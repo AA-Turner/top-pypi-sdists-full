@@ -31,7 +31,8 @@ from mistralai.workflows.plugins.mistralai.mcp import (
     execute_mcp_tool,
 )
 from mistralai.workflows.testing import (
-    create_capturing_mock_events_client,
+    ALL_EVENT_CATEGORIES,
+    create_capturing_mock_event_publisher,
     create_test_worker_with_events,
 )
 from mistralai.workflows.testing.fixtures import (
@@ -188,13 +189,13 @@ async def test_header_mapping_resolves_but_never_leaks_to_temporal(
 
     constructions: list[dict[str, Any]] = []
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     with patch(
         "mistralai.workflows.plugins.mistralai.mcp.MCPClientStreamableHTTP",
         side_effect=_mock_http_client(constructions),
     ):
-        async with EventContext(mock_client):
+        async with EventContext(mock_client, emitted_event_categories=ALL_EVENT_CATEGORIES):
             async with create_test_worker_with_events(
                 temporal_env,
                 workflows=[MCPHeaderMappingWorkflow],

@@ -8,6 +8,7 @@ class GenerateOnceTaskRequest(DaraModel):
     def __init__(
         self,
         param: str = None,
+        resource_directory_account_id: int = None,
         source: str = None,
         task_name: str = None,
         task_type: str = None,
@@ -16,33 +17,36 @@ class GenerateOnceTaskRequest(DaraModel):
         # 
         # This parameter is required.
         self.param = param
+        # The ID of the member accounts (Alibaba Cloud account) in the resource folder.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to query this parameter.
+        self.resource_directory_account_id = resource_directory_account_id
         # The source of the task.
         self.source = source
         # The node name. Valid values:
-        # - **CLIENT_PROBLEM_CHECK**: Client troubleshooting node.
-        # - **CLIENT_DEV_OPS**: Cloud O&M node.
-        # - **ASSET_SECURITY_CHECK**: Asset collection node.
-        # - **ASSETS_COLLECTION**: Asset Fingerprints collection node.
-        # - **IMAGE_SCAN**: Container image scan node.
-        # - **AI_SECURITY_CHECK**: AI asset synchronization node.
-        # - **IDC_PROBE_SCAN**: IDC probe scan node.
-        # - **ATTACK_SURFACE_SCAN**: Attack surface border asset scan node.
-        # - **ASSET_EXPOSURE_SCAN**: Asset exposure scan node.
-        # - **VUL_CHECK_TASK**: Vulnerability scanning node.
+        # - **CLIENT_PROBLEM_CHECK**: client troubleshooting node
+        # - **CLIENT_DEV_OPS**: cloud O&M node
+        # - **ASSET_SECURITY_CHECK**: asset collection node
+        # - **ASSETS_COLLECTION**: Asset Fingerprints collection node
+        # - **IMAGE_SCAN**: container image scan node
+        # - **AI_SECURITY_CHECK**: AI asset synchronization node
+        # - **IDC_PROBE_SCAN**: IDC probe scan node
+        # - **ATTACK_SURFACE_SCAN**: attack surface border asset scan node
+        # - **ASSET_EXPOSURE_SCAN**: asset exposure scan node
+        # - **VUL_CHECK_TASK**: vulnerability scanning node
         # 
         # This parameter is required.
         self.task_name = task_name
         # The node type. Valid values:
-        # - **CLIENT_PROBLEM_CHECK**: Client troubleshooting node.
-        # - **CLIENT_DEV_OPS**: Cloud O&M node.
-        # - **ASSET_SECURITY_CHECK**: Asset collection node.
-        # - **ASSETS_COLLECTION**: Asset Fingerprints collection node.
-        # - **IMAGE_SCAN**: Container image scan node.
-        # - **AI_SECURITY_CHECK**: AI asset synchronization node.
-        # - **IDC_PROBE_SCAN**: IDC probe scan node.
-        # - **ATTACK_SURFACE_SCAN**: Attack surface border asset scan node.
-        # - **ASSET_EXPOSURE_SCAN**: Asset exposure scan node.
-        # - **VUL_CHECK_TASK**: Vulnerability scanning node.
+        # - **CLIENT_PROBLEM_CHECK**: client troubleshooting node
+        # - **CLIENT_DEV_OPS**: cloud O&M node
+        # - **ASSET_SECURITY_CHECK**: asset collection node
+        # - **ASSETS_COLLECTION**: Asset Fingerprints collection node
+        # - **IMAGE_SCAN**: container image scan node
+        # - **AI_SECURITY_CHECK**: AI asset synchronization node
+        # - **IDC_PROBE_SCAN**: IDC probe scan node
+        # - **ATTACK_SURFACE_SCAN**: attack surface border asset scan node
+        # - **ASSET_EXPOSURE_SCAN**: asset exposure scan node
+        # - **VUL_CHECK_TASK**: vulnerability scanning node
         # 
         # This parameter is required.
         self.task_type = task_type
@@ -57,6 +61,9 @@ class GenerateOnceTaskRequest(DaraModel):
             result = _map
         if self.param is not None:
             result['Param'] = self.param
+
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
 
         if self.source is not None:
             result['Source'] = self.source
@@ -73,6 +80,9 @@ class GenerateOnceTaskRequest(DaraModel):
         m = m or dict()
         if m.get('Param') is not None:
             self.param = m.get('Param')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         if m.get('Source') is not None:
             self.source = m.get('Source')

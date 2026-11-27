@@ -8,7 +8,7 @@ from .doc_ai_capability_limits import DocAiCapabilityLimitsParams
 
 class DocAiCapabilitiesResponseParams(typing_extensions.TypedDict):
     """
-    Classify and Split capabilities of this deployment.
+    What your account offers for Split and Classify, plus the accepted input formats and limits.
     """
 
     api_contract: typing_extensions.NotRequired[str]
@@ -37,6 +37,10 @@ class DocAiCapabilitiesResponseParams(typing_extensions.TypedDict):
     """
 
     split_methods: typing_extensions.NotRequired[typing.Sequence[str]]
+    """
+    Enabled Split methods. The value is `semantic`, where the model finds the boundaries; the request has no `method` option.
+    """
+
     features: typing_extensions.NotRequired[typing.Dict[str, bool]]
     """
     Feature flags, e.g. `split_triggers` and `split_trigger_photo`.

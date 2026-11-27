@@ -1,10 +1,11 @@
 """Storage and analysis for vibrational data"""
 
 import collections
+from collections.abc import Iterator, Sequence
 from functools import cached_property
 from math import pi, sin, sqrt
 from numbers import Integral, Real
-from typing import Any, Iterator, Sequence, TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 

@@ -22,29 +22,29 @@ class CreateHoneypotProbeRequest(DaraModel):
         uuid: str = None,
         vpc_id: str = None,
     ):
-        # Specifies whether to enable ARP spoof detection. Valid values:
-        # - **true**: Enabled.
-        # - **false**: Disabled.
+        # Specifies whether to enable ARP spoofing detection. Valid values:
+        # - **true**: enabled
+        # - **false**: disabled
         self.arp = arp
         # The business group.
         self.business_group_id = business_group_id
-        # The management node ID.
-        # > You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain this value.
+        # The ID of the management node.
+        # > You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain the value.
         # 
         # This parameter is required.
         self.control_node_id = control_node_id
-        # The probe name.
+        # The name of the probe.
         # 
         # This parameter is required.
         self.display_name = display_name
-        # The collection of service configurations.
+        # The configuration service collection.
         self.honeypot_bind_list = honeypot_bind_list
         # Specifies whether to enable ping scan detection. Valid values:
         # 
-        # - **true**: Enabled.
-        # - **false**: Disabled.
+        # - **true**: enabled
+        # - **false**: disabled
         self.ping = ping
-        # The probe type. Valid values:
+        # The type of the probe. Valid values:
         # 
         # - **host_probe**: host probe
         # 
@@ -52,16 +52,16 @@ class CreateHoneypotProbeRequest(DaraModel):
         # 
         # This parameter is required.
         self.probe_type = probe_type
-        # The probe version.
+        # The version of the probe.
         self.probe_version = probe_version
         # The proxy IP address.
         self.proxy_ip = proxy_ip
-        # The instance UUID.
+        # The UUID of the instance.
         # > This parameter is required when **ProbeType** is set to **host_probe**.
         self.uuid = uuid
         # The ID of the virtual private cloud (VPC).
         # 
-        # > This parameter is required when **ProbeType** is set to **vpc_black_hole_probe**. You can call the [DescribeVpcHoneyPotList](~~DescribeVpcHoneyPotList~~) operation to obtain this value.
+        # > This parameter is required when **ProbeType** is set to **vpc_black_hole_probe**. You can call the [DescribeVpcHoneyPotList](~~DescribeVpcHoneyPotList~~) operation to obtain the value.
         self.vpc_id = vpc_id
 
     def validate(self):
@@ -160,8 +160,8 @@ class CreateHoneypotProbeRequestHoneypotBindList(DaraModel):
     ):
         # The list of listening ports.
         self.bind_port_list = bind_port_list
-        # The honeypot ID.
-        # > You can call the [ListHoneypot](~~ListHoneypot~~) operation to obtain this value.
+        # The ID of the honeypot.
+        # > You can call the [ListHoneypot](~~ListHoneypot~~) operation to obtain the value.
         self.honeypot_id = honeypot_id
 
     def validate(self):
@@ -209,20 +209,20 @@ class CreateHoneypotProbeRequestHoneypotBindListBindPortList(DaraModel):
     ):
         # Specifies whether to bind the port. Valid values:
         # 
-        # - **true**: Yes.
-        # - **false**: No.
+        # - **true**: yes
+        # - **false**: no
         self.bind_port = bind_port
         # The end port.
         self.end_port = end_port
         # Specifies whether the port is fixed. Valid values:
         # 
-        # - **0**: No.
-        # - **1**: Yes.
+        # - **0**: no
+        # - **1**: yes
         self.fixed = fixed
         # The start port.
         self.start_port = start_port
         # The destination port.
-        # > This parameter is required when **HoneypotId** is not empty.
+        # > This parameter is required when **HoneypotId** is specified.
         self.target_port = target_port
 
     def validate(self):

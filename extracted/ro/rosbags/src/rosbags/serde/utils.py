@@ -63,6 +63,30 @@ def check_sequence(
         raise SerdeError(msg)
 
 
+def ros1_min_size(entry: FieldDesc, typestore: Typestore) -> int:
+    """Get minimum ROS1 wire size of a field."""
+    if entry[0] == Nodetype.BASE:
+        return 4 if entry[1][0] == 'string' else SIZEMAP[entry[1][0]]
+    if entry[0] == Nodetype.SEQUENCE:
+        return 4
+    if entry[0] == Nodetype.ARRAY:
+        return entry[1][1] * ros1_min_size(entry[1][0], typestore)
+    assert entry[0] == Nodetype.NAME
+    return sum(
+        ros1_min_size(desc, typestore)
+        for name, desc in typestore.fielddefs[entry[1]][1]
+        if name != 'structure_needs_at_least_one_member'
+    )
+
+
+def consume_zero_size(budget: list[int], count: int) -> None:
+    """Limit the total number of zero-byte message instances processed."""
+    budget[0] -= count
+    if budget[0] < 0:
+        msg = 'ROS1 zero-size message element limit exceeded.'
+        raise SerdeError(msg)
+
+
 def align(entry: FieldDesc, typestore: Typestore) -> int:
     """Get alignment requirement for entry.
 

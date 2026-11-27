@@ -10,35 +10,25 @@ class PublicSyncAndCreateImageScanTaskRequest(DaraModel):
         images: str = None,
         source_ip: str = None,
     ):
-        # The information about the images. The value of this parameter is in the JSON format and contains the following fields:
+        # The information about the images to be imported to the asset center. This parameter is in JSON format and contains the following fields:
         # 
-        # *   **RegistryType**: the type of the image repository. Valid values:
-        # 
-        #     *   acr
-        #     *   harbor
-        #     *   quay
-        # 
-        # *   **RepoId**: the ID of the image repository.
-        # 
-        # *   **InstanceId**: the ID of the Container Registry instance to which the image repository belongs.
-        # 
-        # *   **RepoNamespace**: the namespace to which the image repository belongs.
-        # 
-        # *   **RegionId**: the region ID of the image.
-        # 
-        # *   **RepoName**: the name of the image repository.
-        # 
-        # *   **Digest**: the digest of the image.
-        # 
-        # *   **Tag**: the tag that is added to the image.
-        # 
-        # *   **CreateTime**: the timestamp when the image was created. Unit: milliseconds.
-        # 
-        # *   **UpdateTime**: the timestamp when the image was updated. Unit: milliseconds.
+        # - **RegistryType**: The type of the image repository. Valid values:
+        #     - acr
+        #     - harbor
+        #     - quay
+        # - **RepoId**: The ID of the image repository.
+        # - **InstanceId**: The ID of the ACR instance.
+        # - **RepoNamespace**: The namespace of the image repository.
+        # - **RegionId**: The region ID of the image.
+        # - **RepoName**: The name of the image repository.
+        # - **Digest**: The digest of the image.
+        # - **Tag**: The tag of the image.
+        # - **CreateTime**: The timestamp when the image was created. Unit: milliseconds.
+        # - **UpdateTime**: The timestamp when the image was updated. Unit: milliseconds.
         # 
         # This parameter is required.
         self.images = images
-        # The source IP address of the request.
+        # The IP address of the access source.
         self.source_ip = source_ip
 
     def validate(self):

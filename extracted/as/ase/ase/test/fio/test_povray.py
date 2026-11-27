@@ -76,6 +76,8 @@ def isosurface_things(skimage):
     return cell, center_cell_position, surface
 
 
+# This is triggered with numpy2.5+ and scikit-learn <=1.8.0
+@pytest.mark.filterwarnings('ignore:Setting the shape on a NumPy array')
 def test_compute_isosurface(isosurface_things):
     cell, center_cell_position, isosurf = isosurface_things
 
@@ -83,6 +85,8 @@ def test_compute_isosurface(isosurface_things):
     assert np.allclose(vert_centroid, center_cell_position)
 
 
+# This is triggered with numpy2.5+ and scikit-learn <=1.8.0
+@pytest.mark.filterwarnings('ignore:Setting the shape on a NumPy array')
 def test_render_isosurface(testdir, isosurface_things, povray_executable):
     cell, _center_cell_position, isosurf = isosurface_things
 

@@ -13,27 +13,27 @@ class DescribeImageInstancesRequest(DaraModel):
         page_size: int = None,
         scanned: bool = None,
     ):
-        # Sets the conditions for searching assets. This parameter is in JSON format and contains the following fields:
-        # - **name**: The search item.
-        # - **value**: The value of the search item.
-        # - **logicalExp**: The logical relationship between multiple search item values. Valid values:
-        #     - **OR**: The multiple search item values are in an **OR** relationship.
-        #     - **AND**: The multiple search item values are in an **AND** relationship.
-        # > You can call the [DescribeImageRepoCriteria](~~DescribeImageRepoCriteria~~) operation to query supported search conditions.
+        # Specifies the conditions for searching assets. This parameter is in JSON format and contains the following fields:
+        # - **name**: The search criterion.
+        # - **value**: The value of the search criterion.
+        # - **logicalExp**: The logical relationship among multiple search criterion values. Valid values:
+        #     - **OR**: indicates that the logical relationship among multiple search criterion values is **OR**.
+        #     - **AND**: indicates that the logical relationship among multiple search criterion values is **AND**.
+        # > You can call the [DescribeImageCriteria](~~DescribeImageCriteria~~) operation to query the supported search criteria.
         self.criteria = criteria
-        # The page number of the returned results to start displaying. The starting value is **1**. Default value: **1**, which indicates that page 1 is displayed.
+        # Specifies the page number of the page to return. Pages start from page **1**. Default value: **1**.
         self.current_page = current_page
-        # Sets the logical relationship between multiple search conditions. Valid values:
+        # Specifies the logical relationship among multiple search criteria. Valid values:
         # 
-        # - **OR**: The multiple search conditions are in an **OR** relationship.
-        # - **AND**: The multiple search conditions are in an **AND** relationship.
+        # - **OR**: indicates that the logical relationship among multiple search criteria is **OR**.
+        # - **AND**: indicates that the logical relationship among multiple search criteria is **AND**.
         self.logical_exp = logical_exp
-        # The maximum number of entries to return on each page during a paged query. The default number of entries per page is 20. If the PageSize parameter is left empty, 20 entries are returned by default.
-        # > We recommend that you do not leave the PageSize parameter empty.
+        # Specifies the maximum number of entries to return on each page in a paging query. The default number of entries returned per page is 20. If the PageSize parameter is left empty, 20 entries are returned by default.
+        # > Specify a value for this parameter.
         self.page_size = page_size
-        # Indicates whether the image has been scanned. Valid values:
-        # - **true**: processed.
-        # - **false**: not processed.
+        # Specifies whether the image has been scanned. Valid values:
+        # - **true**: The image has been scanned.
+        # - **false**: The image has not been scanned.
         self.scanned = scanned
 
     def validate(self):

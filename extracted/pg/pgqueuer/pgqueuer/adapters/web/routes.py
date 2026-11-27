@@ -4,6 +4,7 @@ import dataclasses
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 
 try:
     from fastapi import APIRouter, Depends, HTTPException, Request, Response, params
@@ -212,9 +213,14 @@ def create_templates() -> Jinja2Templates:
 
 
 def verify_same_origin(request: Request) -> None:
-    """Reject cross-site POSTs when the browser sends Sec-Fetch-Site."""
+    """Return 403 for a cross-site POST. Check Sec-Fetch-Site, else Origin, else Referer."""
     site = request.headers.get("sec-fetch-site")
-    if site is not None and site not in ("same-origin", "none"):
+    source = request.headers.get("origin") or request.headers.get("referer")
+    if site is None:
+        cross_site = source is not None and urlsplit(source).netloc != request.url.netloc
+    else:
+        cross_site = site not in ("same-origin", "none")
+    if cross_site:
         raise HTTPException(status_code=403, detail="cross-site request rejected")
 
 
@@ -249,10 +255,12 @@ def create_web_router(  # noqa: C901, PLR0915 - registers every route
         app = FastAPI(lifespan=lifespan)
         app.include_router(create_web_router(include_sse=False), prefix="/pgqueuer")
 
-    Pass ``dependencies=[Depends(my_auth)]`` to guard every route with custom auth.
+    Pass ``dependencies=[Depends(my_auth)]`` to guard dashboard routes with custom
+    auth; ``/healthz`` remains unauthenticated for orchestrator liveness probes.
     With ``include_sse=False`` live regions fall back to their polling triggers,
     and no broadcaster is required on ``app.state``.
     """  # noqa: D214, D405, D411, D412, D416
+    root_router = APIRouter()
     router = APIRouter(dependencies=list(dependencies) if dependencies else None)
     templates = create_templates()
 
@@ -271,7 +279,7 @@ def create_web_router(  # noqa: C901, PLR0915 - registers every route
             raise HTTPException(status_code=404)
         return FileResponse(STATIC_DIR / filename, media_type=STATIC_FILES[filename])
 
-    @router.get("/healthz", name="healthz", include_in_schema=False)
+    @root_router.get("/healthz", name="healthz", include_in_schema=False)
     async def healthz(
         insights: Annotated[InsightsService, Depends(get_insights)],
     ) -> dict[str, str]:
@@ -548,4 +556,5 @@ def create_web_router(  # noqa: C901, PLR0915 - registers every route
             await management.requeue(ids)
         return Response(status_code=204, headers={"HX-Refresh": "true"})
 
-    return router
+    root_router.include_router(router)
+    return root_router

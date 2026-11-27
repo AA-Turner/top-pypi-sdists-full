@@ -12,9 +12,18 @@ from mistralai.workflows.core import config as config_package
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 
 _RATE_LIMITED_ATTR_NAME = "__wf_rate_limited"
+_RATE_LIMIT_TARGET_ATTR_NAME = "__wf_rate_limit_target"
 
 _local_rate_limiters: Dict[str, StrictLimiter] = {}
 _lock = asyncio.Lock()
+
+
+def _rate_limit_target(activity: Callable) -> Callable:
+    return cast(Callable, getattr(activity, _RATE_LIMIT_TARGET_ATTR_NAME, activity))
+
+
+def _set_rate_limit_target(activity: Callable, target: Callable) -> None:
+    setattr(activity, _RATE_LIMIT_TARGET_ATTR_NAME, target)
 
 
 class RateLimit(BaseModel):
@@ -40,6 +49,7 @@ class _RateLimit(RateLimit):
 
 
 def set_rate_limit(activity: Callable, rate_limit: RateLimit) -> _RateLimit:
+    activity = _rate_limit_target(activity)
     key = rate_limit.key or activity.__name__
     key_uuid = uuid5(NAMESPACE_DNS, key).hex.replace("-", "")
     task_queue_suffix = f"rate-limited-{key_uuid}"
@@ -55,7 +65,13 @@ def set_rate_limit(activity: Callable, rate_limit: RateLimit) -> _RateLimit:
 
 
 def get_rate_limit(activity: Callable) -> _RateLimit | None:
-    return getattr(activity, _RATE_LIMITED_ATTR_NAME, None)
+    return getattr(_rate_limit_target(activity), _RATE_LIMITED_ATTR_NAME, None)
+
+
+def clear_rate_limit(activity: Callable) -> None:
+    activity = _rate_limit_target(activity)
+    if hasattr(activity, _RATE_LIMITED_ATTR_NAME):
+        delattr(activity, _RATE_LIMITED_ATTR_NAME)
 
 
 async def local_wait_rate_limit(rate_limit_config: _RateLimit) -> None:

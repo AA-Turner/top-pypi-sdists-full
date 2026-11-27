@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     from .v2.providers.cohere.client import from_cohere as from_cohere
     from .v2.providers.fireworks.client import from_fireworks as from_fireworks
     from .v2.providers.gemini.client import from_gemini as from_gemini
+    from .v2.providers.azure.client import from_azure as from_azure
     from .v2.providers.genai.client import from_genai as from_genai
     from .v2.providers.groq.client import from_groq as from_groq
     from .v2.providers.litellm.client import from_litellm as from_litellm
@@ -55,18 +56,32 @@ if TYPE_CHECKING:
         from_deepseek as from_deepseek,
         from_openai as from_openai,
         from_together as from_together,
+        from_zhipuai as from_zhipuai,
+        from_zai as from_zai,
+        from_hubris as from_hubris,
+        from_atlascloud as from_atlascloud,
+        from_requesty as from_requesty,
+        from_sarvam as from_sarvam,
+        from_orcarouter as from_orcarouter,
+        from_minimax as from_minimax,
+        from_manifest as from_manifest,
     )
     from .v2.providers.openrouter.client import from_openrouter as from_openrouter
     from .v2.providers.perplexity.client import from_perplexity as from_perplexity
     from .v2.providers.vertexai.client import from_vertexai as from_vertexai
     from .v2.providers.writer.client import from_writer as from_writer
     from .v2.providers.xai.client import from_xai as from_xai
+    from .v2.core.auto_mode import select_mode as select_mode
+    from .v2.core.schema_analyzer import (
+        SchemaAnalysis as SchemaAnalysis,
+        analyze_schema as analyze_schema,
+    )
     from .v2.validation import (
         llm_validator as llm_validator,
         openai_moderation as openai_moderation,
     )
 
-__version__ = "1.17.0"
+__version__ = "1.18.0"
 
 __all__ = [
     "Instructor",
@@ -75,6 +90,15 @@ __all__ = [
     "from_openai",
     "from_anyscale",
     "from_together",
+    "from_zhipuai",
+    "from_zai",
+    "from_hubris",
+    "from_atlascloud",
+    "from_requesty",
+    "from_sarvam",
+    "from_orcarouter",
+    "from_minimax",
+    "from_manifest",
     "from_databricks",
     "from_deepseek",
     "from_openrouter",
@@ -106,6 +130,9 @@ __all__ = [
     "openai_moderation",
     "hooks",
     "v2",
+    "analyze_schema",
+    "SchemaAnalysis",
+    "select_mode",
 ]
 
 _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
@@ -114,6 +141,15 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
     "from_openai": (".v2.providers.openai.client", "from_openai"),
     "from_anyscale": (".v2.providers.openai.client", "from_anyscale"),
     "from_together": (".v2.providers.openai.client", "from_together"),
+    "from_zhipuai": (".v2.providers.openai.client", "from_zhipuai"),
+    "from_zai": (".v2.providers.openai.client", "from_zai"),
+    "from_hubris": (".v2.providers.openai.client", "from_hubris"),
+    "from_atlascloud": (".v2.providers.openai.client", "from_atlascloud"),
+    "from_requesty": (".v2.providers.openai.client", "from_requesty"),
+    "from_sarvam": (".v2.providers.openai.client", "from_sarvam"),
+    "from_orcarouter": (".v2.providers.openai.client", "from_orcarouter"),
+    "from_minimax": (".v2.providers.openai.client", "from_minimax"),
+    "from_manifest": (".v2.providers.openai.client", "from_manifest"),
     "from_databricks": (".v2.providers.openai.client", "from_databricks"),
     "from_deepseek": (".v2.providers.openai.client", "from_deepseek"),
     "from_openrouter": (".v2.providers.openrouter.client", "from_openrouter"),
@@ -157,7 +193,11 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
     "from_writer": (".v2.providers.writer.client", "from_writer"),
     "from_xai": (".v2.providers.xai.client", "from_xai"),
     "from_perplexity": (".v2.providers.perplexity.client", "from_perplexity"),
+    "from_azure": (".v2.providers.azure.client", "from_azure"),
     "from_genai": (".v2.providers.genai.client", "from_genai"),
+    "analyze_schema": (".v2.core.schema_analyzer", "analyze_schema"),
+    "SchemaAnalysis": (".v2.core.schema_analyzer", "SchemaAnalysis"),
+    "select_mode": (".v2.core.auto_mode", "select_mode"),
 }
 
 
@@ -188,4 +228,5 @@ _add_optional_export("from_bedrock", "boto3")
 _add_optional_export("from_writer", "writerai")
 _add_optional_export("from_xai", "xai_sdk")
 _add_optional_export("from_perplexity", "openai")
+_add_optional_export("from_azure", "openai")
 _add_optional_export("from_genai", "google", "google.genai")

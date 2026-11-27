@@ -12,6 +12,7 @@ class ModifyNatGatewayAttributeRequest(DaraModel):
         eip_bind_mode: str = None,
         enable_session_log: bool = None,
         icmp_reply_enabled: bool = None,
+        ipv_6config: main_models.ModifyNatGatewayAttributeRequestIpv6Config = None,
         log_delivery: main_models.ModifyNatGatewayAttributeRequestLogDelivery = None,
         name: str = None,
         nat_gateway_id: str = None,
@@ -25,24 +26,26 @@ class ModifyNatGatewayAttributeRequest(DaraModel):
         # 
         # The description must be 1 to 128 characters in length, and cannot start with `http://` or `https://`.
         self.description = description
-        # The EIP attach pattern of the NAT gateway. Valid values: You can leave this parameter empty. If you specify a value, only **NAT** is allowed, which indicates the standard EIP attach pattern.
+        # The EIP attach mode of the NAT gateway. Valid values: Leave this parameter empty or set it to **NAT**, which indicates the standard EIP mode.
         # 
         # 
-        # > - You can only change the pattern from **MULTI_BINDED** to **NAT**. You cannot change the pattern from **NAT** to **MULTI_BINDED**. For more information about the **MULTI_BINDED** pattern, see [CreateNatGateway](https://help.aliyun.com/document_detail/120219.html).
-        # - During the EIP attach pattern switchover procedure, network connectivity may experience a transient connection at the second level (the duration of the transient connection increases with the number of EIPs. Currently, configuration changes are supported for NAT gateways with up to five EIPs attached), so execute the switchover operation during off-peak hours.
-        # - After the EIP attach pattern is changed to **NAT**, the Internet NAT gateway becomes compatible with the IPv4 gateway. However, when you attach a public EIP, a private IP address in the vSwitch where the NAT gateway resides is occupied. Ensure that the vSwitch has sufficient private IP addresses. If no available private IP address exists in the vSwitch, you cannot attach a new EIP.
+        # > - You can only change the mode from **MULTI_BINDED** to **NAT**. You cannot change the mode from **NAT** to **MULTI_BINDED**. For more information about the **MULTI_BINDED** mode, see [CreateNatGateway](https://help.aliyun.com/document_detail/120219.html).
+        # - During the EIP attach mode switch procedure, network connectivity may experience a transient connection that lasts for a few seconds (the duration of the transient connection increases with the number of EIPs. Currently, configuration changes are supported only for NAT gateways with up to five EIPs attached). We recommend that you execute the switch operation during off-peak hours.
+        # - After the EIP attach mode is changed to **NAT**, the Internet NAT gateway becomes compatible with the IPv4 gateway. However, attaching a public EIP consumes a private IP address from the vSwitch where the NAT gateway resides. Ensure that the vSwitch has sufficient private IP addresses. If no idle private IP address is available in the vSwitch, you cannot attach new EIPs.
         self.eip_bind_mode = eip_bind_mode
         # Specifies whether to enable the session log feature. Valid values:
         # 
-        # - **true**: enables the session log feature.
+        # - **true**: The session log feature is enabled.
         # 
-        # - **false**: disables the session log feature.
+        # - **false**: The session log feature is disabled.
         self.enable_session_log = enable_session_log
         # Specifies whether to enable ICMP echo reply. Valid values:
         # 
-        # - **true** (default): enables ICMP echo reply.
-        # - **false**: disables ICMP echo reply.
+        # - **true** (default): Enabled.
+        # - **false**: Disabled.
         self.icmp_reply_enabled = icmp_reply_enabled
+        # The IPv6 configuration.
+        self.ipv_6config = ipv_6config
         # The session log configuration.
         self.log_delivery = log_delivery
         # The name of the NAT gateway that you want to modify.
@@ -65,6 +68,8 @@ class ModifyNatGatewayAttributeRequest(DaraModel):
         self.resource_owner_id = resource_owner_id
 
     def validate(self):
+        if self.ipv_6config:
+            self.ipv_6config.validate()
         if self.log_delivery:
             self.log_delivery.validate()
 
@@ -84,6 +89,9 @@ class ModifyNatGatewayAttributeRequest(DaraModel):
 
         if self.icmp_reply_enabled is not None:
             result['IcmpReplyEnabled'] = self.icmp_reply_enabled
+
+        if self.ipv_6config is not None:
+            result['Ipv6Config'] = self.ipv_6config.to_map()
 
         if self.log_delivery is not None:
             result['LogDelivery'] = self.log_delivery.to_map()
@@ -125,6 +133,10 @@ class ModifyNatGatewayAttributeRequest(DaraModel):
         if m.get('IcmpReplyEnabled') is not None:
             self.icmp_reply_enabled = m.get('IcmpReplyEnabled')
 
+        if m.get('Ipv6Config') is not None:
+            temp_model = main_models.ModifyNatGatewayAttributeRequestIpv6Config()
+            self.ipv_6config = temp_model.from_map(m.get('Ipv6Config'))
+
         if m.get('LogDelivery') is not None:
             temp_model = main_models.ModifyNatGatewayAttributeRequestLogDelivery()
             self.log_delivery = temp_model.from_map(m.get('LogDelivery'))
@@ -158,9 +170,9 @@ class ModifyNatGatewayAttributeRequestLogDelivery(DaraModel):
         log_delivery_type: str = None,
         log_destination: str = None,
     ):
-        # The session log delivery type. Valid values: **sls**, which indicates Simple Log Service.
+        # The destination type for session logs. Valid value: **sls**, which indicates Simple Log Service.
         self.log_delivery_type = log_delivery_type
-        # The session log delivery destination. Valid values: acs:log:${regionName}:${projectOwnerAliUid}:project/${projectName}/logstore/${logstoreName}.
+        # The destination address for session logs. Format: acs:log:${regionName}:${projectOwnerAliUid}:project/${projectName}/logstore/${logstoreName}.
         self.log_destination = log_destination
 
     def validate(self):
@@ -186,6 +198,38 @@ class ModifyNatGatewayAttributeRequestLogDelivery(DaraModel):
 
         if m.get('LogDestination') is not None:
             self.log_destination = m.get('LogDestination')
+
+        return self
+
+class ModifyNatGatewayAttributeRequestIpv6Config(DaraModel):
+    def __init__(
+        self,
+        ipv_6enabled: bool = None,
+    ):
+        # Specifies whether to enable IPv6. Valid values:
+        # 
+        # - **true**: Enabled.
+        # 
+        # - **false**: Disabled.
+        self.ipv_6enabled = ipv_6enabled
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        result = dict()
+        _map = super().to_map()
+        if _map is not None:
+            result = _map
+        if self.ipv_6enabled is not None:
+            result['Ipv6Enabled'] = self.ipv_6enabled
+
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('Ipv6Enabled') is not None:
+            self.ipv_6enabled = m.get('Ipv6Enabled')
 
         return self
 

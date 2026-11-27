@@ -1255,6 +1255,7 @@ from ._create_high_reliable_physical_connection_response_body import CreateHighR
 from ._create_ipv_4gateway_request import CreateIpv4GatewayRequestTag
 from ._create_ipv_6gateway_request import CreateIpv6GatewayRequestTag
 from ._create_nat_gateway_request import CreateNatGatewayRequestAccessMode
+from ._create_nat_gateway_request import CreateNatGatewayRequestIpv6Config
 from ._create_nat_gateway_request import CreateNatGatewayRequestTag
 from ._create_nat_gateway_shrink_request import CreateNatGatewayShrinkRequestTag
 from ._create_nat_gateway_response_body import CreateNatGatewayResponseBodyForwardTableIds
@@ -1432,6 +1433,7 @@ from ._describe_nat_gateways_response_body import DescribeNatGatewaysResponseBod
 from ._describe_nat_gateways_response_body import DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpLists
 from ._describe_nat_gateways_response_body import DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixListIpPrefixList
 from ._describe_nat_gateways_response_body import DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixList
+from ._describe_nat_gateways_response_body import DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpv6Config
 from ._describe_nat_gateways_response_body import DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayNatGatewayPrivateInfo
 from ._describe_nat_gateways_response_body import DescribeNatGatewaysResponseBodyNatGatewaysNatGatewaySnatTableIds
 from ._describe_nat_gateways_response_body import DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayTagsTag
@@ -1638,6 +1640,7 @@ from ._get_nat_gateway_attribute_response_body import GetNatGatewayAttributeResp
 from ._get_nat_gateway_attribute_response_body import GetNatGatewayAttributeResponseBodyForwardTable
 from ._get_nat_gateway_attribute_response_body import GetNatGatewayAttributeResponseBodyFullNatTable
 from ._get_nat_gateway_attribute_response_body import GetNatGatewayAttributeResponseBodyIpList
+from ._get_nat_gateway_attribute_response_body import GetNatGatewayAttributeResponseBodyIpv6Config
 from ._get_nat_gateway_attribute_response_body import GetNatGatewayAttributeResponseBodyLogDelivery
 from ._get_nat_gateway_attribute_response_body import GetNatGatewayAttributeResponseBodyPrivateInfo
 from ._get_nat_gateway_attribute_response_body import GetNatGatewayAttributeResponseBodySnatTable
@@ -1712,6 +1715,7 @@ from ._list_vpc_published_route_entries_response_body import ListVpcPublishedRou
 from ._list_vpn_certificate_associations_response_body import ListVpnCertificateAssociationsResponseBodyVpnCertificateRelations
 from ._modify_express_connect_traffic_qos_request import ModifyExpressConnectTrafficQosRequestAddInstanceList
 from ._modify_express_connect_traffic_qos_request import ModifyExpressConnectTrafficQosRequestRemoveInstanceList
+from ._modify_nat_gateway_attribute_request import ModifyNatGatewayAttributeRequestIpv6Config
 from ._modify_nat_gateway_attribute_request import ModifyNatGatewayAttributeRequestLogDelivery
 from ._modify_nat_gateway_capacity_reservation_request import ModifyNatGatewayCapacityReservationRequestNatGatewayCapacity
 from ._modify_nat_gateway_capacity_reservation_response_body import ModifyNatGatewayCapacityReservationResponseBodyCapacityReservationStatus
@@ -3019,6 +3023,7 @@ __all__ = [
     CreateIpv4GatewayRequestTag,
     CreateIpv6GatewayRequestTag,
     CreateNatGatewayRequestAccessMode,
+    CreateNatGatewayRequestIpv6Config,
     CreateNatGatewayRequestTag,
     CreateNatGatewayShrinkRequestTag,
     CreateNatGatewayResponseBodyForwardTableIds,
@@ -3196,6 +3201,7 @@ __all__ = [
     DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpLists,
     DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixListIpPrefixList,
     DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixList,
+    DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpv6Config,
     DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayNatGatewayPrivateInfo,
     DescribeNatGatewaysResponseBodyNatGatewaysNatGatewaySnatTableIds,
     DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayTagsTag,
@@ -3402,6 +3408,7 @@ __all__ = [
     GetNatGatewayAttributeResponseBodyForwardTable,
     GetNatGatewayAttributeResponseBodyFullNatTable,
     GetNatGatewayAttributeResponseBodyIpList,
+    GetNatGatewayAttributeResponseBodyIpv6Config,
     GetNatGatewayAttributeResponseBodyLogDelivery,
     GetNatGatewayAttributeResponseBodyPrivateInfo,
     GetNatGatewayAttributeResponseBodySnatTable,
@@ -3476,6 +3483,7 @@ __all__ = [
     ListVpnCertificateAssociationsResponseBodyVpnCertificateRelations,
     ModifyExpressConnectTrafficQosRequestAddInstanceList,
     ModifyExpressConnectTrafficQosRequestRemoveInstanceList,
+    ModifyNatGatewayAttributeRequestIpv6Config,
     ModifyNatGatewayAttributeRequestLogDelivery,
     ModifyNatGatewayCapacityReservationRequestNatGatewayCapacity,
     ModifyNatGatewayCapacityReservationResponseBodyCapacityReservationStatus,

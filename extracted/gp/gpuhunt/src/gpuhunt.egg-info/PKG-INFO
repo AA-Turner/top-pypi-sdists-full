@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gpuhunt
-Version: 0.1.37
+Version: 0.1.38
 Summary: A catalog of GPU pricing for different cloud providers
 Author: dstack GmbH
 Project-URL: GitHub, https://github.com/dstackai/gpuhunt
@@ -118,6 +118,7 @@ Its public plan locations can omit available VDM plans.
 * JarvisLabs
 * LambdaLabs
 * Lium
+* MassedCompute (`MASSEDCOMPUTE_API_KEY`)
 * Nebius
 * OCI
 * Runpod

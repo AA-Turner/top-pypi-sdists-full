@@ -146,12 +146,12 @@ def test_center_about3():
     assert atoms.positions[0, 2] == pytest.approx(2)
 
 
-def test_center_about4():
+@pytest.mark.parametrize('about', (0.0, (0.0, 0.0, 0.0)))
+def test_center_about_scalar_or_vector(about: float | list[float]) -> None:
+    """Test if `about` can be both a single float and a iterable of float."""
     atoms = Atoms('H', positions=[[1.0, 2.0, 3.0]])
-    atoms.center(vacuum=10.0, about=(0, 0, 0))
-    assert atoms.positions[0, 0] == pytest.approx(0)
-    assert atoms.positions[0, 1] == pytest.approx(0)
-    assert atoms.positions[0, 2] == pytest.approx(0)
+    atoms.center(vacuum=10.0, about=about)
+    assert atoms.positions[0] == pytest.approx(about)
 
 
 def test_center_about_fail():

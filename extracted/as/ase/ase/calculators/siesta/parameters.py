@@ -1,5 +1,3 @@
-# fmt: off
-
 from ase.calculators.calculator import Parameters
 
 """
@@ -56,13 +54,15 @@ class Species(Parameters):
     atoms, but the corresponding basis set will be used.
     """
 
-    def __init__(self,
-                 symbol,
-                 basis_set='DZP',
-                 pseudopotential=None,
-                 tag=None,
-                 ghost=False,
-                 excess_charge=None):
+    def __init__(
+        self,
+        symbol,
+        basis_set='DZP',
+        pseudopotential=None,
+        tag=None,
+        ghost=False,
+        excess_charge=None,
+    ):
         kwargs = locals()
         kwargs.pop('self')
         Parameters.__init__(self, **kwargs)
@@ -84,9 +84,16 @@ def format_fdf(key, value):
     new_value = format_value(value)
 
     if isinstance(value, list):
-        string = '%block ' + key + '\n' +\
-            new_value + '\n' + \
-            '%endblock ' + key + '\n'
+        string = (
+            '%block '
+            + key
+            + '\n'
+            + new_value
+            + '\n'
+            + '%endblock '
+            + key
+            + '\n'
+        )
     else:
         string = f'{key}\t{new_value}\n'
 
@@ -114,7 +121,7 @@ def format_value(value):
 
 
 def format_key(key):
-    """ Fix the fdf-key replacing '_' with '.' and '__' with '_' """
+    """Fix the fdf-key replacing '_' with '.' and '__' with '_'"""
     key = key.replace('__', '#')
     key = key.replace('_', '.')
     key = key.replace('#', '_')

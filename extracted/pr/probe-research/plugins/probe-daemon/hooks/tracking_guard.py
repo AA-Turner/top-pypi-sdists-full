@@ -2539,7 +2539,8 @@ def _deny_daemon_profile(payload: dict, session_id: str) -> None:
     and so is a Probe MCP call. In every state the switch moves only as
     `session state <target> --directed`, and what records less only with
     `--directed` (`_agent_refused`).
-    A session the researcher turned off keeps the off refusals (`_deny`); one set
+    A session set off keeps the profile's reserved commands refused
+    (`get_off_profile_refusal`, the CLI's own rule) and the off refusals (`_deny`); one set
     to read only also loses the runs' own data (a write). A session the
     researcher set inline (`/probe inline`, `is_inline`), or the daemon handed
     inline after a confirmed quota response, keeps only those and the approvals
@@ -2568,6 +2569,11 @@ def _deny_daemon_profile(payload: dict, session_id: str) -> None:
     if _agent_refused(payload, deny, session_id):
         return
     if state == _session_marker.STATE_OFF:
+        # Off keeps the profile's reservations (removals, secret printers, workspace
+        # changes: `get_off_profile_refusal`, the CLI's own rule); the team's records
+        # get the off refusal (`_deny`).
+        if _refuse_off_profile(payload, session_id):
+            return
         _deny(payload, session_id, is_agent_checked=True)
         return
     if inline:
@@ -2599,6 +2605,28 @@ def _deny_daemon_profile(payload: dict, session_id: str) -> None:
         matched = probe_write(command)
         if matched and matched != _EXEC and not _is_auto_launch(matched, session_id):
             _refuse(_session_marker.get_deny_reason(state, session_id).format(matched=matched))
+
+
+def _refuse_off_profile(payload: dict, session_id: str) -> bool:
+    """Refuse a `probe` call a daemon-profile chat set `off` keeps reserved
+    (`get_off_profile_refusal`); True when it did."""
+    if payload.get("tool_name") != "Bash":
+        return False
+    tool_input = payload.get("tool_input")
+    command = tool_input.get("command") if isinstance(tool_input, dict) else None
+    # A warm hook host may hold an older `_session_marker` without it: fall through to `_deny`.
+    get_off_profile_refusal = getattr(_session_marker, "get_off_profile_refusal", None)
+    if not isinstance(command, str) or get_off_profile_refusal is None:
+        return False
+    for args in _probe_invocations(command):
+        if _asks_help_plainly(args):
+            continue
+        text = get_off_profile_refusal(args, session_id)
+        if text is not None:
+            _save_refusal(payload, args, "chat_not_on")
+            _refuse(text)
+            return True
+    return False
 
 
 def _refuse(reason: str) -> None:

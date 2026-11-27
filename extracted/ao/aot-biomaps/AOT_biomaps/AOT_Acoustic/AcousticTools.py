@@ -311,7 +311,8 @@ def get_iq_envelope_kernel():
         _IQ_ENVELOPE_KERNEL = cp.RawKernel(
             r"""
 extern "C" __global__ void iq_envelope_step(
-    const float* __restrict__ p,
+    const void* __restrict__ p,
+    const int p_is_double,
     const int Nx, const int NzPad, const int PmlX, const int PmlZ,
     double* __restrict__ i_state1, double* __restrict__ i_state2,
     double* __restrict__ q_state1, double* __restrict__ q_state2,
@@ -329,7 +330,12 @@ extern "C" __global__ void iq_envelope_step(
     const int x = k % Nx;
     const int z = k / Nx;
     const int p_index = (x + PmlX) * NzPad + (z + PmlZ);
-    const double pv = (double)p[p_index];
+    double pv;
+    if (p_is_double) {
+        pv = ((const double*)p)[p_index];
+    } else {
+        pv = (double)((const float*)p)[p_index];
+    }
 
     if (debug_enabled && k == debug_index) {
         debug_pressure[time_index] = (float)pv;
@@ -709,30 +715,40 @@ def sensor_data_to_grid(data, Nx, Nz, backend="python", xp=None):
     del data_array
     return out
 
-def to_pipeline_layout(field, xp=None):
+def to_pipeline_layout(field, time_axis=-1, xp=None):
     """
     Convert a grid-layout field (Nx, Nz, Nt) to the pipeline/storage layout
     (Nt, Nz, Nx), C-contiguous.
 
     Args:
         field: array (Nx, Nz, Nt), time last.
+        time_axis: int, optional, axis index of the time dimension in the input array. Default is -1 (last axis).
         xp: array namespace (cupy or numpy). Defaults to cupy if available.
 
     Returns:
         array (Nt, Nz, Nx), C-contiguous.
     """
     xp = _get_xp(xp)
-    return xp.ascontiguousarray(field.transpose(2, 1, 0))
+    if field.ndim != 3:
+        raise ValueError("field must be a 3-D array.")
+    time_axis = int(time_axis) % 3
+    if time_axis == 2:   # (Nx, Nz, Nt) -> (Nt, Nz, Nx)
+        return xp.ascontiguousarray(field.transpose(2, 1, 0))
+    if time_axis == 0:   # (Nt, Nx, Nz) -> (Nt, Nz, Nx)
+        return xp.ascontiguousarray(field.transpose(0, 2, 1))
+    raise ValueError("time_axis must be 0 or 2.")
 
-def hilbert_transform(field, xp=None, show_log=False):
+def hilbert_transform(field, xp=None, axis=-1, show_log=False):
     """Compute the real Hilbert quadrature using one-sided FFTs.
 
     Parameters
     ----------
     field : array_like
-        Real-valued input with time on the last axis.
+        Real-valued input with time on the specified axis.
     xp : module, optional
         NumPy or CuPy namespace.
+    axis : int, optional
+        The axis along which to compute the Hilbert transform. Default is -1 (last axis).
     show_log : bool, optional
         Print FFT dimensions and temporary memory use.
 
@@ -751,30 +767,37 @@ def hilbert_transform(field, xp=None, show_log=False):
     xp = _get_xp(xp)
     if field.ndim < 1:
         raise ValueError("field must have at least one dimension.")
-    n_time = int(field.shape[-1])
+    axis = int(axis) % field.ndim
+    n_time = int(field.shape[axis])
     if n_time < 2:
         raise ValueError("Hilbert transform requires at least two time samples.")
 
     n_fft = next_fast_len(n_time, real=False)
     if show_log:
-        print(
-            f"[AOT-biomaps] Hilbert quadrature: shape={field.shape}, "
-            f"Nt={n_time}, Nfft={n_fft}"
-        )
+        print(f"[AOT-biomaps] Hilbert quadrature: shape={field.shape}, Nt={n_time}, Nfft={n_fft}")
 
     fft_module = scipy_fft if getattr(xp, "__name__", "numpy") == "numpy" else xp.fft
-    spectrum = fft_module.rfft(field, n=n_fft, axis=-1)
-    spectrum[..., 0] = 0
-    if n_fft % 2 == 0:
-        if spectrum.shape[-1] > 1:
-            spectrum[..., 1:-1] *= -1j
-        spectrum[..., -1] = 0
-    else:
-        spectrum[..., 1:] *= -1j
+    spectrum = fft_module.rfft(field, n=n_fft, axis=axis)
 
-    quadrature = fft_module.irfft(spectrum, n=n_fft, axis=-1)
+    def freq(start, stop=None):
+        # Index the transformed (frequency) axis of the spectrum.
+        selection = [slice(None)] * spectrum.ndim
+        selection[axis] = slice(start, stop)
+        return tuple(selection)
+    
+    spectrum[freq(0, 1)] = 0
+    if n_fft % 2 == 0:
+        if spectrum.shape[axis] > 1:
+            spectrum[freq(1, -1)] *= -1j
+        spectrum[freq(-1)] = 0
+    else:
+        spectrum[freq(1)] *= -1j
+
+    quadrature = fft_module.irfft(spectrum, n=n_fft, axis=axis)
     del spectrum
-    return quadrature[..., :n_time]
+    trim = [slice(None)] * quadrature.ndim
+    trim[axis] = slice(0, n_time)
+    return quadrature[tuple(trim)]
 
 
 def hilbert_analytic(field, xp=None, show_log=False):
@@ -793,7 +816,7 @@ def hilbert_analytic(field, xp=None, show_log=False):
     return analytic
 
 
-def calculate_envelope_squared(field, xp=None, chunk_size=None, in_place=True, show_log=False):
+def calculate_envelope_squared(field, xp=None, chunk_size=None, in_place=True, time_axis=-1, show_log=False):
     """Compute the squared analytic envelope in spatial chunks.
 
     The time axis must be last. When ``in_place`` is true and the input is
@@ -812,6 +835,8 @@ def calculate_envelope_squared(field, xp=None, chunk_size=None, in_place=True, s
         Number of x-slices per chunk. If omitted, estimated from available VRAM.
     in_place : bool, optional
         Overwrite a float32 input when true.
+    time_axis : int, optional
+        Axis along which to compute the envelope. Default is -1 (last axis).
     show_log : bool, optional
         Print chunk and memory diagnostics.
 
@@ -822,47 +847,38 @@ def calculate_envelope_squared(field, xp=None, chunk_size=None, in_place=True, s
     """
     xp = _get_xp(xp)
     if field.ndim != 3:
-        raise ValueError("field must have shape (Nx, Nz, Nt).")
-    nx = int(field.shape[0])
-    if nx <= 0:
-        raise ValueError("The spatial x dimension must be non-empty.")
+        raise ValueError("field must be a 3-D array.")
+    time_axis = int(time_axis) % 3
+    chunk_axis = 0 if time_axis != 0 else 1  # x axis in both layouts
+    n_chunk = int(field.shape[chunk_axis])
+    if n_chunk <= 0:
+        raise ValueError("The spatial chunking axis must be non-empty.")
 
     use_in_place = bool(in_place and field.dtype == xp.float32)
     output = field if use_in_place else xp.empty(field.shape, dtype=xp.float32)
 
     if chunk_size is None:
-        chunk_size = _get_dynamic_chunk_size(field.shape, ortho_axis=0, xp=xp, multiplier=8.0)
-    chunk_size = max(1, min(int(chunk_size), nx))
+        chunk_size = _get_dynamic_chunk_size(field.shape, ortho_axis=chunk_axis, xp=xp, multiplier=8.0)
+        if getattr(xp, "__name__", "numpy") == "numpy":
+            slice_bytes = max(1, field.nbytes // n_chunk) # Bound host-side chunks so Hilbert temporaries stay reasonable.
+            chunk_size = min(chunk_size, max(1, int(4 * 2**30 // slice_bytes)))
+    chunk_size = max(1, min(int(chunk_size), n_chunk))
 
     if show_log:
-        n_chunks = (nx + chunk_size - 1) // chunk_size
+        n_chunks = (n_chunk + chunk_size - 1) // chunk_size
         mode = "in-place" if use_in_place else "out-of-place"
-        print(
-            f"[AOT-biomaps] Squared envelope: shape={field.shape}, "
-            f"{field.nbytes / 1e9:.3f} GB, {mode}, "
-            f"{n_chunks} chunk(s) of {chunk_size} x-slices"
-        )
+        print(f"[AOT-biomaps] Squared envelope: shape={field.shape}, time_axis={time_axis}, {field.nbytes / 1e9:.3f} GB, {mode}, {n_chunks} chunk(s) of {chunk_size} slices on axis {chunk_axis}")
 
-    for start in range(0, nx, chunk_size):
-        stop = min(start + chunk_size, nx)
-        source_chunk = field[start:stop, ...]
-        target_chunk = output[start:stop, ...]
-
-        # Compute the quadrature before overwriting the input in in-place mode.
-        quadrature = hilbert_transform(source_chunk, xp=xp, show_log=False)
+    selection = [slice(None)] * 3
+    for start in range(0, n_chunk, chunk_size):
+        selection[chunk_axis] = slice(start, min(start + chunk_size, n_chunk))
+        source_chunk = field[tuple(selection)]
+        target_chunk = output[tuple(selection)]
+        quadrature = hilbert_transform(source_chunk, xp=xp, axis=time_axis) # Compute the quadrature before overwriting the input in in-place mode.
         xp.multiply(source_chunk, source_chunk, out=target_chunk)
         xp.square(quadrature, out=quadrature)
         xp.add(target_chunk, quadrature, out=target_chunk)
         del quadrature
-
-        if show_log and getattr(xp, "__name__", "numpy") == "cupy":
-            info = get_gpu_memory_info(xp)
-            print(
-                f"[AOT-biomaps] Envelope chunk x[{start}:{stop}/{nx}] "
-                f"| CUDA free={info['free_bytes'] / 1e9:.2f} GB "
-                f"| pool used={info['pool_used_bytes'] / 1e9:.2f} GB"
-            )
-
     return output
 
 
@@ -966,9 +982,17 @@ def resample_field(field, target_sizes, xp=None):
     if len(target_sizes) != 3:
         raise ValueError("target_sizes must be (Nt_target, Nz_target, Nx_target).")
     nt_target, nz_target, nx_target = (int(v) for v in target_sizes)
-    field = resample_bandlimited(field, 2, nt_target, xp)
-    field = resample_bandlimited(field, 1, nz_target, xp)
-    field = resample_bandlimited(field, 0, nx_target, xp)
+    time_axis = int(time_axis) % field.ndim
+    if time_axis == field.ndim - 1:      # (Nx, Nz, Nt)
+        field = resample_bandlimited(field, 2, nt_target, xp)
+        field = resample_bandlimited(field, 1, nz_target, xp)
+        field = resample_bandlimited(field, 0, nx_target, xp)
+    elif time_axis == 0:                 # (Nt, Nx, Nz)
+        field = resample_bandlimited(field, 0, nt_target, xp)
+        field = resample_bandlimited(field, 1, nx_target, xp)
+        field = resample_bandlimited(field, 2, nz_target, xp)
+    else:
+        raise ValueError("time_axis must be 0 or the last axis.")
     return field
 
 def compute_target_sizes(Nx, Nz, Nt, dx, dz, dt, target_dt, target_dx, target_dz):

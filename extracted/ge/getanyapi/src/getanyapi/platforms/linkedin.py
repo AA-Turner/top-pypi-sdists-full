@@ -1736,6 +1736,8 @@ class LinkedinSearchLeadsInput(TypedDict, total=False):
     """When true, only return people who recently changed jobs (a strong sales/recruiting signal)."""
     recentlyPostedOnLinkedIn: NotRequired[bool]
     """When true, only return people who recently posted on LinkedIn (an activity signal)."""
+    requireFields: NotRequired[list[Literal["premium"]]]
+    """Optional; omit it and routing is unchanged. Name the output fields this request must be able to return, for example `premium`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a lead who genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     salesNavUrl: NotRequired[str]
     """Alternatively, a LinkedIn Sales Navigator lead-search URL you built in Sales Navigator (e.g. https://www.linkedin.com/sales/search/people?query=(keywords%3Aengineer)). When set it overrides query and every other filter on this request; only page still applies."""
     schools: NotRequired[list[str]]
@@ -5676,7 +5678,7 @@ class LinkedinSearchLeadsItem(BaseModel):
     )
     premium: bool | None = Field(
         default=None,
-        description="Whether the member has a LinkedIn Premium subscription.",
+        description="Whether the member has a LinkedIn Premium subscription. Absent when the serving source does not report it.",
     )
     url: str = Field(
         description="LinkedIn profile URL in its member-id form (https://www.linkedin.com/in/ACwAAA...). It opens the profile on LinkedIn, and passing it as `url` to linkedin.profile returns the full record. Populated whenever the provider has data for the entity."
@@ -6441,7 +6443,7 @@ class LinkedinNamespace:
         employee count and range, follower count, founded year, headquarters and
         office locations, funding data, tagline, logo, website, and specialities.
 
-        Price: $0.00109 per request.
+        Price: $0.00104 per request.
 
         Example:
             res = client.linkedin.company(url="https://www.linkedin.com/company/stripe")
@@ -6505,7 +6507,7 @@ class LinkedinNamespace:
         Post text and link only. No engagement counts, author details, media, or
         reaction breakdown - for those use linkedin.company_posts.
 
-        Price: $0.00119 per request.
+        Price: $0.00114 per request.
 
         Example:
             res = client.linkedin.company_posts_thin(url="https://www.linkedin.com/company/stripe")
@@ -6527,7 +6529,7 @@ class LinkedinNamespace:
         tagline. No follower count, founded year, office locations, or funding data
         - for those use linkedin.company.
 
-        Price: $0.00077 per request.
+        Price: $0.00076 per request.
 
         Example:
             res = client.linkedin.company_thin(url="https://www.linkedin.com/company/stripe")
@@ -6684,7 +6686,7 @@ class LinkedinNamespace:
         Cheap job index: title, company, location, posted date, URL. No description,
         salary, applicant counts, or seniority - for those use linkedin.jobs.
 
-        Price: $0.0005 per request.
+        Price: $0.00049 per request.
 
         Example:
             res = client.linkedin.jobs_thin(limit=3, location="United States", query="software engineer", workplaceType="remote")
@@ -6728,7 +6730,7 @@ class LinkedinNamespace:
         Fetch a single LinkedIn post or article by URL (title, text, author, like
         and comment counts, publish date).
 
-        Price: $0.00055 per request.
+        Price: $0.00054 per request.
 
         Example:
             res = client.linkedin.post(url="https://www.linkedin.com/posts/stripe_last-week-agent-traffic-surpassed-human-activity-7470882737390940160-2Nxs")
@@ -6749,7 +6751,7 @@ class LinkedinNamespace:
         List comments on a LinkedIn post - full text, commenter name/URL/job title,
         timestamps, and engagement.
 
-        Price: $0.0029 per request.
+        Price: $0.00285 per request.
 
         Example:
             res = client.linkedin.post_comments(limit=10, url="https://www.linkedin.com/posts/stripe_philip-kl%C3%B6ckner-in-conversation-with-conor-activity-7477791740645564416-tIbZ")
@@ -6815,7 +6817,7 @@ class LinkedinNamespace:
         awards, languages, projects, publications, and verified/premium/open-to-work
         flags.
 
-        Price: $0.00226 per request.
+        Price: $0.00224 per request.
 
         Example:
             res = client.linkedin.profile(url="https://www.linkedin.com/in/patrickcollison")
@@ -6971,7 +6973,7 @@ class LinkedinNamespace:
         redacted). For full experience detail, skills, certifications, and verified
         flags use linkedin.profile.
 
-        Price: $0.00079 per request.
+        Price: $0.00076 per request.
 
         Example:
             res = client.linkedin.profile_thin(url="https://www.linkedin.com/in/williamhgates")
@@ -7133,7 +7135,7 @@ class LinkedinNamespace:
         Search public LinkedIn posts with rich author, engagement, attachment, and
         poll details.
 
-        Price: $0.00229 per request.
+        Price: $0.00228 per request.
 
         Example:
             res = client.linkedin.search_posts_full(datePosted="last-week", limit=10, query="artificial intelligence", sort="relevance")
@@ -7437,7 +7439,7 @@ class AsyncLinkedinNamespace:
         employee count and range, follower count, founded year, headquarters and
         office locations, funding data, tagline, logo, website, and specialities.
 
-        Price: $0.00109 per request.
+        Price: $0.00104 per request.
 
         Example:
             res = client.linkedin.company(url="https://www.linkedin.com/company/stripe")
@@ -7501,7 +7503,7 @@ class AsyncLinkedinNamespace:
         Post text and link only. No engagement counts, author details, media, or
         reaction breakdown - for those use linkedin.company_posts.
 
-        Price: $0.00119 per request.
+        Price: $0.00114 per request.
 
         Example:
             res = client.linkedin.company_posts_thin(url="https://www.linkedin.com/company/stripe")
@@ -7523,7 +7525,7 @@ class AsyncLinkedinNamespace:
         tagline. No follower count, founded year, office locations, or funding data
         - for those use linkedin.company.
 
-        Price: $0.00077 per request.
+        Price: $0.00076 per request.
 
         Example:
             res = client.linkedin.company_thin(url="https://www.linkedin.com/company/stripe")
@@ -7680,7 +7682,7 @@ class AsyncLinkedinNamespace:
         Cheap job index: title, company, location, posted date, URL. No description,
         salary, applicant counts, or seniority - for those use linkedin.jobs.
 
-        Price: $0.0005 per request.
+        Price: $0.00049 per request.
 
         Example:
             res = client.linkedin.jobs_thin(limit=3, location="United States", query="software engineer", workplaceType="remote")
@@ -7724,7 +7726,7 @@ class AsyncLinkedinNamespace:
         Fetch a single LinkedIn post or article by URL (title, text, author, like
         and comment counts, publish date).
 
-        Price: $0.00055 per request.
+        Price: $0.00054 per request.
 
         Example:
             res = client.linkedin.post(url="https://www.linkedin.com/posts/stripe_last-week-agent-traffic-surpassed-human-activity-7470882737390940160-2Nxs")
@@ -7745,7 +7747,7 @@ class AsyncLinkedinNamespace:
         List comments on a LinkedIn post - full text, commenter name/URL/job title,
         timestamps, and engagement.
 
-        Price: $0.0029 per request.
+        Price: $0.00285 per request.
 
         Example:
             res = client.linkedin.post_comments(limit=10, url="https://www.linkedin.com/posts/stripe_philip-kl%C3%B6ckner-in-conversation-with-conor-activity-7477791740645564416-tIbZ")
@@ -7811,7 +7813,7 @@ class AsyncLinkedinNamespace:
         awards, languages, projects, publications, and verified/premium/open-to-work
         flags.
 
-        Price: $0.00226 per request.
+        Price: $0.00224 per request.
 
         Example:
             res = client.linkedin.profile(url="https://www.linkedin.com/in/patrickcollison")
@@ -7967,7 +7969,7 @@ class AsyncLinkedinNamespace:
         redacted). For full experience detail, skills, certifications, and verified
         flags use linkedin.profile.
 
-        Price: $0.00079 per request.
+        Price: $0.00076 per request.
 
         Example:
             res = client.linkedin.profile_thin(url="https://www.linkedin.com/in/williamhgates")
@@ -8129,7 +8131,7 @@ class AsyncLinkedinNamespace:
         Search public LinkedIn posts with rich author, engagement, attachment, and
         poll details.
 
-        Price: $0.00229 per request.
+        Price: $0.00228 per request.
 
         Example:
             res = client.linkedin.search_posts_full(datePosted="last-week", limit=10, query="artificial intelligence", sort="relevance")

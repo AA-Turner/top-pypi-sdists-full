@@ -27,8 +27,8 @@ from setuptools import setup, find_packages  # noqa: H301
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 NAME = "ogx-client"
-VERSION = "1.5.0"
-PYTHON_REQUIRES = ">= 3.12"
+VERSION = "2.0.0"
+PYTHON_REQUIRES = ">= 3.13"
 REQUIRES = [
     "python-dateutil >= 2.8.2",
     "httpx >= 0.28.1",

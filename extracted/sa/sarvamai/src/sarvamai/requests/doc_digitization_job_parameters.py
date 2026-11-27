@@ -7,7 +7,7 @@ from ..types.doc_digitization_supported_language import DocDigitizationSupported
 
 class DocDigitizationJobParametersParams(typing_extensions.TypedDict):
     """
-    Configuration parameters for Document Intelligence job. Specify the document language and desired output format.
+    Configuration parameters for a Document Digitization job. Specify the document language and desired output format.
     """
 
     language: typing_extensions.NotRequired[DocDigitizationSupportedLanguage]

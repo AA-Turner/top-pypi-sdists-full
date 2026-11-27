@@ -113,6 +113,12 @@ if typing.TYPE_CHECKING:
     from .doc_ai_parse_results import DocAiParseResultsParams
     from .doc_ai_parse_results_documents_item import DocAiParseResultsDocumentsItemParams
     from .doc_ai_parse_results_documents_item_pages_item import DocAiParseResultsDocumentsItemPagesItemParams
+    from .doc_ai_parse_results_documents_item_pages_item_blocks_item import (
+        DocAiParseResultsDocumentsItemPagesItemBlocksItemParams,
+    )
+    from .doc_ai_parse_results_documents_item_pages_item_blocks_item_coordinates import (
+        DocAiParseResultsDocumentsItemPagesItemBlocksItemCoordinatesParams,
+    )
     from .doc_ai_presign_upload_response import DocAiPresignUploadResponseParams
     from .doc_ai_processor import DocAiProcessorParams
     from .doc_ai_review_policy import DocAiReviewPolicyParams
@@ -225,6 +231,7 @@ if typing.TYPE_CHECKING:
     from .response_usage import ResponseUsageParams
     from .response_usage_input_tokens_details import ResponseUsageInputTokensDetailsParams
     from .response_usage_output_tokens_details import ResponseUsageOutputTokensDetailsParams
+    from .segment_timestamp import SegmentTimestampParams
     from .send_text import SendTextParams
     from .send_text_data import SendTextDataParams
     from .speech_to_text_job_parameters import SpeechToTextJobParametersParams
@@ -288,6 +295,7 @@ if typing.TYPE_CHECKING:
     from .voice_library_voice import VoiceLibraryVoiceParams
     from .watermark_detect_data import WatermarkDetectDataParams
     from .watermark_detect_response import WatermarkDetectResponseParams
+    from .word_timestamp import WordTimestampParams
 _dynamic_imports: typing.Dict[str, str] = {
     "AudioDataParams": ".audio_data",
     "AudioMessageParams": ".audio_message",
@@ -395,6 +403,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocAiJobUsageParams": ".doc_ai_job_usage",
     "DocAiPageRangeParams": ".doc_ai_page_range",
     "DocAiPageRangesParams": ".doc_ai_page_ranges",
+    "DocAiParseResultsDocumentsItemPagesItemBlocksItemCoordinatesParams": ".doc_ai_parse_results_documents_item_pages_item_blocks_item_coordinates",
+    "DocAiParseResultsDocumentsItemPagesItemBlocksItemParams": ".doc_ai_parse_results_documents_item_pages_item_blocks_item",
     "DocAiParseResultsDocumentsItemPagesItemParams": ".doc_ai_parse_results_documents_item_pages_item",
     "DocAiParseResultsDocumentsItemParams": ".doc_ai_parse_results_documents_item",
     "DocAiParseResultsParams": ".doc_ai_parse_results",
@@ -508,6 +518,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResponseUsageInputTokensDetailsParams": ".response_usage_input_tokens_details",
     "ResponseUsageOutputTokensDetailsParams": ".response_usage_output_tokens_details",
     "ResponseUsageParams": ".response_usage",
+    "SegmentTimestampParams": ".segment_timestamp",
     "SendTextDataParams": ".send_text_data",
     "SendTextParams": ".send_text",
     "SpeechToTextJobParametersParams": ".speech_to_text_job_parameters",
@@ -567,6 +578,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VoiceLibraryVoiceParams": ".voice_library_voice",
     "WatermarkDetectDataParams": ".watermark_detect_data",
     "WatermarkDetectResponseParams": ".watermark_detect_response",
+    "WordTimestampParams": ".word_timestamp",
 }
 
 
@@ -698,6 +710,8 @@ __all__ = [
     "DocAiJobUsageParams",
     "DocAiPageRangeParams",
     "DocAiPageRangesParams",
+    "DocAiParseResultsDocumentsItemPagesItemBlocksItemCoordinatesParams",
+    "DocAiParseResultsDocumentsItemPagesItemBlocksItemParams",
     "DocAiParseResultsDocumentsItemPagesItemParams",
     "DocAiParseResultsDocumentsItemParams",
     "DocAiParseResultsParams",
@@ -811,6 +825,7 @@ __all__ = [
     "ResponseUsageInputTokensDetailsParams",
     "ResponseUsageOutputTokensDetailsParams",
     "ResponseUsageParams",
+    "SegmentTimestampParams",
     "SendTextDataParams",
     "SendTextParams",
     "SpeechToTextJobParametersParams",
@@ -870,4 +885,5 @@ __all__ = [
     "VoiceLibraryVoiceParams",
     "WatermarkDetectDataParams",
     "WatermarkDetectResponseParams",
+    "WordTimestampParams",
 ]

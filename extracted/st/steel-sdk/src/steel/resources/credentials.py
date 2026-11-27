@@ -7,7 +7,7 @@ from typing import Dict
 import httpx
 
 from ..types import credential_list_params, credential_create_params, credential_delete_params, credential_update_params
-from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -50,6 +50,7 @@ class CredentialsResource(SyncAPIResource):
         self,
         *,
         value: Dict[str, str],
+        additional_origins: SequenceNotStr[str] | Omit = omit,
         label: str | Omit = omit,
         namespace: str | Omit = omit,
         origin: str | Omit = omit,
@@ -66,6 +67,10 @@ class CredentialsResource(SyncAPIResource):
 
         Args:
           value: Value for the credential
+
+          additional_origins: Canonical http(s) origins, besides `origin`, this credential may be filled on,
+              such as its login host or identity provider (e.g. `https://login.example.com`).
+              Only the credential's origin and these ever match a page, exactly; at most 20.
 
           label: Label for the credential
 
@@ -88,6 +93,7 @@ class CredentialsResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "value": value,
+                    "additional_origins": additional_origins,
                     "label": label,
                     "namespace": namespace,
                     "origin": origin,
@@ -104,6 +110,7 @@ class CredentialsResource(SyncAPIResource):
     def update(
         self,
         *,
+        additional_origins: SequenceNotStr[str] | Omit = omit,
         label: str | Omit = omit,
         namespace: str | Omit = omit,
         origin: str | Omit = omit,
@@ -120,6 +127,11 @@ class CredentialsResource(SyncAPIResource):
         Encrypts and updates credentials for an origin
 
         Args:
+          additional_origins: Canonical http(s) origins, besides `origin`, this credential may be filled on,
+              such as its login host or identity provider (e.g. `https://login.example.com`).
+              Only the credential's origin and these ever match a page, exactly; at most 20.
+              Replaces the current list; [] clears it.
+
           label: Label for the credential
 
           namespace: The namespace the credential is stored against. Defaults to "default".
@@ -142,6 +154,7 @@ class CredentialsResource(SyncAPIResource):
             "/v1/credentials",
             body=maybe_transform(
                 {
+                    "additional_origins": additional_origins,
                     "label": label,
                     "namespace": namespace,
                     "origin": origin,
@@ -278,6 +291,7 @@ class AsyncCredentialsResource(AsyncAPIResource):
         self,
         *,
         value: Dict[str, str],
+        additional_origins: SequenceNotStr[str] | Omit = omit,
         label: str | Omit = omit,
         namespace: str | Omit = omit,
         origin: str | Omit = omit,
@@ -294,6 +308,10 @@ class AsyncCredentialsResource(AsyncAPIResource):
 
         Args:
           value: Value for the credential
+
+          additional_origins: Canonical http(s) origins, besides `origin`, this credential may be filled on,
+              such as its login host or identity provider (e.g. `https://login.example.com`).
+              Only the credential's origin and these ever match a page, exactly; at most 20.
 
           label: Label for the credential
 
@@ -316,6 +334,7 @@ class AsyncCredentialsResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "value": value,
+                    "additional_origins": additional_origins,
                     "label": label,
                     "namespace": namespace,
                     "origin": origin,
@@ -332,6 +351,7 @@ class AsyncCredentialsResource(AsyncAPIResource):
     async def update(
         self,
         *,
+        additional_origins: SequenceNotStr[str] | Omit = omit,
         label: str | Omit = omit,
         namespace: str | Omit = omit,
         origin: str | Omit = omit,
@@ -348,6 +368,11 @@ class AsyncCredentialsResource(AsyncAPIResource):
         Encrypts and updates credentials for an origin
 
         Args:
+          additional_origins: Canonical http(s) origins, besides `origin`, this credential may be filled on,
+              such as its login host or identity provider (e.g. `https://login.example.com`).
+              Only the credential's origin and these ever match a page, exactly; at most 20.
+              Replaces the current list; [] clears it.
+
           label: Label for the credential
 
           namespace: The namespace the credential is stored against. Defaults to "default".
@@ -370,6 +395,7 @@ class AsyncCredentialsResource(AsyncAPIResource):
             "/v1/credentials",
             body=await async_maybe_transform(
                 {
+                    "additional_origins": additional_origins,
                     "label": label,
                     "namespace": namespace,
                     "origin": origin,

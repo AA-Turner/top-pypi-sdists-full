@@ -10,15 +10,18 @@ class ListK8sAccessInfoRequest(DaraModel):
         aliyun_yundun_gateway_api_name: str = None,
         aliyun_yundun_gateway_pop_name: str = None,
         aliyun_yundun_gateway_project_name: str = None,
+        cluster_id: str = None,
         lang: str = None,
     ):
-        # This parameter is deprecated and does not need to be specified.
+        # **[Deprecated]** This parameter is deprecated and can be ignored.
         self.aliyun_yundun_gateway_api_name = aliyun_yundun_gateway_api_name
-        # This parameter is deprecated and does not need to be specified.
+        # **[Deprecated]** This parameter is deprecated and can be ignored.
         self.aliyun_yundun_gateway_pop_name = aliyun_yundun_gateway_pop_name
-        # This parameter is deprecated and does not need to be specified.
+        # **[Deprecated]** This parameter is deprecated and can be ignored.
         self.aliyun_yundun_gateway_project_name = aliyun_yundun_gateway_project_name
-        # The language type for requests and responses. Valid values:
+        # Optional. If you specify this parameter, the system queries only the independent installation records for the current multi-cloud lifecycle under the trusted tenant.
+        self.cluster_id = cluster_id
+        # The language type of the request and response messages. Valid values:
         # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang
@@ -40,6 +43,9 @@ class ListK8sAccessInfoRequest(DaraModel):
         if self.aliyun_yundun_gateway_project_name is not None:
             result['AliyunYundunGatewayProjectName'] = self.aliyun_yundun_gateway_project_name
 
+        if self.cluster_id is not None:
+            result['ClusterId'] = self.cluster_id
+
         if self.lang is not None:
             result['Lang'] = self.lang
 
@@ -55,6 +61,9 @@ class ListK8sAccessInfoRequest(DaraModel):
 
         if m.get('AliyunYundunGatewayProjectName') is not None:
             self.aliyun_yundun_gateway_project_name = m.get('AliyunYundunGatewayProjectName')
+
+        if m.get('ClusterId') is not None:
+            self.cluster_id = m.get('ClusterId')
 
         if m.get('Lang') is not None:
             self.lang = m.get('Lang')

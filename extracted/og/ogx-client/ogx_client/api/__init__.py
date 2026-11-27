@@ -51,8 +51,8 @@ from ogx_client.api.routes_api import RoutesApi
 from ogx_client.api.routes_api import AsyncRoutesApi
 from ogx_client.api.skills_api import SkillsApi
 from ogx_client.api.skills_api import AsyncSkillsApi
-from ogx_client.api.tools_api import ToolsApi
-from ogx_client.api.tools_api import AsyncToolsApi
+from ogx_client.api.systemone_api import SystemoneApi
+from ogx_client.api.systemone_api import AsyncSystemoneApi
 from ogx_client.api.vector_io_api import VectorIoApi
 from ogx_client.api.vector_io_api import AsyncVectorIoApi
 from ogx_client.api.vector_stores_api import VectorStoresApi

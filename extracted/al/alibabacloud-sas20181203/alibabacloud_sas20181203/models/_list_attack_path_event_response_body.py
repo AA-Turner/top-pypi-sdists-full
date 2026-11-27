@@ -72,9 +72,9 @@ class ListAttackPathEventResponseBodyPageInfo(DaraModel):
         page_size: int = None,
         total_count: int = None,
     ):
-        # The number of entries returned on the current page in a paging query.
+        # The number of entries returned on the current page for a paging query.
         self.count = count
-        # The page number of the current page in a paging query.
+        # The current page number for a paging query.
         self.current_page = current_page
         # The number of entries returned per page.
         self.page_size = page_size
@@ -132,11 +132,11 @@ class ListAttackPathEventResponseBodyAttackPathEventList(DaraModel):
         risk_level: str = None,
         src_asset: main_models.ListAttackPathEventResponseBodyAttackPathEventListSrcAsset = None,
     ):
-        # The destination asset.
+        # The end asset.
         self.dst_asset = dst_asset
         # The ID of the alert event.
         self.event_id = event_id
-        # The timestamp of the latest detection. Unit: milliseconds.
+        # The timestamp when the event was last detected. Unit: milliseconds.
         self.last_time = last_time
         # The path name.
         self.path_name = path_name
@@ -148,7 +148,7 @@ class ListAttackPathEventResponseBodyAttackPathEventList(DaraModel):
         self.path_type_desc = path_type_desc
         # The risk level.
         self.risk_level = risk_level
-        # The source asset.
+        # The start asset.
         self.src_asset = src_asset
 
     def validate(self):
@@ -245,9 +245,9 @@ class ListAttackPathEventResponseBodyAttackPathEventListSrcAsset(DaraModel):
         self.instance_name = instance_name
         # The region ID of the cloud service asset instance.
         self.region_id = region_id
-        # The sensitive asset flag. Valid values:
-        # - **0**: non-sensitive asset
-        # - **1**: sensitive asset
+        # Indicates whether the asset is sensitive. Valid values:
+        # - **0**: The asset is not sensitive.
+        # - **1**: The asset is sensitive.
         self.sensitive_asset_flag = sensitive_asset_flag
         # The vendor of the cloud service asset.
         self.vendor = vendor
@@ -329,9 +329,9 @@ class ListAttackPathEventResponseBodyAttackPathEventListDstAsset(DaraModel):
         self.instance_name = instance_name
         # The region ID of the cloud service asset instance.
         self.region_id = region_id
-        # The sensitive asset flag. Valid values:
-        # - **0**: non-sensitive asset
-        # - **1**: sensitive asset
+        # Indicates whether the asset is sensitive. Valid values:
+        # - **0**: The asset is not sensitive.
+        # - **1**: The asset is sensitive.
         self.sensitive_asset_flag = sensitive_asset_flag
         # The vendor of the cloud service asset.
         self.vendor = vendor

@@ -14,12 +14,12 @@ class DocAiJobStatusResponseParams(typing_extensions.TypedDict):
 
     status: str
     """
-    Current status of the job. Terminal statuses: `completed`, `partially_completed`, `failed`, `rejected`.
+    Current status of the job. Parse and Extract: `pending`, `running`, then a terminal status. Split and Classify start at `accepted`. Terminal statuses: `completed`, `partially_completed`, `failed`, `rejected`.
     """
 
     pipeline: typing_extensions.NotRequired[str]
     """
-    Job pipeline: `parse` or `extract`. Classify and Split jobs report `type` instead.
+    Job pipeline: `digitise` for Parse jobs or `extract` for Extract jobs. Classify and Split jobs report `type` instead.
     """
 
     usage: DocAiUsageParams

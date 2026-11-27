@@ -11,6 +11,7 @@ from temporalio import workflow
 
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core._registration.registration_activity import (
+    ExecutionRegistration,
     _register_execution,
 )
 from mistralai.workflows.core._registration.search_keys import extract_search_key_metadata
@@ -47,7 +48,6 @@ def _resolve_search_key_metadata(workflow_name: str, args: Sequence[Any]) -> dic
             "Failed to resolve search key metadata",
             workflow_type=workflow_name,
             **extract_error_context(exc),
-            exc_info=exc,
         )
         return {}
 
@@ -94,11 +94,11 @@ class _ExecutionRegistrationWorkflowInboundInterceptor(temporalio.worker.Workflo
             retry_policy=temporalio.common.RetryPolicy(maximum_attempts=3),
         )
 
-        _, registered = unwrap_contextual_result(raw_result)
+        _, registration = unwrap_contextual_result(raw_result)
 
         # Older histories can contain False from the removed 404/405 fallback.
         # Preserve their token context on replay. New registration calls raise on errors.
-        if not registered:
+        if registration is False:
             logger.info(
                 "Registration endpoint not available, continuing without it",
                 workflow_id=info.workflow_id,
@@ -106,7 +106,11 @@ class _ExecutionRegistrationWorkflowInboundInterceptor(temporalio.worker.Workflo
             )
             return await super().execute_workflow(input)
 
-        updated_ctx = ctx.model_copy(update={"execution_token": raw_token})
+        updates: dict[str, Any] = {"execution_token": raw_token}
+        # Older histories recorded True without the flag; they keep the current declaration.
+        if isinstance(registration, ExecutionRegistration):
+            updates["on_behalf_of"] = registration.on_behalf_of
+        updated_ctx = ctx.model_copy(update=updates)
         token = workflow_context_var.set(updated_ctx.model_dump_json())
         try:
             return await super().execute_workflow(input)

@@ -1,5 +1,3 @@
-# fmt: off
-
 import ase.gui.ui as ui
 from ase.gui.i18n import _
 
@@ -11,46 +9,88 @@ class Settings:
 
         # Constraints
         win.add(_('Constraints:'))
-        win.add([ui.Button(_('Fix'), self.constrain_selected),
-                 '/',
-                 ui.Button(_('release'), self.release_selected),
-                 _(' selected atoms')])
+        win.add(
+            [
+                ui.Button(_('Fix'), self.constrain_selected),
+                '/',
+                ui.Button(_('release'), self.release_selected),
+                _(' selected atoms'),
+            ]
+        )
         win.add(ui.Button(_('Clear all constraints'), self.clear_constraints))
 
         # Visibility
         win.add(_('Visibility:'))
-        win.add([ui.Button(_('Hide'), self.hide_selected),
-                 '/',
-                 ui.Button(_('show'), self.show_selected),
-                 _(' selected atoms')])
+        win.add(
+            [
+                ui.Button(_('Hide'), self.hide_selected),
+                '/',
+                ui.Button(_('show'), self.show_selected),
+                _(' selected atoms'),
+            ]
+        )
         win.add(ui.Button(_('View all atoms'), self.view_all))
 
         # Miscellaneous
         win.add(_('Miscellaneous:'))
-        self.scale = ui.SpinBox(self.gui.images.atom_scale,
-                                0.2, 2.0, 0.1, self.scale_radii)
+        self.scale = ui.SpinBox(
+            self.gui.images.atom_scale, 0.2, 2.0, 0.1, self.scale_radii
+        )
         win.add([_('Scale atomic radii:'), self.scale])
         self.force_vector_scale = ui.SpinBox(
             self.gui.force_vector_scale,
-            0.0, 1e32, 0.1,
+            0.0,
+            1e32,
+            0.1,
             rounding=2,
-            callback=self.scale_force_vectors
+            callback=self.scale_force_vectors,
         )
         win.add([_('Scale force vectors:'), self.force_vector_scale])
         self.velocity_vector_scale = ui.SpinBox(
             self.gui.velocity_vector_scale,
-            0.0, 1e32, 0.1,
+            0.0,
+            1e32,
+            0.1,
             rounding=2,
-            callback=self.scale_velocity_vectors
+            callback=self.scale_velocity_vectors,
         )
         win.add([_('Scale velocity vectors:'), self.velocity_vector_scale])
         self.magmom_vector_scale = ui.SpinBox(
             self.gui.magmom_vector_scale,
-            0.0, 1e32, 0.1,
+            0.0,
+            1e32,
+            0.1,
             rounding=2,
-            callback=self.scale_magmom_vectors
+            callback=self.scale_magmom_vectors,
         )
         win.add([_('Scale magmom vectors:'), self.magmom_vector_scale])
+
+        # Performance (only has an effect on large structures)
+        win.add(_('Rendering (large structures only):'))
+        self.interactive_level_of_detail = ui.CheckButton(
+            _('Reduce detail while dragging'),
+            self.gui.interactive_level_of_detail,
+            self.update_interactive_level_of_detail,
+        )
+        win.add(self.interactive_level_of_detail)
+        self.occlusion_culling = ui.CheckButton(
+            _('Do not render obscured atoms'),
+            self.gui.occlusion_culling,
+            self.update_occlusion_culling,
+        )
+        win.add(self.occlusion_culling)
+
+    def update_interactive_level_of_detail(self, *args):
+        self.gui.interactive_level_of_detail = (
+            self.interactive_level_of_detail.value
+        )
+        self.gui.draw()
+        return True
+
+    def update_occlusion_culling(self, *args):
+        self.gui.occlusion_culling = self.occlusion_culling.value
+        self.gui.draw()
+        return True
 
     def scale_radii(self):
         self.gui.images.atom_scale = self.scale.value

@@ -44,9 +44,23 @@ class ConstantPrior(Prior):
 
     Example:
 
-    >>> from ase.optimize import GPMin
+    >>> from ase import Atoms
+    >>> from ase.calculators.emt import EMT
+    >>> from ase.optimize.gpmin.gpmin import GPMin
     >>> from ase.optimize.gpmin.prior import ConstantPrior
-    >>> op = GPMin(atoms, Prior = ConstantPrior(10)
+    ...
+    >>> system = Atoms(
+    ... 'N2',
+    ... positions = [(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+    ... calculator=EMT()
+    ... )
+    >>> dyn = GPMin(system, prior = ConstantPrior(10))
+    >>> dyn.run(fmax=0.05) # doctest:+ELLIPSIS, +NORMALIZE_WHITESPACE
+           Step     Time          Energy          fmax
+    GPMin:    0 ...        0.440344        3.251800
+    GPMin:    1 ...        0.262968        0.122695
+    GPMin:    2 ...        0.262777        0.005044
+    ...
     """
 
     def __init__(self, constant):

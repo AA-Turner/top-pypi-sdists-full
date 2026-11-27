@@ -28,7 +28,6 @@ from tqdm import tqdm
 from fastwarc.stream_io import GzipReader, GzipWriter, Lz4Reader, Lz4Writer, ZstdReader, ZstdWriter
 from fastwarc.warc import ArchiveIterator, WarcRecordType
 
-
 COMPRESSION_ALGORITHMS = ['gzip', 'lz4', 'zstd', 'uncompressed', 'auto']
 _READERS = {'gzip': GzipReader, 'lz4': Lz4Reader, 'zstd': ZstdReader}
 _WRITERS = {'gzip': GzipWriter, 'lz4': Lz4Writer, 'zstd': ZstdWriter}
@@ -78,19 +77,21 @@ def _recompress_records(infile, outfile, decompress_alg, compress_alg, compress_
                 yield output.tell() - before
 
 
-def _verify_digests(infile, verify_payloads, decompress_alg):
+def _verify_digests(infile, verify_payloads, decompress_alg, decode_transfer):
     with closing(_warc_records(infile, decompress_alg, parse_http=False, inplace=True)) as records:
         for record in records:
+            # Omit a payload verdict for revisits so an unavailable check is not reported as a mismatch.
+            check_payload = verify_payloads and record.record_type != WarcRecordType.revisit
             result = {
                 'record_id': record.record_id,
-                'block_digest_ok': record.verify_block_digest(not verify_payloads or not record.is_http)
+                'block_digest_ok': record.verify_block_digest(not check_payload or not record.is_http)
                 if 'WARC-Block-Digest' in record.headers else None,
             }
-            if verify_payloads:
+            if check_payload:
                 if 'WARC-Payload-Digest' in record.headers:
                     if record.is_http:
-                        record.parse_http()
-                    result['payload_digest_ok'] = record.verify_payload_digest(True)
+                        record.parse_http(auto_decode='transfer' if decode_transfer else 'none')
+                    result['payload_digest_ok'] = record.verify_payload_digest(True, decode_transfer=decode_transfer)
                 else:
                     result['payload_digest_ok'] = None
             yield result
@@ -153,15 +154,19 @@ def recompress(infile, outfile, compress_alg, decompress_alg, compress_level, qu
 @click.option('-d', '--decompress-alg', type=click.Choice(COMPRESSION_ALGORITHMS),
               default='auto', show_default=True, help='Decompression algorithm')
 @click.option('-p', '--verify-payloads', is_flag=True, help='Also verify payload digests')
+@click.option('--no-decode-transfer', is_flag=True,
+              help='Do not decode HTTP transfer encoding when verifying payload digests')
 @click.option('-q', '--quiet', is_flag=True, help='Do not print progress information')
 @click.option('-o', '--output', type=click.File('w'), help='Output file with verification details')
-def check(infile, decompress_alg, verify_payloads, quiet, output):
+def check(infile, decompress_alg, verify_payloads, no_decode_transfer, quiet, output):
     """
     Verify WARC record consistency.
 
-    Check digests of all records in a WARC file and print a summary. You can verify all block and
-    payload digests in the given WARC file and print a summary of all corrupted and (optionally)
-    all intact records.
+    Check block digests in a WARC file and print a summary of corrupted records. Use --verify-payloads
+    to also check payload digests. Payload verification decodes HTTP transfer encoding by
+    default. Use --no-decode-transfer to hash the stored HTTP body. Revisit payload checks
+    are skipped because their interpretation depends on the WARC profile. Use --output
+    to write per-record results.
 
     The command will exit with a non-zero exit code if at least one record fails verification.
     """
@@ -171,7 +176,7 @@ def check(infile, decompress_alg, verify_payloads, quiet, output):
     num_no_digest = 0
     try:
         desc_tpl = 'Verifying digests ({} failed)'
-        pbar = tqdm(_verify_digests(infile, verify_payloads, decompress_alg),
+        pbar = tqdm(_verify_digests(infile, verify_payloads, decompress_alg, not no_decode_transfer),
                     desc=desc_tpl.format(0), unit=' record(s)', leave=False, disable=quiet, mininterval=0.2)
 
         for v in pbar:
@@ -222,7 +227,7 @@ def check(infile, decompress_alg, verify_payloads, quiet, output):
 @click.option('-o', '--output', type=click.File('wb'), default='-',
               help='Output file, default is stdout')
 @click.option('--payload', is_flag=True,
-              help='Output only record payload (transfer and/or content encoding are preserved')
+              help='Output only the payload, with any HTTP transfer encoding decoded')
 @click.option('--headers', is_flag=True, help='Output only record (and HTTP) headers')
 def extract(infile, offset, output, payload, headers):
     """
@@ -236,7 +241,7 @@ def extract(infile, offset, output, payload, headers):
     with open(infile, 'rb') as stream:
         stream.seek(offset)
         try:
-            iterator = ArchiveIterator(stream)
+            iterator = ArchiveIterator(stream, parse_http=not compl_record)
             record = next(iterator)
             if compl_record:
                 record.write(output)
@@ -390,8 +395,9 @@ def _expand_s3_prefixes(input_urls, endpoint_url, aws_access_key, aws_secret_key
               help='Use Python I/O instead of native file readers for local files')
 @click.option('-H', '--parse-http', is_flag=True, help='Parse HTTP headers')
 @click.option('-v', '--verify-digests', is_flag=True, help='Verify record block digests')
-@click.option('-f', '--filter-type', type=click.Choice(['warcinfo', 'response', 'resource', 'request', 'metadata',
-                                                        'revisit', 'conversion', 'continuation', 'unknown', 'any_type']),
+@click.option('-f', '--filter-type', type=click.Choice(
+    ['warcinfo', 'response', 'resource', 'request', 'metadata', 'revisit',
+     'conversion', 'continuation', 'unknown', 'any_type']),
               default=['any_type'], multiple=True, show_default=True, help='Filter for specific WARC record types')
 @click.option('-w', '--bench-warcio', is_flag=True, help='Compare FastWARC performance with WARCIO')
 def benchmark(input_url, decompress_alg, endpoint_url, aws_access_key, aws_secret_key, is_prefix, use_python_stream,
@@ -423,7 +429,8 @@ def benchmark(input_url, decompress_alg, endpoint_url, aws_access_key, aws_secre
                 break
 
     if bench_warcio:
-        algorithms = {_compression_from_path(url) for url in input_url} if decompress_alg == 'auto' else {decompress_alg}
+        algorithms = {_compression_from_path(url) for url in input_url} if decompress_alg == 'auto' else {
+            decompress_alg}
         if algorithms & {'lz4', 'zstd'}:
             raise click.UsageError('WARCIO does not support LZ4 or Zstandard.')
 
@@ -482,8 +489,8 @@ def benchmark(input_url, decompress_alg, endpoint_url, aws_access_key, aws_secre
         def _warcio_iterator(f):
             source = _get_raw_stream_from_url(f, True)
             try:
-                for rec in warcio.ArchiveIterator(source, no_record_parse=not parse_http,
-                                                 check_digests=verify_digests):
+                for rec in warcio.ArchiveIterator(
+                        source, no_record_parse=not parse_http, check_digests=verify_digests):
                     if rec_type_filter & getattr(WarcRecordType, rec.rec_type):
                         yield rec
             finally:

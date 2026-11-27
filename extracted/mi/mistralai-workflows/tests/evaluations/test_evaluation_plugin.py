@@ -27,6 +27,7 @@ from mistralai.workflows.plugins.evaluations._activities import (
     patch_optimization_trial,
     patch_optimization_trial_run,
     patch_run_status,
+    recompute_run_statistics,
     resolve_dataset_record_ids,
     setup_evaluation_run,
     upload_input_records,
@@ -363,6 +364,7 @@ class EvalWorkflowRunEvaluatorFailure:
 
 _EVAL_ACTIVITIES = [
     setup_evaluation_run,
+    recompute_run_statistics,
     upload_input_records,
     upload_output_records,
     upload_run_scores,

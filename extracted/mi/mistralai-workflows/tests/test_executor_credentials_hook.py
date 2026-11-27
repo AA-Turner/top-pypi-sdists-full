@@ -22,9 +22,9 @@ _PATCH_RETRIEVE = "mistralai.workflows.hooks.executor_credentials_hook.retrieve_
 _HOOK_IMPLS = [AsyncExecutorCredentialsHook, SyncExecutorCredentialsHook]
 
 
-def _make_jwt(exp: float) -> str:
+def _make_jwt(claims: dict[str, object]) -> str:
     header = base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode()).rstrip(b"=").decode()
-    payload = base64.urlsafe_b64encode(json.dumps({"exp": exp}).encode()).rstrip(b"=").decode()
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
     return f"{header}.{payload}.signature"
 
 
@@ -52,7 +52,7 @@ class TestExecutorCredentialsHook:
     @pytest.mark.asyncio
     async def test_sets_authorization_header(self, hook_cls):
         future_exp = time.time() + 120
-        jwt = _make_jwt(future_exp)
+        jwt = _make_jwt({"exp": future_exp})
         hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
 
         request = httpx.Request("GET", "http://example.com")
@@ -61,20 +61,10 @@ class TestExecutorCredentialsHook:
 
         assert request.headers["Authorization"] == f"Bearer {jwt}"
 
-    def test_api_key_is_deprecated_but_supported(self, hook_cls):
-        with pytest.warns(DeprecationWarning, match="api_key"):
-            hook = hook_cls(server_url="http://localhost", api_key="legacy-key")
-        assert hook._token_provider.get_token() == "legacy-key"
-
-    def test_token_provider_used_without_warning(self, hook_cls, recwarn):
-        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("tp-key"))
-        assert hook._token_provider.get_token() == "tp-key"
-        assert not [w for w in recwarn.list if issubclass(w.category, DeprecationWarning)]
-
     @pytest.mark.asyncio
     async def test_caches_jwt_across_calls(self, hook_cls):
         future_exp = time.time() + 120
-        jwt = _make_jwt(future_exp)
+        jwt = _make_jwt({"exp": future_exp})
         hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
 
         with (
@@ -87,10 +77,39 @@ class TestExecutorCredentialsHook:
         assert mock_method.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_server_403_raises_non_retryable(self, hook_cls):
+    @pytest.mark.parametrize(
+        "token",
+        [
+            pytest.param("opaque-token", id="no-segments"),
+            pytest.param("not.a.jwt", id="undecodable-segments"),
+            pytest.param(_make_jwt({"sub": "user"}), id="no-exp"),
+        ],
+    )
+    async def test_non_jwt_token_raises_non_retryable(self, hook_cls, token):
         hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
         request = httpx.Request("GET", "http://example.com")
-        response = httpx.Response(403, text="Workflow is not configured for on-behalf-of execution")
+
+        with _patch_client(token, hook_cls), patch(_PATCH_RETRIEVE, return_value=_context_with_token("tok-A")):
+            with pytest.raises(WorkflowError, match="not a JWT with an 'exp' claim") as exc_info:
+                await _maybe_await(hook(request))
+            assert exc_info.value.non_retryable
+        assert "Authorization" not in request.headers
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "status, detail, message",
+        [
+            pytest.param(403, "Workflow is not configured for on-behalf-of execution", "API error occurred", id="403"),
+            pytest.param(
+                400, "Execution is missing user_id or organization_id", "has no user identity", id="400-missing-user"
+            ),
+            pytest.param(400, "Bad request", "API error occurred", id="400-other"),
+        ],
+    )
+    async def test_server_client_error_raises_non_retryable(self, hook_cls, status, detail, message):
+        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
+        request = httpx.Request("GET", "http://example.com")
+        response = httpx.Response(status, json={"detail": detail})
         error = SDKDefaultError("API error occurred", response)
 
         method_name = (
@@ -101,6 +120,6 @@ class TestExecutorCredentialsHook:
             patch.object(PrivateWorkerClient, method_name, side_effect=error, **mock_kwargs),
             patch(_PATCH_RETRIEVE, return_value=_context_with_token("tok-A")),
         ):
-            with pytest.raises(WorkflowError) as exc_info:
+            with pytest.raises(WorkflowError, match=message) as exc_info:
                 await _maybe_await(hook(request))
             assert exc_info.value.non_retryable

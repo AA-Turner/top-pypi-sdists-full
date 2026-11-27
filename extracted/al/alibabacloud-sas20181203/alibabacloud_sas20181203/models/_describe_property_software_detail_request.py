@@ -32,7 +32,7 @@ class DescribePropertySoftwareDetailRequest(DaraModel):
         self.name = name
         # Used to mark the starting position for reading. Leave it blank to start from the beginning.
         # 
-        # > For the first call, you do not need to fill this in; the response will include the NextToken for the second call, and each subsequent call\\"s response will contain the NextToken for the next call.
+        # > For the first call, you do not need to fill this in; the response will include the NextToken for the second call, and each subsequent call\"s response will contain the NextToken for the next call.
         self.next_token = next_token
         # Set the number of software asset fingerprint information items displayed per page during pagination. The default value is **10**, indicating that 10 items of software asset fingerprint information are displayed per page.
         self.page_size = page_size

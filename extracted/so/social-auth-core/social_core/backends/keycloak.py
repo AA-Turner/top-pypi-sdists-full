@@ -3,12 +3,12 @@ from typing import Any, cast
 import jwt
 
 from social_core.backends.base import ResponseT_co
-from social_core.backends.oauth import BaseOAuth2
+from social_core.backends.oauth import BaseOAuth2PKCE
 from social_core.backends.utils import jwt_error
 from social_core.groups import configured_group_key, read_groups
 
 
-class KeycloakOAuth2(BaseOAuth2[ResponseT_co]):  # pylint: disable=abstract-method
+class KeycloakOAuth2(BaseOAuth2PKCE[ResponseT_co]):  # pylint: disable=abstract-method
     """Keycloak OAuth2 authentication backend
 
     This backend has been tested working with a standard Keycloak installation,
@@ -89,6 +89,7 @@ class KeycloakOAuth2(BaseOAuth2[ResponseT_co]):  # pylint: disable=abstract-meth
           'https://sso.com/auth/realms/example/protocol/openid-connect/auth'
         SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL = \
           'https://sso.com/auth/realms/example/protocol/openid-connect/token'
+        SOCIAL_AUTH_KEYCLOAK_USE_PKCE = True  # optional, enables PKCE
 
     8. The default behaviour is to associate users via username field, but you
        can change the key with e.g.
@@ -102,6 +103,8 @@ class KeycloakOAuth2(BaseOAuth2[ResponseT_co]):  # pylint: disable=abstract-meth
 
     name = "keycloak"
     title = "Keycloak"
+    # Opt-in, like OpenIdConnectAuth: SOCIAL_AUTH_KEYCLOAK_USE_PKCE = True
+    DEFAULT_USE_PKCE = False
     ID_KEY = "sub"
     LEGACY_ID_KEYS = ("username",)
     MUTABLE_ID_KEYS = ("username", "preferred_username", "email")
@@ -136,6 +139,25 @@ class KeycloakOAuth2(BaseOAuth2[ResponseT_co]):  # pylint: disable=abstract-meth
         except jwt.PyJWTError as error:
             raise jwt_error(self, error) from error
 
+    def get_nested_stored_user_ids(
+        self, extra_data: dict[str, Any], id_key: str
+    ) -> tuple[object, ...]:
+        """Return the identifier from the access token an earlier login stored."""
+        access_token = extra_data.get("access_token")
+        if not isinstance(access_token, str) or not access_token:
+            return ()
+        try:
+            claims = jwt.decode(access_token, options={"verify_signature": False})
+        except jwt.PyJWTError:
+            return ()
+        # Only a token issued to this client names a comparable identifier.
+        audience = claims.get("aud")
+        if not isinstance(audience, list):
+            audience = [audience]
+        if self.audience() not in audience or id_key not in claims:
+            return ()
+        return (claims[id_key],)
+
     def get_user_groups(self, response) -> list[str] | None:
         key = configured_group_key(self)
         if key is None:
@@ -156,3 +178,7 @@ class KeycloakOAuth2(BaseOAuth2[ResponseT_co]):  # pylint: disable=abstract-meth
             "first_name": response.get("given_name"),
             "last_name": response.get("family_name"),
         }
+
+    def get_email_verified(self, response: dict[str, Any]) -> bool | None:
+        """Keycloak's email verification claim is required for allowlists."""
+        return response.get("email_verified") is True

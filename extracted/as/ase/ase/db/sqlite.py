@@ -150,15 +150,25 @@ class SQLite3Database(Database):
             return ase.io.jsonio.decode(txt)
         return bytes_to_object(txt)
 
-    def blob(self, array):
-        """Convert array to blob/buffer object."""
+    def blob(self, array, dtype=float):
+        """Convert array to blob/buffer object of the given dtype.
+
+        *dtype* must be the dtype that deblob() will use when reading
+        the value back from the database. The written array will be cast
+        to this type when NumPy's 'same_kind' casting rule allows it."""
 
         if array is None:
             return None
+        dtype = np.dtype(dtype)
         if len(array) == 0:
-            array = np.zeros(0)
-        if array.dtype == np.int64:
-            array = array.astype(np.int32)
+            array = np.zeros(0, dtype)
+        if array.dtype != dtype:
+            if not np.can_cast(array.dtype, dtype, casting='same_kind'):
+                raise ValueError(
+                    f'Refusing to write array of dtype {array.dtype} to a '
+                    f'database field of different kind {dtype}'
+                )
+            array = array.astype(dtype)
         if not np.little_endian:
             array = array.byteswap()
         return memoryview(np.ascontiguousarray(array))
@@ -176,7 +186,7 @@ class SQLite3Database(Database):
             if not np.little_endian:
                 array = array.byteswap()
         if shape is not None:
-            array.shape = shape
+            array = array.reshape(shape)
         return array
 
     def _connect(self):
@@ -308,14 +318,14 @@ class SQLite3Database(Database):
             row.ctime,
             mtime,
             row.user,
-            blob(row.numbers),
+            blob(row.numbers, np.int32),
             blob(row.positions),
             blob(row.cell),
             int(np.dot(row.pbc, [1, 2, 4])),
             blob(row.get('initial_magmoms')),
             blob(row.get('initial_charges')),
             blob(row.get('masses')),
-            blob(row.get('tags')),
+            blob(row.get('tags'), np.int32),
             blob(row.get('momenta')),
             constraints,
         )

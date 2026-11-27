@@ -7,6 +7,9 @@ from ..models.forloop_flow_type import ForloopFlowType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.forloop_flow_failure_threshold_type_0 import ForloopFlowFailureThresholdType0
+    from ..models.forloop_flow_failure_threshold_type_1 import ForloopFlowFailureThresholdType1
+    from ..models.forloop_flow_failure_threshold_type_2 import ForloopFlowFailureThresholdType2
     from ..models.forloop_flow_iteration_label_type_0 import ForloopFlowIterationLabelType0
     from ..models.forloop_flow_iteration_label_type_1 import ForloopFlowIterationLabelType1
     from ..models.forloop_flow_iteration_label_type_2 import ForloopFlowIterationLabelType2
@@ -36,6 +39,9 @@ class ForloopFlow:
                 inputs
             skip_failures (bool): If true, iteration failures don't stop the loop. Failed iterations return null
             type (ForloopFlowType):
+            failure_threshold (Union['ForloopFlowFailureThresholdType0', 'ForloopFlowFailureThresholdType1',
+                'ForloopFlowFailureThresholdType2', Unset]): Maps input parameters for a step. Can be a static value or a
+                JavaScript expression that references previous results or flow inputs
             parallel (Union[Unset, bool]): If true, iterations run concurrently (faster for I/O-bound operations). Use with
                 parallelism to control concurrency
             parallelism (Union['ForloopFlowParallelismType0', 'ForloopFlowParallelismType1', 'ForloopFlowParallelismType2',
@@ -51,6 +57,12 @@ class ForloopFlow:
     iterator: Union["ForloopFlowIteratorType0", "ForloopFlowIteratorType1", "ForloopFlowIteratorType2"]
     skip_failures: bool
     type: ForloopFlowType
+    failure_threshold: Union[
+        "ForloopFlowFailureThresholdType0",
+        "ForloopFlowFailureThresholdType1",
+        "ForloopFlowFailureThresholdType2",
+        Unset,
+    ] = UNSET
     parallel: Union[Unset, bool] = UNSET
     parallelism: Union[
         "ForloopFlowParallelismType0", "ForloopFlowParallelismType1", "ForloopFlowParallelismType2", Unset
@@ -62,6 +74,8 @@ class ForloopFlow:
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        from ..models.forloop_flow_failure_threshold_type_0 import ForloopFlowFailureThresholdType0
+        from ..models.forloop_flow_failure_threshold_type_1 import ForloopFlowFailureThresholdType1
         from ..models.forloop_flow_iteration_label_type_0 import ForloopFlowIterationLabelType0
         from ..models.forloop_flow_iteration_label_type_1 import ForloopFlowIterationLabelType1
         from ..models.forloop_flow_iterator_type_0 import ForloopFlowIteratorType0
@@ -88,6 +102,25 @@ class ForloopFlow:
 
         skip_failures = self.skip_failures
         type = self.type.value
+
+        failure_threshold: Union[Dict[str, Any], Unset]
+        if isinstance(self.failure_threshold, Unset):
+            failure_threshold = UNSET
+
+        elif isinstance(self.failure_threshold, ForloopFlowFailureThresholdType0):
+            failure_threshold = UNSET
+            if not isinstance(self.failure_threshold, Unset):
+                failure_threshold = self.failure_threshold.to_dict()
+
+        elif isinstance(self.failure_threshold, ForloopFlowFailureThresholdType1):
+            failure_threshold = UNSET
+            if not isinstance(self.failure_threshold, Unset):
+                failure_threshold = self.failure_threshold.to_dict()
+
+        else:
+            failure_threshold = UNSET
+            if not isinstance(self.failure_threshold, Unset):
+                failure_threshold = self.failure_threshold.to_dict()
 
         parallel = self.parallel
         parallelism: Union[Dict[str, Any], Unset]
@@ -139,6 +172,8 @@ class ForloopFlow:
                 "type": type,
             }
         )
+        if failure_threshold is not UNSET:
+            field_dict["failure_threshold"] = failure_threshold
         if parallel is not UNSET:
             field_dict["parallel"] = parallel
         if parallelism is not UNSET:
@@ -152,6 +187,9 @@ class ForloopFlow:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.forloop_flow_failure_threshold_type_0 import ForloopFlowFailureThresholdType0
+        from ..models.forloop_flow_failure_threshold_type_1 import ForloopFlowFailureThresholdType1
+        from ..models.forloop_flow_failure_threshold_type_2 import ForloopFlowFailureThresholdType2
         from ..models.forloop_flow_iteration_label_type_0 import ForloopFlowIterationLabelType0
         from ..models.forloop_flow_iteration_label_type_1 import ForloopFlowIterationLabelType1
         from ..models.forloop_flow_iteration_label_type_2 import ForloopFlowIterationLabelType2
@@ -201,6 +239,55 @@ class ForloopFlow:
         skip_failures = d.pop("skip_failures")
 
         type = ForloopFlowType(d.pop("type"))
+
+        def _parse_failure_threshold(
+            data: object,
+        ) -> Union[
+            "ForloopFlowFailureThresholdType0",
+            "ForloopFlowFailureThresholdType1",
+            "ForloopFlowFailureThresholdType2",
+            Unset,
+        ]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _failure_threshold_type_0 = data
+                failure_threshold_type_0: Union[Unset, ForloopFlowFailureThresholdType0]
+                if isinstance(_failure_threshold_type_0, Unset):
+                    failure_threshold_type_0 = UNSET
+                else:
+                    failure_threshold_type_0 = ForloopFlowFailureThresholdType0.from_dict(_failure_threshold_type_0)
+
+                return failure_threshold_type_0
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                _failure_threshold_type_1 = data
+                failure_threshold_type_1: Union[Unset, ForloopFlowFailureThresholdType1]
+                if isinstance(_failure_threshold_type_1, Unset):
+                    failure_threshold_type_1 = UNSET
+                else:
+                    failure_threshold_type_1 = ForloopFlowFailureThresholdType1.from_dict(_failure_threshold_type_1)
+
+                return failure_threshold_type_1
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            _failure_threshold_type_2 = data
+            failure_threshold_type_2: Union[Unset, ForloopFlowFailureThresholdType2]
+            if isinstance(_failure_threshold_type_2, Unset):
+                failure_threshold_type_2 = UNSET
+            else:
+                failure_threshold_type_2 = ForloopFlowFailureThresholdType2.from_dict(_failure_threshold_type_2)
+
+            return failure_threshold_type_2
+
+        failure_threshold = _parse_failure_threshold(d.pop("failure_threshold", UNSET))
 
         parallel = d.pop("parallel", UNSET)
 
@@ -301,6 +388,7 @@ class ForloopFlow:
             iterator=iterator,
             skip_failures=skip_failures,
             type=type,
+            failure_threshold=failure_threshold,
             parallel=parallel,
             parallelism=parallelism,
             squash=squash,

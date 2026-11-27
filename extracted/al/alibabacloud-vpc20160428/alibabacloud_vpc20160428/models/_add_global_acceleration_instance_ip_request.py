@@ -19,17 +19,17 @@ class AddGlobalAccelerationInstanceIpRequest(DaraModel):
         # 
         # This parameter is required.
         self.global_acceleration_instance_id = global_acceleration_instance_id
-        # The ID of the EIP instance. You can call [DescribeEipAddresses](https://help.aliyun.com/document_detail/36018.html) to query the EIP instance ID. 
+        # The ID of the EIP. You can call the [DescribeEipAddresses](https://help.aliyun.com/document_detail/36018.html) operation to query the EIP ID. 
         # 
-        # > Make sure that the billing method of the EIP is pay-as-you-go and the EIP resides in the same region as the Internet Shared Bandwidth instance.
+        # > Make sure that the billing method of the EIP is pay-as-you-go and that the EIP and the shared bandwidth instance are in the same region.
         # 
         # This parameter is required.
         self.ip_instance_id = ip_instance_id
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region where the Internet Shared Bandwidth instance resides. 
+        # The region ID of the Internet Shared Bandwidth instance. 
         # 
-        # You can call **DescribeRegions** to query the region ID.
+        # You can call the **DescribeRegions** operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id

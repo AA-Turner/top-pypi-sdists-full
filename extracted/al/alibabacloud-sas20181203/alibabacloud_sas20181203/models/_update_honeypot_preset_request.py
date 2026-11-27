@@ -16,19 +16,19 @@ class UpdateHoneypotPresetRequest(DaraModel):
         # The name of the honeypot image.
         self.honeypot_image_name = honeypot_image_name
         # The unique ID of the honeypot template.
-        # >You can call the [ListHoneypotPreset](~~ListHoneypotPreset~~) operation to obtain this parameter.
+        # >You can call the [ListHoneypotPreset](~~ListHoneypotPreset~~) operation to obtain the value of this parameter.
         # 
         # This parameter is required.
         self.honeypot_preset_id = honeypot_preset_id
-        # The language of the content in the request and response. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
         # The custom parameters of the honeypot template. The value is a JSON string that contains the following fields:
         # - **portrait_option**: social tracing
-        # - **burp**: Burp countermeasure
-        # - **trojan_git**: Git countermeasure.
+        # - **burp**: Burp countermeasures
+        # - **trojan_git**: Git countermeasures
         self.meta = meta
         # The custom name of the honeypot template.
         self.preset_name = preset_name

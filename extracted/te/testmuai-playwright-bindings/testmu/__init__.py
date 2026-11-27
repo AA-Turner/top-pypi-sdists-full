@@ -116,6 +116,7 @@ __all__ = [
     "evaluate_network_assertion",
     "evaluate_math",
     "smartui_snapshot",
+    "accessibility_scan",
     "switch_tab",
     "click_drag",
     "new_tab",

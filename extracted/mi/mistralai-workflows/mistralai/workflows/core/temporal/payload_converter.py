@@ -2,7 +2,7 @@ import types
 from typing import Any, Type, Union, get_args, get_origin
 
 import temporalio.api.common.v1
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from pydantic_core import from_json
 from temporalio.contrib.pydantic import PydanticJSONPlainPayloadConverter
 from temporalio.converter import (
@@ -55,10 +55,16 @@ class WithContextJSONPayloadConverter(EncodingPayloadConverter):
         # Always deserialize JSON payload to Python object
         python_obj = from_json(payload_with_context.payload)
         if type_hint is not None:
-            # Allow null values to be deserialized
             if python_obj is None and not self._allows_none(type_hint):
-                python_obj = {}
-            payload_with_context.payload = TypeAdapter(type_hint).validate_python(python_obj)
+                # A null payload is a real None value (e.g. a `-> None`
+                # activity result). Substitute {} only when the hint accepts
+                # it; a scalar hint keeps None instead of failing validation.
+                try:
+                    payload_with_context.payload = TypeAdapter(type_hint).validate_python({})
+                except ValidationError:
+                    payload_with_context.payload = None
+            else:
+                payload_with_context.payload = TypeAdapter(type_hint).validate_python(python_obj)
         else:
             payload_with_context.payload = python_obj
         return payload_with_context

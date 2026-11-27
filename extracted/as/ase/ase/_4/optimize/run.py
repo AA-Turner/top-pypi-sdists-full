@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 
@@ -99,7 +100,7 @@ class Optimizer:
             self._writefiles(self.step)
             yield self.step
 
-        self.log.write(f'\nOptimization ended with step {self.step.i}.')
+        self.log.write(f'\nOptimization ended with step {self.step.i}.\n')
 
     def _writefiles(self, step):
         # XXX Also need to pass method, at least.

@@ -28,7 +28,8 @@ MAX_PHASES = 32
 _OFF = frozenset({"0", "false", "off", "no"})
 _ON = frozenset({"1", "true", "yes", "on"})
 
-Send = Callable[[list[dict[str, Any]], int], Awaitable[Any]]
+# (records, dropped, connect): ``connect`` is the session's request→ready record, or None.
+Send = Callable[[list[dict[str, Any]], int, dict[str, Any] | None], Awaitable[Any]]
 
 
 def reports_enabled(environ: Mapping[str, str] | None = None) -> bool:
@@ -118,6 +119,8 @@ class LatencyReporter:
         self._clock = clock
         self._buffer: list[dict[str, Any]] = []
         self._dropped = 0
+        self._connect: dict[str, Any] | None = None
+        self._connect_sent = False
         self._last_flush = clock()
         self._flushing = False
         # Wall clock = monotonic + this, taken once: no wall-clock read per request.
@@ -137,24 +140,34 @@ class LatencyReporter:
             self._flushing = True
             self._spawn(self.flush())
 
+    def set_connect(self, entry: dict[str, Any]) -> None:
+        """The session's request→ready stamps, sent once with the next report. A later
+        call replaces an entry not yet sent (the facade adds its calibration)."""
+        if self.enabled and not self._connect_sent:
+            self._connect = entry
+
     async def flush(self) -> None:
         """Send what is buffered; failures are dropped, and a control plane without the
         endpoint (or an ended session) turns reporting off."""
-        records, dropped = self._buffer, self._dropped
-        self._buffer, self._dropped = [], 0
+        records, dropped, connect = self._buffer, self._dropped, self._connect
+        self._buffer, self._dropped, self._connect = [], 0, None
+        self._connect_sent = self._connect_sent or connect is not None
         self._last_flush = self._clock()
         try:
-            if records and self.enabled and self._send is not None:
+            if (records or connect) and self.enabled and self._send is not None:
                 with suppress(Exception):
-                    await asyncio.wait_for(self._send(records, dropped), FLUSH_TIMEOUT_S)
+                    await asyncio.wait_for(
+                        self._send(records, dropped, connect), FLUSH_TIMEOUT_S
+                    )
         finally:
             self._flushing = False
 
     async def close(self) -> None:
-        if self.enabled and self._buffer:
+        if self.enabled and (self._buffer or self._connect):
             await self.flush()
         self.enabled = False
 
     def disable(self) -> None:
         self.enabled = False
         self._buffer = []
+        self._connect = None

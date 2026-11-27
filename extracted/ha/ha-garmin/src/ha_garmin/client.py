@@ -22,6 +22,7 @@ from .const import (
     ACTIVITY_DOWNLOAD_URL,
     ACTIVITY_EXPORT_URL,
     ADAPTIVE_TRAINING_PLAN_URL,
+    ANIMAL_URL,
     BADGES_URL,
     BLOOD_PRESSURE_SET_URL,
     BLOOD_PRESSURE_URL,
@@ -36,7 +37,6 @@ from .const import (
     DEVICES_URL,
     ENDURANCE_SCORE_URL,
     FITNESS_AGE_URL,
-    GARMIN_CN_CONNECT_API,
     GARMIN_CONNECT_API,
     GEAR_BASE_URL,
     GEAR_DEFAULTS_URL,
@@ -228,6 +228,16 @@ def _validate_positive_int(value: Any, name: str) -> int:
     return validated
 
 
+def _validate_dog_ids(dog_ids: Any, *, allow_empty: bool = False) -> list[int]:
+    """Validate a list of dog profile IDs and return it as a list of ints."""
+    if not isinstance(dog_ids, list | tuple) or (not dog_ids and not allow_empty):
+        needs = "" if allow_empty else " with at least one id"
+        raise ValueError(
+            f"dog_ids must be a positive integer list{needs}, got {dog_ids!r}"
+        )
+    return [_validate_positive_int(dog_id, "dog_ids") for dog_id in dog_ids]
+
+
 def _validate_uuid(value: str, name: str) -> str:
     """Validate a value is a UUID-like string suitable for a URL path segment."""
     if not isinstance(value, str):
@@ -331,6 +341,8 @@ ACTIVITY_ESSENTIAL_KEYS = {
     "maxRunningCadenceInStepsPerMinute",
     "averageCadence",
     "maxCadence",
+    "averageBikeCadence",
+    "maxBikeCadence",
     # Power
     "avgPower",
     "maxPower",
@@ -380,6 +392,9 @@ ACTIVITY_ESSENTIAL_KEYS = {
     "eBikeBatteryRemaining",
     "eBikeBatteryUsage",
     "eBikeMaxAssistModes",
+    # Dogs attached to the activity (absent when it never had one)
+    "hasDog",
+    "dogProfileIds",
 }
 
 # E-bike fields only appear in the per-activity summary endpoint response,
@@ -388,6 +403,10 @@ EBIKE_ACTIVITY_KEYS = (
     "eBikeBatteryRemaining",
     "eBikeBatteryUsage",
     "eBikeMaxAssistModes",
+)
+CYCLING_SUMMARY_KEYS = (
+    "averageBikeCadence",
+    "maxBikeCadence",
 )
 
 # Device registration payload is ~150 keys of mostly capability flags;
@@ -441,13 +460,6 @@ DATETIME_FIELDS_LOCAL_DROP = {
     "wellnessStartTimeLocal",
     "wellnessEndTimeLocal",
     "latestSpo2ReadingTimeLocal",
-}
-
-# Local-only fields that have no GMT equivalent - keep as strings for attributes
-# (Sleep timestamps only exist as Local from Garmin API)
-DATETIME_FIELDS_LOCAL_KEEP_STRING = {
-    "sleepStartTimestampLocal",
-    "sleepEndTimestampLocal",
 }
 
 # Known date fields (ISO format, date only) to convert to Python date
@@ -520,8 +532,6 @@ def _convert_datetime_fields(data: dict[str, Any]) -> dict[str, Any]:
     if result.get("durationInMilliseconds"):
         with suppress(TypeError):
             result["durationMinutes"] = round(result["durationInMilliseconds"] / 60000)
-
-    # Note: DATETIME_FIELDS_LOCAL_KEEP_STRING are intentionally kept as strings
 
     return result
 
@@ -915,20 +925,30 @@ def _vo2max_sport_entry(most_recent_vo2: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-# Some third-party scale imports come back with a millisecond timestamp in
-# metabolicAge instead of an age in years.
+# Garmin returns metabolicAge in years for some measurements and as a
+# duration in milliseconds for others (FIT uploads, some scale imports):
+# 1640960152000 ms is exactly 52 years of 365.2422 days (the tropical year
+# Garmin converts with). No age in years exceeds the cap, so a larger value
+# is milliseconds.
 _METABOLIC_AGE_MAX_YEARS = 150
+_MS_PER_YEAR = 31_556_926_000  # 365.2422 days
 
 
 def _sanitize_body_composition(measurement: dict[str, Any]) -> dict[str, Any]:
-    """Drop a metabolicAge that cannot be an age in years."""
+    """Return metabolicAge in years, converting Garmin's milliseconds form.
+
+    A value that is still not a plausible age in years becomes None.
+    """
     metabolic_age = measurement.get("metabolicAge")
-    if metabolic_age is not None and not (
-        isinstance(metabolic_age, (int, float))
-        and 0 < metabolic_age <= _METABOLIC_AGE_MAX_YEARS
-    ):
+    if metabolic_age is None:
+        return measurement
+    if isinstance(metabolic_age, bool) or not isinstance(metabolic_age, (int, float)):
         return {**measurement, "metabolicAge": None}
-    return measurement
+    if metabolic_age > _METABOLIC_AGE_MAX_YEARS:
+        metabolic_age = round(metabolic_age / _MS_PER_YEAR, 1)
+    if not 0 < metabolic_age <= _METABOLIC_AGE_MAX_YEARS:
+        return {**measurement, "metabolicAge": None}
+    return {**measurement, "metabolicAge": metabolic_age}
 
 
 def _add_computed_fields(data: dict[str, Any]) -> dict[str, Any]:
@@ -1203,7 +1223,6 @@ class GarminClient:
         # UTC offset of the Garmin calendar day, learned from daily summaries.
         self._garmin_utc_offset: timedelta | None = None
         self._is_cn = is_cn
-        self._base_url = GARMIN_CN_CONNECT_API if is_cn else GARMIN_CONNECT_API
         self._profile_cache: UserProfile | None = None
         # Slow-changing data fetched at most once per _SLOW_CACHE_SECONDS:
         # key -> (monotonic fetch time, value).
@@ -1752,7 +1771,7 @@ class GarminClient:
             source = {**(summary.get("summaryDTO") or {}), **summary}
             fields = {
                 key: source[key]
-                for key in EBIKE_ACTIVITY_KEYS
+                for key in (*EBIKE_ACTIVITY_KEYS, *CYCLING_SUMMARY_KEYS)
                 if source.get(key) is not None
             }
             if source.get("connectIQMeasurements"):
@@ -1760,11 +1779,6 @@ class GarminClient:
             return fields
 
         return await self._summary_fields_cache.get(activity_id, _fetch)
-
-    async def _get_ebike_fields(self, activity_id: int) -> dict[str, Any]:
-        """E-bike fields of an activity (see _get_summary_fields)."""
-        fields = await self._get_summary_fields(activity_id)
-        return {key: fields[key] for key in EBIKE_ACTIVITY_KEYS if key in fields}
 
     async def get_activity_connect_iq_display_info(self, activity_id: int) -> list[Any]:
         """Get the Connect IQ field definitions used in an activity.
@@ -2054,6 +2068,27 @@ class GarminClient:
         """Get earned badges."""
         data = await self._request("GET", BADGES_URL)
         return data if isinstance(data, list) else []
+
+    async def get_dogs(self) -> list[dict[str, Any]]:
+        """Get the dog profiles on the account.
+
+        Garmin's animal service returns no names, only IDs. Each entry is
+        {"id": animalProfileId, "exclude_physio": excludePhysio}.
+        """
+        data = await self._request("GET", ANIMAL_URL)
+        if not isinstance(data, list):
+            return []
+        return [
+            {
+                "id": animal.get("animalProfileId"),
+                "exclude_physio": animal.get("excludePhysio"),
+            }
+            for animal in data
+            if isinstance(animal, dict)
+            and animal.get("animalType") == "DOG"
+            and isinstance(animal.get("animalProfileId"), int)
+            and not isinstance(animal.get("animalProfileId"), bool)
+        ]
 
     async def get_gear_list(self) -> list[dict[str, Any]]:
         """Get all active and retired gear, with usage totals (gear v2).
@@ -2702,7 +2737,7 @@ class GarminClient:
         basal_met: float | None = None,
         active_met: float | None = None,
         physique_rating: float | None = None,
-        metabolic_age: float | None = None,
+        metabolic_age: int | None = None,
         visceral_fat_rating: float | None = None,
         bmi: float | None = None,
     ) -> dict[str, Any]:
@@ -3045,6 +3080,86 @@ class GarminClient:
         url = f"{GEAR_LINK_URL}/{gear_uuid}/activity/{activity_id}"
         return await self._put_request(url)
 
+    async def set_activity_dogs(
+        self, activity_id: int, dog_ids: list[int]
+    ) -> dict[str, Any]:
+        """Set the exact list of dogs attached to an activity.
+
+        Sends only the dog fields of metadataDTO, so nothing else on the
+        activity changes. An empty list removes all dogs.
+
+        Args:
+            activity_id: ID of the activity
+            dog_ids: Dog profile IDs (from get_dogs)
+        """
+        activity_id = _validate_positive_int(activity_id, "activity_id")
+        ids = _validate_dog_ids(dog_ids, allow_empty=True)
+        url = f"{ACTIVITY_DETAILS_URL}/{activity_id}"
+        return await self._put_request(
+            url,
+            {
+                "activityId": activity_id,
+                "metadataDTO": {"hasDog": bool(ids), "dogProfileIds": ids},
+            },
+        )
+
+    async def _get_activity_dog_ids(self, activity_id: int) -> list[int]:
+        """Return the dog profile IDs currently on an activity."""
+        activity = await self.get_activity(activity_id)
+        metadata = activity.get("metadataDTO")
+        if activity.get("activityId") != activity_id or not isinstance(metadata, dict):
+            raise GarminAPIError(f"Activity {activity_id} not found or has no metadata")
+        dog_ids = metadata.get("dogProfileIds")
+        if metadata.get("hasDog") and not isinstance(dog_ids, list):
+            raise GarminAPIError(
+                f"Activity {activity_id} has hasDog set but no dogProfileIds list"
+            )
+        return list(dog_ids or [])
+
+    async def add_dogs_to_activity(
+        self, activity_id: int, dog_ids: list[int]
+    ) -> list[int]:
+        """Attach dogs to an activity, keeping the ones already there.
+
+        Writes only when the list changes.
+
+        Args:
+            activity_id: ID of the activity
+            dog_ids: Dog profile IDs to add (from get_dogs)
+
+        Returns:
+            The dog profile IDs on the activity afterwards
+        """
+        activity_id = _validate_positive_int(activity_id, "activity_id")
+        ids = _validate_dog_ids(dog_ids)
+        current = await self._get_activity_dog_ids(activity_id)
+        merged = list(dict.fromkeys([*current, *ids]))
+        if merged != current:
+            await self.set_activity_dogs(activity_id, merged)
+        return merged
+
+    async def remove_dogs_from_activity(
+        self, activity_id: int, dog_ids: list[int]
+    ) -> list[int]:
+        """Detach dogs from an activity, keeping the others.
+
+        Writes only when the list changes.
+
+        Args:
+            activity_id: ID of the activity
+            dog_ids: Dog profile IDs to remove
+
+        Returns:
+            The dog profile IDs on the activity afterwards
+        """
+        activity_id = _validate_positive_int(activity_id, "activity_id")
+        ids = _validate_dog_ids(dog_ids)
+        current = await self._get_activity_dog_ids(activity_id)
+        remaining = [dog_id for dog_id in current if dog_id not in ids]
+        if remaining != current:
+            await self.set_activity_dogs(activity_id, remaining)
+        return remaining
+
     async def create_workout(self, workout: dict[str, Any]) -> dict[str, Any]:
         """Create a workout in the workout library.
 
@@ -3380,8 +3495,8 @@ class GarminClient:
 
         API calls: get_activities, get_activity_details,
                    get_activity_hr_in_timezones, get_workouts,
-                   get_scheduled_workouts x2 (this + next month) (6 calls),
-                   get_upcoming_events at most once an hour, get_workout for
+                   get_scheduled_workouts x2 (this + next month),
+                   get_upcoming_events and get_dogs at most once an hour, get_workout for
                    today's and the next scheduled workout at most once an hour
                    each, get_activity once per
                    new activity (e-bike fields, Connect IQ measurements) and
@@ -3411,7 +3526,7 @@ class GarminClient:
                         {
                             k: v
                             for k, v in summary_fields.items()
-                            if k in EBIKE_ACTIVITY_KEYS
+                            if k in (*EBIKE_ACTIVITY_KEYS, *CYCLING_SUMMARY_KEYS)
                         }
                     )
                 measurements = summary_fields.get("connectIQMeasurements")
@@ -3528,6 +3643,8 @@ class GarminClient:
         )
         goal_event = _pick_goal_event(upcoming, plan_id)
 
+        dogs = await self._cached_safe_call("dogs", self.get_dogs) or []
+
         return {
             "lastActivities": trimmed_activities,
             "lastActivity": trimmed_last_activity,
@@ -3538,6 +3655,7 @@ class GarminClient:
             "nextScheduledWorkout": next_workout,
             "trainingPlanGoalEvent": goal_event,
             "upcomingEvents": [_trim_goal_event(e) for e in upcoming],
+            "dogs": dogs,
         }
 
     async def fetch_training_data(

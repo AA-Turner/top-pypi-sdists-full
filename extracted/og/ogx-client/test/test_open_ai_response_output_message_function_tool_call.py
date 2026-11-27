@@ -46,7 +46,8 @@ class TestOpenAIResponseOutputMessageFunctionToolCall(unittest.TestCase):
                 arguments = '',
                 type = 'function_call',
                 id = '',
-                status = ''
+                status = '',
+                namespace = ''
             )
         else:
             return OpenAIResponseOutputMessageFunctionToolCall(

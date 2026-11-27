@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import ipaddress
 import socket
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urljoin, urlsplit
 
 import requests
@@ -14,12 +14,24 @@ from urllib3.connection import HTTPConnection, HTTPSConnection
 from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 from urllib3.exceptions import NewConnectionError
 
+if TYPE_CHECKING:
+    from urllib3._base_connection import BaseHTTPConnection, BaseHTTPSConnection
+
+
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
 MAX_PDF_BYTES = 50 * 1024 * 1024
 MAX_REDIRECTS = 5
 _CHUNK_SIZE = 64 * 1024
 _REDIRECT_STATUSES = {301, 302, 303, 307, 308}
+
+# Known transition formats and the local-use translation prefix (RFC 8215).
+_NAT64_WELL_KNOWN = ipaddress.ip_network("64:ff9b::/96")
+_NAT64_LOCAL_USE = ipaddress.ip_network("64:ff9b:1::/48")
+_IPV4_COMPATIBLE = ipaddress.ip_network("::/96")
+_IPV4_COMPATIBLE_EXCLUDED = frozenset(
+    {ipaddress.IPv6Address("::"), ipaddress.IPv6Address("::1")}
+)
 
 
 class RemoteFetchError(ValueError):
@@ -41,16 +53,51 @@ def _normalized_content_type(value: str | None) -> str | None:
     return value.split(";", 1)[0].strip().lower() or None
 
 
+def _embedded_ipv4(address: ipaddress.IPv6Address) -> tuple[ipaddress.IPv4Address, ...]:
+    """IPv4 addresses an IPv6 transition format carries inside it.
+
+    ``is_global`` judges the wrapper, not the destination, so a transition address
+    embedding a private or link-local IPv4 is reported as globally routable. On a
+    host with NAT64/6to4/Teredo routing the traffic still reaches the embedded IPv4.
+    """
+    embedded: list[ipaddress.IPv4Address] = []
+
+    if address.ipv4_mapped is not None:
+        embedded.append(address.ipv4_mapped)
+    if address.sixtofour is not None:
+        embedded.append(address.sixtofour)
+    if address.teredo is not None:
+        embedded.extend(address.teredo)
+
+    packed = int(address)
+    if address in _NAT64_WELL_KNOWN:
+        embedded.append(ipaddress.IPv4Address(packed & 0xFFFFFFFF))
+    elif address in _IPV4_COMPATIBLE and address not in _IPV4_COMPATIBLE_EXCLUDED:
+        embedded.append(ipaddress.IPv4Address(packed & 0xFFFFFFFF))
+
+    return tuple(embedded)
+
+
 def _validate_public_address(address: str) -> None:
     try:
         parsed = ipaddress.ip_address(address)
     except ValueError as exc:
         raise RemoteFetchError(f"Invalid remote address: {address}") from exc
 
-    if not parsed.is_global or parsed.is_multicast:
-        raise RemoteFetchError(
-            f"Remote media URL resolves to a non-public address: {address}"
-        )
+    candidates: tuple[ipaddress.IPv4Address | ipaddress.IPv6Address, ...] = (parsed,)
+    if isinstance(parsed, ipaddress.IPv6Address):
+        # RFC 8215 permits arbitrary translation layouts within this local prefix.
+        if parsed in _NAT64_LOCAL_USE:
+            raise RemoteFetchError(
+                f"Remote media URL resolves to a non-public address: {address}"
+            )
+        candidates += _embedded_ipv4(parsed)
+
+    for candidate in candidates:
+        if not candidate.is_global or candidate.is_multicast:
+            raise RemoteFetchError(
+                f"Remote media URL resolves to a non-public address: {address}"
+            )
 
 
 def _validate_public_url(url: str) -> None:
@@ -159,12 +206,14 @@ class _PublicHTTPSConnection(_PublicHTTPConnection, HTTPSConnection):
     """HTTPS keeps urllib3's TLS handling with the public-only socket factory."""
 
 
+# urllib3 marks socket defaults final on its concrete classes, while its pool
+# protocols describe the same attribute as writable. The runtime classes match.
 class _PublicHTTPPool(HTTPConnectionPool):
-    ConnectionCls = _PublicHTTPConnection
+    ConnectionCls = cast("type[BaseHTTPConnection]", _PublicHTTPConnection)
 
 
 class _PublicHTTPSPool(HTTPSConnectionPool):
-    ConnectionCls = _PublicHTTPSConnection
+    ConnectionCls = cast("type[BaseHTTPSConnection]", _PublicHTTPSConnection)
 
 
 class _PublicHTTPAdapter(HTTPAdapter):
@@ -235,7 +284,12 @@ def probe_remote_content_type(
     session = _new_session()
     response: requests.Response | None = None
     try:
-        response, _ = _request_with_redirects(session, "HEAD", url, timeout=timeout)
+        try:
+            response, _ = _request_with_redirects(session, "HEAD", url, timeout=timeout)
+        except requests.HTTPError as exc:
+            if exc.response is None or exc.response.status_code not in {405, 501}:
+                raise
+            response, _ = _request_with_redirects(session, "GET", url, timeout=timeout)
         return _normalized_content_type(response.headers.get("Content-Type"))
     finally:
         if response is not None:

@@ -32,6 +32,22 @@ class WorkflowEventType(StrEnum):
     ACTIVITY_TASK_RETRYING = "ACTIVITY_TASK_RETRYING"
     ACTIVITY_TASK_FAILED = "ACTIVITY_TASK_FAILED"
 
+    @property
+    def category(self) -> "WorkflowEventCategory":
+        if self.startswith("CUSTOM_TASK_"):
+            return WorkflowEventCategory.CUSTOM_TASK
+        if self.startswith("ACTIVITY_TASK_"):
+            return WorkflowEventCategory.ACTIVITY
+        return WorkflowEventCategory.WORKFLOW
+
+
+class WorkflowEventCategory(StrEnum):
+    """Groups of events a worker can choose to emit."""
+
+    WORKFLOW = "WORKFLOW"
+    CUSTOM_TASK = "CUSTOM_TASK"
+    ACTIVITY = "ACTIVITY"
+
 
 class EncryptedPatchValue(TypedDict):
     """Wrapper for encrypted patch values in selective json_patch encryption.

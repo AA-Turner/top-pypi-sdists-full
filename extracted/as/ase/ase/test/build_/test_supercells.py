@@ -1,17 +1,26 @@
 import itertools
+from collections.abc import Callable
+from math import acos, cbrt, degrees, sqrt
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 from ase.build import bulk
 from ase.build.supercells import (
+    _get_length_factor,
+    _get_target_metric,
     all_score_funcs,
     find_optimal_cell_shape,
     make_supercell,
 )
 from ase.geometry.cell import cell_to_cellpar
 
-sq2 = np.sqrt(2.0)
+m13 = -1.0 / 3.0
+sq2 = sqrt(2.0)
+sq3 = sqrt(3.0)
+bcc_angle = degrees(acos(-1.0 / 3.0))  # ~109.4712
+fcc_angle = 60.0
 
 
 @pytest.fixture()
@@ -104,23 +113,53 @@ def test_make_supercell_vs_repeat(prim, rep):
     assert all(at1.symbols == at2.symbols)
 
 
-@pytest.mark.parametrize('score_func', all_score_funcs.values())
 @pytest.mark.parametrize(
-    'cell, target_shape',
-    (
-        ([[1, 0, 0], [0, 1, 0], [0, 0, 1]], 'sc'),
-        ([[0, 1, 1], [1, 0, 1], [1, 1, 0]], 'fcc'),
-    ),
+    ('target_shape', 'expected'),
+    [
+        ('sc', np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])),
+        ('bcc', np.array([[1.0, m13, m13], [m13, 1.0, m13], [m13, m13, 1.0]])),
+        ('fcc', np.array([[1.0, 0.5, 0.5], [0.5, 1.0, 0.5], [0.5, 0.5, 1.0]])),
+    ],
 )
-def test_cell_metric_ideal(target_shape, cell, score_func):
+def test_get_target_metric(
+    target_shape: str,
+    expected: npt.NDArray[np.floating],
+) -> None:
+    """Test `_get_length_factor`."""
+    np.testing.assert_allclose(_get_target_metric(target_shape), expected)
+
+
+@pytest.mark.parametrize(
+    ('target_shape', 'expected'),
+    [
+        ('sc', 1.0),
+        ('bcc', 3.0 ** (1.0 / 2.0) * 0.5 * 2.0 ** (1.0 / 3.0)),  # ~1.091
+        ('fcc', 2.0 ** (1.0 / 6.0)),  # ~1.122
+    ],
+)
+def test_get_length_factor(target_shape: str, expected: float) -> None:
+    """Test `_get_length_factor`."""
+    assert _get_length_factor(target_shape) == pytest.approx(expected)
+
+
+def _make_ref_cell(target_shape: str) -> npt.NDArray[np.floating]:
+    ref_cell = {
+        'sc': [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+        'bcc': [[-1, 1, 1], [1, -1, 1], [1, 1, -1]],
+        'fcc': [[0, 1, 1], [1, 0, 1], [1, 1, 0]],
+    }[target_shape]
+    return np.array(ref_cell, dtype=float)
+
+
+@pytest.mark.parametrize('score_func', all_score_funcs.values())
+@pytest.mark.parametrize('target_shape', ['sc', 'bcc', 'fcc'])
+def test_cell_metric_ideal(target_shape: str, score_func: Callable) -> None:
     """Test cell with the ideal shape.
 
-    Test if `get_deviation_from_optimal_cell_shape` returns perfect scores
-    (0.0) for the ideal cells.
+    Test if `score_funcs` returns perfect scores (0.0) for the ideal cells.
     Test also cell vectors with permutation and elongation.
     """
-
-    cell = np.asarray(cell)
+    cell = _make_ref_cell(target_shape)
     indices_permuted = itertools.permutations(range(3))
     elongations = range(1, 4)
     for perm, factor in itertools.product(indices_permuted, elongations):
@@ -130,38 +169,37 @@ def test_cell_metric_ideal(target_shape, cell, score_func):
         assert np.isclose(cell_metric, 0.0)
 
 
-@pytest.mark.parametrize(
-    'cell, target_shape',
-    (
-        ([[1, 0, 0], [0, 1, 0], [0, 0, 2]], 'sc'),
-        ([[0, 1, 1], [1, 0, 1], [2, 2, 0]], 'fcc'),
-    ),
-)
-def test_cell_metric_twice_larger_lattice_vector(cell, target_shape):
+@pytest.mark.parametrize('target_shape', ['sc', 'bcc', 'fcc'])
+def test_cell_metric_twice_larger_lattice_vector(target_shape: str) -> None:
     """Test cell with a twice larger lattice vector than the others.
 
     Test if score function gives a correct value for
     the cells that have a lattice vector twice longer than the others.
     """
+    cell = _make_ref_cell(target_shape)
+    cell[2] *= 2.0
 
-    cb2 = np.cbrt(2.0)
+    cb2 = cbrt(2.0)
 
     # cell_length
     # (ai / a0) - 1.0
     # sqrt((1./cb2 - 1.)**2 + (1./cb2 - 1.)**2 + (2./cb2 - 1.)**2)
     dia1 = (1.0 / cb2 - 1.0) ** 2
     dia2 = (2.0 / cb2 - 1.0) ** 2
-    ref_score_length = np.sqrt(2.0 * dia1 + dia2)
+    ref_score_length = sqrt(2.0 * dia1 + dia2)
 
     # cell_shape
     # (a0 / ai) - 1.0
     dia1 = (1.0 / cb2**2 - 1.0) ** 2
     dia2 = (4.0 / cb2**2 - 1.0) ** 2
-    ang1 = (1.0 / cb2**2 / 2.0 - 0.5) ** 2
-    ang2 = (1.0 / cb2**2 - 0.5) ** 2
+    ang_b1 = (-1.0 / cb2**2 / 3.0 + 1.0 / 3.0) ** 2
+    ang_b2 = (-2.0 / cb2**2 / 3.0 + 1.0 / 3.0) ** 2
+    ang_f1 = (1.0 / cb2**2 / 2.0 - 0.5) ** 2
+    ang_f2 = (1.0 / cb2**2 - 0.5) ** 2
     ref_score_shape = {}
     ref_score_shape['sc'] = 2.0 * dia1 + dia2
-    ref_score_shape['fcc'] = 2.0 * dia1 + dia2 + 2.0 * ang1 + 4.0 * ang2
+    ref_score_shape['bcc'] = 2.0 * dia1 + dia2 + 2.0 * ang_b1 + 4.0 * ang_b2
+    ref_score_shape['fcc'] = 2.0 * dia1 + dia2 + 2.0 * ang_f1 + 4.0 * ang_f2
 
     ref_scores = [ref_score_length, ref_score_shape[target_shape]]
 
@@ -171,8 +209,8 @@ def test_cell_metric_twice_larger_lattice_vector(cell, target_shape):
 
 
 @pytest.mark.parametrize('score_func', all_score_funcs.values())
-@pytest.mark.parametrize('target_shape', ['sc', 'fcc'])
-def test_multiple_cells(target_shape, score_func):
+@pytest.mark.parametrize('target_shape', ['sc', 'bcc', 'fcc'])
+def test_multiple_cells(target_shape: str, score_func: Callable) -> None:
     """Test if multiple cells can be evaluated at one time."""
 
     cells = np.array(
@@ -190,20 +228,14 @@ def test_multiple_cells(target_shape, score_func):
 
 
 @pytest.mark.parametrize('score_func', all_score_funcs.values())
-@pytest.mark.parametrize(
-    'cell, target_shape',
-    (
-        ([[-1, 0, 0], [0, -1, 0], [0, 0, -1]], 'sc'),
-        ([[0, -1, -1], [-1, 0, -1], [-1, -1, 0]], 'fcc'),
-    ),
-)
-def test_cell_metric_negative_determinant(cell, target_shape, score_func):
-    """Test cell with negative determinant.
-
-    Test if `get_deviation_from_optimal_cell_shape` works for the cells with
-    negative determinants.
-    """
-
+@pytest.mark.parametrize('target_shape', ['sc', 'bcc', 'fcc'])
+def test_cell_metric_negative_determinant(
+    target_shape: str,
+    score_func: Callable,
+) -> None:
+    """Test if `score_func` works for cells with negative determinants."""
+    cell = _make_ref_cell(target_shape)
+    cell *= -1.0
     cell_metric = score_func(cell, target_shape)
     assert np.isclose(cell_metric, 0.0)
 
@@ -213,22 +245,20 @@ def test_cell_metric_negative_determinant(cell, target_shape, score_func):
     'cell, target_shape, target_size, ref_cellpar',
     [
         (np.diag([1.0, 2.0, 4.0]), 'sc', 8, [4.0, 4.0, 4.0, 90.0, 90.0, 90.0]),
-        (
-            [[0, 1, 1], [1, 0, 1], [1, 1, 0]],
-            'sc',
-            4,
-            [2.0, 2.0, 2.0, 90.0, 90.0, 90.0],
-        ),
-        (np.eye(3), 'fcc', 2, [sq2, sq2, sq2, 60.0, 60.0, 60.0]),
+        (_make_ref_cell('bcc'), 'sc', 2, [2.0, 2.0, 2.0, 90.0, 90.0, 90.0]),
+        (_make_ref_cell('fcc'), 'sc', 4, [2.0, 2.0, 2.0, 90.0, 90.0, 90.0]),
+        (np.eye(3), 'bcc', 4, [sq3, sq3, sq3, bcc_angle, bcc_angle, bcc_angle]),
+        (np.eye(3), 'fcc', 2, [sq2, sq2, sq2, fcc_angle, fcc_angle, fcc_angle]),
     ],
 )
 def test_find_optimal_cell_shape(
-    cell, target_shape, target_size, ref_cellpar, score_key
-):
-    """Test `find_optimal_cell_shape`.
-
-    We test from sc to sc; from sc to fcc; and from fcc to sc."""
-
+    cell,
+    target_shape: str,
+    target_size: int,
+    ref_cellpar: list[float],
+    score_key: str,
+) -> None:
+    """Test `find_optimal_cell_shape`."""
     sc_matrix = find_optimal_cell_shape(
         cell,
         target_size,
@@ -255,22 +285,18 @@ def test_find_optimal_cell_shape(
 @pytest.mark.parametrize(
     'cell, target_shape, target_size, sc_matrix_ref',
     [
-        (
-            [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-            'fcc',
-            2,
-            [[0, 1, 1], [1, 0, 1], [1, 1, 0]],
-        ),
-        (
-            [[0, 1, 1], [1, 0, 1], [1, 1, 0]],
-            'sc',
-            4,
-            [[-1, 1, 1], [1, -1, 1], [1, 1, -1]],
-        ),
+        (_make_ref_cell('sc'), 'fcc', 2, [[0, 1, 1], [1, 0, 1], [1, 1, 0]]),
+        (_make_ref_cell('sc'), 'bcc', 4, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]]),
+        (_make_ref_cell('bcc'), 'sc', 2, [[0, 1, 1], [1, 0, 1], [1, 1, 0]]),
+        (_make_ref_cell('fcc'), 'sc', 4, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]]),
     ],
 )
 def test_ideal_orientation(
-    cell, target_shape, target_size, sc_matrix_ref, score_key
+    cell,
+    target_shape: str,
+    target_size: int,
+    sc_matrix_ref: list,
+    score_key: str,
 ) -> None:
     """Test if the ideal orientation is selected among candidates."""
 

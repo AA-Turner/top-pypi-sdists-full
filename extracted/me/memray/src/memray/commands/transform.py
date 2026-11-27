@@ -3,17 +3,14 @@ import importlib.util
 import shutil
 import sys
 
-from rich import print as pprint
-
 from memray._errors import MemrayCommandError
 
 from ..reporters.transform import TransformReporter
+from ._parse_args import TRANSFORM_SUFFIX_MAP
 from .common import HighWatermarkCommand
 
 
 class TransformCommand(HighWatermarkCommand):
-    """Generate reports files in different formats"""
-
     def __init__(self) -> None:
         super().__init__(
             reporter_factory=lambda *args, **kwargs: TransformReporter(
@@ -22,21 +19,19 @@ class TransformCommand(HighWatermarkCommand):
             reporter_name="transform",
         )
 
-    def prepare_parser(self, parser: argparse.ArgumentParser) -> None:
-        formats = ", ".join(TransformReporter.SUFFIX_MAP)
-        parser.add_argument(
-            "format",
-            help=f"Format to use for the report. Available formats: {formats}",
-        )
-        super().prepare_parser(parser)
-
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         the_format = args.format.lower()
-        suffix = TransformReporter.SUFFIX_MAP.get(the_format)
+        suffix = TRANSFORM_SUFFIX_MAP.get(the_format)
         if not suffix:
             raise MemrayCommandError(
                 f"Format not supported: {args.format}", exit_code=1
             )
+
+        # The csv format exists to be machine-parsed, and it has dedicated tid
+        # and thread_name columns, so we keep each thread's allocations on their
+        # own row instead of merging them across threads. Every other format is
+        # meant for human consumption and always merges threads.
+        args.split_threads = the_format == "csv"
 
         self.suffix = suffix
         self.reporter_name = the_format
@@ -47,6 +42,8 @@ class TransformCommand(HighWatermarkCommand):
             post_run_callable()
 
     def post_run_gprof2dot(self) -> None:
+        from rich import print as pprint
+
         assert self.output_file is not None
         command = ""
         if shutil.which("gprof2dot") is not None:

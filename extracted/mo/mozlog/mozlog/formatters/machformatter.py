@@ -403,6 +403,44 @@ class MachFormatter(base.BaseFormatter):
 
         return "%s LeakSanitizer: leak at %s" % (prefix, ", ".join(data["frames"]))
 
+    def tsan_error(self, data):
+        prefix = self.color_formatter.warning("WARNING")
+        return f"{prefix} ThreadSanitizer: {data['kind']} | {data['signature']}"
+
+    def assertion_failure(self, data):
+        if data.get("fatal"):
+            prefix = self.color_formatter.error("ERROR")
+        else:
+            prefix = self.color_formatter.warning("WARNING")
+        location = ""
+        if data.get("file"):
+            location = f" [{data['file']}:{data.get('lineno')}]"
+        return f"{prefix} {data['kind']}: {data['message']}{location}"
+
+    def ubsan_error(self, data):
+        prefix = self.color_formatter.warning("WARNING")
+        location = ""
+        if data.get("file"):
+            location = data["file"]
+            if data.get("lineno") is not None:
+                location += f":{data['lineno']}"
+                if data.get("column") is not None:
+                    location += f":{data['column']}"
+            location = f" [{location}]"
+        return f"{prefix} UndefinedBehaviorSanitizer: {data['message']}{location}"
+
+    def asan_error(self, data):
+        prefix = self.color_formatter.error("ERROR")
+        location = ""
+        if data.get("file"):
+            location = data["file"]
+            if data.get("lineno") is not None:
+                location += f":{data['lineno']}"
+                if data.get("column") is not None:
+                    location += f":{data['column']}"
+            location = f" [{location}]"
+        return f"{prefix} AddressSanitizer: {data['message']}{location}"
+
     def lsan_summary(self, data):
         allowed = data.get("allowed", False)
         if allowed:
@@ -421,7 +459,7 @@ class MachFormatter(base.BaseFormatter):
         data_log["level"] = "INFO"
         data_log["message"] = "leakcheck: %s leaked %d %s" % (
             data["process"],
-            data["bytes"],
+            data["count"],
             data["name"],
         )
         return self.log(data_log)
@@ -551,11 +589,11 @@ class MachFormatter(base.BaseFormatter):
                     % data["stackwalk_returncode"]
                 )
 
+            if data.get("stackwalk_stdout"):
+                rv.append(data["stackwalk_stdout"])
             if data.get("stackwalk_stderr"):
                 rv.append("stderr from minidump-stackwalk:")
                 rv.append(data["stackwalk_stderr"])
-            elif data.get("stackwalk_stdout"):
-                rv.append(data["stackwalk_stdout"])
 
             if data.get("stackwalk_errors"):
                 rv.extend(data.get("stackwalk_errors"))

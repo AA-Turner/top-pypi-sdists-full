@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-deep
-Version: 0.3.50
+Version: 0.4.2
 Summary: Batteries-included agent harness for Python — tool-calling, sandboxed execution, multi-agent teams, and unlimited context on Pydantic AI
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-deepagents
 Project-URL: Documentation, https://vstorm-co.github.io/pydantic-deepagents/
@@ -16,26 +16,26 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11.5
 Requires-Dist: chardet>=5.0.0
-Requires-Dist: pydantic-ai-backend[console,workspaces]>=0.2.33
-Requires-Dist: pydantic-ai-harness>=0.52.0
+Requires-Dist: pydantic-ai-backend[console,workspaces]>=0.2.41
+Requires-Dist: pydantic-ai-harness<0.76,>=0.75.0
 Requires-Dist: pydantic-ai-shields>=0.3.4
-Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]>=2.52.0
+Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]>=2.75.0
 Requires-Dist: pydantic-ai-todo>=0.2.7
-Requires-Dist: pydantic>=2.0
+Requires-Dist: pydantic>=2.12
+Requires-Dist: soupsieve>=4.0.0
 Requires-Dist: subagents-pydantic-ai>=0.2.25
 Requires-Dist: summarization-pydantic-ai>=0.1.11
 Provides-Extra: acp
-Requires-Dist: agent-client-protocol>=0.8.0; extra == 'acp'
+Requires-Dist: agent-client-protocol<2,>=1.1; extra == 'acp'
 Provides-Extra: all
-Requires-Dist: agent-client-protocol>=0.8.0; extra == 'all'
+Requires-Dist: agent-client-protocol<2,>=1.1; extra == 'all'
 Requires-Dist: fastapi>=0.125.0; extra == 'all'
 Requires-Dist: html2text>=2020.1; extra == 'all'
 Requires-Dist: liteparse<2.0.0,>=1.1.0; extra == 'all'
@@ -43,17 +43,16 @@ Requires-Dist: logfire>=4.0; extra == 'all'
 Requires-Dist: pillow>=10.0.0; extra == 'all'
 Requires-Dist: playwright>=1.40.0; extra == 'all'
 Requires-Dist: prompt-toolkit>=3.0.0; extra == 'all'
-Requires-Dist: py-key-value-aio[disk]>=0.4.5; extra == 'all'
-Requires-Dist: pydantic-ai-backend[docker,workspaces]>=0.2.33; extra == 'all'
-Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.52.0; extra == 'all'
-Requires-Dist: pydantic-ai-slim[google]>=2.52.0; extra == 'all'
-Requires-Dist: pydantic-ai-slim[mcp]>=2.52.0; extra == 'all'
+Requires-Dist: py-key-value-aio[filetree]>=0.5.0; extra == 'all'
+Requires-Dist: pydantic-ai-backend[docker,workspaces]>=0.2.41; extra == 'all'
+Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.75.0; extra == 'all'
+Requires-Dist: pydantic-ai-slim[google]>=2.75.0; extra == 'all'
+Requires-Dist: pydantic-ai-slim[mcp]>=2.75.0; extra == 'all'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'all'
 Requires-Dist: python-multipart>=0.0.21; extra == 'all'
 Requires-Dist: pyyaml>=6.0; extra == 'all'
 Requires-Dist: rich>=13.0.0; extra == 'all'
 Requires-Dist: textual>=3.0.0; extra == 'all'
-Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'all'
 Requires-Dist: typer>=0.12.0; extra == 'all'
 Requires-Dist: uvicorn>=0.38.0; extra == 'all'
 Provides-Extra: browser
@@ -62,29 +61,27 @@ Requires-Dist: playwright>=1.40.0; extra == 'browser'
 Provides-Extra: cli
 Requires-Dist: pillow>=10.0.0; extra == 'cli'
 Requires-Dist: prompt-toolkit>=3.0.0; extra == 'cli'
-Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.52.0; extra == 'cli'
+Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.75.0; extra == 'cli'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'cli'
 Requires-Dist: rich>=13.0.0; extra == 'cli'
 Requires-Dist: textual>=3.0.0; extra == 'cli'
-Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'cli'
 Requires-Dist: typer>=0.12.0; extra == 'cli'
 Provides-Extra: google
-Requires-Dist: pydantic-ai-slim[google]>=2.52.0; extra == 'google'
+Requires-Dist: pydantic-ai-slim[google]>=2.75.0; extra == 'google'
 Provides-Extra: liteparse
 Requires-Dist: liteparse<2.0.0,>=1.1.0; extra == 'liteparse'
 Provides-Extra: logfire
 Requires-Dist: logfire>=4.0; extra == 'logfire'
 Provides-Extra: mcp
-Requires-Dist: py-key-value-aio[disk]>=0.4.5; extra == 'mcp'
-Requires-Dist: pydantic-ai-slim[mcp]>=2.52.0; extra == 'mcp'
+Requires-Dist: py-key-value-aio[filetree]>=0.5.0; extra == 'mcp'
+Requires-Dist: pydantic-ai-slim[mcp]>=2.75.0; extra == 'mcp'
 Provides-Extra: sandbox
-Requires-Dist: pydantic-ai-backend[docker,workspaces]>=0.2.33; extra == 'sandbox'
+Requires-Dist: pydantic-ai-backend[docker,workspaces]>=0.2.41; extra == 'sandbox'
 Provides-Extra: tui
-Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.52.0; extra == 'tui'
+Requires-Dist: pydantic-ai-slim[anthropic,duckduckgo,openai,openrouter,web-fetch]>=2.75.0; extra == 'tui'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'tui'
 Requires-Dist: rich>=13.0.0; extra == 'tui'
 Requires-Dist: textual>=3.0.0; extra == 'tui'
-Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'tui'
 Requires-Dist: typer>=0.12.0; extra == 'tui'
 Provides-Extra: web
 Requires-Dist: fastapi>=0.125.0; extra == 'web'
@@ -127,7 +124,7 @@ Description-Content-Type: text/markdown
   <a href="https://pypi.org/project/pydantic-deep/"><img src="https://img.shields.io/pypi/v/pydantic-deep.svg" alt="PyPI version"></a>
   <a href="https://pepy.tech/projects/pydantic-deep"><img src="https://static.pepy.tech/badge/pydantic-deep/month" alt="PyPI Downloads"></a>
   <a href="https://github.com/vstorm-co/pydantic-deepagents/stargazers"><img src="https://img.shields.io/github/stars/vstorm-co/pydantic-deepagents?style=flat&logo=github&color=yellow" alt="GitHub Stars"></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=white" alt="Python 3.10+"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11.5+-blue?logo=python&logoColor=white" alt="Python 3.11.5+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://coveralls.io/github/vstorm-co/pydantic-deepagents?branch=main"><img src="https://coveralls.io/repos/github/vstorm-co/pydantic-deepagents/badge.svg?branch=main" alt="Coverage Status"></a>
   <a href="https://github.com/vstorm-co/pydantic-deepagents/actions/workflows/ci.yml"><img src="https://github.com/vstorm-co/pydantic-deepagents/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -580,7 +577,8 @@ Web search (Tavily, Brave, Jina), sandboxed code execution, Excalidraw diagrams,
 
 ```bash
 cd apps/deepresearch && uv sync && cp .env.example .env
-uv run deepresearch    # → http://localhost:8080
+# Set DEEPRESEARCH_PASSWORD and your model API key in .env before starting.
+uv run deepresearch    # http://localhost:8080, sign in as deepresearch
 ```
 
 > See [apps/deepresearch/README.md](apps/deepresearch/README.md) for full setup.

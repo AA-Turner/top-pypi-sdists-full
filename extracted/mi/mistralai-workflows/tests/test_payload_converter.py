@@ -1,3 +1,5 @@
+from typing import Any
+
 import temporalio.api.common.v1
 from pydantic import BaseModel
 from pydantic_core import to_json
@@ -16,7 +18,7 @@ class MyModel(BaseModel):
     value: int
 
 
-def _make_payload_with_context(payload_data: dict, encoding: str) -> temporalio.api.common.v1.Payload:
+def _make_payload_with_context(payload_data: Any, encoding: str) -> temporalio.api.common.v1.Payload:
     """Build a Temporal Payload mimicking what the SDK produces.
 
     The inner payload must be JSON-encoded bytes inside the PayloadWithContext
@@ -67,6 +69,31 @@ class TestWithContextJSONPayloadConverter:
         assert isinstance(result.payload, MyModel)
         assert result.payload.name == "test"
         assert result.payload.value == 42
+
+    def test_from_payload_null_with_scalar_type_hint_keeps_null(self):
+        # A null activity result under a non-nullable scalar hint (e.g. the
+        # bool-typed internal registration activity on replayed histories)
+        # must decode to None, not raise and fail the workflow task.
+        converter = WithContextJSONPayloadConverter()
+        payload = _make_payload_with_context(None, CUSTOM_ENCODING_FORMAT)
+
+        result = converter.from_payload(payload, type_hint=bool)
+        assert isinstance(result, PayloadWithContext)
+        assert result.payload is None
+
+    def test_from_payload_null_with_dict_hint_yields_empty_dict(self):
+        converter = WithContextJSONPayloadConverter()
+        payload = _make_payload_with_context(None, CUSTOM_ENCODING_FORMAT)
+
+        result = converter.from_payload(payload, type_hint=dict)
+        assert result.payload == {}
+
+    def test_from_payload_null_without_type_hint(self):
+        converter = WithContextJSONPayloadConverter()
+        payload = _make_payload_with_context(None, CUSTOM_ENCODING_FORMAT)
+
+        result = converter.from_payload(payload)
+        assert result.payload is None
 
 
 class TestLegacyWithContextJSONPayloadConverter:

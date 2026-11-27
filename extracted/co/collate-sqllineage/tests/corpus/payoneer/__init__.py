@@ -1,1 +1,0 @@
-"""Payoneer test corpus."""

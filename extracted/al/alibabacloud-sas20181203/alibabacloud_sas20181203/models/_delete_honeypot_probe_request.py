@@ -10,14 +10,12 @@ class DeleteHoneypotProbeRequest(DaraModel):
         lang: str = None,
         probe_id: str = None,
     ):
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
+        # The language of the request and response messages. Default value: **zh**. Valid values:
         # 
-        # *   **zh**: Chinese.
-        # *   **en**: English.
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
-        # The ID of the probe.
-        # 
-        # > You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to query the IDs of probes.
+        # The probe ID. You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to obtain this parameter.
         # 
         # This parameter is required.
         self.probe_id = probe_id

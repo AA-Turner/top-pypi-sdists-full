@@ -10,10 +10,10 @@ class GetAttackPathSensitiveAssetConfigRequest(DaraModel):
         attack_path_sensitive_asset_config_id: str = None,
         config_type: str = None,
     ):
-        # The ID of the attack path sensitive asset configuration.
+        # The ID of the sensitive asset setting for the attack path.
         self.attack_path_sensitive_asset_config_id = attack_path_sensitive_asset_config_id
         # The configuration type. Valid values:
-        # - asset_instance: asset.
+        # - asset_instance: Asset.
         # 
         # This parameter is required.
         self.config_type = config_type

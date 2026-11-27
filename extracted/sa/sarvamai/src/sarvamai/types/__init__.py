@@ -139,6 +139,12 @@ if typing.TYPE_CHECKING:
     from .doc_ai_parse_results import DocAiParseResults
     from .doc_ai_parse_results_documents_item import DocAiParseResultsDocumentsItem
     from .doc_ai_parse_results_documents_item_pages_item import DocAiParseResultsDocumentsItemPagesItem
+    from .doc_ai_parse_results_documents_item_pages_item_blocks_item import (
+        DocAiParseResultsDocumentsItemPagesItemBlocksItem,
+    )
+    from .doc_ai_parse_results_documents_item_pages_item_blocks_item_coordinates import (
+        DocAiParseResultsDocumentsItemPagesItemBlocksItemCoordinates,
+    )
     from .doc_ai_presign_upload_response import DocAiPresignUploadResponse
     from .doc_ai_processor import DocAiProcessor
     from .doc_ai_review_policy import DocAiReviewPolicy
@@ -291,6 +297,7 @@ if typing.TYPE_CHECKING:
     from .responses_model_ids import ResponsesModelIds
     from .role import Role
     from .sarvam_model_ids import SarvamModelIds
+    from .segment_timestamp import SegmentTimestamp
     from .send_text import SendText
     from .send_text_data import SendTextData
     from .speech_sample_rate import SpeechSampleRate
@@ -341,6 +348,7 @@ if typing.TYPE_CHECKING:
     from .text_to_speech_output_audio_codec import TextToSpeechOutputAudioCodec
     from .text_to_speech_response import TextToSpeechResponse
     from .text_to_speech_speaker import TextToSpeechSpeaker
+    from .timestamp_granularity import TimestampGranularity
     from .timestamps_model import TimestampsModel
     from .tool_choice_option import ToolChoiceOption
     from .transcription_metrics import TranscriptionMetrics
@@ -388,6 +396,7 @@ if typing.TYPE_CHECKING:
     from .voice_library_voice import VoiceLibraryVoice
     from .watermark_detect_data import WatermarkDetectData
     from .watermark_detect_response import WatermarkDetectResponse
+    from .word_timestamp import WordTimestamp
 _dynamic_imports: typing.Dict[str, str] = {
     "AudioData": ".audio_data",
     "AudioMessage": ".audio_message",
@@ -524,6 +533,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocAiParseResults": ".doc_ai_parse_results",
     "DocAiParseResultsDocumentsItem": ".doc_ai_parse_results_documents_item",
     "DocAiParseResultsDocumentsItemPagesItem": ".doc_ai_parse_results_documents_item_pages_item",
+    "DocAiParseResultsDocumentsItemPagesItemBlocksItem": ".doc_ai_parse_results_documents_item_pages_item_blocks_item",
+    "DocAiParseResultsDocumentsItemPagesItemBlocksItemCoordinates": ".doc_ai_parse_results_documents_item_pages_item_blocks_item_coordinates",
     "DocAiPresignUploadResponse": ".doc_ai_presign_upload_response",
     "DocAiProcessor": ".doc_ai_processor",
     "DocAiReviewPolicy": ".doc_ai_review_policy",
@@ -674,6 +685,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResponsesModelIds": ".responses_model_ids",
     "Role": ".role",
     "SarvamModelIds": ".sarvam_model_ids",
+    "SegmentTimestamp": ".segment_timestamp",
     "SendText": ".send_text",
     "SendTextData": ".send_text_data",
     "SpeechSampleRate": ".speech_sample_rate",
@@ -725,6 +737,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TextToSpeechOutputAudioCodec": ".text_to_speech_output_audio_codec",
     "TextToSpeechResponse": ".text_to_speech_response",
     "TextToSpeechSpeaker": ".text_to_speech_speaker",
+    "TimestampGranularity": ".timestamp_granularity",
     "TimestampsModel": ".timestamps_model",
     "ToolChoiceOption": ".tool_choice_option",
     "TranscriptionMetrics": ".transcription_metrics",
@@ -766,6 +779,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VoiceLibraryVoice": ".voice_library_voice",
     "WatermarkDetectData": ".watermark_detect_data",
     "WatermarkDetectResponse": ".watermark_detect_response",
+    "WordTimestamp": ".word_timestamp",
 }
 
 
@@ -926,6 +940,8 @@ __all__ = [
     "DocAiParseResults",
     "DocAiParseResultsDocumentsItem",
     "DocAiParseResultsDocumentsItemPagesItem",
+    "DocAiParseResultsDocumentsItemPagesItemBlocksItem",
+    "DocAiParseResultsDocumentsItemPagesItemBlocksItemCoordinates",
     "DocAiPresignUploadResponse",
     "DocAiProcessor",
     "DocAiReviewPolicy",
@@ -1076,6 +1092,7 @@ __all__ = [
     "ResponsesModelIds",
     "Role",
     "SarvamModelIds",
+    "SegmentTimestamp",
     "SendText",
     "SendTextData",
     "SpeechSampleRate",
@@ -1127,6 +1144,7 @@ __all__ = [
     "TextToSpeechOutputAudioCodec",
     "TextToSpeechResponse",
     "TextToSpeechSpeaker",
+    "TimestampGranularity",
     "TimestampsModel",
     "ToolChoiceOption",
     "TranscriptionMetrics",
@@ -1168,4 +1186,5 @@ __all__ = [
     "VoiceLibraryVoice",
     "WatermarkDetectData",
     "WatermarkDetectResponse",
+    "WordTimestamp",
 ]

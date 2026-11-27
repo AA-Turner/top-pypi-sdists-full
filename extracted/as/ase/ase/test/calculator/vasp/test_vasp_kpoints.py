@@ -4,9 +4,11 @@ Check the many ways of specifying KPOINTS
 
 import os
 
+import numpy as np
 import pytest
 
 from ase.build import bulk
+from ase.calculators.vasp import Vasp
 from ase.calculators.vasp.create_input import format_kpoints
 
 from .filecmp_ignore_whitespace import filecmp_ignore_whitespace
@@ -90,6 +92,18 @@ def test_negative_kspacing_error(factory, write_kpoints):
         write_kpoints(factory, kspacing=-0.5)
 
 
+@pytest.mark.parametrize('key', ['kspacing', 'kspacing_opt'])
+@pytest.mark.parametrize('kspacing', [-0.5, 0.0])
+def test_nonpositive_kspacing_error(atoms, tmp_path, key, kspacing):
+    spacing = {'kspacing': 0.3, 'kspacing_opt': 0.1}
+    spacing[key] = kspacing
+    calc = Vasp(**spacing, kpts_opt=(6, 6, 6))
+    with pytest.raises(
+        ValueError, match=f'{key.upper()} value .* is not allowable'
+    ):
+        calc.write_kpoints(atoms, directory=tmp_path)
+
+
 def test_weighted(atoms, testdir):
     # Explicit weighted points with nested lists, Cartesian if not specified
     string = format_kpoints(
@@ -142,3 +156,85 @@ def test_bandpath(atoms):
     check_kpoints_string(string, 2, 'Reciprocal')
     check_kpoints_string(string, 3, '0.000000 0.000000 0.000000 1.0')
     check_kpoints_string(string, 102, '0.500000 0.500000 0.500000 1.0')
+
+
+@pytest.mark.parametrize(
+    'kpts_opt',
+    [
+        (6, 6, 6),
+        20,
+        {'path': 'GX', 'npoints': 10},
+        [[0.0, 0.0, 0.0, 1.0], [0.5, 0.0, 0.0, 2.0]],
+    ],
+)
+def test_kpoints_opt(atoms, tmp_path, kpts_opt):
+    calc = Vasp(
+        kpts=(2, 2, 2), kpts_opt=kpts_opt, gamma=True, reciprocal_opt=True
+    )
+    calc.write_kpoints(atoms, directory=tmp_path)
+    assert (tmp_path / 'KPOINTS').read_text() == format_kpoints(
+        (2, 2, 2), atoms, gamma=True
+    )
+    assert (tmp_path / 'KPOINTS_OPT').read_text() == format_kpoints(
+        kpts_opt, atoms, reciprocal=True
+    )
+    restored = Vasp(gamma_opt=True)
+    restored.read_kpoints(tmp_path / 'KPOINTS')
+    restored.read_kpoints(tmp_path / 'KPOINTS_OPT', opt=True)
+    assert tuple(restored.input_params['kpts']) == (2, 2, 2)
+    assert restored.input_params['gamma']
+    restored.write_kpoints(atoms, directory=tmp_path)
+    actual = (tmp_path / 'KPOINTS_OPT').read_text().splitlines()
+    expected = format_kpoints(kpts_opt, atoms, reciprocal=True).splitlines()
+    assert actual[:3] == expected[:3]
+    np.testing.assert_allclose(
+        [float(x) for line in actual[3:] for x in line.split()],
+        [float(x) for line in expected[3:] for x in line.split()],
+    )
+
+
+@pytest.mark.parametrize('scf_spacing', [None, 0.3])
+@pytest.mark.parametrize('opt_spacing', [None, 0.1])
+def test_kspacing_opt(atoms, tmp_path, scf_spacing, opt_spacing):
+    spacing = {
+        key: value
+        for key, value in (
+            ('kspacing', scf_spacing),
+            ('kspacing_opt', opt_spacing),
+        )
+        if value is not None
+    }
+    calc = Vasp(
+        **spacing,
+        kpts_opt=(6, 6, 6),
+        lkpoints_opt=True,
+        kpoints_opt_nkbatch=4,
+        kpoints_opt_mode=1,
+    )
+    calc.write_kpoints(atoms, directory=tmp_path)
+    assert (tmp_path / 'KPOINTS').exists() == (scf_spacing is None)
+    assert (tmp_path / 'KPOINTS_OPT').exists() == (opt_spacing is None)
+    calc.spinpol = False
+    calc.sort = np.arange(len(atoms))
+    calc.write_incar(atoms, directory=tmp_path)
+    restored = Vasp()
+    restored.read_incar(tmp_path / 'INCAR')
+    assert restored.float_params.get('kspacing_opt') == opt_spacing
+    assert restored.bool_params['lkpoints_opt']
+    assert restored.int_params['kpoints_opt_nkbatch'] == 4
+    assert restored.int_params['kpoints_opt_mode'] == 1
+    restored.read_kpoints(tmp_path / 'KPOINTS')
+    restored.read_kpoints(tmp_path / 'KPOINTS_OPT', opt=True)
+    assert (restored.input_params['kpts_opt'] is None) == (
+        opt_spacing is not None
+    )
+    if opt_spacing is None:
+        np.testing.assert_array_equal(
+            restored.input_params['kpts_opt'], (6, 6, 6)
+        )
+
+
+def test_no_kpoints_opt_by_default(atoms, tmp_path):
+    Vasp().write_kpoints(atoms, directory=tmp_path)
+    assert (tmp_path / 'KPOINTS').is_file()
+    assert not (tmp_path / 'KPOINTS_OPT').exists()

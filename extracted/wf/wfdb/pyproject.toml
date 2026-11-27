@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wfdb"
-version = "5.3.0"
+version = "5.5.1"
 description = "Read, write, plot, and process physiologic waveforms and annotations."
 license = "MIT"
 license-files = ["LICENSE"]
@@ -26,6 +26,9 @@ dependencies = [
 name = "The Laboratory for Computational Physiology"
 email = "contact@physionet.org"
 
+[project.scripts]
+wfdb = "wfdb.cli:main"
+
 [project.urls]
 homepage = "https://github.com/MIT-LCP/wfdb-python/"
 repository = "https://github.com/MIT-LCP/wfdb-python/"
@@ -46,6 +49,9 @@ docs = [
     "numpydoc==1.11.0",
     "sphinx==9.0.4",
 ]
+
+[tool.uv]
+constraint-dependencies = ["fonttools!=4.69.0"]
 
 [tool.towncrier]
 directory = "changelog.d"

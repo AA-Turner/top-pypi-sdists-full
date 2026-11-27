@@ -8,12 +8,16 @@ class CreateServiceTrailRequest(DaraModel):
     def __init__(
         self,
         region_id: str = None,
+        resource_directory_account_id: int = None,
     ):
-        # The region ID of the instance to query. Valid values:
+        # The ID of the region where the instance to query resides. Valid values:
         # 
-        # - **cn-hangzhou** (default): Chinese mainland.
-        # - **ap-southeast-1**: outside the Chinese mainland.
+        # - **cn-hangzhou** (default): China.
+        # - **ap-southeast-1**: Global (excluding China).
         self.region_id = region_id
+        # The ID of the member accounts in the resource folder. The ID is an Alibaba Cloud account ID.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to query the value of this parameter.
+        self.resource_directory_account_id = resource_directory_account_id
 
     def validate(self):
         pass
@@ -26,12 +30,18 @@ class CreateServiceTrailRequest(DaraModel):
         if self.region_id is not None:
             result['RegionId'] = self.region_id
 
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         return result
 
     def from_map(self, m: dict = None):
         m = m or dict()
         if m.get('RegionId') is not None:
             self.region_id = m.get('RegionId')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         return self
 

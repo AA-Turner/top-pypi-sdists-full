@@ -32,6 +32,7 @@ from pgqueuer.domain.types import (
     SortOrder,
 )
 from pgqueuer.ports import tracing
+from pgqueuer.ports.driver import NotifyCallback
 from pgqueuer.ports.repository import EntrypointExecutionParameter
 from pgqueuer.ports.tracing import TracingProtocol
 
@@ -82,6 +83,9 @@ class InMemoryQueries:
         pass
 
     async def upgrade(self) -> None:
+        pass
+
+    async def verify_schema(self) -> None:
         pass
 
     async def uninstall(self) -> None:
@@ -379,21 +383,27 @@ class InMemoryQueries:
 
     async def notify_job_cancellation(self, ids: list[JobId]) -> None:
         event = models.CancellationEvent(
-            channel=self.qbq.settings.channel,
+            channel=self.settings.channel,
             ids=ids,
             sent_at=utc_now(),
             type="cancellation_event",
         )
-        await self.driver.notify(self.qbq.settings.channel, event.model_dump_json())
+        await self.driver.notify(self.settings.channel, event.model_dump_json())
+
+    async def add_listener(self, channel: str, callback: NotifyCallback) -> None:
+        await self.driver.add_listener(channel, callback)
+
+    async def remove_listener(self, channel: str, callback: NotifyCallback) -> None:
+        await self.driver.remove_listener(channel, callback)
 
     async def notify_health_check(self, health_check_event_id: HealthCheckId) -> None:
         event = models.HealthCheckEvent(
-            channel=self.qbq.settings.channel,
+            channel=self.settings.channel,
             sent_at=utc_now(),
             type="health_check_event",
             id=health_check_event_id,
         )
-        await self.driver.notify(self.qbq.settings.channel, event.model_dump_json())
+        await self.driver.notify(self.settings.channel, event.model_dump_json())
 
     async def insert_schedule(
         self,
@@ -511,7 +521,7 @@ class InMemoryQueries:
         return self.logs.unaggregated_count()
 
     async def schema_info(self) -> list[models.TableInfo]:
-        names = self.qbq.settings
+        names = self.settings
         tables = [
             (names.queue_table, len(self.job_table.rows)),
             (names.queue_table_log, len(self.logs.rows)),
@@ -532,11 +542,11 @@ class InMemoryQueries:
         # Same keys as the Postgres trigger; the listener stamps received_at on parse.
         payload = to_json(
             {
-                "channel": self.qbq.settings.channel,
+                "channel": self.settings.channel,
                 "operation": operation,
                 "sent_at": utc_now(),
-                "table": self.qbe.settings.queue_table,
+                "table": self.settings.queue_table,
                 "type": "table_changed_event",
             }
         ).decode()
-        await self.driver.notify(self.qbq.settings.channel, payload)
+        await self.driver.notify(self.settings.channel, payload)

@@ -13,14 +13,12 @@ class DescribePropertyTypeScaItemRequest(DaraModel):
     ):
         # The number of the page to return. Default value: 1.
         self.current_page = current_page
-        # The language of the content within the request and response. Valid values:
-        # 
-        # *   **zh**: Chinese
-        # *   **en**: English
+        # The language of the request and response. Valid values:
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
-        # The number of entries to return on each page. Default value: 20. If you leave this parameter empty, 20 entries are returned on each page.
-        # 
-        # >  We recommend that you do not leave this parameter empty.
+        # The paging size, which specifies the maximum number of entries to return per page in a paged query. Default value: 20. If you leave this parameter empty, 20 entries are returned.
+        # > Specify a value for this parameter.
         self.page_size = page_size
 
     def validate(self):

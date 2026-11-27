@@ -9,7 +9,7 @@ class DeleteVpcHoneyPotRequest(DaraModel):
         self,
         vpc_id: str = None,
     ):
-        # The VPC ID of the honeypot instance that you want to delete.
+        # The VPC ID of the honeypot instance to be deleted.
         # 
         # > You can call the [DescribeVpcHoneyPotList](~~DescribeVpcHoneyPotList~~) operation to obtain the VPC ID of the honeypot instance.
         # 

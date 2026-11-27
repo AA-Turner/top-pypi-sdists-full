@@ -30,12 +30,22 @@ class DocAiExtractResults(UniversalBaseModel):
 
     annotations: typing.Dict[str, typing.Any] = pydantic.Field()
     """
-    Mirrors `result`, with each leaf replaced by its `confidence` and `sources`.
+    Mirrors `result`, with each leaf replaced by its `confidence` (0 to 1) and `sources` (`page_num`, `filename` and a `bbox_norm` box as `[x1, y1, x2, y2]`, each from 0 to 1). A field that was not found has `confidence` 0 and no sources.
     """
 
     version: int = pydantic.Field()
     """
     Version of the schema or config used.
+    """
+
+    source_map: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    """
+    Maps each `document_id` used in `annotations[].sources` to its file.
+    """
+
+    documents: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = pydantic.Field(default=None)
+    """
+    One entry per input file.
     """
 
     if IS_PYDANTIC_V2:

@@ -119,6 +119,7 @@ AVD_DICT = {
             "on",
             "-no-snapstorage",
             "-no-snapshot",
+            "-no-metrics",
             "-prop",
             "ro.test_harness=true",
         ],
@@ -144,6 +145,7 @@ AVD_DICT = {
             "on",
             "-no-snapstorage",
             "-no-snapshot",
+            "-no-metrics",
             "-prop",
             "ro.test_harness=true",
         ],
@@ -167,6 +169,7 @@ AVD_DICT = {
             "ro.test_harness=true",
             "-no-snapstorage",
             "-no-snapshot",
+            "-no-metrics",
             "-skin",
             "1080x1920",
         ],
@@ -543,6 +546,25 @@ def get_adb_path(build_obj):
     return _find_sdk_exe(build_obj.substs, "adb", False)
 
 
+def prepend_adb_dir_to_path(build_obj):
+    """Prepend the directory of the adb that mach would use to PATH, so that
+    harness code running a bare ``adb`` finds the one from mach bootstrap.
+
+    Legacy harnesses only: new code should use ``get_adb_path``. Also
+    shadows host tools like ``sqlite3``.
+    """
+    try:
+        substs = build_obj.substs
+    except Exception:
+        substs = None
+    adb_path = _find_sdk_exe(substs, "adb", False)
+    if adb_path:
+        os.environ["PATH"] = os.pathsep.join([
+            os.path.dirname(adb_path),
+            os.environ.get("PATH", ""),
+        ])
+
+
 def grant_runtime_permissions(build_obj, app, device_serial=None):
     """
     Grant required runtime permissions to the specified app
@@ -665,6 +687,8 @@ class AndroidEmulator:
                 ):
                     self.avd_info.extra_args.remove("-enable-kvm")
                 command += self.avd_info.extra_args
+            if os.environ.get("MOZ_HEADLESS"):
+                command += ["-no-window"]
         log_path = os.path.join(EMULATOR_HOME_DIR, "emulator.log")
         self.emulator_log = open(log_path, "w+")
         _log_debug("Starting the emulator with this command: %s" % " ".join(command))

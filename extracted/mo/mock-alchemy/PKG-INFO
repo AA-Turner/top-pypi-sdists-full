@@ -1,31 +1,25 @@
 Metadata-Version: 2.1
 Name: mock-alchemy
-Version: 0.2.6
+Version: 0.3.0
 Summary: SQLAlchemy mock helpers.
 Home-page: https://github.com/rajivsarvepalli/mock-alchemy
 License: MIT
 Keywords: sqlalchemy mock testing,sqlalchemy mock,mock sqlalchemy
 Author: Rajiv Sarvepalli
 Author-email: rajiv@sarvepalli.net
-Requires-Python: >=3.7,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: SQLAlchemy (>=2.0.6,<3.0.0)
+Requires-Dist: packaging (>=26.4,<27.0)
 Project-URL: Changelog, https://github.com/rajivsarvepalli/mock-alchemy/releases
 Project-URL: Documentation, https://mock-alchemy.readthedocs.io
 Project-URL: Repository, https://github.com/rajivsarvepalli/mock-alchemy
@@ -94,7 +88,7 @@ version is downloaded for your needs.
 There are several different versions of `mock-alchemy` available
 depending on your needs. The versions `0.1.x` are available for use on
 Python 2.7, Python 3.6+. The newer versions serve users who are on
-Python 3.7+. For people interested in contributing, if you want to work
+Python 3.10+. For people interested in contributing, if you want to work
 on Python 2.7 version checkout the branch <span
 class="title-ref">0.1.x</span> and then create pull-requests to that
 branch. There is a set of specific tests run for that branch on pushes
@@ -127,6 +121,21 @@ project. You can find the original package on [PyPi][] and [Github][].
 [github]: https://github.com/miki725/alchemy-mock
 
 # ⚙ Using
+
+Mock session classes are available from `mock_alchemy.mocking`:
+
+```python
+from mock_alchemy.mocking import AlchemyMagicMock, UnifiedAlchemyMagicMock
+```
+
+The package does not export a declarative `Base`. Define your own base with
+`sqlalchemy.orm.declarative_base`:
+
+```python
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+```
 
 Normally SQLAlchemy's expressions cannot be easily compared
 as comparison on binary expression produces yet another binary expression:

@@ -40,7 +40,6 @@ def update(
     Refactor with care!  This function is also used by GPAW.
     """
 
-    import textwrap
     from importlib import import_module
 
     dct: dict[str, list[str]] = {}
@@ -63,21 +62,20 @@ def update(
         module = import_module(module_name)
         module.CLICommand.add_arguments(Subparser(command))
 
-    txt = 'commands = {'
+    tokens = ['commands = {\n']
+
     for command, opts in sorted(dct.items()):
-        txt += "\n    '" + command + "':\n        ["
+        tokens.append(f"    '{command}': [")
         if opts:
-            txt += '\n'.join(
-                textwrap.wrap(
-                    "'" + "', '".join(opts) + "'],",
-                    width=65,
-                    break_on_hyphens=False,
-                    subsequent_indent='         ',
-                )
-            )
+            tokens.append('\n')
+            tokens += [f"        '{opt}',\n" for opt in opts]
+            tokens.append('    ],\n')
         else:
-            txt += '],'
-    txt = txt[:-1] + '}\n'
+            tokens.append('],\n')
+
+    tokens.append('}\n')
+
+    txt = ''.join(tokens)
 
     with path.open() as fd:
         lines = fd.readlines()
@@ -98,6 +96,7 @@ def update(
             print(''.join(lines), end='', file=fd)
         new.rename(path)
         path.chmod(0o775)
+        print(f'Updated {path}')
 
 
 if __name__ == '__main__':

@@ -10,7 +10,7 @@ from mistralai.workflows.conversational import (
 )
 from mistralai.workflows.core._events.event_context import EventContext
 from mistralai.workflows.testing import (
-    create_capturing_mock_events_client,
+    create_capturing_mock_event_publisher,
     create_test_worker_with_events,
     wait_for_pending_inputs,
 )
@@ -168,7 +168,7 @@ def extract_input_schema_from_events(captured_events: list[Any]) -> dict[str, An
 async def test_canvas_input_schema_in_event(temporal_env: WorkflowEnvironment) -> None:
     """CanvasInput schema is correctly emitted in wait_for_input events."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -205,7 +205,7 @@ async def test_canvas_input_schema_in_event(temporal_env: WorkflowEnvironment) -
 async def test_canvas_input_with_chat_in_event(temporal_env: WorkflowEnvironment) -> None:
     """CanvasInput with prompt correctly handles both canvas and chat data."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(

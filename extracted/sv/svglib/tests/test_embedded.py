@@ -1,7 +1,14 @@
 """Embedded and referenced images and SVGs."""
 
-import pytest
+import base64
+from io import BytesIO
 
+import pytest
+from PIL import EpsImagePlugin, UnidentifiedImageError
+from PIL import Image as PILImage
+from reportlab.graphics.shapes import Group
+
+from svglib.svglib import svg2rlg
 from tests.utils import (
     drawing_from_svg,
     find_image_in_drawing,
@@ -39,16 +46,60 @@ class TestEmbedded:
         )
         embedded_svg_group = drawing.contents[0].contents[1].contents[0]
         # x / y translation
-        assert embedded_svg_group.getProperties()["transform"][-2:] == (0, 100)
-        # viewBox scaling
+        assert embedded_svg_group.getProperties()["transform"][-2:] == pytest.approx(
+            (0, 100)
+        )
+        # viewBox scaling: 105mm is 396.85 user units of the parent, for 210
+        # user units of the nested viewBox
         assert (
-            pytest.approx(1.417, 0.001)
+            pytest.approx(1.89, 0.001)
             == embedded_svg_group.getProperties()["transform"][0]
         )
         assert (
-            pytest.approx(1.417, 0.001)
+            pytest.approx(1.89, 0.001)
             == embedded_svg_group.getProperties()["transform"][3]
         )
+
+    @pytest.mark.parametrize(
+        "image_attributes",
+        [
+            'width="40" height="20" preserveAspectRatio="none"',
+            'width="40" height="20"',
+            'width="40" height="20" preserveAspectRatio="xMinYMax slice"',
+        ],
+    )
+    def test_svg_in_image_fills_the_image_viewport(self, tmp_path, image_attributes):
+        """An <image> of an SVG document draws it in the image's viewport, with
+        the image's preserveAspectRatio, like a nested <svg> (issue #237)."""
+        (tmp_path / "square.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="200mm" height="200mm"'
+            ' viewBox="0 0 10 10" preserveAspectRatio="xMaxYMin meet">'
+            '<rect width="10" height="10"/></svg>'
+        )
+        header = (
+            '<svg xmlns="http://www.w3.org/2000/svg"'
+            ' xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100">'
+        )
+        image = tmp_path / "image.svg"
+        image.write_text(
+            header + f'<image xlink:href="square.svg" x="5" y="5" {image_attributes}/>'
+            # The same document again, at another size
+            '<image xlink:href="square.svg" x="60" y="60" width="10" height="10"/>'
+            "</svg>"
+        )
+        inline = tmp_path / "inline.svg"
+        nested = '<rect width="10" height="10"/></svg>'
+        inline.write_text(
+            header
+            + f'<svg x="5" y="5" viewBox="0 0 10 10" {image_attributes}>{nested}'
+            + f'<svg x="60" y="60" width="10" height="10" viewBox="0 0 10 10">{nested}'
+            + "</svg>"
+        )
+        image_groups = svg2rlg(str(image)).contents[0].contents
+        inline_groups = svg2rlg(str(inline)).contents[0].contents
+        assert len(image_groups) == len(inline_groups) == 2
+        for image_group, inline_group in zip(image_groups, inline_groups):
+            assert image_group.getBounds() == pytest.approx(inline_group.getBounds())
 
     def test_embedded_svg_with_percentages(self):
         drawing = drawing_from_svg(
@@ -83,14 +134,43 @@ class TestEmbedded:
             </svg>
         """
         )
-        nested_group = drawing.contents[0].contents[0]
-        xmin, ymin, xmax, ymax = nested_group.getBounds()
+        # Measured in the drawing, after the parent's scaling
+        xmin, ymin, xmax, ymax = drawing.contents[0].getBounds()
         # Parent viewport is 200x200px = 150x150pt (px→pt at 0.75). The inner
         # SVG inherits the parent slot, so the rect fills 150×150pt — not
         # 50×50 (viewBox units without scaling), which is what happens without
         # the fallback.
         assert xmax - xmin == pytest.approx(150)
         assert ymax - ymin == pytest.approx(150)
+
+    @pytest.mark.parametrize(
+        "outer",
+        [
+            'width="400" height="400"',
+            'width="400" height="400" viewBox="0 0 400 400"',
+            'width="210mm" height="297mm" viewBox="0 0 210 297"',
+        ],
+    )
+    def test_nested_svg_fills_its_viewport(self, outer):
+        """The content of a nested <svg> fills the rectangle given by its x, y,
+        width and height, in the user units of the parent."""
+        drawing = drawing_from_svg(
+            f"""
+            <svg xmlns="http://www.w3.org/2000/svg" {outer}>
+              <rect x="50" y="50" width="70" height="70"/>
+              <svg x="50" y="50" width="70" height="70" viewBox="0 0 200 200">
+                <rect x="0" y="0" width="200" height="200"/>
+              </svg>
+            </svg>
+        """
+        )
+        main_group = drawing.contents[0]
+
+        def bounds_in_drawing(shape):
+            return Group(shape, transform=main_group.transform).getBounds()
+
+        reference, nested = main_group.contents
+        assert bounds_in_drawing(nested) == pytest.approx(bounds_in_drawing(reference))
 
     def test_old_inkscape_warning(self, caplog):
         """SVGs from Inkscape <0.92 (90 dpi) should log a warning; newer should not."""
@@ -276,3 +356,48 @@ class TestEmbedded:
         assert image.height == 50.7
         # y is stored flipped as y + height; the enclosing group re-flips it.
         assert image.y == pytest.approx(20.7 + 50.7)
+
+
+class TestDataUriImageFormats:
+    """The decoder of an embedded data: image is not chosen from its bytes."""
+
+    EPS = (
+        b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 20 20\n%%EndComments\n"
+        b"1 0 0 setrgbcolor 0 0 20 20 rectfill\nshowpage\n%%EOF\n"
+    )
+
+    @staticmethod
+    def _svg(mime: str, data: bytes) -> str:
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            'xmlns:xlink="http://www.w3.org/1999/xlink" width="10" height="10">'
+            f'<image xlink:href="data:image/{mime};base64,'
+            f'{base64.b64encode(data).decode()}" width="10" height="10"/></svg>'
+        )
+
+    @pytest.mark.parametrize("mime", ["png", "jpeg", "jpg"])
+    def test_eps_is_not_decoded(self, mime, monkeypatch):
+        """An EPS labeled as PNG or JPEG would run Ghostscript when rendered."""
+
+        def fail(*args, **kwargs):
+            raise AssertionError("Ghostscript must not be run")
+
+        monkeypatch.setattr(EpsImagePlugin, "Ghostscript", fail)
+        with pytest.raises(UnidentifiedImageError):
+            drawing_from_svg(self._svg(mime, self.EPS))
+
+    @pytest.mark.parametrize(
+        "mime, fmt, label",
+        [
+            ("png", "PNG", "png"),
+            ("jpeg", "JPEG", "jpeg"),
+            # The label is not checked against the bytes, as before.
+            ("png", "JPEG", "jpeg-labeled-png"),
+            ("jpeg", "PNG", "png-labeled-jpeg"),
+        ],
+    )
+    def test_png_and_jpeg_are_decoded(self, mime, fmt, label):
+        buffer = BytesIO()
+        PILImage.new("RGB", (4, 4), (255, 0, 0)).save(buffer, fmt)
+        drawing = drawing_from_svg(self._svg(mime, buffer.getvalue()))
+        assert find_image_in_drawing(drawing) is not None, label

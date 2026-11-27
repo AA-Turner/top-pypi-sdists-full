@@ -39,7 +39,8 @@ class TestOrganization(unittest.TestCase):
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 id = '',
                 name = '',
-                agentic_apps_first_dashboard = 'agentic_trace'
+                agentic_apps_first_dashboard = 'agentic_trace',
+                default_currency = 'USD'
             )
         else:
             return Organization(

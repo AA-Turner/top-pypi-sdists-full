@@ -24,17 +24,17 @@ class ListCheckInstanceResultRequest(DaraModel):
         # 
         # This parameter is required.
         self.check_id = check_id
-        # The page number of the current page for a paging query.
+        # The page number of the current page returned for a paging query.
         self.current_page = current_page
-        # The instance ID for the check item.
+        # The instance ID of the check item.
         self.instance_id_key = instance_id_key
         # The instance IDs of the cloud services to query.
         self.instance_ids = instance_ids
-        # The instance name for the check item.
+        # The name of the instance for the check item.
         self.instance_name_key = instance_name_key
         # The language of the request and response. Default value: **zh**. Valid values:
-        # - **zh**: Chinese.
-        # - **en**: English.
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
         # The maximum number of entries to return on each page for a paging query. Maximum value: 100.
         self.page_size = page_size

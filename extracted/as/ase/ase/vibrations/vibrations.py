@@ -2,9 +2,9 @@
 
 import sys
 from collections import namedtuple
+from collections.abc import Iterator
 from math import log, pi, sqrt
 from pathlib import Path
-from typing import Iterator
 
 import numpy as np
 
@@ -14,8 +14,7 @@ from ase.atoms import Atoms
 from ase.constraints import FixAtoms
 from ase.parallel import paropen, world
 from ase.utils.filecache import get_json_cache
-
-from .data import VibrationsData
+from ase.vibrations.data import VibrationsData
 
 
 class AtomicDisplacements:
@@ -128,23 +127,25 @@ class Vibrations(AtomicDisplacements):
     >>> from ase.vibrations import Vibrations
     >>> n2 = Atoms('N2', [(0, 0, 0), (0, 0, 1.1)],
     ...            calculator=EMT())
-    >>> BFGS(n2).run(fmax=0.01)
-    BFGS:   0  16:01:21        0.440339       3.2518
-    BFGS:   1  16:01:21        0.271928       0.8211
-    BFGS:   2  16:01:21        0.263278       0.1994
-    BFGS:   3  16:01:21        0.262777       0.0088
+    >>> BFGS(n2).run(fmax=0.01) # doctest:+ELLIPSIS, +NORMALIZE_WHITESPACE
+          Step     Time          Energy          fmax
+    BFGS:   0       ...        0.440344        3.251800
+    BFGS:   1       ...        0.264361        0.347497
+    BFGS:   2       ...        0.262860        0.080535
+    BFGS:   3       ...        0.262777        0.001453
+    ...
     >>> vib = Vibrations(n2)
     >>> vib.run()
-    >>> vib.summary()
+    >>> print(vib.description()) # doctest:+ELLIPSIS, +NORMALIZE_WHITESPACE
     ---------------------
-    #    meV     cm^-1
+      #    meV     cm^-1
     ---------------------
-    0    0.0       0.0
-    1    0.0       0.0
-    2    0.0       0.0
-    3    1.4      11.5
-    4    1.4      11.5
-    5  152.7    1231.3
+      0    0.0       0.0
+      1    0.0       0.0
+      2    0.0       0.0
+      3    1.4      11.5
+      4    1.4      11.5
+      5  152.7    1231.3
     ---------------------
     Zero-point energy: 0.078 eV
     >>> vib.write_mode(-1)  # write last mode to trajectory file
@@ -477,6 +478,17 @@ Please remove them and recalculate or run \
             method=method, direction=direction
         ).get_frequencies()
 
+    def description(
+        self, method: str = 'standard', direction: str = 'central', freq=None
+    ) -> str:
+        if freq is not None:
+            energies = freq * units.invcm
+        else:
+            energies = self.get_energies(method=method, direction=direction)
+
+        summary_lines = VibrationsData._tabulate_from_energies(energies)
+        return '\n'.join(summary_lines) + '\n'
+
     def summary(
         self,
         method: str = 'standard',
@@ -484,13 +496,7 @@ Please remove them and recalculate or run \
         freq=None,
         log=sys.stdout,
     ):
-        if freq is not None:
-            energies = freq * units.invcm
-        else:
-            energies = self.get_energies(method=method, direction=direction)
-
-        summary_lines = VibrationsData._tabulate_from_energies(energies)
-        log_text = '\n'.join(summary_lines) + '\n'
+        log_text = self.description(method, direction, freq)
 
         if isinstance(log, str):
             with paropen(log, 'a') as log_file:
@@ -592,7 +598,7 @@ Please remove them and recalculate or run \
         and folding method (Gaussian/Lorentzian).
         The energy unit is cm^-1.
 
-        Paramters
+        Parameters
         ---------
         normalize : bool, default: False
             If :obj:`True`, the integral over the peaks gives the intensity.

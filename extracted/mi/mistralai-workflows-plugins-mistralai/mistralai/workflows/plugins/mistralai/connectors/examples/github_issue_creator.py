@@ -33,7 +33,7 @@ import mistralai.workflows.plugins.mistralai as workflows_mistralai
 from mistralai.workflows import Depends, InteractiveWorkflow
 from mistralai.workflows.core.logging import LoggerConfig, LogLevel, setup_logging
 from mistralai.workflows.plugins.mistralai.connectors import (
-    ToolCallClient,
+    ConnectorClient,
     connector,
     uses_connectors,
 )
@@ -56,7 +56,7 @@ async def create_github_issue(
     repo: str,
     title: str,
     body: str,
-    github: ToolCallClient = Depends(github_connector),
+    github: ConnectorClient = Depends(github_connector),
 ) -> None:
     """Create a GitHub issue using the connector's issue_write tool."""
     await github.call_tool(

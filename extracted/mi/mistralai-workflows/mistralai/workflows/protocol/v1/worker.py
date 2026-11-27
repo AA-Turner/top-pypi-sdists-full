@@ -1,4 +1,24 @@
+from enum import StrEnum
+
 from pydantic import BaseModel, Field
+
+
+class PayloadEncryptionLevel(StrEnum):
+    """How much of a worker's payloads are encrypted, ordered from weakest to strongest."""
+
+    NONE = "none"
+    PARTIAL = "partial"
+    FULL = "full"
+
+    def satisfies(self, required: "PayloadEncryptionLevel") -> bool:
+        return _ENCRYPTION_LEVEL_RANK[self] >= _ENCRYPTION_LEVEL_RANK[required]
+
+
+_ENCRYPTION_LEVEL_RANK = {
+    PayloadEncryptionLevel.NONE: 0,
+    PayloadEncryptionLevel.PARTIAL: 1,
+    PayloadEncryptionLevel.FULL: 2,
+}
 
 
 class WorkerFeatures(BaseModel):
@@ -19,6 +39,10 @@ class WorkerInfo(BaseModel):
     namespace: str
     tls: bool = False
     features: WorkerFeatures = Field(default_factory=WorkerFeatures)
+    required_payload_encryption_mode: PayloadEncryptionLevel = Field(
+        default=PayloadEncryptionLevel.NONE,
+        description="Minimum payload encryption mode the server accepts from workers",
+    )
 
 
 class ExecutorIdentityResult(BaseModel):

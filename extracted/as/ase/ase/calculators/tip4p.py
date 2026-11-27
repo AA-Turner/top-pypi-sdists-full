@@ -49,9 +49,11 @@ class TIP4P(TIP3P):
     def calculate(
         self,
         atoms=None,
-        properties=['energy', 'forces'],
+        properties=None,
         system_changes=all_changes,
     ):
+        if properties is None:
+            properties = ['energy', 'forces']
         Calculator.calculate(self, atoms, properties, system_changes)
 
         assert (atoms.numbers[::3] == 8).all()

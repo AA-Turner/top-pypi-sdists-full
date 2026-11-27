@@ -16,21 +16,19 @@ class ListHoneypotAlarmEventsRequest(DaraModel):
         risk_level_list: List[str] = None,
         src_ip: str = None,
     ):
-        # The page number. Default value: **1**.
+        # Specifies the number of the page to return. Default value: **1**.
         self.current_page = current_page
-        # The status of the alert event. Default value: **a**. Valid values:
-        # 
-        # *   **a**: all states
-        # *   **y**: handled
-        # *   **n**: unhandled
+        # Specifies whether the event is handled. Default value: **a**. Valid values:
+        # - **a**: All
+        # - **y**: Handled 
+        # - **n**: Unhandled
         self.dealed = dealed
         # The destination IP address.
         self.dst_ip = dst_ip
-        # The number of entries per page. Default value: 100. If you leave this parameter empty, 100 entries are returned on each page.
-        # 
-        # >  We recommend that you do not leave this parameter empty. We recommend that you set the value to a value no greater than 100.
+        # Specifies the maximum number of entries to return on each page when paging. The default number of entries per page is 100. If the PageSize parameter is left empty, 100 entries are returned by default.
+        # > Set PageSize to a value up to 100.
         self.page_size = page_size
-        # The risk levels.
+        # The list of risk levels.
         self.risk_level_list = risk_level_list
         # The source IP address.
         self.src_ip = src_ip

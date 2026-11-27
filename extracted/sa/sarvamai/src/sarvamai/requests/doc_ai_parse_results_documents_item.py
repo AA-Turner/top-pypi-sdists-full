@@ -7,5 +7,14 @@ from .doc_ai_parse_results_documents_item_pages_item import DocAiParseResultsDoc
 
 
 class DocAiParseResultsDocumentsItemParams(typing_extensions.TypedDict):
-    file_name: typing_extensions.NotRequired[str]
+    filename: typing_extensions.NotRequired[str]
+    page_count: typing_extensions.NotRequired[int]
+    language: typing_extensions.NotRequired[str]
+    """
+    The language the file was processed as, for example `en-IN`, or `indic` when you did not set `language`.
+    """
+
+    status: typing_extensions.NotRequired[str]
+    partial: typing_extensions.NotRequired[bool]
+    warnings: typing_extensions.NotRequired[typing.Sequence[typing.Any]]
     pages: typing_extensions.NotRequired[typing.Sequence[DocAiParseResultsDocumentsItemPagesItemParams]]

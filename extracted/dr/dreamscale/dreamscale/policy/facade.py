@@ -1525,6 +1525,10 @@ class AsyncPolicy:
                 self._attempt = 0
                 self._fire(Event.ABANDONED)
             return
+        record_connect = getattr(inner, "record_connect", None)
+        if callable(record_connect):
+            with contextlib.suppress(Exception):
+                record_connect(reopening=reopening)
         self._adopt(inner, profile=profile, calibrated=calibrated)
         self._attempt = 0
         self._rate_limited_since = None

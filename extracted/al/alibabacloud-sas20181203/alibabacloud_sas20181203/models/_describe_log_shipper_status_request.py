@@ -8,9 +8,13 @@ class DescribeLogShipperStatusRequest(DaraModel):
     def __init__(
         self,
         from_: str = None,
+        resource_directory_account_id: int = None,
     ):
-        # The request source identifier. Set this parameter to **sas**.
+        # The identifier of the request source. The value is fixed to **sas**.
         self.from_ = from_
+        # The ID of the member accounts in the resource folder. The member accounts are Alibaba Cloud accounts.
+        # >You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        self.resource_directory_account_id = resource_directory_account_id
 
     def validate(self):
         pass
@@ -23,12 +27,18 @@ class DescribeLogShipperStatusRequest(DaraModel):
         if self.from_ is not None:
             result['From'] = self.from_
 
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         return result
 
     def from_map(self, m: dict = None):
         m = m or dict()
         if m.get('From') is not None:
             self.from_ = m.get('From')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         return self
 

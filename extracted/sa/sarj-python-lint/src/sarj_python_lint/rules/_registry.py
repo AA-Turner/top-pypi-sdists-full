@@ -248,14 +248,15 @@ from sarj_python_lint.rules.no_discarded_tagged_outcome import NoDiscardedTagged
 from sarj_python_lint.rules.no_duplicate_field_validator_body import NoDuplicateFieldValidatorBody
 from sarj_python_lint.rules.no_dynamic_builtins import NoDynamicBuiltins
 from sarj_python_lint.rules.no_exception_text_in_500_detail import NoExceptionTextIn500Detail
+from sarj_python_lint.rules.no_failure_conflated_with_absence import NoFailureConflatedWithAbsence
 from sarj_python_lint.rules.no_folded_bad_request_not_found import NoFoldedBadRequestNotFound
 from sarj_python_lint.rules.no_gather_first_exception_reraise import NoGatherFirstExceptionReraise
-from sarj_python_lint.rules.no_hasattr import NoHasattr
 from sarj_python_lint.rules.no_impossible_pydantic_field_bounds import NoImpossiblePydanticFieldBounds
 from sarj_python_lint.rules.no_injected_dependency_close import NoInjectedDependencyClose
 from sarj_python_lint.rules.no_invalid_pydantic_bypass import NoInvalidPydanticBypass
 from sarj_python_lint.rules.no_invalid_pydantic_validator_return import NoInvalidPydanticValidatorReturn
 from sarj_python_lint.rules.no_magic_arithmetic import NoMagicArithmetic
+from sarj_python_lint.rules.no_nominal_rebrand import NoNominalRebrand
 from sarj_python_lint.rules.no_nonlocal_statement import NoNonlocalStatement
 from sarj_python_lint.rules.no_partial_type_is import NoPartialTypeIs
 from sarj_python_lint.rules.no_psycopg_execution_in_loop import NoPsycopgExecutionInLoop
@@ -279,11 +280,14 @@ from sarj_python_lint.rules.prefer_bulk_upsert import PreferBulkUpsert
 from sarj_python_lint.rules.prefer_coordinated_state_owner import PreferCoordinatedStateOwner
 from sarj_python_lint.rules.prefer_defaultdict import PreferDefaultdict
 from sarj_python_lint.rules.prefer_direct_import_module import PreferDirectImportModule
+from sarj_python_lint.rules.prefer_direct_iteration import PreferDirectIteration
 from sarj_python_lint.rules.prefer_discriminated_model_union import PreferDiscriminatedModelUnion
 from sarj_python_lint.rules.prefer_exception_propagation import PreferExceptionPropagation
 from sarj_python_lint.rules.prefer_explicit_class_contract import PreferExplicitClassContract
 from sarj_python_lint.rules.prefer_explicit_value_model_construction import PreferExplicitValueModelConstruction
+from sarj_python_lint.rules.prefer_frozen_dataclass import PreferFrozenDataclass
 from sarj_python_lint.rules.prefer_grouped_settings import PreferGroupedSettings
+from sarj_python_lint.rules.prefer_itertools_batched import PreferItertoolsBatched
 from sarj_python_lint.rules.prefer_match_none_check import PreferMatchNoneCheck
 from sarj_python_lint.rules.prefer_named_literal_alias import PreferNamedLiteralAlias
 from sarj_python_lint.rules.prefer_next_over_search_loop import PreferNextOverSearchLoop
@@ -291,7 +295,6 @@ from sarj_python_lint.rules.prefer_nominal_mapping_keys import PreferNominalMapp
 from sarj_python_lint.rules.prefer_optional_composite import PreferOptionalComposite
 from sarj_python_lint.rules.prefer_outcome_variants import PreferOutcomeVariants
 from sarj_python_lint.rules.prefer_precise_object_contract import PreferPreciseObjectContract
-from sarj_python_lint.rules.prefer_psycopg_executemany import PreferPsycopgExecutemany
 from sarj_python_lint.rules.prefer_pydantic_field_bounds import PreferPydanticFieldBounds
 from sarj_python_lint.rules.prefer_pydantic_model_assertion import PreferPydanticModelAssertion
 from sarj_python_lint.rules.prefer_pytest_dependency_fixtures import PreferPytestDependencyFixtures
@@ -311,18 +314,24 @@ from sarj_python_lint.rules.redundant_test_constructor_forwarder import Redundan
 from sarj_python_lint.rules.repeated_unimplemented_test_contract import RepeatedUnimplementedTestContract
 from sarj_python_lint.rules.require_exp_on_jwt_decode import RequireExpOnJwtDecode
 from sarj_python_lint.rules.require_hidden_settings_input import RequireHiddenSettingsInput
+from sarj_python_lint.rules.require_total_enum_mapping import RequireTotalEnumMapping
 from sarj_python_lint.rules.server_proxied_file_upload import ServerProxiedFileUpload
 from sarj_python_lint.rules.service_singleton_delegates_to_bulk import ServiceSingletonDelegatesToBulk
 from sarj_python_lint.rules.store_field_update_reuses_upsert import StoreFieldUpdateReusesUpsert
 from sarj_python_lint.rules.store_insert_requires_explicit_conflict_policy import (
     StoreInsertRequiresExplicitConflictPolicy,
 )
-from sarj_python_lint.rules.store_mutation_command_fanout import StoreMutationCommandFanout
 from sarj_python_lint.rules.test_without_explicit_oracle import NoExplicitTestOracle
 
 
 _AUTHORING_REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
     {
+        NoNominalRebrand.id: NoNominalRebrand,
+        NoFailureConflatedWithAbsence.id: NoFailureConflatedWithAbsence,
+        PreferFrozenDataclass.id: PreferFrozenDataclass,
+        PreferDirectIteration.id: PreferDirectIteration,
+        PreferItertoolsBatched.id: PreferItertoolsBatched,
+        RequireTotalEnumMapping.id: RequireTotalEnumMapping,
         NoInjectedDependencyClose.id: NoInjectedDependencyClose,
         NoGatherFirstExceptionReraise.id: NoGatherFirstExceptionReraise,
         NoSwallowedException.id: NoSwallowedException,
@@ -367,7 +376,6 @@ _AUTHORING_REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
         NoAsyncClientInConstructor.id: NoAsyncClientInConstructor,
         NoDiscardedTaggedOutcome.id: NoDiscardedTaggedOutcome,
         StoreInsertRequiresExplicitConflictPolicy.id: StoreInsertRequiresExplicitConflictPolicy,
-        StoreMutationCommandFanout.id: StoreMutationCommandFanout,
         PreferApplicationModelJoins.id: PreferApplicationModelJoins,
         NoRecordingStore.id: NoRecordingStore,
         NoRedundantSqlAlias.id: NoRedundantSqlAlias,
@@ -391,7 +399,6 @@ _AUTHORING_REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
         PreferPydanticModelAssertion.id: PreferPydanticModelAssertion,
         PreferPytestDependencyFixtures.id: PreferPytestDependencyFixtures,
         PreferBulkUpsert.id: PreferBulkUpsert,
-        PreferPsycopgExecutemany.id: PreferPsycopgExecutemany,
         StoreFieldUpdateReusesUpsert.id: StoreFieldUpdateReusesUpsert,
         DeleteRouteReturnsNoContent.id: DeleteRouteReturnsNoContent,
         NoExceptionTextIn500Detail.id: NoExceptionTextIn500Detail,
@@ -399,7 +406,6 @@ _AUTHORING_REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
         NoSlashCollectionRootUnderPrefix.id: NoSlashCollectionRootUnderPrefix,
         NoWorkVerbGetRoute.id: NoWorkVerbGetRoute,
         NoCreateVerbInPostPath.id: NoCreateVerbInPostPath,
-        NoHasattr.id: NoHasattr,
         NoFoldedBadRequestNotFound.id: NoFoldedBadRequestNotFound,
         NoDefaultedEnvironmentSetting.id: NoDefaultedEnvironmentSetting,
         NoDuplicateFieldValidatorBody.id: NoDuplicateFieldValidatorBody,

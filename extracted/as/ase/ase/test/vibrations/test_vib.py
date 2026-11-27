@@ -673,8 +673,8 @@ def test_pdos(n3_vibdata):
 
 
 class TestDictMethods:
-    @staticmethod
     @pytest.fixture(name='indices', params=[[], None, [0], [0, 1]])
+    @staticmethod
     def fixture_indices(request):
         return request.param
 

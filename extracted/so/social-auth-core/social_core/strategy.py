@@ -64,7 +64,7 @@ class BaseTemplateStrategy:
 class BaseStrategy(Generic[ResponseT_co]):
     ALLOWED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     DEFAULT_TEMPLATE_STRATEGY = BaseTemplateStrategy
-    EXPIRE_PARTIAL_PIPELINES_ON_LOAD = False
+    EXPIRE_PARTIAL_PIPELINES_ON_LOAD = True
 
     def __init__(
         self,
@@ -161,15 +161,11 @@ class BaseStrategy(Generic[ResponseT_co]):
             return partial
         expiry = self.setting(
             "PARTIAL_PIPELINE_EXPIRED_THRESHOLD",
-            self.setting(
-                "EMAIL_VALIDATION_EXPIRED_THRESHOLD",
-                7 * 24 * 60 * 60,
-                backend=partial.backend,
-            ),
+            7 * 24 * 60 * 60,
             backend=partial.backend,
         )
         is_expired = getattr(partial, "is_expired", None)
-        if expiry and is_expired is not None and is_expired(expiry):
+        if expiry and (not callable(is_expired) or partial.is_expired(expiry)):
             self.clean_partial_pipeline(token)
             return None
         return partial
@@ -348,6 +344,15 @@ class BaseStrategy(Generic[ResponseT_co]):
             yield
         finally:
             self._pipeline_request_data.reset(token)
+
+    def is_partial_pipeline_resume(self) -> bool:
+        """Return whether a saved partial pipeline is being continued.
+
+        Only BaseAuth.continue_pipeline() scopes replayed request data, after
+        partial_pipeline_result() has checked session ownership or external
+        resume confirmation, so steps can tell a resume from a fresh request.
+        """
+        return self._pipeline_request_data.get() is not None
 
     def get_request_data(self, merge: bool = True) -> dict[str, Any]:
         """Return data from the current framework request (POST or GET)."""

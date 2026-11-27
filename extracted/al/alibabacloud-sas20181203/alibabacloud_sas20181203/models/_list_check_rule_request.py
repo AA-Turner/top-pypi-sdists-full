@@ -12,6 +12,7 @@ class ListCheckRuleRequest(DaraModel):
         check_id: int = None,
         check_name: str = None,
         current_page: int = None,
+        effect_status: str = None,
         lang: str = None,
         page_size: int = None,
         rule_type: str = None,
@@ -20,27 +21,29 @@ class ListCheckRuleRequest(DaraModel):
     ):
         # The ID of the check item.
         # 
-        # > You can call the [ListCheckResult](~~ListCheckResult~~) API to get the check item ID.
+        # > You can call the [ListCheckResult](~~ListCheckResult~~) operation to obtain the check item ID.
         self.check_id = check_id
         # The name of the check item.
         self.check_name = check_name
-        # The page number displayed in a paginated query.
+        # The page number of the current page returned for a paging query.
         self.current_page = current_page
-        # Set the language type for the request and response messages. The default is **zh**. Values:
+        # Filters check rules by the effective status of the whitelist rule. Valid values: PERMANENT (Permanent), NOT_STARTED (Not started), EFFECTIVE (Effective), and EXPIRED (Expired). If you do not specify this parameter, rules in all effective statuses are returned. The server determines the status based on the current time and includes it in the pagination count.
+        self.effect_status = effect_status
+        # The language of the request and response. Default value: **zh**. Valid values:
         # 
-        # - zh: Chinese
-        # - en: English
+        # - zh: Chinese.
+        # - en: English.
         self.lang = lang
-        # The number of check items displayed per page in a paginated query. The default value is **20**, indicating 20 check items per page.
+        # The number of check items to return on each page in a paging query. Default value: **20**, which indicates that 20 check items are displayed on each page.
         self.page_size = page_size
-        # The type of rule. Default is **WHITE**. Values:
-        # - **WHITE**: Add to whitelist
+        # The rule type. Default value: **WHITE**. Valid values:
+        # - **WHITE**: Whitelist.
         self.rule_type = rule_type
-        # The scope where the rule applies. Values:
-        # - **INSTNACE**: Instance
-        # - **ITEM**: Check item
+        # The effective scope of the rule. Valid values:
+        # - **INSTNACE**: Instance.
+        # - **ITEM**: Check item.
         self.scope_type = scope_type
-        # List of task sources.
+        # The list of task sources.
         self.task_sources = task_sources
 
     def validate(self):
@@ -59,6 +62,9 @@ class ListCheckRuleRequest(DaraModel):
 
         if self.current_page is not None:
             result['CurrentPage'] = self.current_page
+
+        if self.effect_status is not None:
+            result['EffectStatus'] = self.effect_status
 
         if self.lang is not None:
             result['Lang'] = self.lang
@@ -87,6 +93,9 @@ class ListCheckRuleRequest(DaraModel):
 
         if m.get('CurrentPage') is not None:
             self.current_page = m.get('CurrentPage')
+
+        if m.get('EffectStatus') is not None:
+            self.effect_status = m.get('EffectStatus')
 
         if m.get('Lang') is not None:
             self.lang = m.get('Lang')

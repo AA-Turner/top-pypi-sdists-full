@@ -7,27 +7,23 @@ from darabonba.model import DaraModel
 class DescribeCheckWarningCountRequest(DaraModel):
     def __init__(
         self,
-        ali_uid: int = None,
         check_id: int = None,
         risk_id: int = None,
         status: int = None,
     ):
-        # The ID of the Alibaba Cloud account.
-        self.ali_uid = ali_uid
         # The ID of the check item.
         # 
-        # >  You can call the [ListCheckItemWarningSummary](~~ListCheckItemWarningSummary~~) operation to query the IDs of check items.
+        # > You can call the [ListCheckItemWarningSummary](~~ListCheckItemWarningSummary~~) operation to obtain the ID of the check item.
         self.check_id = check_id
         # The ID of the risk item.
         # 
-        # >  You can call the [DescribeCheckWarningSummary](~~DescribeCheckWarningSummary~~) operation to query the IDs of risk items.
+        # > You can call the [DescribeCheckWarningSummary](~~DescribeCheckWarningSummary~~) operation to obtain the ID of the risk item.
         self.risk_id = risk_id
-        # The status of the check item. Valid values:
-        # 
-        # *   **1**: failed
-        # *   **2**: verifying
-        # *   **3**: passed
-        # *   **6**: ignored
+        # The status of the check item alert.
+        # - **1**: Failed.
+        # - **2**: Verifying.
+        # - **3**: Passed.
+        # - **6**: Ignored.
         self.status = status
 
     def validate(self):
@@ -38,9 +34,6 @@ class DescribeCheckWarningCountRequest(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
-        if self.ali_uid is not None:
-            result['AliUid'] = self.ali_uid
-
         if self.check_id is not None:
             result['CheckId'] = self.check_id
 
@@ -54,9 +47,6 @@ class DescribeCheckWarningCountRequest(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
-        if m.get('AliUid') is not None:
-            self.ali_uid = m.get('AliUid')
-
         if m.get('CheckId') is not None:
             self.check_id = m.get('CheckId')
 

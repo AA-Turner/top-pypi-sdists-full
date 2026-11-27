@@ -7,19 +7,23 @@ from darabonba.model import DaraModel
 class DescribeCommonTargetResultListRequest(DaraModel):
     def __init__(
         self,
+        resource_directory_account_id: int = None,
         source_ip: str = None,
         type: str = None,
     ):
+        # The ID of the member accounts in the resource folder. The ID is an Alibaba Cloud account ID.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to query the value of this parameter.
+        self.resource_directory_account_id = resource_directory_account_id
         # The IP address of the access source to query.
         self.source_ip = source_ip
-        # The configuration rule type. Valid values:
+        # The type of the configuration rule. Valid values:
         # 
-        # - **webshell_timescan**: web shell scan.
-        # - **aliscriptengine**: deep detection engine.
-        # - **alidetect**: installation scope of the local file detection engine.
-        # - **alidetect-scan-enable**: detection scope of the local file detection engine.
+        # - **webshell_timescan**: Web shell scan and removal.
+        # - **aliscriptengine**: Deep detection engine.
+        # - **alidetect**: Installation scope of the local file detection engine.
+        # - **alidetect-scan-enable**: Detection scope of the local file detection engine.
         # 
-        # > You can call [ListClientUserDefineRules](~~ListClientUserDefineRules~~) and [ListSystemClientRules](~~ListSystemClientRules~~) to obtain more custom and system-configured rule types.
+        # > You can call the [ListClientUserDefineRules](~~ListClientUserDefineRules~~) and [ListSystemClientRules](~~ListSystemClientRules~~) operations to obtain more custom and system configuration rule types.
         # 
         # This parameter is required.
         self.type = type
@@ -32,6 +36,9 @@ class DescribeCommonTargetResultListRequest(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         if self.source_ip is not None:
             result['SourceIp'] = self.source_ip
 
@@ -42,6 +49,9 @@ class DescribeCommonTargetResultListRequest(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
+
         if m.get('SourceIp') is not None:
             self.source_ip = m.get('SourceIp')
 

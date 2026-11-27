@@ -12,6 +12,7 @@ import pytest
 from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows.core._events.event_context import EventContext
+from mistralai.workflows.core._events.event_route_publisher import EventRoutePublisher
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
 from mistralai.workflows.protocol.v2.worker import (
     EVENT_ROUTE_TOKEN_EXPIRED_CODE,
@@ -103,11 +104,7 @@ async def test_single_activity_uses_v2_route_tokens_in_worker_lifecycle(
     with tracker.activate():
         async with (
             worker_client,
-            EventContext(
-                worker_client.events,
-                worker_client,
-                events_api_version="v2",
-            ),
+            EventContext(EventRoutePublisher(worker_client)),
         ):
             async with create_test_worker_with_events(
                 temporal_env,
@@ -140,11 +137,7 @@ async def test_route_token_cache_is_reused_across_multiple_activities(
     with tracker.activate():
         async with (
             worker_client,
-            EventContext(
-                worker_client.events,
-                worker_client,
-                events_api_version="v2",
-            ),
+            EventContext(EventRoutePublisher(worker_client)),
         ):
             async with create_test_worker_with_events(
                 temporal_env,
@@ -175,11 +168,7 @@ async def test_expired_route_token_refreshes_under_real_worker_execution(
     with tracker.activate():
         async with (
             worker_client,
-            EventContext(
-                worker_client.events,
-                worker_client,
-                events_api_version="v2",
-            ),
+            EventContext(EventRoutePublisher(worker_client)),
         ):
             async with create_test_worker_with_events(
                 temporal_env,
@@ -210,11 +199,7 @@ async def test_route_token_cache_survives_activity_retry(
     with tracker.activate():
         async with (
             worker_client,
-            EventContext(
-                worker_client.events,
-                worker_client,
-                events_api_version="v2",
-            ),
+            EventContext(EventRoutePublisher(worker_client)),
         ):
             async with create_test_worker_with_events(
                 temporal_env,
@@ -243,11 +228,7 @@ async def test_continue_as_new_remints_for_each_root_run_scope(
     with tracker.activate():
         async with (
             worker_client,
-            EventContext(
-                worker_client.events,
-                worker_client,
-                events_api_version="v2",
-            ),
+            EventContext(EventRoutePublisher(worker_client)),
         ):
             async with create_test_worker_with_events(
                 temporal_env,
@@ -287,11 +268,7 @@ async def test_interleaved_workflows_keep_route_tokens_scoped_per_execution() ->
             with tracker.activate():
                 async with (
                     worker_client,
-                    EventContext(
-                        worker_client.events,
-                        worker_client,
-                        events_api_version="v2",
-                    ),
+                    EventContext(EventRoutePublisher(worker_client)),
                 ):
                     async with create_test_worker_with_events(
                         env,

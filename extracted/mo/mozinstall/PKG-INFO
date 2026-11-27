@@ -1,21 +1,33 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mozInstall
-Version: 2.1.0
+Version: 2.2.0
 Summary: package for installing and uninstalling Mozilla applications
 Home-page: https://wiki.mozilla.org/Auto-tools/Projects/Mozbase
 Author: Mozilla Automation and Tools team
 Author-email: tools@lists.mozilla.org
 License: MPL 2.0
 Keywords: mozilla
-Platform: UNKNOWN
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.9
+Requires-Dist: mozinfo>=0.7
+Requires-Dist: mozfile>=1.0
+Requires-Dist: requests
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 see https://firefox-source-docs.mozilla.org/mozbase/index.html
-

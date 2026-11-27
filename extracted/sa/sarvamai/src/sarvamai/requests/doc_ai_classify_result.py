@@ -18,7 +18,7 @@ class DocAiClassifyResultParams(typing_extensions.TypedDict):
 
     decisions: typing_extensions.NotRequired[typing.Sequence[DocAiClassifyDecisionParams]]
     """
-    With `scope: page`, one decision per page.
+    Not returned today. Classify gives one decision for the whole document; use Split with categories for a decision per document in a bundle.
     """
 
     inspection: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
@@ -33,7 +33,7 @@ class DocAiClassifyResultParams(typing_extensions.TypedDict):
 
     input_page: typing_extensions.NotRequired[int]
     """
-    Page number, on per-page decisions.
+    Not set. Classify returns one decision for the whole document.
     """
 
     type: typing_extensions.NotRequired[str]

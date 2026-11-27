@@ -564,7 +564,7 @@ class AliexpressNamespace:
         rating, reviews count, images, options, variants with stock, specifications,
         store, ship-from country and delivery estimate in one normalized response.
 
-        Price: $0.0009 per request.
+        Price: $0.00089 per request.
 
         Example:
             res = client.aliexpress.product(productId="3256807039224587")
@@ -638,7 +638,7 @@ class AsyncAliexpressNamespace:
         rating, reviews count, images, options, variants with stock, specifications,
         store, ship-from country and delivery estimate in one normalized response.
 
-        Price: $0.0009 per request.
+        Price: $0.00089 per request.
 
         Example:
             res = client.aliexpress.product(productId="3256807039224587")

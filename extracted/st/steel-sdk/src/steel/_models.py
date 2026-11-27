@@ -221,6 +221,7 @@ class BaseModel(pydantic.BaseModel):
             _fields_set = set()
 
         model_fields = get_model_fields(__cls)
+        used: set[str] = set()
         for name, field in model_fields.items():
             key = field.alias
             if key is None or (key not in values and populate_by_name):
@@ -229,6 +230,7 @@ class BaseModel(pydantic.BaseModel):
             if key in values:
                 fields_values[name] = _construct_field(value=values[key], field=field, key=key)
                 _fields_set.add(name)
+                used.add(key)
             else:
                 fields_values[name] = field_get_default(field)
 
@@ -236,7 +238,7 @@ class BaseModel(pydantic.BaseModel):
 
         _extra = {}
         for key, value in values.items():
-            if key not in model_fields:
+            if key not in model_fields and key not in used:
                 parsed = construct_type(value=value, type_=extra_field_type) if extra_field_type is not None else value
 
                 if PYDANTIC_V1:

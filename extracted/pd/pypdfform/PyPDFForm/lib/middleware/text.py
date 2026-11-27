@@ -7,7 +7,7 @@ Widget class. It represents a text field form field in a PDF document,
 allowing users to enter text.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 from .base import Widget
 
@@ -35,6 +35,16 @@ class Text(Widget):
             "max_length",
         }
     )
+    READ_PROPERTIES = Widget.READ_PROPERTIES | {
+        "font",
+        "font_size",
+        "font_color",
+        "comb",
+        "alignment",
+        "multiline",
+        "max_length",
+    }
+    CLEARABLE_PROPERTIES = Widget.CLEARABLE_PROPERTIES | {"alignment", "max_length"}
 
     def __init__(
         self,
@@ -49,9 +59,12 @@ class Text(Widget):
             value (str): The initial value of the text field. Defaults to None.
 
         Attributes:
-            font (str): The font of the text field. Defaults to None.
-            font_size (int): The font size of the text field. Defaults to None.
-            font_color (str): The font color of the text field. Defaults to None.
+            font (str): The font resource name of the text field, such as
+                `/Helv`. Defaults to None.
+            font_size (float): The font size of the text field, where 0 sizes
+                the text to fit. Defaults to None.
+            font_color (tuple): The RGB font color of the text field. Defaults
+                to None.
             comb (bool): Whether the text field is a comb field. Defaults to None.
             alignment (str): The alignment of the text field. Defaults to None.
             multiline (bool): Whether the text field is multiline. Defaults to None.
@@ -77,6 +90,37 @@ class Text(Widget):
         self.alignment: Optional[int] = None
         self.multiline: Optional[bool] = None
         self.max_length: Optional[int] = None
+
+    def prepare_property(self, name: str, value: Any) -> tuple[Any, Any]:
+        """
+        Validates a hooked property value before the text field changes.
+
+        An integer maximum length must be at least one, and an integer
+        alignment must be 0, 1, or 2, since reopening the PDF reports other
+        values as None.
+
+        Args:
+            name (str): The name of the property.
+            value (Any): The proposed value of the property.
+
+        Returns:
+            tuple[Any, Any]: The value to store on the widget and the value to
+                pass to the property's hook.
+
+        Raises:
+            TypeError: Raised when a property read back from the PDF is set to
+                None, or geometry is not a number.
+            ValueError: Raised when an integer maximum length is less than one,
+                or an integer alignment isn't 0, 1, or 2.
+        """
+        if name == "max_length" and isinstance(value, int) and value < 1:
+            msg = f"Text field '{self.name}' max_length must be at least 1."
+            raise ValueError(msg)
+        if name == "alignment" and isinstance(value, int) and value not in (0, 1, 2):
+            msg = f"Text field '{self.name}' alignment must be 0, 1, or 2."
+            raise ValueError(msg)
+
+        return super().prepare_property(name, value)
 
     @property
     def value(self) -> str:
@@ -128,11 +172,11 @@ class Text(Widget):
 
         The sample value is used to generate example data for the
         text field. It returns the name of the field, truncated to
-        the maximum length if specified.
+        the maximum length if specified, or an empty string for a field
+        without a name.
 
         Returns:
             str: A sample value for the text field.
         """
-        return (
-            self.name[: self.max_length] if self.max_length is not None else self.name
-        )
+        name = self.name or ""
+        return name[: self.max_length] if self.max_length is not None else name

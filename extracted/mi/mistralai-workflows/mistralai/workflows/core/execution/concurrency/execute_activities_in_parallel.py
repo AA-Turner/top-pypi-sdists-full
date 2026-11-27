@@ -1,4 +1,5 @@
 import inspect
+from datetime import timedelta
 from types import NoneType
 from typing import Any, Awaitable, Callable, Dict, List, TypeVar, cast, get_origin, overload
 
@@ -13,7 +14,6 @@ from mistralai.workflows.core.definition.validation._validator import (
     extract_origin_type,
     get_function_signature_type_hints,
 )
-from mistralai.workflows.core.definition.workflow_definition import is_workflow_on_behalf_of
 from mistralai.workflows.core.execution.concurrency._concurrency_workflow import (
     OnBehalfOfParallelExecutionWorkflow,
     ParallelExecutionWorkflow,
@@ -29,6 +29,8 @@ from mistralai.workflows.core.execution.concurrency.types import (
     WorkflowParams,
     WorkflowResults,
 )
+from mistralai.workflows.core.execution.workflow_execution import _raise_if_outside_workflow
+from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.core.workflow import workflow
 
 T = TypeVar("T")
@@ -39,9 +41,8 @@ logger = get_logger(__name__)
 
 
 def _parallel_execution_workflow() -> type[ParallelExecutionWorkflow] | type[OnBehalfOfParallelExecutionWorkflow]:
-    # Keyed on the workflow type, not the context: the context's on_behalf_of is overwritten
-    # with the caller's value, which would make the fan-out depend on who started us.
-    if temporalio.workflow.in_workflow() and is_workflow_on_behalf_of(temporalio.workflow.info().workflow_type):
+    context = retrieve_context() if temporalio.workflow.in_workflow() else None
+    if context is not None and context.on_behalf_of:
         return OnBehalfOfParallelExecutionWorkflow
     return ParallelExecutionWorkflow
 
@@ -128,6 +129,7 @@ async def execute_activities_in_parallel(  # type: ignore[overload-overlap]
     *,
     items: List[T],
     max_concurrent_scheduled_tasks: int = DEFAULT_MAX_CONCURRENT_SCHEDULED_TASKS,
+    execution_timeout: timedelta | None = None,
 ) -> None: ...
 
 
@@ -137,6 +139,7 @@ async def execute_activities_in_parallel(
     *,
     items: List[T],
     max_concurrent_scheduled_tasks: int = DEFAULT_MAX_CONCURRENT_SCHEDULED_TASKS,
+    execution_timeout: timedelta | None = None,
 ) -> List[U]: ...
 
 
@@ -147,6 +150,7 @@ async def execute_activities_in_parallel(  # type: ignore[overload-overlap]
     *,
     items: List[Dict[str, Any]],
     max_concurrent_scheduled_tasks: int = DEFAULT_MAX_CONCURRENT_SCHEDULED_TASKS,
+    execution_timeout: timedelta | None = None,
 ) -> None: ...
 
 
@@ -156,6 +160,7 @@ async def execute_activities_in_parallel(
     *,
     items: List[Dict[str, Any]],
     max_concurrent_scheduled_tasks: int = DEFAULT_MAX_CONCURRENT_SCHEDULED_TASKS,
+    execution_timeout: timedelta | None = None,
 ) -> List[U]: ...
 
 
@@ -166,6 +171,7 @@ async def execute_activities_in_parallel(  # type: ignore[overload-overlap]
     *,
     get_item_from_prev_item_activity: Callable[[T | None], Awaitable[T | None]],
     extra_params: Dict[str, Any] | None = None,
+    execution_timeout: timedelta | None = None,
 ) -> None: ...
 
 
@@ -175,6 +181,7 @@ async def execute_activities_in_parallel(  # type: ignore[overload-overlap]
     *,
     get_item_from_prev_item_activity: Callable[[T | None], Awaitable[T | None]],
     extra_params: Dict[str, Any] | None = None,
+    execution_timeout: timedelta | None = None,
 ) -> List[U]: ...
 
 
@@ -185,6 +192,7 @@ async def execute_activities_in_parallel(  # type: ignore[overload-overlap]
     *,
     get_item_from_prev_item_activity: Callable[[Dict[str, Any] | None], Awaitable[Dict[str, Any] | None]],
     extra_params: Dict[str, Any] | None = None,
+    execution_timeout: timedelta | None = None,
 ) -> None: ...
 
 
@@ -194,6 +202,7 @@ async def execute_activities_in_parallel(
     *,
     get_item_from_prev_item_activity: Callable[[Dict[str, Any] | None], Awaitable[Dict[str, Any] | None]],
     extra_params: Dict[str, Any] | None = None,
+    execution_timeout: timedelta | None = None,
 ) -> List[U]: ...
 
 
@@ -207,6 +216,7 @@ async def execute_activities_in_parallel(  # type: ignore[overload-overlap]
     max_concurrent_executions_per_worker: int = DEFAULT_MAX_CONCURRENT_EXECUTIONS_PER_WORKER,
     max_concurrent_scheduled_tasks: int = DEFAULT_MAX_CONCURRENT_SCHEDULED_TASKS,
     extra_params: Dict[str, Any] | None = None,
+    execution_timeout: timedelta | None = None,
 ) -> None: ...
 
 
@@ -219,6 +229,7 @@ async def execute_activities_in_parallel(
     max_concurrent_executions_per_worker: int = DEFAULT_MAX_CONCURRENT_EXECUTIONS_PER_WORKER,
     max_concurrent_scheduled_tasks: int = DEFAULT_MAX_CONCURRENT_SCHEDULED_TASKS,
     extra_params: Dict[str, Any] | None = None,
+    execution_timeout: timedelta | None = None,
 ) -> List[U]: ...
 
 
@@ -232,6 +243,7 @@ async def execute_activities_in_parallel(  # type: ignore[overload-overlap]
     max_concurrent_executions_per_worker: int = DEFAULT_MAX_CONCURRENT_EXECUTIONS_PER_WORKER,
     max_concurrent_scheduled_tasks: int = DEFAULT_MAX_CONCURRENT_SCHEDULED_TASKS,
     extra_params: Dict[str, Any] | None = None,
+    execution_timeout: timedelta | None = None,
 ) -> None: ...
 
 
@@ -244,6 +256,7 @@ async def execute_activities_in_parallel(
     max_concurrent_executions_per_worker: int = DEFAULT_MAX_CONCURRENT_EXECUTIONS_PER_WORKER,
     max_concurrent_scheduled_tasks: int = DEFAULT_MAX_CONCURRENT_SCHEDULED_TASKS,
     extra_params: Dict[str, Any] | None = None,
+    execution_timeout: timedelta | None = None,
 ) -> List[U]: ...
 
 
@@ -257,6 +270,7 @@ async def execute_activities_in_parallel(
     max_concurrent_scheduled_tasks: int = DEFAULT_MAX_CONCURRENT_SCHEDULED_TASKS,
     max_concurrent_executions_per_worker: int = DEFAULT_MAX_CONCURRENT_EXECUTIONS_PER_WORKER,
     extra_params: Dict[str, Any] | None = None,
+    execution_timeout: timedelta | None = None,
 ) -> None | List[U]:
     """Execute activities in parallel using one of three execution patterns.
 
@@ -293,6 +307,8 @@ async def execute_activities_in_parallel(
         max_concurrent_scheduled_tasks: Maximum concurrent scheduled tasks
         max_concurrent_executions_per_worker: Maximum concurrent executions per worker
         extra_params: Extra parameters to pass to the activity
+        execution_timeout: Maximum duration of each parallel-execution child workflow.
+            Defaults to the child workflow definition (1 hour) when omitted.
 
     Returns:
         None if activity returns None, otherwise List of results
@@ -303,6 +319,8 @@ async def execute_activities_in_parallel(
         ApplicationError (non-retryable): If provider return type is incompatible with activity input
         ApplicationError (non-retryable): If get_item_from_index_activity does not accept GetItemFromIndexParams
         ApplicationError (non-retryable): If no execution pattern is specified
+        WorkflowsException: With code ``CHILD_WORKFLOW_OUTSIDE_WORKFLOW`` when called outside workflow code,
+            including from inside an activity
     """
     # Validate activity
     if not check_is_activity(activity):
@@ -342,6 +360,7 @@ async def execute_activities_in_parallel(
             has_kwargs=has_kwargs,
         )
 
+        _raise_if_outside_workflow("execute_activities_in_parallel()")
         result = await workflow.execute_workflow(
             parallel_execution_workflow,
             WorkflowParams(
@@ -352,6 +371,7 @@ async def execute_activities_in_parallel(
                     extra_params=extra_params,
                 )
             ),
+            execution_timeout=execution_timeout,
         )
 
     # Chain Executor
@@ -418,6 +438,7 @@ async def execute_activities_in_parallel(
                     non_retryable=True,
                 )
 
+        _raise_if_outside_workflow("execute_activities_in_parallel()")
         result = await workflow.execute_workflow(
             parallel_execution_workflow,
             WorkflowParams(
@@ -426,6 +447,7 @@ async def execute_activities_in_parallel(
                     get_item_from_prev_item_activity_name=get_item_from_prev_item_activity.__name__,
                 )
             ),
+            execution_timeout=execution_timeout,
         )
 
     # Offset Pagination Executor
@@ -475,6 +497,7 @@ async def execute_activities_in_parallel(
                     non_retryable=True,
                 )
 
+        _raise_if_outside_workflow("execute_activities_in_parallel()")
         logger.info("Starting offset pagination executor", n_items=n_items)
 
         default_params = OffsetPaginationExecutorParams(
@@ -488,7 +511,9 @@ async def execute_activities_in_parallel(
         dict_default_params = default_params.model_dump()
 
         results = await run_in_batches(
-            fct=lambda params: workflow.execute_workflow(parallel_execution_workflow, params),
+            fct=lambda params: workflow.execute_workflow(
+                parallel_execution_workflow, params, execution_timeout=execution_timeout
+            ),
             get_params_for_batch=lambda idx, batch_size: WorkflowParams(
                 # construct without validation to avoid temporal timeout
                 params=OffsetPaginationExecutorParams.model_construct(

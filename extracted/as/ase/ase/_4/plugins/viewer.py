@@ -4,11 +4,7 @@ from collections.abc import Callable
 from functools import cached_property
 from importlib import import_module
 from types import ModuleType
-from typing import (
-    TYPE_CHECKING,
-)
-
-from typing_extensions import Self
+from typing import TYPE_CHECKING, Self
 
 from ase._4.plugins.plugin import Plugin
 from ase.utils.plugins import ExternalViewer

@@ -17,15 +17,15 @@ class ModifyImageRegistryRequest(DaraModel):
     ):
         # The domain name.
         self.domain_name = domain_name
-        # The image registry ID. Call the [ListImageRegistry](https://help.aliyun.com/document_detail/471986.html) operation to obtain this ID.
+        # The ID of the image registry. You can call the [ListImageRegistry](https://help.aliyun.com/document_detail/471986.html) operation to obtain the image registry ID.
         self.id = id
         # The password.
         self.password = password
         # The port number.
         self.port = port
-        # The registry IP address.
+        # The IP address of the image registry.
         self.registry_host_ip = registry_host_ip
-        # The number of images to scan per hour.
+        # The number of images scanned per hour.
         self.trans_per_hour = trans_per_hour
         # The username.
         self.user_name = user_name

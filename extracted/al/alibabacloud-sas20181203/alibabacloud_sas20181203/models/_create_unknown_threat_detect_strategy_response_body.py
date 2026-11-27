@@ -10,7 +10,7 @@ class CreateUnknownThreatDetectStrategyResponseBody(DaraModel):
         id: int = None,
         request_id: str = None,
     ):
-        # The ID of the policy.
+        # The policy ID.
         self.id = id
         # Id of the request
         self.request_id = request_id

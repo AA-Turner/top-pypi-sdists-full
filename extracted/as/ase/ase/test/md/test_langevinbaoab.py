@@ -255,3 +255,59 @@ def test_LangevinBAOAB_default_rng(atoms, calc):
         )
 
     dyn.run(n_steps)
+
+
+@pytest.fixture
+def dyn_full_cell(atoms: Atoms, calc: MorsePotential) -> LangevinBAOAB:
+    atoms.calc = calc
+    return LangevinBAOAB(
+        atoms,
+        timestep=timestep,
+        temperature_K=300.0,
+        T_tau=50 * timestep,
+        P_tau=500 * timestep,
+        P_mass=1.0,
+        externalstress=0.0,
+        hydrostatic=False,
+        rng=np.random.default_rng(seed=0),
+    )
+
+
+def test_gamma_mod_pure_dilation(dyn_full_cell: LangevinBAOAB) -> None:
+    """Pure dilation must give `(1 + 3 / Ndof) * rate * I` (#2063).
+
+    This should be consistent with the `hydrostatic=True` branch and have no
+    off-diagonal elements (cf. Eq. (23b) in Quigley and Probert).
+    """
+    dyn = dyn_full_cell
+    rate = 1.0 / (100.0 * u_fs)
+    dyn.p_eps = dyn.barostat_mass * rate * np.eye(3)
+    actual = dyn._barostat_BAOAB_OU_gamma_mod() / rate
+    expected = (1.0 + 3.0 / dyn.Ndof) * np.eye(3)
+    np.testing.assert_allclose(actual, expected, atol=1e-14)
+
+
+def test_gamma_mod_rotational_covariance(dyn_full_cell: LangevinBAOAB) -> None:
+    """`Gamma(R @ p @ R.T)` must equal `R @ Gamma(p) @ R.T` (#2063)."""
+    dyn = dyn_full_cell
+    rng = np.random.default_rng(seed=42)
+
+    # symmetric matrix with nonzero trace
+    a = rng.normal(size=(3, 3))
+    p_eps = dyn.barostat_mass * (a + a.T)
+    # the trace term is what the bug affects, so it must not vanish
+    assert abs(np.trace(p_eps)) > 1e-6
+
+    # random rotation; `Rotation.random(rng=...)` needs SciPy >= 1.15
+    rotvec = rng.normal(size=3)
+    rotation = scipy.spatial.transform.Rotation.from_rotvec(rotvec).as_matrix()
+
+    dyn.p_eps = p_eps
+    gamma = dyn._barostat_BAOAB_OU_gamma_mod()
+
+    rotated_gamma = rotation @ gamma @ rotation.T
+
+    dyn.p_eps = rotation @ p_eps @ rotation.T
+    gamma_of_rotated = dyn._barostat_BAOAB_OU_gamma_mod()
+
+    np.testing.assert_allclose(gamma_of_rotated, rotated_gamma, atol=1e-12)

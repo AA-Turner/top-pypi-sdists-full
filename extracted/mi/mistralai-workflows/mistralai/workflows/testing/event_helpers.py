@@ -20,6 +20,7 @@ from mistralai.workflows.protocol.v1.events import (
     JSONPayload,
     Payload,
     WorkflowEvent,
+    WorkflowEventCategory,
     WorkflowExecutionCanceled,
     WorkflowExecutionCanceledAttributes,
     WorkflowExecutionCompleted,
@@ -29,6 +30,8 @@ from mistralai.workflows.protocol.v1.events import (
     WorkflowExecutionStarted,
     WorkflowExecutionStartedAttributes,
 )
+
+ALL_EVENT_CATEGORIES: frozenset[WorkflowEventCategory] = frozenset(WorkflowEventCategory)
 
 
 def workflow_started(
@@ -227,22 +230,13 @@ def custom_task_failed(
 _event_adapter: TypeAdapter[WorkflowEvent] = TypeAdapter(WorkflowEvent)
 
 
-def create_capturing_mock_events_client(captured_events: list[Any]) -> AsyncMock:
-    """Create a mock Events client that captures deserialized WorkflowEvent objects.
+def create_capturing_mock_event_publisher(captured_events: list[Any]) -> AsyncMock:
+    """Create a mock event publisher that captures WorkflowEvent objects."""
+    mock_publisher = AsyncMock()
 
-    EventContext calls send_event_async(event=<dict>) and send_events_batch_async(events=[<dict>...])
-    on the Events generated client. This helper creates a mock that intercepts those calls
-    and deserializes the dicts back into WorkflowEvent Pydantic objects for easy assertion in tests.
-    """
-    mock_client = AsyncMock()
+    async def capture_publish(events: list[Any]) -> None:
+        for event in events:
+            captured_events.append(_event_adapter.validate_python(event))
 
-    async def capture_send_event(*, event: Any, **kwargs: Any) -> None:
-        captured_events.append(_event_adapter.validate_python(event))
-
-    async def capture_send_events_batch(*, events: list[Any], **kwargs: Any) -> None:
-        for e in events:
-            captured_events.append(_event_adapter.validate_python(e))
-
-    mock_client.send_event_async = AsyncMock(side_effect=capture_send_event)
-    mock_client.send_events_batch_async = AsyncMock(side_effect=capture_send_events_batch)
-    return mock_client
+    mock_publisher.publish = AsyncMock(side_effect=capture_publish)
+    return mock_publisher

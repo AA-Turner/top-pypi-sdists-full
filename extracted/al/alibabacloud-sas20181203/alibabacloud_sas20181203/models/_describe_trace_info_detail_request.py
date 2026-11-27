@@ -15,19 +15,19 @@ class DescribeTraceInfoDetailRequest(DaraModel):
         uuid: str = None,
         vertex_id: str = None,
     ):
-        # The identifier of the request source. Set the value to **sas**.
+        # The identifier of the request source. The value is fixed to **sas**.
         # 
         # This parameter is required.
         self.from_ = from_
-        # The detection timestamp. Unit: milliseconds.
+        # The timestamp when the detection was performed. Unit: milliseconds.
         self.incident_time = incident_time
         # The language of the request and response. Valid values:
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
         # The source IP address of the request. You do not need to specify this parameter. The system automatically obtains the value.
         self.source_ip = source_ip
-        # The vertex type. Set the value to **SAS_INCIDENT** for security alerts.
+        # The type of the vertex. For alerts, the value is fixed to **SAS_INCIDENT**.
         # 
         # This parameter is required.
         self.type = type
@@ -35,7 +35,7 @@ class DescribeTraceInfoDetailRequest(DaraModel):
         # 
         # This parameter is required.
         self.uuid = uuid
-        # The vertex ID. You can obtain this value from the AlarmUniqueInfo parameter returned by the [DescribeSuspEvents](~~DescribeSuspEvents~~) operation.
+        # The ID of the vertex. You can obtain the value from the AlarmUniqueInfo parameter returned by the [DescribeSuspEvents](~~DescribeSuspEvents~~) operation.
         # 
         # This parameter is required.
         self.vertex_id = vertex_id

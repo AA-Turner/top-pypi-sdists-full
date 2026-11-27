@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sap-ai-sdk-gen
-Version: 7.4.1
+Version: 7.5.0
 Summary: SAP Cloud SDK for AI (Python): generative AI SDK
 Author: SAP SE
 License-Expression: Apache-2.0
@@ -33,21 +33,21 @@ Requires-Dist: dacite>=1.8.1
 Requires-Dist: click>=8.1.7
 Requires-Dist: overloading==0.5.0
 Requires-Dist: packaging>=23.2
-Requires-Dist: sap-ai-sdk-core>=3.4.0
+Requires-Dist: sap-ai-sdk-core>=3.5.0
 Requires-Dist: pydantic~=2.12
-Requires-Dist: openai>=1.66.0
+Requires-Dist: openai<3,>=1.66.0
 Requires-Dist: langcodes~=3.5.1
 Requires-Dist: pandas>=2.2.0
 Requires-Dist: langchain~=1.4.0
 Requires-Dist: langchain-classic~=1.0.0
-Requires-Dist: langchain-openai~=1.6.0
+Requires-Dist: langchain-openai~=1.7.2
 Provides-Extra: google
-Requires-Dist: google-genai~=2.23.0; extra == "google"
-Requires-Dist: langchain-google-genai<4.3.7,~=4.3.6; extra == "google"
+Requires-Dist: google-genai~=2.31.0; extra == "google"
+Requires-Dist: langchain-google-genai~=4.4.0; extra == "google"
 Provides-Extra: amazon
 Requires-Dist: boto3>=1.40.61; extra == "amazon"
 Requires-Dist: aiobotocore>=3.2.0; extra == "amazon"
-Requires-Dist: langchain-aws~=1.7.0; extra == "amazon"
+Requires-Dist: langchain-aws~=1.9.0; extra == "amazon"
 Provides-Extra: all
 Requires-Dist: sap-ai-sdk-gen[amazon,google]; extra == "all"
 Dynamic: license-file
@@ -73,4 +73,4 @@ You can install a subset of the extra libraries (without langchain support) by s
 
 ## Configuration, Usage
 
-Please refer to the official documentation hosted on [help.sap.com](https://help.sap.com/doc/generative-ai-hub-sdk/CLOUD/en-US/index.html) for details on how to configure and use the SAP Cloud SDK for AI (Python).
+Please refer to [the official documentation](https://sap.github.io/ai-sdk/docs/python/overview) for details on how to configure and use the SAP Cloud SDK for AI (Python).

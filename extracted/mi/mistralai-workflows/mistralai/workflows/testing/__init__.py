@@ -7,9 +7,10 @@ from mistralai.workflows.testing.constants import (
 )
 from mistralai.workflows.testing.event_comparison import compare_itemwise, sort_json_patch
 from mistralai.workflows.testing.event_helpers import (
+    ALL_EVENT_CATEGORIES,
     activity_completed,
     activity_started,
-    create_capturing_mock_events_client,
+    create_capturing_mock_event_publisher,
     custom_task_completed,
     custom_task_failed,
     custom_task_in_progress,
@@ -19,7 +20,11 @@ from mistralai.workflows.testing.event_helpers import (
     workflow_failed,
     workflow_started,
 )
-from mistralai.workflows.testing.test_worker import create_test_worker, create_test_worker_with_events
+from mistralai.workflows.testing.test_worker import (
+    create_test_worker,
+    create_test_worker_with_events,
+    get_internal_activities,
+)
 from mistralai.workflows.testing.workflow_helpers import (
     HeartbeatProcessingParams,
     HeartbeatProcessingResult,
@@ -48,6 +53,7 @@ from mistralai.workflows.testing.workflow_helpers import (
 )
 
 __all__ = [
+    "ALL_EVENT_CATEGORIES",
     "DEFAULT_TEST_TASK_QUEUE",
     "TEST_TASK_QUEUE",
     "min_api_version",
@@ -63,9 +69,10 @@ __all__ = [
     "custom_task_in_progress",
     "custom_task_completed",
     "custom_task_failed",
-    "create_capturing_mock_events_client",
+    "create_capturing_mock_event_publisher",
     "create_test_worker",
     "create_test_worker_with_events",
+    "get_internal_activities",
     "wait_for_pending_inputs",
     "poll_pending_inputs",
     "poll_trace_events_available",

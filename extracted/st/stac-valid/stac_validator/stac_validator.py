@@ -549,13 +549,32 @@ def batch(
     "--api",
     "-a",
     is_flag=True,
-    help="Validate a STAC API catalog recursively (follows data, child, item, and items links).",
+    help="Validate a STAC API catalog recursively (follows data, child, item, items, and next links).",
 )
 @click.option(
     "--limit",
     type=click.IntRange(min=1),
     default=None,
     help="Limit number of STAC objects to validate.",
+)
+@click.option(
+    "--max-depth",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Maximum recursion depth for --recursive/--api (the root document is depth 1).",
+)
+@click.option(
+    "--max-pages",
+    type=click.IntRange(min=0),
+    default=None,
+    help="Maximum number of 'next' pages to follow per paginated API list "
+    "(the first page counts). 0 follows every page. Default is 1000.",
+)
+@click.option(
+    "--header",
+    type=(str, str),
+    multiple=True,
+    help="HTTP header to include in remote requests. Can be used multiple times.",
 )
 def fast(
     stac_file: str,
@@ -564,6 +583,9 @@ def fast(
     recursive: bool,
     api: bool,
     limit: Optional[int],
+    max_depth: Optional[int],
+    max_pages: Optional[int],
+    header: list,
 ):
     """High-speed validation using fastjsonschema and local caching."""
     if api and not stac_file.startswith(("http://", "https://")):
@@ -575,7 +597,15 @@ def fast(
         sys.exit(1)
 
     try:
-        fv = FastValidator(stac_file, quiet=quiet, verbose=verbose, limit=limit)
+        fv = FastValidator(
+            stac_file,
+            quiet=quiet,
+            verbose=verbose,
+            limit=limit,
+            max_depth=max_depth,
+            max_pages=max_pages,
+            headers=dict(header) or None,
+        )
         if api:
             fv.run_api()
         elif recursive:

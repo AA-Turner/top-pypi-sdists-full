@@ -11,7 +11,9 @@ class Repository:
     """Remote git repository.
 
     Attributes:
-        cache_path: Path to clone the repository to in the local cache.
+        cache_path: Path to clone the repository to in the local cache. It
+            can have sub-directories, in which case the last one should be
+            the package name that URDF ``package://`` URIs refer to.
         commit: Commit ID or tag to checkout after cloning.
         url: URL to the remote git repository.
     """
@@ -148,12 +150,12 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "flexiv_description": Repository(
         url="https://github.com/flexivrobotics/flexiv_description.git",
-        commit="f33331a7f75b9a25ec903674595ddfebbe1fb998",
+        commit="d0ece5a5d2c5e434b57e21506d4c0e8659438991",
         cache_path="flexiv_description",
     ),
     "franka_description": Repository(
         url="https://github.com/frankarobotics/franka_description.git",
-        commit="72baf5bf4e88eaec27f0eb61be1b20a001abf2ab",
+        commit="7aeeddc449edf8d62b594f9e36a81da53e7796f9",
         cache_path="franka_description",
     ),
     "GalaxeaManipSim": Repository(
@@ -187,8 +189,8 @@ REPOSITORIES: Dict[str, Repository] = {
         cache_path="hsrb_common",
     ),
     "i2rt": Repository(
-        url="https://github.com/robot-descriptions/i2rt.git",
-        commit="7809b5b17227162d265f922e2e10598c0e214322",
+        url="https://github.com/i2rt-robotics/i2rt",
+        commit="120c3c81400171174604e503943f8d1ebc891058",
         cache_path="i2rt",
     ),
     "icub-models": Repository(
@@ -234,6 +236,11 @@ REPOSITORIES: Dict[str, Repository] = {
         # in URDF descriptions so that Bullet loads them successfully
         cache_path="robot_description",
     ),
+    "microban": Repository(
+        url="https://github.com/Rhoban/microban.git",
+        commit="d0a128d180ecfce69eaaf31b295a0fce31280bfd",
+        cache_path="microban",
+    ),
     "mini_cheetah_urdf": Repository(
         url="https://github.com/Derek-TH-Wang/mini_cheetah_urdf.git",
         commit="1988bceb26e81f28594a16e7d5e6abe5cbb27ace",
@@ -266,12 +273,12 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "openarm_description": Repository(
         url="https://github.com/enactic/openarm_description.git",
-        commit="1daa95b71565a6696242013a42c4d3af689cbdb3",
+        commit="206eb8a4cf2e5e564536b4f5366ef369843a4aa7",
         cache_path="openarm_description",
     ),
     "openarm_mujoco": Repository(
         url="https://github.com/enactic/openarm_mujoco.git",
-        commit="5c6e1b4c71cbe27c6a4b58c7f198f080449e1b9c",
+        commit="a3c8a57ec15d385e3c1dbd3fd090ee486b7f258c",
         cache_path="openarm_mujoco",
     ),
     "pal_hey5": Repository(
@@ -291,7 +298,7 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "Piper_ros": Repository(
         url="https://github.com/agilexrobotics/Piper_ros.git",
-        commit="f2ec6a67e1f404bcb478529e89861ccdf43fa298",
+        commit="ac41fcbcdda598f01b51cf6175ed9a24d0dacadc",
         cache_path="Piper_ros",
     ),
     "pmb2_robot": Repository(
@@ -341,7 +348,7 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "robotiq_2f_85": Repository(
         url="https://github.com/nickswalker/robotiq-2f-85.git",
-        commit="319f7b94587c97f09e732a7b2ed7babbe0250b9e",
+        commit="5f5178e69c130f1e7115c0eaccedb8e683f6de51",
         cache_path="robotiq-2f-85",
     ),
     "romeo_robot": Repository(
@@ -461,7 +468,7 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "xarm_ros2": Repository(
         url="https://github.com/xArm-Developer/xarm_ros2.git",
-        commit="5bb832f72ca665f1236a9d8ed1c3a82f308db489",
+        commit="ac736c92b02de7ca7e0be6f737d77d46707464d8",
         cache_path="xarm_ros2",
     ),
     "luna_description": Repository(
@@ -477,11 +484,15 @@ REPOSITORIES: Dict[str, Repository] = {
     "tron1_robot_description": Repository(
         url="https://github.com/limxdynamics/tron1-robot-description.git",
         commit="5b97add1f3b461c9ed26ff2ff2f5025cc6ee4316",
-        cache_path="tron1_robot_description",
+        # The last directory matches the package name in URDF mesh URIs
+        # (package://robot_description/...), so that Bullet and Pinocchio can
+        # resolve them
+        cache_path="tron1_robot_description/robot_description",
     ),
     "tron2_robot_description": Repository(
         url="https://github.com/limxdynamics/tron2-robot-description.git",
-        commit="9939c22e69d27653ec0ba8a505859a2903dd1a71",
-        cache_path="tron2_robot_description",
+        commit="d81d2a83a3c718bc68deca4e8804fdc984dc34f7",
+        # The URDFs reference meshes as package://robot_description/...
+        cache_path="tron2_robot_description/robot_description",
     ),
 }

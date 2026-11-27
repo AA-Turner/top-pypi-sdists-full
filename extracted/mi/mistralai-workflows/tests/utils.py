@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Collection, Sequence
 from typing import TYPE_CHECKING, Any, Type
 
 from temporalio.testing import WorkflowEnvironment
@@ -12,9 +13,10 @@ from mistralai.workflows.protocol.v1.events import (
     CustomTaskStarted,
     CustomTaskStartedAttributes,
     WorkflowEvent,
+    WorkflowEventCategory,
 )
 from mistralai.workflows.testing import (
-    create_capturing_mock_events_client,
+    create_capturing_mock_event_publisher,
     create_test_worker,
     create_test_worker_with_events,
     wait_for_pending_inputs,
@@ -32,8 +34,14 @@ __all__ = [
     "create_test_worker_with_events",
     "execute_workflow_in_test_env",
     "wait_for_pending_inputs",
-    "create_capturing_mock_events_client",
+    "create_capturing_mock_event_publisher",
+    "emitted",
 ]
+
+
+def emitted(events: Sequence[Any], categories: Collection[WorkflowEventCategory]) -> list[Any]:
+    """The events of a full expected sequence that a worker emitting `categories` sends."""
+    return [event for event in events if event.event_type.category in categories]
 
 
 def create_http_test_worker_client(transport: httpx.AsyncBaseTransport) -> PrivateWorkerClient:

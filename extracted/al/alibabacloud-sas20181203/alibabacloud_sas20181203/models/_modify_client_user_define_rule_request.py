@@ -9,6 +9,7 @@ class ModifyClientUserDefineRuleRequest(DaraModel):
         self,
         action_type: int = None,
         cmdline: str = None,
+        direction: str = None,
         domain: str = None,
         file_path: str = None,
         ip: str = None,
@@ -26,15 +27,17 @@ class ModifyClientUserDefineRuleRequest(DaraModel):
         registry_key: str = None,
         type: int = None,
     ):
-        # The action type. Valid values:
+        # The operation type. Valid values:
         # 
-        # - **0**: allow
-        # - **1**: block.
+        # - **0**: whitelist
+        # - **1**: blacklist
         # 
         # This parameter is required.
         self.action_type = action_type
         # The command line.
         self.cmdline = cmdline
+        # The traffic direction for common IP rules (Type is 9). A value of in indicates inbound, and a value of out indicates outbound.
+        self.direction = direction
         # The domain name.
         self.domain = domain
         # The file path.
@@ -43,17 +46,18 @@ class ModifyClientUserDefineRuleRequest(DaraModel):
         self.ip = ip
         # The ID of the custom rule.
         # 
-        # >Call the [ListClientUserDefineRules](~~ListClientUserDefineRules~~) operation to obtain this parameter.
+        # >You can call the [ListClientUserDefineRules](~~ListClientUserDefineRules~~) operation to query this parameter.
         # 
         # This parameter is required.
         self.id = id
         # The list of process hashes.
         self.md_5list = md_5list
         # The rule name.
+        # > Note: If the name length exceeds the limit, the operation returns UserDefineRuleNameTooLong (HTTP 400) with the error message "The custom rule name is too long."
         self.name = name
-        # The new file path for file rename.
+        # The new file path for file renaming.
         self.new_file_path = new_file_path
-        # The parent process command line.
+        # The parent command line.
         self.parent_cmdline = parent_cmdline
         # The parent process path.
         self.parent_proc_path = parent_proc_path
@@ -61,9 +65,9 @@ class ModifyClientUserDefineRuleRequest(DaraModel):
         # 
         # - **windows**: Windows
         # - **linux**: Linux
-        # - **all**: all.
+        # - **all**: all
         self.platform = platform
-        # The port number. This parameter is deprecated.
+        # **[Deprecated]** The port number.
         self.port = port
         # The port number. Valid values: 1 to 65535.
         self.port_str = port_str
@@ -78,10 +82,12 @@ class ModifyClientUserDefineRuleRequest(DaraModel):
         # - **1**: process hash
         # - **2**: command line
         # - **3**: process network
-        # - **4**: file read/write
+        # - **4**: file read and write
         # - **5**: registry operation
         # - **6**: dynamic-link library loading
-        # - **7**: file rename.
+        # - **7**: file renaming
+        # 
+        # This parameter is required. If this parameter is not provided, the service returns InvalidUserDefineRuleType (HTTP 400) with the error message "Invalid Type value".
         self.type = type
 
     def validate(self):
@@ -97,6 +103,9 @@ class ModifyClientUserDefineRuleRequest(DaraModel):
 
         if self.cmdline is not None:
             result['Cmdline'] = self.cmdline
+
+        if self.direction is not None:
+            result['Direction'] = self.direction
 
         if self.domain is not None:
             result['Domain'] = self.domain
@@ -155,6 +164,9 @@ class ModifyClientUserDefineRuleRequest(DaraModel):
 
         if m.get('Cmdline') is not None:
             self.cmdline = m.get('Cmdline')
+
+        if m.get('Direction') is not None:
+            self.direction = m.get('Direction')
 
         if m.get('Domain') is not None:
             self.domain = m.get('Domain')

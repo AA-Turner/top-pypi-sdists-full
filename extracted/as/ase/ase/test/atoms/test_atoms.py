@@ -4,6 +4,26 @@ import pytest
 from ase import Atoms
 
 
+def test_copy_deepcopies_nested_info():
+    atoms = Atoms('H', positions=[[0, 0, 0]])
+    atoms.info['metadata'] = {'source': 'input'}
+
+    copied = atoms.copy()
+    copied.info['metadata']['source'] = 'copy'
+
+    assert atoms.info['metadata']['source'] == 'input'
+
+
+def test_slice_deepcopies_nested_info():
+    atoms = Atoms('H2', positions=[[0, 0, 0], [1, 0, 0]])
+    atoms.info['metadata'] = {'source': 'input'}
+
+    sliced = atoms[:1]
+    sliced.info['metadata']['source'] = 'slice'
+
+    assert atoms.info['metadata']['source'] == 'input'
+
+
 def test_atoms():
     print(Atoms())
     print(Atoms('H2O'))

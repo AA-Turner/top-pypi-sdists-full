@@ -62,60 +62,29 @@ def get_provider_info() -> dict[str, Any]:
                     },
                     "placeholders": {
                         "host": (
-                            "https://lakekeeper.example.com (server root, NOT /catalog)"
+                            "Empty: same as databaas_lakehouse "
+                            "(server root, NOT /catalog)"
                         ),
-                        "schema": "databaas-lakehouse (default when empty)",
+                        "schema": "Empty: same as databaas_lakehouse",
                         "login": "Zitadel service-account client id",
                         "password": "Zitadel service-account client secret",
                     },
                 },
+                # Settings read from `extra` but kept off the form: the platform
+                # connection already carries them. Still honoured when present:
+                # service_account_key, audience, scope, namespace, region,
+                # endpoint and verify.
                 "conn-fields": {
-                    "service_account_key": _string_field(
-                        "Service account JSON key",
-                        "Paste the whole downloaded JSON key here (keyId/key/"
-                        "userId) when your Zitadel console only offers a JSON "
-                        "key for this machine user, not a client secret. Takes "
-                        "priority over Client ID/secret when set. Still needs "
-                        "Token URL and Project ID below.",
-                    ),
-                    "audience": _string_field(
-                        "JWT audience",
-                        "Only for a service account JSON key. Defaults to the "
-                        "Token URL with '/oauth/v2/token' stripped — override "
-                        "only if that default is wrong.",
-                    ),
                     "token_url": _string_field(
                         "Token URL",
-                        "Zitadel OAuth2 token endpoint. Required with a Client ID "
-                        "or a service account JSON key.",
-                        "https://auth.example.com/oauth/v2/token",
+                        "The Zitadel address, e.g. https://auth.example.com. "
+                        "Leave empty to use the one on databaas_lakehouse.",
+                        "Empty: same as databaas_lakehouse",
                     ),
                     "project_id": _string_field(
                         "Zitadel project ID",
-                        "Expands to the audience scope Lakekeeper requires. "
-                        "Required unless an explicit scope is given.",
-                    ),
-                    "scope": _string_field(
-                        "OAuth scope",
-                        "Explicit scope, overriding the one derived from the "
-                        "project ID. Leave empty unless you know you need it.",
-                    ),
-                    "namespace": _string_field(
-                        "Default namespace",
-                        "Namespace used when a DAG does not pass one.",
-                        "default",
-                    ),
-                    "region": _string_field(
-                        "S3 region", "Region used in signing payloads.", "nl-ams"
-                    ),
-                    "endpoint": _string_field(
-                        "S3 endpoint",
-                        "Leave empty to take it from the catalog's table config.",
-                    ),
-                    "verify": _string_field(
-                        "TLS verification",
-                        "'false' to disable, or a path to a CA bundle. Defaults to "
-                        "verifying.",
+                        "Leave empty to use the one on databaas_lakehouse.",
+                        "Empty: same as databaas_lakehouse",
                     ),
                 },
             }

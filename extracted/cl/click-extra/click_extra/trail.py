@@ -81,14 +81,16 @@ if TYPE_CHECKING:
         ) -> None: ...
         def advance(self, done: int) -> None: ...
         def echo(self, message: str) -> None: ...
-        def finish(self, ok: bool, summary: str) -> None: ...
+        def finish(self, ok: bool | None, summary: str) -> None: ...
         def stop(self) -> None: ...
 
 
-def trail_line(ok: bool, message: str) -> str:
-    """Format one `✓`/`✘` trail line: a glyph followed by `message`.
+def trail_line(ok: bool | None, message: str) -> str:
+    """Format one trail line: the glyph of the outcome followed by `message`.
 
-    The glyph is the one {func}`~click_extra.spinner.trail_glyph` paints.
+    The glyph is the one {func}`~click_extra.spinner.trail_glyph` paints: `✓` for
+    a success, `✘` for a failure, and `⊘` for `None`, an operation that was
+    skipped.
     """
     return f"{trail_glyph(ok)} {message}"
 
@@ -98,8 +100,9 @@ class _SpinnerIndicator:
 
     Carries the running ``{label} {done}/{total} {unit}`` tally on one animated
     line while completed outcomes stream above it, and closes on the spinner's
-    kept {meth}`~Spinner.ok` / {meth}`~Spinner.fail` line. Used for a concurrent
-    batch, where per-call spinners would collide on the shared stream.
+    kept {meth}`~Spinner.ok`, {meth}`~Spinner.fail` or {meth}`~Spinner.skip`
+    line. Used for a concurrent batch, where per-call spinners would collide on
+    the shared stream.
     """
 
     def __init__(
@@ -172,8 +175,8 @@ class _SpinnerIndicator:
         """Halt the spinner and erase its line, with no kept line. Idempotent."""
         self._spinner.stop()
 
-    def finish(self, ok: bool, summary: str) -> None:
-        """Leave the spinner's kept `✓`/`✘` ``summary`` line, elapsed included."""
+    def finish(self, ok: bool | None, summary: str) -> None:
+        """Leave the spinner's kept ``summary`` line, elapsed included."""
         if not self._spinner.shown:
             return
         if self._eta_bar is not None:
@@ -181,7 +184,12 @@ class _SpinnerIndicator:
             # total elapsed here (a finished batch has no time remaining).
             summary += _timer_suffix(self._timer, self._spinner.elapsed_time)
         self._spinner.label = summary
-        (self._spinner.ok if ok else self._spinner.fail)()
+        if ok is None:
+            self._spinner.skip()
+        elif ok:
+            self._spinner.ok()
+        else:
+            self._spinner.fail()
 
 
 class _BarIndicator:
@@ -364,8 +372,8 @@ class _BarIndicator:
                 self._draw()  # Redraw the bar below.
             stream.flush()
 
-    def finish(self, ok: bool, summary: str) -> None:
-        """Replace the bar with a kept `✓`/`✘` ``summary`` line, elapsed included."""
+    def finish(self, ok: bool | None, summary: str) -> None:
+        """Replace the bar with a kept ``summary`` line, elapsed included."""
         self._close((ok, summary))
 
     def stop(self) -> None:
@@ -376,15 +384,15 @@ class _BarIndicator:
         """
         self._close(None)
 
-    def _close(self, outcome: tuple[bool, str] | None) -> None:
+    def _close(self, outcome: tuple[bool | None, str] | None) -> None:
         """Tear the bar down, leaving the `outcome` finisher in its place.
 
         Runs once: a later call returns at once. The first call either erased the
         bar, or left the ticker behind, blocked in a write with the draw lock
         held, which a second teardown would wait on until the stream drains.
 
-        :param outcome: whether the batch succeeded and its summary, or `None`
-            to erase the bar and keep no line.
+        :param outcome: the outcome of the batch and its summary, or `None` to
+            erase the bar and keep no line.
         """
         if self._finished:
             return
@@ -440,12 +448,17 @@ class OperationTrail:
 
     The aggregate indicators redraw in place, which a pipe or a CI log cannot
     do, so by default they draw only on an interactive terminal, and `live`
-    changes where they draw. The `✓`/`✘` lines and the finisher only append, so
+    changes where they draw. The outcome lines and the finisher only append, so
     they print on any stream, in plain text where color is off. Where no
     indicator draws, every rendering echoes each outcome as it lands, as the
     sequential one does. `visible=False` silences all of it. The running `✓`
     tally is kept as outcomes land ({attr}`ok_count`), so a caller computes no
     counts of its own.
+
+    An operation that neither succeeded nor failed, like one with nothing to do,
+    marks `None`: its line takes the `⊘` glyph of
+    {data}`~click_extra.theme.SKIP_GLYPH`, and {attr}`skip_count` tallies it
+    apart from {attr}`ok_count`, so a finisher can leave it out of its count.
 
     Thread-safe: {meth}`mark` may be called from worker threads. Use it as a
     context manager whenever it may run concurrently, to bound the aggregate
@@ -568,6 +581,7 @@ class OperationTrail:
         self._lock = threading.Lock()
         self._done = 0
         self._ok = 0
+        self._skipped = 0
         self._finished = False
         self._start = time.monotonic()
         self._indicator: _AggregateIndicator | None = None
@@ -653,14 +667,19 @@ class OperationTrail:
         """How many marked outcomes have succeeded so far."""
         return self._ok
 
+    @property
+    def skip_count(self) -> int:
+        """How many marked operations were skipped so far."""
+        return self._skipped
+
     def _interrupted_summary(self) -> str:
         """The finisher of a batch a Ctrl+C stopped: how far it got."""
         count = f"{self._done}/{self.total}" if self.total else str(self._done)
         summary = _("Interrupted after {count}").format(count=count)
         return f"{summary} {self.unit}" if self.unit else summary
 
-    def _render_line(self, ok: bool, message: str) -> str:
-        """Format one `✓`/`✘` line for the trail's stream, plain when color is off.
+    def _render_line(self, ok: bool | None, message: str) -> str:
+        """Format one trail line for the trail's stream, plain when color is off.
 
         The glyph is painted unconditionally by {func}`trail_line`, and a line
         flushed above a drawn indicator reaches the stream through a raw write,
@@ -677,9 +696,11 @@ class OperationTrail:
         else:
             click.echo(message, err=True)
 
-    def mark(self, ok: bool, message: str, seconds: float | None = None) -> None:
-        """Record one `✓`/`✘` outcome: tally it and render its trail line.
+    def mark(self, ok: bool | None, message: str, seconds: float | None = None) -> None:
+        """Record one outcome: tally it and render its trail line.
 
+        :param ok: whether the operation succeeded (`✓`) or failed (`✘`), or
+            `None` when it was skipped (`⊘`).
         :param seconds: the operation's own elapsed time. When `timer` is on it
             is formatted and appended to `message` as ` (2.3s)`. An
             {meth}`operation` handle fills this in from when it was created;
@@ -689,7 +710,9 @@ class OperationTrail:
             message += _timer_suffix(self.timer, seconds)
         with self._lock:
             self._done += 1
-            if ok:
+            if ok is None:
+                self._skipped += 1
+            elif ok:
                 self._ok += 1
             if self._finished:
                 # An outcome landing after the finisher, from a task the batch
@@ -716,12 +739,16 @@ class OperationTrail:
             self._indicator.echo(text)
         self._buffer.clear()
 
-    def finish(self, ok: bool, summary: str) -> None:
-        """Render the persistent `✓`/`✘` ``{summary}`` finisher.
+    def finish(self, ok: bool | None, summary: str) -> None:
+        """Render the persistent ``{summary}`` finisher.
+
+        `ok` picks its glyph as in {meth}`mark`: `None` closes a batch that
+        skipped every operation.
 
         With an aggregate indicator that drew, it becomes the indicator's kept
-        line (a spinner's {meth}`~click_extra.spinner.Spinner.ok` /
-        {meth}`~click_extra.spinner.Spinner.fail` line, or the bar's replacement
+        line (a spinner's {meth}`~click_extra.spinner.Spinner.ok`,
+        {meth}`~click_extra.spinner.Spinner.fail` or
+        {meth}`~click_extra.spinner.Spinner.skip` line, or the bar's replacement
         line); otherwise, a plain echoed line. The batch's elapsed time since
         construction is appended when `timer` is on.
 
@@ -756,7 +783,7 @@ class OperationTrail:
         """Start a timed operation, returning a handle to record its outcome.
 
         The handle captures the current time; call {meth}`_Operation.mark` when
-        the work finishes to record its `✓`/`✘` outcome with the elapsed time
+        the work finishes to record its outcome with the elapsed time
         appended (when `timer` is on). This is how a batch reports
         per-operation timings under concurrency, where the trail itself never
         sees when an operation began:
@@ -784,6 +811,9 @@ class _Operation:
         self._trail = trail
         self._start = time.monotonic()
 
-    def mark(self, ok: bool, message: str) -> None:
-        """Record this operation's `✓`/`✘` outcome, timed from its start."""
+    def mark(self, ok: bool | None, message: str) -> None:
+        """Record this operation's outcome, timed from its start.
+
+        `ok` takes the values of {meth}`OperationTrail.mark`.
+        """
         self._trail.mark(ok, message, seconds=time.monotonic() - self._start)

@@ -1,5 +1,4 @@
 import inspect
-import warnings
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -11,7 +10,6 @@ from uuid import UUID
 
 import temporalio.workflow
 from pydantic import BaseModel
-from temporalio.common import VersioningBehavior
 from temporalio.workflow import ContinueAsNewVersioningBehavior, ParentClosePolicy
 
 from mistralai.workflows.core._logger import get_logger
@@ -25,7 +23,16 @@ from mistralai.workflows.core._registration.search_key_ingestion import (
     ingest_search_keys,
 )
 from mistralai.workflows.core._registration.search_keys import validate_search_key_paths
-from mistralai.workflows.core.config.config import RESERVED_QUERY_NAMES, RESERVED_UPDATE_NAMES, config
+from mistralai.workflows.core.config.config import (
+    RESERVED_QUERY_NAMES,
+    RESERVED_UPDATE_NAMES,
+    get_workflow_decorator_config,
+)
+from mistralai.workflows.core.definition._workflow_preparation import (
+    WorkflowDecoratorMetadata,
+    build_temporal_definition_config,
+    ensure_temporal_workflow_definition,
+)
 from mistralai.workflows.core.definition.validation._parameter_conversion import (
     convert_params_dict_to_user_args,
     convert_query_update_result_to_temporal_format,
@@ -50,8 +57,10 @@ from mistralai.workflows.core.definition.workflow_definition import (
     set_workflow_search_key_info,
 )
 from mistralai.workflows.core.execution.workflow_execution import (  # noqa: F401 - used in static methods below
+    _raise_if_outside_workflow,
     execute_workflow,
 )
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.sandbox import log_if_sandbox_restriction_error
 from mistralai.workflows.core.tracing.utils import (
     set_otel_trace_id_in_current_workflow_execution,
@@ -59,13 +68,10 @@ from mistralai.workflows.core.tracing.utils import (
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.models import (
     QueryDefinition,
-    ScheduleDefinition,
     SignalDefinition,
     UpdateDefinition,
     WorkflowSpec,
 )
-
-Schedule = ScheduleDefinition
 
 logger = get_logger(__name__)
 
@@ -89,14 +95,6 @@ def get_all_registered_workflows() -> List[Type]:
     return _registered_workflows.copy()
 
 
-def _keep_context_arg_for_parameterless_entrypoint(cls: Type) -> None:
-    # temporalio>=1.31 truncates decoded workflow args to len(arg_types), so an empty list drops the
-    # PayloadWithContext the SDK always sends; None makes it decode every payload untyped.
-    defn = temporalio.workflow._Definition.must_from_class(cls)
-    if defn.arg_types == []:
-        object.__setattr__(defn, "arg_types", None)
-
-
 @dataclass
 class _HandlerMetadata:
     """Metadata stored on handler wrappers for runtime parameter conversion."""
@@ -112,9 +110,7 @@ class workflow:
     @staticmethod
     def define(
         name: str,
-        workflow_description: str | None = None,
-        schedules: List[Schedule] | None = None,
-        workflow_display_name: str | None = None,
+        *,
         is_technical: bool = False,
         enforce_determinism: bool | None = None,
         execution_timeout: timedelta = timedelta(hours=1),
@@ -128,10 +124,6 @@ class workflow:
 
         Args:
             name: The workflow name used for identification and execution. Required.
-            workflow_description: Optional description of what the workflow does.
-            schedules: DEPRECATED. Optional list of schedule definitions for automated workflow execution.
-                This parameter is deprecated and will be removed in the next major release. Use the API or
-                AI Studio to create and manage schedules instead (POST /v1/workflows/{id}/schedules).
             search_keys: Optional dot paths into the entrypoint input whose values are extracted at
                 runtime and stored as searchable execution metadata. Paths are rooted at the
                 input model (e.g. "id", "customer.name") and multi-parameter entrypoints root at the
@@ -155,17 +147,10 @@ class workflow:
         """
 
         def decorator(cls_type: ClassType) -> ClassType:
-            if schedules is not None:
-                warnings.warn(
-                    "The 'schedules' parameter in @workflow.define is deprecated and will be removed "
-                    "in the next major release. Please use the API or AI Studio to create and manage "
-                    "schedules instead (POST /v1/workflows/{workflow_id}/schedules).",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
+            decorator_config = get_workflow_decorator_config()
             actual_name = name
-            if config.worker.workflow_name_prefix:
-                actual_name = f"{config.worker.workflow_name_prefix}{actual_name}"
+            if decorator_config.workflow_name_prefix:
+                actual_name = f"{decorator_config.workflow_name_prefix}{actual_name}"
 
             if not inspect.isclass(cls_type):
                 raise WorkflowsException(
@@ -197,10 +182,15 @@ class workflow:
 
             @wraps(original_run_method, assigned=_WRAPS_ASSIGNED)
             async def run(self: Any, params: dict | None = None) -> Any:
+                _raise_if_outside_workflow(f"{cls_type.__name__}.{user_method_name}()")
+
                 try:
                     set_otel_trace_id_in_current_workflow_execution()
-                except Exception as e:
-                    logger.warn("Failed to set otel trace id in current workflow execution", exc_info=e)
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to set otel trace id in current workflow execution",
+                        **extract_error_context(exc),
+                    )
 
                 actual_args = convert_params_dict_to_user_args(params, user_params_dict, input_model)
 
@@ -235,33 +225,15 @@ class workflow:
             collected_queries.sort(key=lambda q: q.name)
             collected_updates.sort(key=lambda u: u.name)
 
-            if on_behalf_of and schedules:
-                raise WorkflowsException(
-                    code=ErrorCode.WORKFLOW_DEFINITION_ERROR,
-                    message=(
-                        "on_behalf_of=True cannot be combined with schedules"
-                        " because scheduled workflows lack user identity"
-                    ),
-                )
-
             actual_enforce_determinism = (
-                enforce_determinism if enforce_determinism is not None else config.worker.default_enforce_determinism
+                enforce_determinism if enforce_determinism is not None else decorator_config.default_enforce_determinism
             )
-
-            if not actual_enforce_determinism:
-                logger.warning(
-                    "Workflow registered with determinism enforcement disabled. "
-                    "This may lead to non-deterministic behavior and replay failures.",
-                    workflow_name=actual_name,
-                )
 
             # Collect plugin metadata from the class
             plugin_metadata = getattr(cls_type, "__plugin_metadata__", None) or None
 
             workflow_definition_obj = WorkflowSpec(
                 name=actual_name,
-                display_name=workflow_display_name,
-                description=workflow_description,
                 input_schema=input_model.model_json_schema(),
                 output_schema=output_model.model_json_schema() if output_model is not None else None,
                 is_technical=is_technical,
@@ -269,40 +241,31 @@ class workflow:
                 signals=collected_signals,
                 queries=collected_queries,
                 updates=collected_updates,
-                schedules=schedules or [],
                 enforce_determinism=actual_enforce_determinism,
                 execution_timeout=execution_timeout,
                 plugin_metadata=plugin_metadata,
             )
+            setattr(
+                cls_type,
+                "__workflows_decorator_metadata",
+                WorkflowDecoratorMetadata(name=name, enforce_determinism=enforce_determinism),
+            )
             set_workflow_definition(cls_type, workflow_definition_obj)
-            set_workflow_search_key_info(actual_name, tuple(search_keys or ()), tuple(user_params_dict), input_model)
+            set_workflow_search_key_info(cls_type, tuple(search_keys or ()), tuple(user_params_dict), input_model)
 
-            if not temporalio.workflow.unsafe.in_sandbox():
+            if temporalio.workflow.unsafe.in_sandbox():
+                ensure_temporal_workflow_definition(
+                    cls_type,
+                    build_temporal_definition_config(
+                        actual_name,
+                        actual_enforce_determinism,
+                        decorator_config.versioning,
+                    ),
+                )
+            else:
                 _registered_workflows.append(cls_type)
 
-            versioning_cfg = config.worker.versioning
-
-            if versioning_cfg.enabled and versioning_cfg.deployment_name and versioning_cfg.build_id:
-                logger.info(
-                    "Workflow registered with PINNED versioning behavior",
-                    workflow_name=actual_name,
-                    deployment_name=versioning_cfg.deployment_name,
-                    build_id=versioning_cfg.build_id,
-                )
-                defined = temporalio.workflow.defn(
-                    sandboxed=actual_enforce_determinism,
-                    name=actual_name,
-                    versioning_behavior=VersioningBehavior.PINNED,
-                )(cls_type)
-            else:
-                logger.info(
-                    "Workflow registered WITHOUT versioning behavior",
-                    workflow_name=actual_name,
-                )
-                defined = temporalio.workflow.defn(sandboxed=actual_enforce_determinism, name=actual_name)(cls_type)
-
-            _keep_context_arg_for_parameterless_entrypoint(defined)
-            return defined
+            return cls_type
 
         return decorator
 
@@ -312,7 +275,9 @@ class workflow:
 
         Marks a method as the main execution entry point for a workflow. Every workflow class
         must have exactly one method decorated with @workflow.entrypoint. This method will be
-        called when the workflow is executed.
+        called when the workflow is executed on a worker. Calling the decorated workflow's
+        entrypoint directly outside workflow code raises WorkflowsException. Use create_test_worker
+        to execute workflows in tests.
 
         The entrypoint method must be async and can accept parameters (as individual typed arguments)
         and return a value. All parameters and return types should be JSON-serializable or Pydantic models.
@@ -616,11 +581,7 @@ class workflow:
         wait: bool = True,
         parent_close_policy: ParentClosePolicy | None = None,
     ) -> Any:
-        """Execute a workflow. If called from within a workflow, it will execute as a child workflow.
-
-        When called from within a workflow context, this starts a child workflow that inherits
-        the parent's namespace and can be monitored as part of the parent's execution.
-        When called outside a workflow context, it executes directly.
+        """Execute a workflow as a child workflow of the current workflow. Must be called from workflow code.
 
         Args:
             workflow: The workflow class to execute (must be decorated with @workflow.define).
@@ -629,7 +590,7 @@ class workflow:
                 declared execution_timeout from @workflow.define (itself 1 hour if unset).
             execution_id: Optional workflow ID. If None, a random ID will be generated.
             wait: If True (default), wait for the child to complete and return the result.
-                  If False, return a ChildWorkflowHandle immediately (only inside a workflow).
+                  If False, return a ChildWorkflowHandle immediately.
             parent_close_policy: Policy for the child when the parent closes.
                                  Defaults to TERMINATE when wait=True, ABANDON when wait=False.
 
@@ -638,7 +599,8 @@ class workflow:
             or a ChildWorkflowHandle (wait=False).
 
         Raises:
-            WorkflowsException: If the workflow is not properly decorated or configured.
+            WorkflowsException: If called outside workflow code, or if the workflow is not properly
+                decorated or configured.
 
         Example:
             result = await workflow.execute_workflow(
@@ -745,6 +707,31 @@ class workflow:
         await temporalio.workflow.wait_condition(predicate, timeout=timeout, timeout_summary=timeout_summary)
 
     @staticmethod
+    async def wait_for_handlers() -> None:
+        """Wait until every running signal and update handler has finished.
+
+        Call this before continue_as_new() or before returning from the entrypoint:
+        handlers still running when the run ends are abandoned, so their work is lost and
+        update callers receive an error. Build the continue-as-new parameters after this
+        call, since the handlers may still modify the workflow's state.
+
+        Raises:
+            WorkflowsException: If called outside workflow context
+
+        Example:
+            if workflow.should_continue_as_new():
+                await workflow.wait_for_handlers()
+                workflow.continue_as_new(AgentState(history=self.history, inbox=self.inbox))
+        """
+        if not temporalio.workflow.in_workflow():
+            raise WorkflowsException(
+                code=ErrorCode.WORKFLOW_DEFINITION_ERROR,
+                message="wait_for_handlers can only be called from within a workflow",
+            )
+
+        await temporalio.workflow.wait_condition(temporalio.workflow.all_handlers_finished)
+
+    @staticmethod
     def continue_as_new(params: BaseModel, *, auto_upgrade: bool = False) -> None:
         """Continue workflow execution with fresh history.
 
@@ -757,6 +744,8 @@ class workflow:
         the deployment's current version, and is pinned there. ``params`` is then read by that
         version's code, so its model must stay compatible in both directions (a rollback moves
         runs back to a previous version the same way).
+
+        If the workflow has signal or update handlers, await wait_for_handlers() first.
 
         Args:
             params: Parameters for the new execution (must be BaseModel)

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 from .deploymentlocation import DeploymentLocation, DeploymentLocationTypedDict
+from .payloadencryptionlevel import PayloadEncryptionLevel
 from .workflowspecwithtaskqueue import (
     WorkflowSpecWithTaskQueue,
     WorkflowSpecWithTaskQueueTypedDict,
@@ -15,7 +16,7 @@ from mistralai.workflows.worker_client.types import (
     UNSET_SENTINEL,
 )
 from pydantic import model_serializer
-from typing import List
+from typing import List, Optional
 from typing_extensions import NotRequired, TypedDict
 
 
@@ -28,6 +29,8 @@ class WorkflowSpecsRegisterRequestTypedDict(TypedDict):
     r"""Human-readable name of this worker process (hostname or pod name)"""
     deployment_location: NotRequired[Nullable[DeploymentLocationTypedDict]]
     r"""Metadata about where this deployment is running (local, k8s, etc.)"""
+    payload_encryption_mode: NotRequired[PayloadEncryptionLevel]
+    r"""How much of a worker's payloads are encrypted, ordered from weakest to strongest."""
 
 
 class WorkflowSpecsRegisterRequest(BaseModel):
@@ -43,9 +46,12 @@ class WorkflowSpecsRegisterRequest(BaseModel):
     deployment_location: OptionalNullable[DeploymentLocation] = UNSET
     r"""Metadata about where this deployment is running (local, k8s, etc.)"""
 
+    payload_encryption_mode: Optional[PayloadEncryptionLevel] = None
+    r"""How much of a worker's payloads are encrypted, ordered from weakest to strongest."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["deployment_location"])
+        optional_fields = set(["deployment_location", "payload_encryption_mode"])
         nullable_fields = set(["deployment_location"])
         serialized = handler(self)
         m = {}

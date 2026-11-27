@@ -415,6 +415,10 @@ class BoardShape(BoardItem):
             self._proto.CopyFrom(proto)
 
     @property
+    def proto(self):
+        return self._proto
+
+    @property
     def id(self) -> KIID:
         return self._proto.id
 
@@ -2373,7 +2377,7 @@ class Footprint3DModel(Wrapper):
     def __repr__(self) -> str:
         return (
             f"Footprint3DModel(filename='{self.filename}', "
-            f"visisble={self.visible}, opacity={self.opacity}, "
+            f"visible={self.visible}, opacity={self.opacity}, "
             f"rotation=({self.rotation.x}, {self.rotation.y}, {self.rotation.z}), "
             f"scale=({self.scale.x}, {self.scale.y}, {self.scale.z}))"
         )
@@ -2591,10 +2595,10 @@ class Footprint(Wrapper):
     ):
         self._proto = proto_ref if proto_ref is not None else board_types_pb2.Footprint()
 
-        self._unwrapped_items = [unwrap(item) for item in self._proto.items]
-
         if proto is not None:
             self._proto.CopyFrom(proto)
+
+        self._unwrapped_items = [unwrap(item) for item in self._proto.items]
 
     def _pack(self):
         """Packs all items in the footprint into the proto"""

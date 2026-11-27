@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple, no_type_check
 
-from sqlfluff.core.parser import BaseSegment
+from collate_sqlfluff.core.parser import BaseSegment
 
 from collate_sqllineage import SQLPARSE_DIALECT
 from collate_sqllineage.core.models import Column, DataFunction, Schema, SubQuery, Table

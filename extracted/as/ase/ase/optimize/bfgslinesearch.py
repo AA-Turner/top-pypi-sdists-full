@@ -1,5 +1,3 @@
-# fmt: off
-
 # ******NOTICE***************
 # optimize.py module by Travis E. Oliphant
 #
@@ -15,6 +13,7 @@ from numpy import absolute, eye, isinf
 
 from ase import Atoms
 from ase.optimize.optimize import Optimizer
+from ase.utils import deprecate_positionals
 from ase.utils.linesearch import LineSearch
 
 # These have been copied from Numeric's MLab.py
@@ -28,6 +27,7 @@ __version__ = '0.1'
 
 
 class BFGSLineSearch(Optimizer):
+    @deprecate_positionals(2)
     def __init__(
         self,
         atoms: Atoms,
@@ -69,6 +69,26 @@ class BFGSLineSearch(Optimizer):
             Extra arguments passed to
             :class:`~ase.optimize.optimize.Optimizer`.
 
+        Examples
+        --------
+
+        >>> from ase import Atoms
+        >>> from ase.optimize.bfgslinesearch import BFGSLineSearch
+        >>> from ase.calculators.emt import EMT
+        ...
+        >>> system = Atoms(
+        ... 'N2',
+        ... positions = [(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        ... calculator=EMT()
+        ... )
+        >>> dyn = BFGSLineSearch(system)
+        >>> dyn.run(fmax=0.05) # doctest:+ELLIPSIS, +NORMALIZE_WHITESPACE
+                        Step[ FC]     Time          Energy          fmax
+        BFGSLineSearch:    0[  0] ...        0.440344       3.2518
+        BFGSLineSearch:    1[  2] ...        0.265703       0.4702
+        BFGSLineSearch:    2[  3] ...        0.262932       0.1103
+        BFGSLineSearch:    3[  4] ...        0.262777       0.0027
+        ...
         """
         if maxstep is None:
             self.maxstep = self.defaults['maxstep']
@@ -118,14 +138,23 @@ class BFGSLineSearch(Optimizer):
         self.p = -np.dot(self.H, g)
         p_size = np.sqrt((self.p**2).sum())
         if p_size <= np.sqrt(optimizable.ndofs() / 3 * 1e-10):
-            self.p /= (p_size / np.sqrt(optimizable.ndofs() / 3 * 1e-10))
+            self.p /= p_size / np.sqrt(optimizable.ndofs() / 3 * 1e-10)
         ls = LineSearch(get_gradient_norm=self.optimizable.gradient_norm)
-        self.alpha_k, e, self.e0, self.no_update = \
-            ls._line_search(self.func, self.fprime, r, self.p, g, e, self.e0,
-                            maxstep=self.maxstep, c1=self.c1,
-                            c2=self.c2, stpmax=self.stpmax)
+        self.alpha_k, e, self.e0, self.no_update = ls._line_search(
+            self.func,
+            self.fprime,
+            r,
+            self.p,
+            g,
+            e,
+            self.e0,
+            maxstep=self.maxstep,
+            c1=self.c1,
+            c2=self.c2,
+            stpmax=self.stpmax,
+        )
         if self.alpha_k is None:
-            raise RuntimeError("LineSearch failed!")
+            raise RuntimeError('LineSearch failed!')
 
         dr = self.alpha_k * self.p
         optimizable.set_x(r + dr)
@@ -143,9 +172,13 @@ class BFGSLineSearch(Optimizer):
             dr = r - r0
             dg = g - g0
             # self.alpha_k can be None!!!
-            if not (((self.alpha_k or 0) > 0 and
-                    abs(np.dot(g, p0)) - abs(np.dot(g0, p0)) < 0) or
-                    self.replay):
+            if not (
+                (
+                    (self.alpha_k or 0) > 0
+                    and abs(np.dot(g, p0)) - abs(np.dot(g0, p0)) < 0
+                )
+                or self.replay
+            ):
                 return
             if self.no_update is True:
                 print('skip update')
@@ -155,14 +188,16 @@ class BFGSLineSearch(Optimizer):
                 rhok = 1.0 / (np.dot(dg, dr))
             except ZeroDivisionError:
                 rhok = 1000.0
-                print("Divide-by-zero encountered: rhok assumed large")
+                print('Divide-by-zero encountered: rhok assumed large')
             if isinf(rhok):  # this is patch for np
                 rhok = 1000.0
-                print("Divide-by-zero encountered: rhok assumed large")
+                print('Divide-by-zero encountered: rhok assumed large')
             A1 = self.I - dr[:, np.newaxis] * dg[np.newaxis, :] * rhok
             A2 = self.I - dg[:, np.newaxis] * dr[np.newaxis, :] * rhok
-            self.H = (np.dot(A1, np.dot(self.H, A2)) +
-                      rhok * dr[:, np.newaxis] * dr[np.newaxis, :])
+            self.H = (
+                np.dot(A1, np.dot(self.H, A2))
+                + rhok * dr[:, np.newaxis] * dr[np.newaxis, :]
+            )
             # self.B = np.linalg.inv(self.H)
 
     def func(self, x):
@@ -188,13 +223,14 @@ class BFGSLineSearch(Optimizer):
         with IOContext() as files:
             if isinstance(traj, str):
                 from ase.io.trajectory import Trajectory
+
                 traj = files.closelater(Trajectory(traj, mode='r'))
 
             r0 = None
             g0 = None
             for i in range(len(traj) - 1):
                 r = traj[i].get_positions().ravel()
-                g = - traj[i].get_forces().ravel() / self.alpha
+                g = -traj[i].get_forces().ravel() / self.alpha
                 self.update(r, g, r0, g0, self.p)
                 self.p = -np.dot(self.H, g)
                 r0 = r.copy()
@@ -211,11 +247,14 @@ class BFGSLineSearch(Optimizer):
         name = self.__class__.__name__
         w = self.logfile.write
         if self.nsteps == 0:
-            w('%s  %4s[%3s] %8s %15s  %12s\n' %
-              (' ' * len(name), 'Step', 'FC', 'Time', 'Energy', 'fmax'))
-        w('%s:  %3d[%3d] %02d:%02d:%02d %15.6f %12.4f\n'
-            % (name, self.nsteps, self.force_calls, T[3], T[4], T[5], e,
-               fmax))
+            w(
+                '%s  %4s[%3s] %8s %15s  %12s\n'
+                % (' ' * len(name), 'Step', 'FC', 'Time', 'Energy', 'fmax')
+            )
+        w(
+            '%s:  %3d[%3d] %02d:%02d:%02d %15.6f %12.4f\n'
+            % (name, self.nsteps, self.force_calls, T[3], T[4], T[5], e, fmax)
+        )
 
 
 def wrap_function(function, args):
@@ -224,4 +263,5 @@ def wrap_function(function, args):
     def function_wrapper(x):
         ncalls[0] += 1
         return function(x, *args)
+
     return ncalls, function_wrapper

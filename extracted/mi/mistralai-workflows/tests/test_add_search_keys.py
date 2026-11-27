@@ -22,6 +22,7 @@ from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Replayer
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
 
+from mistralai.workflows import WorkflowsConfig, prepare_workflows
 from mistralai.workflows.core._registration.execution_registration_interceptor import (
     ExecutionRegistrationInterceptor,
 )
@@ -502,13 +503,15 @@ class TestDispatch:
 
         replay_tracker = _UpsertTracker()
         with replay_tracker.activate():
-            replayer = Replayer(
-                workflows=[AddAllNoneSearchKeysWorkflow],
-                interceptors=[ContextHandlerInterceptor(), ExecutionRegistrationInterceptor()],
-                data_converter=DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter),
-                workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
-            )
-            await replayer.replay_workflow(history)
+            config = WorkflowsConfig(worker={"deployment_name": "test-task-queue"})
+            with prepare_workflows([AddAllNoneSearchKeysWorkflow], config=config, replay_only=True) as prepared:
+                replayer = Replayer(
+                    workflows=prepared,
+                    interceptors=[ContextHandlerInterceptor(), ExecutionRegistrationInterceptor()],
+                    data_converter=DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter),
+                    workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
+                )
+                await replayer.replay_workflow(history)
 
         assert replay_tracker.upsert_calls == []
 

@@ -12,7 +12,14 @@ La salida sólo existe en el nuevo inicio: la versión del inicio la guarda api-
 
 Un lector en un pin anterior descarta `pregunta_frecuente` al leer y, si vuelve a guardar la recepción entera, lo
 pierde: orden de deploy letschatty → api-chatty → frontend/MCP.
+
+`atiende` (0.6.102 / 0.6.57.15, 2026-11-26, pedido de Axel): quién atiende la pregunta frecuente. «ia» (lo de
+siempre, y lo que leen las recepciones guardadas antes) o «equipo»: la IA no contesta y el chat queda esperando
+agente como un chat sin IA, donde estaba (sin indicación, sin agente y sin archivar: eso es de la IA). Si la empresa
+no tiene agente de IA, api-chatty atiende con el equipo aunque diga «ia». `QuienAtiende` es un enum CERRADO: un
+valor nuevo exige actualizar primero a api-chatty, el único que escribe la recepción.
 """
+from enum import StrEnum
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -25,7 +32,16 @@ MAX_HORAS_PARA_ARCHIVAR = 720
 LARGO_MAXIMO_INDICACION = 1000
 
 
+class QuienAtiende(StrEnum):
+    IA = "ia"  # contesta la IA (un turno, con la indicación de la salida)
+    EQUIPO = "equipo"  # la IA no contesta: queda esperando agente, como un chat sin IA
+
+
 class SalidaPreguntaFrecuente(BaseModel):
+    atiende: QuienAtiende = Field(
+        default=QuienAtiende.IA,
+        description="Quién atiende la pregunta frecuente: ia (contesta la IA) o equipo (queda esperando agente)",
+    )
     acciones: Optional[AccionesFijas] = Field(
         default=None,
         description="Acciones fijas cuando sale «Era una pregunta frecuente» (p. ej. la etiqueta «Pregunta frecuente»)",
@@ -35,7 +51,7 @@ class SalidaPreguntaFrecuente(BaseModel):
         description="Archivar el chat si el cliente no vuelve a escribir en estas horas. None = no se archiva",
     )
     chatty_ai_agent_id: Optional[StrObjectId] = Field(
-        default=None, description="Qué agente contesta la pregunta. None = el de «Sin motivo» (Consulta general)",
+        default=None, description="Qué agente contesta la pregunta (sólo con atiende=ia). None = el de «Sin motivo»",
     )
     indicacion: str = Field(
         default="", max_length=LARGO_MAXIMO_INDICACION,

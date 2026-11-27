@@ -4,17 +4,25 @@ Monitoring and logging configuration utilities.
 This module provides structured logging setup using structlog.
 """
 
+import base64
 import json
 import logging
+import os
+import re
 from enum import StrEnum
 from typing import Any, TypedDict
+from urllib.parse import quote, quote_plus
 
+import httpx
 import structlog
 import temporalio.activity
 import temporalio.workflow
+from mistralai.client.errors import MistralError
+from mistralai.extra.observability import DEFAULT_TOKEN_PATTERNS, RegexRedactionPolicy
 from opentelemetry import trace
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from structlog.typing import EventDict, Processor
+from temporalio.service import RPCError
 
 from mistralai.workflows.core._events.event_utils import try_get_lineage_workflow_exec_id
 from mistralai.workflows.core._logger import _to_stdlib_call
@@ -23,11 +31,14 @@ from mistralai.workflows.worker_client.errors import SDKError
 
 class ErrorContext(TypedDict, total=False):
     error_type: str
-    error_message: str
+    error_chain: list[str]
     http_status: int | None
-    api_error_body: str | None
     api_error_code: str
-    api_error_message: str
+    missing_module: str
+    os_error_code: int
+    rpc_status: str
+    validation_error_count: int
+    validation_error_types: list[str]
 
 
 class Env(StrEnum):
@@ -118,6 +129,113 @@ def _add_otel_trace_processor(logger: Any, method_name: str, event_dict: EventDi
     return event_dict
 
 
+_CREDENTIAL_KEY = re.compile(
+    r"api[_.-]?key|access[_.-]?key|private[_.-]?(?:key|access)|"
+    r"token|password|secret|authorization|cookie|credential",
+    re.IGNORECASE,
+)
+_USAGE_KEYS = frozenset(
+    {
+        "input_tokens",
+        "output_tokens",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "max_tokens",
+        "cached_tokens",
+        "token_workflow_usage",
+        "token_usage_source",
+    }
+)
+_REDACTED = "[REDACTED]"
+_LOG_PATTERNS = (
+    *DEFAULT_TOKEN_PATTERNS,
+    re.compile(r"(?i)(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+"),
+    re.compile(r"(?i)(?<=://)[^/\s@]+@"),
+    re.compile(r"(?i)(?<=[?&])(?:sig|signature|x-amz-signature|x-goog-signature|access_token)=[^&\s]+"),
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.DOTALL),
+)
+_LOG_POLICY = RegexRedactionPolicy(patterns=_LOG_PATTERNS)
+# Pattern scanning costs ~0.1 µs per character and runs on the workflow thread, so a
+# multi-megabyte value logged from a workflow would trip Temporal's 2 s deadlock detector.
+# Known credential values are still removed from strings of any size.
+_PATTERN_SCAN_MAX_CHARS = 64 * 1024
+
+
+def _redact_log_event(_logger: Any, _method_name: str, event_dict: EventDict) -> EventDict:
+    # Run after exception formatting and before both console and OTLP rendering.
+    try:
+        # These SDK/CI switches control credential handling, but contain no credentials.
+        non_credentials = {
+            "TOKENIZERS_PARALLELISM",
+            "HF_HUB_DISABLE_IMPLICIT_TOKEN",
+            "BUILDKITE_USE_GITHUB_APP_GIT_CREDENTIALS",
+            "BUILDKITE_USE_REPOSITORY_PROVIDER_GIT_CREDENTIALS",
+        }
+        secrets = [
+            value
+            for name, value in os.environ.items()
+            if value
+            and name not in non_credentials
+            and name.lower() not in _USAGE_KEYS
+            and _CREDENTIAL_KEY.search(name)
+        ]
+        for name in ("MISTRAL_API_HEADERS", "OTEL_EXPORTER_OTLP_HEADERS"):
+            raw = os.environ.get(name, "")
+            if not raw:
+                continue
+            try:
+                headers = json.loads(raw)
+            except json.JSONDecodeError:
+                headers = dict(pair.split("=", 1) for pair in raw.split(",") if "=" in pair)
+            if isinstance(headers, dict):
+                secrets.extend(str(value) for key, value in headers.items() if _CREDENTIAL_KEY.search(key))
+        needles: set[str] = set()
+        for secret in secrets:
+            needles.update(
+                (
+                    secret,
+                    quote(secret, safe=""),
+                    quote(secret),
+                    quote_plus(secret),
+                    json.dumps(secret)[1:-1],
+                    base64.b64encode(secret.encode()).decode(),
+                    base64.urlsafe_b64encode(secret.encode()).decode(),
+                )
+            )
+        ordered = sorted(needles, key=len, reverse=True)
+
+        def redact(value: Any) -> Any:
+            if isinstance(value, str):
+                for needle in ordered:
+                    # Short credentials remain masked without erasing substrings in ordinary words.
+                    value = (
+                        re.sub(rf"(?<!\w){re.escape(needle)}(?!\w)", _REDACTED, value)
+                        if len(needle) < 8
+                        else value.replace(needle, _REDACTED)
+                    )
+                if len(value) > _PATTERN_SCAN_MAX_CHARS:
+                    return value
+                return _LOG_POLICY.redact_span_name(value)
+            if isinstance(value, dict):
+                return {
+                    redact(str(key)): _REDACTED
+                    if _CREDENTIAL_KEY.search(str(key)) and str(key).lower() not in _USAGE_KEYS
+                    else redact(item)
+                    for key, item in value.items()
+                }
+            if isinstance(value, (tuple, list)):
+                return [redact(item) for item in value]
+            if value is None or isinstance(value, (bool, int, float)):
+                return value
+            return redact(str(value))
+
+        redacted: EventDict = redact(event_dict)
+        return redacted
+    except Exception:
+        return {"event": "Log redaction failed; event omitted", "level": "error"}
+
+
 _shared_processors: list[Processor] = []
 
 
@@ -181,25 +299,39 @@ def _restore_host_event_fields(_logger: Any, _method_name: str, event_dict: Even
     return restored
 
 
-def _build_formatter(renderer: Processor) -> structlog.stdlib.ProcessorFormatter:
+def _build_formatter(
+    renderer: Processor,
+    redactor: Processor | None = None,
+    *,
+    redact_credentials: bool = True,
+) -> structlog.stdlib.ProcessorFormatter:
     return structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=[_restore_host_event_fields, *_shared_processors],
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             structlog.processors.format_exc_info,
+            *([_redact_log_event] if redact_credentials else []),
+            *([redactor] if redactor is not None else []),
             renderer,
         ],
     )
 
 
-def build_json_log_formatter() -> structlog.stdlib.ProcessorFormatter:
+def build_json_log_formatter(
+    redactor: Processor | None = None, *, redact_credentials: bool = True
+) -> structlog.stdlib.ProcessorFormatter:
     """structlog formatter that always renders log records as JSON.
 
     Attached to the OTLP log handler so exported log bodies are JSON regardless of the
     console ``log_format`` chosen by the user. This is pure structlog (no OpenTelemetry);
     relies on ``setup_logging`` having populated the shared processor chain first.
+
+    ``redactor`` runs on the event dict right before rendering, after exceptions are
+    formatted, so it sees the final fields and the body stays valid JSON.
+    ``redact_credentials=False`` skips the built-in credential masking, for callers that
+    explicitly opted out of log redaction (``OTEL_REDACTION=none``).
     """
-    return _build_formatter(structlog.processors.JSONRenderer())
+    return _build_formatter(structlog.processors.JSONRenderer(), redactor, redact_credentials=redact_credentials)
 
 
 def setup_logging(
@@ -276,36 +408,57 @@ def route_logs_to_host_logging(inject_otel_trace: bool = False) -> None:
     )
 
 
-def extract_error_context(exc: Exception) -> ErrorContext:
-    ctx: ErrorContext = {
-        "error_type": type(exc).__name__,
-        "error_message": str(exc),
-    }
+def extract_error_context(exc: BaseException) -> ErrorContext:
+    """Extract useful exception diagnostics without exception messages or input values."""
+    ctx: ErrorContext = {"error_type": type(exc).__name__}
+    error_chain: list[str] = []
     seen: set[int] = set()
+    http_diagnostics_captured = False
     current: BaseException | None = exc
     while current is not None:
         if id(current) in seen:
             break
         seen.add(id(current))
-        if isinstance(current, SDKError):
-            ctx["http_status"] = getattr(current, "status_code", None)
+        error_chain.append(type(current).__name__)
+
+        if isinstance(current, ValidationError) and "validation_error_count" not in ctx:
+            errors = current.errors(include_url=False, include_context=False, include_input=False)
+            ctx["validation_error_count"] = len(errors)
+            ctx["validation_error_types"] = sorted({str(error["type"]) for error in errors})
+
+        if isinstance(current, ModuleNotFoundError) and current.name is not None:
+            ctx["missing_module"] = current.name
+
+        if isinstance(current, OSError) and current.errno is not None:
+            ctx["os_error_code"] = current.errno
+
+        if isinstance(current, RPCError):
+            ctx["rpc_status"] = current.status.name
+
+        if not http_diagnostics_captured and isinstance(current, httpx.HTTPStatusError):
+            http_diagnostics_captured = True
+            ctx["http_status"] = current.response.status_code
+
+        if not http_diagnostics_captured and isinstance(current, (SDKError, MistralError)):
+            http_diagnostics_captured = True
+            if (status_code := getattr(current, "status_code", None)) is not None:
+                ctx["http_status"] = status_code
             body = getattr(current, "body", None)
-            ctx["api_error_body"] = body
             if body:
                 try:
                     parsed = json.loads(body)
-                    if isinstance(parsed, dict):
-                        if "code" in parsed:
-                            ctx["api_error_code"] = parsed["code"]
-                        if "message" in parsed:
-                            ctx["api_error_message"] = parsed["message"]
+                    if isinstance(parsed, dict) and isinstance(parsed.get("code"), str):
+                        ctx["api_error_code"] = parsed["code"]
                 except (json.JSONDecodeError, TypeError):
                     pass
-            break
+
         if current.__cause__ is not None:
             current = current.__cause__
         elif not current.__suppress_context__:
             current = current.__context__
         else:
             break
+
+    if len(error_chain) > 1:
+        ctx["error_chain"] = error_chain
     return ctx

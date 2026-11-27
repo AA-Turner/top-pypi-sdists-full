@@ -19,6 +19,7 @@ import torch.nn.functional as F
 import torchaudio
 from librosa.filters import mel as librosa_mel_fn
 from torch import nn
+from x_transformers.x_transformers import RotaryEmbedding as XRotaryEmbedding
 from x_transformers.x_transformers import apply_rotary_pos_emb
 
 from f5_tts.model.utils import is_package_available
@@ -204,14 +205,29 @@ class ConvPositionEmbedding(nn.Module):
 # rotary positional embedding related
 
 
-def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, theta_rescale_factor=1.0):
+class RotaryEmbedding(XRotaryEmbedding):
+    def _apply(self, fn, *args, **kwargs):
+        # x-transformers uses the inverse frequency dtype for position indices too.
+        # Keep both in fp32 when the rest of the model is cast to half precision.
+        def convert(buffer):
+            converted = fn(buffer)
+            if converted.dtype in (torch.float16, torch.bfloat16):
+                return buffer.to(device=converted.device, dtype=torch.float32)
+            return converted
+
+        return super()._apply(convert, *args, **kwargs)
+
+
+def precompute_freqs_cis(
+    dim: int, end: int, theta: float = 10000.0, theta_rescale_factor=1.0, *, start: int = 0, device=None
+):
     # proposed by reddit user bloc97, to rescale rotary embeddings to longer sequence length without fine-tuning
     # has some connection to NTK literature
     # https://www.reddit.com/r/LocalLLaMA/comments/14lz7j5/ntkaware_scaled_rope_allows_llama_models_to_have/
     # https://github.com/lucidrains/rotary-embedding-torch/blob/main/rotary_embedding_torch/rotary_embedding_torch.py
     theta *= theta_rescale_factor ** (dim / (dim - 2))
-    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
-    t = torch.arange(end, device=freqs.device)  # type: ignore
+    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2, device=device)[: (dim // 2)].float() / dim))
+    t = torch.arange(start, end, device=freqs.device)
     freqs = torch.outer(t, freqs).float()  # type: ignore
     freqs_cos = torch.cos(freqs)  # real part
     freqs_sin = torch.sin(freqs)  # imaginary part

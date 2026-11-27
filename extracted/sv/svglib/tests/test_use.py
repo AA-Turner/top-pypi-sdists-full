@@ -61,6 +61,25 @@ class TestUseNode:
         )
         assert isinstance(drawing.contents[0].contents[0].contents[0], Rect)
 
+    def test_use_position_lengths(self):
+        """The x and y of a <use> are lengths, so they can have a unit."""
+        drawing = drawing_from_svg(
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
+              <defs>
+                <rect id="MyRect" width="10" height="10"/>
+              </defs>
+              <use href="#MyRect" x="20px" y="1in"/>
+              <use href="#MyRect" x="50%" y="10%"/>
+              <g font-size="10"><use href="#MyRect" x="2em"/></g>
+            </svg>
+        """
+        )
+        main_group = drawing.contents[0]
+        assert main_group.contents[0].transform == (1, 0, 0, 1, 20, 96)
+        assert main_group.contents[1].transform == (1, 0, 0, 1, 100, 10)
+        assert main_group.contents[2].contents[0].transform == (1, 0, 0, 1, 20, 0)
+
     def test_use_with_defs_at_end(self):
         self.test_use(
             drawing_source="""
@@ -312,3 +331,77 @@ class TestUseNode:
         use_group = drawing.contents[0].contents[0].contents[0]
         assert use_group.contents[0].getProperties()["strokeWidth"] == 0
         assert use_group.contents[0].getProperties()["strokeColor"] is None
+
+
+class TestImageReferences:
+    """An <image> that refers to a fragment of the document is limited as a <use>."""
+
+    HEAD = (
+        '<svg xmlns="http://www.w3.org/2000/svg" '
+        'xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100">'
+    )
+
+    def test_image_cycle_is_skipped(self, caplog):
+        """
+        An <image> that refers to a group or <svg> that contains it must be
+        skipped, not recurse until RecursionError.
+        """
+        cycles = {
+            "nested-svg": (
+                '<svg id="inner" width="50" height="50">'
+                '<image xlink:href="#inner" width="50" height="50"/></svg>'
+                '<image xlink:href="#inner" width="50" height="50"/>'
+            ),
+            "two": (
+                '<g id="a"><image href="#b"/></g><g id="b"><image href="#a"/></g>'
+                '<image href="#a"/>'
+            ),
+        }
+        for name, content in cycles.items():
+            caplog.clear()
+            with caplog.at_level(logging.ERROR, logger="svglib.svglib"):
+                drawing = drawing_from_svg(f"{self.HEAD}{content}</svg>")
+            assert drawing is not None, name
+            assert any("Circular" in r.message for r in caplog.records), name
+
+    def test_image_referring_to_itself_is_skipped(self):
+        """
+        An <image> that refers to its own id is not defined yet at that point:
+        it was an AttributeError, and is skipped now, as any forward reference.
+        """
+        drawing = drawing_from_svg(f'{self.HEAD}<image id="a" href="#a"/></svg>')
+        assert drawing is not None
+
+    def test_image_nested_expansion_is_bounded(self, caplog):
+        """
+        Groups of two <image> elements, each referring to the group before it,
+        double with every level: 22 levels are about 4 million expansions from
+        a 2 KB file, which took hours, and must stop at the budget.
+        """
+        levels = ['<g id="g0"><rect width="1" height="1"/></g>']
+        for i in range(1, 23):
+            levels.append(
+                f'<g id="g{i}"><image href="#g{i - 1}"/><image href="#g{i - 1}"/></g>'
+            )
+        with caplog.at_level(logging.ERROR, logger="svglib.svglib"):
+            drawing = drawing_from_svg(
+                f'{self.HEAD}<defs>{"".join(levels)}</defs><image href="#g22"/></svg>'
+            )
+        assert drawing is not None
+        limit_hits = [r for r in caplog.records if "Too many <use>" in r.message]
+        assert len(limit_hits) == 1
+
+    def test_image_repeated_reference_is_not_a_cycle(self, caplog):
+        """
+        Referring to the same fragment many times, also nested, is legitimate
+        and must be rendered every time, not reported as a cycle.
+        """
+        with caplog.at_level(logging.ERROR, logger="svglib.svglib"):
+            drawing = drawing_from_svg(
+                f'{self.HEAD}<defs><g id="r"><rect width="1" height="1"/></g>'
+                '<g id="g"><image href="#r"/><image href="#r"/></g></defs>'
+                '<image href="#g"/><image href="#g"/></svg>'
+            )
+        assert drawing is not None
+        assert not caplog.records
+        assert TestUseNode._count_rects(drawing) == 4

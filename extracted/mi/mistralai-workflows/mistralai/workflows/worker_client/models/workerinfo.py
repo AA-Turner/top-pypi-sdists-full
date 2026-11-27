@@ -2,6 +2,7 @@
 # @generated-id: 9d6dd722408b
 
 from __future__ import annotations
+from .payloadencryptionlevel import PayloadEncryptionLevel
 from .workerfeatures import WorkerFeatures, WorkerFeaturesTypedDict
 from mistralai.workflows.worker_client.types import BaseModel, UNSET_SENTINEL
 from pydantic import model_serializer
@@ -21,6 +22,8 @@ class WorkerInfoTypedDict(TypedDict):
     \"no opinion\" distinct from an explicit `False` is what lets a flag's SDK default change later
     without a server that predates the change silently overriding it.
     """
+    required_payload_encryption_mode: NotRequired[PayloadEncryptionLevel]
+    r"""How much of a worker's payloads are encrypted, ordered from weakest to strongest."""
 
 
 class WorkerInfo(BaseModel):
@@ -39,9 +42,12 @@ class WorkerInfo(BaseModel):
     without a server that predates the change silently overriding it.
     """
 
+    required_payload_encryption_mode: Optional[PayloadEncryptionLevel] = None
+    r"""How much of a worker's payloads are encrypted, ordered from weakest to strongest."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["tls", "features"])
+        optional_fields = set(["tls", "features", "required_payload_encryption_mode"])
         serialized = handler(self)
         m = {}
 

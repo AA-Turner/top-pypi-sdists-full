@@ -1,4 +1,4 @@
-from sqlfluff.core import Linter
+from collate_sqlfluff.core import Linter
 
 from collate_sqllineage.core.analyzer import LineageAnalyzer
 from collate_sqllineage.core.holders import (

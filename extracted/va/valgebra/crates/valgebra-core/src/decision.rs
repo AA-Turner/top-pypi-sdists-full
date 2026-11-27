@@ -26,8 +26,8 @@ use std::sync::Arc;
 use rustc_hash::FxHashMap;
 
 use crate::descr::lower::{
-    Constants, UNFOLDS, WORK, an_empty_reading_stands, lower, lower_unfolded, parts_a_cut_reaches,
-    read_widened,
+    BUDGET, Constants, UNFOLDS, WORK, an_empty_reading_stands, lower, lower_unfolded,
+    nodes_for_complements, parts_a_cut_reaches, read_widened,
 };
 use crate::descr::{Descr, budget};
 use crate::ir::{Constraint, DefIx, Members, Polarity, Schema, SeqShape};
@@ -858,6 +858,23 @@ impl Drop for Narrowing {
 }
 
 impl Schema {
+    /// The nodes the set reading of this schema below `Nothing` lowers it under:
+    /// [`nodes_for_complements`] for a meet, [`BUDGET`] for any other. Out of
+    /// line and cold, so a relation below any other set pays one comparison.
+    #[cold]
+    #[inline(never)]
+    fn nodes_below_nothing(&self) -> u32 {
+        match self {
+            Schema::Intersection(members) => nodes_for_complements(
+                members
+                    .iter()
+                    .filter(|member| matches!(member, Schema::Complement(_)))
+                    .count(),
+            ),
+            _ => BUDGET,
+        }
+    }
+
     /// Whether the descriptor proves every value of this schema is one of
     /// `other`, by proving the difference empty.
     ///
@@ -878,6 +895,15 @@ impl Schema {
     ) -> Relation {
         #[cfg(test)]
         goal_tests::goals::read_by_the_sets();
+        // A meet holding complements below `Nothing` is lowered under the nodes
+        // its reading a complement at a time would read ([`nodes_for_complements`]),
+        // so `is_empty` and the relation read it under one allowance; every other
+        // subject under `BUDGET`.
+        let nodes = if matches!(other, Schema::Nothing) {
+            self.nodes_below_nothing()
+        } else {
+            BUDGET
+        };
         // A term of length bounds over one base is the lengths it holds, read
         // without a build ([`lengths`]).
         if let Some(answer) = self.related_by_lengths(other) {
@@ -896,7 +922,7 @@ impl Schema {
         // difference proves the inclusion and an inhabited one is a decline,
         // but at a kind no cut reaches: a cut beneath a constructor changes that
         // constructor's kind of values alone, the difference being read a kind
-        // at a time [FCB08, (4)], so a value it holds at another kind is a
+        // at a time [FCB08, §6.2, (4)], so a value it holds at another kind is a
         // value of the real difference (`parts_a_cut_reaches`). An inhabited
         // reading refuting nothing there hands the pair to the reading the
         // other way round ([`Self::refuted_narrowed`]).
@@ -963,6 +989,7 @@ impl Schema {
             self,
             defs,
             pool,
+            nodes,
             |kept| !the_rules_find_a_value(kept) || theirs().is_some(),
             |mine, kept| {
                 // The schemas the subject's side reads as widened are itself,
@@ -1763,7 +1790,9 @@ impl Schema {
     /// complement.
     ///
     /// `U ⊆ T` holds exactly where `U ∧ C ⊆ T` and `U ∧ ¬C ⊆ T` both do, `C` any
-    /// set, since `U` is the union of the two [FCB08, §6.9]. It is the split a
+    /// set: a decision tree's node over `C` is `(C ∧ B+) ∨ (¬C ∧ B−)`
+    /// [LN26, §3.1, Def. 3.3], so `U` is the union of its two halves, and a union
+    /// is below `T` exactly where each member is [FCB08, Def. 4.1]. It is the split a
     /// normal form makes on every atom, made here on one, the step a binary
     /// decision diagram is built from, and it is made on a `C` the supertype holds
     /// under a complement, as a member or a conjunct of one, so that one half
@@ -1771,7 +1800,8 @@ impl Schema {
     /// a translation from JSON Schema writes `anyOf [Y, not Y]` so, `J` the JSON
     /// values. Either half refuted refutes the pair, since each is a part of `U`.
     /// `C` must denote a set: a predicate answering two calls apart obeys no
-    /// excluded middle. Both goals are meets of signed subterms, asked of the
+    /// excluded middle. Both goals are meets of signed subterms, so they stay
+    /// among the normal forms over the atoms the pair holds [FCB08, §6.9], asked of the
     /// rules and the set representation for every set first, and only where none
     /// decided there of their parts ([`decided_by_parts`](Self::decided_by_parts)):
     /// a union supertype narrowed to the branches the half meets, a meet one

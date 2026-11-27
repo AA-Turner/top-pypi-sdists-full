@@ -173,6 +173,15 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
             catalog: str, schemas: t.List[str], claimed_fqns: t.List[str]
         ) -> None:
             set_invocation_context()
+            if self._dbt_released_thread_connection():
+                events.fire_debug_event(
+                    "Skipping last modified prefetch for {}: dbt released its connections",
+                    catalog,
+                )
+                with self._last_modified_epoch_cache as cache:
+                    cache.fulfill_many({fqn: None for fqn in claimed_fqns})
+                return
+
             try:
                 self._ensure_thread_connection("prefetch_last_modified_timestamps")
 
@@ -213,20 +222,42 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
                 # will result in None being returned anyway, so may as well cache it now
                 with self._last_modified_epoch_cache as cache:
                     cache.fulfill_many({fqn: None for fqn in claimed_fqns})
+                if self._dbt_released_thread_connection():
+                    events.fire_debug_event(
+                        "Last modified prefetch for {} interrupted: dbt released its connections: {}",
+                        catalog,
+                        str(e),
+                    )
+                    return
                 events.fire_warn_event_suboptimal(
                     "Failed to prefetch last modified timestamps: {}", str(e)
                 )
 
         def _prefetch_for_custom(fqn: str, last_modified_fn: t.Callable[[], int]) -> None:
             set_invocation_context()
+            if self._dbt_released_thread_connection():
+                events.fire_debug_event(
+                    "Skipping custom freshness override for {}: dbt released its connections", fqn
+                )
+                with self._last_modified_epoch_cache as cache:
+                    cache.fulfill(fqn, None)
+                return
 
             try:
+                self._ensure_thread_connection("prefetch_custom_last_modified")
                 epoch = last_modified_fn()
                 with self._last_modified_epoch_cache as cache:
                     cache.fulfill(fqn, epoch)
             except Exception as e:
                 with self._last_modified_epoch_cache as cache:
                     cache.fulfill(fqn, None)
+                if self._dbt_released_thread_connection():
+                    events.fire_debug_event(
+                        "Custom freshness override for {} interrupted: dbt released its connections: {}",
+                        fqn,
+                        str(e),
+                    )
+                    return
                 events.fire_warn_event_suboptimal(
                     "Failed to prefetch last modified timestamp for {} using custom freshness override: {}",
                     fqn,
@@ -556,6 +587,14 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         except Exception as e:
             events.fire_warn_event_suboptimal("Failed to fetch view definitions: {}", str(e))
             return ViewFetchResult(definitions=[])
+
+    def _dbt_released_thread_connection(self) -> bool:
+        """Whether dbt released this thread's connection, e.g. via cleanup_connections() at the end of the run.
+
+        Prewarmed connections are only released by dbt once it no longer needs dbt State, so any
+        background work still running on this thread is no longer needed either.
+        """
+        return self._connection_acquired and self.adapter.connections.get_if_exists() is None
 
     def _ensure_thread_connection(self, name: str, force: bool = False) -> None:
         was_acquired = self._connection_acquired

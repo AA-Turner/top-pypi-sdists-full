@@ -8,13 +8,16 @@ from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt
 from repo_standards.core.models import (
     DEFAULT_MAXIMUM_ADDED_WORDS,
     DocumentationComparison,
+    DocumentationConfig,
     FixtureId,
+    GeneratedDocument,
     GitObjectId,
     InputProvenance,
     MakefileComparison,
     MakefileMetric,
     Manifest,
     MigrationComparison,
+    PackageEvidence,
     PullRequestCommitHistoryConfig,
     PullRequestConfig,
     PullRequestReviewPolicyConfig,
@@ -24,11 +27,15 @@ from repo_standards.core.models import (
     RepositorySnapshot,
     RuleId,
     TrackedFileEvidence,
+    TrackedText,
 )
 from repo_standards.core.parser import parse_manifest_bytes
 
 from .documentation import (
     ADDED_MARKDOWN_RULE_ID,
+    GENERATED_DOCUMENTATION_RULE_ID,
+    LOCAL_LINKS_RULE_ID,
+    MAKE_TARGETS_RULE_ID,
     MARKDOWN_ONLY_RULE_ID,
     MARKDOWN_WORD_GROWTH_RULE_ID,
 )
@@ -37,7 +44,7 @@ from .javascript import UNTYPED_JAVASCRIPT_RULE_ID
 from .local_residue import LOCAL_RESIDUE_RULE_ID
 from .makefiles import MAKEFILE_GROWTH_RULE_ID
 from .migrations import MIGRATION_CONSOLIDATION_RULE_ID, migration_roots
-from .policy import RULES, SarjPolicy
+from .policy import CROSS_PACKAGE_DUPLICATES_RULE_ID, RULES, SarjPolicy
 from .pull_request_templates import PULL_REQUEST_TEMPLATE_SECTIONS_RULE_ID
 from .terraform import MODULE_CLUSTER_RULE_ID, MODULE_LAYOUT_RULE_ID
 
@@ -66,6 +73,20 @@ class _WordGrowthExampleSource(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
     added_words: NonNegativeInt
+
+
+class _LocalLinksExampleSource(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
+
+    tracked: tuple[str, ...]
+    readme: str
+
+
+class _MakeTargetsExampleSource(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
+
+    makefile: str
+    readme: str
 
 
 class _PullRequestTemplateExampleSource(BaseModel):
@@ -109,6 +130,9 @@ def run_rule_example(fixture_id: FixtureId, source: str) -> tuple[RuleId, ...]:
         MARKDOWN_ONLY_RULE_ID,
         ADDED_MARKDOWN_RULE_ID,
         MARKDOWN_WORD_GROWTH_RULE_ID,
+        GENERATED_DOCUMENTATION_RULE_ID,
+        LOCAL_LINKS_RULE_ID,
+        MAKE_TARGETS_RULE_ID,
     }:
         return _run_documentation_example(case.rule_id, source)
     if case.rule_id == MIGRATION_CONSOLIDATION_RULE_ID:
@@ -127,6 +151,7 @@ def run_rule_example(fixture_id: FixtureId, source: str) -> tuple[RuleId, ...]:
         return _run_pull_request_template(source)
     if case.rule_id in {
         UNTYPED_JAVASCRIPT_RULE_ID,
+        CROSS_PACKAGE_DUPLICATES_RULE_ID,
         UNDECLARED_IMAGES_RULE_ID,
         LOCAL_RESIDUE_RULE_ID,
         MODULE_CLUSTER_RULE_ID,
@@ -140,6 +165,15 @@ def run_rule_example(fixture_id: FixtureId, source: str) -> tuple[RuleId, ...]:
 
 
 def _run_documentation_example(rule_id: RuleId, source: str) -> tuple[RuleId, ...]:
+    if rule_id == LOCAL_LINKS_RULE_ID:
+        context = _LocalLinksExampleSource.model_validate_json(source)
+        return _run_snapshot(
+            ("README.md", *context.tracked), pages=(TrackedText("README.md", context.readme),)
+        )
+    if rule_id == MAKE_TARGETS_RULE_ID:
+        make = _MakeTargetsExampleSource.model_validate_json(source)
+        pages = (TrackedText("Makefile", make.makefile), TrackedText("README.md", make.readme))
+        return _run_snapshot(("Makefile", "README.md"), pages=pages)
     if rule_id == MARKDOWN_WORD_GROWTH_RULE_ID:
         added_words = _WordGrowthExampleSource.model_validate_json(source).added_words
         return _run_snapshot(
@@ -149,6 +183,22 @@ def _run_documentation_example(rule_id: RuleId, source: str) -> tuple[RuleId, ..
                 added_pages=(),
                 maximum_added_words=DEFAULT_MAXIMUM_ADDED_WORDS,
                 added_words=added_words,
+            ),
+        )
+    if rule_id == GENERATED_DOCUMENTATION_RULE_ID:
+        changed = _MarkdownOnlyExampleSource.model_validate_json(source).changed
+        return _run_snapshot(
+            ("docs/api.md", "openapi.json"),
+            comparison=DocumentationComparison(
+                maximum_added_pages=0, added_pages=(), changed_paths=changed
+            ),
+            manifest=Manifest(
+                repository_id=RepositoryId("example-repository"),
+                components=(),
+                documentation=DocumentationConfig(
+                    entrypoints=("README.md",),
+                    generated=(GeneratedDocument("docs/api.md", "openapi.json", "make api-docs"),),
+                ),
             ),
         )
     if rule_id == MARKDOWN_ONLY_RULE_ID:
@@ -232,6 +282,7 @@ def _run_snapshot(
     comparison: MakefileComparison | MigrationComparison | DocumentationComparison | None = None,
     manifest: Manifest | None = None,
     templates: tuple[PullRequestTemplate, ...] = (),
+    pages: tuple[TrackedText, ...] = (),
 ) -> tuple[RuleId, ...]:
     snapshot = RepositorySnapshot(
         manifest=manifest
@@ -241,7 +292,11 @@ def _run_snapshot(
             source_revision="b" * 40,
             tree_digest="c" * 40,
             tracked_file_count=len(paths),
-            packages=(),
+            packages=tuple(
+                PackageEvidence("npm", path, None, private=True, workspace_root=False)
+                for path in paths
+                if path.rpartition("/")[2] == "package.json"
+            ),
             workflow_paths=(),
             cloudbuild_paths=(),
             dockerfile_paths=(),
@@ -264,6 +319,7 @@ def _run_snapshot(
         if isinstance(comparison, DocumentationComparison)
         else None,
         pull_request_templates=templates,
+        tracked_texts=pages,
         migration_comparison=comparison if isinstance(comparison, MigrationComparison) else None,
     )
     diagnostics = SarjPolicy.evaluate_repository(snapshot)

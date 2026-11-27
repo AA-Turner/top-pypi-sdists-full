@@ -9,7 +9,7 @@ class DescribeAllImageBaselineRequest(DaraModel):
         self,
         lang: str = None,
     ):
-        # The language type for the request and response messages. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang

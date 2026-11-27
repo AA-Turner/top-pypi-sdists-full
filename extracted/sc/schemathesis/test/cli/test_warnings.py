@@ -1,4 +1,5 @@
 import itertools
+import json
 
 import pytest
 import strawberry
@@ -1016,6 +1017,44 @@ def test_validation_mismatch_ignores_conflicts(ctx, cli, status, expected):
     assert ("Schema validation mismatch" in result.stdout) is expected
 
 
+# Oversized strings go out after the other coverage cases; a size limit refusing them is not a schema mismatch.
+def test_no_validation_mismatch_when_only_oversized_strings_are_rejected(ctx, cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/notes": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"note": {"type": "string"}},
+                                    "required": ["note"],
+                                    "additionalProperties": False,
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "Stored"}, "400": {"description": "Too long"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/notes", methods=["POST"])
+    def notes():
+        if len(request.get_data()) > 1000:
+            return jsonify({"detail": "Too long"}), 400
+        return jsonify({}), 201
+
+    result = cli.run_openapi_app(
+        app, "--phases=coverage", "--mode=positive", "--exclude-checks=positive_data_acceptance"
+    )
+
+    assert "Schema validation mismatch" not in result.stdout
+
+
 def test_missing_test_data_ignores_negative_not_found(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -1289,3 +1328,63 @@ def test_method_not_allowed_warning_with_fail_on(cli, ctx):
 
     final_line = result.stdout.strip().splitlines()[-1].strip("= ").rsplit(" in ", 1)[0]
     assert (result.exit_code, final_line) == (ExitCode.TESTS_FAILED, "Warnings fail the run")
+
+
+def test_low_valid_rate_counts_skipped_duplicates_across_phases(ctx, cli, app_runner, tmp_path, monkeypatch):
+    schema = ctx.openapi.build_schema(
+        {
+            "/items/{item_id}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "item_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "integer", "minimum": 1},
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "OK"},
+                        "404": {"description": "Not found"},
+                    },
+                }
+            }
+        }
+    )
+
+    def get_item(item_id):
+        if int(item_id) in (1, 2, 3):
+            return jsonify({"id": int(item_id)})
+        return jsonify({"error": "missing"}), 404
+
+    schema_url = _serve_schema(ctx, cli, app_runner, schema, [("GET", "/items/<item_id>", get_item)])
+    (tmp_path / "schemathesis.toml").write_text("""
+[dictionaries.existing_ids]
+values = [1, 2, 3]
+
+[parameters]
+"path.item_id" = { dictionary = "existing_ids", probability = 0.25 }
+
+[warnings]
+display = ["low_valid_rate"]
+""")
+    monkeypatch.chdir(tmp_path)
+    report_path = tmp_path / "report.json"
+
+    result = cli.run(
+        schema_url,
+        "--phases=coverage,fuzzing",
+        "--mode=positive",
+        "--generation-unique-inputs",
+        "--max-examples=15",
+        "--seed=1",
+        "--checks=not_a_server_error",
+        f"--report-json-path={report_path}",
+    )
+
+    report = json.loads(report_path.read_text())
+    assert (
+        report["valid_rates"]["GET /items/{item_id}"]["fuzzing"]["accepted"],
+        report["warnings"]["low_valid_rate"],
+        "Low valid-input rate" in result.stdout,
+    ) == (3, [], False)

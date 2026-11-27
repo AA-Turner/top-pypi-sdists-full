@@ -10,7 +10,7 @@ from .doc_ai_usage import DocAiUsage
 
 class DocAiParseResults(UniversalBaseModel):
     """
-    Job results for the `parse` pipeline.
+    Job results for a Parse job. Parse jobs report `type: digitise`.
     """
 
     job_id: str = pydantic.Field()
@@ -26,7 +26,7 @@ class DocAiParseResults(UniversalBaseModel):
     usage: DocAiUsage
     documents: typing.List[DocAiParseResultsDocumentsItem] = pydantic.Field()
     """
-    One entry per input document, each holding per-page content.
+    One entry per input file.
     """
 
     if IS_PYDANTIC_V2:

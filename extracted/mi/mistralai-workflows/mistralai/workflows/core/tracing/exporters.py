@@ -6,11 +6,14 @@ Returned exporters are pre-redaction; callers wrap them with their own redaction
 """
 
 import logging
+import os
 import time
-from dataclasses import dataclass
-from typing import Any, Self, Sequence
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import Any, Literal, Self, Sequence
 
 import requests
+from dotenv import dotenv_values
 from opentelemetry.exporter.otlp.proto.http._log_exporter import DEFAULT_LOGS_EXPORT_PATH, OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import DEFAULT_METRICS_EXPORT_PATH, OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import DEFAULT_TRACES_EXPORT_PATH, OTLPSpanExporter
@@ -25,10 +28,11 @@ from opentelemetry.sdk.metrics.export import (
 )
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from pydantic import SecretStr
 
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import TokenProvider, get_token_provider
-from mistralai.workflows.core.config.config import config
+from mistralai.workflows.core.config.config import config, env_file
 from mistralai.workflows.core.logging import extract_error_context
 
 logger = get_logger(__name__)
@@ -237,6 +241,16 @@ class _LoggingOTLPLogExporter(_OTLPExporterBase, OTLPLogExporter):
 
 
 @dataclass(frozen=True)
+class OtelTransportOptions:
+    """Worker-specific OTLP authentication and TLS material."""
+
+    certificate_file: str | None = None
+    client_certificate_file: str | None = None
+    client_key_file: str | None = None
+    authorization_bearer: SecretStr | None = None
+
+
+@dataclass(frozen=True)
 class OtelExportOptions:
     """Per-export-type options for an OTLP exporter (traces, metrics, or logs).
 
@@ -248,6 +262,17 @@ class OtelExportOptions:
     endpoint: str | None = None
     enabled: bool = True
     use_api_key: bool = True
+    transport: OtelTransportOptions = field(default_factory=OtelTransportOptions)
+
+
+def _transport_kwargs(options: OtelExportOptions) -> dict[str, Any]:
+    bearer = options.transport.authorization_bearer
+    return {
+        "certificate_file": options.transport.certificate_file,
+        "client_certificate_file": options.transport.client_certificate_file,
+        "client_key_file": options.transport.client_key_file,
+        "headers": {"Authorization": f"Bearer {bearer.get_secret_value()}"} if bearer is not None else None,
+    }
 
 
 def _resolve_endpoint(options: OtelExportOptions, export_path: str) -> str:
@@ -265,6 +290,7 @@ def build_otlp_span_exporter(
         endpoint=_resolve_endpoint(options, DEFAULT_TRACES_EXPORT_PATH),
         token_provider=token_provider,
         use_api_key=options.use_api_key,
+        **_transport_kwargs(options),
     )
 
 
@@ -283,6 +309,7 @@ def build_otlp_metric_exporter(
         token_provider=token_provider,
         use_api_key=options.use_api_key,
         preferred_temporality=preferred_temporality,
+        **_transport_kwargs(options),
     )
 
 
@@ -296,18 +323,48 @@ def build_otlp_log_exporter(
         endpoint=_resolve_endpoint(options, DEFAULT_LOGS_EXPORT_PATH),
         token_provider=token_provider,
         use_api_key=options.use_api_key,
+        **_transport_kwargs(options),
     )
 
 
 def _build_export_options(
-    endpoint_override: str | None, default_endpoint: str | None, enabled: bool
+    signal: Literal["traces", "metrics", "logs"],
+    endpoint_override: str | None,
+    default_endpoint: str | None,
+    enabled: bool,
 ) -> OtelExportOptions:
     # Authenticate with the Mistral key only on the default endpoint; an explicit override carries
     # its own auth via the conventional OTLP env vars (e.g. OTEL_EXPORTER_OTLP_HEADERS).
+    use_api_key = not endpoint_override
+    common = config.common
+    signal_prefix = signal.upper()
+
+    def has_environment_override(option: str) -> bool:
+        return bool(
+            os.environ.get(f"OTEL_EXPORTER_OTLP_{option}")
+            or os.environ.get(f"OTEL_EXPORTER_OTLP_{signal_prefix}_{option}")
+        )
+
+    transport = OtelTransportOptions(
+        certificate_file=None if has_environment_override("CERTIFICATE") else common.ca_bundle,
+        client_certificate_file=(
+            None if has_environment_override("CLIENT_CERTIFICATE") else common.mtls_client_cert_path
+        ),
+        client_key_file=None if has_environment_override("CLIENT_KEY") else common.mtls_client_key_path,
+        authorization_bearer=(
+            common.mistral_api_key
+            if use_api_key
+            and not has_environment_override("HEADERS")
+            and common.mistral_api_key
+            and common.mistral_api_key.get_secret_value()
+            else None
+        ),
+    )
     return OtelExportOptions(
         endpoint=endpoint_override or default_endpoint,
         enabled=enabled,
-        use_api_key=not endpoint_override,
+        use_api_key=use_api_key,
+        transport=transport,
     )
 
 
@@ -324,35 +381,56 @@ class ResolvedOtlpExports:
 def resolve_otlp_export_options() -> ResolvedOtlpExports:
     """Resolve per-signal OTLP export options and the shared token provider from the global config.
 
-    Per signal, the endpoint precedence is: the deprecated ``otel_endpoint`` (all signals, no auth);
-    else a per-signal override (own auth); else the default ``<mistral_server_url>/telemetry`` ingest
+    Per signal, the endpoint precedence is: a per-signal override (own auth);
+    else the default ``<mistral_server_url>/telemetry`` ingest
     with the Mistral service-account bearer. When neither an override nor a server URL is configured,
     the resolved endpoint is None and callers skip that exporter.
     """
+    _warn_if_removed_otel_endpoint_is_set()
     common = config.common
-    if common.otel_endpoint:
-        logger.warning(
-            "otel_endpoint is deprecated, use otel_traces_endpoint and otel_metrics_endpoint instead",
-        )
-        return ResolvedOtlpExports(
-            trace=_build_export_options(common.otel_endpoint, None, common.mistral_workflows_otel_traces_export),
-            metric=_build_export_options(common.otel_endpoint, None, common.mistral_workflows_otel_metrics_export),
-            log=_build_export_options(common.otel_endpoint, None, common.mistral_workflows_otel_logs_export),
-            token_provider=None,
-        )
-
     server_url = config.worker.agent.mistral_client_server_url
     default_endpoint = f"{server_url.rstrip('/')}/telemetry" if server_url else None
     token_provider = get_token_provider(config.worker.agent.mistral_client_api_key) if server_url else None
     return ResolvedOtlpExports(
         trace=_build_export_options(
-            common.otel_traces_endpoint, default_endpoint, common.mistral_workflows_otel_traces_export
+            "traces",
+            common.otel_traces_endpoint,
+            default_endpoint,
+            common.mistral_workflows_otel_traces_export,
         ),
         metric=_build_export_options(
-            common.otel_metrics_endpoint, default_endpoint, common.mistral_workflows_otel_metrics_export
+            "metrics",
+            common.otel_metrics_endpoint,
+            default_endpoint,
+            common.mistral_workflows_otel_metrics_export,
         ),
         log=_build_export_options(
-            common.otel_logs_endpoint, default_endpoint, common.mistral_workflows_otel_logs_export
+            "logs",
+            common.otel_logs_endpoint,
+            default_endpoint,
+            common.mistral_workflows_otel_logs_export,
         ),
         token_provider=token_provider,
+    )
+
+
+def _removed_otel_endpoint(values: Mapping[str, str | None]) -> str | None:
+    # The config matched env keys case-insensitively, so a lowercase otel_endpoint used to apply too.
+    return next((value for key, value in values.items() if key.upper() == "OTEL_ENDPOINT" and value), None)
+
+
+def _warn_if_removed_otel_endpoint_is_set() -> None:
+    # OTEL_ENDPOINT was removed in v4. Pydantic settings ignore unknown env vars, so a worker still
+    # relying on it would silently export elsewhere: warn. The resolved per-signal endpoints are
+    # logged by the "Telemetry enabled" startup message. Also check the .env file the config reads,
+    # which os.environ does not see.
+    legacy_endpoint = _removed_otel_endpoint(os.environ)
+    if not legacy_endpoint and os.path.isfile(env_file):
+        legacy_endpoint = _removed_otel_endpoint(dotenv_values(env_file))
+    if not legacy_endpoint:
+        return
+    logger.warning(
+        "OTEL_ENDPOINT is set but no longer used by the Workflows SDK; "
+        "set OTEL_TRACES_ENDPOINT, OTEL_METRICS_ENDPOINT and OTEL_LOGS_ENDPOINT to export there",
+        otel_endpoint=legacy_endpoint,
     )

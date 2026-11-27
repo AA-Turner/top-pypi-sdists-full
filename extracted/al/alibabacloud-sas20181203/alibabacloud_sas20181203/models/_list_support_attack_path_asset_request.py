@@ -13,20 +13,20 @@ class ListSupportAttackPathAssetRequest(DaraModel):
         support_type: str = None,
     ):
         # The node type. Valid values:
-        # - **start**: start node.
-        # - **end**: end node.
+        # - **start**: start node
+        # - **end**: end node
         self.node_type = node_type
         # The path name.
         # 
-        # > Call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query path names.
+        # > You can call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query the path name.
         self.path_name = path_name
         # The path type.
-        # > Call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query path types.
+        # > You can call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query the path type.
         self.path_type = path_type
         # The support type. Valid values:
-        # - **event**: attack path alert event.
-        # - **whitelist**: attack path whitelist.
-        # - **sensitive**: attack path sensitive asset.
+        # - **event**: attack path alert events
+        # - **whitelist**: attack path whitelists
+        # - **sensitive**: sensitive assets in attack paths
         # 
         # This parameter is required.
         self.support_type = support_type

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kestra
-Version: 2.0.0
+Version: 2.1.0
 Summary: Kestra is an infinitely scalable orchestration and scheduling platform, creating, running, scheduling, and monitoring millions of complex pipelines.
 Home-page: https://kestra.io
 Author: Kestra
@@ -55,12 +55,14 @@ The `Kestra` class is responsible for sending metrics, outputs, and logs to the 
 
 ### Methods
 
-- **\_send(map\_: dict)**: Sends a message to the Kestra server.
-- **format(map\_: dict) -> str**: Formats a message to be sent to the Kestra server.
-- **\_metrics(name: str, type\_: str, value: int, tags: dict | None = None)**: Sends a metric to the Kestra server.
-- **outputs(map\_: dict)**: Sends outputs to the Kestra server.
-- **counter(name: str, value: int, tags: dict | None = None)**: Sends a counter to the Kestra server.
-- **timer(name: str, duration: int | Callable, tags: dict | None = None)**: Sends a timer to the Kestra server.
+- **\_send(map\_: dict)**: Sends a message to the Kestra server (flushes stdout immediately).
+- **format(map\_: dict) -> str**: Formats a message to be sent to the Kestra server (`::{"...": ...}::`).
+- **\_metrics(name: str, type\_: str, value: int | float, tags: Mapping | None = None)**: Sends a metric to the Kestra server. Validates that `name` is a non-empty string, `value` is a finite number (rejecting `NaN`, `Inf`, and booleans with `ValueError`), and `tags` are single stringifiable values.
+- **outputs(map\_: Mapping)**: Sends key-value outputs to the Kestra server. Requires a dictionary (empty mapping is a no-op). Dates, datetimes and times are sent as ISO 8601 text, and a value JSON cannot hold raises an error that says what to pass.
+- **assets(map\_: Mapping)**: Sends assets to the Kestra server. Requires a dictionary (empty mapping is a no-op).
+- **counter(name: str, value: int | float, tags: Mapping | None = None)**: Sends a counter to the Kestra server.
+- **timer(name: str, duration: int | float | Callable, tags: Mapping | None = None)**: Sends a timer in seconds to the Kestra server. If `duration` is a callable, it measures the elapsed time in seconds, records the metric, and returns the callable's return value. The name and tags are checked before the callable runs, and no metric is sent when it raises.
+- **gauge(name: str, value: int | float, tags: Mapping | None = None)**: Sends a gauge to the Kestra server.
 - **logger() -> Logger**: Retrieves the logger for the Kestra server.
 
 ## Flow Class
@@ -198,10 +200,14 @@ Kestra.counter("my_counter", 1)
 
 ### Timers
 
-The `Kestra` class provides a method to send timer metrics to the Kestra server.
+The `Kestra` class provides a method to send timer metrics in seconds to the Kestra server. You can pass a duration in seconds, or pass a callable: `timer()` will measure the execution time in seconds, record the timer metric, and return the callable's return value.
 
 ```python
-Kestra.timer("my_timer", 1)
+# Pass duration directly in seconds
+Kestra.timer("my_timer", 1.5)
+
+# Time a callable function and receive its result
+result = Kestra.timer("compute_duration", lambda: sum(range(1000)))
 ```
 
 ### Gauges
@@ -233,10 +239,13 @@ df = pd.read_csv(csv_path)
 The context is read from the `.kestra-execution-context.json` file that Kestra injects
 into the task working directory. Use `KESTRA_EXECUTION_CONTEXT_FILE` to read it from
 another path, or set the base64-encoded `KESTRA_CONTEXT` environment variable when no
-file is available.
+file is available. That fallback does not apply to `load_execution_context(path)`: a
+`path` that does not exist raises `FileNotFoundError`.
 
 It is loaded lazily on first access and raises a `FileNotFoundError` when the script
-does not run inside a Kestra task.
+does not run inside a Kestra task. A directory or an unreadable file raises its read error.
+A `ValueError` says whether `KESTRA_CONTEXT` is not base64, or the context is not valid JSON
+or not a JSON object.
 
 Nested objects are wrapped, including those inside lists, so any depth can be
 traversed with attributes: `context.inputs.my_list[0].my_key`.
@@ -248,8 +257,8 @@ traversed with attributes: `context.inputs.my_list[0].my_key`.
 
 - **context[name]**: Same as attribute access. Required for keys that are not valid Python identifiers, or that collide with a method name such as `context["items"]`.
 - **context.get(name, default=None)**: Returns `default` instead of raising when the key is missing.
-- **context.to_dict()**: Returns the raw context as a plain `dict`, ready for `json.dumps`.
-- **load_execution_context(path=None) -> ExecutionContext**: Loads the context explicitly, from `path` when given.
+- **context.to_dict()**: Returns a copy of the context as a plain `dict`, ready for `json.dumps`. Changing it does not change `context`.
+- **load_execution_context(path=None) -> ExecutionContext**: Loads the context explicitly, from `path` when given. A `path` that does not exist raises `FileNotFoundError` instead of falling back to `KESTRA_CONTEXT`.
 
 ## Kestra Ion
 

@@ -1,6 +1,5 @@
-# fmt: off
-
 """Binary runner and results class."""
+
 import os
 import subprocess
 import time
@@ -11,8 +10,12 @@ class SubprocessRunResults:
     """Results returned from subprocess.run()."""
 
     def __init__(
-            self, stdout, stderr, return_code: int,
-            process_time: float | None = None):
+        self,
+        stdout,
+        stderr,
+        return_code: int,
+        process_time: float | None = None,
+    ):
         self.stdout = stdout
         self.stderr = stderr
         self.return_code = return_code
@@ -22,24 +25,34 @@ class SubprocessRunResults:
 
 class SimpleBinaryRunner:
     """Class to execute a subprocess."""
+
     path_type = str | Path
 
-    def __init__(self,
-                 binary,
-                 run_argv: list[str],
-                 omp_num_threads: int,
-                 directory: path_type = './',
-                 args=None) -> None:
+    def __init__(
+        self,
+        binary,
+        run_argv: list[str],
+        omp_num_threads: int,
+        directory: path_type = './',
+        args=None,
+    ) -> None:
         """Initialise class.
 
-        :param binary: Binary name prepended by full path, or just binary name
+        Parameters
+        ----------
+        binary : str
+            Binary name prepended by full path, or just binary name
             (if present in $PATH).
-        :param run_argv: Run commands sequentially as a list of str.
+        run_argv : list[str]
+            Run commands sequentially as a list of str.
             For example:
             * For serial: ['./'] or ['']
             * For MPI:   ['mpirun', '-np', '2']
-        :param omp_num_threads: Number of OMP threads.
-        :param args: Optional arguments for the binary.
+        omp_num_threads : int
+            Number of OMP threads.
+        args : None
+            Optional arguments for the binary.
+
         """
         if args is None:
             args = []
@@ -52,10 +65,10 @@ class SimpleBinaryRunner:
         self.args = args
 
         if directory is not None and not Path(directory).is_dir():
-            raise OSError(f"Run directory does not exist: {directory}")
+            raise OSError(f'Run directory does not exist: {directory}')
 
         if omp_num_threads <= 0:
-            raise ValueError("Number of OMP threads must be > 0")
+            raise ValueError('Number of OMP threads must be > 0')
 
     def compose_execution_list(self) -> list:
         """Generate a complete list of strings to pass to subprocess.run().
@@ -75,10 +88,14 @@ class SimpleBinaryRunner:
         my_env = {**os.environ}
 
         time_start: float = time.time()
-        result = subprocess.run(execution_list,
-                                env=my_env,
-                                capture_output=True,
-                                cwd=self.directory, check=False)
+        result = subprocess.run(
+            execution_list,
+            env=my_env,
+            capture_output=True,
+            cwd=self.directory,
+            check=False,
+        )
         total_time = time.time() - time_start
         return SubprocessRunResults(
-            result.stdout, result.stderr, result.returncode, total_time)
+            result.stdout, result.stderr, result.returncode, total_time
+        )

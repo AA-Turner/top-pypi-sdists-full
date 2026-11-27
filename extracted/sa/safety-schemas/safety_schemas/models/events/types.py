@@ -135,6 +135,10 @@ class ToolType(str, Enum):
     UV = "uv"
     CONDA = "conda"
     NPM = "npm"
+    DOTNET = "dotnet"
+    MVN = "mvn"
+    GRADLE = "gradle"
+    GO = "go"
 
 
 DEFAULT_MAX_BYTES: int = 32 * 1024  # 32 KB

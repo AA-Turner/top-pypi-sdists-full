@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from unittest import mock
+from unittest import TestCase, mock
 
 from pylxd.models import _model as model
 from pylxd.tests import testing
@@ -34,16 +34,16 @@ class ChildItem(Item):
     """A fake model child class."""
 
 
-class TestAttributeDict:
+class TestAttributeDict(TestCase):
     def test_from_dict(self):
         a = model.AttributeDict({"foo": "bar", "baz": "bza"})
-        assert a.foo == "bar"
-        assert a.baz == "bza"
+        self.assertEqual(a.foo, "bar")
+        self.assertEqual(a.baz, "bza")
 
     def test_iterable(self):
         d = {"foo": "bar", "baz": "bza"}
         a = model.AttributeDict(d)
-        assert dict(a) == d
+        self.assertEqual(dict(a), d)
 
 
 class TestModel(testing.PyLXDTestCase):
@@ -251,6 +251,32 @@ class TestModel(testing.PyLXDTestCase):
 
         self.assertFalse(item.dirty)
 
+    def test_save_wait_syncs(self):
+        """With wait=True the object is synced back after the save."""
+        item = Item(self.client, name="an-item", age=15, data={"key": "val"})
+
+        item.age = 69
+        item.save(wait=True)
+
+        # should sync back to 1000
+        self.assertEqual(item.age, 1000)
+        self.assertFalse(item.dirty)
+
+    def test_save_no_wait_does_not_sync(self):
+        """With wait=False the update may still be running, so no sync."""
+        item = Item(self.client, name="an-item", age=15, data={"key": "val"})
+
+        item.age = 69
+        item.save()
+
+        self.assertEqual(item.age, 69)
+        self.assertFalse(
+            any(
+                r.method == "GET" and r.url == "http://pylxd.test/1.0/items/an-item"
+                for r in self.requests_mock.request_history
+            )
+        )
+
     def test_put(self):
         item = Item(self.client, name="an-item", age=15, data={"key": "val"})
 
@@ -347,8 +373,22 @@ class TestModel(testing.PyLXDTestCase):
             }
         )
         item = Item(self.client, name="an-item", age=15, data={"key": "val"})
+        history_start = len(self.requests_mock.request_history)
         # wait=False is overridden by the extension presence
         item.put({"age": 69}, wait=False)
+
+        requests_made = [
+            (r.method, r.url)
+            for r in self.requests_mock.request_history[history_start:]
+        ]
+        wait_req = ("GET", "http://pylxd.test/1.0/operations/123456789/wait")
+        sync_req = ("GET", "http://pylxd.test/1.0/items/an-item")
+        self.assertIn(wait_req, requests_made)
+        self.assertIn(sync_req, requests_made)
+        self.assertLess(requests_made.index(wait_req), requests_made.index(sync_req))
+        self.assertEqual(item.age, 1000)
+
+    def test_patch(self):
         item = Item(self.client, name="an-item", age=15, data={"key": "val"})
 
         item.patch({"age": 69})
@@ -434,8 +474,20 @@ class TestModel(testing.PyLXDTestCase):
             }
         )
         item = Item(self.client, name="an-item", age=15, data={"key": "val"})
+        history_start = len(self.requests_mock.request_history)
         # wait=False is overridden by the extension presence
         item.patch({"age": 69}, wait=False)
+
+        requests_made = [
+            (r.method, r.url)
+            for r in self.requests_mock.request_history[history_start:]
+        ]
+        wait_req = ("GET", "http://pylxd.test/1.0/operations/123456789/wait")
+        sync_req = ("GET", "http://pylxd.test/1.0/items/an-item")
+        self.assertIn(wait_req, requests_made)
+        self.assertIn(sync_req, requests_made)
+        self.assertLess(requests_made.index(wait_req), requests_made.index(sync_req))
+        self.assertEqual(item.age, 1000)
 
     def test_raw_attr_set(self):
         """_raw_attr returns the value when the attribute is set."""

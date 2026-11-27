@@ -1,6 +1,7 @@
 """Tests for Agent class."""
 
 import pytest
+from conftest import make_context
 
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.models import WorkflowContext
@@ -12,8 +13,6 @@ from mistralai.workflows.plugins.mistralai.connectors.constants import (
 )
 from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.plugins.mistralai.session.remote_session import RemoteSession
-
-from .conftest import make_context
 
 
 class TestAgent:

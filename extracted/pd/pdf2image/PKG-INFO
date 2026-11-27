@@ -1,26 +1,39 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pdf2image
-Version: 1.17.0
+Version: 1.17.1
 Summary: A wrapper around the pdftoppm and pdftocairo command line tools to convert PDF to a PIL Image list.
 Home-page: https://github.com/Belval/pdf2image
 Author: Edouard Belval
 Author-email: edouard@belval.org
 License: MIT
 Keywords: pdf image png jpeg jpg convert
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pillow
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # pdf2image
-[![CircleCI](https://circleci.com/gh/Belval/pdf2image/tree/master.svg?style=svg)](https://circleci.com/gh/Belval/pdf2image/tree/master) [![PyPI version](https://badge.fury.io/py/pdf2image.svg)](https://badge.fury.io/py/pdf2image) [![codecov](https://codecov.io/gh/Belval/pdf2image/branch/master/graph/badge.svg)](https://codecov.io/gh/Belval/pdf2image) [![Downloads](https://pepy.tech/badge/pdf2image/month)](https://pepy.tech/project/pdf2image) [![GitHub CI](https://github.com/Belval/pdf2image/actions/workflows/documentation.yml/badge.svg)](https://belval.github.io/pdf2image)
+[![Tests](https://github.com/Belval/pdf2image/actions/workflows/tests.yml/badge.svg)](https://github.com/Belval/pdf2image/actions/workflows/tests.yml) [![PyPI version](https://badge.fury.io/py/pdf2image.svg)](https://badge.fury.io/py/pdf2image) [![codecov](https://codecov.io/gh/Belval/pdf2image/branch/master/graph/badge.svg)](https://codecov.io/gh/Belval/pdf2image) [![Downloads](https://pepy.tech/badge/pdf2image/month)](https://pepy.tech/project/pdf2image) [![GitHub CI](https://github.com/Belval/pdf2image/actions/workflows/documentation.yml/badge.svg)](https://belval.github.io/pdf2image)
 
 A python (3.7+) module that wraps pdftoppm and pdftocairo to convert PDF to a PIL Image object
 
@@ -123,5 +136,3 @@ Here are the definitions:
 
 - A relatively big PDF will use up all your memory and cause the process to be killed (unless you use an output folder)
 - Sometimes fail read pdf signed using DocuSign, [Solution for DocuSign issue.](docs/installation.md)
-
-

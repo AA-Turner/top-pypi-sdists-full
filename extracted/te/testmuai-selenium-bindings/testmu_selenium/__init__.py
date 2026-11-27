@@ -46,6 +46,7 @@ from testmu_selenium._helpers.execute_js import executeJS
 from testmu_selenium._helpers.vision_query import visionQuery
 from testmu_selenium._helpers.textual_query import textualQuery
 from testmu_selenium._helpers.smartui import smartui_snapshot
+from testmu_selenium._helpers.accessibility import accessibility_scan
 
 # Auto-monkey-patch WebElement on package import — generated test.py expects el.clickElement(...)
 add_clickElement_to_webelement()
@@ -114,7 +115,7 @@ __all__ = [
     # Variable store
     "var", "set_var", "get_variable_value", "resolve_variable",
     # Runtime helpers
-    "findElement", "get_driver", "clickElement", "input_value", "executeJS", "visionQuery", "textualQuery", "smartui_snapshot",
+    "findElement", "get_driver", "clickElement", "input_value", "executeJS", "visionQuery", "textualQuery", "smartui_snapshot", "accessibility_scan",
     # High-level action wrappers — element-level (find + heal + act)
     "click", "type", "search", "hover", "clear", "set_input_files", "press_key", "scroll_into_view",
     "drag_drop", "element_drag", "drag_at_coordinate", "clear_at_coordinate", "textual_query",

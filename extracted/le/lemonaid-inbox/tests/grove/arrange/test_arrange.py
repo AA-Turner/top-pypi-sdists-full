@@ -1,7 +1,10 @@
 import dataclasses
 
-from lemonaid.grove.layout import new_spots
+import pytest
+
+from lemonaid.grove.layout import landmarks, new_spots
 from lemonaid.grove.layout.arrange import arrange
+from lemonaid.grove.model import WORLD_HEIGHT, WORLD_WIDTH
 
 from ..shared import DAY, NOW, block, lemon, tree
 
@@ -178,6 +181,13 @@ def test_a_tree_shows_the_name_given_to_its_main_lemon():
     assert found.trees[("g", "edi/other")].label == "other"
 
 
+def test_a_chat_lemons_tree_shows_its_name_rather_than_its_channels_words():
+    room = "openclaw:agent:main:matrix:channel:!r00mA1b2:grove.example"
+    chat = dataclasses.replace(lemon(room), name="Ada - room r00mA1")
+    found, _ = arrange((block("g", "1", tree(room, chat)),), EMPTY, NOW)
+    assert found.trees[("g", room)].label == "Ada - room r00mA1"
+
+
 def test_a_packhouse_bay_with_one_lemon_shows_its_name_but_a_shared_bay_keeps_its_session():
     alone = lemon("claude:x")
     pair = (lemon("claude:y"), lemon("claude:z"))
@@ -347,3 +357,33 @@ def test_a_lead_saved_off_its_block_stands_on_it_again():
         found.trees[("g", "head")].cx,
         found.trees[("g", "head")].cy,
     )
+
+
+def test_with_the_packhouse_off_block_0_is_an_ordinary_block():
+    blocks = (block("", "0", tree("hq", lead=True), tree("misc")), block("a", "1", tree("s")))
+    found, _ = arrange(blocks, landmarks.with_packhouse(EMPTY, False), NOW)
+    assert found.plots[""].texture != "house"
+    assert all(found.trees[("", key)].bay == -1 for key in ("hq", "misc"))
+
+
+@pytest.mark.parametrize("house", [True, False])
+def test_block_0_takes_the_middle_ahead_of_the_groups_with_the_packhouse_on_or_off(house):
+    groups = tuple(block(f"g{n}", str(n), tree(f"s{n}"), tree(f"t{n}")) for n in range(1, 5))
+    found, _ = arrange(
+        (*groups, block("", "0", tree("hq"))), landmarks.with_packhouse(EMPTY, house), NOW
+    )
+    plot = found.plots[""]
+    assert plot.x <= WORLD_WIDTH / 2 <= plot.x + plot.w
+    assert plot.y <= WORLD_HEIGHT / 2 <= plot.y + plot.h
+
+
+def test_turning_the_packhouse_off_and_on_again_restores_both_layouts():
+    blocks = (block("", "0", tree("hq", lead=True), tree("misc")), block("a", "1", tree("s")))
+    _, housed = arrange(blocks, landmarks.with_packhouse(EMPTY, True), NOW)
+    _, plain = arrange(blocks, landmarks.with_packhouse(housed, False), NOW + 60)
+    _, again = arrange(blocks, landmarks.with_packhouse(plain, True), NOW + 120)
+    _, plain_again = arrange(blocks, landmarks.with_packhouse(again, False), NOW + 180)
+    assert again["plots"][""] == housed["plots"][""]
+    assert again["trees"][""] == housed["trees"][""]
+    assert plain_again["plots"][""] == plain["plots"][""]
+    assert plain_again["plots"]["a"] == housed["plots"]["a"]

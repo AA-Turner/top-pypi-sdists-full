@@ -38,7 +38,8 @@ class OpenAIResponseOutputMessageFunctionToolCall(BaseModel):
     type: Optional[StrictStr] = None
     id: Optional[StrictStr] = None
     status: Optional[StrictStr] = None
-    __properties: ClassVar[list[str]] = ["call_id", "name", "arguments", "type", "id", "status"]
+    namespace: Optional[StrictStr] = None
+    __properties: ClassVar[list[str]] = ["call_id", "name", "arguments", "type", "id", "status", "namespace"]
 
     @field_validator('type')
     def type_validate_enum(cls, value):
@@ -126,6 +127,11 @@ class OpenAIResponseOutputMessageFunctionToolCall(BaseModel):
         if self.status is None and "status" in self.model_fields_set:
             _dict['status'] = None
 
+        # set to None if namespace (nullable) is None
+        # and model_fields_set contains the field
+        if self.namespace is None and "namespace" in self.model_fields_set:
+            _dict['namespace'] = None
+
         return _dict
 
     @classmethod
@@ -145,6 +151,7 @@ class OpenAIResponseOutputMessageFunctionToolCall(BaseModel):
             "type": obj.get("type"),
             "id": obj.get("id"),
             "status": obj.get("status"),
+            "namespace": obj.get("namespace"),
             }.items() if k in obj
         })
         return _obj

@@ -117,9 +117,14 @@ GoTo = "/GoTo"
 ResetForm = "/ResetForm"
 SubmitForm = "/SubmitForm"
 Hide = "/Hide"
+Next = "/Next"
+Flags = "/Flags"
 JavaScript = "/JavaScript"
 JS = "/JS"
 OpenAction = "/OpenAction"
+# navigation node forward and backward actions
+NA = "/NA"
+PA = "/PA"
 E = "/E"
 X = "/X"
 D = "/D"
@@ -163,24 +168,107 @@ FONT_NAME_PREFIX = "/F"
 # For Adobe Acrobat
 AcroForm = "/AcroForm"
 Fields = "/Fields"
+CO = "/CO"
 XFA = "/XFA"
+
+# action type -> the entry that names the fields or annotations it acts on
+NAMED_TARGETS = {ResetForm: Fields, SubmitForm: Fields, Hide: T}
+# ResetForm and SubmitForm flag bit: act on every field except the named ones
+INCLUDE_EXCLUDE = 1 << 0
 
 # Field flag bits
 READ_ONLY = 1 << 0
 REQUIRED = 1 << 1
 MULTILINE = 1 << 12
 RADIO = 1 << 15
+PUSHBUTTON = 1 << 16
 COMB = 1 << 24
 
 # annotation flag bits
 HIDDEN = 1 << 1
 
+# entries read when choosing a PDF version
+Info = "/Info"
+Version = "/Version"
+ToUnicode = "/ToUnicode"
+SMask = "/SMask"
+URI = "/URI"
+CA = "/CA"
+ca = "/ca"
+
+# Minimum PDF versions of the features that PyPDFForm can add, from the
+# "(PDF 1.x)" marks of the PDF Reference
+FEATURE_VERSIONS_BY_KEY = {
+    # an annotation's title; fields, Hide actions, and threads are 1.1 or later
+    T: "1.1",
+    FontFile2: "1.1",
+    OpenAction: "1.1",
+    AcroForm: "1.2",
+    ToUnicode: "1.2",
+    TU: "1.3",
+    SMask: "1.4",
+}
+FEATURE_VERSIONS_BY_SUBTYPE = {
+    Widget: "1.2",
+    "/Stamp": "1.3",
+    "/Highlight": "1.3",
+    "/Underline": "1.3",
+    "/StrikeOut": "1.3",
+    "/Squiggly": "1.4",
+}
+FEATURE_VERSIONS_BY_ACTION = {URI: "1.1", JavaScript: "1.3"}
+FEATURE_VERSIONS_BY_FILTER = {FlateDecode: "1.2"}
+FEATURE_VERSIONS_BY_FIELD_TYPE = {Sig: "1.3"}
+TITLE_VERSION = "1.1"  # the title in the document information dictionary
+ALPHA_VERSION = "1.4"  # a numeric /CA or /ca, for constant opacity
+COMB_VERSION = "1.5"  # also RadiosInUnison, the same bit for radio buttons
+# widget property hooks that write a JavaScript action, whatever the script
+JAVASCRIPT_HOOKS = frozenset(
+    {
+        "update_field_on_hovered_over_javascript",
+        "update_field_on_hovered_off_javascript",
+        "update_field_on_mouse_pressed_javascript",
+        "update_field_on_mouse_released_javascript",
+        "update_field_on_focused_javascript",
+        "update_field_on_blurred_javascript",
+    }
+)
+# widget property hooks that can add or remove a feature above: comb (1.5),
+# tooltips (/TU), and JavaScript actions; PdfWrapper.version applies them to
+# a copy of the PDF while they are queued
+FEATURE_HOOKS = (
+    frozenset({"update_text_field_comb", "update_field_tooltip"}) | JAVASCRIPT_HOOKS
+)
+# the font hook, whose user-facing font names PdfWrapper maps to resource names
+FONT_HOOK = "update_text_field_font"
+# widget property hooks that change the default appearance (/DA), which a
+# field can inherit from its ancestors or the AcroForm; they get the AcroForm
+DEFAULT_APPEARANCE_HOOKS = frozenset(
+    {
+        FONT_HOOK,
+        "update_text_field_font_size",
+        "update_text_field_font_color",
+    }
+)
+# no feature above needs a newer version, so newer documents are never raised
+NEWEST_FEATURE_VERSION = max(
+    [
+        *FEATURE_VERSIONS_BY_KEY.values(),
+        *FEATURE_VERSIONS_BY_SUBTYPE.values(),
+        *FEATURE_VERSIONS_BY_ACTION.values(),
+        *FEATURE_VERSIONS_BY_FILTER.values(),
+        *FEATURE_VERSIONS_BY_FIELD_TYPE.values(),
+        TITLE_VERSION,
+        ALPHA_VERSION,
+        COMB_VERSION,
+    ],
+    key=lambda version: tuple(int(part) for part in version.split(".")),
+)
+
 # reportlab acroform func
 fieldFlags = "fieldFlags"
 required = "required"
 
-FONT_SIZE_IDENTIFIER = "Tf"
-FONT_COLOR_IDENTIFIER = " rg"
 DEFAULT_FONT = "Helvetica"
 DEFAULT_FONT_SIZE = 12
 DEFAULT_FONT_COLOR = (0, 0, 0)
@@ -189,8 +277,6 @@ IMAGE_IMPORT_JAVASCRIPT = "event.target.buttonImportIcon();"
 
 COORDINATE_GRID_FONT_SIZE_MARGIN_RATIO = DEFAULT_FONT_SIZE / 100
 UNIQUE_SUFFIX_LENGTH = 20
-
-SLASH = "/"
 
 # blank page
 BLANK_PAGE_DEFAULT_WIDTH = 612

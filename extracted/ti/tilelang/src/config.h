@@ -1,0 +1,87 @@
+/*!
+ * \file tl/config.h
+ * \brief TileLang configuration utilities.
+ */
+
+#ifndef TVM_TL_CONFIG_H_
+#define TVM_TL_CONFIG_H_
+
+#include <tvm/ffi/optional.h>
+#include <tvm/ir/expr.h>
+#include <tvm/ir/transform.h>
+
+#include <string>
+
+namespace tvm {
+namespace tl {
+namespace tl_config {
+
+/*!
+ * \brief Check if reducer plan decision logging is enabled. When on,
+ * ReducerPlanAndMaterialize logs each epoch's chosen physical plan and the
+ * narrow-plan rejection reason at INFO level (always DLOG'd otherwise).
+ */
+inline bool ReducerPlanVerboseEnabled() {
+  auto ctxt = tvm::transform::PassContext::Current();
+  return ctxt
+      ->GetConfig("tl.enable_reducer_plan_verbose", ffi::Optional<Bool>())
+      .value_or(Bool(false));
+}
+
+/*!
+ * \brief The cost model that ranks free-mode layout attempts. Valid
+ *  values: "register-count" (default — total fragment register slots) and
+ *  "io-aware" (bytes x vector-width/coalescing over fragment<->global
+ *  traffic, registers as tiebreak).
+ */
+inline std::string LayoutCostModelName() {
+  auto ctxt = tvm::transform::PassContext::Current();
+  return ctxt->GetConfig("tl.layout_cost_model", ffi::Optional<ffi::String>())
+      .value_or(ffi::String("register-count"));
+}
+
+/*!
+ * \brief Check if vectorize planner verbose output is enabled.
+ */
+inline bool VectorizePlannerVerboseEnabled() {
+  auto ctxt = tvm::transform::PassContext::Current();
+  return ctxt
+      ->GetConfig("tl.enable_vectorize_planner_verbose", ffi::Optional<Bool>())
+      .value_or(Bool(false));
+}
+
+/*!
+ * \brief Check if 256-bit vectorization is disabled.
+ */
+inline bool Vectorize256Disabled() {
+  auto ctxt = tvm::transform::PassContext::Current();
+  return ctxt->GetConfig("tl.disable_vectorize_256", ffi::Optional<Bool>())
+      .value_or(Bool(false));
+}
+
+/*!
+ * \brief The ``#line`` emission level from ``tl.emit_line_directives``.
+ *
+ * Returns 0 when disabled (default), 1 for one directive per spanned
+ * statement, and 2 or more when every emitted source line is re-anchored. The
+ * name is kept for the existing call sites; a bool config value is legalized
+ * to 0 or 1 by the pass-config layer.
+ *
+ * This reads the pass config only. Environment defaults such as
+ * ``TILELANG_EMIT_LINE_DIRECTIVES`` are folded into pass configs by
+ * normalize_pass_configs() on the Python side, which also makes them part of
+ * the kernel cache key.
+ */
+inline int EmitLineDirectivesEnabled() {
+  auto ctxt = tvm::transform::PassContext::Current();
+  return static_cast<int>(
+      ctxt->GetConfig("tl.emit_line_directives", ffi::Optional<Integer>())
+          .value_or(Integer(0))
+          .IntValue());
+}
+
+} // namespace tl_config
+} // namespace tl
+} // namespace tvm
+
+#endif // TVM_TL_CONFIG_H_

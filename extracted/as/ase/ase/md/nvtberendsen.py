@@ -51,6 +51,33 @@ class NVTBerendsen(MolecularDynamics):
             Additional arguments passed to :class:~ase.md.md.MolecularDynamics
             base class.
 
+        Physical background and limitations
+        -----------------------------------
+
+        In Berendsen NVT simulations the velocities are scaled to achieve
+        the desired temperature.
+
+        This method does not result in proper NVT sampling but it usually is
+        sufficiently good in practice (with large `taut`). For discussion see
+        the gromacs manual at https://www.gromacs.org.
+
+        Example
+        --------
+        Room temperature simulation (300 K, 0.1 fs time step):
+
+        >>> from ase import units
+        >>> from ase.build import bulk
+        >>> from ase.calculators.emt import EMT
+        >>> from ase.md import thermalize_momenta
+        >>> from ase.md.nvtberendsen import NVTBerendsen
+        >>> atoms = bulk('Cu', cubic=True)
+        >>> atoms.calc = EMT()
+        >>> thermalize_momenta(atoms, temperature_K=300)
+        >>> dyn = NVTBerendsen(atoms, 0.1 * units.fs, temperature_K=300,
+        ...                    taut=0.5 * 1000 * units.fs)
+        >>> dyn.run(10)
+        True
+
         """
         MolecularDynamics.__init__(self, atoms, timestep, **kwargs)
 
@@ -100,7 +127,6 @@ class NVTBerendsen(MolecularDynamics):
         p = self.atoms.get_momenta()
         p = scl_temperature * p
         self.atoms.set_momenta(p)
-        return
 
     def step(self, forces=None):
         """Move one timestep forward using Berenden NVT molecular dynamics."""

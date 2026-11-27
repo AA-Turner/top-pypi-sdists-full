@@ -35,6 +35,7 @@ class ModelType(str, Enum):
     LLM = 'llm'
     EMBEDDING = 'embedding'
     RERANK = 'rerank'
+    SYSTEMONE = 'systemone'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

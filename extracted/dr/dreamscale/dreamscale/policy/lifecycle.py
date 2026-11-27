@@ -536,6 +536,7 @@ async def open_policy_connection(
             )
             return session
 
+        diagnostic_timing["connect_started_at"] = clock()
         while True:
             try:
                 diagnostic_timing["session_create_started_at"] = clock()

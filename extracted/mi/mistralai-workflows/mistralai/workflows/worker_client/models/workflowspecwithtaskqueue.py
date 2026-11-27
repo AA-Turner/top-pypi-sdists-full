@@ -13,9 +13,10 @@ from mistralai.workflows.worker_client.types import (
     UNSET,
     UNSET_SENTINEL,
 )
+import pydantic
 from pydantic import model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import Annotated, NotRequired, TypedDict
 
 # region: custom code
 from datetime import timedelta
@@ -26,8 +27,6 @@ class WorkflowSpecWithTaskQueueTypedDict(TypedDict):
     r"""Input schema of the workflow's run method"""
     name: str
     r"""Name of the workflow"""
-    task_queue: str
-    r"""Task queue name for the workflow"""
     output_schema: NotRequired[Nullable[Dict[str, Any]]]
     r"""Output schema of the workflow's run method"""
     signals: NotRequired[List[SignalDefinitionTypedDict]]
@@ -54,6 +53,8 @@ class WorkflowSpecWithTaskQueueTypedDict(TypedDict):
     r"""Whether the workflow is technical (e.g. SDK-managed)"""
     schedules: NotRequired[List[ScheduleDefinitionTypedDict]]
     r"""Schedules defined by the workflow"""
+    task_queue: NotRequired[Nullable[str]]
+    r"""Deprecated. Use deployment_name instead."""
 
 
 class WorkflowSpecWithTaskQueue(BaseModel):
@@ -62,9 +63,6 @@ class WorkflowSpecWithTaskQueue(BaseModel):
 
     name: str
     r"""Name of the workflow"""
-
-    task_queue: str
-    r"""Task queue name for the workflow"""
 
     output_schema: OptionalNullable[Dict[str, Any]] = UNSET
     r"""Output schema of the workflow's run method"""
@@ -104,6 +102,14 @@ class WorkflowSpecWithTaskQueue(BaseModel):
     schedules: Optional[List[ScheduleDefinition]] = None
     r"""Schedules defined by the workflow"""
 
+    task_queue: Annotated[
+        OptionalNullable[str],
+        pydantic.Field(
+            deprecated="warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+        ),
+    ] = UNSET
+    r"""Deprecated. Use deployment_name instead."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(
@@ -120,10 +126,17 @@ class WorkflowSpecWithTaskQueue(BaseModel):
                 "description",
                 "is_technical",
                 "schedules",
+                "task_queue",
             ]
         )
         nullable_fields = set(
-            ["output_schema", "plugin_metadata", "display_name", "description"]
+            [
+                "output_schema",
+                "plugin_metadata",
+                "display_name",
+                "description",
+                "task_queue",
+            ]
         )
         serialized = handler(self)
         m = {}

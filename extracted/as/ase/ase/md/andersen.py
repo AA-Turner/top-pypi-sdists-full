@@ -37,7 +37,8 @@ class Andersen(MolecularDynamics):
 
         andersen_prob: float
             A random collision probability, typically 1e-4 to 1e-1.
-            With this probability atoms get assigned random velocity components.
+            In each time step, every velocity component of every atom is
+            replaced by a random one with this probability.
 
         fixcm: bool (optional)
             If True, the position and momentum of the center of mass is
@@ -52,12 +53,42 @@ class Andersen(MolecularDynamics):
             :class:`~ase.md.md.MolecularDynamics`
             base class.
 
-        Notes
-        -----
-        The temperature is imposed by stochastic collisions with a heat bath
-        that acts on velocity components of randomly chosen particles.
-        The algorithm randomly decorrelates velocities, so dynamical properties
-        like diffusion or viscosity cannot be properly measured.
+        Physical background and limitations
+        -----------------------------------
+
+        The Andersen class implements Andersen dynamics, where constant
+        temperature is imposed by stochastic collisions with a heat bath.
+        With a (small) probability (``andersen_prob``) the collisions act
+        occasionally on velocity components of randomly selected particles.
+        Upon a collision the new velocity is drawn from the
+        Maxwell-Boltzmann distribution at the corresponding temperature.
+        The system is then integrated numerically at constant energy
+        according to the Newtonian laws of motion. The algorithm generates
+        a canonical distribution. [1] However, due to the random
+        decorrelation of velocities, the dynamics are unphysical and
+        cannot represent dynamical properties like diffusion or viscosity.
+        Another disadvantage is that the collisions are stochastic in
+        nature, so repeating the simulation will not give exactly
+        the same trajectory.
+
+        References
+        ----------
+        [1] D. Frenkel and B. Smit, Understanding Molecular Simulation
+        (Academic Press, London, 1996).
+
+        Example
+        --------
+        Room temperature simulation (300 Kelvin, Andersen probability: 0.002):
+
+        >>> from ase import units
+        >>> from ase.build import bulk
+        >>> from ase.calculators.emt import EMT
+        >>> from ase.md.andersen import Andersen
+        >>> atoms = bulk('Cu', cubic=True)
+        >>> atoms.calc = EMT()
+        >>> dyn = Andersen(atoms, 5 * units.fs, 300, 0.002)
+        >>> dyn.run(10)
+        True
 
         """
         self.temp = units.kB * temperature_K

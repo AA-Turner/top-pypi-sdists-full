@@ -1,13 +1,13 @@
-# fmt: off
-
 """
 This module contains functionality for reading and writing an ASE
 Atoms object in VASP POSCAR format.
 
 """
+
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 from pathlib import Path
 from typing import TextIO
 
@@ -15,21 +15,27 @@ import numpy as np
 
 from ase import Atoms
 from ase.constraints import FixAtoms, FixedLine, FixedPlane, FixScaled
+from ase.constraints.constraint import FixConstraint
 from ase.io import ParseError
 from ase.io.formats import string2index
 from ase.io.utils import ImageIterator
 from ase.symbols import Symbols
-from ase.units import Ang, fs
+from ase.units import Ang, GPa, fs
 from ase.utils import reader, writer
 
 from .vasp_parsers import vasp_outcar_parsers as vop
 
 __all__ = [
-    'read_vasp', 'read_vasp_out', 'iread_vasp_out', 'read_vasp_xdatcar',
-    'read_vasp_xml', 'write_vasp', 'write_vasp_xdatcar'
+    'read_vasp',
+    'read_vasp_out',
+    'iread_vasp_out',
+    'read_vasp_xdatcar',
+    'read_vasp_xml',
+    'write_vasp',
+    'write_vasp_xdatcar',
 ]
 
-EVTOJ = 1.60217733E-19  # VASP constant.F
+EVTOJ = 1.60217733e-19  # VASP constant.F
 
 
 def parse_poscar_scaling_factor(line: str) -> np.ndarray:
@@ -67,9 +73,11 @@ def get_atomtypes(fname):
     atomtypes_alt = []
     if fpath.suffix == '.gz':
         import gzip
+
         opener = gzip.open
     elif fpath.suffix == '.bz2':
         import bz2
+
         opener = bz2.BZ2File
     else:
         opener = open
@@ -79,7 +87,8 @@ def get_atomtypes(fname):
                 atomtypes.append(line.split()[3].split('_')[0].split('.')[0])
             elif 'POTCAR:' in line:
                 atomtypes_alt.append(
-                    line.split()[2].split('_')[0].split('.')[0])
+                    line.split()[2].split('_')[0].split('.')[0]
+                )
 
     if len(atomtypes) == 0 and len(atomtypes_alt) > 0:
         # old VASP doesn't echo TITEL, but all versions print out species
@@ -89,7 +98,7 @@ def get_atomtypes(fname):
                 f'Tried to get atom types from {len(atomtypes_alt)}'
                 '"POTCAR": lines in OUTCAR, but expected an even number'
             )
-        atomtypes = atomtypes_alt[0:len(atomtypes_alt) // 2]
+        atomtypes = atomtypes_alt[0 : len(atomtypes_alt) // 2]
 
     return atomtypes
 
@@ -109,8 +118,7 @@ def atomtypes_outpot(posfname, numsyms):
 
     # Check files with exactly same path except POTCAR/OUTCAR instead
     # of POSCAR/CONTCAR.
-    fnames = [posfpath.with_name('POTCAR'),
-              posfpath.with_name('OUTCAR')]
+    fnames = [posfpath.with_name('POTCAR'), posfpath.with_name('OUTCAR')]
     # Try the same but with compressed files
     fsc = []
     for fnpath in fnames:
@@ -129,8 +137,9 @@ def atomtypes_outpot(posfname, numsyms):
             if len(at) == numsyms:
                 return at
 
-    raise ParseError('Could not determine chemical symbols. Tried files ' +
-                     str(tried))
+    raise ParseError(
+        'Could not determine chemical symbols. Tried files ' + str(tried)
+    )
 
 
 def get_atomtypes_from_formula(formula):
@@ -138,6 +147,7 @@ def get_atomtypes_from_formula(formula):
     with and underscore).
     """
     from ase.symbols import string2symbols
+
     symbols = string2symbols(formula.split('_')[0])
     atomtypes = [symbols[0]]
     for s in symbols[1:]:
@@ -206,15 +216,16 @@ def read_vasp_configuration(fd):
     commentcheck = np.array(['!' in s for s in numofatoms])
     if commentcheck.any():
         # only keep the elements up to the first including a '!':
-        numofatoms = numofatoms[:np.arange(len(numofatoms))[commentcheck][0]]
+        numofatoms = numofatoms[: np.arange(len(numofatoms))[commentcheck][0]]
 
     if not vasp5:
         # Split the comment line (first in the file) into words and
         # try to compose a list of chemical symbols
         from ase.formula import Formula
+
         atomtypes = []
         for word in line1.split():
-            word_without_delims = re.sub(r"-|_|,|\.|=|[0-9]|^", "", word)
+            word_without_delims = re.sub(r'-|_|,|\.|=|[0-9]|^', '', word)
             if len(word_without_delims) < 1:
                 continue
             try:
@@ -315,10 +326,8 @@ def read_velocities_if_present(fd, natoms) -> np.ndarray | None:
     return atoms_vel * (Ang / fs)
 
 
-def set_constraints(atoms: Atoms, selective_flags: np.ndarray):
+def set_constraints(atoms: Atoms, selective_flags: np.ndarray) -> None:
     """Set constraints based on selective_flags"""
-    from ase.constraints import FixAtoms, FixConstraint, FixScaled
-
     constraints: list[FixConstraint] = []
     indices = []
     for ind, sflags in enumerate(selective_flags):
@@ -379,7 +388,7 @@ def read_vasp_xdatcar(filename='XDATCAR', index=-1):
 
     while True:
         comment_line = fd.readline()
-        if "Direct configuration=" not in comment_line:
+        if 'Direct configuration=' not in comment_line:
             try:
                 lattice_constant = float(fd.readline())
             except Exception:
@@ -395,8 +404,9 @@ def read_vasp_xdatcar(filename='XDATCAR', index=-1):
             numbers = [int(n) for n in fd.readline().split()]
             total = sum(numbers)
 
-            atomic_formula = ''.join(f'{sym:s}{numbers[n]:d}'
-                                     for n, sym in enumerate(symbols))
+            atomic_formula = ''.join(
+                f'{sym:s}{numbers[n]:d}' for n, sym in enumerate(symbols)
+            )
 
             fd.readline()
 
@@ -421,6 +431,7 @@ def __get_xml_parameter(par):
     handling.
 
     """
+
     def to_bool(b):
         if b == 'T':
             return True
@@ -452,164 +463,133 @@ def read_vasp_xml(filename='vasprun.xml', index=-1):
     Reads unit cell, atom positions, energies, forces, and constraints
     from vasprun.xml file
 
+    .. versionchanged:: 3.30.0 (:mr:`4330`)
+        It now parses configurations without energies for a corrupted file.
+
     Examples
     --------
         >>> import ase.io
         >>> ase.io.write("out.traj", ase.io.read("vasprun.xml", index=":"))
     """
-
     import xml.etree.ElementTree as ET
-    from collections import OrderedDict
 
     tree = ET.iterparse(filename, events=['start', 'end'])
 
-    atoms_init = None
+    atoms_init, ibz_kpts, kpt_weights, parameters = _read_vasp_xml_header(tree)
+
     calculation = []
+    try:
+        for event, elem in tree:
+            if event == 'start' and elem.tag == 'calculation':
+                calculation.append(elem)
+
+    except ET.ParseError:
+        pass
+
+    steps = calculation if calculation else [atoms_init]
+
+    steps = [steps[index]] if isinstance(index, int) else steps[index]
+
+    for step in steps:
+        if isinstance(step, Atoms):
+            yield step
+        else:
+            yield atoms_from_step(
+                step,
+                ibz_kpts=ibz_kpts,
+                kpt_weights=kpt_weights,
+                parameters=parameters,
+                atoms=atoms_init.copy(),
+            )
+
+
+def _read_vasp_xml_header(tree):
+    import xml.etree.ElementTree as ET
+
+    atoms_init = None
     ibz_kpts = None
     kpt_weights = None
     parameters = OrderedDict()
 
     try:
         for event, elem in tree:
+            if event != 'end':
+                continue
 
-            if event == 'end':
-                if elem.tag == 'kpoints':
-                    for subelem in elem.iter(tag='generation'):
-                        kpts_params = OrderedDict()
-                        parameters['kpoints_generation'] = kpts_params
-                        for par in subelem.iter():
-                            if par.tag in ['v', 'i'] and "name" in par.attrib:
-                                parname = par.attrib['name'].lower()
-                                kpts_params[parname] = __get_xml_parameter(par)
-
-                    kpts = elem.findall("varray[@name='kpointlist']/v")
-                    ibz_kpts = np.zeros((len(kpts), 3))
-
-                    for i, kpt in enumerate(kpts):
-                        ibz_kpts[i] = [float(val) for val in kpt.text.split()]
-
-                    kpt_weights = elem.findall('varray[@name="weights"]/v')
-                    kpt_weights = [float(val.text) for val in kpt_weights]
-
-                elif elem.tag == 'parameters':
-                    for par in elem.iter():
-                        if par.tag in ['v', 'i']:
+            if elem.tag == 'kpoints':
+                for subelem in elem.iter(tag='generation'):
+                    kpts_params = OrderedDict()
+                    parameters['kpoints_generation'] = kpts_params
+                    for par in subelem.iter():
+                        if par.tag in ['v', 'i'] and 'name' in par.attrib:
                             parname = par.attrib['name'].lower()
-                            parameters[parname] = __get_xml_parameter(par)
+                            kpts_params[parname] = __get_xml_parameter(par)
 
-                elif elem.tag == 'atominfo':
-                    species = []
+                kpts = elem.findall("varray[@name='kpointlist']/v")
+                ibz_kpts = np.zeros((len(kpts), 3))
 
-                    for entry in elem.find("array[@name='atoms']/set"):
-                        species.append(entry[0].text.strip())
+                for i, kpt in enumerate(kpts):
+                    ibz_kpts[i] = [float(val) for val in kpt.text.split()]
 
-                    natoms = len(species)
+                kpt_weights = elem.findall('varray[@name="weights"]/v')
+                kpt_weights = [float(val.text) for val in kpt_weights]
 
-                elif (elem.tag == 'structure'
-                      and elem.attrib.get('name') == 'initialpos'):
-                    cell_init = np.zeros((3, 3), dtype=float)
+            elif elem.tag == 'parameters':
+                for par in elem.iter():
+                    if par.tag in ['v', 'i']:
+                        parname = par.attrib['name'].lower()
+                        parameters[parname] = __get_xml_parameter(par)
 
-                    for i, v in enumerate(
-                            elem.find("crystal/varray[@name='basis']")):
-                        cell_init[i] = np.array(
-                            [float(val) for val in v.text.split()])
+            elif elem.tag == 'atominfo':
+                species = []
 
-                    scpos_init = np.zeros((natoms, 3), dtype=float)
+                for entry in elem.find("array[@name='atoms']/set"):
+                    species.append(entry[0].text.strip())
 
-                    for i, v in enumerate(
-                            elem.find("varray[@name='positions']")):
-                        scpos_init[i] = np.array(
-                            [float(val) for val in v.text.split()])
-
-                    constraints = []
-                    fixed_indices = []
-
-                    for i, entry in enumerate(
-                            elem.findall("varray[@name='selective']/v")):
-                        flags = (np.array(
-                            entry.text.split() == np.array(['F', 'F', 'F'])))
-                        if flags.all():
-                            fixed_indices.append(i)
-                        elif flags.any():
-                            constraints.append(FixScaled(i, flags, cell_init))
-
-                    if fixed_indices:
-                        constraints.append(FixAtoms(fixed_indices))
-
-                    atoms_init = Atoms(species,
-                                       cell=cell_init,
-                                       scaled_positions=scpos_init,
-                                       constraint=constraints,
-                                       pbc=True)
-
-            elif event == 'start' and elem.tag == 'calculation':
-                calculation.append(elem)
+            elif (
+                elem.tag == 'structure'
+                and elem.attrib.get('name') == 'initialpos'
+            ):
+                atoms_init = _read_vasp_xml_structure(elem, species)
+                break
 
     except ET.ParseError as parse_error:
         if atoms_init is None:
             raise parse_error
-        if calculation and calculation[-1].find("energy") is None:
-            calculation = calculation[:-1]
-        if not calculation:
-            yield atoms_init
 
-    if calculation:
-        if isinstance(index, int):
-            steps = [calculation[index]]
-        else:
-            steps = calculation[index]
-    else:
-        steps = []
-
-    for step in steps:
-        yield atoms_from_step(step, ibz_kpts=ibz_kpts, kpt_weights=kpt_weights,
-                              parameters=parameters, atoms=atoms_init.copy(),
-                              natoms=natoms)
+    return atoms_init, ibz_kpts, kpt_weights, parameters
 
 
-def atoms_from_step(step, ibz_kpts, kpt_weights, parameters, atoms, natoms):
+def atoms_from_step(
+    step,
+    ibz_kpts: np.ndarray,
+    kpt_weights: list,
+    parameters: dict,
+    atoms: Atoms,
+) -> Atoms:
     from ase.calculators.singlepoint import (
         SinglePointDFTCalculator,
         SinglePointKPoint,
     )
-    from ase.units import GPa
+
+    natoms = len(atoms)
 
     cell = np.zeros((3, 3), dtype=float)
     for i, vector in enumerate(
-            step.find('structure/crystal/varray[@name="basis"]')):
+        step.find('structure/crystal/varray[@name="basis"]')
+    ):
         cell[i] = np.array([float(val) for val in vector.text.split()])
     volume = np.linalg.det(cell)
 
-    free_energy = float(step.find('energy/i[@name="e_fr_energy"]').text)
+    energy, free_energy = _read_vasp_xml_energy(step, parameters, volume)
 
-    # https://gitlab.com/ase/ase/-/merge_requests/2685
-    # e_fr_energy in calculation/energy is actually an enthalpy including
-    # the PV term, unlike that in /calculation/scstep/energy or in OUTCAR,
-    # and therefore we need to subtract the PV term.
-    pressure = parameters.get('pstress', 0.0)
-    pressure *= 1e-22 / EVTOJ  # kbar -> eV/A3
-    free_energy -= pressure * volume
-
-    # Workaround for VASP bug, e_0_energy contains the wrong value
-    # in calculation/energy, but calculation/scstep/energy does not
-    # include classical VDW corrections. So, first calculate
-    # e_0_energy - e_fr_energy from calculation/scstep/energy, then
-    # apply that correction to e_fr_energy from calculation/energy.
-    lastscf = step.findall('scstep/energy')[-1]
     dipoles = step.findall('scstep/dipole')
-    if dipoles:
-        lastdipole = dipoles[-1]
-    else:
-        lastdipole = None
-
-    de = (float(lastscf.find('i[@name="e_0_energy"]').text) -
-          float(lastscf.find('i[@name="e_fr_energy"]').text))
-
-    energy = free_energy + de
+    lastdipole = dipoles[-1] if dipoles else None
 
     scpos = np.zeros((natoms, 3), dtype=float)
     for i, vector in enumerate(
-            step.find('structure/varray[@name="positions"]')):
+        step.find('structure/varray[@name="positions"]')
+    ):
         scpos[i] = np.array([float(val) for val in vector.text.split()])
 
     forces = None
@@ -617,16 +597,14 @@ def atoms_from_step(step, ibz_kpts, kpt_weights, parameters, atoms, natoms):
     if fblocks is not None:
         forces = np.zeros((natoms, 3), dtype=float)
         for i, vector in enumerate(fblocks):
-            forces[i] = np.array(
-                [float(val) for val in vector.text.split()])
+            forces[i] = np.array([float(val) for val in vector.text.split()])
 
     stress = None
     sblocks = step.find('varray[@name="stress"]')
     if sblocks is not None:
         stress = np.zeros((3, 3), dtype=float)
         for i, vector in enumerate(sblocks):
-            stress[i] = np.array(
-                [float(val) for val in vector.text.split()])
+            stress[i] = np.array([float(val) for val in vector.text.split()])
         stress *= -0.1 * GPa
         stress = stress.reshape(9)[[0, 4, 8, 5, 2, 1]]
 
@@ -649,7 +627,8 @@ def atoms_from_step(step, ibz_kpts, kpt_weights, parameters, atoms, natoms):
     kpoints = []
     for ikpt in range(1, len(ibz_kpts) + 1):
         kblocks = step.findall(
-            'eigenvalues/array/set/set/set[@comment="kpoint %d"]' % ikpt)
+            'eigenvalues/array/set/set/set[@comment="kpoint %d"]' % ikpt
+        )
         if kblocks is not None:
             for spin, kpoint in enumerate(kblocks):
                 eigenvals = kpoint.findall('r')
@@ -662,10 +641,10 @@ def atoms_from_step(step, ibz_kpts, kpt_weights, parameters, atoms, natoms):
                 if len(kblocks) == 1:
                     f_n *= 2
                 kpoints.append(
-                    SinglePointKPoint(kpt_weights[ikpt - 1], spin, ikpt,
-                                      eps_n, f_n))
-    if len(kpoints) == 0:
-        kpoints = None
+                    SinglePointKPoint(
+                        kpt_weights[ikpt - 1], spin, ikpt, eps_n, f_n
+                    )
+                )
 
     # DFPT properties
     # dielectric tensor
@@ -697,12 +676,85 @@ def atoms_from_step(step, ibz_kpts, kpt_weights, parameters, atoms, natoms):
         efermi=efermi,
         dipole=dipole,
         dielectric_tensor=dielectric_tensor,
-        born_effective_charges=born_charges
+        born_effective_charges=born_charges,
     )
     atoms.calc.name = 'vasp'
-    atoms.calc.kpts = kpoints
+    atoms.calc.kpts = kpoints if len(kpoints) else None
     atoms.calc.parameters = parameters
     return atoms
+
+
+def _read_vasp_xml_structure(elem, species) -> Atoms:
+    cell = np.array(
+        [
+            [float(x) for x in vector.text.split()]
+            for vector in elem.find("crystal/varray[@name='basis']")
+        ]
+    )
+
+    scaled_positions = np.array(
+        [
+            [float(x) for x in vector.text.split()]
+            for vector in elem.find("varray[@name='positions']")
+        ]
+    )
+
+    constraints: list[FixConstraint] = []
+    fixed_indices = []
+
+    for i, entry in enumerate(elem.findall("varray[@name='selective']/v")):
+        flags = np.array(entry.text.split() == np.array(['F', 'F', 'F']))
+        if flags.all():
+            fixed_indices.append(i)
+        elif flags.any():
+            constraints.append(FixScaled(i, flags, cell))
+
+    if fixed_indices:
+        constraints.append(FixAtoms(fixed_indices))
+
+    return Atoms(
+        species,
+        cell=cell,
+        scaled_positions=scaled_positions,
+        constraint=constraints,
+        pbc=True,
+    )
+
+
+def _read_vasp_xml_energy(
+    step,
+    parameters: dict,
+    volume: float,
+) -> tuple[float | None, float | None]:
+    element0 = step.find('energy/i[@name="e_fr_energy"]')
+
+    if element0 is None:
+        return None, None
+
+    free_energy = float(element0.text)
+
+    # https://gitlab.com/ase/ase/-/merge_requests/2685
+    # e_fr_energy in calculation/energy is actually an enthalpy including
+    # the PV term, unlike that in /calculation/scstep/energy or in OUTCAR,
+    # and therefore we need to subtract the PV term.
+    pressure = parameters.get('pstress', 0.0)
+    pressure *= 1e-22 / EVTOJ  # kbar -> eV/A3
+    free_energy -= pressure * volume
+
+    # Workaround for VASP bug, e_0_energy contains the wrong value
+    # in calculation/energy, but calculation/scstep/energy does not
+    # include classical VDW corrections. So, first calculate
+    # e_0_energy - e_fr_energy from calculation/scstep/energy, then
+    # apply that correction to e_fr_energy from calculation/energy.
+    lastscf = step.findall('scstep/energy')[-1]
+
+    de = float(lastscf.find('i[@name="e_0_energy"]').text) - float(
+        lastscf.find('i[@name="e_fr_energy"]').text
+    )
+
+    energy = free_energy + de
+
+    return energy, free_energy
 
 
 @writer
@@ -725,7 +777,7 @@ def write_vasp_xdatcar(fd, images, label=None):
     image = next(images)
 
     if not isinstance(image, Atoms):
-        raise TypeError("images should be a sequence of Atoms objects.")
+        raise TypeError('images should be a sequence of Atoms objects.')
 
     _write_xdatcar_header(fd, image, label)
     _write_xdatcar_config(fd, image, index=1)
@@ -764,7 +816,7 @@ def _write_xdatcar_config(fd, atoms, index):
         index (int): configuration number written to block header
 
     """
-    fd.write(f"Direct configuration={index:6d}\n")
+    fd.write(f'Direct configuration={index:6d}\n')
     float_string = '{:11.8f}'
     scaled_positions = atoms.get_scaled_positions(wrap=False)
     for row in scaled_positions:
@@ -813,7 +865,7 @@ def write_vasp(
     vasp5: bool = True,
     vasp6: bool = False,
     ignore_constraints: bool = False,
-    potential_mapping: dict | None = None
+    potential_mapping: dict | None = None,
 ) -> None:
     """Method to write VASP position (POSCAR/CONTCAR) files.
 
@@ -949,9 +1001,9 @@ def _handle_ase_constraints(atoms: Atoms) -> np.ndarray:
     sflags = np.zeros((len(atoms), 3), dtype=bool)
     for constr in atoms.constraints:
         if isinstance(constr, FixScaled):
-            sflags[constr.index] = constr.mask
+            sflags[constr.index] |= constr.mask
         elif isinstance(constr, FixAtoms):
-            sflags[constr.index] = 3 * [True]
+            sflags[constr.index] |= 3 * [True]
         elif isinstance(constr, FixedPlane):
             # Calculate if the plane normal is parallel to a cell vector
             mask = np.all(
@@ -962,7 +1014,7 @@ def _handle_ase_constraints(atoms: Atoms) -> np.ndarray:
                     'VASP requires that the direction of FixedPlane '
                     'constraints is parallel with one of the cell axis'
                 )
-            sflags[constr.index] = mask
+            sflags[constr.index] |= mask
         elif isinstance(constr, FixedLine):
             # Calculate if line is parallel to a cell vector
             mask = np.all(
@@ -973,14 +1025,16 @@ def _handle_ase_constraints(atoms: Atoms) -> np.ndarray:
                     'VASP requires that the direction of FixedLine '
                     'constraints is parallel with one of the cell axis'
                 )
-            sflags[constr.index] = ~mask
+            sflags[constr.index] |= ~mask
 
     return sflags
 
 
 def _symbol_count_string(
-    symbol_count: list[tuple[str, int]], vasp5: bool = True,
-    vasp6: bool = True, symbol_mapping: dict | None = None
+    symbol_count: list[tuple[str, int]],
+    vasp5: bool = True,
+    vasp6: bool = True,
+    symbol_mapping: dict | None = None,
 ) -> str:
     """Create the symbols-and-counts block for POSCAR or XDATCAR
 
@@ -1004,17 +1058,23 @@ def _symbol_count_string(
 
     # Allow for VASP 6 format, i.e., specifying the pseudopotential used
     if vasp6:
-        out_str += ' '.join([
-            f"{symbol_mapping.get(s, s)[:14]:16s}" for s, _ in symbol_count
-        ]) + "\n "
-        out_str += ' '.join([f"{c:16d}" for _, c in symbol_count]) + '\n'
+        out_str += (
+            ' '.join(
+                [
+                    f'{symbol_mapping.get(s, s)[:14]:16s}'
+                    for s, _ in symbol_count
+                ]
+            )
+            + '\n '
+        )
+        out_str += ' '.join([f'{c:16d}' for _, c in symbol_count]) + '\n'
         return out_str
 
     # Write the species for VASP 5+
     if vasp5:
-        out_str += ' '.join([f"{s:3s}" for s, _ in symbol_count]) + "\n "
+        out_str += ' '.join([f'{s:3s}' for s, _ in symbol_count]) + '\n '
 
     # Write counts line
-    out_str += ' '.join([f"{c:3d}" for _, c in symbol_count]) + '\n'
+    out_str += ' '.join([f'{c:3d}' for _, c in symbol_count]) + '\n'
 
     return out_str

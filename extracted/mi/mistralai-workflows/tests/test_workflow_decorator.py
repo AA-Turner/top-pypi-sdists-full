@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 
 from mistralai.workflows import get_workflow_definition, workflow
@@ -24,23 +26,44 @@ class TestWorkflowDefineDecorator:
             def sync_run(self: object, params: ParamsModel) -> ResultModel:
                 return ResultModel(message="test")
 
-    def test_workflow_name_prefix_applied(self) -> None:
-        original_prefix = config.worker.workflow_name_prefix
-        config.worker.workflow_name_prefix = "myprefix_"
+    def test_unprepared_definition_ignores_loaded_legacy_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(config.worker, "workflow_name_prefix", "myprefix_")
 
-        try:
+        @workflow.define(name="test_workflow")
+        class PrefixedWorkflow:
+            @workflow.entrypoint
+            async def run(self) -> str:
+                return "done"
 
-            @workflow.define(name="test_workflow")
-            class PrefixedWorkflow:
-                @workflow.entrypoint
-                async def run(self) -> str:
-                    return "done"
+        assert get_workflow_definition(PrefixedWorkflow).name == "test_workflow"
 
-            workflow_def = get_workflow_definition(PrefixedWorkflow)
-            assert workflow_def is not None
-            assert workflow_def.name == "myprefix_test_workflow"
-        finally:
-            config.worker.workflow_name_prefix = original_prefix
+    @pytest.mark.parametrize(
+        "extra_positional",
+        [("Some description",), (None, []), (True,)],
+        ids=["v3-description", "v3-description-and-schedules", "is-technical"],
+    )
+    def test_workflow_define_rejects_positional_args_after_name(self, extra_positional: tuple[object, ...]) -> None:
+        # v3 accepted (name, workflow_description, schedules, ...); a v3 call must not shift into is_technical.
+        with pytest.raises(TypeError, match="positional argument"):
+            workflow.define("test-workflow-positional", *extra_positional)  # pyright: ignore[reportCallIssue]
+
+    def test_workflow_define_accepts_keyword_args(self) -> None:
+        @workflow.define(
+            "test-workflow-keywords",
+            is_technical=True,
+            enforce_determinism=False,
+            execution_timeout=timedelta(minutes=5),
+        )
+        class KeywordWorkflow:
+            @workflow.entrypoint
+            async def run(self) -> str:
+                return "done"
+
+        definition = get_workflow_definition(KeywordWorkflow)
+        assert definition.name == "test-workflow-keywords"
+        assert definition.is_technical is True
+        assert definition.enforce_determinism is False
+        assert definition.execution_timeout == timedelta(minutes=5)
 
 
 class TestWorkflowUpdateRequestTagValidation:

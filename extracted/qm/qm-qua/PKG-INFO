@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qm-qua
-Version: 1.5.0
+Version: 1.6.0
 Summary: QUA language SDK to control a Quantum Computer
 License-Expression: BSD-3-Clause
 License-File: LICENSE
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Quantum Computing
 Provides-Extra: simulation
-Requires-Dist: certifi ; extra == "simulation"
+Requires-Dist: certifi (>=2026.10.19) ; extra == "simulation"
 Requires-Dist: datadog-api-client (>=2.6.0,<3.0.0)
 Requires-Dist: grpcio (>=1.57,<2.0)
 Requires-Dist: httpx[http2] (>=0.27.0,<1)

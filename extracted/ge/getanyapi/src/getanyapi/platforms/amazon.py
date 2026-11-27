@@ -1101,7 +1101,7 @@ class AmazonNamespace:
         Fetch full Amazon product details (title, brand, price when in stock,
         images, ratings, review count, variants, and attributes) from a product URL.
 
-        Price: $0.0009 per request.
+        Price: $0.0008 per request.
 
         Example:
             res = client.amazon.product(url="https://www.amazon.com/dp/B00NTCH52W")
@@ -1143,7 +1143,7 @@ class AmazonNamespace:
         Search Amazon from any search or category URL and get up to 20 matching
         products (title, price, rating, and thumbnail) in one normalized response.
 
-        Price: $0.00075 per request.
+        Price: $0.0013 per request.
 
         Example:
             res = client.amazon.search(limit=3, url="https://www.amazon.com/s?k=laptop")
@@ -1304,7 +1304,7 @@ class AsyncAmazonNamespace:
         Fetch full Amazon product details (title, brand, price when in stock,
         images, ratings, review count, variants, and attributes) from a product URL.
 
-        Price: $0.0009 per request.
+        Price: $0.0008 per request.
 
         Example:
             res = client.amazon.product(url="https://www.amazon.com/dp/B00NTCH52W")
@@ -1346,7 +1346,7 @@ class AsyncAmazonNamespace:
         Search Amazon from any search or category URL and get up to 20 matching
         products (title, price, rating, and thumbnail) in one normalized response.
 
-        Price: $0.00075 per request.
+        Price: $0.0013 per request.
 
         Example:
             res = client.amazon.search(limit=3, url="https://www.amazon.com/s?k=laptop")

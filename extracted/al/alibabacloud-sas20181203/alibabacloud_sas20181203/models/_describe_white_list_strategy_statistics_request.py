@@ -13,21 +13,21 @@ class DescribeWhiteListStrategyStatisticsRequest(DaraModel):
         source_ip: str = None,
         strategy_ids: str = None,
     ):
-        # The page number of the page to return. Default value: **1**, which indicates the first page.
+        # Specifies the page number of the page to return. Default value: **1**.
         self.current_page = current_page
-        # The language type for the request and response messages. Default value: **zh**. Valid values:
+        # Specifies the language of the request and response. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
-        # The maximum number of entries per page for a paged query. Maximum value: 1000. Default value: 20. If you leave this parameter empty, 20 entries are returned.
+        # Specifies the maximum number of entries to return on each page during paging. In a paged query, the maximum value is 1000. Default value: 20. If you leave this parameter empty, 20 entries are returned by default.
         # 
-        # > Do not leave PageSize empty.
+        # > Specify a value for the PageSize parameter.
         self.page_size = page_size
-        # The source IP address of the request. You do not need to specify this parameter. The system automatically obtains this value.
+        # The source IP address of the request. You do not need to specify this parameter. The system automatically retrieves the value.
         self.source_ip = source_ip
-        # The policy ID.
-        # >You can call the [DescribeWhiteListStrategyList](~~DescribeWhiteListStrategyList~~) operation to obtain this parameter.
+        # The IDs of the policies.
+        # > You can call the [DescribeWhiteListStrategyList](~~DescribeWhiteListStrategyList~~) operation to obtain the value of this parameter.
         self.strategy_ids = strategy_ids
 
     def validate(self):

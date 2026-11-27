@@ -924,7 +924,7 @@ namespace sogen
               intercepts_kusd(settings, runs_with_instruction_precision(settings, *this->emu_), *this->emu_),
               guest_architecture_of(*this->emu_),
               [this]() -> std::optional<native_tsc> {
-                  // vCPUs share one TSC; the guest reads it natively only without RDTSC interception.
+                  // vCPUs share one TSC, which the guest reads natively, its intercepted RDTSC exits included.
                   const auto frequency = this->native_timestamp_counter_frequency();
                   const auto value = frequency ? this->emu_->get_guest_cpu(0).read_native_timestamp_counter() : std::nullopt;
                   if (!value)
@@ -2265,7 +2265,17 @@ namespace sogen
 
         this->process.foreground_window = window;
 
-        if (const auto* previous_window = this->process.windows.get(previous))
+        const auto* previous_window = this->process.windows.get(previous);
+        const auto* new_window = this->process.windows.get(window);
+
+        // Windows clears the cursor clip when the foreground moves to another thread's input queue (win32kfull's
+        // xxxSetForegroundWindow2 and xxxProcessActivationEvent).
+        if (!previous_window || !new_window || previous_window->thread_id != new_window->thread_id)
+        {
+            this->process.cursor_clip.reset();
+        }
+
+        if (previous_window)
         {
             if (auto* owner = get_thread_by_id(this->process, previous_window->thread_id); owner && owner->active_window == previous)
             {
@@ -2273,7 +2283,7 @@ namespace sogen
             }
         }
 
-        if (const auto* new_window = this->process.windows.get(window))
+        if (new_window)
         {
             if (auto* owner = get_thread_by_id(this->process, new_window->thread_id))
             {
@@ -2711,7 +2721,7 @@ namespace sogen
         if (is_pointer_message(event.message))
         {
             // Track the cursor in screen coordinates (client origin + client-local position) so GetCursorPos
-            // reflects it, and treat the window the user is pointing at as the foreground one.
+            // reflects it.
             const auto origin = get_client_origin_relative_to_ancestor(this->process, event.window, 0);
             auto l_param = event.lParam;
             const auto [new_cursor_x, new_cursor_y] = this->cursor_after_pointer_event(event);
@@ -2755,7 +2765,13 @@ namespace sogen
 
             this->process.cursor_x = new_cursor_x;
             this->process.cursor_y = new_cursor_y;
-            this->set_foreground_window(event.window);
+
+            // Mouse input moves the foreground only with a button press, as win32kbase's
+            // CMouseProcessor::UpdateForegroundForInput does: motion, releases and the wheel leave it.
+            if (is_mouse_button_down_message(event.message))
+            {
+                this->set_foreground_window(event.window);
+            }
 
             const auto target = route_pointer(this->process, event.window, point_x(l_param), point_y(l_param));
             m.window = target.window;
@@ -3357,6 +3373,8 @@ namespace sogen
             this->process.move_absolute_deadlines(system_time_ahead);
         }
 
+        // The guest's TSC went on meanwhile, or starts over in a restored partition.
+        this->process.kusd.follow_steady_clock();
         this->process.kusd.refresh();
     }
 

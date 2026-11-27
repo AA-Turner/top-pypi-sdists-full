@@ -19,10 +19,12 @@ Example:
 """
 
 import base64
+import colorsys
 import copy
 import gzip
 import itertools
 import logging
+import math
 import os
 import pathlib
 import re
@@ -117,15 +119,17 @@ class _GradientDefBase(TypedDict):
     """Keys always present on a parsed gradient definition."""
 
     type: str  # "linear" or "radial"
-    gradientUnits: str
-    spreadMethod: str
     stops: list[GradientStop]
     href: Optional[str]
 
 
 class _GradientDef(_GradientDefBase, total=False):
-    """Geometry keys present depending on ``type`` (linear vs radial)."""
+    """Keys present when the element sets them (the others come from its href)."""
 
+    gradientUnits: str
+    gradientTransform: str
+    spreadMethod: str
+    # Geometry keys present depending on ``type`` (linear vs radial)
     # linearGradient
     x1: float
     y1: float
@@ -210,6 +214,11 @@ INKSCAPE_NS = "http://www.inkscape.org/namespaces/inkscape"
 
 # A sentinel to identify a situation where a node reference a fragment not yet defined.
 DELAYED = object()
+
+# The formats Pillow may decode for an image embedded as a data: URI, which the
+# reader limits to PNG and JPEG. Left to choose the decoder from the bytes, it
+# opens an EPS file labeled image/png, and runs Ghostscript on it at rendering.
+DATA_URI_IMAGE_FORMATS = ("PNG", "JPEG")
 
 # Max number of <use> expansions per document, external SVGs included.
 MAX_USE_EXPANSIONS = 10_000
@@ -329,11 +338,63 @@ class ClippingPath(Path):
         return props
 
 
+# CSS named colors that ReportLab lacks or defines differently (CSS Color 4).
+_CSS_NAMED_COLORS = {
+    "darkseagreen": "#8fbc8f",  # ReportLab: #8fbc8b
+    "lightgray": "#d3d3d3",  # ReportLab has only "lightgrey"
+    "rebeccapurple": "#663399",
+}
+
+# CSS custom properties, such as --color, are kept on the nodes with this prefix
+_CUSTOM_PROPERTY_PREFIX = "__var"
+_CUSTOM_PROPERTY_NAME_RE = re.compile(r"--[\w-]+")
+# var() inside the custom properties and fallbacks of a value, at most
+_MAX_VAR_DEPTH = 16
+# The depth does not limit the work: custom properties that each use the next one
+# several times multiply it on every level. The var() replaced by one substitution,
+# and the length of its result, are limited too; a value over either is invalid.
+_MAX_VAR_REPLACEMENTS = 1000
+_MAX_VAR_LENGTH = 100_000
+# The characters that matter to find the end of a var(): a scan that jumps from one to
+# the next does not step through a long fallback character by character.
+_VAR_DELIMITER_RE = re.compile(r"[(),]")
+
+
+class _VarExpansion:
+    """The work of one substitution of var(), shared by all the var() it reaches.
+
+    A custom property is resolved once, however many times it is referenced, so
+    that the size of its value is paid once and not at each reference.
+    """
+
+    def __init__(self) -> None:
+        self.replacements_left = _MAX_VAR_REPLACEMENTS
+        # (id of the node that declares it, name) -> its value, or None if invalid
+        self.resolved: dict[tuple[int, str], Optional[str]] = {}
+
+
+# An hsl() hue may have an angle unit (CSS Color 4 §7); ReportLab only reads numbers.
+_HSL_HUE_ANGLE_RE = re.compile(
+    r"(hsla?\(\s*)([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(deg|grad|rad|turn)"
+)
+_DEGREES_PER_ANGLE_UNIT = {"deg": 1.0, "grad": 0.9, "rad": 180 / math.pi, "turn": 360.0}
+
 _FONT_SIZE_RE = re.compile(
     r"^(?:\d*\.?\d+(?:px|pt|pc|cm|mm|in|em|ex|rem|%)"
     r"|xx-small|x-small|small|medium|large|x-large|xx-large|larger|smaller)"
     r"(?:/.*)?$"
 )
+# CSS absolute-size keywords in px, with medium the 16px default (CSS Fonts 4 §2.5).
+_FONT_SIZE_KEYWORDS = {
+    "xx-small": 9.0,
+    "x-small": 10.0,
+    "small": 13.0,
+    "medium": 16.0,
+    "large": 18.0,
+    "x-large": 24.0,
+    "xx-large": 32.0,
+    "xxx-large": 48.0,
+}
 _FONT_WEIGHTS = {"bold", "bolder", "lighter"} | {str(w) for w in range(100, 1000, 100)}
 
 
@@ -467,7 +528,9 @@ class AttributeConverter:
                 attrs = self.parseMultiAttributes(svgNode.attrib.get("style"))
                 for key, val in attrs.items():
                     # lxml nodes cannot accept attributes starting with '-'
-                    if not key.startswith("-"):
+                    if key.startswith("--"):
+                        svgNode.attrib[_CUSTOM_PROPERTY_PREFIX + key] = val
+                    elif not key.startswith("-"):
                         svgNode.attrib[key] = val
                 svgNode.attrib["__rules_applied"] = "1"
 
@@ -489,12 +552,99 @@ class AttributeConverter:
         self._applyStyleRules(svgNode)
 
         attr_value: str = svgNode.attrib.get(name, "").strip()
+        if "var(" in attr_value.lower():
+            # An invalid value is as if it was not set, so the parent's is used
+            attr_value = self._substitute_var(svgNode, attr_value) or ""
 
         if attr_value and attr_value != "inherit":
             return attr_value
         if svgNode.parent is not None:
             return self.findAttr(svgNode.parent, name)
         return ""
+
+    def _custom_property(
+        self, svgNode: Any, name: str, depth: int, expansion: _VarExpansion
+    ) -> Optional[str]:
+        """Return a CSS custom property, such as --color, of a node or its ancestors."""
+        node = svgNode
+        while node is not None:
+            self._applyStyleRules(node)
+            value = node.attrib.get(_CUSTOM_PROPERTY_PREFIX + name)
+            if value is not None:
+                key = (id(node), name)
+                if key not in expansion.resolved:
+                    # Its own var() are those of the node that declares it
+                    expansion.resolved[key] = self._substitute_var(
+                        node, value.strip(), depth + 1, expansion
+                    )
+                return expansion.resolved[key]
+            node = node.parent
+        return None
+
+    def _substitute_var(
+        self,
+        svgNode: Any,
+        value: str,
+        depth: int = 0,
+        expansion: Optional[_VarExpansion] = None,
+    ) -> Optional[str]:
+        """Replace the var() of a value, as in fill="var(--fill-0, #171D25)".
+
+        Each var() is replaced by the custom property it names, or else by its
+        fallback; the fallback of one whose property is set is not read. Return None
+        if the value is invalid: a var() without either, nested too deeply, or
+        needing more than _MAX_VAR_REPLACEMENTS replacements or a result longer
+        than _MAX_VAR_LENGTH. The expansion, with the replacements still allowed and
+        the custom properties already resolved, is shared by all the substitutions
+        that one value starts.
+        """
+        if depth > _MAX_VAR_DEPTH or len(value) > _MAX_VAR_LENGTH:
+            return None
+        if expansion is None:
+            expansion = _VarExpansion()
+        lowered = value.lower()
+        parts: list[str] = []
+        position = length = 0
+        while (start := lowered.find("var(", position)) >= 0:
+            parts.append(value[position:start])
+            length += start - position
+            # the closing parenthesis of this var(), and its first comma
+            level, comma = 1, -1
+            for delimiter in _VAR_DELIMITER_RE.finditer(value, start + 4):
+                character = delimiter.group()
+                if character == "(":
+                    level += 1
+                elif character == ")":
+                    level -= 1
+                    if not level:
+                        break
+                elif character == "," and level == 1 and comma < 0:
+                    comma = delimiter.start()
+            else:
+                return None
+            end = delimiter.start()
+            index = end + 1
+            name = value[start + 4 : comma if comma >= 0 else end].strip()
+            if not _CUSTOM_PROPERTY_NAME_RE.fullmatch(name):
+                return None
+            expansion.replacements_left -= 1
+            if expansion.replacements_left < 0:
+                return None
+            replacement = self._custom_property(svgNode, name, depth, expansion)
+            if replacement is None and comma >= 0:
+                replacement = self._substitute_var(
+                    svgNode, value[comma + 1 : end], depth + 1, expansion
+                )
+            if replacement is None:
+                return None
+            parts.append(replacement)
+            length += len(replacement)
+            if length > _MAX_VAR_LENGTH:
+                return None
+            position = index
+        parts.append(value[position:])
+        result = "".join(parts).strip()
+        return result if len(result) <= _MAX_VAR_LENGTH else None
 
     def getAllAttributes(self, svgNode: Any) -> dict[str, str]:
         """Return a dictionary of all attributes of a node and its ancestors.
@@ -545,7 +695,11 @@ class AttributeConverter:
         """
         line = svgAttr.strip()
 
-        ops: str = line[:]
+        # The text outside the arguments that were read: the operation names. They are
+        # collected in one pass, as rebuilding the whole string for each pair of
+        # brackets takes time quadratic in the length of the attribute.
+        ops_parts: list[str] = []
+        ops_end = 0
         brackets: list[int] = []
         indices: list[Union[float, tuple[float, ...]]] = []
         for i, lin in enumerate(line):
@@ -566,8 +720,10 @@ class AttributeConverter:
                     indices.append(float(subline))
             except ValueError:
                 continue
-            ops = ops[:bi] + " " * (bj - bi + 1) + ops[bj + 1 :]
-        ops_list: list[str] = ops.replace(",", " ").split()
+            ops_parts.append(line[ops_end:bi])
+            ops_end = bj + 1
+        ops_parts.append(line[ops_end:])
+        ops_list: list[str] = " ".join(ops_parts).replace(",", " ").split()
 
         if len(ops_list) != len(indices):
             logger.warning("Unable to parse transform expression %r", svgAttr)
@@ -680,6 +836,9 @@ class Svg2RlgAttributeConverter(AttributeConverter):
         text = svgAttr.replace(",", " ").strip()
         if not text:
             return default
+        # width="auto", as Figma writes it on <svg>, is the same as no width
+        if text.lower() == "auto" and attr_name in ("width", "height"):
+            return default
         if " " in text:
             # Multiple length values, returning a list
             items = [
@@ -695,6 +854,13 @@ class Svg2RlgAttributeConverter(AttributeConverter):
                 else:
                     result.append(item)
             return result
+
+        if text in _FONT_SIZE_KEYWORDS:
+            return _FONT_SIZE_KEYWORDS[text]
+        if text == "larger":
+            return em_base * 1.2
+        if text == "smaller":
+            return em_base / 1.2
 
         if text.endswith("%"):
             if self.main_box is None:
@@ -775,6 +941,25 @@ class Svg2RlgAttributeConverter(AttributeConverter):
         # toLength handles mm, cm, in, etc. and returns points; convert to user units.
         return cast(float, toLength(text) / PX_TO_PT)
 
+    def findFontSize(self, svgNode: Any) -> float:
+        """Return the computed font size of a node, in user units.
+
+        Like ``findAttr``, the size is inherited from the ancestors, but
+        relative sizes (``%``, ``em``, ``ex``) are resolved against the font
+        size of the parent, as CSS specifies, rather than the default size.
+        """
+        self._applyStyleRules(svgNode)
+        value = svgNode.attrib.get("font-size", "").replace("!important", "").strip()
+        if svgNode.parent is not None:
+            parent_size = self.findFontSize(svgNode.parent)
+        else:
+            parent_size = DEFAULT_FONT_SIZE / PX_TO_PT  # 16 px default
+        if not value or value == "inherit":
+            return parent_size
+        if value.endswith("%"):
+            return float(value[:-1]) / 100 * parent_size
+        return cast(float, self.convertLength(value, em_base=parent_size))
+
     def convertLengthList(self, svgAttr: str) -> list[Union[float, list[float]]]:
         """Convert a space-separated list of lengths into a list of floats."""
         return [self.convertLength(a) for a in self.split_attr_list(svgAttr)]
@@ -841,15 +1026,21 @@ class Svg2RlgAttributeConverter(AttributeConverter):
             A ReportLab color object, or None if the color is invalid.
         """
         text = svgAttr
-        if not text or text == "none":
+        if not text or text.lower() == "none":
             return None
 
         # Gradient/pattern references are handled at the renderer level.
         if text.startswith("url("):
             return None
 
-        if text == "currentColor":
+        # CSS keywords and function names are case-insensitive: "White", "RGB(...)".
+        keyword = text.lower()
+        if keyword == "currentcolor":
             return "currentColor"
+        if keyword.startswith("light-dark(") and keyword.endswith(")"):
+            # CSS Color 5: without a color-scheme, which SVG documents rarely set,
+            # light-dark() is its first, light color.
+            return self.convertColor(_first_css_argument(text[len("light-dark(") : -1]))
         if len(text) in (7, 9) and text[0] == "#":
             color = colors.HexColor(text, hasAlpha=len(text) == 9)
         elif len(text) == 4 and text[0] == "#":
@@ -859,13 +1050,24 @@ class Svg2RlgAttributeConverter(AttributeConverter):
                 "#" + 2 * text[1] + 2 * text[2] + 2 * text[3] + 2 * text[4],
                 hasAlpha=True,
             )
+        elif keyword.startswith(("oklab(", "oklch(")) and keyword.endswith(")"):
+            color = _oklab_color(keyword)
+        elif keyword.startswith("hwb(") and keyword.endswith(")"):
+            color = _hwb_color(keyword)
         else:
             # Should handle pcmyk|cmyk|rgb|hsl values (including 'a' for alpha)
-            color = colors.cssParse(text)
+            color = colors.cssParse(
+                _HSL_HUE_ANGLE_RE.sub(
+                    lambda m: m[1] + f"{float(m[2]) * _DEGREES_PER_ANGLE_UNIT[m[3]]:g}",
+                    keyword,
+                )
+            )
+            if color is None and keyword in _CSS_NAMED_COLORS:
+                color = colors.HexColor(_CSS_NAMED_COLORS[keyword])
             if color is None:
                 # Test if text is a predefined color constant
                 try:
-                    color = getattr(colors, text).clone()
+                    color = getattr(colors, keyword).clone()
                 except AttributeError:
                     pass
         if color is None:
@@ -985,6 +1187,9 @@ class NodeTracker(cssselect2.ElementWrapper):
         for match in matches:
             attr_dict = match[3][1]
             for attr, val in attr_dict.items():
+                if attr.startswith("--"):
+                    # lxml nodes cannot accept attributes starting with '-'
+                    attr = _CUSTOM_PROPERTY_PREFIX + attr
                 try:
                     self.etree_element.attrib[attr] = val
                 except ValueError:
@@ -1021,12 +1226,32 @@ class _UseExpansionCounter:
         if self.cloned_elements > MAX_USE_CLONED_ELEMENTS:
             self.exhausted = True
             logger.error(
-                "Too many <use> expansions (more than %d cloned elements), "
-                "skipping the rest",
+                "Too many <use> and <image> expansions (more than %d cloned "
+                "elements), skipping the rest",
                 MAX_USE_CLONED_ELEMENTS,
             )
             return False
         return True
+
+    def allow_image(self, element: Any) -> bool:
+        """Charge the rendering of the target of an <image> to the budgets.
+
+        The target, an element of the document or an external SVG, is rendered
+        once for each <image> that refers to it, as a <use> is. Both budgets are
+        shared with the <use> elements.
+        """
+        if self.exhausted:
+            return False
+        self.count += 1
+        if self.count > MAX_USE_EXPANSIONS:
+            if self.count == MAX_USE_EXPANSIONS + 1:
+                logger.error(
+                    "Too many <use> and <image> expansions (limit is %d), "
+                    "skipping the rest",
+                    MAX_USE_EXPANSIONS,
+                )
+            return False
+        return self.allow_clone(element)
 
 
 class ExternalSVG:
@@ -1203,14 +1428,19 @@ class LinearGradientShape(DirectDraw):
         rl_colors: list[colors.Color],
         positions: list[float],
         extend: bool = True,
+        transform: Optional[tuple[float, ...]] = None,
     ) -> None:
-        """Store the clip shape, gradient axis, colours and stop positions."""
+        """Store the clip shape, gradient axis, colours and stop positions.
+
+        The axis is in the space that ``transform``, if any, maps to the user space.
+        """
         self._clip_shape = clip_shape
         self._x0, self._y0 = x0, y0
         self._x1, self._y1 = x1, y1
         self._rl_colors = rl_colors
         self._positions = positions
         self._extend = extend
+        self._transform = transform
 
     def drawDirectly(self, renderer: Any) -> None:
         """Paint the linear gradient into the clipped region on the PDF canvas."""
@@ -1218,6 +1448,8 @@ class LinearGradientShape(DirectDraw):
         canvas.saveState()
         if pdfPath := _shape_to_pdf_path(canvas, self._clip_shape):
             canvas.clipPath(pdfPath, fill=1, stroke=0)
+            if self._transform:
+                canvas.transform(*self._transform)
             canvas.linearGradient(
                 self._x0,
                 self._y0,
@@ -1246,13 +1478,19 @@ class RadialGradientShape(DirectDraw):
         rl_colors: list[colors.Color],
         positions: list[float],
         extend: bool = True,
+        transform: Optional[tuple[float, ...]] = None,
     ) -> None:
-        """Store the clip shape, centre, radius, colours and stop positions."""
+        """Store the clip shape, centre, radius, colours and stop positions.
+
+        The centre is in the space that ``transform``, if any, maps to the user
+        space.
+        """
         self._clip_shape = clip_shape
         self._cx, self._cy, self._r = cx, cy, r
         self._rl_colors = rl_colors
         self._positions = positions
         self._extend = extend
+        self._transform = transform
 
     def drawDirectly(self, renderer: Any) -> None:
         """Paint the radial gradient into the clipped region on the PDF canvas."""
@@ -1260,6 +1498,8 @@ class RadialGradientShape(DirectDraw):
         canvas.saveState()
         if pdfPath := _shape_to_pdf_path(canvas, self._clip_shape):
             canvas.clipPath(pdfPath, fill=1, stroke=0)
+            if self._transform:
+                canvas.transform(*self._transform)
             canvas.radialGradient(
                 self._cx,
                 self._cy,
@@ -1428,13 +1668,31 @@ class SvgRenderer:
                 # We resolve the image target at renderer level because it can point
                 # to another SVG file or node which has to be rendered too.
                 target = self.xlink_href_target(node)
-                if target is None:
+                if target is None or target is DELAYED:
+                    # Not resolved, or a fragment that is not defined yet
                     return
                 elif isinstance(target, tuple):
                     # This is SVG content needed to be rendered
                     gr = Group()
                     renderer, img_node = target
-                    renderer.renderNode(img_node, parent=gr)
+                    # The target is rendered each time it is referred to, as the
+                    # target of a <use>: skip a cycle, and stop at the budgets
+                    origin = self._use_origin(img_node.etree_element)
+                    if img_node.etree_element is node.etree_element or (
+                        origin in self._use_stack
+                    ):
+                        logger.error("Circular <image> reference detected, skipping.")
+                        return
+                    if not self._use_expansions.allow_image(img_node.etree_element):
+                        return
+                    self._use_stack.append(origin)
+                    try:
+                        if node_name(img_node) == "svg":
+                            self._render_svg_in_image(node, renderer, img_node, gr)
+                        else:
+                            renderer.renderNode(img_node, parent=gr)
+                    finally:
+                        self._use_stack.pop()
                     self.apply_node_attr_to_group(node, gr)
                     parent.add(gr)
                     return
@@ -1484,26 +1742,42 @@ class SvgRenderer:
             return
         grad_type = node_name(node)  # "linearGradient" or "radialGradient"
 
-        def _float_attr(attr: str, default: float) -> float:
-            """Return a gradient geometry attribute as a float, resolving percent."""
+        def _float_attr(attr: str) -> Optional[float]:
+            """Return a gradient geometry attribute as a float, resolving percent.
+
+            None if the element does not set it: the gradient it refers to by href
+            can, and else the default is used when the gradient is painted.
+            """
             raw = node.attrib.get(attr, "").strip()
-            if raw.endswith("%"):
+            if (
+                raw.endswith("%")
+                and node.attrib.get("gradientUnits") == "userSpaceOnUse"
+                and (main_box := self.attrConverter.main_box) is not None
+            ):
+                # a percentage of the viewport, in user units: of its width for x,
+                # of its height for y and of the normalized diagonal for a radius
                 try:
-                    return float(raw[:-1]) / 100.0
+                    fraction = float(raw[:-1]) / 100.0
                 except ValueError:
-                    return default
+                    return None
+                if attr in ("x1", "x2", "cx", "fx"):
+                    return fraction * main_box.width
+                if attr in ("y1", "y2", "cy", "fy"):
+                    return fraction * main_box.height
+                return (
+                    fraction
+                    * math.hypot(main_box.width, main_box.height)
+                    / math.sqrt(2)
+                )
             try:
-                return float(raw) if raw else default
+                return float(raw[:-1]) / 100.0 if raw.endswith("%") else float(raw)
             except ValueError:
-                return default
+                return None
 
         href = node.attrib.get("{http://www.w3.org/1999/xlink}href") or node.attrib.get(
             "href", ""
         )
         href_id = href.lstrip("#") if href.startswith("#") else None
-
-        grad_units = node.attrib.get("gradientUnits", "objectBoundingBox")
-        spread = node.attrib.get("spreadMethod", "pad")
 
         # Collect stop elements (direct children with tag "stop")
         stops: list[GradientStop] = []
@@ -1522,8 +1796,12 @@ class SvgRenderer:
                     offset = float(raw_offset)
                 except ValueError:
                     offset = 0.0
+            # The offset is from 0 to 1, and never less than the one before it
+            offset = min(max(offset, stops[-1][0] if stops else 0.0), 1.0)
 
-            # stop-color and stop-opacity can be in style or as direct attrs
+            # stop-color and stop-opacity can be in style, in a CSS rule (the classes
+            # of Illustrator's exports) or as direct attrs; they are not inherited
+            self.attrConverter._applyStyleRules(child)
             style_str = child.attrib.get("style", "")
             style_attrs: dict[str, Any] = {}
             if style_str:
@@ -1535,13 +1813,30 @@ class SvgRenderer:
             stop_opacity_str = style_attrs.get(
                 "stop-opacity", child.attrib.get("stop-opacity", "1")
             )
+            # A var() that has no value makes the value invalid: it is as if the
+            # property was not set
+            if "var(" in stop_color_str.lower():
+                stop_color_str = (
+                    self.attrConverter._substitute_var(child, stop_color_str.strip())
+                    or "black"
+                )
+            if "var(" in stop_opacity_str.lower():
+                stop_opacity_str = (
+                    self.attrConverter._substitute_var(child, stop_opacity_str.strip())
+                    or "1"
+                )
             try:
                 opacity = float(stop_opacity_str)
             except (ValueError, TypeError):
                 opacity = 1.0
 
             rl_color = self.attrConverter.convertColor(stop_color_str)
-            if rl_color is None:
+            if rl_color == "currentColor":
+                # the color property of the stop, inherited from its ancestors
+                rl_color = self.attrConverter.convertColor(
+                    _without_important(self.attrConverter.findAttr(child, "color"))
+                )
+            if not isinstance(rl_color, colors.Color):
                 rl_color = colors.black
             rl_color = rl_color.clone()
             rl_color.alpha = opacity
@@ -1549,23 +1844,25 @@ class SvgRenderer:
 
         grad_def: _GradientDef = {
             "type": "linear" if grad_type == "linearGradient" else "radial",
-            "gradientUnits": grad_units,
-            "spreadMethod": spread,
             "stops": stops,
             "href": href_id,
         }
 
-        if grad_type == "linearGradient":
-            grad_def["x1"] = _float_attr("x1", 0.0)
-            grad_def["y1"] = _float_attr("y1", 0.0)
-            grad_def["x2"] = _float_attr("x2", 1.0)
-            grad_def["y2"] = _float_attr("y2", 0.0)
-        else:
-            grad_def["cx"] = _float_attr("cx", 0.5)
-            grad_def["cy"] = _float_attr("cy", 0.5)
-            grad_def["r"] = _float_attr("r", 0.5)
-            grad_def["fx"] = _float_attr("fx", grad_def["cx"])
-            grad_def["fy"] = _float_attr("fy", grad_def["cy"])
+        if "gradientUnits" in node.attrib:
+            grad_def["gradientUnits"] = node.attrib["gradientUnits"]
+        if "gradientTransform" in node.attrib:
+            grad_def["gradientTransform"] = node.attrib["gradientTransform"]
+        if "spreadMethod" in node.attrib:
+            grad_def["spreadMethod"] = node.attrib["spreadMethod"]
+        names = (
+            ("x1", "y1", "x2", "y2")
+            if grad_type == "linearGradient"
+            else ("cx", "cy", "r", "fx", "fy")
+        )
+        for name in names:
+            value = _float_attr(name)
+            if value is not None:
+                grad_def[name] = value  # type: ignore[literal-required]
 
         self.gradient_defs[grad_id] = grad_def
 
@@ -1603,7 +1900,30 @@ class SvgRenderer:
 
         positions = [s[0] for s in stops]
         rl_colors = [s[1] for s in stops]
-        extend = grad_def.get("spreadMethod", "pad") == "pad"
+        spread = grad_def.get("spreadMethod", "pad").strip()
+        # The most periods, and the most stops in all of them, laid out for
+        # spreadMethod reflect or repeat; every shape gets its own copy of the stops
+        max_periods = 200
+        max_stops = 10_000
+
+        def repeat_stops(first: int, last: int) -> None:
+            """Lay the stops over the periods first to last, one after the other.
+
+            The positions are from 0 to 1 over all the periods; every other period
+            is the stops in reverse order, with reflect.
+            """
+            nonlocal positions, rl_colors
+            new_positions: list[float] = []
+            new_colors: list[colors.Color] = []
+            for period in range(first, last):
+                pairs = list(zip(positions, rl_colors))
+                if spread == "reflect" and period % 2:
+                    pairs = [(1.0 - p, c) for p, c in reversed(pairs)]
+                for position, color in pairs:
+                    new_positions.append((period - first + position) / (last - first))
+                    new_colors.append(color)
+            positions, rl_colors = new_positions, new_colors
+
         grad_units = grad_def.get("gradientUnits", "objectBoundingBox")
 
         if grad_units == "objectBoundingBox":
@@ -1617,27 +1937,108 @@ class SvgRenderer:
         else:
             bx0 = by0 = bbox_w = bbox_h = 0.0  # unused for userSpaceOnUse
 
+        # With gradientTransform, the gradient is painted in its own space and the
+        # matrix (with the one of the bounding box) maps it to the user space
+        matrix: Optional[tuple[float, ...]] = None
+        if transform := grad_def.get("gradientTransform"):
+            holder = Group()
+            self.shape_converter.applyTransformOnGroup(transform, holder)
+            matrix = holder.transform
+            if grad_units == "objectBoundingBox":
+                matrix = mmult((bbox_w, 0, 0, bbox_h, bx0, by0), matrix)
+            if matrix[0] * matrix[3] - matrix[1] * matrix[2] == 0:
+                # A matrix that cannot be inverted paints nothing, as in browsers
+                return item
+        elif (
+            grad_units == "objectBoundingBox"
+            and bbox_w > 0
+            and bbox_h > 0
+            and bbox_w != bbox_h
+            and (
+                grad_def["type"] == "radial"
+                or (
+                    grad_def.get("x1", 0.0) != grad_def.get("x2", 1.0)
+                    and grad_def.get("y1", 0.0) != grad_def.get("y2", 0.0)
+                )
+            )
+        ):
+            # The gradient is in the space of the bounding box, which stretches it
+            # with the box: a radial gradient is an ellipse, and the lines of equal
+            # color of a slanted linear one are not perpendicular to its axis
+            matrix = (bbox_w, 0, 0, bbox_h, bx0, by0)
+
+        def shape_corners() -> list[tuple[float, float]]:
+            """The corners of the bounds of the shape, in the space of the gradient."""
+            sx0, sy0, sx1, sy1 = clip_shape.getBounds()
+            corners = [(x, y) for x in (sx0, sx1) for y in (sy0, sy1)]
+            if matrix is None:
+                return corners
+            a, b, c, d, e, f = matrix
+            det = a * d - b * c
+            return [
+                ((d * (x - e) - c * (y - f)) / det, (a * (y - f) - b * (x - e)) / det)
+                for x, y in corners
+            ]
+
         if grad_def["type"] == "linear":
             x1, y1 = grad_def.get("x1", 0.0), grad_def.get("y1", 0.0)
             x2, y2 = grad_def.get("x2", 1.0), grad_def.get("y2", 0.0)
-            if grad_units == "objectBoundingBox":
+            if (x1, y1) == (x2, y2):
+                # The axis has no length: the shape is the color of the last stop
+                clip_shape.fillColor = rl_colors[-1]
+                return item
+            if grad_units == "objectBoundingBox" and matrix is None:
                 x1 = bx0 + x1 * bbox_w
                 y1 = by0 + y1 * bbox_h
                 x2 = bx0 + x2 * bbox_w
                 y2 = by0 + y2 * bbox_h
+            if spread in ("reflect", "repeat"):
+                # The gradient goes on past its ends: lay the periods it needs to
+                # cover the shape one after the other, then pad what is left
+                dx, dy = x2 - x1, y2 - y1
+                length2 = dx * dx + dy * dy
+                if length2 > 0:
+                    ts = [
+                        ((x - x1) * dx + (y - y1) * dy) / length2
+                        for x, y in shape_corners()
+                    ]
+                    first, last = math.floor(min(ts)), math.ceil(max(ts))
+                    periods = last - first
+                    if (
+                        (first, last) != (0, 1)
+                        and periods <= max_periods
+                        and len(positions) * periods <= max_stops
+                    ):
+                        repeat_stops(first, last)
+                        x1, y1, x2, y2 = (
+                            x1 + first * dx,
+                            y1 + first * dy,
+                            x1 + last * dx,
+                            y1 + last * dy,
+                        )
             grad_shape: DirectDraw = LinearGradientShape(
-                clip_shape, x1, y1, x2, y2, rl_colors, positions, extend
+                clip_shape, x1, y1, x2, y2, rl_colors, positions, transform=matrix
             )
         else:
             cx = grad_def.get("cx", 0.5)
             cy = grad_def.get("cy", 0.5)
             r = grad_def.get("r", 0.5)
-            if grad_units == "objectBoundingBox":
+            if r <= 0:
+                # The radius is nothing: the shape is the color of the last stop
+                clip_shape.fillColor = rl_colors[-1]
+                return item
+            if grad_units == "objectBoundingBox" and matrix is None:
                 cx = bx0 + cx * bbox_w
                 cy = by0 + cy * bbox_h
                 r = r * (bbox_w + bbox_h) / 2.0
+            if spread in ("reflect", "repeat") and r > 0:
+                far = max(math.hypot(x - cx, y - cy) for x, y in shape_corners())
+                last = math.ceil(far / r)
+                if 1 < last <= max_periods and len(positions) * last <= max_stops:
+                    repeat_stops(0, last)
+                    r *= last
             grad_shape = RadialGradientShape(
-                clip_shape, cx, cy, r, rl_colors, positions, extend
+                clip_shape, cx, cy, r, rl_colors, positions, transform=matrix
             )
 
         group = Group()
@@ -1734,13 +2135,16 @@ class SvgRenderer:
                 else:
                     find_shapes_from_node(child, shapes)
 
+        # clip-path is not inherited, so only look at the node itself, with its
+        # style attribute and the CSS rules that apply to it.
+        self.attrConverter._applyStyleRules(node)
         clip_path = node.getAttribute("clip-path")
         if not clip_path:
             return None
-        m = re.match(r"url\(#([^)]*)\)", clip_path)
+        m = _GRADIENT_URL_RE.fullmatch(clip_path.strip())
         if not m:
             return None
-        ref = m.groups()[0]
+        ref = m.group(2)
         if ref not in self.definitions:
             logger.warning("Unable to find a clipping path with id %s", ref)
             return None
@@ -1748,6 +2152,13 @@ class SvgRenderer:
         found_shapes: list[Path] = []
         find_shapes_from_node(self.definitions[ref], found_shapes)
         if not found_shapes:
+            if not any(True for _ in self.definitions[ref].iter_children()):
+                # A <clipPath> without any shape clips everything away. ReportLab
+                # ignores a clipping path without points, so use one without area.
+                nothing = ClippingPath()
+                nothing.moveTo(0, 0)
+                nothing.closePath()
+                return nothing
             return None
 
         combined_shape = found_shapes[0]
@@ -1777,6 +2188,36 @@ class SvgRenderer:
         if unused_attrs:
             logger.debug("Unused attrs: %s %s", node_name(node), unused_attrs)
 
+    def _render_svg_in_image(
+        self, image: NodeTracker, renderer: Any, svg: NodeTracker, group: Any
+    ) -> None:
+        """Render the <svg> document referenced by an <image> into its viewport.
+
+        The width and height of the <image> replace those of the referenced
+        document, and its preserveAspectRatio replaces the document's one
+        (SVG 1.1 §5.7). They are restored afterwards, as the same document can
+        be referenced again with another size.
+        """
+        attrib = svg.etree_element.attrib
+        viewport = {
+            "width": image.getAttribute("width"),
+            "height": image.getAttribute("height"),
+            "preserveAspectRatio": image.getAttribute("preserveAspectRatio")
+            or "xMidYMid meet",
+        }
+        saved = {name: attrib.get(name) for name in viewport}
+        for name, value in viewport.items():
+            if value:
+                attrib[name] = value
+        try:
+            renderer.renderNode(svg, parent=group)
+        finally:
+            for name, value in saved.items():
+                if value is None:
+                    attrib.pop(name, None)
+                else:
+                    attrib[name] = value
+
     def apply_node_attr_to_group(self, node: NodeTracker, group: Any) -> None:
         """Apply common attributes (transform, x, y) from a node to a group.
 
@@ -1784,10 +2225,10 @@ class SvgRenderer:
             node: The NodeTracker object for the SVG node.
             group: The ReportLab Group to apply the attributes to.
         """
-        getAttr = node.getAttribute
-        transform, x, y = map(getAttr, ("transform", "x", "y"))
+        transform = node.getAttribute("transform")
+        x, y = self.shape_converter.convert_length_attrs(node, "x", "y")
         if x or y:
-            transform += f" translate({x or 0}, {y or 0})"
+            transform += f" translate({x}, {y})"
         if transform:
             self.shape_converter.applyTransformOnGroup(transform, group)
 
@@ -1823,7 +2264,9 @@ class SvgRenderer:
             )
             bytes_stream = BytesIO(image_data)
 
-            return _convert_palette_to_rgba(PILImage.open(bytes_stream))
+            return _convert_palette_to_rgba(
+                PILImage.open(bytes_stream, formats=DATA_URI_IMAGE_FORMATS)
+            )
 
         # From here, we can assume this is a path.
         if "#" in xlink_href:
@@ -1944,8 +2387,12 @@ class SvgRenderer:
             # A viewBox that is not four numbers is invalid and ignored per the
             # SVG spec; fall through to the width/height fallback below.
         if default_box:
-            width, height = map(svg_node.getAttribute, ("width", "height"))
-            width, height = map(self.attrConverter.convertLength, (width, height))  # type: ignore
+            width, height = (
+                self.attrConverter.convertLength(
+                    svg_node.getAttribute(name), attr_name=name
+                )
+                for name in ("width", "height")
+            )
             return Box(0, 0, width, height)
         return Box(0, 0, 0, 0)  # fallback
 
@@ -1968,8 +2415,13 @@ class SvgRenderer:
         if view_box:
             self.attrConverter.set_box(view_box)
 
-        # Rendering all definition nodes first.
+        # Rendering all definition nodes first. The gradients in them can be styled
+        # by a <style> that comes after them, so all of its rules are added before.
         svg_ns = node.nsmap.get(None)
+        style_tag = f"{{{svg_ns}}}style" if svg_ns else "style"
+        for style_node in node.iter_subtree():
+            if style_node.tag == style_tag:
+                self.renderStyle(style_node)
         for def_node in node.iter_subtree():
             if def_node.tag == (f"{{{svg_ns}}}defs" if svg_ns else "defs"):
                 self.renderG(def_node)
@@ -2013,9 +2465,12 @@ class SvgRenderer:
                 width = view_box.width
             if height is None:
                 height = view_box.height
-            # canvas is in pts; view_box is in user units — scale converts user→pt
-            x_scale = (width * PX_TO_PT) / view_box.width if view_box.width else 1
-            y_scale = (height * PX_TO_PT) / view_box.height if view_box.height else 1
+            # view_box is in user units. The outermost viewport is in pt, so its
+            # scale converts user units to pt; a nested viewport is in the user
+            # units of its parent, which are already scaled to pt.
+            unit = PX_TO_PT if outermost else 1
+            x_scale = (width * unit) / view_box.width if view_box.width else 1
+            y_scale = (height * unit) / view_box.height if view_box.height else 1
 
             # Apply preserveAspectRatio (default: xMidYMid meet)
             par = (node.getAttribute("preserveAspectRatio") or "xMidYMid meet").strip()
@@ -2030,8 +2485,8 @@ class SvgRenderer:
                     uniform_scale = min(x_scale, y_scale)
 
                 # Compute translation to align content within canvas (in pts)
-                width_pt = width * PX_TO_PT
-                height_pt = height * PX_TO_PT
+                width_pt = width * unit
+                height_pt = height * unit
                 scaled_vb_w = view_box.width * uniform_scale
                 scaled_vb_h = view_box.height * uniform_scale
                 # Horizontal alignment
@@ -2041,11 +2496,13 @@ class SvgRenderer:
                     tx = width_pt - scaled_vb_w
                 else:  # xMid (default)
                     tx = (width_pt - scaled_vb_w) / 2
-                # Vertical alignment (SVG y increases downward, PDF upward)
+                # Vertical alignment. The outermost viewport is in PDF space, where y
+                # increases upward; a nested one is in the space of its parent, where
+                # y increases downward.
                 if "YMin" in align:
-                    ty = height_pt - scaled_vb_h
+                    ty = 0 if not outermost else height_pt - scaled_vb_h
                 elif "YMax" in align:
-                    ty = 0
+                    ty = height_pt - scaled_vb_h if not outermost else 0
                 else:  # YMid (default)
                     ty = (height_pt - scaled_vb_h) / 2
                 if tx or ty:
@@ -2118,6 +2575,10 @@ class SvgRenderer:
 
     def renderStyle(self, node: NodeTracker) -> None:
         """Render a <style> element by adding its content to the CSS matcher."""
+        # An element is added once, however many times it is rendered
+        if node.etree_element.get("__style_added"):
+            return
+        node.etree_element.set("__style_added", "1")
         if self.attrConverter.css_rules is not None:
             self.attrConverter.css_rules.add_styles(node.text or "")
 
@@ -2128,6 +2589,14 @@ class SvgRenderer:
     def renderA(self, node: NodeTracker) -> Any:
         """Render an <a> element as a ReportLab Group (no linking support)."""
         return self.renderG(node)
+
+    def _use_origin(self, element: Any) -> str:
+        """Return the key of the element a target was cloned from (or its own)."""
+        origin = element.get("__use_origin")
+        if origin is None:
+            origin = str(next(self._use_expansions.origin_ids))
+            element.set("__use_origin", origin)
+        return cast(str, origin)
 
     def renderUse(
         self,
@@ -2176,10 +2645,7 @@ class SvgRenderer:
 
         # Rendering a clone can rebind an id to the cloned element, so key on
         # the element the target was originally cloned from.
-        target = item.etree_element.get("__use_origin")
-        if target is None:
-            target = str(next(self._use_expansions.origin_ids))
-            item.etree_element.set("__use_origin", target)
+        target = self._use_origin(item.etree_element)
         if item.etree_element is node.etree_element or target in self._use_stack:
             logger.error("Circular <use> reference detected, skipping.")
             return group
@@ -2226,6 +2692,13 @@ class SvgShapeConverter:
     def get_handled_shapes(cls) -> list[str]:
         """Return a list of SVG shape names that this converter can handle."""
         return [key[7:].lower() for key in dir(cls) if key.startswith("convert")]
+
+
+def _without_important(value: Any) -> Any:
+    """A style value without its !important flag."""
+    if isinstance(value, str):
+        return value.replace("!important", "").strip()
+    return value
 
 
 class Svg2RlgShapeConverter(SvgShapeConverter):
@@ -2275,7 +2748,7 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
         self,
         node: Any,
         *attrs: str,
-        em_base: float = DEFAULT_FONT_SIZE / PX_TO_PT,
+        em_base: Optional[float] = None,
         **kwargs: Any,
     ) -> list[float]:
         """Convert a list of length attributes from a node.
@@ -2283,7 +2756,8 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
         Args:
             node: The lxml node.
             *attrs: The names of the attributes to convert.
-            em_base: The base font size for 'em' units.
+            em_base: The base font size for 'em' units; by default the font
+                size of the node, as in CSS.
             **kwargs: Can include 'defaults' for fallback values.
 
         Returns:
@@ -2296,6 +2770,16 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
         )
         convLength = self.attrConverter.convertLength
         defaults = kwargs.get("defaults", (0.0,) * len(attrs))
+        if em_base is None:
+            relative = any(
+                getAttr(attr).strip().endswith(("em", "ex")) for attr in attrs
+            )
+            if not relative:
+                em_base = DEFAULT_FONT_SIZE / PX_TO_PT
+            elif hasattr(node, "parent"):
+                em_base = self.attrConverter.findFontSize(node)
+            else:  # the root <svg>, an lxml element
+                em_base = self.attrConverter.root_font_size
         return [
             convLength(getAttr(attr), attr_name=attr, em_base=em_base, default=default)  # type: ignore
             for attr, default in zip(attrs, defaults)
@@ -2397,9 +2881,7 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
         fw = attrConv.findAttr(node, "font-weight") or DEFAULT_FONT_WEIGHT
         fstyle = attrConv.findAttr(node, "font-style") or DEFAULT_FONT_STYLE
         ff = attrConv.convertFontFamily(ff, fw, fstyle)
-        fs_attr = attrConv.findAttr(node, "font-size") or f"{DEFAULT_FONT_SIZE}pt"
-        # font-size is always a single value, so convertLength returns a float.
-        fs = cast(float, attrConv.convertLength(fs_attr))  # user units, em_base
+        fs = attrConv.findFontSize(node)  # user units, em_base
         x: list[float]
         y: list[float]
         x, y = self.convert_length_attrs(node, "x", "y", em_base=fs)  # type: ignore
@@ -2553,10 +3035,7 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
             fw = attrConv.findAttr(subnode, "font-weight") or DEFAULT_FONT_WEIGHT
             fstyle = attrConv.findAttr(subnode, "font-style") or DEFAULT_FONT_STYLE
             ff = attrConv.convertFontFamily(ff, fw, fstyle)
-            fs_attr = (
-                attrConv.findAttr(subnode, "font-size") or f"{DEFAULT_FONT_SIZE}pt"
-            )
-            fs = cast(float, attrConv.convertLength(fs_attr))
+            fs = attrConv.findFontSize(subnode)
             for char in text:
                 glyphs.append((char, stringWidth(char, ff, fs), subnode))
 
@@ -2876,13 +3355,6 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
                 "convertFontFamily",
                 [DEFAULT_FONT_NAME, DEFAULT_FONT_WEIGHT, DEFAULT_FONT_STYLE],
             ),
-            # User units: the viewport group already applies PX_TO_PT.
-            (
-                ["font-size"],
-                "fontSize",
-                "convertLength",
-                [f"{DEFAULT_FONT_SIZE}pt"],
-            ),
             (["text-anchor"], "textAnchor", "id", ["start"]),
         )
 
@@ -2917,12 +3389,16 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
                             svgAttrValue = shape.strokeColor.alpha
                         else:
                             svgAttrValue = defaults[index]  # type: ignore
-                    if svgAttrValue == "currentColor":
-                        svgAttrValue = (
-                            ac.findAttr(node.parent, "color") or defaults[index]  # type: ignore
+                    svgAttrValue = _without_important(svgAttrValue)
+                    # CSS keywords are case-insensitive: "currentcolor", "CurrentColor".
+                    if (
+                        isinstance(svgAttrValue, str)
+                        and svgAttrValue.lower() == "currentcolor"
+                    ):
+                        # the color property may be !important too
+                        svgAttrValue = _without_important(
+                            ac.findAttr(node.parent, "color") or defaults[index]
                         )
-                    if isinstance(svgAttrValue, str):
-                        svgAttrValue = svgAttrValue.replace("!important", "").strip()
                     svgAttrValues.append(svgAttrValue)
                 try:
                     meth = getattr(ac, func)
@@ -2939,6 +3415,14 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
                             exc_type,
                         )
                     )
+        if shape.__class__ == String and not (
+            only_explicit and ac.findAttr(node, "font-size") == ""
+        ):
+            # User units: the viewport group already applies PX_TO_PT.
+            try:
+                shape.fontSize = ac.findFontSize(node)
+            except ValueError:
+                logger.debug("Ignoring invalid font-size on %s", node_name(node))
         if not only_explicit:
             opacity = ac.findOpacity(node)
             if opacity != 1:
@@ -3195,6 +3679,135 @@ def load_svg_file(path: SVGSource, resolve_entities: bool = False) -> Optional[A
         return None
     else:
         return svg_root
+
+
+def _oklab_color(keyword: str) -> Optional[colors.Color]:
+    """Convert oklab(L a b) and oklch(L C H), with an optional "/ A", to sRGB.
+
+    CSS Color 4: L is a number from 0 to 1 or a percentage, a, b and C are numbers
+    or percentages of 0.4, H is a hue with an optional angle unit, and "none" is 0.
+    L is clamped to [0, 1] and C to 0 or more, as CSS does when parsing. An L of 0
+    or 1 is black or white, as in CSS gamut mapping; other colors are converted to
+    sRGB with the matrices of Björn Ottosson, then clipped. Return None if the value
+    cannot be read.
+    https://www.w3.org/TR/css-color-4/#specifying-oklab-oklch
+    """
+    function, _, rest = keyword.partition("(")
+    body, _, alpha = rest[:-1].partition("/")
+    parts = body.split()
+    if len(parts) != 3:
+        return None
+
+    def number(value: str, percent_of: float) -> float:
+        if value == "none":
+            return 0.0
+        if value.endswith("%"):
+            return float(value[:-1]) / 100 * percent_of
+        return float(value)
+
+    try:
+        lightness = min(max(number(parts[0], 1), 0.0), 1.0)
+        if function == "oklab":
+            a, b = number(parts[1], 0.4), number(parts[2], 0.4)
+        else:
+            chroma = max(number(parts[1], 0.4), 0.0)
+            hue = 0.0
+            if parts[2] != "none":
+                unit = next(
+                    (u for u in _DEGREES_PER_ANGLE_UNIT if parts[2].endswith(u)), ""
+                )
+                hue = float(parts[2][: len(parts[2]) - len(unit)])
+                hue *= _DEGREES_PER_ANGLE_UNIT.get(unit, 1.0)
+            a = chroma * math.cos(math.radians(hue))
+            b = chroma * math.sin(math.radians(hue))
+        opacity = min(max(number(alpha.strip(), 1), 0.0), 1.0) if alpha else 1.0
+    except ValueError:
+        return None
+    if not all(map(math.isfinite, (lightness, a, b, opacity))):
+        return None
+
+    l_ = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
+    m_ = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
+    s_ = (lightness - 0.0894841775 * a - 1.2914855480 * b) ** 3
+    linear = (
+        4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_,
+        -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_,
+        -0.0041960863 * l_ - 0.7034186147 * m_ + 1.7076147010 * s_,
+    )
+
+    def srgb(channel: float) -> float:
+        channel = min(max(channel, 0.0), 1.0)
+        if channel <= 0.0031308:
+            return 12.92 * channel
+        return 1.055 * math.pow(channel, 1 / 2.4) - 0.055
+
+    if lightness in (0.0, 1.0):
+        return colors.Color(lightness, lightness, lightness, opacity)
+    return colors.Color(*(srgb(channel) for channel in linear), opacity)
+
+
+def _hwb_color(keyword: str) -> Optional[colors.Color]:
+    """Convert hwb(H W B), with an optional "/ A", to sRGB.
+
+    CSS Color 4: H is a hue with an optional angle unit, W and B are the whiteness
+    and blackness, percentages or numbers from 0 to 100, and A is a number from 0 to
+    1 or a percentage; all are clamped, and "none" is 0. When W and B add up to 100%
+    or more the color is the gray W / (W + B), else it is the fully saturated color
+    of the hue, mixed with W of white and B of black. Return None if the value
+    cannot be read.
+    https://www.w3.org/TR/css-color-4/#the-hwb-notation
+    """
+    body, _, alpha = keyword[len("hwb(") : -1].partition("/")
+    parts = body.split()
+    if len(parts) != 3:
+        return None
+
+    def fraction(value: str, whole: float) -> float:
+        if value == "none":
+            return 0.0
+        if value.endswith("%"):
+            return min(max(float(value[:-1]) / 100, 0.0), 1.0)
+        return min(max(float(value) / whole, 0.0), 1.0)
+
+    try:
+        hue = 0.0
+        if parts[0] != "none":
+            unit = next(
+                (u for u in _DEGREES_PER_ANGLE_UNIT if parts[0].endswith(u)), ""
+            )
+            hue = float(parts[0][: len(parts[0]) - len(unit)])
+            hue *= _DEGREES_PER_ANGLE_UNIT.get(unit, 1.0)
+        whiteness, blackness = fraction(parts[1], 100), fraction(parts[2], 100)
+        opacity = fraction(alpha.strip(), 1) if alpha else 1.0
+    except ValueError:
+        return None
+    if not all(map(math.isfinite, (hue, whiteness, blackness, opacity))):
+        return None
+
+    if whiteness + blackness >= 1:
+        gray = whiteness / (whiteness + blackness)
+        return colors.Color(gray, gray, gray, opacity)
+    red, green, blue = colorsys.hls_to_rgb(hue % 360 / 360, 0.5, 1.0)
+    scale = 1 - whiteness - blackness
+    return colors.Color(
+        red * scale + whiteness,
+        green * scale + whiteness,
+        blue * scale + whiteness,
+        opacity,
+    )
+
+
+def _first_css_argument(arguments: str) -> str:
+    """Return the first of comma-separated CSS arguments, as in "rgb(1, 2, 3), red"."""
+    depth = 0
+    for index, character in enumerate(arguments):
+        if character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+        elif character == "," and depth == 0:
+            return arguments[:index].strip()
+    return arguments.strip()
 
 
 def node_name(node: Any) -> Optional[str]:

@@ -4,25 +4,21 @@ import pytest
 from temporalio.client import WorkflowFailureError
 from temporalio.exceptions import ApplicationError, ChildWorkflowError
 
-import mistralai.workflows as workflows
 from mistralai.workflows import get_workflow_definition
-from mistralai.workflows.exceptions import WorkflowsException
 
 from .fixtures import (
     ChildWorkflow,
     ChildWorkflowCustomExecute,
-    ChildWorkflowParams,
     CompareWaitModesParentWorkflow,
     CompareWaitModesPydanticParentWorkflow,
+    CustomEntrypointParentWorkflow,
     FailingChildWaitFalseParent,
     FailingChildWaitTrueParent,
     FailingWorkflow,
-    FireAndForgetChildParams,
     FireAndForgetChildWorkflow,
     FireAndForgetParentWorkflow,
     MultiArgChildWorkflow,
     MultiArgParentWorkflow,
-    MultiParamWithPrefixInput,
     NestedChildLevel1,
     NestedChildLevel2,
     NestedParentWorkflow,
@@ -30,15 +26,11 @@ from .fixtures import (
     PersonData,
     PrimitiveChildWorkflow,
     PrimitiveParentWorkflow,
-    PrimitiveWorkflowParams,
-    ProcessingResult,
     PydanticChildWorkflow,
     PydanticParentWorkflow,
     ReportsExecutionTimeoutChild,
     ReportsTimeoutOverrideParent,
     ReportsTimeoutParent,
-    StandaloneWorkflowWithMultiArgs,
-    StandaloneWorkflowWithPydantic,
     StartThenAwaitParentWorkflow,
 )
 from .utils import create_test_worker
@@ -159,40 +151,6 @@ class TestExecuteWorkflowNested:
             assert result["result"] == "L0[L1[L2[test]]]"
 
 
-class TestExecuteWorkflowDirect:
-    @pytest.mark.asyncio
-    async def test_direct_execute_workflow_with_pydantic(self, temporal_env: Any) -> None:
-        async with create_test_worker(temporal_env, workflows=[StandaloneWorkflowWithPydantic], activities=[]):
-            person = PersonData(first_name="Alice", last_name="Johnson", age=30)
-
-            result = await workflows.execute_workflow(StandaloneWorkflowWithPydantic, params=person)
-
-            assert isinstance(result, ProcessingResult)
-            assert result.full_name == "Alice Johnson"
-            assert result.is_adult is True
-            assert "Standalone: Alice Johnson is an adult" in result.message
-
-    @pytest.mark.asyncio
-    async def test_direct_execute_workflow_with_multiple_args(self, temporal_env: Any) -> None:
-        async with create_test_worker(temporal_env, workflows=[StandaloneWorkflowWithMultiArgs], activities=[]):
-            result = await workflows.execute_workflow(
-                StandaloneWorkflowWithMultiArgs, params=MultiParamWithPrefixInput(name="Item", count=3, prefix=">> ")
-            )
-
-            assert isinstance(result, str)
-            assert result == "Generated: >> Item, >> Item, >> Item"
-
-    @pytest.mark.asyncio
-    async def test_direct_execute_workflow_returns_primitive(self, temporal_env: Any) -> None:
-        async with create_test_worker(temporal_env, workflows=[PrimitiveChildWorkflow], activities=[]):
-            result = await workflows.execute_workflow(
-                PrimitiveChildWorkflow, params=PrimitiveWorkflowParams(message="DirectCall")
-            )
-
-            assert isinstance(result, str)
-            assert result == "Echo: DirectCall"
-
-
 class TestExecuteWorkflowNoWait:
     @pytest.mark.asyncio
     async def test_fire_and_forget(self, temporal_env: Any) -> None:
@@ -231,15 +189,6 @@ class TestExecuteWorkflowNoWait:
 
             result = await handle.result()
             assert result["result"] == "parent-got:child-done:xyz"
-
-    @pytest.mark.asyncio
-    async def test_wait_false_outside_workflow_raises(self) -> None:
-        with pytest.raises(WorkflowsException):
-            await workflows.execute_workflow(
-                FireAndForgetChildWorkflow,
-                params=FireAndForgetChildParams(tag="test"),
-                wait=False,
-            )
 
 
 class TestExecuteWorkflowWaitComparison:
@@ -369,12 +318,21 @@ class TestChildWorkflowCustomEntrypoint:
 
     @pytest.mark.asyncio
     async def test_execute_workflow_works_with_custom_entrypoint_name(self, temporal_env: Any) -> None:
-        async with create_test_worker(temporal_env, workflows=[ChildWorkflowCustomExecute], activities=[]):
-            result = await workflows.execute_workflow(
-                ChildWorkflowCustomExecute, params=ChildWorkflowParams(name="Test")
+        async with create_test_worker(
+            temporal_env,
+            workflows=[CustomEntrypointParentWorkflow, ChildWorkflowCustomExecute],
+            activities=[],
+        ):
+            workflow_def = get_workflow_definition(CustomEntrypointParentWorkflow)
+            handle = await temporal_env.client.start_workflow(
+                workflow_def.name,
+                {"name": "Test"},
+                id="test-custom-entrypoint-parent",
+                task_queue="test-task-queue",
             )
 
-            assert result == "Child with custom entrypoint says: Test"
+            result = await handle.result()
+            assert result["result"] == "Child with custom entrypoint says: Test"
 
 
 class TestExecuteWorkflowDeclaredTimeout:

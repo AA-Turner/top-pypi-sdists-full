@@ -19,12 +19,12 @@ class GetHoneypotNodeMetricListRequest(DaraModel):
         # The end time. Supported formats:
         # 
         # - UNIX timestamp: the number of milliseconds that have elapsed since January 1, 1970.
-        # - Formatted time: YYYY-MM-DDThh:mm:ssZ.
+        # - Format: YYYY-MM-DDThh:mm:ssZ.
         self.end_time = end_time
-        # The expression used to perform real-time calculations on the query results.
+        # The expression used to perform real-time calculations on the queried results.
         # > Currently, only groupby (similar to the GROUP BY clause in databases) is supported.
         self.express = express
-        # The number of records to return on each page for paging in a paged query.
+        # The number of records to return on each page for paged queries.
         # 
         # > The maximum value of Length for a single request is 1440.
         self.length = length
@@ -40,7 +40,7 @@ class GetHoneypotNodeMetricListRequest(DaraModel):
         self.period = period
         # The start time. Supported formats:
         # - UNIX timestamp: the number of milliseconds that have elapsed since January 1, 1970.
-        # - Formatted time: YYYY-MM-DDThh:mm:ssZ.
+        # - Format: YYYY-MM-DDThh:mm:ssZ.
         # - The interval between StartTime and EndTime must be less than or equal to 31 days.
         self.start_time = start_time
 

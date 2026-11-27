@@ -22,6 +22,8 @@ class EditVariable:
         value_valid_until (Union[Unset, None, datetime.datetime]): When the value stored in this variable stops working.
             Omit to leave it unchanged; send null to clear it. Changing it re-arms the workspace's variable expiration
             handler.
+        unlink_account (Union[Unset, bool]): Detach the OAuth account the variable refreshes through, deleting it when
+            no other variable uses it.
         labels (Union[Unset, List[str]]):
         ws_specific (Union[Unset, bool]):
     """
@@ -31,6 +33,7 @@ class EditVariable:
     is_secret: Union[Unset, bool] = UNSET
     description: Union[Unset, str] = UNSET
     value_valid_until: Union[Unset, None, datetime.datetime] = UNSET
+    unlink_account: Union[Unset, bool] = UNSET
     labels: Union[Unset, List[str]] = UNSET
     ws_specific: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -44,6 +47,7 @@ class EditVariable:
         if not isinstance(self.value_valid_until, Unset):
             value_valid_until = self.value_valid_until.isoformat() if self.value_valid_until else None
 
+        unlink_account = self.unlink_account
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
@@ -63,6 +67,8 @@ class EditVariable:
             field_dict["description"] = description
         if value_valid_until is not UNSET:
             field_dict["value_valid_until"] = value_valid_until
+        if unlink_account is not UNSET:
+            field_dict["unlink_account"] = unlink_account
         if labels is not UNSET:
             field_dict["labels"] = labels
         if ws_specific is not UNSET:
@@ -90,6 +96,8 @@ class EditVariable:
         else:
             value_valid_until = isoparse(_value_valid_until)
 
+        unlink_account = d.pop("unlink_account", UNSET)
+
         labels = cast(List[str], d.pop("labels", UNSET))
 
         ws_specific = d.pop("ws_specific", UNSET)
@@ -100,6 +108,7 @@ class EditVariable:
             is_secret=is_secret,
             description=description,
             value_valid_until=value_valid_until,
+            unlink_account=unlink_account,
             labels=labels,
             ws_specific=ws_specific,
         )

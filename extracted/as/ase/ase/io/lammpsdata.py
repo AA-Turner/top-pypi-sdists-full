@@ -351,6 +351,9 @@ def _read_atoms_section(fileobj, natoms: int, style: str | None = None):
         fields = line.split()
         if style is None:
             style = _guess_atom_style(fields)
+        style_orig = style
+        if style.endswith('/kk'):
+            style = style[:-3]  # remove Kokkos suffix
         data.ids[i] = int(fields[0])
         if style == 'full' and len(fields) in (7, 10):
             # id mol-id type q x y z [tx ty tz]
@@ -382,7 +385,7 @@ def _read_atoms_section(fileobj, natoms: int, style: str | None = None):
                 data.cell_ids[i] = tuple(int(fields[_]) for _ in (6, 7, 8))
         else:
             raise RuntimeError(
-                f'Style "{style}" not supported or invalid. '
+                f'Style "{style_orig}" not supported or invalid. '
                 f'Number of fields: {len(fields)}'
             )
     if all(_.isdigit() for _ in data.labels):
@@ -558,7 +561,11 @@ def write_lammps_data(
         fd.write(f'{n_bond_types} bond types\n\n')
 
     if prismobj is None:
-        prismobj = Prism(atoms.get_cell(), reduce_cell=reduce_cell)
+        prismobj = Prism(
+            atoms.get_cell(),
+            pbc=atoms.get_pbc(),
+            reduce_cell=reduce_cell,
+        )
 
     # Get cell parameters and convert from ASE units to LAMMPS units
     xhi, yhi, zhi, xy, xz, yz = convert(

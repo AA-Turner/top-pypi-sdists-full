@@ -10,13 +10,14 @@ class UpdateClientAlertModeRequest(DaraModel):
     def __init__(
         self,
         mode: str = None,
+        resource_directory_account_id: int = None,
         uuids: List[str] = None,
     ):
-        # The protection mode. Valid values:
-        # 
-        # - **strict**: Strict mode. Defense mode has a risk of false positives. Use Defense mode during critical event protection periods.
+        # Specifies the protection mode. Valid values:
+        # - **strict**: Strict mode. Defense mode has a certain risk of false positives and is recommended during critical event protection.
         # - **balance**: Balanced mode. Defense mode detects more suspicious risks while reducing false positives.
         self.mode = mode
+        self.resource_directory_account_id = resource_directory_account_id
         # The list of server UUIDs.
         self.uuids = uuids
 
@@ -31,6 +32,9 @@ class UpdateClientAlertModeRequest(DaraModel):
         if self.mode is not None:
             result['Mode'] = self.mode
 
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         if self.uuids is not None:
             result['Uuids'] = self.uuids
 
@@ -40,6 +44,9 @@ class UpdateClientAlertModeRequest(DaraModel):
         m = m or dict()
         if m.get('Mode') is not None:
             self.mode = m.get('Mode')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         if m.get('Uuids') is not None:
             self.uuids = m.get('Uuids')

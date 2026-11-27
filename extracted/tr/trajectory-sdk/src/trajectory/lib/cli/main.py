@@ -90,7 +90,8 @@ class CLI:
         listing = actions.add_parser("list")
         listing.add_argument("--limit", type=int, default=50)
         listing.add_argument("--cursor")
-        listing.add_argument("--agent-id")
+        if kind != "specs":
+          listing.add_argument("--agent-id")
         listing.add_argument("--bench-id")
       get = actions.add_parser("get")
       get.add_argument("id")
@@ -455,7 +456,7 @@ class CLI:
       service = WorkflowService(client, report=CLI.report)
       if args.action == "list":
         return service.list_resources(
-          args.command, args.agent_id, args.limit, args.bench_id, args.cursor
+          args.command, getattr(args, "agent_id", None), args.limit, args.bench_id, args.cursor
         )
       if args.action == "get":
         return service.get_resource(args.command, args.id)

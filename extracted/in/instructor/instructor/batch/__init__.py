@@ -23,7 +23,7 @@ Example usage:
         name: str
         age: int
 
-    processor = BatchProcessor("openai/gpt-4o-mini", User)
+    processor = BatchProcessor("openai/gpt-6-luna", User)
     batch_id = processor.submit_batch("requests.jsonl")
 
     # Results are BatchSuccess[T] | BatchError union types
@@ -74,7 +74,7 @@ class BatchJob:
     def parse_from_file(
         cls, file_path: str, response_model: type[T]
     ) -> tuple[list[T], list[dict[Any, Any]]]:
-        with open(file_path) as file:
+        with open(file_path, encoding="utf-8") as file:
             content = file.read()
         return cls.parse_from_string(content, response_model)
 
@@ -97,9 +97,9 @@ class BatchJob:
                 data = json.loads(line)
                 extracted_data = cls._extract_structured_data(data)
 
-                if extracted_data:
+                if extracted_data is not None:
                     try:
-                        result = response_model(**extracted_data)
+                        result = response_model.model_validate(extracted_data)
                         res.append(result)
                     except Exception:
                         error_objs.append(data)
@@ -121,6 +121,9 @@ class BatchJob:
             if "response" in data and "body" in data["response"]:
                 choices = data["response"]["body"].get("choices", [])
                 if choices:
+                    # Token-limited output is incomplete even if its JSON validates.
+                    if choices[0].get("finish_reason") == "length":
+                        return None
                     message = choices[0].get("message", {})
 
                     # JSON schema response
@@ -136,12 +139,14 @@ class BatchJob:
 
             # Try Anthropic format
             if "result" in data and "message" in data["result"]:
+                if data["result"]["message"].get("stop_reason") == "max_tokens":
+                    return None
                 content = data["result"]["message"]["content"]
                 if isinstance(content, list) and len(content) > 0:
                     # Tool use response
                     for item in content:
                         if item.get("type") == "tool_use":
-                            return item.get("input", {})
+                            return item.get("input")
                     # Text response with JSON
                     for item in content:
                         if item.get("type") == "text":

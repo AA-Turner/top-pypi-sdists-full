@@ -12,19 +12,19 @@ class UpdateHoneypotRequest(DaraModel):
         lang: str = None,
         meta: str = None,
     ):
-        # The honeypot ID.
-        # > You can call the [ListHoneypot](~~ListHoneypot~~) operation to obtain this value.
+        # The ID of the honeypot.
+        # > You can call the [ListHoneypot](~~ListHoneypot~~) operation to obtain the value.
         # 
         # This parameter is required.
         self.honeypot_id = honeypot_id
         # The custom name of the honeypot.
         self.honeypot_name = honeypot_name
-        # The language of the content in the request and response. Default value: **zh**. Valid values:
+        # Specifies the language of the request and response. Default value: **zh**. Valid values:
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
         # The custom configuration of the honeypot.
-        # >The value of this parameter is obtained from the **Template** field returned by the [ListAvailableHoneypot](~~ListAvailableHoneypot~~) operation.
+        # > The value of this parameter is derived from the **Template** field returned by the [ListAvailableHoneypot](~~ListAvailableHoneypot~~) operation.
         self.meta = meta
 
     def validate(self):

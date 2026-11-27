@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mistralai-workflows
-Version: 3.20.0
+Version: 4.0.0
 Summary: Mistral Workflows - Build reliable AI workflows with Python
 Project-URL: Homepage, https://mistral.ai
 Project-URL: Documentation, https://docs.mistral.ai/workflows/getting-started/introduction
@@ -21,7 +21,7 @@ Requires-Dist: httpx<1.0.0,>=0.27.0
 Requires-Dist: jsonpatch<2.0.0,>=1.33
 Requires-Dist: libcst<2,>=1.9.0
 Requires-Dist: mistralai<4.0.0,>=2.9.3
-Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
+Requires-Dist: opentelemetry-api<2.0.0,>=1.45.1
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.60b1
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
@@ -32,22 +32,20 @@ Requires-Dist: pyjwt<3.0.0,>=2.15.0
 Requires-Dist: requests<3.0.0,>=2.32.0
 Requires-Dist: starlette>=1.3.1
 Requires-Dist: structlog<26,>=24
-Requires-Dist: temporalio<1.36.0,>=1.35.0
+Requires-Dist: temporalio<1.38.0,>=1.35.0
 Requires-Dist: tenacity<10.0.0,>=9.1.2
 Requires-Dist: urllib3>=2.8.0
 Provides-Extra: all
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all'
-Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'all'
-Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all'
-Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all'
+Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.8.0a1; extra == 'all'
+Requires-Dist: mistralai-workflows-plugins-mistralai<5.0.0,>=4.0.0a1; extra == 'all'
 Requires-Dist: mistralai[workflow-payload-compression]; extra == 'all'
 Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'all'
 Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'all'
 Provides-Extra: all-plugins
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all-plugins'
-Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'all-plugins'
-Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all-plugins'
-Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all-plugins'
+Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.8.0a1; extra == 'all-plugins'
+Requires-Dist: mistralai-workflows-plugins-mistralai<5.0.0,>=4.0.0a1; extra == 'all-plugins'
 Requires-Dist: mistralai[workflow-payload-compression]; extra == 'all-plugins'
 Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'all-plugins'
 Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'all-plugins'
@@ -58,18 +56,16 @@ Requires-Dist: mistralai[workflow-payload-compression]; extra == 'compression'
 Provides-Extra: encryption
 Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'encryption'
 Provides-Extra: evaluations
-Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'evaluations'
+Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.8.0a1; extra == 'evaluations'
 Provides-Extra: gcs
 Requires-Dist: mistralai[workflow-payload-offloading-gcs]; extra == 'gcs'
 Provides-Extra: mistralai
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'mistralai'
-Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'mistralai'
+Requires-Dist: mistralai-workflows-plugins-mistralai<5.0.0,>=4.0.0a1; extra == 'mistralai'
 Provides-Extra: s3
 Requires-Dist: mistralai[workflow-payload-offloading-s3]; extra == 's3'
 Provides-Extra: storage
 Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'storage'
-Provides-Extra: webhook
-Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'webhook'
 Description-Content-Type: text/markdown
 
 # Mistral Workflows
@@ -98,41 +94,91 @@ pip install mistralai-workflows
 ## Quick Start
 
 ```python
-from datetime import timedelta
-
 from mistralai.workflows import workflow, activity
 
 
-@activity
+@activity()  # timeout and retries go here, e.g. start_to_close_timeout (default 5 minutes)
 async def get_weather(city: str) -> str:
     # Your activity implementation
     return f"Weather in {city}: Sunny"
 
 
-@workflow.define
+@workflow.define(name="weather")
 class WeatherWorkflow:
-    @workflow.run
+    @workflow.entrypoint
     async def run(self, city: str) -> str:
-        weather = await workflow.execute_activity(
-            get_weather,
-            city,
-            start_to_close_timeout=timedelta(seconds=10),
-        )
+        weather = await get_weather(city)
         return weather
 ```
 
+The workflow awaits the activity like any coroutine, and the SDK runs it as an activity with the
+settings passed to `@activity()`. To serve the workflow, start a worker with `run_worker`, as shown
+under Worker configuration below.
+
 ## Documentation
 
-For full documentation, visit [docs.mistral.ai/workflows/getting-started/introduction](https://docs.mistral.ai/workflows/getting-started/introduction)
+For full documentation, visit [docs.mistral.ai/studio/workflows](https://docs.mistral.ai/studio/workflows).
 
 ## Examples
 
-The SDK includes comprehensive examples in the `mistralai/workflows/examples` directory. You can run all examples with a single command:
+Example projects are in the [Mistral cookbook](https://github.com/mistralai/cookbook/tree/main/mistral/workflows).
+Each one has a README that covers setup, running the worker and starting the workflow in Studio.
 
-```bash
-# Run all example workflows in a single worker
-python -m mistralai_workflow_tests.examples.all_workflows_worker
+## Worker configuration
+
+Importing the SDK and declaring workflows do not read or validate environment settings. Unprepared
+workflow definitions use SDK defaults; `run_worker` or `prepare_workflows` applies the configured name
+prefix, determinism enforcement, and versioning before the worker runs.
+
+By default, `run_worker` reads configuration from environment variables when it starts:
+
+```python
+from mistralai import workflows
+
+await workflows.run_worker([WeatherWorkflow])
 ```
+
+Applications can also pass configuration in code. Values provided in code override environment
+variables; all other values use the environment or SDK defaults. Explicit configuration objects read
+and validate the environment when they are constructed:
+
+```python
+from mistralai import workflows
+
+config = workflows.WorkflowsConfig(
+    worker=workflows.WorkerConfig(
+        deployment_name=app_config.deployment_name,
+        server_url=app_config.mistral_server_url,
+    )
+)
+
+await workflows.run_worker([WeatherWorkflow], config=config)
+```
+
+### Header precedence
+
+Explicit `WorkerConfig.mistral_api_headers` and `mistral_api_header_files` values replace the entire
+mapping inherited from environment variables, dotenv files, or settings secrets; entries are not
+merged with a mapping supplied in code. Pass `{}` or `None` to clear the inherited mapping. Each
+field is independent: clearing static headers does not clear file-backed headers. The same rule
+applies to dictionaries passed through `WorkflowsConfig(worker={"mistral_api_headers": {}})`, including
+headers inherited through a `WORKER` JSON setting. When an explicit mapping drops inherited headers,
+the worker logs a warning that names them, without their values.
+
+When either field is omitted, it keeps the usual settings-source behavior: environment variables
+take precedence over dotenv files and settings secrets, with dictionary entries merged across sources.
+A header mapping inherited through `WORKER` is not an explicit code override and continues to merge
+with direct header settings. Other nested configuration retains its usual merge behavior.
+
+### Process limitations
+
+Within one process:
+
+- The same workflow type and task queue must use the same configuration.
+- The same workflow type may use a different configuration on another task queue, but its name,
+  sandboxing, and versioning settings must stay the same.
+- While a worker or `prepare_workflows()` uses a workflow type name, no other workflow class can
+  use it. Once they stop, another class can reuse the name.
 
 ## License
 

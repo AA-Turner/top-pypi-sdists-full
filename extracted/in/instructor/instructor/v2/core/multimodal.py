@@ -1,7 +1,8 @@
 from __future__ import annotations
 import base64
+import errno
 import re
-from collections.abc import Mapping, Hashable
+from collections.abc import Iterable, Mapping, Hashable
 from typing import (
     Any,
     Callable,
@@ -61,6 +62,40 @@ def _normalize_media_type(media_type: str | None) -> str | None:
     if media_type is None:
         return None
     return media_type.split(";", 1)[0].strip().lower()
+
+
+_BASE64_DATA_URI = re.compile(
+    r"^data:([a-z0-9.+-]+/[a-z0-9.+-]+)(?:;[\w.-]+=[^;,]*)*;base64,",
+    flags=re.IGNORECASE | re.ASCII,
+)
+
+
+def _base64_media_type(source: str) -> str:
+    match = _BASE64_DATA_URI.match(source)
+    return match.group(1).lower() if match else ""
+
+
+def _normalize_audio_media_type(media_type: str | None) -> str | None:
+    """Use the same canonical audio MIME types for every source."""
+    media_type = _normalize_media_type(media_type)
+    if media_type is None:
+        return None
+    return {
+        "audio/x-wav": "audio/wav",
+        "audio/vnd.dlna.adts": "audio/aac",
+        "audio/x-aac": "audio/aac",
+        "audio/x-flac": "audio/flac",
+        "audio/x-m4a": "audio/m4a",
+        "audio/mp4a-latm": "audio/m4a",
+    }.get(media_type, media_type)
+
+
+# Used when the platform mimetypes database has no entry for the suffix.
+_AUDIO_SUFFIX_MEDIA_TYPES = {
+    ".aac": "audio/aac",
+    ".flac": "audio/flac",
+    ".m4a": "audio/m4a",
+}
 
 
 class ImageParamsBase(TypedDict):
@@ -127,16 +162,20 @@ class Image(BaseModel):
             return cls.autodetect(source)
         except ValueError:
             return str(source)
+        except OSError:
+            if isinstance(source, Path):
+                return str(source)
+            raise
 
     @classmethod
     def is_base64(cls, s: str) -> bool:
-        return bool(re.match(r"^data:image/[a-zA-Z]+;base64,", s))
+        return _base64_media_type(s).startswith("image/")
 
     @classmethod  # Caching likely unnecessary
     def from_base64(cls, data_uri: str) -> Image:
         header, encoded = data_uri.split(",", 1)
-        media_type = header.split(":")[1].split(";")[0]
-        if media_type not in VALID_MIME_TYPES:
+        media_type = _normalize_media_type(header.split(":", 1)[1])
+        if media_type is None or media_type not in VALID_MIME_TYPES:
             raise MultimodalError(
                 f"Unsupported image format: {media_type}. Supported formats: {', '.join(VALID_MIME_TYPES)}",
                 content_type="image",
@@ -313,16 +352,20 @@ class Audio(BaseModel):
             return cls.autodetect(source)
         except ValueError:
             return str(source)
+        except OSError:
+            if isinstance(source, Path):
+                return str(source)
+            raise
 
     @classmethod
     def is_base64(cls, s: str) -> bool:
-        return bool(re.match(r"^data:audio/[a-zA-Z0-9+-]+;base64,", s))
+        return _base64_media_type(s).startswith("audio/")
 
     @classmethod
     def from_base64(cls, data_uri: str) -> Audio:
         header, encoded = data_uri.split(",", 1)
-        media_type = header.split(":")[1].split(";")[0]
-        if media_type not in VALID_AUDIO_MIME_TYPES:
+        media_type = _normalize_audio_media_type(header.split(":", 1)[1])
+        if media_type is None or media_type not in VALID_AUDIO_MIME_TYPES:
             raise ValueError(f"Unsupported audio format: {media_type}")
         return cls(
             source=data_uri,
@@ -336,8 +379,8 @@ class Audio(BaseModel):
         if url.startswith("gs://"):
             return cls.from_gs_url(url)
         response = fetch_remote_content(url, max_bytes=MAX_AUDIO_BYTES, timeout=30)
-        content_type = response.content_type
-        if content_type not in VALID_AUDIO_MIME_TYPES:
+        content_type = _normalize_audio_media_type(response.content_type)
+        if content_type is None or content_type not in VALID_AUDIO_MIME_TYPES:
             raise ValueError(
                 f"Unsupported audio format: {content_type}. "
                 f"Must be one of: {', '.join(VALID_AUDIO_MIME_TYPES)}"
@@ -356,15 +399,10 @@ class Audio(BaseModel):
         if path.stat().st_size == 0:
             raise ValueError("Audio file is empty")
 
-        mime_type = mimetypes.guess_type(str(path))[0]
-
-        if mime_type == "audio/x-wav":
-            mime_type = "audio/wav"
-
-        if (
-            mime_type == "audio/vnd.dlna.adts"
-        ):  # <--- this is the case for aac audio files in Windows
-            mime_type = "audio/aac"
+        mime_type = _normalize_audio_media_type(
+            mimetypes.guess_type(str(path))[0]
+            or _AUDIO_SUFFIX_MEDIA_TYPES.get(path.suffix.lower())
+        )
 
         if mime_type not in VALID_AUDIO_MIME_TYPES:
             raise ValueError(
@@ -395,8 +433,8 @@ class Audio(BaseModel):
                 max_bytes=MAX_AUDIO_BYTES,
                 timeout=timeout,
             )
-            media_type = response.content_type
-            if media_type not in VALID_AUDIO_MIME_TYPES:
+            media_type = _normalize_audio_media_type(response.content_type)
+            if media_type is None or media_type not in VALID_AUDIO_MIME_TYPES:
                 raise ValueError(f"Unsupported audio format: {media_type}")
 
             data = base64.b64encode(response.content).decode("utf-8")
@@ -485,7 +523,12 @@ class PDF(BaseModel):
                     file_path=str(source),
                 ) from err
             except OSError as e:
-                if e.errno == 63:  # File name too long
+                if e.errno == errno.ENAMETOOLONG:
+                    # Raw base64 may exceed the filesystem's filename limit.
+                    try:
+                        return cls.from_raw_base64(source)
+                    except ValueError:
+                        pass
                     raise MultimodalError(
                         "PDF file name too long",
                         content_type="pdf",
@@ -517,16 +560,20 @@ class PDF(BaseModel):
             return cls.autodetect(source)
         except ValueError:
             return str(source)
+        except OSError:
+            if isinstance(source, Path):
+                return str(source)
+            raise
 
     @classmethod
     def is_base64(cls, s: str) -> bool:
-        return bool(re.match(r"^data:application/pdf;base64,", s))
+        return _base64_media_type(s) == "application/pdf"
 
     @classmethod
     def from_base64(cls, data_uri: str) -> PDF:
         header, encoded = data_uri.split(",", 1)
-        media_type = header.split(":")[1].split(";")[0]
-        if media_type not in VALID_PDF_MIME_TYPES:
+        media_type = _normalize_media_type(header.split(":", 1)[1])
+        if media_type is None or media_type not in VALID_PDF_MIME_TYPES:
             raise ValueError(f"Unsupported PDF format: {media_type}")
         return cls(
             source=data_uri,
@@ -635,7 +682,7 @@ class PDF(BaseModel):
         return pdf_to_genai(self)
 
     def to_bedrock(self, name: str | None = None) -> dict[str, Any]:
-        """Convert to Bedrock's document format."""
+        """Convert to Bedrock's document format with a sanitized 1-200 character name."""
         # Determine the document name
         if name is None:
             if isinstance(self.source, Path):
@@ -645,19 +692,19 @@ class PDF(BaseModel):
                 if self.source.startswith(("http://", "https://", "gs://")):
                     name = Path(urlparse(self.source).path).name or "document"
                 else:
-                    name = (
-                        Path(self.source).name
-                        if Path(self.source).exists()
-                        else "document"
-                    )
+                    try:
+                        source_path = Path(self.source)
+                        name = source_path.name if source_path.exists() else "document"
+                    except (OSError, ValueError):
+                        name = "document"
             else:
                 name = "document"
 
         # Sanitize name according to Bedrock requirements
         # Only allow alphanumeric, whitespace (max one in row), hyphens, parentheses, square brackets
-        name = re.sub(r"[^\w\s\-\(\)\[\]]", "", name)
+        name = re.sub(r"[^\w\s\-\(\)\[\]]|_", "", name)
         name = re.sub(r"\s+", " ", name)  # Consolidate whitespace
-        name = name.strip()
+        name = name.strip()[:200].rstrip() or "document"
 
         # Handle S3 URIs
         if isinstance(self.source, str) and self.source.startswith("s3://"):
@@ -790,11 +837,12 @@ def autodetect_media(
     # Normalize once for cheap checks and mimetype guess
     source = str(source)
 
-    if source.startswith("data:image/"):
+    prefix = source[: len("data:application/pdf")].lower()
+    if prefix.startswith("data:image/"):
         return Image.autodetect_safely(source)
-    if source.startswith("data:audio/"):
+    if prefix.startswith("data:audio/"):
         return Audio.autodetect_safely(source)
-    if source.startswith("data:application/pdf"):
+    if prefix.startswith("data:application/pdf"):
         return PDF.autodetect_safely(source)
 
     media_type, _ = mimetypes.guess_type(source)
@@ -813,19 +861,7 @@ def autodetect_media(
 
 
 def convert_messages(
-    messages: list[
-        dict[
-            str,
-            Union[  # noqa: UP007
-                str,
-                dict[str, Any],
-                Image,
-                Audio,
-                PDF,
-                list[Union[str, dict[str, Any], Image, Audio, PDF]],  # noqa: UP007
-            ],
-        ]
-    ],
+    messages: Iterable[dict[str, Any]],
     mode: Mode,
     autodetect_images: bool = False,
 ) -> list[dict[str, Any]]:
@@ -842,10 +878,17 @@ def convert_messages(
                 continue
             raise ValueError(f"Unsupported message type: {message['type']}")
         role = message["role"]
-        content = message["content"] or []
         other_kwargs = {
             k: v for k, v in message.items() if k not in ["role", "content", "type"]
         }
+        if (
+            role == "assistant"
+            and (message.get("tool_calls") or message.get("function_call"))
+            and message.get("content") is None
+        ):
+            converted_messages.append(dict(message))
+            continue
+        content = message["content"] or []
         if autodetect_images:
             if isinstance(content, list):
                 new_content: list[str | dict[str, Any] | Image | Audio | PDF] = []  # noqa: UP007

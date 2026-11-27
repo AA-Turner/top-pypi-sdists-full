@@ -1,19 +1,35 @@
-# fmt: off
-
 import time
 
 import numpy as np
 
 from ase.filters import UnitCellFilter
 from ase.optimize.optimize import Optimizer
+from ase.utils import deprecate_positionals
 
 
 class PreconFIRE(Optimizer):
-
-    def __init__(self, atoms, restart=None, logfile='-', trajectory=None,
-                 dt=0.1, maxmove=0.2, dtmax=1.0, Nmin=5, finc=1.1, fdec=0.5,
-                 astart=0.1, fa=0.99, a=0.1, theta=0.1,
-                 precon=None, use_armijo=True, variable_cell=False, **kwargs):
+    @deprecate_positionals(2)
+    def __init__(
+        self,
+        atoms,
+        restart=None,
+        logfile='-',
+        trajectory=None,
+        dt=0.1,
+        maxmove=0.2,
+        dtmax=1.0,
+        Nmin=5,
+        finc=1.1,
+        fdec=0.5,
+        astart=0.1,
+        fa=0.99,
+        a=0.1,
+        theta=0.1,
+        precon=None,
+        use_armijo=True,
+        variable_cell=False,
+        **kwargs,
+    ):
         """
         Preconditioned version of the FIRE optimizer
 
@@ -88,7 +104,6 @@ class PreconFIRE(Optimizer):
             self.v = np.zeros((len(self._actual_atoms), 3))
         else:
             if self.use_armijo:
-
                 if self.precon is None:
                     v_test = self.v + self.dt * f
                 else:
@@ -99,8 +114,9 @@ class PreconFIRE(Optimizer):
                 self.skip_flag = False
                 func_val = self.func(r_test)
                 self.e1 = func_val
-                if (func_val > self.func(r) -
-                        self.theta * self.dt * np.vdot(v_test, f)):
+                if func_val > self.func(r) - self.theta * self.dt * np.vdot(
+                    v_test, f
+                ):
                     self.v[:] *= 0.0
                     self.a = self.astart
                     self.dt *= self.fdec
@@ -108,21 +124,22 @@ class PreconFIRE(Optimizer):
                     self.skip_flag = True
 
             if not self.skip_flag:
-
                 v_f = np.vdot(self.v, f)
                 if v_f > 0.0:
                     if self.precon is None:
-                        self.v = (1.0 - self.a) * self.v + self.a * f / \
-                            np.sqrt(np.vdot(f, f)) * \
-                            np.sqrt(np.vdot(self.v, self.v))
+                        self.v = (1.0 - self.a) * self.v + self.a * f / np.sqrt(
+                            np.vdot(f, f)
+                        ) * np.sqrt(np.vdot(self.v, self.v))
                     else:
-                        self.v = (
-                            (1.0 - self.a) * self.v +
-                            self.a *
-                            (np.sqrt(self.precon.dot(self.v.reshape(-1),
-                                                     self.v.reshape(-1))) /
-                             np.sqrt(np.dot(f.reshape(-1),
-                                            invP_f.reshape(-1))) * invP_f))
+                        self.v = (1.0 - self.a) * self.v + self.a * (
+                            np.sqrt(
+                                self.precon.dot(
+                                    self.v.reshape(-1), self.v.reshape(-1)
+                                )
+                            )
+                            / np.sqrt(np.dot(f.reshape(-1), invP_f.reshape(-1)))
+                            * invP_f
+                        )
                     if self.Nsteps > self.Nmin:
                         self.dt = min(self.dt * self.finc, self.dtmax)
                         self.a *= self.fa
@@ -165,7 +182,7 @@ class PreconFIRE(Optimizer):
             forces, stress = forces[:natoms], self._actual_atoms.stress
             fmax_sq = (forces**2).sum(axis=1).max()
             smax_sq = (stress**2).max()
-            return (fmax_sq < self.fmax**2 and smax_sq < self.smax**2)
+            return fmax_sq < self.fmax**2 and smax_sq < self.smax**2
         else:
             fmax_sq = (forces**2).sum(axis=1).max()
             return fmax_sq < self.fmax**2
@@ -189,10 +206,12 @@ class PreconFIRE(Optimizer):
             name = self.__class__.__name__
             if isinstance(self._actual_atoms, UnitCellFilter):
                 self.logfile.write(
-                    '%s: %3d  %02d:%02d:%02d %15.6f %12.4f %12.4f\n' %
-                    (name, self.nsteps, T[3], T[4], T[5], e, fmax, smax))
+                    '%s: %3d  %02d:%02d:%02d %15.6f %12.4f %12.4f\n'
+                    % (name, self.nsteps, T[3], T[4], T[5], e, fmax, smax)
+                )
 
             else:
                 self.logfile.write(
-                    '%s: %3d  %02d:%02d:%02d %15.6f %12.4f\n' %
-                    (name, self.nsteps, T[3], T[4], T[5], e, fmax))
+                    '%s: %3d  %02d:%02d:%02d %15.6f %12.4f\n'
+                    % (name, self.nsteps, T[3], T[4], T[5], e, fmax)
+                )

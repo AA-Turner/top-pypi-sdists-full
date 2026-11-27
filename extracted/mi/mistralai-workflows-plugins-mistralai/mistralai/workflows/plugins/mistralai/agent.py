@@ -41,7 +41,7 @@ class Agent(mistralai_models.CreateAgentRequest):
                     raise ValueError(
                         f"Connector '{slot.connector_name}' uses credentials_name which is not "
                         f"supported by the agent SDK. Remove credentials_name or use "
-                        f"ToolCallClient for multi-credential connectors."
+                        f"ConnectorClient for multi-credential connectors."
                     )
             raise_if_duplicate_connector_names(self.connectors)
             # No bindings yet, so only explicit values pin an identity here; slots that

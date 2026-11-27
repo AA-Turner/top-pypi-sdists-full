@@ -5,6 +5,7 @@ import sys
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 import pytest
@@ -12,6 +13,10 @@ import pytest
 from mistralai.workflows.core.config.config import setup_default_logging
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.models import WorkflowContext
+from mistralai.workflows.plugins.mistralai.connectors.constants import (
+    MISTRALAI_PLUGIN_KEY,
+    RESOLVED_CONNECTORS_KEY,
+)
 from mistralai.workflows.testing.fixtures import (
     clear_dependency_cache,  # noqa: F401
     disable_otel_export,  # noqa: F401
@@ -24,6 +29,19 @@ from mistralai.workflows.testing.fixtures import (
 # Importing the SDK no longer sets up logging; a worker gets it from run_worker. Set it up once, as
 # a worker would, so plugin log records reach caplog instead of structlog's print defaults.
 setup_default_logging()
+
+
+def make_context(bindings: list[dict[str, Any]] | None = None, **context_fields: Any) -> WorkflowContext:
+    """Create a WorkflowContext with interceptor-resolved bindings in the trusted channel."""
+    trusted_extensions: dict[str, Any] = {}
+    if bindings is not None:
+        trusted_extensions[MISTRALAI_PLUGIN_KEY] = {RESOLVED_CONNECTORS_KEY: {"bindings": bindings}}
+    return WorkflowContext(
+        namespace="default",
+        execution_id="test-exec-id",
+        trusted_extensions=trusted_extensions,
+        **context_fields,
+    )
 
 
 @pytest.fixture

@@ -2,752 +2,1712 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import absolute_import, division
-
-from contextlib import contextmanager
-import multiprocessing
-import sys
+import os
+import posixpath
+import re
 import time
-import warnings
+from collections import deque
 
-from collections import (
-    OrderedDict,
-    namedtuple,
+from mozsystemmonitor.basemonitor import (
+    FORWARD_ENV,  # noqa: F401
+    BaseResourceMonitor,
+    SystemResourceUsage,  # noqa: F401
+    have_psutil,  # noqa: F401
+)
+
+# Common prefix in log lines from a Gecko process: "[Child|Parent <pid>: <thread>]"
+# (DocShell-style logging) and "[Child|Parent <pid>, <thread>]" (NS_WARNING/ASSERTION).
+_PROC_PREFIX_COLON = r"\[(?P<proc>Child|Parent) (?P<pid>\d+): (?P<thread>[^\]]+)\]"
+_PROC_PREFIX_COMMA = r"\[(?P<proc>Child|Parent) (?P<pid>\d+), (?P<thread>[^\]]+)\]"
+
+# ++DOCSHELL/--DOCSHELL leak log lines (nsDocShell.cpp), e.g.:
+#   [Child 4208: Main Thread]: I/DocShellAndDOMWindowLeak ++DOCSHELL 2f804b00 == 2 [pid = 4208] [id = 37]
+#   [Child 4208: Main Thread]: I/DocShellAndDOMWindowLeak --DOCSHELL 2f804b00 == 0 [pid = 4208] [id = 37] [url = about:aichatcontent]
+_DOCSHELL_RE = re.compile(
+    _PROC_PREFIX_COLON + r": [A-Z]/DocShellAndDOMWindowLeak (?P<op>\+\+|--)DOCSHELL "
+    r"(?P<ptr>[0-9a-fA-F]+) == \d+ \[pid = \d+\] \[id = (?P<id>\d+)\]"
+    r"(?: \[url = (?P<url>[^\]]*)\])?\s*$"
+)
+
+# ++DOMWINDOW/--DOMWINDOW leak log lines (nsGlobalWindow{Inner,Outer}.cpp), e.g.:
+#   [Child 3444: Main Thread]: I/DocShellAndDOMWindowLeak ++DOMWINDOW == 2 (b3bc400) [pid = 3444] [serial = 2] [outer = 4f60940]
+#   [Child 3444: Main Thread]: I/DocShellAndDOMWindowLeak --DOMWINDOW == 1 (b3bc400) [pid = 3444] [serial = 2] [outer = 4f60940] [url = about:blank]
+_DOMWINDOW_RE = re.compile(
+    _PROC_PREFIX_COLON + r": [A-Z]/DocShellAndDOMWindowLeak (?P<op>\+\+|--)DOMWINDOW "
+    r"== \d+ \((?P<ptr>[0-9a-fA-F]+)\) \[pid = \d+\] "
+    r"\[serial = (?P<serial>\d+)\] \[outer = (?P<outer>[0-9a-fA-F]+)\]"
+    r"(?: \[url = (?P<url>[^\]]*)\])?\s*$"
+)
+
+# "JavaScript error:" / "JavaScript warning:" lines, e.g.:
+#   JavaScript error: chrome://browser/content/places/browserPlacesViews.js, line 118: Error: No DOM node set for aPlacesNode.
+_JS_ERROR_RE = re.compile(
+    r"^JavaScript (?P<level>error|warning): (?P<file>[^,]*), line (?P<line>\d+): "
+    r"(?P<message>.*)$"
+)
+
+# NS_WARNING / ###!!! ASSERTION lines (nsDebugImpl::FormatMsg).
+# The format string is built from three optional pieces:
+#   "<sev>: " [+ "<str>: "] [+ "'<expr>', "] + "file <file>:<line>"
+# so "message" can be "str", "'expr'", or "str: 'expr'" depending on which
+# arguments NS_DebugBreak got. We capture the whole thing as "message" and
+# leave it to the front-end to render verbatim.
+_WARNING_RE = re.compile(
+    _PROC_PREFIX_COMMA
+    + r" WARNING: (?P<message>.*?)(?:, |: )file (?P<file>[^:]+):(?P<line>\d+)\s*$"
+)
+
+_ASSERTION_RE = re.compile(
+    r"\x07?"
+    + _PROC_PREFIX_COMMA
+    + r" ###!!! ASSERTION: (?P<message>.*?), file (?P<file>[^:]+):(?P<line>\d+)\s*$"
+)
+
+# console.<method>: ... lines, e.g.:
+#   console.error: (new Error("Unable to retrieve the translation models.", "resource://...", 2674))
+#   console.warn: "No view for invalid view, switching to default"
+#   console.log: Downloads: Closing the downloads panel.
+# The single-line shape comes from Console.cpp and from createDumper() in
+# Console.sys.mjs. Console.sys.mjs's createMultiLineDumper() (used for debug,
+# error, dir, dirxml; console.exception is also routed through it but emits
+# with level "error", so it appears as "console.error:" in the output)
+# instead emits a header with no real body followed by indented
+# "Message:"/"Stack:" lines and JS-style frames. Header shapes seen in CI:
+#   console.error:                       (no prefix, no body)
+#   console.error: services.settings:    (prefix "services.settings", no body)
+# The message group is optional and may end with ":" when a prefix is present.
+_CONSOLE_RE = re.compile(r"^console\.(?P<method>[a-zA-Z]+):(?: (?P<message>.*))?$")
+
+# Methods routed through Console.sys.mjs's createMultiLineDumper(): when one
+# of these emits a header with no real body, the following process_output
+# lines are the multi-line body ("  Message:", "  Stack:", and frames).
+_MULTILINE_CONSOLE_METHODS = frozenset({"debug", "error", "dir", "dirxml"})
+
+# Body lines for the multi-line console.* dumper.
+_CONSOLE_MESSAGE_RE = re.compile(r"^  Message: (?P<message>.*)$")
+_CONSOLE_STACK_HEADER_RE = re.compile(r"^  Stack:\s*$")
+# JS stack frame: "<func>@<file>:<line>:<col>". The function name may be empty
+# (top-level/async frames) or contain '/' and '<' (anonymous nested closures).
+# Leading whitespace varies: log() prefixes the first frame with 4 spaces, but
+# subsequent frames embedded in the same Error.stack string come unindented.
+_CONSOLE_JS_FRAME_RE = re.compile(
+    r"^\s*(?P<func>[^@]*)@(?P<file>.+):(?P<line>\d+):(?P<col>\d+)\s*$"
+)
+
+# Stack frames that follow console.trace, formatted by Console.cpp as
+# "<filename> <line> <funcname>" per frame (one process_output line each).
+_CONSOLE_FRAME_RE = re.compile(r"^(?P<file>\S+/\S+) (?P<line>\d+) (?P<func>\S.*)$")
+
+# CI builds embed paths like
+# "/builds/worker/workspace/obj-build/.../checkouts/gecko/<repo-relative>".
+# Strip the build prefix so frames carry the repo-relative path expected by
+# the profiler source view.
+_CHECKOUTS_GECKO = "checkouts/gecko/"
+
+# Matches the sourceURL mozharness writes into the profile metadata, e.g.
+# "https://hg.mozilla.org/try/rev/56b3cc68b5e7557a3e13fca984f0f8aebc60dd22".
+# The non-greedy <repo> group lets us match multi-segment repo paths like
+# "integration/autoland" and "releases/mozilla-beta".
+_HG_SOURCE_URL_RE = re.compile(
+    r"^https?://(?P<host>hg\.mozilla\.org)/(?P<repo>.+?)/rev/(?P<rev>[0-9a-f]+)$"
 )
 
 
-class PsutilStub(object):
-    def __init__(self):
-        self.sswap = namedtuple(
-            "sswap", ["total", "used", "free", "percent", "sin", "sout"]
-        )
-        self.sdiskio = namedtuple(
-            "sdiskio",
-            [
-                "read_count",
-                "write_count",
-                "read_bytes",
-                "write_bytes",
-                "read_time",
-                "write_time",
-            ],
-        )
-        self.pcputimes = namedtuple("pcputimes", ["user", "system"])
-        self.svmem = namedtuple(
-            "svmem",
-            [
-                "total",
-                "available",
-                "percent",
-                "used",
-                "free",
-                "active",
-                "inactive",
-                "buffers",
-                "cached",
-            ],
-        )
+# Marker schemas for the markers built from logs and test output.
+_MARKER_SCHEMAS = [
+    {
+        "name": "Test",
+        "tooltipLabel": "{marker.data.name}",
+        "tableLabel": "{marker.data.status} — {marker.data.test}",
+        "chartLabel": "{marker.data.name}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {
+                "key": "test",
+                "label": "Test Name",
+                "format": "string",
+            },
+            {
+                "key": "name",
+                "label": "Short Name",
+                "format": "string",
+                "hidden": True,
+            },
+            {
+                "key": "subsuite",
+                "label": "Subsuite",
+                "format": "string",
+            },
+            {
+                "key": "status",
+                "label": "Status",
+                "format": "string",
+            },
+            {
+                "key": "expected",
+                "label": "Expected",
+                "format": "string",
+            },
+            {
+                "key": "unexpected_subtests",
+                "label": "Unexpected subtests",
+                "format": "integer",
+            },
+            {
+                "key": "message",
+                "label": "Message",
+                "format": "string",
+            },
+            {
+                "key": "timeoutfactor",
+                "label": "Timeout Factor",
+                "format": "integer",
+            },
+            {
+                "key": "color",
+                "hidden": True,
+            },
+        ],
+    },
+    {
+        "name": "TestStatus",
+        "tableLabel": "{marker.data.message} — {marker.data.test} {marker.data.subtest}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {
+                "key": "message",
+                "label": "Message",
+                "format": "string",
+            },
+            {
+                "key": "test",
+                "label": "Test Name",
+                "format": "string",
+            },
+            {
+                "key": "subtest",
+                "label": "Subtest",
+                "format": "string",
+            },
+            {
+                "key": "color",
+                "hidden": True,
+            },
+        ],
+    },
+    {
+        "name": "Crash",
+        "tableLabel": "{marker.data.signature} — {marker.data.test}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {
+                "key": "signature",
+                "label": "Signature",
+                "format": "string",
+            },
+            {
+                "key": "reason",
+                "label": "Reason",
+                "format": "string",
+            },
+            {
+                "key": "test",
+                "label": "Test Name",
+                "format": "string",
+            },
+            {
+                "key": "minidump",
+                "label": "Minidump",
+                "format": "string",
+            },
+            {
+                "key": "color",
+                "hidden": True,
+            },
+        ],
+    },
+    {
+        "name": "LSanLeak",
+        "tooltipLabel": "{marker.data.kind} leak of {marker.data.bytes} in {marker.data.objects} object(s)",
+        "tableLabel": "{marker.data.kind} leak of {marker.data.bytes} in {marker.data.objects} object(s) — {marker.data.scope}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {
+                "key": "kind",
+                "label": "Kind",
+                "format": "string",
+            },
+            {
+                "key": "bytes",
+                "label": "Bytes",
+                "format": "bytes",
+            },
+            {
+                "key": "objects",
+                "label": "Objects",
+                "format": "integer",
+            },
+            {
+                "key": "scope",
+                "label": "Scope",
+                "format": "string",
+            },
+            {
+                "key": "allowed_match",
+                "label": "Allowed Match",
+                "format": "string",
+            },
+            {
+                "key": "color",
+                "hidden": True,
+            },
+        ],
+    },
+    {
+        "name": "LSanSummary",
+        "tooltipLabel": "{marker.data.bytes} in {marker.data.allocations} allocation(s)",
+        "tableLabel": "{marker.data.bytes} in {marker.data.allocations} allocation(s)",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {
+                "key": "bytes",
+                "label": "Bytes",
+                "format": "bytes",
+            },
+            {
+                "key": "allocations",
+                "label": "Allocations",
+                "format": "integer",
+            },
+            {
+                "key": "allowed",
+                "label": "Allowed",
+                "format": "string",
+            },
+            {
+                "key": "color",
+                "hidden": True,
+            },
+        ],
+    },
+    {
+        "name": "TSanError",
+        "tooltipLabel": "{marker.data.kind} (report {marker.data.report_index}) — {marker.data.label}",
+        "tableLabel": "{marker.data.kind} (report {marker.data.report_index}) — {marker.data.label}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {
+                "key": "kind",
+                "label": "Kind",
+                "format": "string",
+            },
+            {
+                "key": "report_index",
+                "label": "Report",
+                "format": "integer",
+            },
+            {
+                "key": "pid",
+                "label": "PID",
+                "format": "integer",
+            },
+            {
+                "key": "scope",
+                "label": "Scope",
+                "format": "string",
+            },
+            {
+                "key": "description",
+                "label": "Description",
+                "format": "string",
+            },
+            {
+                "key": "color",
+                "hidden": True,
+            },
+            # Declared last so it renders directly above the stack.
+            {
+                "key": "label",
+                "label": "Stack",
+                "format": "string",
+            },
+        ],
+    },
+    {
+        "name": "AssertionFailure",
+        "tooltipLabel": "{marker.data.kind}: {marker.data.message}",
+        "tableLabel": "{marker.data.kind}: {marker.data.message} — {marker.data.file}:{marker.data.line}",
+        "chartLabel": "{marker.data.message}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {"key": "kind", "label": "Kind", "format": "string"},
+            {"key": "message", "label": "Message", "format": "string"},
+            {"key": "file", "format": "string", "hidden": True},
+            {"key": "line", "format": "integer", "hidden": True},
+            {"key": "fatal", "label": "Fatal", "format": "string"},
+            {"key": "process", "label": "Process", "format": "string"},
+            {"key": "pid", "label": "Process ID", "format": "integer"},
+            {"key": "thread", "label": "Thread", "format": "string"},
+            {"key": "test", "label": "Test", "format": "string"},
+            {"key": "color", "hidden": True},
+        ],
+    },
+    {
+        "name": "UBSanError",
+        "tooltipLabel": "{marker.data.message}",
+        "tableLabel": "{marker.data.message} — {marker.data.file}:{marker.data.line}",
+        "chartLabel": "{marker.data.message}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {"key": "kind", "label": "Kind", "format": "string"},
+            {"key": "message", "label": "Message", "format": "string"},
+            {"key": "file", "format": "string", "hidden": True},
+            {"key": "line", "format": "integer", "hidden": True},
+            {"key": "column", "format": "integer", "hidden": True},
+            {"key": "scope", "label": "Scope", "format": "string"},
+            {"key": "test", "label": "Test", "format": "string"},
+            {"key": "color", "hidden": True},
+        ],
+    },
+    {
+        "name": "ASanError",
+        "tooltipLabel": "{marker.data.message}",
+        "tableLabel": "{marker.data.kind} — {marker.data.location}",
+        "chartLabel": "{marker.data.kind}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {"key": "kind", "label": "Kind", "format": "string"},
+            {"key": "message", "label": "Message", "format": "string"},
+            {"key": "file", "format": "string", "hidden": True},
+            {"key": "line", "format": "integer", "hidden": True},
+            {"key": "column", "format": "integer", "hidden": True},
+            {"key": "location", "format": "string", "hidden": True},
+            {"key": "function", "label": "Function", "format": "string"},
+            {"key": "pid", "label": "Process ID", "format": "integer"},
+            {"key": "scope", "label": "Scope", "format": "string"},
+            {"key": "test", "label": "Test", "format": "string"},
+            {"key": "color", "hidden": True},
+        ],
+    },
+    {
+        "name": "MozLeakObject",
+        "tooltipLabel": "{marker.data.bytes_leaked} in {marker.data.count} {marker.data.name}",
+        "tableLabel": "{marker.data.process} leaked {marker.data.bytes_leaked} in {marker.data.count} {marker.data.name}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {
+                "key": "name",
+                "label": "Object",
+                "format": "string",
+            },
+            {
+                "key": "count",
+                "label": "Instances Leaked",
+                "format": "integer",
+            },
+            {
+                "key": "bytes_leaked",
+                "label": "Bytes Leaked",
+                "format": "bytes",
+            },
+            {
+                "key": "bytes_per_inst",
+                "label": "Bytes Per Instance",
+                "format": "bytes",
+            },
+            {
+                "key": "total_instances",
+                "label": "Total Instances",
+                "format": "integer",
+            },
+            {
+                "key": "allowed",
+                "label": "Allowed",
+                "format": "string",
+            },
+            {
+                "key": "process",
+                "label": "Process",
+                "format": "string",
+            },
+            {
+                "key": "scope",
+                "label": "Scope",
+                "format": "string",
+            },
+            {
+                "key": "color",
+                "hidden": True,
+            },
+        ],
+    },
+    {
+        "name": "MozLeakTotal",
+        "tableLabel": "{marker.data.process} — {marker.data.bytes} leaked",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {
+                "key": "process",
+                "label": "Process",
+                "format": "string",
+            },
+            {
+                "key": "bytes",
+                "label": "Bytes",
+                "format": "bytes",
+            },
+            {
+                "key": "scope",
+                "label": "Scope",
+                "format": "string",
+            },
+            {
+                "key": "induced_crash",
+                "label": "Induced Crash",
+                "format": "string",
+            },
+            {
+                "key": "ignore_missing",
+                "label": "Ignore Missing",
+                "format": "string",
+            },
+            {
+                "key": "objects",
+                "label": "Leaked Objects",
+                "format": "list",
+            },
+            {
+                "key": "color",
+                "hidden": True,
+            },
+        ],
+    },
+    {
+        "name": "DocShell",
+        "tooltipLabel": "{marker.data.url}",
+        "tableLabel": "DOCSHELL {marker.data.pointer} [{marker.data.process} {marker.data.pid}: {marker.data.thread}] id = {marker.data.id} {marker.data.url}",
+        "chartLabel": "{marker.data.url}",
+        "display": ["marker-chart", "marker-table"],
+        "data": [
+            {"key": "url", "label": "URL", "format": "url"},
+            {"key": "id", "label": "ID", "format": "integer"},
+            {"key": "pointer", "label": "Address", "format": "string"},
+            {"key": "process", "label": "Process", "format": "string"},
+            {"key": "pid", "label": "Process ID", "format": "integer"},
+            {"key": "thread", "label": "Thread", "format": "string"},
+            {"key": "test", "label": "Test", "format": "string"},
+        ],
+    },
+    {
+        "name": "DOMWindow",
+        "tooltipLabel": "{marker.data.url}",
+        "tableLabel": "DOMWINDOW {marker.data.pointer} [{marker.data.process} {marker.data.pid}: {marker.data.thread}] serial = {marker.data.serial} outer = {marker.data.outer} {marker.data.url}",
+        "chartLabel": "{marker.data.url}",
+        "display": ["marker-chart", "marker-table"],
+        "data": [
+            {"key": "url", "label": "URL", "format": "url"},
+            {"key": "serial", "label": "Serial", "format": "integer"},
+            {"key": "pointer", "label": "Address", "format": "string"},
+            {"key": "outer", "label": "Outer", "format": "string"},
+            {"key": "process", "label": "Process", "format": "string"},
+            {"key": "pid", "label": "Process ID", "format": "integer"},
+            {"key": "thread", "label": "Thread", "format": "string"},
+            {"key": "test", "label": "Test", "format": "string"},
+        ],
+    },
+    {
+        "name": "jsError",
+        "tooltipLabel": "{marker.data.message}",
+        "tableLabel": "{marker.data.message} — {marker.data.file}:{marker.data.line}",
+        "chartLabel": "{marker.data.message}",
+        "display": ["marker-chart", "marker-table"],
+        "data": [
+            {"key": "message", "label": "Message", "format": "string"},
+            {"key": "file", "format": "string", "hidden": True},
+            {"key": "line", "format": "integer", "hidden": True},
+            {"key": "test", "label": "Test", "format": "string"},
+        ],
+    },
+    {
+        "name": "cppDebug",
+        "tooltipLabel": "{marker.data.message}",
+        "tableLabel": "{marker.data.message} — {marker.data.file}:{marker.data.line}",
+        "chartLabel": "{marker.data.message}",
+        "display": ["marker-chart", "marker-table"],
+        "colorField": "color",
+        "data": [
+            {"key": "message", "label": "Message", "format": "string"},
+            {"key": "file", "format": "string", "hidden": True},
+            {"key": "line", "format": "integer", "hidden": True},
+            {"key": "process", "label": "Process", "format": "string"},
+            {"key": "pid", "label": "Process ID", "format": "integer"},
+            {"key": "thread", "label": "Thread", "format": "string"},
+            {"key": "test", "label": "Test", "format": "string"},
+            {"key": "color", "hidden": True},
+        ],
+    },
+    {
+        "name": "console",
+        "tooltipLabel": "{marker.data.message}",
+        "tableLabel": "{marker.data.message}",
+        "chartLabel": "{marker.data.message}",
+        "display": ["marker-chart", "marker-table"],
+        "data": [
+            {"key": "message", "label": "Message", "format": "string"},
+            {"key": "test", "label": "Test", "format": "string"},
+        ],
+    },
+]
 
-    def cpu_percent(self, a, b):
-        return [0]
 
-    def cpu_times(self, percpu):
-        if percpu:
-            return [self.pcputimes(0, 0)]
-        else:
-            return self.pcputimes(0, 0)
+def _parse_hg_source_url(source_url):
+    """Return (prefix, rev) for an hg.mozilla.org sourceURL, or (None, None).
 
-    def disk_io_counters(self):
-        return self.sdiskio(0, 0, 0, 0, 0, 0)
-
-    def swap_memory(self):
-        return self.sswap(0, 0, 0, 0, 0, 0)
-
-    def virtual_memory(self):
-        return self.svmem(0, 0, 0, 0, 0, 0, 0, 0, 0)
-
-
-# psutil will raise NotImplementedError if the platform is not supported.
-try:
-    import psutil
-
-    have_psutil = True
-except Exception:
-    try:
-        # The PsutilStub should get us time intervals, at least
-        psutil = PsutilStub()
-    except Exception:
-        psutil = None
-
-    have_psutil = False
-
-
-def get_disk_io_counters():
-    try:
-        io_counters = psutil.disk_io_counters()
-
-        if io_counters is None:
-            return PsutilStub().disk_io_counters()
-    except RuntimeError:
-        io_counters = PsutilStub().disk_io_counters()
-
-    return io_counters
-
-
-def _poll(pipe, poll_interval=0.1):
-    """Wrap multiprocessing.Pipe.poll to hide POLLERR and POLLIN
-    exceptions.
-
-    multiprocessing.Pipe is not actually a pipe on at least Linux.
-    That has an effect on the expected outcome of reading from it when
-    the other end of the pipe dies, leading to possibly hanging on revc()
-    below.
+    The returned prefix combines with a repo-relative path and the rev to form
+    the "hg:<host>/<repo>:<path>:<rev>" shape the profiler source view fetches.
     """
-    try:
-        return pipe.poll(poll_interval)
-    except Exception:
-        # Poll might throw an exception even though there's still
-        # data to read. That happens when the underlying system call
-        # returns both POLLERR and POLLIN, but python doesn't tell us
-        # about it. So assume there is something to read, and we'll
-        # get an exception when trying to read the data.
+    if not source_url:
+        return (None, None)
+    m = _HG_SOURCE_URL_RE.match(source_url)
+    if not m:
+        return (None, None)
+    return (f"hg:{m['host']}/{m['repo']}:", m["rev"])
+
+
+class _AssertionFallbackLogger:
+    """Logger-like sink for the line-based AssertionFailureParser: the
+    actions it would emit become markers instead."""
+
+    def __init__(self, monitor):
+        self._monitor = monitor
+
+    def assertion_failure(self, **data):
+        self._monitor._record_line_assertion(data)
+
+
+def _ubsan_key(data):
+    """Identity of a UBSan report, shared by the ubsan_error action and the
+    line-based fallback so the two can be matched."""
+    return (data.get("file"), data.get("lineno"), data.get("column"), data["message"])
+
+
+class _UBSanFallbackLogger:
+    """Logger-like sink for the line-based UBSanErrorParser: the actions it
+    would emit become markers instead."""
+
+    def __init__(self, monitor):
+        self._monitor = monitor
+
+    def ubsan_error(self, **data):
+        self._monitor._record_line_ubsan(data)
+
+
+def _asan_key(data):
+    """Identity of an ASan report, shared by the asan_error action and the
+    line-based fallback so the two can be matched."""
+    return (data.get("pid"), data["message"])
+
+
+class _ASanFallbackLogger:
+    """Logger-like sink for the line-based ASanErrorParser: the actions it
+    would emit become markers instead."""
+
+    def __init__(self, monitor):
+        self._monitor = monitor
+
+    def asan_error(self, **data):
+        self._monitor._record_line_asan(data)
+
+
+def _test_id_str(test):
+    if isinstance(test, (list, tuple)):
+        return " ".join(test)
+    return test
+
+
+class SystemResourceMonitor(BaseResourceMonitor):
+    """A BaseResourceMonitor that also turns structured log actions and test
+    output into markers."""
+
+    marker_schemas = {schema["name"]: schema for schema in _MARKER_SCHEMAS}
+
+    def __init__(self, poll_interval=1.0, metadata=None, forward_to=None):
+        super().__init__(poll_interval, metadata, forward_to)
+
+        self._active_tests = {}
+
+        # Counter used to correlate the several markers emitted for one TSan
+        # report (one marker per labeled stack).
+        self._tsan_report_count = 0
+        # ++DOCSHELL/++DOMWINDOW lines awaiting their matching -- line.
+        # Keyed by (kind, pid, ptr, id|serial); value is (kind, start_time, marker_data).
+        self._leaked_instances = {}
+        # console.trace: line waiting for follow-up stack frames; flushed when
+        # a non-frame process_output line arrives or the monitor stops.
+        self._pending_console_trace = None
+        # Line-based fallback for harnesses that do not emit assertion_failure
+        # actions: assembles assertion headers and their stack frames out of
+        # process_output lines. An assertion_failure action for the same
+        # assertion supersedes the pending line-based report.
+        self._assertion_parser = None
+        try:
+            from moztest.assertions import AssertionFailureParser
+        except ImportError:
+            pass
+        else:
+            self._assertion_parser = AssertionFailureParser(
+                _AssertionFallbackLogger(self)
+            )
+        # (message, file, lineno) of assertion_failure actions that found no
+        # pending line-based report, so that one completing later is dropped.
+        self._recent_assertion_actions = deque(maxlen=32)
+        # Line-based fallback for harnesses that do not emit ubsan_error
+        # actions: assembles UBSan reports out of process_output lines. A
+        # ubsan_error action for the same report supersedes the pending
+        # line-based one.
+        self._ubsan_parser = None
+        try:
+            from moztest.ubsan import UBSanErrorParser
+        except ImportError:
+            pass
+        else:
+            self._ubsan_parser = UBSanErrorParser(_UBSanFallbackLogger(self))
+        # Keys of ubsan_error actions that found no pending line-based
+        # report, so that one completing later is dropped.
+        self._recent_ubsan_actions = deque(maxlen=32)
+        # Line-based fallback for harnesses that do not emit asan_error
+        # actions: assembles AddressSanitizer reports out of process_output
+        # lines. An asan_error action for the same report supersedes the
+        # pending line-based one.
+        self._asan_parser = None
+        try:
+            from mozleak.asan import ASanErrorParser
+        except ImportError:
+            pass
+        else:
+            self._asan_parser = ASanErrorParser(_ASanFallbackLogger(self))
+        # Keys of asan_error actions that found no pending line-based
+        # report, so that one completing later is dropped.
+        self._recent_asan_actions = deque(maxlen=32)
+        # Multi-line console.<method>: body (Message:/Stack:/frames) waiting
+        # to be assembled into a single marker. Tuple of
+        # (name, timestamp, marker_data, phase, prefix_body) where phase
+        # progresses through "await_message" -> "await_stack" -> "frames",
+        # or starts at "speculative" when the header carried a body that
+        # ended in ":" and could be either a prefix-only multi-line header
+        # ("console.error: services.settings:") or a real single-line message.
+        # prefix_body is the original body text for the speculative case so
+        # we can either stitch the prefix back in front of the Message: text
+        # or fall back to a single-line marker. Flushed when a line breaks
+        # the expected sequence or the monitor stops.
+        self._pending_multiline_console = None
+        # "hg:<host>/<repo>:" prefix and revision parsed once from the profile
+        # metadata's sourceURL, used to wrap repo-relative frame paths into
+        # URLs the profiler source view can fetch.
+        self._frame_file_prefix, self._frame_file_rev = _parse_hg_source_url(
+            self.metadata.get("sourceURL")
+        )
+
+    def _flush_pending(self):
+        self._flush_leak_logs()
+        self._flush_pending_console_trace()
+        self._flush_pending_multiline_console()
+        if self._assertion_parser is not None:
+            self._assertion_parser.flush()
+        if self._ubsan_parser is not None:
+            self._ubsan_parser.flush()
+        if self._asan_parser is not None:
+            self._asan_parser.flush()
+
+    def _clean_frame_file(self, path):
+        """Return (display_path, source_view_path).
+
+        display_path is the build-prefix-stripped path for tooltip/marker display.
+        source_view_path is an "hg:<host>/<repo>:<path>:<rev>" URL the profiler
+        source view can fetch when the path was repo-relative (i.e. contained the
+        CI "checkouts/gecko/" marker) and this monitor knows the hg prefix from
+        the profile metadata; otherwise it equals display_path.
+        Sysroot, fetches and rust-stdlib paths fall through unchanged in both
+        fields so the source view doesn't 404 trying to fetch them from hg.
+        """
+        if not path:
+            return (path, path)
+        idx = path.rfind(_CHECKOUTS_GECKO)
+        if idx == -1:
+            return (path, path)
+        # The path has already been narrowed to a CI build path (POSIX) by
+        # the rfind above; use posixpath.normpath rather than os.path.normpath
+        # so we don't produce backslash separators on Windows.
+        cleaned = posixpath.normpath(path[idx + len(_CHECKOUTS_GECKO) :])
+        if not self._frame_file_prefix:
+            return (cleaned, cleaned)
+        return (
+            cleaned,
+            f"{self._frame_file_prefix}{cleaned}:{self._frame_file_rev}",
+        )
+
+    def _parse_process_output(self, line, timestamp, test_name, process=None):
+        """Parse a single process_output line and emit a typed marker if it matches a known pattern.
+
+        `process` identifies the output stream the line came from, so that
+        multi-line reports from interleaved streams are kept apart.
+
+        Returns True if the line produced a specialized marker, False otherwise.
+        """
+        line = line.rstrip("\r\n")
+
+        # If we're collecting frames for a previous console.trace:, attach this
+        # line if it looks like a frame, otherwise flush and fall through.
+        if self._pending_console_trace is not None:
+            if m := _CONSOLE_FRAME_RE.match(line):
+                self._pending_console_trace[2]["stack"].append({
+                    "file": m["file"],
+                    "line": int(m["line"]),
+                    "function": m["func"],
+                    "is_js": True,
+                })
+                return True
+            self._flush_pending_console_trace()
+
+        # If we're assembling a multi-line console.<method>: body, route the
+        # line through the state machine; on a mismatch we flush and fall
+        # through so the line still gets a chance at the regular patterns.
+        if self._pending_multiline_console is not None:
+            if self._handle_multiline_console_line(line):
+                return True
+
+        if m := _DOCSHELL_RE.match(line):
+            return self._handle_leak_log(
+                m,
+                timestamp,
+                test_name,
+                kind="DocShell",
+                key=("docshell", m["pid"], m["ptr"], m["id"]),
+            )
+
+        if m := _DOMWINDOW_RE.match(line):
+            return self._handle_leak_log(
+                m,
+                timestamp,
+                test_name,
+                kind="DOMWindow",
+                key=("domwindow", m["pid"], m["ptr"], m["serial"]),
+            )
+
+        if m := _JS_ERROR_RE.match(line):
+            name = "JavaScript error" if m["level"] == "error" else "JavaScript warning"
+            marker_data = {
+                "type": "jsError",
+                "message": m["message"],
+                "file": m["file"],
+                "line": int(m["line"]),
+                "stack": [{"file": m["file"], "line": int(m["line"]), "is_js": True}],
+            }
+            if test_name:
+                marker_data["test"] = test_name
+            self._add_event(name, timestamp, marker_data)
+            return True
+
+        if m := _WARNING_RE.match(line):
+            display, frame_file = self._clean_frame_file(m["file"])
+            marker_data = {
+                "type": "cppDebug",
+                "message": m["message"],
+                "file": display,
+                "line": int(m["line"]),
+                "process": m["proc"],
+                "pid": int(m["pid"]),
+                "thread": m["thread"],
+                "stack": [{"file": frame_file, "line": int(m["line"])}],
+            }
+            if test_name:
+                marker_data["test"] = test_name
+            self._add_event("C++ warning", timestamp, marker_data)
+            return True
+
+        if self._asan_parser is not None and self._asan_parser.log(
+            line, pid=process, test=test_name, time=timestamp
+        ):
+            return True
+
+        if self._ubsan_parser is not None and self._ubsan_parser.log(
+            line, pid=process, test=test_name, time=timestamp
+        ):
+            return True
+
+        if self._assertion_parser is not None:
+            if self._assertion_parser.log(
+                line, pid=process, test=test_name, time=timestamp
+            ):
+                return True
+        elif m := _ASSERTION_RE.match(line):
+            display, frame_file = self._clean_frame_file(m["file"])
+            marker_data = {
+                "type": "cppDebug",
+                "message": m["message"],
+                "file": display,
+                "line": int(m["line"]),
+                "process": m["proc"],
+                "pid": int(m["pid"]),
+                "thread": m["thread"],
+                "stack": [{"file": frame_file, "line": int(m["line"])}],
+                "color": "red",
+            }
+            if test_name:
+                marker_data["test"] = test_name
+            self._add_event("C++ assertion", timestamp, marker_data)
+            return True
+
+        if m := _CONSOLE_RE.match(line):
+            method = m["method"]
+            message = m["message"] or ""
+            name = "console." + method
+            # createMultiLineDumper() (Console.sys.mjs) emits a header with no
+            # real body. Without a console prefix the body is empty; with a
+            # prefix it's "<prefix>:" (followed by a space the harness may
+            # rstrip away). Defer the marker in either case so we can attach
+            # the follow-up Message:/Stack:/frame lines, and keep enough state
+            # to fall back to a single-line marker when the body turns out to
+            # be a real message that just happens to end with ":".
+            if method in _MULTILINE_CONSOLE_METHODS:
+                if not message:
+                    marker_data = {"type": "console", "message": ""}
+                    if test_name:
+                        marker_data["test"] = test_name
+                    self._pending_multiline_console = (
+                        name,
+                        timestamp,
+                        marker_data,
+                        "await_message",
+                        None,
+                    )
+                    return True
+                if message.endswith(":"):
+                    marker_data = {"type": "console", "message": message}
+                    if test_name:
+                        marker_data["test"] = test_name
+                    self._pending_multiline_console = (
+                        name,
+                        timestamp,
+                        marker_data,
+                        "speculative",
+                        message,
+                    )
+                    return True
+            marker_data = {"type": "console", "message": message}
+            if test_name:
+                marker_data["test"] = test_name
+            if method == "trace":
+                marker_data["stack"] = []
+                self._pending_console_trace = (name, timestamp, marker_data)
+            else:
+                self._add_event(name, timestamp, marker_data)
+            return True
+
+        return False
+
+    def _handle_multiline_console_line(self, line):
+        """Attach a body line to the pending multi-line console.* marker.
+
+        Returns True if the line was consumed; False if it broke the expected
+        sequence (in which case the pending marker is flushed and the caller
+        should continue parsing the line through the regular patterns).
+        """
+        name, timestamp, marker_data, phase, prefix_body = (
+            self._pending_multiline_console
+        )
+        if phase in ("await_message", "speculative"):
+            if m := _CONSOLE_MESSAGE_RE.match(line):
+                # If the header carried a "<prefix>:" body, stitch it back in
+                # front of the Message: text so the marker reads the same as
+                # the single-line "console.<method>: <prefix>: <text>" form.
+                marker_data["message"] = (
+                    f"{prefix_body} {m['message']}" if prefix_body else m["message"]
+                )
+                self._pending_multiline_console = (
+                    name,
+                    timestamp,
+                    marker_data,
+                    "await_stack",
+                    prefix_body,
+                )
+                return True
+        elif phase == "await_stack":
+            if _CONSOLE_STACK_HEADER_RE.match(line):
+                marker_data["stack"] = []
+                self._pending_multiline_console = (
+                    name,
+                    timestamp,
+                    marker_data,
+                    "frames",
+                    prefix_body,
+                )
+                return True
+        elif phase == "frames":
+            if m := _CONSOLE_JS_FRAME_RE.match(line):
+                marker_data["stack"].append({
+                    "file": m["file"],
+                    "line": int(m["line"]),
+                    "column": int(m["col"]),
+                    "function": m["func"],
+                    "is_js": True,
+                })
+                return True
+        self._flush_pending_multiline_console()
+        return False
+
+    def _flush_pending_console_trace(self):
+        """Emit a deferred console.trace marker once its stack is collected."""
+        if self._pending_console_trace is None:
+            return
+        name, timestamp, marker_data = self._pending_console_trace
+        self._pending_console_trace = None
+        self._add_event(name, timestamp, marker_data)
+
+    def _flush_pending_multiline_console(self):
+        """Emit a deferred multi-line console.<method> marker.
+
+        For "speculative" pending markers the body turned out to be a regular
+        single-line message ending in ":" rather than a multi-line header, so
+        marker_data["message"] still holds the original line as captured.
+        """
+        if self._pending_multiline_console is None:
+            return
+        name, timestamp, marker_data, _, _ = self._pending_multiline_console
+        self._pending_multiline_console = None
+        self._add_event(name, timestamp, marker_data)
+
+    def _handle_leak_log(self, m, timestamp, test_name, kind, key):
+        """Emit a duration marker pairing ++DOCSHELL/++DOMWINDOW with its matching --."""
+        groups = m.groupdict()
+        marker_data = {
+            "type": kind,
+            "process": m["proc"],
+            "pid": int(m["pid"]),
+            "thread": m["thread"],
+            "pointer": m["ptr"],
+        }
+        if groups.get("id") is not None:
+            marker_data["id"] = int(m["id"])
+        if groups.get("serial") is not None:
+            marker_data["serial"] = int(m["serial"])
+        if groups.get("outer") is not None:
+            marker_data["outer"] = m["outer"]
+        if test_name:
+            marker_data["test"] = test_name
+
+        if m["op"] == "++":
+            self._leaked_instances[key] = (kind, timestamp, marker_data)
+            return True
+
+        active = self._leaked_instances.pop(key, None)
+        start = active[1] if active else timestamp
+        if m["url"]:
+            marker_data["url"] = m["url"]
+
+        self._add_marker(kind, start, timestamp, marker_data, self.OTHER_CATEGORY)
         return True
 
+    def _flush_leak_logs(self):
+        """Emit instant markers for leak-log instances created but never destroyed."""
+        for kind, timestamp, marker_data in self._leaked_instances.values():
+            self._add_marker(kind, timestamp, None, marker_data, self.OTHER_CATEGORY)
+        self._leaked_instances.clear()
 
-def _collect(pipe, poll_interval):
-    """Collects system metrics.
+    @staticmethod
+    def _test_key(data):
+        return (data.get("subsuite") or "", _test_id_str(data["test"]))
 
-    This is the main function for the background process. It collects
-    data then forwards it on a pipe until told to stop.
-    """
+    @staticmethod
+    def begin_test(data):
+        """Begin tracking a test with enhanced metadata support.
 
-    data = []
+        Args:
+            data: Dictionary containing test data (e.g., {"test": "test_name", "time": timestamp})
+        """
+        if SystemResourceMonitor.instance and "test" in data:
+            SystemResourceMonitor.instance._active_tests[
+                SystemResourceMonitor._test_key(data)
+            ] = (SystemResourceMonitor.instance.get_monotonic_time_from_data(data), [])
 
-    try:
+    @staticmethod
+    def end_test(data):
+        """End tracking a test and record it with status and color.
 
-        # Establish initial values.
+        Args:
+            data: Dictionary containing test data including:
+                  - "test": test name
+                  - "status": test status ("PASS", "OK", "FAIL", "TIMEOUT", "CRASH", etc.)
+                  - "expected": the expected status if it differs from "status"
+                  - "known_intermittent": statuses the test is known to produce
+                  - "message": A string describing the status.
+        """
+        if not SystemResourceMonitor.instance or "test" not in data:
+            return
 
-        # We should ideally use a monotonic clock. However, Python 2.7 doesn't
-        # make a monotonic clock available on all platforms. Python 3.3 does!
-        last_time = time.time()
-        io_last = get_disk_io_counters()
-        cpu_last = psutil.cpu_times(True)
-        swap_last = psutil.swap_memory()
-        psutil.cpu_percent(None, True)
+        # Imported lazily: this module is also copied standalone into docker
+        # images, where moztest isn't available and no test record arrives.
+        from moztest.outcome import Outcome
 
-        sin_index = swap_last._fields.index("sin")
-        sout_index = swap_last._fields.index("sout")
+        key = SystemResourceMonitor._test_key(data)
+        active = SystemResourceMonitor.instance._active_tests.pop(key, None)
+        if active is None:
+            return
+        start, subtest_outcomes = active
+        test_name = key[1]
+        end = SystemResourceMonitor.instance.get_monotonic_time_from_data(data)
 
-        sleep_interval = poll_interval
+        # Create marker data with test information
+        marker_data = {
+            "type": "Test",
+            "test": test_name,
+            "name": test_name.split("/")[-1],
+        }
 
-        while not _poll(pipe, poll_interval=sleep_interval):
-            io = get_disk_io_counters()
-            cpu_times = psutil.cpu_times(True)
-            cpu_percent = psutil.cpu_percent(None, True)
-            virt_mem = psutil.virtual_memory()
-            swap_mem = psutil.swap_memory()
-            measured_end_time = time.time()
+        # Include timeout factor if present in extra data
+        extra = data.get("extra", {})
+        if extra and "timeoutfactor" in extra:
+            marker_data["timeoutfactor"] = extra["timeoutfactor"]
 
-            # TODO Does this wrap? At 32 bits? At 64 bits?
-            # TODO Consider patching "delta" API to upstream.
-            io_diff = [v - io_last[i] for i, v in enumerate(io)]
-            io_last = io
+        if key[0]:
+            marker_data["subsuite"] = key[0]
 
-            cpu_diff = []
-            for core, values in enumerate(cpu_times):
-                cpu_diff.append([v - cpu_last[core][i] for i, v in enumerate(values)])
-
-            cpu_last = cpu_times
-
-            swap_entry = list(swap_mem)
-            swap_entry[sin_index] = swap_mem.sin - swap_last.sin
-            swap_entry[sout_index] = swap_mem.sout - swap_last.sout
-            swap_last = swap_mem
-
-            data.append(
-                (
-                    last_time,
-                    measured_end_time,
-                    io_diff,
-                    cpu_diff,
-                    cpu_percent,
-                    list(virt_mem),
-                    swap_entry,
-                )
+        status = data.get("status", "")
+        if status:
+            marker_data["status"] = status
+            expected = data.get("expected")  # None if result was as expected
+            if expected is not None:
+                marker_data["expected"] = expected
+            unexpected_subtests = sum(
+                1
+                for subtest_outcome in subtest_outcomes
+                if subtest_outcome in (Outcome.UNEXPECTED, Outcome.WILL_RETRY)
             )
-
-            collection_overhead = time.time() - last_time - poll_interval
-            last_time = measured_end_time
-            sleep_interval = max(0, poll_interval - collection_overhead)
-
-    except Exception as e:
-        warnings.warn("_collect failed: %s" % e)
-
-    finally:
-
-        for entry in data:
-            pipe.send(entry)
-
-        pipe.send(("done", None, None, None, None, None, None))
-        pipe.close()
-
-    sys.exit(0)
-
-
-SystemResourceUsage = namedtuple(
-    "SystemResourceUsage",
-    ["start", "end", "cpu_times", "cpu_percent", "io", "virt", "swap"],
-)
-
-
-class SystemResourceMonitor(object):
-    """Measures system resources.
-
-    Each instance measures system resources from the time it is started
-    until it is finished. It does this on a separate process so it doesn't
-    impact execution of the main Python process.
-
-    Each instance is a one-shot instance. It cannot be used to record multiple
-    durations.
-
-    Aside from basic data gathering, the class supports basic analysis
-    capabilities. You can query for data between ranges. You can also tell it
-    when certain events occur and later grab data relevant to those events or
-    plot those events on a timeline.
-
-    The resource monitor works by periodically polling the state of the
-    system. By default, it polls every second. This can be adjusted depending
-    on the required granularity of the data and considerations for probe
-    overhead. It tries to probe at the interval specified. However, variations
-    should be expected. Fast and well-behaving systems should experience
-    variations in the 1ms range. Larger variations may exist if the system is
-    under heavy load or depending on how accurate socket polling is on your
-    system.
-
-    In its current implementation, data is not available until collection has
-    stopped. This may change in future iterations.
-
-    Usage
-    =====
-
-    monitor = SystemResourceMonitor()
-    monitor.start()
-
-    # Record that a single event in time just occurred.
-    foo.do_stuff()
-    monitor.record_event('foo_did_stuff')
-
-    # Record that we're about to perform a possibly long-running event.
-    with monitor.phase('long_job'):
-        foo.do_long_running_job()
-
-    # Stop recording. Currently we need to stop before data is available.
-    monitor.stop()
-
-    # Obtain the raw data for the entire probed range.
-    print('CPU Usage:')
-    for core in monitor.aggregate_cpu():
-        print(core)
-
-    # We can also request data corresponding to a specific phase.
-    for data in monitor.phase_usage('long_job'):
-        print(data.cpu_percent)
-    """
-
-    # The interprocess communication is complicated enough to warrant
-    # explanation. To work around the Python GIL, we launch a separate
-    # background process whose only job is to collect metrics. If we performed
-    # collection in the main process, the polling interval would be
-    # inconsistent if a long-running function were on the stack. Since the
-    # child process is independent of the instantiating process, data
-    # collection should be evenly spaced.
-    #
-    # As the child process collects data, it buffers it locally. When
-    # collection stops, it flushes all that data to a pipe to be read by
-    # the parent process.
-
-    def __init__(self, poll_interval=1.0):
-        """Instantiate a system resource monitor instance.
-
-        The instance is configured with a poll interval. This is the interval
-        between samples, in float seconds.
-        """
-        self.start_time = None
-        self.end_time = None
-
-        self.events = []
-        self.phases = OrderedDict()
-
-        self._active_phases = {}
-
-        self._running = False
-        self._stopped = False
-        self._process = None
-
-        if psutil is None:
-            return
-
-        # This try..except should not be needed! However, some tools (like
-        # |mach build|) attempt to load psutil before properly creating a
-        # virtualenv by building psutil. As a result, python/psutil may be in
-        # sys.path and its .py files may pick up the psutil C extension from
-        # the system install. If the versions don't match, we typically see
-        # failures invoking one of these functions.
-        try:
-            cpu_percent = psutil.cpu_percent(0.0, True)
-            cpu_times = psutil.cpu_times(False)
-            io = get_disk_io_counters()
-            virt = psutil.virtual_memory()
-            swap = psutil.swap_memory()
-        except Exception as e:
-            warnings.warn("psutil failed to run: %s" % e)
-            return
-
-        self._cpu_cores = len(cpu_percent)
-        self._cpu_times_type = type(cpu_times)
-        self._cpu_times_len = len(cpu_times)
-        self._io_type = type(io)
-        self._io_len = len(io)
-        self._virt_type = type(virt)
-        self._virt_len = len(virt)
-        self._swap_type = type(swap)
-        self._swap_len = len(swap)
-
-        self._pipe, child_pipe = multiprocessing.Pipe(True)
-
-        self._process = multiprocessing.Process(
-            target=_collect, args=(child_pipe, poll_interval)
-        )
-
-    def __del__(self):
-        if self._running:
-            self._pipe.send(("terminate",))
-            self._process.join()
-
-    # Methods to control monitoring.
-
-    def start(self):
-        """Start measuring system-wide CPU resource utilization.
-
-        You should only call this once per instance.
-        """
-        if not self._process:
-            return
-
-        self._process.start()
-        self._running = True
-
-    def stop(self):
-        """Stop measuring system-wide CPU resource utilization.
-
-        You should call this if and only if you have called start(). You should
-        always pair a stop() with a start().
-
-        Currently, data is not available until you call stop().
-        """
-        if not self._process:
-            self._stopped = True
-            return
-
-        assert not self._stopped
-
-        try:
-            self._pipe.send(("terminate",))
-        except Exception:
-            pass
-        self._stopped = True
-
-        self.measurements = []
-
-        # The child process will send each data sample over the pipe
-        # as a separate data structure. When it has finished sending
-        # samples, it sends a special "done" message to indicate it
-        # is finished.
-
-        while _poll(self._pipe, poll_interval=0.1):
-            try:
-                (
-                    start_time,
-                    end_time,
-                    io_diff,
-                    cpu_diff,
-                    cpu_percent,
-                    virt_mem,
-                    swap_mem,
-                ) = self._pipe.recv()
-            except Exception:
-                # Let's assume we're done here
-                break
-
-            # There should be nothing after the "done" message so
-            # terminate.
-            if start_time == "done":
-                break
-
-            io = self._io_type(*io_diff)
-            virt = self._virt_type(*virt_mem)
-            swap = self._swap_type(*swap_mem)
-            cpu_times = [self._cpu_times_type(*v) for v in cpu_diff]
-
-            self.measurements.append(
-                SystemResourceUsage(
-                    start_time, end_time, cpu_times, cpu_percent, io, virt, swap
-                )
-            )
-
-        # We establish a timeout so we don't hang forever if the child
-        # process has crashed.
-        if self._running:
-            self._process.join(10)
-            if self._process.is_alive():
-                self._process.terminate()
-                self._process.join(10)
-
-        self._running = False
-
-        if len(self.measurements):
-            self.start_time = self.measurements[0].start
-            self.end_time = self.measurements[-1].end
-
-    # Methods to record events alongside the monitored data.
-
-    def record_event(self, name):
-        """Record an event as occuring now.
-
-        Events are actions that occur at a specific point in time. If you are
-        looking for an action that has a duration, see the phase API below.
-        """
-        self.events.append((time.time(), name))
-
-    @contextmanager
-    def phase(self, name):
-        """Context manager for recording an active phase."""
-        self.begin_phase(name)
-        yield
-        self.finish_phase(name)
-
-    def begin_phase(self, name):
-        """Record the start of a phase.
-
-        Phases are actions that have a duration. Multiple phases can be active
-        simultaneously. Phases can be closed in any order.
-
-        Keep in mind that if phases occur in parallel, it will become difficult
-        to isolate resource utilization specific to individual phases.
-        """
-        assert name not in self._active_phases
-
-        self._active_phases[name] = time.time()
-
-    def finish_phase(self, name):
-        """Record the end of a phase."""
-
-        assert name in self._active_phases
-
-        phase = (self._active_phases[name], time.time())
-        self.phases[name] = phase
-        del self._active_phases[name]
-
-        return phase[1] - phase[0]
-
-    # Methods to query data.
-
-    def range_usage(self, start=None, end=None):
-        """Obtain the usage data falling within the given time range.
-
-        This is a generator of SystemResourceUsage.
-
-        If no time range bounds are given, all data is returned.
-        """
-        if not self._stopped or self.start_time is None:
-            return
-
-        if start is None:
-            start = self.start_time
-
-        if end is None:
-            end = self.end_time
-
-        for entry in self.measurements:
-            if entry.start < start:
-                continue
-
-            if entry.end > end:
-                break
-
-            yield entry
-
-    def phase_usage(self, phase):
-        """Obtain usage data for a specific phase.
-
-        This is a generator of SystemResourceUsage.
-        """
-        time_start, time_end = self.phases[phase]
-
-        return self.range_usage(time_start, time_end)
-
-    def between_events_usage(self, start_event, end_event):
-        """Obtain usage data between two point events.
-
-        This is a generator of SystemResourceUsage.
-        """
-        start_time = None
-        end_time = None
-
-        for t, name in self.events:
-            if name == start_event:
-                start_time = t
-            elif name == end_event:
-                end_time = t
-
-        if start_time is None:
-            raise Exception("Could not find start event: %s" % start_event)
-
-        if end_time is None:
-            raise Exception("Could not find end event: %s" % end_event)
-
-        return self.range_usage(start_time, end_time)
-
-    def aggregate_cpu_percent(self, start=None, end=None, phase=None, per_cpu=True):
-        """Obtain the aggregate CPU percent usage for a range.
-
-        Returns a list of floats representing average CPU usage percentage per
-        core if per_cpu is True (the default). If per_cpu is False, return a
-        single percentage value.
-
-        By default this will return data for the entire instrumented interval.
-        If phase is defined, data for a named phase will be returned. If start
-        and end are defined, these times will be fed into range_usage().
-        """
-        cpu = [[] for i in range(0, self._cpu_cores)]
-
-        if phase:
-            data = self.phase_usage(phase)
-        else:
-            data = self.range_usage(start, end)
-
-        for usage in data:
-            for i, v in enumerate(usage.cpu_percent):
-                cpu[i].append(v)
-
-        samples = len(cpu[0])
-
-        if not samples:
-            return 0
-
-        if per_cpu:
-            # pylint --py3k W1619
-            return [sum(x) / samples for x in cpu]
-
-        cores = [sum(x) for x in cpu]
-
-        # pylint --py3k W1619
-        return sum(cores) / len(cpu) / samples
-
-    def aggregate_cpu_times(self, start=None, end=None, phase=None, per_cpu=True):
-        """Obtain the aggregate CPU times for a range.
-
-        If per_cpu is True (the default), this returns a list of named tuples.
-        Each tuple is as if it were returned by psutil.cpu_times(). If per_cpu
-        is False, this returns a single named tuple of the aforementioned type.
-        """
-        empty = [0 for i in range(0, self._cpu_times_len)]
-        cpu = [list(empty) for i in range(0, self._cpu_cores)]
-
-        if phase:
-            data = self.phase_usage(phase)
-        else:
-            data = self.range_usage(start, end)
-
-        for usage in data:
-            for i, core_values in enumerate(usage.cpu_times):
-                for j, v in enumerate(core_values):
-                    cpu[i][j] += v
-
-        if per_cpu:
-            return [self._cpu_times_type(*v) for v in cpu]
-
-        sums = list(empty)
-        for core in cpu:
-            for i, v in enumerate(core):
-                sums[i] += v
-
-        return self._cpu_times_type(*sums)
-
-    def aggregate_io(self, start=None, end=None, phase=None):
-        """Obtain aggregate I/O counters for a range.
-
-        Returns an iostat named tuple from psutil.
-        """
-
-        io = [0 for i in range(self._io_len)]
-
-        if phase:
-            data = self.phase_usage(phase)
-        else:
-            data = self.range_usage(start, end)
-
-        for usage in data:
-            for i, v in enumerate(usage.io):
-                io[i] += v
-
-        return self._io_type(*io)
-
-    def min_memory_available(self, start=None, end=None, phase=None):
-        """Return the minimum observed available memory number from a range.
-
-        Returns long bytes of memory available.
-
-        See psutil for notes on how this is calculated.
-        """
-        if phase:
-            data = self.phase_usage(phase)
-        else:
-            data = self.range_usage(start, end)
-
-        values = []
-
-        for usage in data:
-            values.append(usage.virt.available)
-
-        return min(values)
-
-    def max_memory_percent(self, start=None, end=None, phase=None):
-        """Returns the maximum percentage of system memory used.
-
-        Returns a float percentage. 1.00 would mean all system memory was in
-        use at one point.
-        """
-        if phase:
-            data = self.phase_usage(phase)
-        else:
-            data = self.range_usage(start, end)
-
-        values = []
-
-        for usage in data:
-            values.append(usage.virt.percent)
-
-        return max(values)
-
-    def as_dict(self):
-        """Convert the recorded data to a dict, suitable for serialization.
-
-        The returned dict has the following keys:
-
-          version - Integer version number being rendered. Currently 2.
-          cpu_times_fields - A list of the names of the CPU times fields.
-          io_fields - A list of the names of the I/O fields.
-          virt_fields - A list of the names of the virtual memory fields.
-          swap_fields - A list of the names of the swap memory fields.
-          samples - A list of dicts containing low-level measurements.
-          events - A list of lists representing point events. The inner list
-            has 2 elements, the float wall time of the event and the string
-            event name.
-          phases - A list of dicts describing phases. Each phase looks a lot
-            like an entry from samples (see below). Some phases may not have
-            data recorded against them, so some keys may be None.
-          overall - A dict representing overall resource usage. This resembles
-            a sample entry.
-          system - Contains additional information about the system including
-            number of processors and amount of memory.
-
-        Each entry in the sample list is a dict with the following keys:
-
-          start - Float wall time this measurement began on.
-          end - Float wall time this measurement ended on.
-          io - List of numerics for I/O values.
-          virt - List of numerics for virtual memory values.
-          swap - List of numerics for swap memory values.
-          cpu_percent - List of floats representing CPU percent on each core.
-          cpu_times - List of lists. Main list is each core. Inner lists are
-            lists of floats representing CPU times on that core.
-          cpu_percent_mean - Float of mean CPU percent across all cores.
-          cpu_times_sum - List of floats representing the sum of CPU times
-            across all cores.
-          cpu_times_total - Float representing the sum of all CPU times across
-            all cores. This is useful for calculating the percent in each CPU
-            time.
-        """
-
-        o = dict(
-            version=2,
-            cpu_times_fields=list(self._cpu_times_type._fields),
-            io_fields=list(self._io_type._fields),
-            virt_fields=list(self._virt_type._fields),
-            swap_fields=list(self._swap_type._fields),
-            samples=[],
-            phases=[],
-            system={},
-        )
-
-        def populate_derived(e):
-            if e["cpu_percent_cores"]:
-                # pylint --py3k W1619
-                e["cpu_percent_mean"] = sum(e["cpu_percent_cores"]) / len(
-                    e["cpu_percent_cores"]
-                )
+            if unexpected_subtests:
+                marker_data["unexpected_subtests"] = unexpected_subtests
+
+            # A test with subtests ends OK when the harness ran it fine: its
+            # subtests decide whether it passed.
+            outcome = max([Outcome.from_log(data), *subtest_outcomes])
+            if status in ("SKIP", "TIMEOUT"):
+                marker_data["color"] = "yellow"
+            elif status in ("CRASH", "ERROR"):
+                marker_data["color"] = "red"
+            elif outcome in (Outcome.UNEXPECTED, Outcome.WILL_RETRY):
+                marker_data["color"] = "orange"
+            elif outcome == Outcome.KNOWN_INTERMITTENT:
+                marker_data["color"] = "yellow"
             else:
-                e["cpu_percent_mean"] = None
+                marker_data["color"] = "green"
+            message = data.get("message", "")
+            if message and marker_data["color"] != "green":
+                marker_data["message"] = message
 
-            if e["cpu_times"]:
-                e["cpu_times_sum"] = [0.0] * self._cpu_times_len
-                for i in range(0, self._cpu_times_len):
-                    e["cpu_times_sum"][i] = sum(core[i] for core in e["cpu_times"])
+        SystemResourceMonitor.instance.record_marker("test", start, end, marker_data)
 
-                e["cpu_times_total"] = sum(e["cpu_times_sum"])
+    @staticmethod
+    def test_status(data):
+        """Record a test_status/log/process_output event.
 
-        def phase_entry(name, start, end):
-            e = dict(
-                name=name,
-                start=start,
-                end=end,
-                duration=end - start,
-                cpu_percent_cores=self.aggregate_cpu_percent(phase=name),
-                cpu_times=[list(c) for c in self.aggregate_cpu_times(phase=name)],
-                io=list(self.aggregate_io(phase=name)),
-            )
-            populate_derived(e)
-            return e
+        Args:
+            data: Dictionary containing test_status/log/process_output data including:
+                  - "action": the action type
+                  - "test": test name (optional)
+                  - "subtest": subtest name (optional, only for test_status/log)
+                  - "status" or "level": status for test_status/log
+                  - "time": timestamp in milliseconds
+                  - "message" or "data": optional message
+        """
+        if not SystemResourceMonitor.instance:
+            return
 
-        for m in self.measurements:
-            e = dict(
-                start=m.start,
-                end=m.end,
-                io=list(m.io),
-                virt=list(m.virt),
-                swap=list(m.swap),
-                cpu_percent_cores=list(m.cpu_percent),
-                cpu_times=list(list(cpu) for cpu in m.cpu_times),
-            )
+        from moztest.outcome import Outcome
 
-            populate_derived(e)
-            o["samples"].append(e)
+        timestamp = SystemResourceMonitor.instance.get_monotonic_time_from_data(data)
 
-        if o["samples"]:
-            o["start"] = o["samples"][0]["start"]
-            o["end"] = o["samples"][-1]["end"]
-            o["duration"] = o["end"] - o["start"]
-            o["overall"] = phase_entry(None, o["start"], o["end"])
+        marker_data = {"type": "TestStatus"}
+        test_name = _test_id_str(data.get("test"))
+        outcome = None
+
+        if data.get("action") == "process_output":
+            line = data.get("data")
+            if line and SystemResourceMonitor.instance._parse_process_output(
+                line, timestamp, test_name, process=data.get("process")
+            ):
+                # Line was parsed into a specialized marker; nothing else to do.
+                return
+            # Fallback: keep the raw line as a generic "output" marker.
+            marker_name = "output"
+            message = line
         else:
-            o["start"] = None
-            o["end"] = None
-            o["duration"] = None
-            o["overall"] = None
+            # test_status and log actions
+            status = (data.get("status") or data.get("level")).upper()
+            marker_name = status
+            if data.get("action") == "test_status":
+                outcome = Outcome.from_log(data)
+            if status == "ERROR":
+                marker_data["color"] = "red"
+            elif outcome == Outcome.KNOWN_INTERMITTENT:
+                marker_name = f"KNOWN-INTERMITTENT-{status}"
+                marker_data["color"] = "yellow"
+            elif outcome == Outcome.EXPECTED:
+                if status == "PASS":
+                    marker_data["color"] = "green"
+                elif status != "SKIP":
+                    marker_name = f"KNOWN-{status}"
+                    marker_data["color"] = "yellow"
+            elif outcome is not None:
+                if status == "PASS":
+                    # A todo() that passed; this fails the test.
+                    marker_name = "UNEXPECTED-PASS"
+                marker_data["color"] = "orange"
 
-        o["events"] = [list(ev) for ev in self.events]
+            if subtest := data.get("subtest"):
+                marker_data["subtest"] = subtest
 
-        for phase, v in self.phases.items():
-            o["phases"].append(phase_entry(phase, v[0], v[1]))
+            message = data.get("message")
 
-        if have_psutil:
-            o["system"].update(
-                dict(
-                    cpu_logical_count=psutil.cpu_count(logical=True),
-                    cpu_physical_count=psutil.cpu_count(logical=False),
-                    swap_total=psutil.swap_memory()[0],
-                    vmem_total=psutil.virtual_memory()[0],
+        if test_name:
+            marker_data["test"] = test_name
+
+        if message:
+            marker_data["message"] = message
+
+        if stack := data.get("stack"):
+            marker_data["stack"] = stack
+
+        SystemResourceMonitor.record_event(marker_name, timestamp, marker_data)
+
+        if not test_name or outcome in (None, Outcome.EXPECTED):
+            return
+        key = SystemResourceMonitor._test_key(data)
+        active = SystemResourceMonitor.instance._active_tests.get(key)
+        if active is not None:
+            active[1].append(outcome)
+        elif outcome == Outcome.UNEXPECTED:
+            # The test was reported passing before this status (a shutdown
+            # leak, a replayed log): fail its marker.
+            SystemResourceMonitor.instance._fail_test_marker(key, timestamp)
+
+    def _fail_test_marker(self, key, timestamp):
+        for marker in reversed(self.markers):
+            marker_type, marker_start, marker_end, marker_data, _ = marker
+            if (
+                marker_type == "test"
+                and (marker_data.get("subsuite") or "", marker_data.get("test")) == key
+                and marker_start <= timestamp <= marker_end
+                and marker_data.get("color") in ("green", "yellow")
+                and marker_data.get("status") not in ("SKIP", "TIMEOUT")
+            ):
+                marker_data["color"] = "orange"
+                marker_data["unexpected_subtests"] = (
+                    marker_data.get("unexpected_subtests", 0) + 1
                 )
-            )
+                break
 
-        return o
+    @staticmethod
+    def crash(data):
+        """Record a crash event.
+
+        Args:
+            data: Dictionary containing crash data including:
+                  - "signature": crash signature
+                  - "reason": crash reason (optional)
+                  - "test": test name (optional)
+                  - "minidump_path": path to minidump file (optional)
+                  - "stack": structured stack (array of frame dicts) (optional)
+                  - "time": timestamp in milliseconds
+        """
+        if not SystemResourceMonitor.instance:
+            return
+
+        timestamp = SystemResourceMonitor.instance.get_monotonic_time_from_data(data)
+
+        marker_data = {
+            "type": "Crash",
+            "color": "red",
+        }
+
+        if signature := data.get("signature"):
+            marker_data["signature"] = signature
+        if reason := data.get("reason"):
+            marker_data["reason"] = reason
+        if test := data.get("test"):
+            marker_data["test"] = test
+
+        if minidump_path := data.get("minidump_path"):
+            # Extract the minidump name (without extension) from the path
+            # e.g., "/tmp/xpc-other-k49po531/7a7f1343-4dc3-224c-638b-5806ab642301.dmp"
+            # -> "7a7f1343-4dc3-224c-638b-5806ab642301"
+            minidump_name = os.path.splitext(os.path.basename(minidump_path))[0]
+            marker_data["minidump"] = minidump_name
+
+        # Add stack if available (structured format: array of frame dicts)
+        if stack := data.get("crashing_thread_stack"):
+            marker_data["stack"] = stack
+
+        SystemResourceMonitor.record_event("CRASH", timestamp, marker_data)
+
+    @staticmethod
+    def lsan_leak(data):
+        """Record an LSan leak event.
+
+        Args:
+            data: Dictionary containing lsan_leak data including:
+                  - "kind": "Direct" or "Indirect"
+                  - "bytes": bytes leaked at this allocation site
+                  - "objects": number of objects leaked at this allocation site
+                  - "stack": structured stack frames (list of frame dicts), if any
+                  - "scope": optional scope (e.g. test name)
+                  - "allowed_match": frame matching an allow-list entry, if any
+        """
+        if not SystemResourceMonitor.instance:
+            return
+
+        timestamp = SystemResourceMonitor.instance.get_monotonic_time_from_data(data)
+
+        marker_data = {
+            "type": "LSanLeak",
+            "kind": data["kind"],
+            "bytes": data["bytes"],
+            "objects": data["objects"],
+        }
+
+        if stack := data.get("stack"):
+            rewritten = []
+            for frame in stack:
+                if "file" in frame:
+                    rewritten.append({
+                        **frame,
+                        "file": SystemResourceMonitor.instance._clean_frame_file(
+                            frame["file"]
+                        )[1],
+                    })
+                else:
+                    rewritten.append(frame)
+            marker_data["stack"] = rewritten
+        if scope := data.get("scope"):
+            marker_data["scope"] = scope
+        if allowed_match := data.get("allowed_match"):
+            marker_data["allowed_match"] = allowed_match
+            marker_data["color"] = "yellow"
+        else:
+            marker_data["color"] = "orange"
+
+        SystemResourceMonitor.record_event("LSan Leak", timestamp, marker_data)
+
+    @staticmethod
+    def lsan_summary(data):
+        """Record an LSan summary event.
+
+        Args:
+            data: Dictionary containing lsan_summary data including:
+                  - "bytes": total bytes leaked
+                  - "allocations": total allocations leaked
+                  - "allowed": whether the leak is allow-listed
+        """
+        if not SystemResourceMonitor.instance:
+            return
+
+        timestamp = SystemResourceMonitor.instance.get_monotonic_time_from_data(data)
+
+        allowed = data.get("allowed", False)
+        marker_data = {
+            "type": "LSanSummary",
+            "bytes": data["bytes"],
+            "allocations": data["allocations"],
+            "color": "yellow" if allowed else "orange",
+        }
+        if allowed:
+            marker_data["allowed"] = True
+
+        SystemResourceMonitor.record_event("LSan Summary", timestamp, marker_data)
+
+    @staticmethod
+    def tsan_error(data):
+        """Record a ThreadSanitizer report.
+
+        A TSan report can carry several labeled stacks (e.g. the two
+        acquisition sites of a lock-order inversion, or the racing accesses of
+        a data race). A profiler marker holds a single stack, so one marker is
+        emitted per labeled stack; all markers from the same report share a
+        "report_index" so they can be correlated on the timeline.
+
+        Args:
+            data: Dictionary containing tsan_error data including:
+                  - "kind": report kind (e.g. "data race",
+                            "lock-order-inversion (potential deadlock)")
+                  - "signature": SUMMARY location (e.g.
+                                 "Mutex_posix.cpp:91:3 in mutexLock")
+                  - "pid": pid the report is about (optional)
+                  - "description": extra context such as the lock-order cycle
+                                   graph (optional)
+                  - "stacks": list of {"label", "stack"} dicts, one per labeled
+                              stack in the report
+                  - "scope": identifier for the browser session, e.g. a
+                             directory name (optional)
+        """
+        if not SystemResourceMonitor.instance:
+            return
+
+        monitor = SystemResourceMonitor.instance
+        timestamp = monitor.get_monotonic_time_from_data(data)
+
+        report_index = monitor._tsan_report_count
+        monitor._tsan_report_count += 1
+
+        def make_marker_data():
+            marker_data = {
+                "type": "TSanError",
+                "kind": data["kind"],
+                "report_index": report_index,
+                "color": "orange",
+            }
+            if pid := data.get("pid"):
+                marker_data["pid"] = pid
+            if description := data.get("description"):
+                marker_data["description"] = description
+            if scope := data.get("scope"):
+                marker_data["scope"] = scope
+            return marker_data
+
+        stacks = data.get("stacks") or []
+        if not stacks:
+            SystemResourceMonitor.record_event(
+                "TSan Error", timestamp, make_marker_data()
+            )
+            return
+
+        for substack in stacks:
+            marker_data = make_marker_data()
+            marker_data["label"] = substack.get("label", "")
+            rewritten = []
+            for frame in substack.get("stack", []):
+                if "file" in frame:
+                    rewritten.append({
+                        **frame,
+                        "file": monitor._clean_frame_file(frame["file"])[1],
+                    })
+                else:
+                    rewritten.append(frame)
+            marker_data["stack"] = rewritten
+            SystemResourceMonitor.record_event("TSan Error", timestamp, marker_data)
+
+    @staticmethod
+    def assertion_failure(data):
+        """Record a native assertion failure.
+
+        Args:
+            data: Dictionary containing assertion_failure data including:
+                  - "kind": "MOZ_ASSERT", "MOZ_CRASH", "NS_ASSERTION" or "NS_ABORT"
+                  - "message": asserted condition or crash reason
+                  - "file", "lineno": source location (optional)
+                  - "pid", "process_type", "thread": asserting process (optional)
+                  - "fatal": whether the process aborts (optional)
+                  - "stack": list of profiler-format frame dicts (optional)
+                  - "test": test name (optional)
+                  - "time": timestamp in milliseconds
+
+        The same assertion may be pending in the line-based fallback fed by
+        process_output lines; the structured action wins.
+        """
+        if not SystemResourceMonitor.instance:
+            return
+
+        monitor = SystemResourceMonitor.instance
+        timestamp = monitor.get_monotonic_time_from_data(data)
+
+        key = (data["message"], data.get("file"), data.get("lineno"))
+        if not (monitor._assertion_parser and monitor._assertion_parser.discard(key)):
+            monitor._recent_assertion_actions.append(key)
+        monitor._emit_assertion_marker(timestamp, data)
+
+    def _record_line_assertion(self, data):
+        key = (data["message"], data.get("file"), data.get("lineno"))
+        if key in self._recent_assertion_actions:
+            self._recent_assertion_actions.remove(key)
+            return
+        self._emit_assertion_marker(data.pop("time", time.monotonic()), data)
+
+    def _rewrite_stack_files(self, stack):
+        """Point the frames' files at the source view."""
+        return [
+            {**frame, "file": self._clean_frame_file(frame["file"])[1]}
+            if "file" in frame
+            else frame
+            for frame in stack
+        ]
+
+    def _emit_assertion_marker(self, timestamp, data):
+        fatal = bool(data.get("fatal"))
+        marker_data = {
+            "type": "AssertionFailure",
+            "kind": data["kind"],
+            "message": data["message"],
+            "color": "red" if fatal else "orange",
+        }
+        if fatal:
+            marker_data["fatal"] = True
+        frame_file = None
+        if file_ := data.get("file"):
+            marker_data["file"], frame_file = self._clean_frame_file(file_)
+        lineno = data.get("lineno")
+        if lineno is not None:
+            marker_data["line"] = lineno
+        for source, target in (
+            ("pid", "pid"),
+            ("process_type", "process"),
+            ("thread", "thread"),
+            ("test", "test"),
+        ):
+            if value := data.get(source):
+                marker_data[target] = value
+        if stack := data.get("stack"):
+            marker_data["stack"] = self._rewrite_stack_files(stack)
+        elif frame_file and lineno is not None:
+            marker_data["stack"] = [{"file": frame_file, "line": lineno}]
+        self._add_event(data["kind"], timestamp, marker_data)
+
+    @staticmethod
+    def ubsan_error(data):
+        """Record an UndefinedBehaviorSanitizer report.
+
+        Args:
+            data: Dictionary containing ubsan_error data including:
+                  - "kind": check kind (e.g. "undefined-behavior")
+                  - "message": the "runtime error:" message
+                  - "file", "lineno", "column": source location (optional)
+                  - "stack": list of profiler-format frame dicts (optional)
+                  - "scope": identifier for the browser session, e.g. a
+                             directory name (optional)
+                  - "test": test name (optional)
+                  - "time": timestamp in milliseconds
+
+        The same report may be pending in the line-based fallback fed by
+        process_output lines; the structured action wins.
+        """
+        if not SystemResourceMonitor.instance:
+            return
+
+        monitor = SystemResourceMonitor.instance
+        timestamp = monitor.get_monotonic_time_from_data(data)
+
+        key = _ubsan_key(data)
+        if not (monitor._ubsan_parser and monitor._ubsan_parser.discard(key)):
+            monitor._recent_ubsan_actions.append(key)
+        monitor._emit_ubsan_marker(timestamp, data)
+
+    def _record_line_ubsan(self, data):
+        key = _ubsan_key(data)
+        if key in self._recent_ubsan_actions:
+            self._recent_ubsan_actions.remove(key)
+            return
+        self._emit_ubsan_marker(data.pop("time", time.monotonic()), data)
+
+    def _emit_ubsan_marker(self, timestamp, data):
+        marker_data = {
+            "type": "UBSanError",
+            "kind": data["kind"],
+            "message": data["message"],
+            "color": "orange",
+        }
+        frame_file = None
+        if file_ := data.get("file"):
+            marker_data["file"], frame_file = self._clean_frame_file(file_)
+        lineno = data.get("lineno")
+        if lineno is not None:
+            marker_data["line"] = lineno
+        for key in ("column", "scope", "test"):
+            if data.get(key) is not None:
+                marker_data[key] = data[key]
+        if stack := data.get("stack"):
+            marker_data["stack"] = self._rewrite_stack_files(stack)
+        elif frame_file and lineno is not None:
+            marker_data["stack"] = [{"file": frame_file, "line": lineno}]
+        self._add_event("UBSan Error", timestamp, marker_data)
+
+    @staticmethod
+    def asan_error(data):
+        """Record an AddressSanitizer report.
+
+        Args:
+            data: Dictionary containing asan_error data including:
+                  - "kind": error kind (e.g. "SEGV", "heap-use-after-free")
+                  - "message": the header text after "AddressSanitizer: "
+                  - "pid": pid of the process the report is about (optional)
+                  - "file", "lineno", "column", "function": SUMMARY location
+                    (optional)
+                  - "stack": list of profiler-format frame dicts (optional)
+                  - "stacks": list of {"label", "stack"} dicts, one per
+                              labeled stack of the report such as "freed by
+                              thread T0 here" (optional)
+                  - "scope": identifier for the browser session, e.g. a
+                             directory name (optional)
+                  - "test": test name (optional)
+                  - "quiet": whether the test run will be retried (optional)
+                  - "time": timestamp in milliseconds
+
+        The same report may be pending in the line-based fallback fed by
+        process_output lines; the structured action wins.
+        """
+        if not SystemResourceMonitor.instance:
+            return
+
+        monitor = SystemResourceMonitor.instance
+        timestamp = monitor.get_monotonic_time_from_data(data)
+
+        key = _asan_key(data)
+        if not (monitor._asan_parser and monitor._asan_parser.discard(key)):
+            monitor._recent_asan_actions.append(key)
+        monitor._emit_asan_marker(timestamp, data)
+
+    def _record_line_asan(self, data):
+        key = _asan_key(data)
+        if key in self._recent_asan_actions:
+            self._recent_asan_actions.remove(key)
+            return
+        self._emit_asan_marker(data.pop("time", time.monotonic()), data)
+
+    def _emit_asan_marker(self, timestamp, data):
+        marker_data = {
+            "type": "ASanError",
+            "kind": data["kind"],
+            "message": data["message"],
+            "color": "orange" if data.get("quiet") else "red",
+        }
+        frame_file = None
+        if file_ := data.get("file"):
+            marker_data["file"], frame_file = self._clean_frame_file(file_)
+        lineno = data.get("lineno")
+        if lineno is not None:
+            marker_data["line"] = lineno
+        for key in ("column", "function", "pid", "scope", "test"):
+            if data.get(key) is not None:
+                marker_data[key] = data[key]
+        stack = data.get("stack") or []
+        # For the marker table: JIT code, system libraries and truncated
+        # reports have no SUMMARY location.
+        if "file" in marker_data:
+            location = marker_data["file"]
+            if lineno is not None:
+                location += f":{lineno}"
+        else:
+            location = (
+                data.get("function")
+                or next((f["function"] for f in stack if f.get("function")), None)
+                or data["message"]
+            )
+        marker_data["location"] = location
+        if stack:
+            marker_data["stack"] = self._rewrite_stack_files(stack)
+        elif frame_file and lineno is not None:
+            marker_data["stack"] = [{"file": frame_file, "line": lineno}]
+        if stacks := data.get("stacks"):
+            marker_data["stacks"] = [
+                {
+                    "label": s.get("label", ""),
+                    "stack": self._rewrite_stack_files(s.get("stack", [])),
+                }
+                for s in stacks
+            ]
+        self._add_event("ASan Error", timestamp, marker_data)
+
+    @staticmethod
+    def mozleak_object(data):
+        """Record a per-process per-class leaked object event.
+
+        Args:
+            data: Dictionary containing mozleak_object data including:
+                  - "process": process name
+                  - "name": leaked object/class name
+                  - "count": leaked instance count
+                  - "bytes_per_inst": per-instance size in bytes
+                  - "bytes_leaked": total bytes leaked for this class
+                  - "total_instances": total instances allocated
+                  - "scope": optional scope
+                  - "allowed": whether the leak is allow-listed
+        """
+        if not SystemResourceMonitor.instance:
+            return
+
+        timestamp = SystemResourceMonitor.instance.get_monotonic_time_from_data(data)
+
+        allowed = data.get("allowed", False)
+        marker_data = {
+            "type": "MozLeakObject",
+            "process": data["process"],
+            "name": data["name"],
+            "count": data["count"],
+            "bytes_per_inst": data["bytes_per_inst"],
+            "bytes_leaked": data["bytes_leaked"],
+            "total_instances": data["total_instances"],
+            "color": "yellow" if allowed else "orange",
+        }
+        if scope := data.get("scope"):
+            marker_data["scope"] = scope
+        if allowed:
+            marker_data["allowed"] = True
+
+        SystemResourceMonitor.record_event("Leaked Object", timestamp, marker_data)
+
+    @staticmethod
+    def mozleak_total(data):
+        """Record a per-process leak total event.
+
+        Clean totals (zero bytes leaked) are not recorded as markers, to keep
+        the timeline focused on actual leaks.
+
+        Args:
+            data: Dictionary containing mozleak_total data including:
+                  - "process": process name
+                  - "bytes": total bytes leaked, or None if no TOTAL line was seen
+                  - "objects": list of leaked object class names
+                  - "scope": optional scope
+                  - "induced_crash": whether the process deliberately crashed
+                  - "ignore_missing": whether a missing total should be ignored
+        """
+        if not SystemResourceMonitor.instance:
+            return
+
+        bytes_leaked = data.get("bytes")
+        if bytes_leaked == 0:
+            return
+
+        timestamp = SystemResourceMonitor.instance.get_monotonic_time_from_data(data)
+
+        marker_data = {
+            "type": "MozLeakTotal",
+            "process": data["process"],
+            "bytes": bytes_leaked,
+            "objects": data.get("objects", []),
+        }
+        if scope := data.get("scope"):
+            marker_data["scope"] = scope
+
+        induced_crash = data.get("induced_crash", False)
+        ignore_missing = data.get("ignore_missing", False)
+        if induced_crash:
+            marker_data["induced_crash"] = True
+        if ignore_missing:
+            marker_data["ignore_missing"] = True
+
+        if bytes_leaked is None:
+            if induced_crash or ignore_missing:
+                marker_data["color"] = "grey"
+            else:
+                marker_data["color"] = "red"
+        else:
+            marker_data["color"] = "orange"
+
+        SystemResourceMonitor.record_event("Leaked Total", timestamp, marker_data)

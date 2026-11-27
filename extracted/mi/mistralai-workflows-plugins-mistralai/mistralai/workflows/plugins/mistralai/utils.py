@@ -28,6 +28,7 @@ def get_mistral_client(run_as: RunAs = RunAs.AUTO) -> Mistral:
         url_params=config.worker.agent.mistral_client_url_params,
         timeout_ms=config.worker.agent.mistral_client_timeout_ms,
         run_as=run_as,
+        executor_credentials_server_url=config.worker.server_url,
     )
 
 
@@ -36,7 +37,7 @@ def _get_agent_llm_rate_limit() -> RateLimit | None:
     if llm_rate_limit is None:
         return None
     if llm_rate_limit.key is None:
-        llm_rate_limit.key = _MISTRAL_LLM_RATE_LIMIT_DEFAULT_KEY
+        return llm_rate_limit.model_copy(update={"key": _MISTRAL_LLM_RATE_LIMIT_DEFAULT_KEY})
     return llm_rate_limit
 
 

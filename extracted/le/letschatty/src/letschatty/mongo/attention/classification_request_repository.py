@@ -37,7 +37,7 @@ STORED_NAMES: Dict[str, str] = {
     "applied_reason_id": "motivo_aplicado_id", "applied_origin": "origen_aplicado", "correctable_by": "corregible_por",
     "source_candidates": "candidatos_de_la_fuente", "ai_removed": "ia_quitada", "removed_ai_config": "ia_quitada_config",
     "new_content": "contenido_nuevo", "last_result": "ultimo_resultado", "base_calls": "llamadas_base",
-    "correcting": "corrigiendo", "reclassifications": "reclasificaciones",
+    "correcting": "corrigiendo", "reclassifications": "reclasificaciones", "welcome_by_ai": "bienvenida_por_ia",
     "general_inquiry_applied": "consulta_general_aplicada", "general_inquiry_at": "consulta_general_at",
     "correction": "correccion", "to_identify": "por_identificar",
 }

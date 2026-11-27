@@ -81,7 +81,8 @@ def sync_detailed(
 
     `kind` says why the request was made: `full` (a whole-account
     refresh), `scoped_webhook` (one repository, after a webhook),
-    `ci_poll` (one repository, waiting on a running check),
+    `ci_poll` (one repository, waiting on a running check or looking
+    for a rerun of a failed one),
     `auto_merge_poll` (one repository, waiting on an armed auto-merge),
     `details` (a dialog or check list opened), `hook_maintenance`
     (checking, adding or upgrading webhooks), `advisories` (reading a
@@ -140,7 +141,8 @@ def sync(
 
     `kind` says why the request was made: `full` (a whole-account
     refresh), `scoped_webhook` (one repository, after a webhook),
-    `ci_poll` (one repository, waiting on a running check),
+    `ci_poll` (one repository, waiting on a running check or looking
+    for a rerun of a failed one),
     `auto_merge_poll` (one repository, waiting on an armed auto-merge),
     `details` (a dialog or check list opened), `hook_maintenance`
     (checking, adding or upgrading webhooks), `advisories` (reading a
@@ -194,7 +196,8 @@ async def asyncio_detailed(
 
     `kind` says why the request was made: `full` (a whole-account
     refresh), `scoped_webhook` (one repository, after a webhook),
-    `ci_poll` (one repository, waiting on a running check),
+    `ci_poll` (one repository, waiting on a running check or looking
+    for a rerun of a failed one),
     `auto_merge_poll` (one repository, waiting on an armed auto-merge),
     `details` (a dialog or check list opened), `hook_maintenance`
     (checking, adding or upgrading webhooks), `advisories` (reading a
@@ -253,7 +256,8 @@ async def asyncio(
 
     `kind` says why the request was made: `full` (a whole-account
     refresh), `scoped_webhook` (one repository, after a webhook),
-    `ci_poll` (one repository, waiting on a running check),
+    `ci_poll` (one repository, waiting on a running check or looking
+    for a rerun of a failed one),
     `auto_merge_poll` (one repository, waiting on an armed auto-merge),
     `details` (a dialog or check list opened), `hook_maintenance`
     (checking, adding or upgrading webhooks), `advisories` (reading a

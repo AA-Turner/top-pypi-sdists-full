@@ -288,6 +288,31 @@ def enforce_epic_dispatch_guard(
     )
 
 
+def _sealed_verify_kwargs(config: Config, repo: Repo) -> dict:
+    """``sealed_paths=``/``sealed_repo_root=`` kwargs for
+    :func:`coord.preflight_size.verify_split_proposal`'s check 7 (#4176),
+    resolved from what :func:`enforce_preflight_guard` already has in
+    scope — *config* and *repo* — rather than the common case that
+    function's own docstring describes ("most callers have neither a
+    resolved driver nor a local checkout in hand"), which does not hold
+    here.
+
+    ``{}`` (check 7 finds nothing, same fail-open posture as not passing
+    these at all) when the repo has no acceptance driver, or this machine
+    has no local clone of it (:func:`coord.repo_onboard.local_clone_path`
+    — not every machine running this gate has *repo* checked out).
+    """
+    sealed_paths = config.acceptance.sealed_paths(repo.name)
+    if not sealed_paths:
+        return {}
+    from coord.repo_onboard import local_clone_path  # noqa: PLC0415
+
+    repo_root = local_clone_path(config, repo.name)
+    if repo_root is None:
+        return {}
+    return {"sealed_paths": sealed_paths, "sealed_repo_root": repo_root}
+
+
 def enforce_preflight_guard(
     *,
     proposal_type: str,
@@ -422,7 +447,10 @@ def enforce_preflight_guard(
                 named_backends=named,
             )
             if cross_backend_proposal is not None:
-                cross_backend_verification = verify_split_proposal(cross_backend_proposal)
+                cross_backend_verification = verify_split_proposal(
+                    cross_backend_proposal,
+                    **_sealed_verify_kwargs(config, repo),
+                )
                 if cross_backend_verification.ok:
                     from coord.decomposition_chat import (  # noqa: PLC0415
                         file_and_queue_split_proposal,
@@ -528,7 +556,9 @@ def enforce_preflight_guard(
                         verify_split_proposal,
                     )
 
-                    verification = verify_split_proposal(proposal)
+                    verification = verify_split_proposal(
+                        proposal, **_sealed_verify_kwargs(config, repo),
+                    )
                     if verification.ok:
                         from coord.decomposition_chat import (  # noqa: PLC0415
                             file_and_queue_split_proposal,
@@ -1176,6 +1206,25 @@ def dispatch(
                 raise ValueError(
                     f"Unknown machine: {capability_routing.machine_name!r}"
                 )
+        if capability_routing is not None and capability_routing.unmet_capabilities:
+            # #4147: this diff needs more than any single configured
+            # machine declares — `route_work_by_capability` already picked
+            # the best-covering one and the briefing note appended below
+            # tells the WORKER, but nothing told an operator/dashboard this
+            # fleet gap exists at all. Logged here (not inside
+            # `route_work_by_capability` itself, which is also called from
+            # test contexts that shouldn't need a caplog fixture for every
+            # assertion) so "fallback, never silent" holds for the
+            # dashboard/#4122-stats reader too, not just the worker.
+            _log.warning(
+                "dispatch: %s#%s routed to %r but %d required "
+                "capability(ies) are unmet by every configured machine: %s "
+                "(#4147 — no fleet machine fully covers this diff)",
+                proposal.repo_name, proposal.issue_number,
+                capability_routing.machine_name,
+                len(capability_routing.unmet_capabilities),
+                ", ".join(capability_routing.unmet_capabilities),
+            )
 
     # #3241 review: a rerouted machine can never fail this —
     # `route_work_by_capability`'s candidate filter already requires
@@ -1240,6 +1289,61 @@ def dispatch(
                 repo_path = machine.repo_path(proposal.repo_name)
                 if repo_path is None:  # pragma: no cover — route_work_by_liveness's
                     # candidate filter already requires a configured repo_path.
+                    raise ValueError(
+                        f"No repo_path configured for {proposal.repo_name!r} on "
+                        f"machine {machine.name!r}. Add it to coordinator.yml "
+                        "under machines[].repo_paths."
+                    )
+
+    # #4130: STRUCTURAL TEST-HOST RESERVATION GATE — a sole-capability Test
+    # host (the one `macos`/`windows` box in the fleet) must not take on a
+    # NEW Work/tranche leg while it is busy running the one Test leg only
+    # it can run: a parallel cargo build starving that leg's cold target
+    # dir is exactly what blew its own timeout in the 2026-11-25 macmini
+    # incident this issue is named for. Runs AFTER the capability/liveness
+    # gates above — `proposal.machine_name` here is already whatever they
+    # chose — and is opt-in via *board* (`None` performs no check at all,
+    # same shape as *status_fetcher*/*credential_fetcher*) and via
+    # `smoke_tests.reserve_sole_capability_hosts` (`True` by default).
+    if (
+        proposal.type == "work"
+        and board is not None
+        and config.smoke_tests.reserve_sole_capability_hosts
+    ):
+        reservation_routing = route_work_by_test_reservation(
+            proposed_machine_name=proposal.machine_name,
+            repo_name=proposal.repo_name,
+            machines=config.machines,
+            board=board,
+            files_likely=proposal.files_likely,
+            capability_rules=config.smoke_tests.capability_rules,
+        )
+        if reservation_routing is not None:
+            if reservation_routing.machine_name is None:
+                detail = "; ".join(
+                    f"{name} ({why})" for name, why in reservation_routing.tried
+                )
+                raise ValueError(
+                    f"no machine can take this {proposal.repo_name!r} dispatch "
+                    "right now — every candidate is reserved for a sole-"
+                    f"capability Test leg: {detail} — nothing dispatched (#4130)"
+                )
+            if reservation_routing.rerouted:
+                proposal.machine_name = reservation_routing.machine_name
+                machine = next(
+                    (m for m in config.machines if m.name == reservation_routing.machine_name),
+                    None,
+                )
+                if machine is None:  # pragma: no cover — route_work_by_test_
+                    # reservation only ever names a machine it drew from
+                    # config.machines.
+                    raise ValueError(
+                        f"Unknown machine: {reservation_routing.machine_name!r}"
+                    )
+                repo_path = machine.repo_path(proposal.repo_name)
+                if repo_path is None:  # pragma: no cover — route_work_by_test_
+                    # reservation's candidate filter already requires a
+                    # configured repo_path.
                     raise ValueError(
                         f"No repo_path configured for {proposal.repo_name!r} on "
                         f"machine {machine.name!r}. Add it to coordinator.yml "
@@ -1556,6 +1660,14 @@ def dispatch(
         from pathlib import Path
         new_issue_guidance = repo.resolve_new_issue_guidance(Path(repo_path).expanduser())
 
+    # #4166: precheck briefing contract — a work or fix leg's briefing
+    # names the repo's declared fast compliance set, so the worker runs it
+    # (and fixes anything it reports) before its final push, instead of
+    # only ever finding out at the Test stage.
+    precheck: str = ""
+    if proposal.type in ("work", "fix") and repo is not None and repo.precheck:
+        precheck = repo.precheck
+
     # #603: prepend the per-issue context digest to the TOP of a -p WORK
     # briefing (cross-repo deps / prior-attempt findings) so the worker reads
     # them first.  Only `work` (chat/refinement/conflict-fix carry no issue
@@ -1770,6 +1882,10 @@ def dispatch(
     # have this field and will reject the payload with a 400.
     if new_issue_guidance:
         payload["new_issue_guidance"] = new_issue_guidance
+    # #4166: only send precheck when non-empty — older agents don't have
+    # this field and will reject the payload with a 400.
+    if precheck:
+        payload["precheck"] = precheck
     # Only send fresh_branch when True — older agents don't have this field
     # and will reject the payload with a 400.
     if fresh_branch:
@@ -1790,17 +1906,21 @@ def dispatch(
     # kwarg.
     if proposal.issue_labels:
         payload["issue_labels"] = list(proposal.issue_labels)
-    # #3681: the `coord:workflow` opt-in label — only for `type="work"`
-    # dispatches, mirroring `provider_issue_labels`'s identical
-    # `type == "work"` gate above (a label meant for the eventual work leg
-    # must not leak into a review/smoke/plan proposal). Only sent when
-    # True — never False — same "don't 400 an older agent on an unknown
-    # kwarg" discipline as every other optional field in this block; an
-    # agent predating `AssignmentSpec.workflow` simply runs the leg as a
-    # normal (non-workflow) Work leg.
-    from coord.agent import WORKFLOW_LEG_LABEL  # noqa: PLC0415
+    # #3681/#3722: the `coord:workflow` opt-in label — or `ultracode`, which
+    # implies it (operators read "ultracode" as "do the most thorough thing",
+    # not just "pick opus") — only for `type="work"` dispatches, mirroring
+    # `provider_issue_labels`'s identical `type == "work"` gate above (a
+    # label meant for the eventual work leg must not leak into a
+    # review/smoke/plan proposal). Only sent when True — never False — same
+    # "don't 400 an older agent on an unknown kwarg" discipline as every
+    # other optional field in this block; an agent predating
+    # `AssignmentSpec.workflow` simply runs the leg as a normal
+    # (non-workflow) Work leg. `is_workflow_leg` is the single source of
+    # truth for this question — `coord.state`'s recorded `mode` column
+    # calls the same function.
+    from coord.agent import is_workflow_leg  # noqa: PLC0415
 
-    if proposal.type == "work" and WORKFLOW_LEG_LABEL in (proposal.issue_labels or []):
+    if is_workflow_leg(proposal.type, proposal.issue_labels):
         payload["workflow"] = True
     # #2131: per-leg spend ceiling, resolved here (CLI/daemon lane) and
     # carried on the wire so a config-free agent is covered too. Sent ONLY
@@ -1919,6 +2039,12 @@ def dispatch(
     # that record the dispatched assignment (cli.py, dashboard/server.py) can
     # persist it without re-resolving the config precedence chain.
     result["_provider_name"] = effective_provider_name
+    # #4147: same "attach to the response, let the caller persist it"
+    # discipline as `_provider_name` above — `capability_routing` is only
+    # ever set for `proposal.type == "work"`, so this is `None`/empty for
+    # every other dispatch kind.
+    if capability_routing is not None and capability_routing.unmet_capabilities:
+        result["_unsatisfied_capabilities"] = list(capability_routing.unmet_capabilities)
     return result
 
 
@@ -2418,6 +2544,176 @@ def route_work_by_liveness(
     return LivenessRouting(machine_name=None, rerouted=False, tried=tuple(tried))
 
 
+def sole_test_capabilities(machine: Machine, machines: list[Machine]) -> frozenset[str]:
+    """Every capability *machine* is the ONLY member of *machines* to
+    declare (#4130) — a `macos`/`windows`-shaped single point of
+    Test-stage capacity: the 2026-11-25 macmini incident this exists for
+    (the issue's own `## Problem`) is exactly "the one `macos` Test host
+    also ran a heavy Work tranche".
+
+    Capability membership only — never busy/paused/reachability, which
+    stay the caller's own concern, same separation
+    :func:`coord.smoke._capability_matched_machines` keeps. A machine with
+    no capabilities at all, or every one of whose capabilities some OTHER
+    machine also declares, returns an empty set — never reserved by
+    :func:`machine_reserved_for_test`.
+    """
+    elsewhere: set[str] = set()
+    for m in machines:
+        if m.name != machine.name:
+            elsewhere.update(m.capabilities)
+    return frozenset(c for c in machine.capabilities if c not in elsewhere)
+
+
+def machine_reserved_for_test(machine: Machine, machines: list[Machine], board: "Board") -> bool:
+    """Is *machine* currently reserved for a Test leg (#4130)?
+
+    True only when BOTH hold: *machine* is the sole holder of some
+    capability (:func:`sole_test_capabilities` non-empty) AND *board*
+    carries at least one `type="smoke"` assignment that is
+    `pending`/`running` there right now. A machine with no sole capability
+    is never reserved — ordinary routing (capacity caps, liveness, pause)
+    governs it exactly as it did before this field existed, and a
+    sole-capability host with no Test leg in flight has nothing to
+    protect either.
+    """
+    if not sole_test_capabilities(machine, machines):
+        return False
+    return any(
+        a.machine_name == machine.name
+        and a.type == "smoke"
+        and a.status in ("pending", "running")
+        for a in board.active
+    )
+
+
+@dataclass(frozen=True)
+class TestReservationRouting:
+    """Outcome of routing a `type="work"` dispatch around a sole-capability
+    Test host while it is busy running the one Test leg only it can run
+    (#4130).
+
+    `machine_name` is `None` when the proposed machine is reserved
+    (:func:`machine_reserved_for_test`) AND no other repo-capable, unpaused,
+    unreserved candidate exists — the caller must refuse the dispatch
+    rather than silently starving the Test leg the reservation exists to
+    protect. Unlike :class:`LivenessRouting`'s unreachable-machine refusal,
+    this condition is TRANSIENT (it clears the moment the Test leg
+    finishes), so a caller must raise a plain ``ValueError``, never
+    :class:`DispatchRefused` (see that class's own docstring on why it is
+    reserved for conditions that cannot change between attempts).
+
+    `tried` mirrors `LivenessRouting.tried`'s shape — every machine
+    considered, paired with why it was skipped.
+    """
+
+    machine_name: str | None
+    rerouted: bool
+    tried: tuple[tuple[str, str], ...] = ()
+
+
+_TEST_RESERVATION_REASON = "reserved for a sole-capability Test leg (#4130)"
+
+
+def route_work_by_test_reservation(
+    *,
+    proposed_machine_name: str,
+    repo_name: str,
+    machines: list[Machine],
+    board: "Board | None",
+    files_likely: "list[str] | None" = None,
+    capability_rules: "list[SmokeRule] | None" = None,
+    now: "datetime | None" = None,
+) -> TestReservationRouting | None:
+    """Reroute a `type="work"` dispatch away from a sole-capability Test
+    host while it is reserved (#4130), onto any other repo-capable,
+    unpaused, unreserved machine.
+
+    Returns `None` — "nothing for the caller to do, proceed unchanged" —
+    when *board* is `None` (opt-in, same shape as *status_fetcher* on
+    :func:`route_work_by_liveness`), `proposed_machine_name` isn't in
+    *machines*, or it is not currently reserved
+    (:func:`machine_reserved_for_test`). Returns a routing with
+    `machine_name=None` — a hard refusal, never "proceed with the original
+    pick" — only when the proposed machine is reserved AND every fallback
+    is too (or none exists at all).
+
+    Candidate filter mirrors `route_work_by_liveness`'s own fallback search
+    (:func:`repo_capable_unpaused_candidates`) plus this gate's own
+    reservation check — a fallback that is ITSELF reserved protects
+    nothing.
+
+    *files_likely* / *capability_rules* apply the SAME coverage floor
+    `route_work_by_liveness`/`route_work_by_credential` apply (review round
+    1): this gate runs AFTER `route_work_by_capability` has already picked
+    `proposed_machine_name` for the capabilities the diff actually needs —
+    on a fleet where macmini is the sole `macos` holder, a capability-blind
+    fallback search here would reroute a `macos`-requiring Work diff onto
+    a `linux`-only box the moment macmini is reserved for its own Test leg,
+    reopening the UNCONFIRMED-verdict hole (#2217/#2464) the two sibling
+    gates' own floors exist to prevent. A fallback is eligible only if it
+    covers at least as many of the matched capabilities as the proposed
+    machine does; passing neither argument (the default) keeps the floor
+    off for callers with no diff to match.
+
+    *now* is forwarded to `paused_set` untouched, same contract as every
+    other routing function in this module.
+    """
+    if board is None:
+        return None
+
+    proposed = next((m for m in machines if m.name == proposed_machine_name), None)
+    if proposed is None:
+        return None
+    if not machine_reserved_for_test(proposed, machines, board):
+        return None
+
+    from coord.machine_pause import paused_set  # noqa: PLC0415
+
+    tried: list[tuple[str, str]] = [(proposed_machine_name, _TEST_RESERVATION_REASON)]
+
+    required: tuple[str, ...] = ()
+    if capability_rules:
+        from coord.smoke import match_rules  # noqa: PLC0415
+
+        required = tuple(match_rules(list(files_likely or []), capability_rules))
+
+    def _coverage(m: Machine) -> int:
+        return sum(1 for cap in required if cap in m.capabilities)
+
+    paused = paused_set(machines, now=now)
+    fallbacks = repo_capable_unpaused_candidates(
+        repo_name, machines, paused, exclude=proposed_machine_name,
+    )
+
+    if required:
+        floor = _coverage(proposed)
+        eligible = [m for m in fallbacks if _coverage(m) >= floor]
+        # Stable sort: better coverage first, `machines` declaration order
+        # preserved within a tier — same determinism rule as
+        # `route_work_by_capability`'s tie-break, never dict/set order.
+        eligible.sort(key=_coverage, reverse=True)
+    else:
+        eligible = fallbacks
+
+    skipped: list[tuple[str, str]] = []
+    for m in eligible:
+        if machine_reserved_for_test(m, machines, board):
+            tried.append((m.name, _TEST_RESERVATION_REASON))
+            continue
+        return TestReservationRouting(machine_name=m.name, rerouted=True, tried=tuple(tried))
+
+    if required:
+        for m in fallbacks:
+            if _coverage(m) < floor:
+                missing = ", ".join(c for c in required if c not in m.capabilities)
+                skipped.append(
+                    (m.name, f"capability shortfall (does not cover: {missing})")
+                )
+    tried.extend(skipped)
+    return TestReservationRouting(machine_name=None, rerouted=False, tried=tuple(tried))
+
+
 @dataclass(frozen=True)
 class CredentialRouting:
     """Outcome of routing a `type="work"` dispatch around a machine whose
@@ -2752,10 +3048,48 @@ class FixMachineSelection:
     (unreachable — with the classified network reason — not capable, or
     paused) so a refusal can name names instead of leaving the operator to
     guess which piece of infrastructure is at fault.
+
+    ``uncovered_failing_capabilities`` (#4147) names every capability from
+    *failing_capability_sets* that ``machine`` still does NOT declare — e.g.
+    ``("macos",)`` when the fleet simply has no other macOS-capable box to
+    route to and the chosen machine is dell64 (Linux/WSL) by elimination.
+    Empty whenever no *failing_capability_sets* were passed (every caller
+    that predates #4147) or ``machine`` happens to cover every one of them.
+    A non-empty tuple is the caller's signal to tell the fix worker, in its
+    briefing, which of the ORIGINAL Test-stage failures it is dispatched on
+    this host cannot even be reproduced here — see
+    ``fix_machine_capability_note``.
     """
 
     machine: Machine | None
     tried: list[tuple[str, str]]
+    uncovered_failing_capabilities: tuple[str, ...] = ()
+
+
+def fix_machine_capability_note(machine_name: str, uncovered: "tuple[str, ...]") -> str:
+    """One appended same-branch-fix-briefing block (#4147) naming the
+    capabilities *machine_name* cannot verify, mirroring
+    ``CapabilityRouting.briefing_note`` above but for the FIX-dispatch door
+    rather than the original work dispatch — same directive shape: a
+    worker must not self-record a verdict for a stage it could never
+    actually run here, and must instead re-run it on capable hardware
+    (``coord smoke run-leg``) before reporting it as done.
+    """
+    caps = ", ".join(uncovered)
+    return (
+        "\n\n## Capabilities this host cannot verify (#4147)\n\n"
+        f"This machine ({machine_name}) does not declare: {caps}. The Test "
+        "stage's failure(s) for that capability set were observed on "
+        "whatever machine actually ran it — this host cannot reproduce or "
+        "re-verify them locally. Before finishing: re-run that capability "
+        "set remotely and wait for its verdict — "
+        f"`coord smoke run-leg --repo <repo> --branch <branch> --capability "
+        f"{uncovered[0] if uncovered else '<capability>'} --wait` (see "
+        "`coord smoke run-leg --help`). Report `UNVERIFIED: "
+        f"{caps}` in your final message instead of treating those stages "
+        "as done — a verdict you could not personally reproduce is not a "
+        "confirmed one."
+    )
 
 
 def select_fix_machine(
@@ -2765,6 +3099,7 @@ def select_fix_machine(
     machines: list[Machine],
     override_machine_name: str | None = None,
     status_fetcher=None,
+    failing_capability_sets: "Iterable[Iterable[str]]" = (),
 ) -> FixMachineSelection:
     """Pick a machine for a same-branch fix dispatch (#3208).
 
@@ -2776,11 +3111,33 @@ def select_fix_machine(
     dispatch instead of routing around it, even though the branch lives on
     the remote and a fresh worktree can be built anywhere (#3208).
 
+    *failing_capability_sets* (#4147) is one tuple of capability names per
+    FAILING Test leg this fix is responding to — e.g. ``[("macos",)]`` for
+    a fan-out where only the macOS partition is red, or ``[("gtk",
+    "windows")]`` for a combined leg. Empty (the default — every caller
+    that predates #4147) preserves the exact pre-#4147 ordering: original
+    machine first, then every other configured machine, with no capability
+    scoring at all. When non-empty, candidates are scored by how many of
+    these leg capability sets they FULLY cover (`Machine.
+    covers_capabilities`) — a machine covering MORE failing legs is tried
+    before one covering fewer, so a cross-backend fix (#2876: macos failing
+    alongside a passing gtk+windows leg) routes to the macOS-capable
+    machine instead of staying wherever the original work leg happened to
+    land. *original_machine_name* is still tried FIRST among the
+    best-covering tier (its build cache is warm, and nothing is gained by
+    moving it when it already covers the failing legs just as well as any
+    other candidate) — "prefer the original machine only when it already
+    has the failing capability" (#4147's own wording). When no candidate
+    covers every failing leg, the one covering the MOST is tried first; the
+    returned ``uncovered_failing_capabilities`` names what it still can't
+    verify, for the caller's briefing.
+
     *override_machine_name* — from ``coord fix --machine`` — restricts the
     candidate list to exactly that machine: the caller is asserting where
-    to send it, so no further fallback is attempted. An unreachable or
-    incapable override still comes back through ``.tried``, named, rather
-    than silently falling through to somewhere the caller didn't ask for.
+    to send it, so no further fallback (and no capability reordering) is
+    attempted. An unreachable or incapable override still comes back
+    through ``.tried``, named, rather than silently falling through to
+    somewhere the caller didn't ask for.
 
     *status_fetcher* defaults to :func:`coord.network.fetch_status` — the
     same liveness probe ``coord status`` already uses — and is injectable
@@ -2811,9 +3168,13 @@ def select_fix_machine(
 
     fetch = status_fetcher or _fetch_status
     paused = paused_set(machines)
+    failing_sets = [tuple(caps) for caps in failing_capability_sets if tuple(caps)]
 
     def _capable(m: Machine) -> bool:
         return m.can_work_on(repo_name) and m.repo_path(repo_name) is not None
+
+    def _coverage(m: Machine) -> int:
+        return sum(1 for caps in failing_sets if m.covers_capabilities(caps))
 
     tried: list[tuple[str, str]] = []
 
@@ -2829,9 +3190,38 @@ def select_fix_machine(
         )
         if original is None:
             tried.append((original_machine_name, "not configured in coordinator.yml"))
-        candidates = ([original] if original is not None else []) + [
-            m for m in machines if m.name != original_machine_name
-        ]
+
+        if failing_sets:
+            # #4147: order by capability coverage first, reachability
+            # second — the reachability probe loop below is unchanged,
+            # this only decides WHICH ORDER it tries candidates in. Compared
+            # by NAME throughout (never object identity/equality) so two
+            # machines with coincidentally identical config fields are
+            # never conflated.
+            best_score = max((_coverage(m) for m in machines), default=0)
+            best_tier_names = {m.name for m in machines if _coverage(m) == best_score}
+            original_covers_best = (
+                original is not None and original.name in best_tier_names
+            )
+            if original_covers_best:
+                # Original already covers the failing legs as well as any
+                # other candidate — keep it first (same as the capability-
+                # blind branch below), then the rest of the best-covering
+                # tier, then everyone else.
+                head = [original] + [
+                    m for m in machines
+                    if m.name in best_tier_names and m.name != original.name
+                ]
+            else:
+                head = [m for m in machines if m.name in best_tier_names]
+                if original is not None:
+                    head = head + [original]
+            head_names = {m.name for m in head}
+            candidates = head + [m for m in machines if m.name not in head_names]
+        else:
+            candidates = ([original] if original is not None else []) + [
+                m for m in machines if m.name != original_machine_name
+            ]
 
     for m in candidates:
         if m.name in paused:
@@ -2846,7 +3236,20 @@ def select_fix_machine(
         # machine up" identically — see that function's docstring.
         reachable, reason = probe_reachable(m, status_fetcher=fetch)
         if reachable:
-            return FixMachineSelection(m, tried)
+            uncovered = tuple(sorted({
+                cap for caps in failing_sets for cap in caps
+                if cap not in m.capabilities
+            }))
+            if uncovered:
+                _log.warning(
+                    "select_fix_machine: chose %r for repo %r but it does "
+                    "not cover every failing capability set %r — uncovered: "
+                    "%s (#4147, no fully-covering reachable machine was "
+                    "available; recorded on FixMachineSelection.uncovered_"
+                    "failing_capabilities rather than silently dropped)",
+                    m.name, repo_name, failing_sets, ", ".join(uncovered),
+                )
+            return FixMachineSelection(m, tried, uncovered_failing_capabilities=uncovered)
         tried.append((m.name, reason or "unreachable"))
 
     return FixMachineSelection(None, tried)

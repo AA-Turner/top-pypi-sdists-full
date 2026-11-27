@@ -14,6 +14,7 @@ from ..inbox import db
 from ..launch.restart import gates
 from ..log import get_logger
 from ..messages import store, waiter
+from ..openclaw import sessions
 from . import (
     attachment,
     batch_wait,
@@ -21,11 +22,13 @@ from . import (
     cursors,
     delivery,
     notes,
+    openclaw_scout,
     own_edits,
     pr_poller,
     push_scout,
     scout_failures,
     scout_roster,
+    turns,
     wait_state,
     waiter_lock,
     waits,
@@ -51,6 +54,7 @@ class _Harness(ty.NamedTuple):
     writer: str
     session: session_socket.Session | None
     sources: tuple[tuple[Path, ...], tuple[int, ...]] = ((), ())  # whose changes wake the scout
+    latest_turn: turns.Turns | None = None  # where no hook records the lemon's own edits
 
 
 def _harness(registration: scout_roster.Registration) -> _Harness | str:
@@ -61,6 +65,12 @@ def _harness(registration: scout_roster.Registration) -> _Harness | str:
 
         alive, pids = codex_scout.liveness(thread)
         return _Harness(codex_scout.to_thread(thread), alive, f"codex-{thread}", None, ((), pids))
+
+    if registration.channel.startswith(sessions.PREFIX):
+        found = openclaw_scout.harness(registration.channel)
+        return _Harness(
+            found.deliver, found.alive, found.writer, None, latest_turn=found.latest_turn
+        )
 
     session = push_scout.session(registration.channel.removeprefix("claude:"), wait=30)
     if problem := push_scout.problem(session):
@@ -74,6 +84,13 @@ def _harness(registration: scout_roster.Registration) -> _Harness | str:
         session,
         ((session_socket.claude_dir() / "sessions" / f"{session.pid}.json",), (session.pid,)),
     )
+
+
+def _notes_harness(registration: scout_roster.Registration) -> str:
+    if registration.thread:
+        return "codex"
+
+    return "openclaw" if registration.channel.startswith(sessions.PREFIX) else "claude"
 
 
 def run(
@@ -154,9 +171,7 @@ def run(
                     gates.deliver(channel, output),
                     still,
                     cwd=Path(registration.cwd),
-                    notes=notes.reader(
-                        notes.default_dir(), "codex" if registration.thread else "claude"
-                    ),
+                    notes=notes.reader(notes.default_dir(), _notes_harness(registration)),
                     restart_requested=stopping,
                     beat=functools.partial(wait_state.beat, lemon_id),
                     pacing=pacing,
@@ -164,6 +179,7 @@ def run(
                         (*harness.sources[0], scout_roster.path(lemon_id)),
                         harness.sources[1],
                     ),
+                    latest_turn=harness.latest_turn,
                 )
     except waiter.AlreadyArmed as error:
         _log.info("scout for %s waits: %s", lemon_id, error)

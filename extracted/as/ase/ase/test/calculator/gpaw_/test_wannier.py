@@ -10,11 +10,13 @@ from ase.dft.wannier import (
     Wannier,
     arbitrary_s_orbitals,
     calculate_weights,
+    dagger,
     gram_schmidt,
     init_orbitals,
     lowdin,
     md_min,
     neighbor_k_search,
+    normalize,
     rotation_from_projection,
     scdm,
     search_for_gamma_point,
@@ -44,7 +46,6 @@ from ase.lattice import (
     TET,
     TRI,
 )
-from ase.transport.tools import dagger, normalize
 
 calc = pytest.mark.calculator
 Nk = 2

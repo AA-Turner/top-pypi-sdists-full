@@ -120,8 +120,10 @@ impl Schema {
     }
 
     /// The verdict [`is_empty_with`](Self::is_empty_with) reads, in one
-    /// asking under `budget`: the readings of the set, then a meet holding one
-    /// complement and a complement read as the relations they are.
+    /// asking under `budget`: the readings of the set; then a meet the sets find
+    /// a value in ([`the_sets_find_a_value`](Self::the_sets_find_a_value)),
+    /// which is inhabited; then a meet holding complements and a complement read
+    /// as the relations they are.
     fn emptiness_on(
         &self,
         oracle: &dyn LeafRelations,
@@ -130,6 +132,7 @@ impl Schema {
     ) -> Verdict {
         let cx = &mut Cx::new(oracle, defs, budget);
         match self.emptiness_under(cx) {
+            Verdict::Unknown if self.the_sets_find_a_value(cx) => Verdict::Inhabited,
             Verdict::Unknown
                 if (matches!(self, Schema::Intersection(_))
                     && self.below_the_set_it_complements(cx).holds())
@@ -161,6 +164,35 @@ impl Schema {
         }
     }
 
+    /// Whether the set representation finds a value in this meet, read as the
+    /// relation below `Nothing` reads its subject ([`Schema::descriptor_contained_in`]),
+    /// for a meet the readings after it would read dearly: one holding
+    /// [`COMPLEMENTS_READ_DEARLY`] complements or more, each asked as a relation
+    /// of the rest ([`below_the_set_it_complements`](Self::below_the_set_it_complements)),
+    /// or one holding a complement beside a union, whose undecided reading the
+    /// further asking distributes and reads again. A set is empty exactly where
+    /// it is below the empty set [FCB08, §4.1], so a value the sets find refutes
+    /// the emptiness, and the question ends inhabited where the relation's own
+    /// reading ends it: both procedures find the value by one reading. The
+    /// reading spends no step, as no lowering does, so it starves nothing after
+    /// it, and a meet whose lowering the bounds refuse reads as before.
+    #[inline(never)]
+    fn the_sets_find_a_value(&self, cx: &Cx<'_>) -> bool {
+        let Schema::Intersection(members) = self else {
+            return false;
+        };
+        let complements = members
+            .iter()
+            .filter(|member| matches!(member, Schema::Complement(_)))
+            .count();
+        let read_again = complements > 0
+            && members
+                .iter()
+                .any(|member| matches!(member, Schema::Union(_)));
+        (complements >= COMPLEMENTS_READ_DEARLY || read_again)
+            && self.descriptor_contained_in(&Schema::Nothing, cx.oracle, cx.defs) == Relation::Fails
+    }
+
     /// A meet holding complements, read as the relations it is, at the root of
     /// a question every decider declined: `R ∩ ¬I` is empty exactly where
     /// `R ⊆ I` [FCB08, §4.1], `R` the meet of the other members, each
@@ -186,16 +218,30 @@ impl Schema {
     /// holds a value the relation `P ⊆ P` says nothing about. A complement of
     /// such a set stays in `R` as written, a member like any other.
     ///
-    /// Asked under the steps the question has left, as the relation of the same
-    /// pair is, so the two spellings decide alike: under
-    /// [`RESPELLING`](super::RESPELLING) steps the rules declined a union of
-    /// length bounds below another that the relation proves, and the meet of
-    /// the one with the other's complement was `undecided` beside a `subset`.
-    /// The steps are an allowance of its own, charged to nothing, so they
-    /// starve no reading after it, and one allowance for all the complements a
-    /// meet holds, so a meet holding several spends at most what a meet holding
-    /// one does; the rules it asks never ask it again, so a query asks it a
-    /// fixed number of times and spends at most that multiple of its budget.
+    /// Asked under an allowance of its own, charged to nothing, so it starves no
+    /// reading after it, and shared by the complements a meet holds
+    /// ([`complements_allowance`]): each asks a relation of a rest holding the
+    /// others, as a respelled pair is asked, so the allowance is the asking's
+    /// respelling allowance a complement taken
+    /// ([`respelling`]), and never more than the question
+    /// has left. A meet nothing decides then spends what that many respellings
+    /// would, where with every step the question had left each of its askings
+    /// spent them all. A reading stopped at the allowance meets a bound, so the
+    /// question is asked again ([`asked_again`]) with
+    /// [`RESPELLING_AGAIN`](super::RESPELLING_AGAIN) a complement, sixteen times
+    /// as many: a union of length bounds below another, which the rules prove
+    /// only past [`RESPELLING`](super::RESPELLING) steps, is decided there
+    /// (`test_a_meet_holding_a_complement_is_read_as_its_relation`). The
+    /// rules it asks never ask it again, so a query asks it a fixed number of
+    /// times and spends at most that multiple of its budget.
+    ///
+    /// Each complement read is the rest merged with one negated set before any
+    /// complete reading, a tentative test in the sense of [BBC+26, §6.2, Alg. 3]
+    /// that answers the meet where it proves, and the tests before it "must fail
+    /// rapidly". Theirs drops the other negations and is cheap by construction;
+    /// this one keeps them in the rest, so the allowance is what keeps a
+    /// declining test rapid.
+    ///
     /// The relation's readings past the sets are not asked here:
     /// they reach this reading again through the respellings, each time under
     /// steps of its own and at no depth, and drawn questions overflowed the
@@ -208,16 +254,22 @@ impl Schema {
         let Schema::Intersection(members) = self else {
             return Relation::Unknown;
         };
-        // One allowance for every complement asked, so a meet holding several
-        // spends what a meet holding one may.
-        let allowance = Budget::new(cx.budget.left());
-        for (at, member) in members.iter().enumerate() {
-            let Schema::Complement(inner) = member else {
-                continue;
-            };
-            if !denotes_a_set_within(inner, cx.oracle, cx.defs) {
-                continue;
-            }
+        let taken: Vec<(usize, &Schema)> = members
+            .iter()
+            .enumerate()
+            .filter_map(|(at, member)| match member {
+                Schema::Complement(inner) if denotes_a_set_within(inner, cx.oracle, cx.defs) => {
+                    Some((at, &**inner))
+                }
+                _ => None,
+            })
+            .collect();
+        let allowance = Budget::new(complements_allowance(
+            cx.budget.left(),
+            taken.len(),
+            super::respelling(),
+        ));
+        for (at, inner) in taken {
             let answer = Self::below_one_complement(members, at, inner, cx, &allowance);
             if answer != Relation::Unknown {
                 return answer;
@@ -236,6 +288,15 @@ impl Schema {
     /// relation the rules' coinductive hypothesis proves and the emptiness of
     /// the difference alone does not. A value of `R` outside `I` is a value of
     /// the meet, so a refutation answers it too.
+    ///
+    /// Asked of the rules, of the leaves, of the branches of `I` the rest meets,
+    /// and last split on a set `I` negates
+    /// ([`split_on_a_set_it_negates`](Self::split_on_a_set_it_negates)), the
+    /// reading that proves a pair below the excluded middle `(¬C ∩ D) ∪ C`, as
+    /// `list[J]` below `(¬list[int] ∩ J) ∪ list[int]`, where no branch holds `R`
+    /// alone. The split guards itself, splitting once a query, and its halves are
+    /// meets of the pair's own signed subterms, so the goals stay in the query's
+    /// closure and a nested asking splits nothing again.
     fn below_one_complement(
         members: &[Schema],
         at: usize,
@@ -243,6 +304,8 @@ impl Schema {
         cx: &Cx<'_>,
         allowance: &Budget,
     ) -> Relation {
+        #[cfg(test)]
+        super::goal_tests::goals::read_a_complement_at_a_time();
         let rest = Schema::meet_within(
             members
                 .iter()
@@ -256,6 +319,7 @@ impl Schema {
             .or_else(|| {
                 rest.below_the_branches_it_meets(inner, &mut cx.within_this_query(allowance))
             })
+            .or_else(|| rest.split_on_a_set_it_negates(inner, &mut cx.within_this_query(allowance)))
     }
 
     /// What the rules read of this refinement, and where they read nothing and the
@@ -456,6 +520,7 @@ impl Schema {
             self,
             defs,
             pool,
+            crate::descr::lower::BUDGET,
             |read| !the_rules_find_a_value(read),
             |set, kept| {
                 (set.emptiness() == Verdict::Empty
@@ -657,6 +722,14 @@ impl Schema {
             // member is [FCB08, Def. 4.1]; its region is the union of the
             // members' regions, again folded from the children.
             Schema::Union(members) => {
+                // A scalar atom denotes a kind every interpreter builds values
+                // of, so a union holding one is inhabited, and the members
+                // beside it are read for their regions alone: folding each for
+                // its emptiness spends steps on a verdict already given, and
+                // `region_set` reads the region the fold would, with none.
+                if members.iter().any(|member| member.atom_region().is_some()) {
+                    return (Verdict::Inhabited, self.region_set());
+                }
                 let mut verdict = Verdict::Empty;
                 let mut region = Regions::UNION_UNIT;
                 for m in members.iter() {
@@ -1747,6 +1820,31 @@ fn meet_through_a_reference(members: &[Schema], cx: &mut Cx<'_>) -> Verdict {
         }
     }
     verdict
+}
+
+/// The complements a meet holds from which `is_empty` asks the set
+/// representation for a value of the whole meet before reading it a complement
+/// at a time ([`Schema::the_sets_find_a_value`]).
+///
+/// **This bound is cost.** The complement-at-a-time reading asks one relation a
+/// complement, of a rest holding the others, and the lowering asks one build of
+/// the whole meet. Below the bound the relations are the cheaper: asked first of
+/// `int & ~bool & ~[3, 3]` and of `list[J] & ~list[int] & ~J`, the lowering read
+/// 75 thousand and 1.78 million instructions more, and neither meet is refuted
+/// by it. From the bound up the build is: a meet of the integer kind, a range
+/// and the complements of 8 ranges read 384 million instructions a complement
+/// at a time and 11 million with the lowering first, and the 32-complement cell
+/// 572 million and 10 million, each meet counted alone under cachegrind;
+/// `scripts/perf_gate.py --decision-emptiness` holds their corpus.
+pub(super) const COMPLEMENTS_READ_DEARLY: usize = 3;
+
+/// The steps the complement-at-a-time reading shares between the `taken`
+/// complements of a meet, in an asking whose respelled pairs spend `each`: as
+/// many as that many respellings, and never more than the question has `left`
+/// ([`Schema::below_the_set_it_complements`]). Saturating, so a meet of more
+/// complements than a step count names is held to what is left.
+pub(super) fn complements_allowance(left: u32, taken: usize, each: u32) -> u32 {
+    left.min(each.saturating_mul(u32::try_from(taken).unwrap_or(u32::MAX)))
 }
 
 /// The clauses a meet with no reference may be read as before it is distributed.

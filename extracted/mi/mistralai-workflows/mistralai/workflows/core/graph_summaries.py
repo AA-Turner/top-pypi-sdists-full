@@ -33,6 +33,7 @@ from mistralai.workflows.core.graph_summary_validators import (
     check_conciseness,
     is_yes_no_question,
 )
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.wire_format import AtlasWireFormat, FlatNode
 
 logger = get_logger(__name__)
@@ -911,11 +912,11 @@ async def _summarise_graph_summary_batch(
                 "LLM summary validation failed, retrying",
                 attempt=attempt + 1,
                 max_attempts=_MAX_VALIDATION_RETRIES,
-                exc_info=exc,
+                **extract_error_context(exc),
             )
         except Exception as exc:
             if isinstance(exc, MistralError) and exc.status_code == 429:
-                logger.warning("LLM summary rate-limited", exc_info=exc)
+                logger.warning("LLM summary rate-limited", **extract_error_context(exc))
                 raise SummariseRateLimitError(
                     "LLM API rate-limited",
                     retry_after=exc.headers.get("retry-after"),
@@ -923,7 +924,7 @@ async def _summarise_graph_summary_batch(
             if isinstance(exc, MistralError) and _is_guardrail_block(exc):
                 logger.warning("LLM summary blocked by guardrail policy")
                 raise SummariseBlockedError("LLM API request blocked by guardrail policy") from exc
-            logger.warning("LLM summary API error", exc_info=exc)
+            logger.warning("LLM summary API error", **extract_error_context(exc))
             raise SummariseError(f"LLM API error: {exc}") from exc
 
     # If a prior attempt passed Pydantic but failed domain rules, and later retries
@@ -945,7 +946,12 @@ async def _summarise_graph_summary_batch(
     if deadline_expired:
         raise SummariseTimeoutError("Graph summary generation timed out") from last_exc
 
-    logger.warning("LLM summary failed after all attempts", attempts=_MAX_VALIDATION_RETRIES, exc_info=last_exc)
+    error_context = extract_error_context(last_exc) if last_exc is not None else {}
+    logger.warning(
+        "LLM summary failed after all attempts",
+        attempts=_MAX_VALIDATION_RETRIES,
+        **error_context,
+    )
     raise SummariseError(f"Validation failed after {_MAX_VALIDATION_RETRIES} attempts: {last_exc}")
 
 

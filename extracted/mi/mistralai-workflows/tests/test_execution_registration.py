@@ -81,6 +81,7 @@ class _RegistrationTracker:
         self.calls: list[dict[str, Any]] = []
         self._mock_client = AsyncMock(spec=PrivateWorkerClient)
         self._mock_client.register_execution_async = AsyncMock(side_effect=self._capture_call)
+        self._mock_client.__aenter__ = AsyncMock(return_value=self._mock_client)
 
     async def _capture_call(self, **kwargs: Any) -> RegisterExecutionResponse:
         self.calls.append(kwargs)

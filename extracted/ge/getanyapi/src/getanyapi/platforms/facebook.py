@@ -255,7 +255,7 @@ class FacebookGroupPostsInput(TypedDict, total=False):
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     url: Required[str]
-    """The URL of a public Facebook group to fetch posts from (e.g. https://www.facebook.com/groups/instantpotcommunity/)."""
+    """The URL of a public Facebook group to fetch posts from (e.g. https://www.facebook.com/groups/instantpotcommunity/). Any other Facebook link inside a group, such as a link to one post, a permalink, a member or the group's media, is read as that group's address."""
 
 
 class FacebookMarketplaceInput(TypedDict, total=False):
@@ -3069,7 +3069,7 @@ class FacebookNamespace:
         Fetch full details for a single Facebook event by ID or URL (name, schedule,
         venue, hosts, and attendance) as normalized JSON.
 
-        Price: $0.00096 per request.
+        Price: $0.00118 per request.
 
         Example:
             res = client.facebook.event_details(id="4045709448982422")
@@ -3570,7 +3570,7 @@ class FacebookNamespace:
         List a Facebook page's recent posts by URL or page id with cursor pagination
         (text, author, publication time, permalink).
 
-        Price: $0.00115 per request.
+        Price: $0.00118 per request.
 
         Example:
             res = client.facebook.profile_posts(url="https://www.facebook.com/nike")
@@ -3924,7 +3924,7 @@ class AsyncFacebookNamespace:
         Fetch full details for a single Facebook event by ID or URL (name, schedule,
         venue, hosts, and attendance) as normalized JSON.
 
-        Price: $0.00096 per request.
+        Price: $0.00118 per request.
 
         Example:
             res = client.facebook.event_details(id="4045709448982422")
@@ -4425,7 +4425,7 @@ class AsyncFacebookNamespace:
         List a Facebook page's recent posts by URL or page id with cursor pagination
         (text, author, publication time, permalink).
 
-        Price: $0.00115 per request.
+        Price: $0.00118 per request.
 
         Example:
             res = client.facebook.profile_posts(url="https://www.facebook.com/nike")

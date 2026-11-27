@@ -1,13 +1,18 @@
 import base64
+import binascii
+import copy
 import json
 import logging
+import math
 import os
 import re
 import sys
+import threading
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from datetime import time as datetime_time
 from logging import Logger
 from typing import Any, Callable, Optional
 
@@ -23,6 +28,15 @@ from amazon.ion.simple_types import (
 )
 
 from exceptions import FailedExponentialBackoff
+
+# Lines written from several threads must never interleave.
+_write_lock = threading.Lock()
+
+
+def _json_default(value: Any) -> Any:
+    if isinstance(value, (date, datetime_time)):
+        return value.isoformat()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 @dataclass(slots=True)
@@ -44,14 +58,24 @@ class Kestra:
     Example - Send an output:
         Kestra.outputs({"my_output": "my_value"})
 
-    Example - Send an asset:
+    Example - Send the assets a script reads and writes:
         Kestra.assets({
-            "id": "my_asset",
-            "type": "TABLE",
-            "name": "MY_TABLE",
-            "metadata": {
-                "owner": "team-a"
-            }
+            "inputs": [
+                {
+                    "id": "my_input_asset",
+                    "type": "TABLE",
+                }
+            ],
+            "outputs": [
+                {
+                    "id": "my_asset",
+                    "type": "TABLE",
+                    "name": "MY_TABLE",
+                    "metadata": {
+                        "owner": "team-a"
+                    }
+                }
+            ]
         })
 
     Example - Log an error:
@@ -71,38 +95,100 @@ class Kestra:
         Args:
             map_ (dict): The message to send to the Kestra server.
         """
-        print(Kestra.format(map_))
+        line = Kestra.format(map_) + "\n"
+        with _write_lock:
+            sys.stdout.write(line)
+            sys.stdout.flush()
 
     @staticmethod
     def format(map_: dict):
         """
         Format a message to be sent to the Kestra server.
         The kestra format is ::<message>::, where the message is a JSON object.
+        Dates, datetimes and times are sent as ISO 8601 text.
 
         Args:
             map_ (dict): The message to format into the Kestra format.
 
         Returns:
             str: The Kestra-formatted message.
+
+        Raises:
+            ValueError: When the message holds NaN, Infinity or a value that
+                contains itself.
+            TypeError: When the message holds a value or key JSON cannot represent.
         """
-        return "::" + json.dumps(map_) + "::"
+        try:
+            text = json.dumps(map_, allow_nan=False, default=_json_default)
+            return "::" + text + "::"
+        except ValueError as e:
+            if "Circular reference" in str(e):
+                raise ValueError(
+                    "This value cannot be sent to Kestra as JSON: "
+                    "it contains itself, pass a copy without the loop."
+                ) from e
+            raise ValueError(
+                "This value cannot be sent to Kestra as JSON: "
+                "replace NaN and Infinity with None."
+            ) from e
+        except TypeError as e:
+            raise TypeError(
+                "This value cannot be sent to Kestra as JSON: pass str, int, float, "
+                "bool, None, list, dict, date, datetime or time values, "
+                "and str, int, float, bool or None keys."
+            ) from e
+
+    @staticmethod
+    def _metric_tags(name: str, tags: Mapping | None) -> dict[str, str]:
+        if not isinstance(name, str) or not name:
+            raise ValueError("Metric name must be a non-empty string.")
+
+        string_tags = {}
+        if tags is not None:
+            if not isinstance(tags, Mapping):
+                raise ValueError(
+                    f"Metric '{name}' tags must be a dictionary, "
+                    "for example tags={'env': 'prod'}."
+                )
+            for k, v in tags.items():
+                if v is None or isinstance(v, (dict, list, set, tuple)):
+                    raise ValueError(
+                        f"Metric '{name}' tag '{k}' must be a single value, "
+                        "for example tags={'env': 'prod'}."
+                    )
+                string_tags[str(k)] = str(v)
+        return string_tags
 
     @staticmethod
     def _metrics(
         name: str,
         type_: str,
-        value: int,
-        tags: dict | None = None,
+        value: int | float,
+        tags: Mapping | None = None,
     ):
         """
-        Send a metrics to the Kestra server.
+        Send a metric to the Kestra server.
 
         Args:
             name (str): The name of the metric.
             type_ (str): The type of the metric.
-            value (int): The value of the metric.
-            tags (dict): The tags of the metric.
+            value (int | float): The value of the metric.
+            tags (Mapping, optional): The tags of the metric.
         """
+        string_tags = Kestra._metric_tags(name, tags)
+
+        try:
+            is_finite = (
+                not isinstance(value, bool)
+                and isinstance(value, (int, float))
+                and math.isfinite(value)
+            )
+        except OverflowError:
+            is_finite = False
+
+        if not is_finite:
+            raise ValueError(f"Metric '{name}' value must be a finite number.")
+
         Kestra._send(
             {
                 "metrics": [
@@ -110,14 +196,14 @@ class Kestra:
                         "name": name,
                         "type": type_,
                         "value": value,
-                        "tags": tags or {},
+                        "tags": string_tags,
                     }
                 ]
             }
         )
 
     @staticmethod
-    def outputs(map_: dict):
+    def outputs(map_: Mapping):
         """
         The `Kestra` class provides a method to send key-value-based outputs to
         the Kestra server. If you want to output large objects, write them to a
@@ -125,26 +211,40 @@ class Kestra:
         script task.
 
         Args:
-            map_ (dict): The outputs to send to the Kestra server.
+            map_ (Mapping): The outputs to send to the Kestra server.
         """
-        Kestra._send({"outputs": map_})
+        if not isinstance(map_, Mapping):
+            raise ValueError(
+                "Outputs must be a dictionary, "
+                "for example Kestra.outputs({'rows': 42})."
+            )
+        if not map_:
+            return
+        Kestra._send({"outputs": dict(map_)})
 
     @staticmethod
-    def assets(map_: dict):
+    def assets(map_: Mapping):
         """
-        The `Kestra` class provides a method to send a full asset to
-        the Kestra server.
+        The `Kestra` class provides a method to send the assets a script reads
+        and writes to the Kestra server.
 
         Args:
-            map_ (dict): The full asset properties to send to the Kestra server.
+            map_ (Mapping): The assets to send, as lists of `inputs` and `outputs`.
         """
-        Kestra._send({"assets": map_})
+        if not isinstance(map_, Mapping):
+            raise ValueError(
+                "Assets must be a dictionary, for example "
+                "Kestra.assets({'outputs': [{'id': 'sales.orders', 'type': 'TABLE'}]})."
+            )
+        if not map_:
+            return
+        Kestra._send({"assets": dict(map_)})
 
     @staticmethod
     def counter(
         name: str,
-        value: int,
-        tags: dict | None = None,
+        value: int | float,
+        tags: Mapping | None = None,
     ):
         """
         The `Kestra` class provides a method to send counter metrics to the Kestra
@@ -152,50 +252,57 @@ class Kestra:
 
         Args:
             name (str): The name of the counter.
-            value (int): The value of the counter.
-            tags (dict): The tags of the counter (optional).
+            value (int | float): The value of the counter.
+            tags (Mapping, optional): The tags of the counter.
         """
         Kestra._metrics(name, "counter", value, tags)
 
     @staticmethod
     def timer(
         name: str,
-        duration: int | Callable,
-        tags: dict | None = None,
+        duration: int | float | Callable,
+        tags: Mapping | None = None,
     ):
         """
         The `Kestra` class provides a method to send timer metrics to the Kestra server.
 
         Args:
             name (str): The name of the timer.
-            duration (int | Callable): The duration of the timer.
-            tags (dict): The tags of the timer (optional).
+            duration (int | float | Callable): The duration of the timer in
+                seconds, or a callable whose execution is timed and whose return
+                value is returned.
+            tags (Mapping, optional): The tags of the timer.
+
+        Returns:
+            Any: The return value of duration() if duration is callable, otherwise None.
         """
         if callable(duration):
-            start = datetime.now()
-            duration()
+            string_tags = Kestra._metric_tags(name, tags)
+            start = time.perf_counter()
+            result = duration()
             Kestra._metrics(
                 name,
                 "timer",
-                (datetime.now().microsecond - start.microsecond) / 1000,
-                tags,
+                time.perf_counter() - start,
+                string_tags,
             )
+            return result
         else:
             Kestra._metrics(name, "timer", duration, tags)
 
     @staticmethod
     def gauge(
         name: str,
-        value: float,
-        tags: dict | None = None,
+        value: int | float,
+        tags: Mapping | None = None,
     ):
         """
         The `Kestra` class provides a method to send gauge metrics to the Kestra server.
 
         Args:
             name (str): The name of the gauge.
-            value (float): The value of the gauge.
-            tags (dict): The tags of the gauge (optional).
+            value (int | float): The value of the gauge.
+            tags (Mapping, optional): The tags of the gauge.
         """
         Kestra._metrics(name, "gauge", value, tags)
 
@@ -296,6 +403,13 @@ class Kestra:
         return list_of_dicts
 
 
+def _safe_str(value: Any) -> str:
+    try:
+        return str(value)
+    except Exception:
+        return object.__repr__(value)
+
+
 class LogFormatter(logging.Formatter):
     def formatTime(self, record, datefmt=None):
         return (
@@ -326,11 +440,20 @@ class JsonFormatter(logging.Formatter):
             return "TRACE"
 
     def format(self, record: logging.LogRecord) -> str:
+        try:
+            message = self._formatter.format(record)
+        except Exception:
+            # str() of the message or an argument raised or returned a non-string.
+            text = _safe_str(record.msg)
+            if record.args:
+                text += " " + _safe_str(record.args)
+            message = self._formatter.formatTime(record) + " - " + text
+
         result = {
             "logs": [
                 {
                     "level": self._logger_level(record.levelno),
-                    "message": self._formatter.format(record),
+                    "message": message,
                 }
             ]
         }
@@ -782,13 +905,26 @@ class ExecutionContext(Mapping):
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
-            dict[str, Any]: The raw execution context data, as plain Python types.
+            dict[str, Any]: A copy of the execution context data, as plain Python
+                types. Changing it does not change the context.
         """
-        return self._data
+        return copy.deepcopy(self._data)
 
     def __repr__(self) -> str:
         # Mirrors the dict repr, so a nested context prints like the JSON it wraps.
         return repr(self._data)
+
+
+def _parse_context(text: str | bytes, source: str) -> ExecutionContext:
+    try:
+        data = json.loads(text)
+    except ValueError as e:
+        raise ValueError(
+            f"The execution context in {source} is not valid JSON: {e}"
+        ) from e
+    if not isinstance(data, dict):
+        raise ValueError(f"The execution context in {source} is not a JSON object.")
+    return ExecutionContext(data)
 
 
 def load_execution_context(path: Optional[str] = None) -> ExecutionContext:
@@ -796,9 +932,10 @@ def load_execution_context(path: Optional[str] = None) -> ExecutionContext:
     Load the execution context injected by Kestra into the task working directory.
 
     The context is read from `path`, from the `KESTRA_EXECUTION_CONTEXT_FILE`
-    environment variable, or from `.kestra-execution-context.json`. When no file
-    exists, the base64-encoded `KESTRA_CONTEXT` environment variable is used as a
-    fallback.
+    environment variable, or from `.kestra-execution-context.json`. Without `path`,
+    when no file exists, the base64-encoded `KESTRA_CONTEXT` environment variable
+    is used as a fallback. A `path` that does not exist always fails, so a typo is
+    never hidden.
 
     Args:
         path (str): The path to the context file (optional).
@@ -808,16 +945,35 @@ def load_execution_context(path: Optional[str] = None) -> ExecutionContext:
 
     Raises:
         FileNotFoundError: When no execution context can be found.
+        ValueError: When KESTRA_CONTEXT is not base64, or the context is not valid
+            JSON or not a JSON object.
     """
-    path = path or os.environ.get("KESTRA_EXECUTION_CONTEXT_FILE", CONTEXT_FILE)
+    is_explicit = bool(path)
+    path = path or os.environ.get("KESTRA_EXECUTION_CONTEXT_FILE") or CONTEXT_FILE
 
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as file:
-            return ExecutionContext(json.load(file))
+            return _parse_context(file.read(), f"'{path}'")
 
     encoded = os.environ.get("KESTRA_CONTEXT")
-    if encoded:
-        return ExecutionContext(json.loads(base64.b64decode(encoded)))
+    if encoded and not is_explicit:
+        try:
+            return _parse_context(
+                base64.b64decode(encoded), "the KESTRA_CONTEXT environment variable"
+            )
+        except ValueError:
+            # b64decode skips characters that are not base64, so check strictly
+            # only once decoding failed, to keep accepting what decoded before.
+            try:
+                base64.b64decode("".join(encoded.split()), validate=True)
+            except binascii.Error as e:
+                raise ValueError(
+                    "The KESTRA_CONTEXT environment variable is not valid base64."
+                ) from e
+            raise
+
+    if is_explicit:
+        raise FileNotFoundError(f"Kestra execution context file '{path}' does not exist.")
 
     raise FileNotFoundError(
         f"No Kestra execution context found: '{path}' does not exist and the "

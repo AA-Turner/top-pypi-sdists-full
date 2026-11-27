@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: social-auth-core
-Version: 7.2.0
+Version: 7.3.0
 Summary: Python social authentication made simple.
 Author-email: Matias Aguirre <matiasaguirre@gmail.com>, Michal Čihař <michal@weblate.org>
 License-Expression: BSD-3-Clause
@@ -37,7 +37,7 @@ Requires-Dist: social-auth-core[shopify]; extra == "all"
 Provides-Extra: allpy3
 Requires-Dist: social-auth-core[all]; extra == "allpy3"
 Provides-Extra: dev
-Requires-Dist: coverage==7.17.2; extra == "dev"
+Requires-Dist: coverage==7.17.5; extra == "dev"
 Requires-Dist: flake8==7.5.0; extra == "dev"
 Requires-Dist: mypy==2.4.1; extra == "dev"
 Requires-Dist: pyright==1.1.414; extra == "dev"
@@ -47,14 +47,14 @@ Requires-Dist: pytest-profiling==1.8.1; extra == "dev"
 Requires-Dist: pytest-xdist==3.8.0; extra == "dev"
 Requires-Dist: pytest==9.2.0; extra == "dev"
 Requires-Dist: responses==0.26.3; extra == "dev"
-Requires-Dist: ty==0.0.101; extra == "dev"
+Requires-Dist: ty==0.0.112; extra == "dev"
 Requires-Dist: types-defusedxml==0.7.0.20260504; extra == "dev"
 Requires-Dist: types-lxml==2026.2.16; extra == "dev"
-Requires-Dist: types-oauthlib==4.0.0.20261107; extra == "dev"
+Requires-Dist: types-oauthlib==4.0.0.20261122; extra == "dev"
 Requires-Dist: types-requests-oauthlib==2.0.0.20261006; extra == "dev"
 Requires-Dist: types-requests==2.33.0.20261030; extra == "dev"
 Provides-Extra: google-onetap
-Requires-Dist: google-auth<2.63,>=2.40.0; extra == "google-onetap"
+Requires-Dist: google-auth<2.64,>=2.40.0; extra == "google-onetap"
 Requires-Dist: pyasn1>=0.6.5; extra == "google-onetap"
 Provides-Extra: saml
 Requires-Dist: python3-saml>=1.16.0; extra == "saml"

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from contextlib import AbstractAsyncContextManager
+from typing import Any, NamedTuple
+
+import httpx
+import temporalio.workflow
+from mcp import ClientSession
 
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.models import WorkflowContext
@@ -8,23 +13,35 @@ from mistralai.workflows.models import WorkflowContext
 from .activities import connector_tool_call
 from .constants import MISTRALAI_PLUGIN_KEY
 from .decorator import ConnectorError
+from .gateway import open_gateway_http_client, open_gateway_mcp_session
 from .mcp_apps import connector_get_mcp_app_resource_uris
 from .models import ResolvedConnectorBinding, resolved_connector_bindings_from_extension
 from .run_as import RunAs, RunAsArg, normalize_run_as
 
 
-class ToolCallClient:
-    """Client for calling connector tools within workflow activities.
+class _ConnectorTarget(NamedTuple):
+    binding: ResolvedConnectorBinding
+    credentials_name: str | None
+
+
+class ConnectorClient:
+    """Client for a connector declared with ``@uses_connectors``, routed through the Connectors Gateway.
 
     Created via dependency injection (``Depends(connector("github"))``) or
     directly::
 
-        client = ToolCallClient("github")
-        result = await client.call_tool("create_issue", {"title": "bug"})
+        github = ConnectorClient("github")
+
+        async with github.mcp_client() as mcp:
+            result = await mcp.call_tool("create_issue", {"title": "bug"})
+
+        async with github.http_client() as http:
+            response = await http.get("repos/mistralai/client-python")
 
     The client is safe to construct at worker startup time — it stores only
     the connector name and lazily resolves the binding from workflow context
-    when a method is actually called during activity execution.
+    when used during activity execution. Requests run as the identity the
+    connector's ``run_as`` selects.
     """
 
     def __init__(
@@ -52,7 +69,7 @@ class ToolCallClient:
         context = retrieve_context()
         if context is None:
             raise RuntimeError(
-                f"No workflow context available — ToolCallClient for "
+                f"No workflow context available — ConnectorClient for "
                 f"'{self._connector_name}' must be used inside a workflow activity"
             )
 
@@ -70,16 +87,20 @@ class ToolCallClient:
             binding = resolved_bindings[0]
             if self._run_as is not None and self._run_as != binding.run_as:
                 raise ConnectorError(
-                    f"ToolCallClient for connector {self._connector_name!r} has run_as='{self._run_as.value}' "
+                    f"ConnectorClient for connector {self._connector_name!r} has run_as='{self._run_as.value}' "
                     f"but @uses_connectors(...) resolved run_as='{binding.run_as.value}'. "
-                    "Use the same connector declaration for preflight and tool calls."
+                    "Use the same connector declaration for preflight and connector calls."
                 )
             return binding
         raise ConnectorError(
             f"Connector {self._connector_name!r} is not resolved for this workflow. Add "
             f'@uses_connectors(connector("{self._connector_name}")) to your workflow class so the '
-            f"interceptor runs connector auth preflight before the tool call."
+            f"interceptor runs connector auth preflight before connector calls."
         )
+
+    def _resolve_target(self) -> _ConnectorTarget:
+        binding = self._resolve_binding()
+        return _ConnectorTarget(binding, self._credentials_name or binding.credentials_name)
 
     @property
     def binding(self) -> ResolvedConnectorBinding:
@@ -93,19 +114,67 @@ class ToolCallClient:
     def connector_name(self) -> str:
         return self._connector_name
 
+    def mcp_client(self) -> AbstractAsyncContextManager[ClientSession]:
+        """Open an initialized MCP ``ClientSession`` on the connector, for use with ``async with``.
+
+        Must be called inside a workflow activity: an open session cannot cross a
+        Temporal activity boundary. Needs a mistralai release whose connectors gateway
+        helpers send through the SDK's configured client; older releases raise a
+        non-retryable ``WorkflowError``. Gateway-authored failures raise
+        ``mistralai.extra.connectors_gateway.ConnectorsGatewayError``.
+        """
+        target = self._gateway_target()
+        return open_gateway_mcp_session(
+            target.binding.connector_id_or_name,
+            credentials_name=target.credentials_name,
+            run_as=target.binding.run_as,
+        )
+
+    def http_client(self) -> AbstractAsyncContextManager[httpx.AsyncClient]:
+        """Open an async HTTP client whose relative URLs target the connector's upstream API.
+
+        Use it with ``async with``. Must be called inside a workflow activity. Needs a
+        mistralai release whose connectors gateway helpers send through the SDK's
+        configured client; older releases raise a non-retryable ``WorkflowError``.
+
+        The client comes from the ``httpx`` fork the installed mistralai is built on
+        (``httpx2`` for mistralai 3.x), so catch errors from that module, not from
+        ``httpx``: ``mistralai.workflows._mistral_http.MISTRAL_HTTP`` resolves to it.
+        Gateway-authored failures raise
+        ``mistralai.extra.connectors_gateway.ConnectorsGatewayError``, a subclass of
+        its ``HTTPStatusError``.
+        """
+        target = self._gateway_target()
+        return open_gateway_http_client(
+            target.binding.connector_id_or_name,
+            credentials_name=target.credentials_name,
+            run_as=target.binding.run_as,
+        )
+
+    def _gateway_target(self) -> _ConnectorTarget:
+        if temporalio.workflow.in_workflow():
+            raise RuntimeError(
+                f"ConnectorClient for '{self._connector_name}' opens network connections and "
+                "must be used inside a workflow activity, not in workflow code"
+            )
+        return self._resolve_target()
+
     async def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
-        """Call a connector tool via the Mistral SDK."""
-        binding = self._resolve_binding()
-        credentials_name = self._credentials_name or binding.credentials_name
+        """Call a connector tool via the connectors ``call_tool`` API.
+
+        Prefer :meth:`mcp_client` for new code: mistralai 3.x deprecates that API.
+        """
+        binding, credentials_name = self._resolve_target()
         run_as = binding.run_as
         mcp_ui_resource_uri = await self._get_mcp_ui_resource_uri(binding, credentials_name, tool_name, run_as)
         return await connector_tool_call(
-            connector_id_or_name=binding.connector_id or binding.connector_name,
+            connector_id_or_name=binding.connector_id_or_name,
             tool_name=tool_name,
             arguments=arguments,
             credentials_name=credentials_name,
             mcp_ui_resource_uri=mcp_ui_resource_uri,
             run_as=run_as,
+            connector_id=binding.connector_id,
         )
 
     async def _get_mcp_ui_resource_uri(
@@ -123,11 +192,10 @@ class ToolCallClient:
         if not binding.allow_mcp_ui and not binding.mcp_ui_resource_uris:
             return None
 
-        connector_id_or_name = binding.connector_id or binding.connector_name
-        cache_key = (connector_id_or_name, credentials_name)
+        cache_key = (binding.connector_id_or_name, credentials_name)
         if cache_key not in self._mcp_ui_resource_uris_by_binding:
             self._mcp_ui_resource_uris_by_binding[cache_key] = await connector_get_mcp_app_resource_uris(
-                connector_id_or_name,
+                binding.connector_id_or_name,
                 credentials_name=credentials_name,
                 run_as=run_as,
             )

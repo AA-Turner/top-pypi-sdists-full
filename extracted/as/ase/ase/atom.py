@@ -1,5 +1,3 @@
-# fmt: off
-
 """This module defines the Atom object."""
 
 import numpy as np
@@ -7,13 +5,15 @@ import numpy as np
 from ase.data import atomic_masses, atomic_numbers, chemical_symbols
 
 # Singular, plural, default value:
-names = {'position': ('positions', np.zeros(3)),
-         'number': ('numbers', 0),
-         'tag': ('tags', 0),
-         'momentum': ('momenta', np.zeros(3)),
-         'mass': ('masses', None),
-         'magmom': ('initial_magmoms', 0.0),
-         'charge': ('initial_charges', 0.0)}
+names = {
+    'position': ('positions', np.zeros(3)),
+    'number': ('numbers', 0),
+    'tag': ('tags', 0),
+    'momentum': ('momenta', np.zeros(3)),
+    'mass': ('masses', None),
+    'magmom': ('initial_magmoms', 0.0),
+    'charge': ('initial_charges', 0.0),
+}
 
 
 def atomproperty(name, doc):
@@ -81,14 +81,94 @@ class Atom:
         Magnetic moment.
     charge: float
         Atomic charge.
+
+    Examples
+    --------
+    The first argument to the constructor of an Atom object is the
+    chemical symbol, and the second argument is the position in Å units
+    (see :class:`~ase.units`).
+    The position can be any numerical sequence of length three.
+    The properties of an atom can also be set using keywords like
+    it is done in the a, b, and c examples below.
+
+    >>> from ase import Atom
+    >>> a = Atom('O', charge=-2)
+    >>> b = Atom(8, charge=-2)
+    >>> c = Atom('H', (1, 2, 3), magmom=1)
+    >>> print(a.charge, a.position)
+    -2 [0. 0. 0.]
+    >>> c.x = 0.0
+    >>> c.position
+    array([0., 2., 3.])
+    >>> b.symbol
+    'O'
+    >>> c.tag = 42
+    >>> c.number
+    1
+    >>> c.symbol = 'Li'
+    >>> c.number
+    3
+
+    If the atom object belongs to an Atoms object, then assigning
+    values to the atom attributes will change the corresponding
+    arrays of the atoms object:
+
+    >>> from ase import Atoms
+    >>> OH = Atoms('OH')
+    >>> OH[0].charge = -1
+    >>> OH.get_initial_charges()
+    array([-1.,  0.])
+
+    Another example:
+
+    >>> from ase.build import bulk
+    >>> bulk = bulk('Ni', 'fcc', a=3.5)
+    >>> for atom in bulk:
+    ...     if atom.symbol == 'Ni':
+    ...         atom.magmom = 0.7  # set initial magnetic moment
+
+    The different properties of an atom can be obtained and changed via
+    attributes (``position``, ``number``, ``tag``, ``momentum``, ``mass``,
+    ``magmom``, ``charge``, ``x``, ``y``, ``z``):
+
+    >>> from ase import Atom
+    >>> a.position = [1, 0, 0]
+    >>> a.position
+    [1, 0, 0]
+    >>> a.z = 2.5
+    >>> a.position
+    [1, 0, 2.5]
+    >>> a.magmom = 1.0
+    >>> bulk[0].magmom = 2.0
+
+    That last line will set the initial magnetic moment that some
+    calculators use (similar to the
+    :meth:`~ase.Atoms.set_initial_magnetic_moments` method).
+
+
+    .. note::
+
+       The ``position`` and ``momentum`` attributes refer to mutable
+       objects, so in some cases, you may want to use
+       ``a.position.copy()`` in order to avoid changing the position of
+       ``a`` by accident.
+
     """
+
     __slots__ = ['data', 'atoms', 'index']
 
-    def __init__(self, symbol='X', position=(0, 0, 0),
-                 tag=None, momentum=None, mass=None,
-                 magmom=None, charge=None,
-                 atoms=None, index=None):
-
+    def __init__(
+        self,
+        symbol='X',
+        position=(0, 0, 0),
+        tag=None,
+        momentum=None,
+        mass=None,
+        magmom=None,
+        charge=None,
+        atoms=None,
+        index=None,
+    ):
         self.data = d = {}
 
         if atoms is None:
@@ -159,6 +239,7 @@ class Atom:
 
     def get(self, name):
         """Get name attribute, return default if not explicitly set."""
+
         value = self.get_raw(name)
         if value is None:
             if name == 'mass':
@@ -190,8 +271,9 @@ class Atom:
                     array = self.atoms.get_masses()
                 else:
                     default = np.asarray(default)
-                    array = np.zeros((len(self.atoms),) + default.shape,
-                                     default.dtype)
+                    array = np.zeros(
+                        (len(self.atoms),) + default.shape, default.dtype
+                    )
                 array[self.index] = value
                 self.atoms.new_array(plural, array)
 

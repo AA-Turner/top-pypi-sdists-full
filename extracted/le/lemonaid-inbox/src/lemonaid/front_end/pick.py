@@ -4,9 +4,9 @@ import argparse
 
 from .. import wezterm
 from ..config import Config
-from ..launch import where, window
+from ..launch import openclaw_session, where, window
 from ..messages import autoresume_cmux, autoresume_tmux, autoresume_wezterm
-from . import interface, terminals, tmux
+from . import chat, interface, terminals, tmux
 
 
 def _beside_tmux(args: argparse.Namespace, config: Config) -> tuple[dict, str]:
@@ -37,6 +37,14 @@ def _front_end(terminal: interface.Terminal) -> interface.FrontEnd | None:
         case "cmux":  # cmux can't type into a surface, so an idle lemon there can't be prompted
             return interface.FrontEnd(
                 terminal, where.in_new_cmux_workspace, autoresume_cmux.start, None
+            )
+        case chat.NAME:  # the gateway runs its turns, so lemonaid never resumes one
+            return interface.FrontEnd(
+                terminal,
+                lambda args, config: openclaw_session.beside(args),
+                None,
+                chat.prompt,
+                previews=False,
             )
         case _:
             return None

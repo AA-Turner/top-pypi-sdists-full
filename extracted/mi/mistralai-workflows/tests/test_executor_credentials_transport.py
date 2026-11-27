@@ -1,7 +1,7 @@
 import json
 import time
 import uuid
-from typing import Any
+from typing import Any, NamedTuple
 
 import httpx
 import jwt
@@ -20,6 +20,11 @@ from mistralai.workflows.worker_client.errors import SDKError
 _INTERNAL_URL = "http://abraxas.internal"
 _PUBLIC_URL = "https://api.example.com"
 _WORKER_HEADERS = {"x-consumer-custom-id": "builder-owner", "x-workspace-id": "builder-workspace"}
+
+
+class _SentCredentials(NamedTuple):
+    authorization: str
+    worker_headers: dict[str, str | None]
 
 
 def _jwt(signature: str) -> str:
@@ -47,7 +52,7 @@ def worker_config(monkeypatch):
 class TestExecutorCredentialsTransport:
     @pytest.mark.parametrize("explicit_headers", [False, True])
     @pytest.mark.parametrize("worker_credential", ["none", "api_key", "configured_api_key", "service_account"])
-    @pytest.mark.parametrize("run_as", [None, RunAs.EXECUTOR, RunAs.AUTO], ids=["legacy-executor", "executor", "auto"])
+    @pytest.mark.parametrize("run_as", [RunAs.EXECUTOR, RunAs.AUTO], ids=["executor", "auto"])
     async def test_internal_exchange_and_public_executor_requests(
         self, monkeypatch, tmp_path, use_async, explicit_headers, worker_credential, run_as
     ):
@@ -84,7 +89,6 @@ class TestExecutorCredentialsTransport:
         client = get_mistral_client(
             server_url=_PUBLIC_URL,
             api_key=api_key,
-            use_executor_credentials=run_as is None,
             run_as=run_as,
             executor_credentials_server_url=_INTERNAL_URL,
             executor_credentials_headers=headers if explicit_headers else None,
@@ -112,8 +116,11 @@ class TestExecutorCredentialsTransport:
                 exchanges.append(json.loads(request.content)["execution_token"])
                 return httpx.Response(200, json={"token": executor_jwt})
             assert request.url.host == "api.example.com"
-            assert not any(name in request.headers for name in _WORKER_HEADERS)
-            requests.append(request.headers["authorization"])
+            requests.append(
+                _SentCredentials(
+                    request.headers["authorization"], {name: request.headers.get(name) for name in _WORKER_HEADERS}
+                )
+            )
             return httpx.Response(200, json={"object": "list", "data": []})
 
         self._mock_http(monkeypatch, handler)
@@ -132,7 +139,9 @@ class TestExecutorCredentialsTransport:
                     client.models.list()
 
         assert exchanges == [context.execution_token]
-        assert requests == ["Bearer deployment-key", f"Bearer {executor_jwt}"] * 2
+        deployment = _SentCredentials("Bearer deployment-key", _WORKER_HEADERS)
+        executor = _SentCredentials(f"Bearer {executor_jwt}", dict.fromkeys(_WORKER_HEADERS))
+        assert requests == [deployment, executor] * 2
 
     @pytest.mark.parametrize("explicit_empty_headers", [False, True])
     async def test_bearer_exchange_preserves_rotation_and_default_url(

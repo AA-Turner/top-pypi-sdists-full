@@ -2,17 +2,24 @@ import re
 import uuid
 from datetime import datetime
 from enum import Enum, StrEnum
-from typing import Annotated, Any, Dict, List, Self, Sequence, TypeAlias
+from typing import Annotated, Any, Dict, List, Mapping, Self, Sequence, TypeAlias
 
+import temporalio.api.common.v1
 from pydantic import (
+    AfterValidator,
     BaseModel,
     BeforeValidator,
     Field,
+    StrictBool,
+    StrictInt,
+    StrictStr,
+    WithJsonSchema,
     computed_field,
     field_validator,
     model_validator,
 )
 from temporalio.client import WorkflowExecutionStatus as TemporalWorkflowExecutionStatus
+from temporalio.converter import PayloadConverter
 
 from mistralai.workflows.models import (
     EventProgressStatus,
@@ -28,12 +35,17 @@ from mistralai.workflows.models import (
 )
 from mistralai.workflows.models.workflow import validate_workflow_tags
 from mistralai.workflows.protocol.v1.tempo import TempoGetTraceResponse
+from mistralai.workflows.protocol.v1.worker import PayloadEncryptionLevel
 
 CoercedStr: TypeAlias = Annotated[str, BeforeValidator(lambda v: str(v) if isinstance(v, uuid.UUID) else v)]
 
 EXECUTION_ID_MAX_LENGTH = 256
 EXECUTION_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")  # the + ensures at least one character
 DEPLOYMENT_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
+# Workers poll extra task queues named `{deployment}-rate-limited-{hex}` and
+# `{deployment}-sticky-worker-session-{hex}`. A deployment named with one of these endings would
+# make such a queue name ambiguous between two deployments, so the endings are reserved.
+RESERVED_DEPLOYMENT_NAME_SUFFIX_PATTERN = re.compile(r"-(?:rate-limited|sticky-worker-session)-[0-9a-fA-F]{32}$")
 TRACEPARENT_PATTERN = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}")
 
 
@@ -50,10 +62,73 @@ def _validate_deployment_name(v: object) -> str | None:
             f"Deployment name `{v}` is invalid. "
             "Names can only contain alphanumeric characters, hyphens (-), underscores (_), and dots (.)."
         )
+    if RESERVED_DEPLOYMENT_NAME_SUFFIX_PATTERN.search(v):
+        raise ValueError(
+            f"Deployment name `{v}` is invalid. "
+            "Names cannot end with `-rate-limited-<32 hex chars>` or `-sticky-worker-session-<32 hex chars>`: "
+            "these endings are reserved for the task queues workers derive from the deployment name."
+        )
     return v
 
 
 DeploymentName = Annotated[str | None, BeforeValidator(_validate_deployment_name)]
+RequiredDeploymentName = Annotated[str, BeforeValidator(_validate_deployment_name)]
+
+# The call context travels in cleartext next to an encrypted input. These limits guard against
+# accidental misuse (free text, nested data); they do not stop a caller who encodes data on purpose.
+CALL_CONTEXT_MAX_KEYS = 16
+CALL_CONTEXT_MAX_SERIALIZED_BYTES = 4096
+CALL_CONTEXT_KEY_PATTERN = r"^[a-z][a-z0-9_]{0,63}$"
+CALL_CONTEXT_STRING_VALUE_PATTERN = r"^[A-Za-z0-9._:@/-]{1,256}$"
+# Integers the TypeScript client (JavaScript numbers) can represent exactly.
+CALL_CONTEXT_MAX_INT = 2**53 - 1
+
+
+def call_context_to_payload(call_context: Mapping[str, Any]) -> temporalio.api.common.v1.Payload:
+    return PayloadConverter.default.to_payload(dict(call_context))
+
+
+def _validate_call_context_size(v: dict[str, Any]) -> dict[str, Any]:
+    # Measured on the bytes stored in the Temporal header, not on another serialisation of it.
+    if len(call_context_to_payload(v).data) > CALL_CONTEXT_MAX_SERIALIZED_BYTES:
+        raise ValueError(f"call_context must not exceed {CALL_CONTEXT_MAX_SERIALIZED_BYTES} bytes once serialized")
+    return v
+
+
+CallContextKey = Annotated[str, Field(pattern=CALL_CONTEXT_KEY_PATTERN)]
+CallContextValue = (
+    StrictBool
+    | Annotated[StrictInt, Field(ge=-CALL_CONTEXT_MAX_INT, le=CALL_CONTEXT_MAX_INT)]
+    | Annotated[StrictStr, Field(pattern=CALL_CONTEXT_STRING_VALUE_PATTERN)]
+)
+# Pydantic renders the constrained keys as `patternProperties`, which Speakeasy generates as an
+# empty model that drops every key. Publish a plain map instead; the server still validates keys.
+CallContextMapping = Annotated[
+    dict[CallContextKey, CallContextValue],
+    Field(max_length=CALL_CONTEXT_MAX_KEYS),
+    AfterValidator(_validate_call_context_size),
+    WithJsonSchema(
+        {
+            "type": "object",
+            "propertyNames": {"pattern": CALL_CONTEXT_KEY_PATTERN},
+            "additionalProperties": {
+                "anyOf": [
+                    {"type": "boolean"},
+                    {"type": "integer", "minimum": -CALL_CONTEXT_MAX_INT, "maximum": CALL_CONTEXT_MAX_INT},
+                    {"type": "string", "pattern": CALL_CONTEXT_STRING_VALUE_PATTERN},
+                ]
+            },
+            "maxProperties": CALL_CONTEXT_MAX_KEYS,
+        }
+    ),
+]
+CallContext = Annotated[
+    CallContextMapping | None,
+    Field(
+        description="Cleartext technical values (ids, flags) for the code this call runs, read with "
+        "`get_call_context()`. Not covered by payload encryption: never put customer content here.",
+    ),
+]
 
 
 class LocationType(str, Enum):
@@ -83,12 +158,14 @@ class DeploymentLocation(BaseModel):
 
 class WorkflowSpecsRegisterRequest(BaseModel):
     definitions: List[WorkflowSpecWithTaskQueue] = Field(min_length=1, description="List of workflow specs to register")
-    deployment_name: Annotated[str, BeforeValidator(_validate_deployment_name)] = Field(
-        description="Name of the deployment this worker belongs to"
-    )
+    deployment_name: RequiredDeploymentName = Field(description="Name of the deployment this worker belongs to")
     worker_name: str = Field(description="Human-readable name of this worker process (hostname or pod name)")
     deployment_location: DeploymentLocation | None = Field(
         default=None, description="Metadata about where this deployment is running (local, k8s, etc.)"
+    )
+    payload_encryption_mode: PayloadEncryptionLevel = Field(
+        default=PayloadEncryptionLevel.NONE,
+        description="Payload encryption mode this worker is configured with",
     )
 
 
@@ -176,10 +253,12 @@ class WorkerHeartbeatRequest(BaseModel):
     workflow_registration_refs: List[WorkflowRegistrationRef] = Field(
         default_factory=list, description="List of workflow registration references to heartbeat"
     )
-    deployment_name: Annotated[str, BeforeValidator(_validate_deployment_name)] = Field(
-        description="Name of the deployment this worker belongs to"
-    )
+    deployment_name: RequiredDeploymentName = Field(description="Name of the deployment this worker belongs to")
     worker_name: str = Field(description="Human-readable name of this worker process (hostname or pod name)")
+    payload_encryption_mode: PayloadEncryptionLevel = Field(
+        default=PayloadEncryptionLevel.NONE,
+        description="Payload encryption mode this worker is configured with",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -464,11 +543,13 @@ class WorkflowExecutionRequest(BaseModel):
         default=None,
         description="Plugin-specific data to propagate into WorkflowContext.extensions at execution time.",
     )
+    call_context: CallContext = None
     task_queue: str | None = Field(
         default=None,
         description="Deprecated. Use deployment_name instead.",
         deprecated="Deprecated. Use deployment_name instead.",
-        # TODO for SDK 4: json_schema_extra={"x-mistral-field-visibility": "excluded"},
+        # TODO: hide in the next major public API client release:
+        # json_schema_extra={"x-mistral-field-visibility": "excluded"},
     )
     deployment_name: DeploymentName = Field(
         default=None, description="Name of the deployment to route this execution to"
@@ -602,6 +683,7 @@ class SignalWorkflowRequest(BaseModel):
     input: NetworkEncodedInput | Dict[str, Any] | None = Field(
         default=None, description="Input data for the signal, matching its schema"
     )
+    call_context: CallContext = None
 
 
 class SignalWorkflowResponse(BaseModel):
@@ -627,6 +709,7 @@ class UpdateWorkflowRequest(BaseModel):
     input: NetworkEncodedInput | Dict[str, Any] | None = Field(
         default=None, description="Input data for the update, matching its schema (Deprecated)"
     )
+    call_context: CallContext = None
 
 
 class UpdateWorkflowResponse(BaseModel):
@@ -661,6 +744,7 @@ class SignalInvocationBody(BaseModel):
         description="Input data for the signal, matching its schema",
         json_schema_extra={"additionalProperties": True},
     )
+    call_context: CallContext = None
 
 
 class QueryInvocationBody(BaseModel):
@@ -675,6 +759,7 @@ class UpdateInvocationBody(BaseModel):
     input: NetworkEncodedInput | Dict[str, Any] | None = Field(
         default=None, description="Input data for the update, matching its schema"
     )
+    call_context: CallContext = None
 
 
 class ResetInvocationBody(BaseModel):
@@ -717,7 +802,8 @@ class WorkflowScheduleRequest(BaseModel):
         default=None,
         description="Deprecated. Use deployment_name instead.",
         deprecated="Deprecated. Use deployment_name instead.",
-        # TODO for SDK 4: json_schema_extra={"x-mistral-field-visibility": "excluded"},
+        # TODO: hide in the next major public API client release:
+        # json_schema_extra={"x-mistral-field-visibility": "excluded"},
     )
 
     schedule_id: str | None = Field(

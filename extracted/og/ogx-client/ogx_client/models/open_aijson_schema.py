@@ -32,7 +32,7 @@ class OpenAIJSONSchema(BaseModel):
     """
     JSON schema specification for OpenAI-compatible structured response format.
     """ # noqa: E501
-    name: Optional[StrictStr] = None
+    name: StrictStr
     description: Optional[StrictStr] = None
     strict: Optional[StrictBool] = None
     var_schema: Optional[Dict[str, Any]] = Field(default=None, alias="schema")

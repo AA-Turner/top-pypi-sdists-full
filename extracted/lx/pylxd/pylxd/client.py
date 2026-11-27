@@ -11,17 +11,24 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from __future__ import annotations
+
 import base64
+import binascii
+import hashlib
 import json
 import os
 import re
 import socket
+import ssl
+from collections.abc import Mapping
 from enum import Enum
-from typing import NamedTuple
+from typing import Any, NamedTuple, cast
 from urllib import parse
 
 import requests
 import requests.adapters
+import requests.certs
 import urllib3
 import urllib3.connection
 from cryptography import x509
@@ -65,7 +72,7 @@ class EventType(Enum):
 
 
 class _UnixSocketHTTPConnection(urllib3.connection.HTTPConnection):
-    def __init__(self, unix_socket_url):
+    def __init__(self, unix_socket_url: str):
         super().__init__("localhost", timeout=SOCKET_CONNECTION_TIMEOUT)
         self.unix_socket_url = unix_socket_url
         self.timeout = SOCKET_CONNECTION_TIMEOUT
@@ -84,7 +91,7 @@ class _UnixSocketHTTPConnection(urllib3.connection.HTTPConnection):
 
 
 class _UnixSocketHTTPConnectionPool(urllib3.HTTPConnectionPool):
-    def __init__(self, socket_path):
+    def __init__(self, socket_path: str):
         super().__init__("localhost")
         self.socket_path = socket_path
 
@@ -93,13 +100,17 @@ class _UnixSocketHTTPConnectionPool(urllib3.HTTPConnectionPool):
 
 
 class _UnixAdapter(requests.adapters.HTTPAdapter):
-    def __init__(self, pool_connections=25, *args, **kwargs):
+    def __init__(self, pool_connections: int = 25, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.pools = urllib3._collections.RecentlyUsedContainer(
+        self.pools: urllib3._collections.RecentlyUsedContainer[
+            str, _UnixSocketHTTPConnectionPool
+        ] = urllib3._collections.RecentlyUsedContainer(
             pool_connections, dispose_func=lambda p: p.close()
         )
 
-    def get_connection(self, url, proxies):
+    def get_connection(
+        self, url: str, proxies: dict[str, str] | None = None
+    ) -> _UnixSocketHTTPConnectionPool:
         with self.pools.lock:
             conn = self.pools.get(url)
             if conn:
@@ -110,11 +121,20 @@ class _UnixAdapter(requests.adapters.HTTPAdapter):
 
         return conn
 
-    # This method is needed fo compatibility with later requests versions.
-    def get_connection_with_tls_context(self, request, verify, proxies=None, cert=None):
-        return self.get_connection(request.url, None)
+    # This method is needed for compatibility with later requests versions.
+    def get_connection_with_tls_context(
+        self,
+        request: requests.PreparedRequest,
+        verify: bool | str | None,
+        proxies: Mapping[str, str] | None = None,
+        cert: str | tuple[str, str] | None = None,
+    ) -> _UnixSocketHTTPConnectionPool:
+        # A prepared request always has its URL set.
+        return self.get_connection(cast(str, request.url), None)
 
-    def request_url(self, request, proxies):
+    def request_url(
+        self, request: requests.PreparedRequest, proxies: dict[str, str] | None = None
+    ) -> str:
         return request.path_url
 
     def close(self):
@@ -122,26 +142,58 @@ class _UnixAdapter(requests.adapters.HTTPAdapter):
 
 
 class LXDSSLAdapter(requests.adapters.HTTPAdapter):
-    def cert_verify(self, conn, url, verify, cert):
-        with open(verify, "rb") as fd:
-            servercert = x509.load_pem_x509_certificate(fd.read())
-            fingerprint = servercert.fingerprint(hashes.SHA256())
+    def cert_verify(
+        self,
+        conn: urllib3.HTTPSConnectionPool,
+        url: str,
+        verify: bool | str | os.PathLike[str],
+        cert: str | tuple[str, str] | None,
+    ):
+        if isinstance(verify, (str, os.PathLike)):
+            with open(verify, "rb") as fd:
+                servercert = x509.load_pem_x509_certificate(fd.read())
+                fingerprint = servercert.fingerprint(hashes.SHA256())
 
-        conn.assert_fingerprint = "".join([f"{i:02x}" for i in fingerprint])
-        super().cert_verify(conn, url, False, cert)
+            conn.assert_fingerprint = "".join([f"{i:02x}" for i in fingerprint])
+            super().cert_verify(conn, url, False, cert)
+            return
+
+        conn.assert_fingerprint = None
+        super().cert_verify(conn, url, verify, cert)
 
 
-def get_session_for_url(url: str, verify=None, cert=None) -> requests.Session:
+class _Session(requests.Session):
+    """A Session whose own `verify` is not overridden by the environment.
+
+    With `trust_env`, requests replaces a session-level `verify` with
+    REQUESTS_CA_BUNDLE or CURL_CA_BUNDLE, so `verify=False` or a path to a
+    certificate would be silently ignored. Keep an explicit `verify` (False or
+    a path) and let the environment apply only when it is True or unset.
+    Proxies and the other environment settings are still honoured.
+    """
+
+    def merge_environment_settings(self, url, proxies, stream, verify, cert):
+        if verify is None and self.verify is not None and self.verify is not True:
+            verify = self.verify
+        return super().merge_environment_settings(url, proxies, stream, verify, cert)
+
+
+def get_session_for_url(
+    url: str,
+    verify: bool | str | None = None,
+    cert: str | tuple[str, str] | None = None,
+) -> requests.Session:
     """Create a Session for use with requests for the given URL.
 
     Call sites can use this to customise the session before passing into a Client.
     """
-    session = requests.Session()
+    session = _Session()
     if url.startswith(DEFAULT_SCHEME):
         session.mount(DEFAULT_SCHEME, _UnixAdapter())
     else:
         session.cert = cert
-        session.verify = verify
+        if verify is not None:
+            session.verify = verify
 
         if isinstance(verify, str):
             session.mount(url, LXDSSLAdapter())
@@ -157,17 +209,17 @@ class _APINode:
 
     def __init__(
         self,
-        api_endpoint,
-        session,
-        timeout=None,
-        project=None,
+        api_endpoint: str,
+        session: requests.Session,
+        timeout: float | tuple[float, float] | None = None,
+        project: str | None = None,
     ):
         self._api_endpoint = api_endpoint
         self._timeout = timeout
         self._project = project
         self.session = session
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> _APINode:
         """Converts attribute lookup into the next /<segment> of an api
         url.
 
@@ -177,7 +229,7 @@ class _APINode:
         :rtype: _APINode
         """
         # '-' can't be used in variable names
-        if name in ("storage_pools", "virtual_machines"):
+        if name in ("storage_pools", "virtual_machines", "image_registries"):
             name = name.replace("_", "-")
         return self.__class__(
             f"{self._api_endpoint}/{name}",
@@ -186,7 +238,7 @@ class _APINode:
             project=self._project,
         )
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> _APINode:
         """This converts python api.thing[name] -> ".../thing/name"
 
         :param item: the 'thing' in the square-braces in a python expr.
@@ -242,14 +294,14 @@ class _APINode:
                 raise exceptions.LXDAPIException(response)
 
     @property
-    def scheme(self):
+    def scheme(self) -> str:
         return parse.urlparse(self.api._api_endpoint).scheme
 
     @property
-    def netloc(self):
+    def netloc(self) -> str:
         return parse.urlparse(self.api._api_endpoint).netloc
 
-    def get(self, *args, **kwargs):
+    def get(self, *args, **kwargs) -> requests.Response:
         """Perform an HTTP GET.
 
         Note if 'is_api' is passed in the kwargs then it is popped and used to
@@ -270,7 +322,7 @@ class _APINode:
         )
         return response
 
-    def post(self, *args, **kwargs):
+    def post(self, *args, **kwargs) -> requests.Response:
         """Perform an HTTP POST."""
         kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
@@ -285,13 +337,15 @@ class _APINode:
             params["project"] = self._project
             kwargs["params"] = params
 
+        _set_default_content_type(kwargs)
+
         response = self.session.post(self._api_endpoint, *args, **kwargs)
         # Prior to LXD 2.0.3, successful synchronous requests returned 200,
         # rather than 201.
         self._assert_response(response, allowed_status_codes=(200, 201, 202))
         return response
 
-    def put(self, *args, **kwargs):
+    def put(self, *args, **kwargs) -> requests.Response:
         """Perform an HTTP PUT."""
         kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
@@ -300,11 +354,13 @@ class _APINode:
             params["project"] = self._project
             kwargs["params"] = params
 
+        _set_default_content_type(kwargs)
+
         response = self.session.put(self._api_endpoint, *args, **kwargs)
         self._assert_response(response, allowed_status_codes=(200, 202))
         return response
 
-    def patch(self, *args, **kwargs):
+    def patch(self, *args, **kwargs) -> requests.Response:
         """Perform an HTTP PATCH."""
         kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
@@ -313,11 +369,13 @@ class _APINode:
             params["project"] = self._project
             kwargs["params"] = params
 
+        _set_default_content_type(kwargs)
+
         response = self.session.patch(self._api_endpoint, *args, **kwargs)
         self._assert_response(response, allowed_status_codes=(200, 202))
         return response
 
-    def delete(self, *args, **kwargs):
+    def delete(self, *args, **kwargs) -> requests.Response:
         """Perform an HTTP delete."""
         kwargs["timeout"] = kwargs.get("timeout", self._timeout)
 
@@ -354,7 +412,147 @@ def _ws_exclude_origin(kwargs):
         kwargs["exclude_headers"] = list(existing) + ["origin"]
 
 
-class _WebsocketClient(WebSocketBaseClient):
+def _set_default_content_type(kwargs):
+    """Label a raw request body as ``application/octet-stream``.
+
+    LXD validates the ``Content-Type`` of request bodies and expects
+    ``application/octet-stream`` for raw uploads such as file pushes and
+    image or backup imports.  ``requests`` already sends ``application/json``
+    for ``json=`` bodies, but sends no ``Content-Type`` for raw ``data=``
+    bodies, so set it here.
+
+    The function mutates *kwargs* in place.  A ``Content-Type`` supplied by
+    the caller (checked case-insensitively) is left untouched, as are form
+    bodies given as a mapping, list or tuple and requests with ``files=``,
+    which ``requests`` encodes itself.
+    """
+    data = kwargs.get("data")
+    if data is None or isinstance(data, (Mapping, list, tuple)):
+        return
+    if kwargs.get("files"):
+        return
+
+    headers = kwargs.get("headers") or {}
+    if any(k.lower() == "content-type" for k in headers):
+        return
+
+    kwargs["headers"] = {**headers, "Content-Type": "application/octet-stream"}
+
+
+def _ws_ssl_options(
+    session: requests.Session, url: str, cert: tuple[str, str] | None
+) -> dict[str, Any]:
+    """Translate the TLS settings `session` uses for `url` into WebSocket options.
+
+    Settings are read the way requests reads them, ``REQUESTS_CA_BUNDLE``
+    included, so HTTP and WebSocket connections accept and refuse the same
+    servers. With ``cert_reqs``, ``ca_certs`` is a CA bundle verified during
+    the TLS handshake; without ``cert_reqs``, ``ca_certs`` is a server
+    certificate pinned by :class:`LXDSSLAdapter` and matched by fingerprint in
+    :class:`_LXDWebSocketBaseClient`.
+    """
+    options: dict[str, Any] = {"certfile": cert[0], "keyfile": cert[1]} if cert else {}
+
+    verify = session.merge_environment_settings(url, {}, None, None, None)["verify"]
+    # A falsy verify, None as well as False, makes requests skip verification.
+    if (
+        isinstance(verify, str)
+        and verify
+        and isinstance(session.get_adapter(url), LXDSSLAdapter)
+    ):
+        options["ca_certs"] = verify
+    elif verify:
+        options["cert_reqs"] = ssl.CERT_REQUIRED
+        options["ca_certs"] = (
+            verify if isinstance(verify, str) else requests.certs.where()
+        )
+    return options
+
+
+class _LXDWebSocketBaseClient(WebSocketBaseClient):
+    """Base class for pylxd's WebSocket clients.
+
+    Strips the ``Origin`` header, wraps ``wss://`` sockets with
+    :class:`ssl.SSLContext` directly (so ws4py < 0.6.0 and Python 3.12+ work
+    without ``ssl.wrap_socket``), and checks a pinned server certificate's
+    SHA-256 fingerprint before sending the WebSocket handshake.
+    """
+
+    _is_secure = False
+    _peer_verified = False
+
+    def __init__(self, *args, **kwargs):
+        _ws_exclude_origin(kwargs)
+        excluded = [h.lower() for h in kwargs.pop("exclude_headers")]
+        super().__init__(*args, **kwargs)
+        self.exclude_headers = excluded
+
+    @property
+    def handshake_headers(self):
+        return [
+            (h, v)
+            for h, v in super().handshake_headers
+            if h.lower() not in self.exclude_headers
+        ]
+
+    def connect(self):
+        if self.scheme == "wss":
+            if "cert_reqs" in self.ssl_options:
+                ca_certs = self.ssl_options["ca_certs"]
+                # Like requests, accept a directory of CA certificates too.
+                if os.path.isdir(ca_certs):
+                    context = ssl.create_default_context(capath=ca_certs)
+                else:
+                    context = ssl.create_default_context(cafile=ca_certs)
+            else:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
+            if "certfile" in self.ssl_options:
+                context.load_cert_chain(
+                    self.ssl_options["certfile"], self.ssl_options["keyfile"]
+                )
+            self.sock = context.wrap_socket(self.sock, server_hostname=self.host)
+            self._is_secure = True
+            self.scheme = "ws"
+            try:
+                return super().connect()
+            except Exception:
+                self.close_connection()
+                raise
+            finally:
+                self.scheme = "wss"
+        return super().connect()
+
+    def _write(self, b):
+        # The first write is the WebSocket handshake request, which carries
+        # the operation secret. The TLS handshake has completed by then, so
+        # the peer certificate is available and nothing has been sent yet.
+        if self._is_secure and not self._peer_verified:
+            self._verify_peer_certificate()
+            self._peer_verified = True
+        super()._write(b)
+
+    def _verify_peer_certificate(self):
+        """Match the peer against the pinned server certificate, if any."""
+        pinned = self.ssl_options.get("ca_certs")
+        if not pinned or "cert_reqs" in self.ssl_options:
+            return
+
+        with open(pinned, "rb") as fd:
+            expected = x509.load_pem_x509_certificate(fd.read()).fingerprint(
+                hashes.SHA256()
+            )
+        peer = hashlib.sha256(self.sock.getpeercert(binary_form=True) or b"").digest()
+        if peer != expected:
+            self.close_connection()
+            raise exceptions.ClientConnectionFailed(
+                f"Server certificate does not match the one pinned in {pinned}"
+            )
+
+
+class _WebsocketClient(_LXDWebSocketBaseClient):
     """A basic websocket client for the LXD API.
 
     This client is intentionally barebones, and serves
@@ -362,10 +560,6 @@ class _WebsocketClient(WebSocketBaseClient):
     all json messages to a messages attribute, which can
     then be read are parsed.
     """
-
-    def __init__(self, *args, **kwargs):
-        _ws_exclude_origin(kwargs)
-        super().__init__(*args, **kwargs)
 
     def handshake_ok(self):
         self.messages = []
@@ -376,7 +570,7 @@ class _WebsocketClient(WebSocketBaseClient):
 
 
 # Helper function used by Client.authenticate()
-def _is_a_token(secret):
+def _is_a_token(secret) -> bool:
     """Inspect the provided secret to determine if it is a trust token.
 
     Try to base64 decode and parse the JSON to see if it contains a "secret" key.
@@ -392,7 +586,7 @@ def _is_a_token(secret):
     >>> _is_a_token(base64.b64encode("password".encode("utf-8")))
     False
     >>> token = '{"client_name":"foo","fingerprint":"abcd","addresses":["192.0.2.1:8443"],"secret":"I-am-a-secret","expires_at":"0001-01-01T00:00:00Z","type":""}'
-    >>> _is_a_token(base64.b64encode(json.dumps(token).encode("utf-8")))
+    >>> _is_a_token(base64.b64encode(token.encode("utf-8")))
     True
     """
     try:
@@ -402,8 +596,8 @@ def _is_a_token(secret):
             secret = secret.strip()
         b64 = base64.b64decode(secret, validate=True)
         token = json.loads(b64.decode("utf-8"))
-        return "secret" in token
-    except (TypeError, ValueError, json.JSONDecodeError, base64.binascii.Error):
+        return isinstance(token, dict) and "secret" in token
+    except (TypeError, ValueError, json.JSONDecodeError, binascii.Error):
         return False
 
 
@@ -460,13 +654,13 @@ class Client:
 
     def __init__(
         self,
-        endpoint=None,
-        version="1.0",
-        cert=None,
-        verify=True,
-        timeout=None,
-        project=None,
-        session=None,
+        endpoint: str | None = None,
+        version: str = "1.0",
+        cert: tuple[str, str] | None = None,
+        verify: bool | str = True,
+        timeout: float | tuple[float, float] | None = None,
+        project: str | None = None,
+        session: requests.Session | None = None,
     ):
         """Constructs a LXD client
 
@@ -502,7 +696,7 @@ class Client:
                     cert = DEFAULT_CERTS
 
                 # Try to use an existing server certificate if one exists
-                if isinstance(verify, bool) and endpoint.startswith("https://"):
+                if verify is True and endpoint.startswith("https://"):
                     no_proto = re.sub(r"^https://\[?", "", endpoint)
                     remote = re.sub(r"]?(:[0-9]+)?$", "", no_proto)
                     remote_cert_path = os.path.join(
@@ -512,7 +706,7 @@ class Client:
                         verify = remote_cert_path
         else:
             if "LXD_DIR" in os.environ:
-                path = os.path.join(os.environ.get("LXD_DIR"), "unix.socket")
+                path = os.path.join(os.environ["LXD_DIR"], "unix.socket")
             elif os.path.exists("/var/snap/lxd/common/lxd/unix.socket"):
                 path = "/var/snap/lxd/common/lxd/unix.socket"
             else:
@@ -524,19 +718,19 @@ class Client:
         self.api = _APINode(
             f"{endpoint}/{version}", session, timeout=timeout, project=project
         )
-        use_ssl = self.api.scheme == "https" and self.cert
         self.ssl_options = (
-            {"certfile": self.cert[0], "keyfile": self.cert[1]} if use_ssl else None
+            _ws_ssl_options(session, endpoint, self.cert)
+            if self.api.scheme == "https"
+            else None
         )
 
         # Verify the connection is valid.
         try:
             response = self.api.get()
-            if response.status_code != 200:
-                raise exceptions.ClientConnectionFailed()
             self.host_info = response.json()["metadata"]
 
         except (
+            exceptions.LXDAPIException,
             requests.exceptions.ConnectionError,
             requests.exceptions.InvalidURL,
         ) as e:
@@ -555,23 +749,24 @@ class Client:
         self.containers = managers.ContainerManager(self)
         self.virtual_machines = managers.VirtualMachineManager(self)
         self.images = managers.ImageManager(self)
+        self.image_registries = managers.ImageRegistryManager(self)
         self.networks = managers.NetworkManager(self)
         self.operations = managers.OperationManager(self)
         self.profiles = managers.ProfileManager(self)
         self.projects = managers.ProjectManager(self)
         self.storage_pools = managers.StoragePoolManager(self)
-        self._resource_cache = None
+        self._resource_cache: dict | None = None
 
     @property
-    def trusted(self):
-        return self.host_info["auth"] == "trusted"
+    def trusted(self) -> bool:
+        return bool(self.host_info["auth"] == "trusted")
 
     @property
-    def server_clustered(self):
-        return self.host_info["environment"].get("server_clustered", False)
+    def server_clustered(self) -> bool:
+        return self.host_info["environment"].get("server_clustered") is True
 
     @property
-    def resources(self):
+    def resources(self) -> dict:
         if self._resource_cache is None:
             self.assert_has_api_extension("resources")
             response = self.api.resources.get()
@@ -580,7 +775,7 @@ class Client:
             self._resource_cache = response.json()["metadata"]
         return self._resource_cache
 
-    def has_api_extension(self, name):
+    def has_api_extension(self, name: str) -> bool:
         """Return True if the `name` api extension exists.
 
         :param name: the api_extension to look for.
@@ -590,7 +785,7 @@ class Client:
         """
         return name in self.host_info["api_extensions"]
 
-    def assert_has_api_extension(self, name):
+    def assert_has_api_extension(self, name: str):
         """Asserts that the `name` api_extension exists.
         If not, then is raises the LXDAPIExtensionNotAvailable error.
 
@@ -602,7 +797,7 @@ class Client:
         if not self.has_api_extension(name):
             raise exceptions.LXDAPIExtensionNotAvailable(name)
 
-    def authenticate(self, secret, use_token_auth=True):
+    def authenticate(self, secret: str | bytes, use_token_auth: bool = True):
         if self.trusted:
             return
 
@@ -632,7 +827,7 @@ class Client:
         self.host_info = response.json()["metadata"]
 
     @property
-    def websocket_url(self):
+    def websocket_url(self) -> str:
         if self.api.scheme in ("http", "https"):
             host = self.api.netloc
             if self.api.scheme == "http":
@@ -645,7 +840,11 @@ class Client:
         url = parse.urlunparse((scheme, host, "", "", "", ""))
         return url
 
-    def events(self, websocket_client=None, event_types=None):
+    def events(
+        self,
+        websocket_client: type[WebSocketBaseClient] | None = None,
+        event_types: set[EventType] | None = None,
+    ) -> WebSocketBaseClient:
         """Get a websocket client for getting events.
 
         /events is a websocket url, and so must be handled differently than
@@ -658,7 +857,9 @@ class Client:
         of events as they occur.
 
         :param websocket_client: Optional websocket client can be specified for
-         implementation-specific handling of events as they occur.
+         implementation-specific handling of events as they occur. A subclass
+         of ``ws4py.client.WebSocketBaseClient`` gets the client's TLS
+         verification and ``Origin`` header policy applied to it.
         :type websocket_client: ws4py.client import WebSocketBaseClient
 
         :param event_types: Optional set of event types to propagate. Omit this
@@ -667,19 +868,49 @@ class Client:
 
         :returns: instance of the websocket client
         :rtype: Option[_WebsocketClient(), `websocket_client`]
+        :raises: :class:`pylxd.exceptions.ClientConnectionFailed` if the server
+         certificate has to be verified and `websocket_client` is not such a
+         subclass.
         """
         if websocket_client is None:
             websocket_client = _WebsocketClient
+        elif (
+            isinstance(websocket_client, type)
+            and issubclass(websocket_client, WebSocketBaseClient)
+            and not issubclass(websocket_client, _LXDWebSocketBaseClient)
+        ):
+            # A caller's class knows nothing about pylxd's TLS verification.
+            websocket_client = cast(
+                type[WebSocketBaseClient],
+                type(
+                    websocket_client.__name__,
+                    (_LXDWebSocketBaseClient, websocket_client),
+                    {},
+                ),
+            )
 
         client = websocket_client(self.websocket_url, ssl_options=self.ssl_options)
+        if (self.ssl_options or {}).get("ca_certs") and not isinstance(
+            client, _LXDWebSocketBaseClient
+        ):
+            # For instance a factory function, which hides the class.
+            raise exceptions.ClientConnectionFailed(
+                "websocket_client must be a ws4py WebSocketBaseClient subclass "
+                "for the server certificate to be verified"
+            )
         parsed = parse.urlparse(self.api.events._api_endpoint)
 
         resource = parsed.path
 
+        query: dict[str, Any] = parse.parse_qs(parsed.query)
+        if self.project is not None:
+            query["project"] = self.project
+
         if event_types and EventType.All not in event_types:
-            query = parse.parse_qs(parsed.query)
-            query.update({"type": ",".join(t.value for t in event_types)})
-            resource = f"{resource}?{parse.urlencode(query)}"
+            query["type"] = ",".join(t.value for t in event_types)
+
+        if query:
+            resource = f"{resource}?{parse.urlencode(query, doseq=True)}"
 
         client.resource = resource
 

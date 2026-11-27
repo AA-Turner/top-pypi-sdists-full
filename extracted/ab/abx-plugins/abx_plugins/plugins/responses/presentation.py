@@ -4,6 +4,7 @@ import html
 import json
 import posixpath
 import re
+import stat
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote, urljoin, urlsplit
@@ -91,6 +92,7 @@ def _index_responses_paths_for_html_images(
     index = responses_root / "index.jsonl"
     if index.is_file():
         resolved_root = responses_root.resolve()
+        resolved_parents = {responses_root: resolved_root}
         if records is None:
             records = _saved_response_records(index)
         for record in records:
@@ -110,11 +112,28 @@ def _index_responses_paths_for_html_images(
                 matches = encoded_urls & urls
                 if not matches:
                     continue
-                candidate = (responses_root / record.get("path", "")).resolve()
-                if (
-                    not candidate.is_relative_to(resolved_root)
-                    or not candidate.is_file()
-                ):
+                path = responses_root / record.get("path", "")
+                parent = resolved_parents.get(path.parent)
+                if parent is None:
+                    parent = resolved_parents[path.parent] = path.parent.resolve()
+                candidate = parent / path.name
+                if not candidate.is_relative_to(resolved_root):
+                    continue
+                # Each path component can require a network lookup on a
+                # mounted archive. Resolve shared directories once per view,
+                # while still resolving and checking containment of symlinks.
+                try:
+                    mode = candidate.lstat().st_mode
+                except (FileNotFoundError, NotADirectoryError):
+                    continue
+                if stat.S_ISLNK(mode):
+                    candidate = candidate.resolve()
+                    if (
+                        not candidate.is_relative_to(resolved_root)
+                        or not candidate.is_file()
+                    ):
+                        continue
+                elif not stat.S_ISREG(mode):
                     continue
                 for encoded in matches:
                     best_matches[encoded] = posixpath.relpath(
@@ -156,6 +175,25 @@ def _index_responses_paths_for_html_images(
     return best_matches
 
 
+class _ResponseResources(Resources):
+    """Collect canonical image aliases while finding rewritable resources."""
+
+    def __init__(self, html_text):
+        super().__init__(html_text)
+        self.image_aliases: list[tuple[str, str]] = []
+
+    def handle_starttag(self, tag, attrs):
+        super().handle_starttag(tag, attrs)
+        if tag == "img":
+            values = dict(attrs)
+            if (original := values.get("data-canonical-src")) and (
+                proxy := values.get("src")
+            ):
+                self.image_aliases.append((original, proxy))
+
+    handle_startendtag = handle_starttag
+
+
 def _rewrite_html_image_sources_to_responses(
     html_text: str,
     snapshot_root: Path,
@@ -165,7 +203,10 @@ def _rewrite_html_image_sources_to_responses(
     source_html: str | None = None,
 ) -> tuple[str, int]:
     # Parse real start tags, preserving script/comment data and untouched bytes.
-    resources = Resources(html_text)
+    same_dom_source = html_rel_path == "dom/output.html" and source_html == html_text
+    resources = (
+        _ResponseResources(html_text) if same_dom_source else Resources(html_text)
+    )
     resources.feed(html_text)
     spans = resources.spans
     inserted_sources = resources.inserted_sources
@@ -220,28 +261,35 @@ def _rewrite_html_image_sources_to_responses(
     # Absence of this artifact simply disables proxy-to-original aliases.
     aliases: dict[str, str] = {}
 
+    def record_alias(original, proxy):
+        original_key = _encoded_responses_image_url(original, page_url)
+        proxy_key = _encoded_responses_image_url(proxy, page_url)
+        if original_key and proxy_key:
+            aliases[original_key] = proxy_key
+
     class ImageAliases(HTMLParser):
         def handle_starttag(self, tag, attrs):
-            attrs = dict(attrs)
-            original = attrs.get("data-canonical-src")
-            proxy = attrs.get("src")
-            if tag == "img" and original and proxy:
-                original_key = _encoded_responses_image_url(original, page_url)
-                proxy_key = _encoded_responses_image_url(proxy, page_url)
-                if original_key and proxy_key:
-                    aliases[original_key] = proxy_key
+            if tag == "img":
+                values = dict(attrs)
+                if (original := values.get("data-canonical-src")) and (
+                    proxy := values.get("src")
+                ):
+                    record_alias(original, proxy)
 
     dom = snapshot_root / "dom" / "output.html"
     if dom.is_file() and dom.stat().st_size <= 10 * 1024 * 1024:
-        # Reuse the original decoded DOM when serving that very file. Large DOMs
-        # otherwise get read/decoded twice per request. Display text may already
-        # be HTML-unescaped or rendered Markdown, so it is not an alias source.
-        dom_html = (
-            source_html
-            if html_rel_path == "dom/output.html" and source_html is not None
-            else dom.read_text(errors="replace")
-        )
-        ImageAliases().feed(dom_html)
+        if isinstance(resources, _ResponseResources):
+            for original, proxy in resources.image_aliases:
+                record_alias(original, proxy)
+        else:
+            # Display text may be HTML-unescaped or rendered Markdown. Read
+            # canonical aliases from the actual DOM, not transformed text.
+            dom_html = (
+                source_html
+                if html_rel_path == "dom/output.html" and source_html is not None
+                else dom.read_text(errors="replace")
+            )
+            ImageAliases().feed(dom_html)
     response_paths = _index_responses_paths_for_html_images(
         snapshot_root,
         html_rel_path,

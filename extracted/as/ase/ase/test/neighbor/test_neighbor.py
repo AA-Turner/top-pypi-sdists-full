@@ -4,11 +4,12 @@ import numpy as np
 import pytest
 
 from ase import Atoms
-from ase.build import bulk
+from ase.build import bulk, fcc111
 from ase.neighborlist import (
     NeighborList,
     NewPrimitiveNeighborList,
     PrimitiveNeighborList,
+    primitive_neighbor_list,
 )
 
 
@@ -95,7 +96,7 @@ def test_supercell(sorted):
                 nl2.update(atoms2)
                 d2, c2 = count(nl2, atoms2)
 
-                c2.shape = (-1, 10)  # row: images, column: atoms
+                c2 = c2.reshape((-1, 10))  # row: images, column: atoms
 
                 # if the sum of nearest-neighbor distances gets larger
                 # according to the supercell size
@@ -247,6 +248,47 @@ def test_equivalence_of_primitive_classes(sort, self_interaction, bothways):
 
     # check if the both primitive classes provide the same neighbors
     assert np.all(info[0] == info[1])
+
+
+@pytest.mark.parametrize('name', ['bulk', 'slab', 'lowsym'])
+def test_primitive_matches_kernel(name):
+    """PrimitiveNeighborList (cKDTree path) must agree edge-for-edge with the
+    primitive_neighbor_list kernel for periodic, mixed-pbc and low-symmetry
+    cells at a multi-shell cutoff."""
+    if name == 'bulk':
+        atoms = bulk('Cu', 'fcc', a=3.6, cubic=True) * (2, 2, 2)
+    elif name == 'slab':
+        atoms = fcc111('Cu', size=(3, 3, 4), a=3.6, vacuum=8.0)
+        atoms.pbc = [True, True, False]
+    else:
+        atoms = bulk('Ti', 'hcp', a=2.95, c=4.68) * (3, 3, 2)
+
+    cutoff = 5.0
+    natoms = len(atoms)
+    cell = np.array(atoms.cell)
+    positions = atoms.get_positions()
+
+    nl = PrimitiveNeighborList(
+        [cutoff / 2] * natoms,
+        skin=0.0,
+        self_interaction=False,
+        bothways=True,
+    )
+    nl.update(atoms.pbc, cell, positions)
+    got = sorted(
+        (i, int(j), *map(int, o))
+        for i in range(natoms)
+        for j, o in zip(*nl.get_neighbors(i))
+    )
+
+    ki, kj, kS = primitive_neighbor_list(
+        'ijS', atoms.pbc, cell, positions, cutoff, self_interaction=False
+    )
+    expected = sorted(
+        (int(a), int(b), *map(int, s)) for a, b, s in zip(ki, kj, kS)
+    )
+
+    assert got == expected
 
 
 def test_small_cell_and_large_cutoff():

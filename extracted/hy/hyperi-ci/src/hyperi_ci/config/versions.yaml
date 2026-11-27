@@ -395,6 +395,10 @@ tools:
   pip-audit:
     version: 2.10.1
     pypi: pip-audit
+  # diagram-check runs `merrow diagram lint --no-render`, which needs no browser.
+  merrow:
+    version: "0.1.12"
+    pypi: merrow
   pip-licenses:
     version: 5.5.5
     pypi: pip-licenses
@@ -415,6 +419,11 @@ tools:
   ty:
     version: "0.0.95"
     pypi: ty
+  # Builds a Rust repo's PyO3 bindings. The zig extra brings the ziglang it
+  # supports, for manylinux and musllinux wheels.
+  maturin:
+    version: "1.16.0"
+    pypi: maturin
   checkov:
     version: "3.4.0"
     pypi: checkov

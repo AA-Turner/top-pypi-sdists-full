@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgqueuer
-Version: 2.1.0
+Version: 2.2.0
 Summary: PostgreSQL-backed background job and task queue for Python.
 Author: JeyBee
 License: MIT License
@@ -51,12 +51,10 @@ Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "opentelemetry"
 Requires-Dist: opentelemetry-semantic-conventions>=0.41b0; extra == "opentelemetry"
 Provides-Extra: fastapi
 Requires-Dist: fastapi>=0.100.0; extra == "fastapi"
-Provides-Extra: mcp
-Requires-Dist: mcp>=1.0; extra == "mcp"
-Requires-Dist: asyncpg>=0.30.0; extra == "mcp"
 Provides-Extra: web
 Requires-Dist: fastapi>=0.115.0; extra == "web"
 Requires-Dist: jinja2>=3.1; extra == "web"
+Requires-Dist: python-multipart>=0.0.18; extra == "web"
 Requires-Dist: uvicorn>=0.30; extra == "web"
 Dynamic: license-file
 

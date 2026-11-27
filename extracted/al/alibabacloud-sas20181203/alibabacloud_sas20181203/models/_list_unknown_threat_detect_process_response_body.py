@@ -72,11 +72,11 @@ class ListUnknownThreatDetectProcessResponseBodyPageInfo(DaraModel):
         page_size: int = None,
         total_count: int = None,
     ):
-        # The number of entries returned on the current page.
+        # The number of entries on the current page.
         self.count = count
-        # The page number of the current page returned during paging for a paged query.
+        # The page number of the current page in a paging query.
         self.current_page = current_page
-        # The maximum number of entries returned on each page during paging for a paged query.
+        # The maximum number of entries per page in a paging query.
         self.page_size = page_size
         # The total number of entries.
         self.total_count = total_count
@@ -139,11 +139,11 @@ class ListUnknownThreatDetectProcessResponseBodyData(DaraModel):
         # - **white**: normal process
         # - **abnormal**: abnormal process
         self.analyze_result = analyze_result
-        # The English description of the process behavior.
+        # The description of the process behavior in English.
         self.explanation_en = explanation_en
-        # The Chinese description of the process behavior.
+        # The description of the process behavior in Chinese.
         self.explanation_zh = explanation_zh
-        # The timestamp of the first occurrence.
+        # The timestamp when the event first occurred.
         self.first_time = first_time
         # The MD5 hash of the file.
         self.md_5 = md_5
@@ -246,9 +246,9 @@ class ListUnknownThreatDetectProcessResponseBodyDataTags(DaraModel):
         tag_en: str = None,
         tag_zh: str = None,
     ):
-        # The English tag of the process.
+        # The process tag in English.
         self.tag_en = tag_en
-        # The Chinese tag of the process.
+        # The process tag in Chinese.
         self.tag_zh = tag_zh
 
     def validate(self):

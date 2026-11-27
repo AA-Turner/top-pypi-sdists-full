@@ -16,11 +16,11 @@ class DescribeTraceInfoDetailResponseBody(DaraModel):
     ):
         # The ID of the request.
         self.request_id = request_id
-        # Indicates whether the call was successful. Valid values:
-        # - **true**: The call was successful.
-        # - **false**: The call failed.
+        # The status of the API call. Valid values:
+        # - **true**: The API call succeeded.
+        # - **false**: The API call failed.
         self.success = success
-        # The details of the trace graph.
+        # The details of the tracing graph.
         self.trace_info_detail = trace_info_detail
 
     def validate(self):
@@ -65,13 +65,13 @@ class DescribeTraceInfoDetailResponseBodyTraceInfoDetail(DaraModel):
         relation_type_list: List[main_models.DescribeTraceInfoDetailResponseBodyTraceInfoDetailRelationTypeList] = None,
         vertex_list: List[main_models.DescribeTraceInfoDetailResponseBodyTraceInfoDetailVertexList] = None,
     ):
-        # The edge information in the trace graph.
+        # The edge information in the tracing graph.
         self.edge_list = edge_list
-        # The metadata configuration of vertex types.
+        # The metadata configuration information of the vertex type.
         self.entity_type_list = entity_type_list
-        # The metadata configuration of edge types.
+        # The metadata configuration information of the edge type.
         self.relation_type_list = relation_type_list
-        # The information about all vertices in the trace graph.
+        # The information about all vertices in the tracing graph.
         self.vertex_list = vertex_list
 
     def validate(self):
@@ -159,13 +159,13 @@ class DescribeTraceInfoDetailResponseBodyTraceInfoDetailVertexList(DaraModel):
     ):
         # The number of occurrences.
         self.count = count
-        # The vertex ID.
+        # The ID of the vertex.
         self.id = id
         # The name of the entity represented by the vertex.
         self.name = name
-        # The information about neighbor nodes.
+        # The information about the neighbor nodes.
         self.neighbor_list = neighbor_list
-        # The point in time.
+        # The point in time. The time is in the YYYY-MM-DD HH:mm:ss format.
         self.time = time
         # The type of the entity represented by the vertex.
         self.type = type
@@ -237,9 +237,9 @@ class DescribeTraceInfoDetailResponseBodyTraceInfoDetailVertexListNeighborList(D
     ):
         # The number of neighbor nodes.
         self.count = count
-        # Indicates whether there is a next page.
+        # Indicates whether more pages are available.
         self.has_more = has_more
-        # The type of the neighbor node. The value is fixed as **alert**.
+        # The type of the neighbor node. The value is fixed to **alert**.
         self.type = type
 
     def validate(self):
@@ -285,8 +285,8 @@ class DescribeTraceInfoDetailResponseBodyTraceInfoDetailRelationTypeList(DaraMod
     ):
         # Indicates whether the edge is directed. Valid values:
         # 
-        # - **1**: yes
-        # - **0**: no.
+        # - **1**: Yes
+        # - **0**: No
         self.directed = directed
         # The rendering color of the edge.
         self.display_color = display_color
@@ -294,7 +294,7 @@ class DescribeTraceInfoDetailResponseBodyTraceInfoDetailRelationTypeList(DaraMod
         self.name = name
         # The ID of the edge type.
         self.relation_type_id = relation_type_id
-        # Deprecated.
+        # **[Deprecated]**
         self.show_type = show_type
 
     def validate(self):
@@ -356,13 +356,13 @@ class DescribeTraceInfoDetailResponseBodyTraceInfoDetailEntityTypeList(DaraModel
         namespace: str = None,
         offset: int = None,
     ):
-        # Deprecated.
+        # **[Deprecated]**
         self.db_id = db_id
         # The rendering color of the vertex.
         self.display_color = display_color
         # The icon style of the vertex.
         self.display_icon = display_icon
-        # Deprecated.
+        # **[Deprecated]**
         self.display_template = display_template
         # The creation time.
         self.gmt_create = gmt_create
@@ -370,13 +370,13 @@ class DescribeTraceInfoDetailResponseBodyTraceInfoDetailEntityTypeList(DaraModel
         self.gmt_modified = gmt_modified
         # The ID of the vertex type record.
         self.id = id
-        # Deprecated.
+        # **[Deprecated]**
         self.limit = limit
         # The name of the vertex type.
         self.name = name
         # The namespace.
         self.namespace = namespace
-        # Deprecated.
+        # **[Deprecated]**
         self.offset = offset
 
     def validate(self):
@@ -470,13 +470,13 @@ class DescribeTraceInfoDetailResponseBodyTraceInfoDetailEdgeList(DaraModel):
     ):
         # The number of occurrences.
         self.count = count
-        # The end vertex ID of the edge in the trace graph.
+        # The ID of the end vertex of the edge in the tracing graph.
         self.end_id = end_id
-        # The start vertex ID of the edge in the trace graph.
+        # The ID of the start vertex of the edge in the tracing graph.
         self.start_id = start_id
-        # The point in time.
+        # The point in time. The time is in the YYYY-MM-DD HH:mm:ss format.
         self.time = time
-        # The type of the edge in the trace graph.
+        # The type of the edge in the tracing graph.
         self.type = type
 
     def validate(self):

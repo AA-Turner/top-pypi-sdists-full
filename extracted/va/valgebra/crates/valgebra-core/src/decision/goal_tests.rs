@@ -52,6 +52,9 @@ pub(crate) mod goals {
         static DEEPEST: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         /// How many pairs the set representation was asked on this thread.
         static READ_BY_THE_SETS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+        /// How many rests a meet was read below one of its complements, on this
+        /// thread.
+        static COMPLEMENTS_READ: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
         /// How many constructors stand on the path to the frame running.
         static CROSSED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         /// The goals the path holds open, each with [`CROSSED`] as it was opened.
@@ -142,6 +145,18 @@ pub(crate) mod goals {
     /// read before and after a reading, what moved is how many it lowered.
     pub(crate) fn pairs_read_by_the_sets() -> u64 {
         READ_BY_THE_SETS.with(std::cell::Cell::get)
+    }
+
+    /// Count a meet's rest read below one of its complements
+    /// ([`Schema::below_one_complement`]).
+    pub(crate) fn read_a_complement_at_a_time() {
+        COMPLEMENTS_READ.with(|read| read.set(read.get() + 1));
+    }
+
+    /// How many rests were read below a complement on this thread so far: read
+    /// before and after a question, what moved is how many it asked.
+    pub(crate) fn complements_read() -> u64 {
+        COMPLEMENTS_READ.with(std::cell::Cell::get)
     }
 
     /// What one counted query asked.
@@ -889,7 +904,7 @@ fn every_goal_a_query_asks_is_drawn_from_the_closure_of_its_subterms() {
     }
 }
 
-// THEORY: regularity-bounds-the-goals
+// THEORY: regularity-bounds-the-goals, a-pair-is-split-on-one-set
 /// A split's halves, asked of their parts once every set's halves declined
 /// before the rules and the sets, ask goals inside the closure.
 ///
@@ -1437,12 +1452,18 @@ mod drawn {
 /// A goal met again under no constructor is refused by the recorder, on each of
 /// the three lists a goal is held open on. Each table is one the build refuses, a
 /// reference standing unguarded in its own definition, since no contractive one
-/// reaches this: the rows say the recorder is wired to the hit.
+/// reaches this: the rows say the recorder is wired to the hit. Beside the
+/// reference stands `int & ~bool`, whose region is known and not opaque, so the
+/// fold reads past it to the reference: a bare atom there would answer the union
+/// inhabited and read no other member.
 #[should_panic(expected = "under no constructor")]
 #[test]
 fn a_goal_met_again_on_the_trail_stands_under_a_constructor() {
     let this = Schema::Ref(DefIx::new(0));
-    let defs = [Schema::union([this.clone(), Schema::Int])];
+    let defs = [Schema::union([
+        this.clone(),
+        Schema::meet([Schema::Int, Schema::Bool.complement()]),
+    ])];
     let budget = Budget::new(DECISION_BUDGET);
     let _ = this.subtype_relation(&Schema::Str, &super::NoLeafRelations, &defs, &budget);
 }
@@ -1453,7 +1474,10 @@ fn a_goal_met_again_on_the_trail_stands_under_a_constructor() {
 #[test]
 fn a_reference_met_again_stands_under_a_constructor() {
     let this = Schema::Ref(DefIx::new(0));
-    let defs = [Schema::union([this.clone(), Schema::Int])];
+    let defs = [Schema::union([
+        this.clone(),
+        Schema::meet([Schema::Int, Schema::Bool.complement()]),
+    ])];
     let budget = Budget::new(DECISION_BUDGET);
     let _ = this.verdict_rec(&mut super::Cx::new(&super::NoLeafRelations, &defs, &budget));
 }

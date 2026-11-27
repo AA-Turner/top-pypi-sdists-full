@@ -18,31 +18,34 @@
 # +--------------------------------------------------------------------------+
 
 import re
+import warnings
+import decimal
+from collections.abc import MutableMapping, Sequence
+from typing import Any, cast
+
 from sqlalchemy import __version__ as SA_VERSION_STR
-from .logger import init_ibmdbsa_logging, logger, log_entry_exit
+from sqlalchemy import types as sa_types
+from sqlalchemy import util
+from sqlalchemy.engine import result as _result
+from sqlalchemy.engine.url import URL
+from sqlalchemy.exc import ArgumentError
+
+from .base import DB2Dialect, DB2ExecutionContext, DECFLOAT, XML
+from .logger import init_ibmdbsa_logging, log_entry_exit, logger
+
 m = re.match(r"^\s*(\d+)\.(\d+)", SA_VERSION_STR)
 SA_VERSION_MM = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
 
-from .base import DB2ExecutionContext, DB2Dialect
-
 if SA_VERSION_MM < (2, 0):
-    from sqlalchemy import processors, types as sa_types, util
+    from sqlalchemy import processors
 else:
-    from sqlalchemy import types as sa_types, util
     from sqlalchemy.engine import processors
-
-from sqlalchemy.exc import ArgumentError
 
 SQL_TXN_READ_UNCOMMITTED = 1
 SQL_TXN_READ_COMMITTED = 2
 SQL_TXN_REPEATABLE_READ = 4
 SQL_TXN_SERIALIZABLE = 8
 SQL_ATTR_TXN_ISOLATION = 108
-
-if SA_VERSION_MM < (0, 8):
-    from sqlalchemy.engine import base
-else:
-    from sqlalchemy.engine import result as _result
 
 
 class _IBM_Numeric_ibm_db(sa_types.Numeric):
@@ -61,6 +64,58 @@ class _IBM_Numeric_ibm_db(sa_types.Numeric):
        else:
            logger.debug("Returning float conversion processor")
            return to_float
+
+
+class _IBM_Float_ibm_db(sa_types.Float):
+    """Float mapped explicitly so it keeps Float's own result handling rather
+    than being adapted to the Numeric colspec.
+
+    The bind side is left as pass-through (SQLAlchemy's native behaviour): the
+    executemany homogeneity coercion that ibm_db needs is applied centrally in
+    DB2Dialect_ibm_db.do_executemany, not per value, so a single bound value is
+    never altered (its exact Python type/precision is preserved).
+    """
+
+
+class _IBM_Binary_ibm_db(sa_types._Binary):
+    """Bind binary values as bytes.
+
+    SQLAlchemy binds binary values through dbapi.Binary, which ibm_db_dbi
+    implements as memoryview. With executemany, ibm_db rejects a memoryview for
+    BINARY, VARBINARY and FOR BIT DATA columns (SQL0302N) and stores its repr
+    text ("<memory at 0x...>") in BLOB columns. bytes work in both paths.
+    """
+
+    def bind_processor(self, dialect):
+        def process(value):
+            return None if value is None else bytes(value)
+        return process
+
+
+# DB2 stores XML parsed, without a declaration. On fetch the CLI serializes it
+# with a byte order mark and a UTF-16 declaration, even for a document stored
+# with a UTF-8 declaration, which is wrong for a Python str.
+_CLI_XML_PREFIX = re.compile(r'\A\ufeff?(?:<\?xml version="1\.0" encoding="UTF-16" \?>)?')
+
+
+class _IBM_XML_ibm_db(XML):
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if isinstance(value, str):
+                return _CLI_XML_PREFIX.sub("", value, count=1)
+            return value
+        return process
+
+
+_DISCONNECT_MESSAGES = (
+    'Connection is not active',
+    'connection is no longer active',
+    'Connection Resource cannot be found',
+    'SQL30081N',
+    'CLI0108E',
+    'CLI0106E',
+    'SQL1224N',
+)
 
 
 class DB2ExecutionContext_ibm_db(DB2ExecutionContext):
@@ -115,10 +170,15 @@ class DB2ExecutionContext_ibm_db(DB2ExecutionContext):
 class DB2Dialect_ibm_db(DB2Dialect):
     driver = 'ibm_db_sa'
     supports_unicode_statements = True
+    # Pass str binds straight to ibm_db, which handles VARGRAPHIC/DBCLOB natively;
+    # with False, SA 1.4 pre-encodes str binds to UTF-8 bytes.
+    supports_unicode_binds = True
     supports_statement_cache = True
     supports_sane_rowcount = True
     supports_sane_multi_rowcount = False
-    supports_native_decimal = False
+    # ibm_db binds Decimal as SQL_C_CHAR without a float conversion, and
+    # ibm_db_dbi returns Decimal for DECIMAL/NUMERIC columns.
+    supports_native_decimal = True
     supports_char_length = True
     supports_default_values = False
     supports_multivalues_insert = True
@@ -127,7 +187,14 @@ class DB2Dialect_ibm_db(DB2Dialect):
     colspecs = util.update_copy(
         DB2Dialect.colspecs,
         {
-            sa_types.Numeric: _IBM_Numeric_ibm_db
+            sa_types.Numeric: _IBM_Numeric_ibm_db,
+            sa_types._Binary: _IBM_Binary_ibm_db,
+            # DECFLOAT is a Numeric but keeps its own processors.
+            DECFLOAT: DECFLOAT,
+            XML: _IBM_XML_ibm_db,
+            # Keep Float's own result handling (and executemany coercion)
+            # instead of being adapted to _IBM_Numeric_ibm_db.
+            sa_types.Float: _IBM_Float_ibm_db,
         }
     )
 
@@ -136,6 +203,19 @@ class DB2Dialect_ibm_db(DB2Dialect):
         @log_entry_exit
         def dbapi(cls):
             """ Returns: the underlying DBAPI driver module
+
+            SQLAlchemy < 2.0 core calls the ``dbapi()`` classmethod to load the
+            DBAPI module, so it is kept here.
+            """
+            logger.debug("Importing ibm_db_dbi DBAPI module")
+            import ibm_db_dbi as module
+            return module
+
+        @classmethod
+        @log_entry_exit
+        def import_dbapi(cls):
+            """ Returns the underlying DBAPI driver module. Provided under the
+            2.0 name ``import_dbapi()`` so callers resolve it on < 2.0 too.
             """
             logger.debug("Importing ibm_db_dbi DBAPI module")
             import ibm_db_dbi as module
@@ -144,8 +224,7 @@ class DB2Dialect_ibm_db(DB2Dialect):
         @classmethod
         @log_entry_exit
         def import_dbapi(cls):
-            """ Returns: the underlying DBAPI driver module
-            """
+            """ Returns the underlying DBAPI driver module """
             logger.debug("Importing ibm_db_dbi DBAPI module")
             import ibm_db_dbi as module
             return module
@@ -160,8 +239,7 @@ class DB2Dialect_ibm_db(DB2Dialect):
             statement = statement.split('(', 1)[0].split()[1]
             context._callproc_result = cursor.callproc(statement, parameters)
         else:
-            check_server = getattr(DB2Dialect, 'serverType')
-            if ("round(" in statement.casefold()) and check_server == "DB2":
+            if ("round(" in statement.casefold()) and self.dbms_name == "DB2":
                 logger.debug("Applying round() workaround for DB2")
                 value_index = 0
                 while '?' in statement and value_index < len(parameters):
@@ -170,6 +248,96 @@ class DB2Dialect_ibm_db(DB2Dialect):
                 cursor.execute(statement)
             else:
                 cursor.execute(statement, parameters)
+
+    @staticmethod
+    def _bind_types(context):
+        """Return the positional bind types of a compiled statement, or None."""
+        compiled = getattr(context, "compiled", None)
+        positiontup = getattr(compiled, "positiontup", None)
+        bind_names = getattr(compiled, "bind_names", None)
+        if not positiontup or not bind_names:
+            return None
+        by_name = {name: bind for bind, name in bind_names.items()}
+        if any(name not in by_name for name in positiontup):
+            return None
+        return [by_name[name].type for name in positiontup]
+
+    @staticmethod
+    def _homogenize_numeric_columns(parameters, bind_types=None):
+        """Coerce executemany columns that mix int/float/Decimal to one Python
+        type so ibm_db's bulk bind accepts the batch; uniform columns are left as-is.
+        """
+        if not isinstance(parameters, (list, tuple)) or len(parameters) < 2:
+            return parameters
+        if not all(isinstance(row, (list, tuple)) for row in parameters):
+            return parameters
+        ncols = len(parameters[0])
+        if ncols == 0 or any(len(row) != ncols for row in parameters):
+            return parameters
+        if bind_types is not None and len(bind_types) != ncols:
+            bind_types = None
+
+        rows = None
+        for col in range(ncols):
+            col_type = bind_types[col] if bind_types is not None else None
+            # With known bind types, only Numeric/Float columns are considered
+            # (Float is not a Numeric subclass on SQLAlchemy 2.1).
+            if col_type is not None and not isinstance(col_type, sa_types.NullType):
+                if not isinstance(col_type, (sa_types.Numeric, sa_types.Float)):
+                    continue
+            saw_decimal = saw_float = saw_int = saw_other = False
+            for row in parameters:
+                value = row[col]
+                if value is None:
+                    continue
+                if isinstance(value, bool):
+                    saw_other = True
+                elif isinstance(value, decimal.Decimal):
+                    saw_decimal = True
+                elif isinstance(value, float):
+                    saw_float = True
+                elif isinstance(value, int):
+                    saw_int = True
+                else:
+                    saw_other = True
+            if saw_other:
+                continue
+            if sum((saw_decimal, saw_float, saw_int)) < 2:
+                continue  # already a single numeric type (or all None)
+            # DECIMAL columns use Decimal (lossless); FLOAT columns use float, as ibm_db
+            # on SA 1.4 can't bind Decimal to FLOAT/DOUBLE (CLI0100E).
+            if isinstance(col_type, sa_types.Numeric) and not isinstance(
+                col_type, sa_types.Float
+            ):
+                target = decimal.Decimal
+            elif saw_decimal and SA_VERSION_MM >= (2, 0):
+                target = decimal.Decimal
+            else:
+                target = float
+            if rows is None:
+                rows = [list(row) for row in parameters]
+            for row in rows:
+                value = row[col]
+                if value is None or isinstance(value, target):
+                    continue
+                row[col] = (
+                    decimal.Decimal(str(value))
+                    if target is decimal.Decimal
+                    else float(value)
+                )
+
+        if rows is None:
+            return parameters
+        return [tuple(row) for row in rows]
+
+    @log_entry_exit
+    def do_executemany(self, cursor, statement, parameters, context=None):
+        logger.debug("Executing SQL statement (executemany)")
+        parameters = self._homogenize_numeric_columns(
+            parameters, self._bind_types(context)
+        )
+        cursor.executemany(statement, parameters)
+
 
     @log_entry_exit
     def _get_server_version_info(self, connection):
@@ -234,97 +402,99 @@ class DB2Dialect_ibm_db(DB2Dialect):
         logger.debug("Resetting isolation level to default (CS)")
         self.set_isolation_level(connection, 'CS')
 
-    def create_connect_args(self, url):
-        url, ibmdbsa_log_value = init_ibmdbsa_logging(url)
-        # DSN support through CLI configuration (../cfg/db2cli.ini),
-        # while 2 connection attributes are mandatory: database alias
-        # and UID (in support to current schema), all the other
-        # connection attributes (protocol, hostname, servicename) are
-        # provided through db2cli.ini database catalog entry. Example
-        # 1: ibm_db_sa:///<database_alias>?UID=db2inst1 or Example 2:
-        # ibm_db_sa:///?DSN=<database_alias>;UID=db2inst1
+    def create_connect_args(
+        self, url: URL
+    ) -> tuple[Sequence[str], MutableMapping[str, Any]]:
+        url, _ = cast(tuple[URL, None], init_ibmdbsa_logging(url))
         logger.info("entry create_connect_args()")
+
+        if url.database is None:
+            raise ValueError(f"the engine URL `{url!r}` does not specify a database")
+
         if not url.host:
             logger.debug("Using DSN based connection")
-            dsn = url.database
-            uid = url.username
-            pwd = url.password
-            logger.debug("DSN connection parameters -> database=%s user=%s", dsn, uid)
+            username = url.username or ""
+            logger.debug(
+                "DSN connection parameters -> database=%s user=%s",
+                url.database,
+                username,
+            )
             logger.info("exit create_connect_args()")
-            return (dsn, uid, pwd, '', ''), {}
+            return (url.database, username, url.password or "", "", ""), {}
+
+        logger.debug("Using full connection URL for remote DB2 server")
+        params: dict[str, Any] = url.translate_connect_args(
+            database="DATABASE",
+            host="HOSTNAME",
+            password="PWD",
+            port="PORT",
+            username="UID",
+        )
+        for k, v in params.items():
+            if k == "PWD":
+                continue
+            logger.debug(f"{k}: %s", v)
+        params["PROTOCOL"] = "TCPIP"
+        for k, v in url.query.items():
+            logger.debug("Applying connection option: %s=%s", k, v)
+        # This doesn't handle the tuple of strings scenario, but neither does the original code.
+        params |= url.query
+
+        if url.password is None:
+            safe_params = params
         else:
-            # Full URL string support for connection to remote data servers
-            logger.debug("Using full connection URL for remote DB2 server")
-            dsn_param = ['DATABASE=%s' % url.database,
-                         'HOSTNAME=%s' % url.host,
-                         'PROTOCOL=TCPIP']
-            logger.debug("Host: %s", url.host)
-            logger.debug("Database: %s", url.database)
-            if url.port:
-                logger.debug("Port: %s", url.port)
-                dsn_param.append('PORT=%s' % url.port)
-            if url.username:
-                logger.debug("User: %s", url.username)
-                dsn_param.append('UID=%s' % url.username)
-            if url.password:
-                # if password contains ';' truncate at first ';' (existing logic)
-                if ';' in url.password:
-                    logger.debug("Password contains ';', truncating")
-                    url = url._replace(password=(url.password).partition(";")[0])
-                dsn_param.append('PWD=%s' % url.password)
-            # check for connection arguments
-            connection_keys = ['Security', 'SSLClientKeystoredb', 'SSLClientKeystash', 'SSLServerCertificate',
-                               'CurrentSchema']
-            # rebuild query_keys in case url changed
-            query_keys = list(url.query.keys()) if url.query else []
-            for key in connection_keys:
-                for query_key in query_keys:
-                    if query_key.lower() == key.lower():
-                        logger.debug("Applying connection option: %s=%s", key, url.query[query_key])
-                        dsn_param.append(
-                            '%(connection_key)s=%(value)s' % {'connection_key': key, 'value': url.query[query_key]})
-                        url = url.difference_update_query([query_key])
-                        break
-            dsn = ';'.join(dsn_param)
-            dsn += ';'
-            safe_dsn = dsn
-            if 'PWD=' in safe_dsn:
-                safe_dsn = re.sub(r'PWD=[^;]*', 'PWD=****', safe_dsn)
-            logger.debug("Constructed DB2 DSN: %s", safe_dsn)
-            logger.info("exit create_connect_args()")
-            return (dsn, url.username, '', '', ''), {}
+            safe_params = params | {"PWD": "****"}
+            truncated_password, semicolon, _ = cast(str, url.password).partition(";")
+            if semicolon:
+                logger.debug("Password contains ';', truncating")
+                warnings.warn(
+                    "The provided password contained ';' and has been truncated. "
+                    "This will become an exception in a future release.",
+                    DeprecationWarning,
+                )
+                params["PWD"] = truncated_password
+
+        safe_dsn = "".join(f"{k}={v};" for k, v in safe_params.items())
+        logger.debug("Constructed DB2 DSN: %s", safe_dsn)
+        dsn = "".join(f"{k}={v};" for k, v in params.items())
+        logger.info("exit create_connect_args()")
+        return (dsn, "", "", "", ""), {}
 
     # Retrieves current schema for the specified connection object
     @log_entry_exit
     def _get_default_schema_name(self, connection):
         logger.debug("Fetching current schema from DB2")
-        schema = connection.connection.get_current_schema()
+        # Ask the server directly, since ibm_db_dbi's get_current_schema() can return '' for DSN-based credentials.
+        if hasattr(connection, "exec_driver_sql"):
+            result = connection.exec_driver_sql("VALUES CURRENT SCHEMA")
+        else:  # SQLAlchemy < 1.4
+            result = connection.execute("VALUES CURRENT SCHEMA")
+        schema = result.scalar()
+        schema = schema.strip() if schema else schema
         logger.debug("Current schema returned: %s", schema)
         normalized_schema_name = self.normalize_name(schema)
         logger.debug("Normalized schema: %s", normalized_schema_name)
         return normalized_schema_name
 
-    # Checks if the DB_API driver error indicates an invalid connection
+    # Checks if the DB_API driver error indicates an invalid connection. A
+    # connection lost while fetching surfaces as the base ibm_db_dbi.Error.
     @log_entry_exit
     def is_disconnect(self, ex, connection, cursor):
-        logger.debug("Checking if exception indicates disconnect")
-        logger.debug("Exception received: %s", ex)
-        if isinstance(ex, (self.dbapi.ProgrammingError,
-                           self.dbapi.OperationalError)):
-            connection_errors = ('Connection is not active',
-                                 'connection is no longer active',
-                                 'Connection Resource cannot be found',
-                                 'SQL30081N',
-                                 'CLI0108E',
-                                 'CLI0106E',
-                                 'SQL1224N')
-            for err_msg in connection_errors:
+        if isinstance(ex, self.dbapi.Error):
+            for err_msg in _DISCONNECT_MESSAGES:
                 if err_msg in str(ex):
                     logger.debug("Disconnect detected due to error: %s", err_msg)
                     return True
-        else:
-            logger.debug("Exception type does not indicate disconnect")
         return False
 
+    # After a server restart or network failure ibm_db_dbi raises CLI0106E
+    # ("Connection is closed") from close(); the pool then logged an error for
+    # every connection it discarded.
+    def do_close(self, dbapi_connection):
+        try:
+            dbapi_connection.close()
+        except self.dbapi.Error as err:
+            if "CLI0106E" not in str(err):
+                raise
 
 dialect = DB2Dialect_ibm_db

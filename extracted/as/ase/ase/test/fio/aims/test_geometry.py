@@ -163,9 +163,6 @@ def test_scaled_H2O(H2O):
         H2O.write(file, format=format, scaled=True, wrap=False)
 
 
-@pytest.mark.filterwarnings(
-    'ignore:FHI-aims io is moving to the ase-io-aims plugin.*:FutureWarning'
-)
 def test_param_const_H2O(H2O):
     """Check to ensure if geo_constrain is True it does not affect the
     final geometry.in file for molecular systems"""
@@ -181,7 +178,8 @@ def test_param_const_H2O(H2O):
             == 'Parameteric constraints can only be used in periodic systems.'
         )
 
-    new_atoms = read(file)
+    with pytest.warns(FutureWarning, match='FHI-aims IO is moving'):
+        new_atoms = read(file)
     assert np.allclose(H2O.positions, new_atoms.positions)
 
 

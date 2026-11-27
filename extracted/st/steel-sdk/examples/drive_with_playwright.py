@@ -6,7 +6,7 @@ client = Steel()
 
 
 def main() -> None:
-    session = client.sessions.create()
+    session = client.sessions.create(inactivity_timeout=3 * 60 * 1000)
     print(f"Watch the session live at {session.session_viewer_url}")
 
     try:

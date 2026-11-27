@@ -295,6 +295,13 @@ def read_frames(
         if not log_catcher.header:
             err2 = log_catcher.get_text(0.2)
             fmt = "Could not load meta information\n=== stderr ===\n{}"
+            if "moov atom not found" in err2:
+                fmt = (
+                    "Could not load meta information: {} has no moov atom (its index). "
+                    "The recording was probably interrupted before it was written, "
+                    "for example because the camera lost power or the card was removed. "
+                    "The video data may still be in the file.\n=== stderr ===\n{{}}"
+                ).format(path)
             raise IOError(fmt.format(err2))
         elif "No such file or directory" in log_catcher.header:
             raise IOError("{} not found! Wrong path?".format(path))
@@ -586,12 +593,24 @@ def write_frames(
     ):
         logger.info("RUNNING FFMPEG COMMAND: " + cmd_str)
 
+    # On Windows without an attached console (e.g. pythonw.exe or PyInstaller
+    # --windowed), inheriting stderr=None alongside redirected stdin/stdout fails
+    # with OSError: [WinError 6] The handle is invalid. Fall back to DEVNULL only
+    # when sys.stderr has no valid OS file descriptor.
+    stderr_target = None
+    if ISWIN:
+        try:
+            if sys.stderr is None or sys.stderr.fileno() < 0:
+                stderr_target = subprocess.DEVNULL
+        except (AttributeError, OSError, ValueError):
+            stderr_target = subprocess.DEVNULL
+
     # Launch process
     p = subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=None,
+        stderr=stderr_target,
         **_popen_kwargs(prevent_sigint=True)
     )
 

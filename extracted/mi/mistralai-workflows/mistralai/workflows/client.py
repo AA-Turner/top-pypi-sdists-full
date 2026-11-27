@@ -1,5 +1,5 @@
-import warnings
-from typing import Any, Callable, NamedTuple, Type, TypeVar
+from collections.abc import Mapping
+from typing import Callable, NamedTuple, Type, TypeVar
 
 import httpx
 from mistralai.client import Mistral
@@ -18,20 +18,12 @@ from mistralai.workflows.core.auth.header_files import (
 )
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.logging import extract_error_context
-from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.exceptions import WorkflowError
 from mistralai.workflows.hooks.cross_origin_auth_guard import (
     AsyncCrossOriginAuthGuardHook,
     CrossOriginAuthGuardHook,
 )
-from mistralai.workflows.hooks.default_identity_warning_hook import (
-    CallSite,
-    caller_call_site,
-    warn_default_identity,
-    warn_default_identity_async,
-)
 from mistralai.workflows.hooks.executor_credentials_hook import (
-    _EXECUTOR_POLICY,
     AsyncExecutorCredentialsHook,
     SyncExecutorCredentialsHook,
 )
@@ -54,17 +46,28 @@ def _get_headers(
         if isinstance(headers, http.Headers)
         else http.Headers(headers if headers is not None else get_deployment_headers())
     )
-    # Authorization is set per-request by the auth/executor hook, never statically here.
     headers.setdefault("User-Agent", USER_AGENT)
     return headers
 
 
-def _resolve_run_as(use_executor_credentials: bool, run_as: RunAs | None) -> RunAs | None:
-    if run_as is None:
-        return RunAs.EXECUTOR if use_executor_credentials else None
-    if use_executor_credentials:
-        raise ValueError("run_as conflicts with use_executor_credentials=True")
-    return RunAs(run_as)
+class _ClientHeaders(NamedTuple):
+    client: httpx.Headers
+    deployment: Mapping[str, str]
+
+
+def _resolve_client_headers(
+    headers: httpx.Headers | dict[str, str] | None,
+    run_as: RunAs,
+    http: HttpBackend = MISTRAL_HTTP,
+) -> _ClientHeaders:
+    if headers is not None:
+        return _ClientHeaders(_get_headers(headers, http), {})
+    if run_as == RunAs.AUTO:
+        # MISTRAL_API_HEADERS authenticate the deployment; never send them alongside an executor JWT.
+        return _ClientHeaders(_get_headers({}, http), get_deployment_headers())
+    if run_as == RunAs.EXECUTOR:
+        return _ClientHeaders(_get_headers({}, http), {})
+    return _ClientHeaders(_get_headers(None, http), {})
 
 
 class _HookVariants(NamedTuple):
@@ -72,7 +75,6 @@ class _HookVariants(NamedTuple):
     auth: type[AsyncTokenProviderHook] | type[TokenProviderHook]
     executor: type[AsyncExecutorCredentialsHook] | type[SyncExecutorCredentialsHook]
     guard: type[AsyncCrossOriginAuthGuardHook] | type[CrossOriginAuthGuardHook]
-    default_identity_warning: Callable
     refresh_header_files: type[AsyncRefreshHeaderFilesHook] | type[RefreshHeaderFilesHook]
 
 
@@ -81,7 +83,6 @@ _ASYNC_HOOKS = _HookVariants(
     auth=AsyncTokenProviderHook,
     executor=AsyncExecutorCredentialsHook,
     guard=AsyncCrossOriginAuthGuardHook,
-    default_identity_warning=warn_default_identity_async,
     refresh_header_files=AsyncRefreshHeaderFilesHook,
 )
 _SYNC_HOOKS = _HookVariants(
@@ -89,19 +90,19 @@ _SYNC_HOOKS = _HookVariants(
     auth=TokenProviderHook,
     executor=SyncExecutorCredentialsHook,
     guard=CrossOriginAuthGuardHook,
-    default_identity_warning=warn_default_identity,
     refresh_header_files=RefreshHeaderFilesHook,
 )
 
 
 def _get_hooks(
     is_async: bool,
+    *,
+    run_as: RunAs,
     server_url: str | None = None,
     token_provider: TokenProvider | None = None,
-    run_as: RunAs | None = None,
     executor_credentials_server_url: str | None = None,
     executor_credentials_headers: dict[str, str] | None = None,
-    v4_default_identity_call_site: CallSite | None = None,
+    deployment_headers: Mapping[str, str] | None = None,
 ) -> dict[str, list]:
     hooks = _ASYNC_HOOKS if is_async else _SYNC_HOOKS
     request_hooks: list = [hooks.metadata]
@@ -112,12 +113,13 @@ def _get_hooks(
                 token_provider=token_provider,
                 run_as=run_as,
                 headers=executor_credentials_headers,
+                deployment_headers=deployment_headers,
             )
         )
     elif run_as == RunAs.EXECUTOR:
         if not server_url:
             raise WorkflowError(
-                f"{_EXECUTOR_POLICY} requires server_url",
+                "Executor identity requires server_url",
                 non_retryable=True,
             )
         logger.info("ExecutorCredentialsHook registered, using the executor's identity")
@@ -131,8 +133,6 @@ def _get_hooks(
         )
     elif token_provider is not None:
         request_hooks.append(hooks.auth(token_provider))
-    if v4_default_identity_call_site is not None:
-        request_hooks.append(hooks.default_identity_warning(v4_default_identity_call_site))
     header_files = get_header_files()
     if header_files is not None:
         request_hooks.append(hooks.refresh_header_files(header_files))
@@ -147,27 +147,22 @@ def _get_hooks(
 def _get_sync_client(
     timeout: float | None = None,
     *,
+    run_as: RunAs,
     token_provider: TokenProvider | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
     server_url: str | None = None,
-    use_executor_credentials: bool = False,
     api_key: str | None = None,
-    run_as: RunAs | None = None,
     executor_credentials_server_url: str | None = None,
     executor_credentials_headers: dict[str, str] | None = None,
-    _v4_default_identity_call_site: CallSite | None = None,
     _http: HttpBackend = MISTRAL_HTTP,
 ) -> httpx.Client:
     if token_provider is None:
         token_provider = get_token_provider(api_key)
-    run_as = _resolve_run_as(use_executor_credentials, run_as)
+    run_as = RunAs(run_as)
+    client_headers = _resolve_client_headers(headers, run_as, _http)
     return _http.Client(
         timeout=timeout if timeout is not None else config.http.timeout,
-        verify=http_transport.verify(),
-        headers=_get_headers(
-            headers={} if run_as in (RunAs.AUTO, RunAs.EXECUTOR) and headers is None else headers,
-            http=_http,
-        ),
+        headers=client_headers.client,
         follow_redirects=True,
         event_hooks=_get_hooks(
             is_async=False,
@@ -176,38 +171,31 @@ def _get_sync_client(
             run_as=run_as,
             executor_credentials_server_url=executor_credentials_server_url,
             executor_credentials_headers=executor_credentials_headers,
-            v4_default_identity_call_site=_v4_default_identity_call_site,
+            deployment_headers=client_headers.deployment,
         ),
-        transport=http_transport.sync_transport(_http),
-        mounts=http_transport.sync_mounts(_http),
-        limits=http_transport.limits(_http),
+        **http_transport.sync_client_options(_http),
     )
 
 
 def _get_async_client(
     timeout: float | None = None,
     *,
+    run_as: RunAs,
     token_provider: TokenProvider | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
     server_url: str | None = None,
-    use_executor_credentials: bool = False,
     api_key: str | None = None,
-    run_as: RunAs | None = None,
     executor_credentials_server_url: str | None = None,
     executor_credentials_headers: dict[str, str] | None = None,
-    _v4_default_identity_call_site: CallSite | None = None,
     _http: HttpBackend = MISTRAL_HTTP,
 ) -> httpx.AsyncClient:
     if token_provider is None:
         token_provider = get_token_provider(api_key)
-    run_as = _resolve_run_as(use_executor_credentials, run_as)
+    run_as = RunAs(run_as)
+    client_headers = _resolve_client_headers(headers, run_as, _http)
     return _http.AsyncClient(
         timeout=timeout if timeout is not None else config.http.timeout,
-        verify=http_transport.verify(),
-        headers=_get_headers(
-            headers={} if run_as in (RunAs.AUTO, RunAs.EXECUTOR) and headers is None else headers,
-            http=_http,
-        ),
+        headers=client_headers.client,
         follow_redirects=True,
         event_hooks=_get_hooks(
             is_async=True,
@@ -216,65 +204,34 @@ def _get_async_client(
             run_as=run_as,
             executor_credentials_server_url=executor_credentials_server_url,
             executor_credentials_headers=executor_credentials_headers,
-            v4_default_identity_call_site=_v4_default_identity_call_site,
+            deployment_headers=client_headers.deployment,
         ),
-        transport=http_transport.async_transport(_http),
-        mounts=http_transport.async_mounts(_http),
-        limits=http_transport.limits(_http),
+        **http_transport.async_client_options(_http),
     )
-
-
-def get_async_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
-    warnings.warn(
-        "get_async_client is deprecated and will be removed in a future version. Use _get_async_client instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _get_async_client(*args, **kwargs)
-
-
-def should_use_executor_credentials() -> bool:
-    """Return True when the current execution runs on behalf of a user (obo).
-
-    Deprecated: removed in v4. Pass ``run_as=RunAs.AUTO`` to ``get_mistral_client`` instead.
-    """
-    warnings.warn(
-        "should_use_executor_credentials() is deprecated and will be removed in v4; "
-        "pass run_as=RunAs.AUTO to get_mistral_client instead.",
-        FutureWarning,
-        stacklevel=2,
-    )
-    context = retrieve_context()
-    return bool(context and context.on_behalf_of)
 
 
 def get_mistral_client(
     server_url: str | None = None,
     api_key: str | None = None,
-    use_executor_credentials: bool = False,
+    *,
     server: str | None = None,
     url_params: dict[str, str] | None = None,
     timeout_ms: int | None = None,
     token_provider: TokenProvider | None = None,
-    *,
-    run_as: RunAs | None = None,
+    run_as: RunAs = RunAs.AUTO,
     executor_credentials_server_url: str | None = None,
     executor_credentials_headers: dict[str, str] | None = None,
 ) -> Mistral:
     """Create a client whose identity policy is applied to each request.
 
-    run_as=AUTO follows the current execution's on_behalf_of flag; DEPLOYMENT
-    always uses the configured token provider. run_as=EXECUTOR always uses the
-    executor and raises when the workflow is not on_behalf_of. Without run_as,
-    use_executor_credentials selects deployment (False) or EXECUTOR (True);
-    combining run_as with True is rejected. Both forms emit a FutureWarning where
-    v4 behaves differently: use_executor_credentials is removed in v4, and the
-    default becomes AUTO.
+    run_as=AUTO, the default, follows the running workflow's own on_behalf_of declaration
+    and otherwise behaves exactly like DEPLOYMENT, which always uses the deployment's
+    credentials and MISTRAL_API_HEADERS. run_as=EXECUTOR always uses the executor
+    and raises when the workflow is not on_behalf_of.
 
-    AUTO requires workflow context at request time and uses deployment credentials
-    only for non-OBO executions. Missing context, missing OBO execution tokens, and
-    failed identity exchanges raise instead of falling back to deployment.
-    Use DEPLOYMENT explicitly for requests outside a workflow execution.
+    AUTO and EXECUTOR raise instead of falling back to the deployment when the workflow
+    context, the OBO execution token or the identity exchange is missing. Pass DEPLOYMENT
+    for requests outside a workflow execution.
 
     Executor token exchange defaults to the API URL and worker credentials. Set
     ``executor_credentials_server_url`` and ``executor_credentials_headers`` for an internal
@@ -283,14 +240,6 @@ def get_mistral_client(
     Non-empty exchange headers replace API-key and token-provider authentication for the exchange.
     Pass ``executor_credentials_headers={}`` to use bearer authentication without worker headers.
     """
-    if use_executor_credentials:
-        warnings.warn(
-            "use_executor_credentials=True is deprecated and will be removed in v4; "
-            "pass run_as=RunAs.EXECUTOR instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-    v4_default_identity_call_site = caller_call_site(1) if run_as is None and not use_executor_credentials else None
     provider = token_provider or get_token_provider(api_key)
     resolved_server_url = server_url or config.worker.server_url
     # Only the httpx client-level timeout tracks config.http.timeout. timeout_ms is left as the caller
@@ -309,21 +258,17 @@ def get_mistral_client(
             timeout=timeout,
             token_provider=provider,
             server_url=resolved_server_url,
-            use_executor_credentials=use_executor_credentials,
             run_as=run_as,
             executor_credentials_server_url=executor_credentials_server_url,
             executor_credentials_headers=executor_credentials_headers,
-            _v4_default_identity_call_site=v4_default_identity_call_site,
         ),
         async_client=_get_async_client(
             timeout=timeout,
             token_provider=provider,
             server_url=resolved_server_url,
-            use_executor_credentials=use_executor_credentials,
             run_as=run_as,
             executor_credentials_server_url=executor_credentials_server_url,
             executor_credentials_headers=executor_credentials_headers,
-            _v4_default_identity_call_site=v4_default_identity_call_site,
         ),
     )
     _configure_client_telemetry(client)
@@ -340,7 +285,7 @@ def _configure_client_telemetry(client: Mistral) -> None:
         # provider exporter
         configure_telemetry(client, provider="global", redaction=False)
     except Exception as exc:
-        logger.warning("Failed to configure Mistral SDK telemetry", **extract_error_context(exc), exc_info=exc)
+        logger.warning("Failed to configure Mistral SDK telemetry", **extract_error_context(exc))
 
 
 _TargetModel = TypeVar("_TargetModel", bound=BaseModel)

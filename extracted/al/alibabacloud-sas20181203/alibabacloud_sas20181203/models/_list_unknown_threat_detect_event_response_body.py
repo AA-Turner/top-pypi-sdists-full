@@ -14,7 +14,7 @@ class ListUnknownThreatDetectEventResponseBody(DaraModel):
         page_info: main_models.ListUnknownThreatDetectEventResponseBodyPageInfo = None,
         request_id: str = None,
     ):
-        # The returned data details.
+        # The details of the returned data.
         self.data = data
         # The pagination information.
         self.page_info = page_info
@@ -72,11 +72,11 @@ class ListUnknownThreatDetectEventResponseBodyPageInfo(DaraModel):
         page_size: int = None,
         total_count: int = None,
     ):
-        # The number of alerting events displayed on the current page in a paging query.
+        # The number of alerting events returned on the current page for paging in a paged query.
         self.count = count
-        # The page number of the current page in a paging query.
+        # The page number of the current page for paging in a paged query.
         self.current_page = current_page
-        # The maximum number of entries displayed on each page in a paging query.
+        # The maximum number of entries returned on each page for paging in a paged query.
         self.page_size = page_size
         # The total number of entries.
         self.total_count = total_count
@@ -146,45 +146,52 @@ class ListUnknownThreatDetectEventResponseBodyData(DaraModel):
         status: int = None,
         uuid: str = None,
     ):
+        # The description of the analysis result.
         self.analyze_desc = analyze_desc
+        # The analysis result. Valid values:
+        # - **black**: Malicious process
+        # - **white**: Normal process
+        # - **abnormal**: Abnormal process
         self.analyze_result = analyze_result
         # The process chain.
         self.cmd_chain = cmd_chain
-        # The process command line.
+        # The command line of the process.
         self.cmdline = cmdline
         # The number of occurrences.
         self.count = count
-        # The timestamp of the first occurrence.
+        # The timestamp when the event first occurred.
         self.first_time = first_time
+        # The remarks on the handling.
         self.handle_remark = handle_remark
+        # The type of action taken to handle the alert event.
         self.handle_type = handle_type
         # The unique identifier of the file.
         self.hash_key = hash_key
-        # The event ID.
+        # The ID of the event.
         self.id = id
-        # The instance name.
+        # The name of the instance.
         self.instance_name = instance_name
         # The public IP address.
         self.internet_ip = internet_ip
         # The private IP address.
         self.intranet_ip = intranet_ip
-        # The timestamp of the most recent occurrence.
+        # The timestamp when the event was last detected.
         self.last_time = last_time
-        # The MD5 hash of the file.
+        # The MD5 hash value of the file.
         self.md_5 = md_5
-        # The parent command line.
+        # The command line of the parent process.
         self.parent_cmdline = parent_cmdline
-        # The parent process ID.
+        # The ID of the parent process.
         self.parent_pid = parent_pid
-        # The parent process path.
+        # The path of the parent process.
         self.parent_process_path = parent_process_path
-        # The process ID.
+        # The ID of the process.
         self.pid = pid
-        # The process path.
+        # The path of the process.
         self.process_path = process_path
-        # The SHA-256 hash of the file.
+        # The SHA-256 hash value of the file.
         self.sha_256 = sha_256
-        # The event status. Valid values:
+        # The status of the event. Valid values:
         # 
         # - **1**: Unhandled.
         # - **2**: Blocked.

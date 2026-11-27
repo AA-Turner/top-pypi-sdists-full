@@ -31,7 +31,7 @@ import mistralai.workflows as workflows
 from mistralai.workflows import Depends
 from mistralai.workflows.core.logging import LoggerConfig, LogLevel, setup_logging
 from mistralai.workflows.plugins.mistralai.connectors import (
-    ToolCallClient,
+    ConnectorClient,
     connector,
     uses_connectors,
 )
@@ -52,7 +52,7 @@ class PrsToNotionPrompt(pydantic.BaseModel):
 async def list_user_pull_requests(
     owner: str,
     repo: str,
-    github: ToolCallClient = Depends(github_connector),
+    github: ConnectorClient = Depends(github_connector),
 ) -> Any:
     """List the triggering user's recent pull requests via the GitHub connector."""
     return await github.call_tool(
@@ -73,7 +73,7 @@ async def write_prs_to_notion(
     parent_page_id: str,
     title: str,
     content: str,
-    notion: ToolCallClient = Depends(notion_connector),
+    notion: ConnectorClient = Depends(notion_connector),
 ) -> Any:
     """Write the PR summary to a Notion page using the deployment's identity."""
     return await notion.call_tool(

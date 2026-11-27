@@ -689,8 +689,13 @@ namespace sogen
         uint64_t handle_NtUserSetWindowsHookEx(const syscall_context& c, hinstance instance,
                                                emulator_object<UNICODE_STRING<EmulatorTraits<Emu64>>> module, DWORD thread_id, int hook_id,
                                                pointer proc, BOOL ansi);
+        uint64_t handle_NtUserSetWindowsHookAW(const syscall_context& c, int hook_id, pointer proc, BOOL ansi);
         BOOL handle_NtUserUnhookWindowsHookEx(const syscall_context& c, uint64_t hook);
+        BOOL handle_NtUserUnhookWindowsHook(const syscall_context& c, int hook_id, pointer proc);
         lresult handle_NtUserCallNextHookEx(const syscall_context& c, int code, wparam w_param, lparam l_param, BOOL ansi);
+        lresult completion_NtUserCallNextHookEx(const syscall_context& c, int code, wparam w_param, lparam l_param, BOOL ansi);
+        BOOL handle_NtUserCallMsgFilter(const syscall_context& c, emulator_object<msg> message, int code);
+        BOOL completion_NtUserCallMsgFilter(const syscall_context& c, emulator_object<msg> message, int code);
 
         hwnd handle_NtUserCreateWindowEx(const syscall_context& c, DWORD ex_style, emulator_object<LARGE_STRING> class_name,
                                          emulator_object<LARGE_STRING> cls_version, emulator_object<LARGE_STRING> window_name, DWORD style,
@@ -734,6 +739,7 @@ namespace sogen
         BOOL completion_NtUserWaitMessage(const syscall_context& c);
         BOOL handle_NtUserInvalidateRect(const syscall_context& c, hwnd hwnd, emulator_object<RECT> rect, BOOL erase);
         BOOL handle_NtUserValidateRect(const syscall_context& c, hwnd hwnd, emulator_object<RECT> rect);
+        BOOL handle_NtUserLockWindowUpdate(const syscall_context& c, hwnd window);
         BOOL handle_NtUserGetUpdateRect(const syscall_context& c, hwnd hwnd, emulator_object<RECT> rect, BOOL erase);
         int32_t handle_NtUserGetUpdateRgn(const syscall_context& c, hwnd hwnd, handle region, BOOL erase);
         BOOL handle_NtUserUpdateWindow(const syscall_context& c, hwnd hwnd);
@@ -870,15 +876,27 @@ namespace sogen
         BOOL handle_NtUserFlashWindowEx();
         BOOL handle_NtUserModifyWindowTouchCapability();
         BOOL handle_NtUserEnableMouseInPointer(const syscall_context&, BOOL enable);
-        uint32_t handle_NtUserGetClipboardSequenceNumber();
-        BOOL handle_NtUserOpenClipboard();
-        BOOL handle_NtUserCloseClipboard();
-        BOOL handle_NtUserEmptyClipboard();
+        uint32_t handle_NtUserGetClipboardSequenceNumber(const syscall_context& c);
+        BOOL handle_NtUserOpenClipboard(const syscall_context& c, hwnd window, emulator_object<BOOL> emptied);
+        BOOL handle_NtUserCloseClipboard(const syscall_context& c);
+        BOOL handle_NtUserEmptyClipboard(const syscall_context& c);
         BOOL handle_NtUserAddClipboardFormatListener(const syscall_context& c, hwnd window);
         BOOL handle_NtUserRemoveClipboardFormatListener(const syscall_context& c, hwnd window);
-        uint64_t handle_NtUserGetClipboardData();
-        uint64_t handle_NtUserConvertMemHandle();
-        uint64_t handle_NtUserSetClipboardData();
+        uint64_t handle_NtUserGetClipboardData(const syscall_context& c, uint32_t format, emulator_object<GETCLIPBDATA> request);
+        uint64_t handle_NtUserConvertMemHandle(const syscall_context& c, emulator_pointer data, uint32_t size);
+        NTSTATUS handle_NtUserCreateLocalMemHandle(const syscall_context& c, uint64_t handle, emulator_pointer buffer, uint32_t size,
+                                                   emulator_object<uint32_t> needed);
+        BOOL handle_NtUserSetClipboardData(const syscall_context& c, uint32_t format, uint64_t data, emulator_object<SETCLIPBDATA> request);
+        BOOL handle_NtUserIsClipboardFormatAvailable(const syscall_context& c, uint32_t format);
+        int32_t handle_NtUserCountClipboardFormats(const syscall_context& c);
+        uint32_t handle_NtUserEnumClipboardFormats(const syscall_context& c, uint32_t format);
+        int32_t handle_NtUserGetPriorityClipboardFormat(const syscall_context& c, emulator_pointer formats, int32_t count);
+        int32_t handle_NtUserGetClipboardFormatName(const syscall_context& c, uint32_t format, emulator_pointer buffer, int32_t max_count);
+        hwnd handle_NtUserGetClipboardOwner(const syscall_context& c);
+        hwnd handle_NtUserGetClipboardViewer();
+        hwnd handle_NtUserGetOpenClipboardWindow(const syscall_context& c);
+        BOOL handle_NtUserGetUpdatedClipboardFormats(const syscall_context& c, emulator_pointer formats, uint32_t count,
+                                                     emulator_object<uint32_t> returned);
         uint64_t handle_NtUserGetProcessDpiAwarenessContext();
         BOOL handle_NtUserSetProcessDpiAwarenessContext();
         uint32_t handle_NtUserSendInput(const syscall_context& c, uint32_t input_count, emulator_pointer inputs, int32_t input_size);
@@ -922,6 +940,7 @@ namespace sogen
         uint32_t handle_NtGdiGetDeviceCapsAll(const syscall_context& c, hdc dc, emulator_pointer caps);
         COLORREF handle_NtGdiGetNearestColor(const syscall_context& c, hdc dc, COLORREF color);
         uint32_t handle_NtGdiSetBoundsRect(const syscall_context& c, hdc dc, emulator_pointer rect, uint32_t flags);
+        uint32_t handle_NtGdiGetBoundsRect(const syscall_context& c, hdc dc, emulator_pointer rect, uint32_t flags);
         uint32_t handle_NtGdiComputeXformCoefficients(const syscall_context& c, hdc dc);
         BOOL handle_NtGdiFlush(const syscall_context& c);
         uint64_t handle_NtGdiCreateSolidBrush(const syscall_context& c, uint32_t color, uint64_t unused);
@@ -1149,11 +1168,14 @@ namespace sogen
             {
                 if (performance_counter)
                 {
+                    // Read before the TSC: the call keeps its clock's first reading, so a page anchored to it never runs ahead
+                    // of the steady clock.
+                    const auto now = c.win_emu.clock().steady_now();
                     // With the reference TSC page this is the value ntdll computes from it in user mode, from the same TSC.
                     const auto tsc = c.proc.kusd.reference_tsc_page() ? c.emu.read_native_timestamp_counter() : std::nullopt;
                     performance_counter.access([&](LARGE_INTEGER& value) {
-                        value.QuadPart = tsc ? static_cast<LONGLONG>(c.proc.kusd.query_performance_counter(*tsc))
-                                             : c.win_emu.clock().steady_now().time_since_epoch().count();
+                        value.QuadPart =
+                            tsc ? static_cast<LONGLONG>(c.proc.kusd.query_performance_counter(*tsc)) : now.time_since_epoch().count();
                     });
                 }
 
@@ -1916,6 +1938,7 @@ namespace sogen
         add_handler(NtGdiGetDeviceCapsAll);
         add_handler(NtGdiGetNearestColor);
         add_handler(NtGdiSetBoundsRect);
+        add_handler(NtGdiGetBoundsRect);
         add_handler(NtGdiComputeXformCoefficients);
         add_handler(NtGdiFlush);
         add_handler(NtGdiCreateSolidBrush);
@@ -2169,8 +2192,11 @@ namespace sogen
         add_handler(NtUserRegisterClassExWOW);
         add_handler(NtUserUnregisterClass);
         add_handler(NtUserSetWindowsHookEx);
+        add_handler(NtUserSetWindowsHookAW);
         add_handler(NtUserUnhookWindowsHookEx);
+        add_handler(NtUserUnhookWindowsHook);
         add_handler(NtUserCallNextHookEx);
+        add_handler(NtUserCallMsgFilter);
 
         add_handler(NtUserCreateWindowEx);
         add_handler(NtUserShowWindow);
@@ -2187,6 +2213,7 @@ namespace sogen
         add_handler(NtUserReplyMessage);
         add_handler(NtUserInvalidateRect);
         add_handler(NtUserValidateRect);
+        add_handler(NtUserLockWindowUpdate);
         add_handler(NtUserGetUpdateRect);
         add_handler(NtUserGetUpdateRgn);
         add_handler(NtUserUpdateWindow);
@@ -2415,7 +2442,17 @@ namespace sogen
         add_handler(NtUserRemoveClipboardFormatListener);
         add_handler(NtUserGetClipboardData);
         add_handler(NtUserConvertMemHandle);
+        add_handler(NtUserCreateLocalMemHandle);
         add_handler(NtUserSetClipboardData);
+        add_handler(NtUserIsClipboardFormatAvailable);
+        add_handler(NtUserCountClipboardFormats);
+        add_handler(NtUserEnumClipboardFormats);
+        add_handler(NtUserGetPriorityClipboardFormat);
+        add_handler(NtUserGetClipboardFormatName);
+        add_handler(NtUserGetClipboardOwner);
+        add_handler(NtUserGetClipboardViewer);
+        add_handler(NtUserGetOpenClipboardWindow);
+        add_handler(NtUserGetUpdatedClipboardFormats);
         add_handler(NtUserGetProcessDpiAwarenessContext);
         add_handler(NtUserAttachThreadInput);
         add_handler(NtUserRegisterTouchHitTestingWindow);
@@ -2474,6 +2511,8 @@ namespace sogen
         add_stateless_callback(NtUserFillWindow);
         add_callback(NtUserGetMessage, message_retrieval_state);
         add_callback(NtUserPeekMessage, message_retrieval_state);
+        add_callback(NtUserCallNextHookEx, hook_call_state);
+        add_callback(NtUserCallMsgFilter, hook_call_state);
         add_stateless_callback(NtUserEnumDisplayMonitors);
         add_stateless_callback(NtUserWaitMessage);
         add_stateless_callback(NtUserMsgWaitForMultipleObjectsEx);

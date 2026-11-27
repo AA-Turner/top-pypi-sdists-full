@@ -16,7 +16,7 @@ class DescribePropertyTypeScaItemResponseBody(DaraModel):
     ):
         # The pagination information.
         self.page_info = page_info
-        # An array that consists of the middleware types.
+        # The middleware types.
         self.property_type_items = property_type_items
         # The ID of the request, which is used to locate and troubleshoot issues.
         self.request_id = request_id
@@ -72,15 +72,14 @@ class DescribePropertyTypeScaItemResponseBodyPropertyTypeItems(DaraModel):
     ):
         # The name of the middleware type.
         self.name = name
-        # The type of the middleware. Valid values:
-        # 
-        # *   **system_service**: system service
-        # *   **software_library**: software library
-        # *   **docker_component**: container component
-        # *   **database**: database
-        # *   **web_container**: web container
-        # *   **jar**: JAR package
-        # *   **web_framework**: web framework
+        # The type of the middleware. Valid values:  
+        # - **system_service**: System service
+        # - **software_library**: Software library
+        # - **docker_component**: Container component
+        # - **database**: Database
+        # - **web_container**: Web container
+        # - **jar**: JAR package
+        # - **web_framework**: Web framework
         self.type = type
 
     def validate(self):
@@ -117,13 +116,13 @@ class DescribePropertyTypeScaItemResponseBodyPageInfo(DaraModel):
         page_size: int = None,
         total_count: int = None,
     ):
-        # The number of entries returned on the current page.
+        # The number of middleware types returned on the current page.
         self.count = count
-        # The page number of the returned page.
+        # The current page number for paging in a paged query.
         self.current_page = current_page
-        # The number of entries returned per page.
+        # The number of middleware types returned per page for paging in a paged query.
         self.page_size = page_size
-        # The total number of entries returned.
+        # The total number of middleware types returned.
         self.total_count = total_count
 
     def validate(self):

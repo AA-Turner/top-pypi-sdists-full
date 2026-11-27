@@ -15,7 +15,7 @@ import time as time_module
 from dataclasses import dataclass, field, fields, replace
 from datetime import time
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping, Sequence
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
@@ -461,6 +461,30 @@ class SmokeTestsConfig:
     native_execution_capabilities: list[str] = field(default_factory=lambda: ["windows"])
     command_stages: tuple[SmokeStage, ...] = ()
     cross_platform_checks: dict[str, dict[str, str]] = field(default_factory=dict)
+    #: #4130: load-aware Test-leg admission. `coord.smoke.rank_smoke_
+    #: machines`/`_walk_candidates_and_dispatch` skip a capability-matched
+    #: candidate whenever its last-probed 1-minute load average (the
+    #: `/health` `load` block — `coord.agent._current_load_snapshot`)
+    #: divided by its own CPU count exceeds this multiple: a parallel cargo
+    #: fan-out starving a cold target dir is exactly the shape that blew
+    #: macmini's sole `macos` Test leg into its own timeout (#4130). `None`
+    #: (the default) disables the check entirely — a skipped candidate is
+    #: still tried exactly as before this field existed, and still queues
+    #: if genuinely busy. A candidate whose load could not be measured (no
+    #: live `/health` reply, or the host's own `os.getloadavg()` is
+    #: unavailable, e.g. Windows) is never skipped on this check alone —
+    #: fails open, same discipline as the sibling `/health` tool-version
+    #: probe (`coord.smoke._capability_probe_reasons`).
+    max_load_per_core: float | None = None
+    #: #4130: a host that is the ONLY configured holder of some capability
+    #: (`coord.dispatch.sole_test_capabilities`) reserves its capacity for
+    #: the Test leg only it can run: while that leg is `pending`/`running`
+    #: there, `coord.dispatch.dispatch` reroutes a NEW `type="work"`
+    #: dispatch proposed for that same host onto another repo-capable,
+    #: unpaused, unreserved machine — or refuses outright when none exists.
+    #: Defaults to `True`; set `False` to restore pre-#4130 behaviour (Work
+    #: and Test compete for the same host with no reservation at all).
+    reserve_sole_capability_hosts: bool = True
 
 
 @dataclass
@@ -632,6 +656,85 @@ def entrypoint_sibling_acceptance_dir(entrypoint: str) -> str:
     return f"{prefix}acceptance/"
 
 
+def grep_sealed_path_hits(
+    sealed_paths: Sequence[str],
+    repo_root: str | Path,
+    patterns: Mapping[str, re.Pattern[str]],
+) -> dict[str, list[str]]:
+    """Search every real file under *sealed_paths* (the same shape
+    :meth:`AcceptanceConfig.sealed_paths` itself returns — a directory
+    prefix ending in ``/``, or an exact file) resolved against *repo_root*,
+    for each of *patterns*' compiled regexes.
+
+    #4176: the `coord.preflight_size.verify_split_proposal` sealed-amendment
+    check needs to know whether a child's removed/newly-introduced symbol
+    is still live in the target repo's own sealed acceptance suite — that
+    is a real filesystem read, deliberately kept OUT of
+    :meth:`AcceptanceConfig.sealed_paths` itself (that method, and its
+    siblings :meth:`~AcceptanceConfig.entrypoints` /
+    :meth:`~AcceptanceConfig.acceptance_search_roots`, are "path-independent
+    by design" per their own docstrings — pure path-string computation, no
+    I/O) and out of :mod:`coord.preflight_size` too (that module's own
+    docstring: "no I/O of any kind" on the hot path). This is a MODULE-level
+    function, not a method, for the same reason — :meth:`AcceptanceConfig.
+    grep_sealed_path_hits` is a thin convenience wrapper over it, not the
+    other way round.
+
+    Returns ``{pattern_key: [sealed_relative_path, ...]}`` — only keys that
+    hit at least once, each mapped to every sealed file (as a string,
+    relative to *repo_root*) whose content matched, in sorted order. Empty
+    input (no *sealed_paths*, no *patterns*) or a *repo_root* that doesn't
+    exist on this machine (not every machine has every repo checked out —
+    a normal, common case, not a fault) returns ``{}`` rather than raising,
+    the same fail-open posture every other "no evidence available" signal
+    in this fleet takes.
+    """
+    if not sealed_paths or not patterns:
+        return {}
+    root = Path(repo_root)
+    if not root.is_dir():
+        return {}
+
+    files: list[Path] = []
+    seen: set[Path] = set()
+    for entry in sealed_paths:
+        # An absolute entry, or one containing a `..` segment, would place
+        # `target` (and the `path.relative_to(root)` below) outside *root*
+        # — `Path("/repo") / "/etc/"` is `/etc/`, not `/repo/etc/` — which
+        # contradicts this function's own "returns {} rather than raising"
+        # contract. `sealed_paths()` entries are repo-relative in practice
+        # (derived from configured `entrypoint:` values), but skip rather
+        # than trust that here, same fail-open posture as the rest of this
+        # function toward evidence it doesn't have.
+        if Path(entry).is_absolute() or ".." in Path(entry).parts:
+            continue
+        target = root / entry
+        if entry.endswith("/"):
+            if not target.is_dir():
+                continue
+            candidates = sorted(p for p in target.rglob("*") if p.is_file())
+        else:
+            candidates = [target] if target.is_file() else []
+        for p in candidates:
+            if p not in seen:
+                seen.add(p)
+                files.append(p)
+
+    hits: dict[str, list[str]] = {}
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        rel = str(path.relative_to(root))
+        for key, pattern in patterns.items():
+            if pattern.search(text):
+                hits.setdefault(key, []).append(rel)
+    for matches in hits.values():
+        matches.sort()
+    return hits
+
+
 @dataclass
 class AcceptanceConfig:
     """``acceptance.drivers`` — repo name -> :class:`AcceptanceDriverConfig`."""
@@ -788,6 +891,27 @@ class AcceptanceConfig:
         exactly one of these; callers try each until one has it.
         """
         return [p for p in self.sealed_paths(repo_name) if p.endswith("/")]
+
+    def grep_sealed_path_hits(
+        self,
+        repo_name: str,
+        repo_root: str | Path,
+        patterns: Mapping[str, re.Pattern[str]],
+    ) -> dict[str, list[str]]:
+        """#4176: search real file content under :meth:`sealed_paths` for
+        each of *patterns*' compiled regexes, resolved against *repo_root*
+        (a local checkout — e.g. ``coord.repo_onboard.local_clone_path``'s
+        return value).
+
+        Returns ``{pattern_key: [sealed_relative_path, ...]}`` — only keys
+        that actually hit at least once, each mapped to every sealed file
+        (repo-root-relative, as a string) whose content matched. Thin
+        convenience wrapper over the module-level
+        :func:`grep_sealed_path_hits` so a caller that already has an
+        :class:`AcceptanceConfig` in hand doesn't have to re-derive
+        *repo_name*'s sealed set itself before calling it.
+        """
+        return grep_sealed_path_hits(self.sealed_paths(repo_name), repo_root, patterns)
 
     def driver_for(
         self, repo_name: str, path: str | None = None,
@@ -3975,6 +4099,7 @@ _KNOWN_REPO_KEYS = frozenset(
         "requires",
         "max_parallel",
         "board_doctor",
+        "precheck",
     }
 )
 
@@ -4190,6 +4315,17 @@ def _parse_repos(raw: Any) -> tuple[list[Repo], list[str]]:
         if run_cmd is not None and not isinstance(run_cmd, str):
             raise ConfigError(f"repos[{i}].run_cmd must be a string")
 
+        # #4166: precheck — the repo's declared fast compliance set, run by
+        # a work/fix leg before its final push.
+        precheck = entry.get("precheck")
+        if precheck is not None and not isinstance(precheck, str):
+            raise ConfigError(f"repos[{i}].precheck must be a string")
+        if isinstance(precheck, str) and not precheck.strip():
+            raise ConfigError(
+                f"repos[{i}].precheck must be a non-empty string (omit the "
+                "key entirely to declare no precheck)"
+            )
+
         worker_permissions = _parse_worker_permissions(entry.get("worker_permissions"), i)
 
         housekeeping = entry.get("housekeeping", []) or []
@@ -4330,6 +4466,7 @@ def _parse_repos(raw: Any) -> tuple[list[Repo], list[str]]:
                 test_command=test_command,
                 ci_command=ci_command,
                 run_cmd=run_cmd,
+                precheck=precheck,
                 worker_permissions=worker_permissions,
                 housekeeping=housekeeping,
                 coordinator_only_files=coordinator_only_files,
@@ -4960,6 +5097,24 @@ def _parse_smoke_tests(raw: Any) -> SmokeTestsConfig:
                 "smoke_tests.native_execution_capabilities must be a list of strings"
             )
         cfg.native_execution_capabilities = value
+
+    if "max_load_per_core" in raw:
+        value = raw["max_load_per_core"]
+        if value is not None and (
+            not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0
+        ):
+            raise ConfigError(
+                "smoke_tests.max_load_per_core must be a positive number or null"
+            )
+        cfg.max_load_per_core = float(value) if value is not None else None
+
+    if "reserve_sole_capability_hosts" in raw:
+        value = raw["reserve_sole_capability_hosts"]
+        if not isinstance(value, bool):
+            raise ConfigError(
+                "smoke_tests.reserve_sole_capability_hosts must be a boolean"
+            )
+        cfg.reserve_sole_capability_hosts = value
 
     rules_raw = raw.get("capability_rules", []) or []
     if not isinstance(rules_raw, list):

@@ -58,8 +58,7 @@ class TestCalculator:
                 np.cos(2 * pi * self.ibzk[:, 0])
                 + np.cos(2 * pi * self.ibzk[:, 1])
             )
-        )
-        self.eps.shape = (nibzk, nbands)
+        ).reshape((nibzk, nbands))
 
         self.psi = np.zeros((nibzk, 20, 20, 60), complex)
         phi = np.empty((2, 2, 20, 20, 60))

@@ -20,15 +20,19 @@ that merges them when sliced or merged.
 from __future__ import annotations
 
 from collections import defaultdict
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import asdict
 from functools import lru_cache
 from os import PathLike
+from types import SimpleNamespace
 from typing import (
     TYPE_CHECKING,
     Any,
     BinaryIO,
+    Collection,
     Dict,
+    Iterator,
     List,
     Sequence,
     TextIO,
@@ -40,40 +44,46 @@ from .adapter import (
     fp_or_f_obj_or_stream_to_stream,
     readable,
 )
+from .constants import FEATURE_HOOKS, FONT_HOOK, JAVASCRIPT_HOOKS
 from .coordinate import generate_coordinate_grid
 from .deprecation import reject_unsupported_kwargs
 from .egress import (
     appearance_streams_handler,
-    rebuild_acroform_fields,
+    sync_acroform_fields,
     write_path,
 )
+from .field_tree import remove_widgets_by_keys, share_inline_fields
 from .filler import fill
 from .font import (
+    add_font_metrics,
     get_all_available_fonts,
     register_font_acroform,
     temporary_font_registration,
     validate_font,
 )
-from .hooks import trigger_widget_hooks
-from .middleware.dropdown import Dropdown
-from .middleware.text import Text
+from .hooks import FontChange, trigger_widget_hooks
+from .middleware.checkbox import Checkbox
 from .template import (
     build_widgets,
     create_annotations,
     get_on_open_javascript,
     get_title,
-    remove_widgets_by_keys,
+    get_widget_positions,
     set_on_open_javascript,
     set_title,
     update_widget_keys,
 )
 from .utils import (
+    can_need_newer_version,
     generate_unique_suffix,
     generic_merge,
+    get_catalog_version,
+    get_newest_version,
+    get_output_version,
     get_page_streams,
+    get_required_version,
     get_version,
     merge_pdfs,
-    remove_all_widgets,
     set_version,
 )
 from .watermark import (
@@ -136,8 +146,15 @@ class PdfWrapper:
 
         Initializes a new `PdfWrapper` object with the given template PDF and optional keyword arguments.
         The template is normalized to bytes and existing widgets are loaded immediately.
+        Widgets and their parent fields stored inline, as earlier versions of PyPDFForm
+        could save them, are first shared with the form's field tree, so that later
+        operations change one object.
         Omitting the template, or passing empty bytes or an empty stream, creates an empty
         wrapper; a missing path raises instead.
+        The PDF version is read from the template's header before the `title` keyword
+        is applied, so output keeps it after operations that rewrite the PDF. The
+        version that the template's own content requires is recorded too, so only
+        newer features that operations add raise the output's version.
         The title and document-open JavaScript remain in the PDF stream and are read
         lazily when their properties are accessed. A non-None `title` keyword updates
         the title in the PDF stream; None leaves the template's title unchanged. Enabling
@@ -163,14 +180,22 @@ class PdfWrapper:
         reject_unsupported_kwargs(
             self, "__init__", kwargs, [each[0] for each in self.USER_PARAMS]
         )
-        self._stream = fp_or_f_obj_or_stream_to_stream(template)
+        self._stream = share_inline_fields(fp_or_f_obj_or_stream_to_stream(template))
         self.widgets = {}
 
-        self._version = None
+        self._version = get_version(self._stream)  # before PDF writers rewrite it
+        # what the template's own content requires; read() raises the version
+        # only for newer features, so a header that understates it is kept
+        self._baseline_version = (
+            get_required_version(self._stream)
+            if can_need_newer_version(self._version)
+            else None
+        )
         self._available_fonts = {}  # for setting /F1
         self._available_fonts_loaded = None  # for lazy loading fonts
-        self._font_register_events = []  # for reregister
-        self._key_update_tracker = {}  # for update key preserve old key attrs
+        self._font_register_events = []  # for drawing, font lookups, and new wrappers
+        self._fonts_without_metrics = {}  # resource name to TTF, for read()
+        self._key_update_tracker = {}  # new key to old key, for renamed widgets
         self._keys_to_update = []  # for bulk update keys
 
         # sets attrs from kwargs
@@ -239,9 +264,11 @@ class PdfWrapper:
         Creates an independent copy of this wrapper.
 
         The copy starts from the current PDF stream, which already contains the title
-        and registered font resources, so fonts are not embedded again; their mappings
-        and registration events are copied instead. The cached PDF version is copied
-        so the copy restores the same header when serialized. Widgets and pending key
+        and registered font resources, so fonts are not embedded again; their mappings,
+        registration events, and the fonts that still need metrics in `read()` are
+        copied instead. The recorded PDF version and the version its content
+        required are copied so the copy writes the same header when serialized,
+        including for features added before copying. Widgets and pending key
         updates are copied so either wrapper can change without affecting the other.
         Readable stream values on widgets are shared because they cannot be duplicated.
 
@@ -268,20 +295,34 @@ class PdfWrapper:
             },
         )
         result._version = self._version
+        result._baseline_version = self._baseline_version
         result._available_fonts = dict(self._available_fonts)
         result._available_fonts_loaded = self._available_fonts_loaded
         result._font_register_events = list(self._font_register_events)
+        result._fonts_without_metrics = dict(self._fonts_without_metrics)
         result._keys_to_update = list(self._keys_to_update)
 
         return result
 
-    def _init_helper(self) -> None:
+    def _init_helper(self, repointed: Collection[str] = ()) -> None:
         """
         Helper method to initialize widgets.
 
         This method is called during initialization and after certain operations
         that modify the PDF content (e.g., filling, creating widgets, updating keys).
         It rebuilds the widget dictionary and invalidates the lazily loaded font cache.
+        Fields no longer in the PDF are dropped. Existing widget objects are kept
+        for keys that remain, since queued hooks were already applied to the PDF
+        and their properties match it, unless the key gives access to another
+        field than before. A renamed widget is built from the PDF and takes the
+        state the PDF doesn't hold from the widget it replaces, with
+        `Widget.copy_unread_state`.
+
+        Args:
+            repointed (Collection[str]): Keys that remain but give access to
+                another field than before, such as after renaming the field a
+                key gave access to by index. Their widgets are built from the
+                PDF rather than kept.
         """
 
         self._available_fonts_loaded = False
@@ -294,20 +335,51 @@ class PdfWrapper:
             if stream
             else {}
         )
-        # ensure old widgets don't get overwritten
-        for k, v in self.widgets.items():
-            if k in new_widgets:
-                new_widgets[k] = v
-
-        # update key preserve old key attrs
         for k, v in new_widgets.items():
-            if k in self._key_update_tracker:
-                old_widget = self.widgets[self._key_update_tracker[k]]
-                for name in old_widget.attr_set_tracker:
-                    setattr(v, name, getattr(old_widget, name, None))
+            if k in self.widgets and k not in repointed:
+                new_widgets[k] = self.widgets[k]
+            elif (
+                k in self._key_update_tracker
+                and self._key_update_tracker[k] in self.widgets
+            ):
+                v.copy_unread_state(self.widgets[self._key_update_tracker[k]])
         self._key_update_tracker = {}
 
         self.widgets = new_widgets
+
+    @contextmanager
+    def _restore_on_failure(self) -> Iterator[None]:
+        """
+        Restores the wrapper's state if the enclosed operation raises.
+
+        Queued widget hooks are applied first, so a hook that fails is reverted
+        and raised by `_read` before the operation starts. The wrapper's
+        attributes, including the PDF stream and widgets, and each widget's
+        attributes are then recorded. If the operation raises, they are restored
+        before the exception propagates, so the wrapper and its PDF output are
+        both unchanged. Widget objects keep their identity.
+
+        Yields:
+            None: Control returns to the enclosed operation.
+        """
+
+        self._read()
+        state = {
+            name: value.copy() if isinstance(value, (dict, list)) else value
+            for name, value in vars(self).items()
+        }
+        widget_states = [
+            (widget, widget.save_state()) for widget in self.widgets.values()
+        ]
+
+        try:
+            yield
+        except Exception:
+            self.__dict__.clear()
+            self.__dict__.update(state)
+            for widget, widget_state in widget_states:
+                widget.restore_state(widget_state)
+            raise
 
     def _ensure_available_fonts_loaded(self) -> dict:
         """
@@ -315,6 +387,8 @@ class PdfWrapper:
 
         Custom fonts registered through `register_font` are stored in the same
         mapping, so loading updates the existing dictionary instead of replacing it.
+        A registered name keeps its registered font when a font in the PDF has the
+        same name.
 
         Returns:
             dict: A mapping from font names to internal PDF font identifiers.
@@ -322,7 +396,14 @@ class PdfWrapper:
 
         if not self._available_fonts_loaded:
             if self._stream:
-                self._available_fonts.update(**get_all_available_fonts(self._stream))
+                registered = {each[0] for each in self._font_register_events}
+                self._available_fonts.update(
+                    {
+                        k: v
+                        for k, v in get_all_available_fonts(self._stream).items()
+                        if k not in registered
+                    }
+                )
             self._available_fonts_loaded = True
 
         return self._available_fonts
@@ -344,31 +425,11 @@ class PdfWrapper:
 
         Raises:
             ValueError: If a page refers to content of another page in a way
-                that cannot be removed.
+                that cannot be removed, or a field shared with another page
+                has a `/Parent` cycle before an entry it inherits.
         """
 
         return tuple(get_page_streams(stream))
-
-    def _reregister_font(self) -> PdfWrapper:
-        """
-        Reregisters fonts after PDF content modifications.
-
-        This method is called after operations that modify the PDF content
-        (e.g., drawing text, drawing images) to ensure that custom fonts
-        are correctly registered and available for use. It replays the font
-        registration events that existed at method entry, then trims those
-        replayed events so only newly added events remain queued.
-        """
-
-        font_register_events_len = len(self._font_register_events)
-        for i in range(font_register_events_len):
-            event = self._font_register_events[i]
-            self.register_font(event[0], event[1])
-        self._font_register_events = self._font_register_events[
-            font_register_events_len:
-        ]
-
-        return self
 
     @property
     def title(self) -> str | None:
@@ -459,18 +520,43 @@ class PdfWrapper:
         """
         Returns the PDF version of the underlying PDF document.
 
-        The version is read from the PDF header lazily and cached so egress-only
-        rewrites can restore the wrapper's original version even if an underlying
-        PDF writer emits a different default header.
+        This is the version in the header of `read()` output. It is read from the
+        template's header when the wrapper is created, or set by `change_version`,
+        and raised when an operation adds a feature that requires a newer version,
+        such as a form field added to a PDF 1.1 document. A header that already
+        understates the template's own content is kept. When the template has no
+        supported header, the version is read from the current PDF stream instead.
+        Pending widget changes are not applied to the wrapper, but those that can
+        change the version, such as comb, tooltips, and widget JavaScript, are
+        applied to a copy of the PDF, so the result matches the next `read()`.
+        When they can't be applied, the committed document's version is returned,
+        and `read()` raises the error.
 
         Returns:
             str | None: The PDF version as a string, or None if the version cannot be determined.
         """
 
-        if self._version is None:
-            self._version = get_version(self._read())
+        version = self._recorded_version()
+        if not can_need_newer_version(version):
+            return version
 
-        return self._version
+        return self._choose_version(
+            self._egress(self._with_pending_feature_changes(self._stream)), version
+        )
+
+    def _recorded_version(self) -> str | None:
+        """
+        Returns the PDF version read from the template or set by `change_version`.
+
+        When the template has no supported header, the version is read from the
+        stored PDF stream instead, without applying pending widget changes.
+
+        Returns:
+            str | None: The recorded PDF version, before any raise for features
+                that operations added.
+        """
+
+        return self._version if self._version is not None else get_version(self._stream)
 
     @property
     def fonts(self) -> list:
@@ -493,26 +579,38 @@ class PdfWrapper:
 
         This allows you to work with individual pages of the PDF. Each page wrapper
         preserves the page's original widgets and inherits the current wrapper's user
-        parameters. Content of other pages is not copied: links and GoTo actions to
-        other pages are removed, and a field shared with other pages keeps only its
-        widgets on the page. Custom font registration events are replayed onto the
-        page wrappers when needed.
+        parameters and PDF version, which is raised for the newer features that
+        operations added to the page. A catalog `/Version` override, which the page
+        doesn't keep, counts toward that version. Content of other pages is not
+        copied: links and GoTo actions to other pages are removed, and a field
+        shared with other pages keeps only its widgets on the page. Custom font
+        registration events are replayed onto the page wrappers when needed.
 
         Returns:
             Sequence[PdfWrapper]: A list of `PdfWrapper` objects, one for each page in the PDF.
 
         Raises:
             ValueError: If a page refers to content of another page in another way,
-                such as an action that resets a field on another page.
+                such as an action that resets a field on another page, or a
+                field shared with another page has a `/Parent` cycle before an
+                entry it inherits.
         """
 
+        stream = self._read()
+        version = self._recorded_version()
+        # pages don't keep the catalog, so a /Version override moves to the header
+        version = get_newest_version([version, get_catalog_version(stream)]) or version
         result = [
             self.__class__(
-                each,
+                # the stored stream's header may be a PDF writer's default
+                set_version(each, get_version(each), version),
                 **{param: getattr(self, param) for param, _ in self.USER_PARAMS},
             )
-            for each in self._get_page_streams_with_widgets(self._read())
+            for each in self._get_page_streams_with_widgets(stream)
         ]
+        for page in result:
+            # so features that operations added still raise the page's version
+            page._baseline_version = self._baseline_version  # noqa: SLF001 # pylint: disable=W0212
 
         # because page streams do not copy the AcroForm fonts
         if self._font_register_events:
@@ -559,48 +657,158 @@ class PdfWrapper:
         Reads the PDF document and returns its content as bytes.
 
         This method retrieves the PDF stream and performs several processing steps:
-        1. Triggers widget hooks and updates font mappings (via `_read`).
+        1. Triggers widget hooks and updates font mappings (via `_read`). If a
+           hook raises, all queued widget updates are reverted before the error
+           propagates.
         2. If `need_appearances` is enabled, it handles appearance streams and the
            `/NeedAppearances` flag, which may include removing XFA and explicitly
-           generating appearance streams.
-        3. Rebuilds the AcroForm `/Fields` array from page annotations for
-           widgets known to this wrapper, leaving the stream unchanged when no
-           matching widget annotations are found.
-        4. Restores the wrapper's cached PDF header version after egress
+           generating appearance streams. Fonts registered while it was disabled
+           first get the font metrics that appearance generation uses.
+        3. Adds the fields of page widget annotations to the AcroForm `/Fields`
+           array, keeping every field already listed, including fields without
+           a widget on a page. The stream is left unchanged when no page has a
+           widget annotation.
+        4. Writes the wrapper's PDF version into the header after egress
            processing, since PDF writers may emit their own default version.
+           The version read from the template or set by `change_version` is
+           raised when the output has a newer feature than both it and the
+           content it was read or set for, such as an interactive form added to
+           a PDF 1.1 document.
         The wrapper's stored stream is not replaced by these final egress-only changes.
 
         Returns:
             bytes: The processed PDF document content as a byte string.
         """
 
-        result = self._read()
+        result = self._egress(self._read())
+        version = self._choose_version(result, self._recorded_version())
+        if version:
+            result = set_version(result, get_version(result), version)
+        return result
+
+    def _egress(self, stream: bytes) -> bytes:
+        """
+        Applies the egress steps of `read()` to a PDF stream, except its version.
+
+        These are the appearance handling for `need_appearances` and the update
+        of the AcroForm `/Fields` array. The wrapper is not changed.
+
+        Args:
+            stream (bytes): The PDF stream, such as the wrapper's stored stream.
+
+        Returns:
+            bytes: The processed PDF stream, with the header of the last PDF
+                writer that rewrote it.
+        """
+
+        result = stream
         if getattr(self, "need_appearances") and result:
+            if self._fonts_without_metrics:
+                result = add_font_metrics(
+                    result, tuple(self._fonts_without_metrics.items())
+                )
             result = appearance_streams_handler(
                 result, getattr(self, "generate_appearance_streams")
             )  # cached
 
-        if result:
-            result = rebuild_acroform_fields(
-                result,
-                set(self.widgets.keys()),
-                getattr(self, "use_full_widget_name"),
+        return sync_acroform_fields(result) if result else result
+
+    def _choose_version(self, output: bytes, version: str | None) -> str | None:
+        """
+        Chooses the PDF version to write into the header of an egress output.
+
+        The version is raised only when the output requires a newer one than the
+        recorded version, the baseline, and a catalog `/Version` override.
+
+        Args:
+            output (bytes): The output of `_egress`.
+            version (str | None): The recorded PDF version.
+
+        Returns:
+            str | None: `version`, raised for the newer features that operations
+                added, or None for an empty output.
+        """
+
+        if not output:
+            return None
+
+        if can_need_newer_version(version):
+            return get_output_version(
+                version,
+                # a catalog /Version override also covers the output's features
+                get_newest_version(
+                    [self._baseline_version, get_catalog_version(output)]
+                ),
+                get_required_version(output),
             )
-            if self.version:
-                result = set_version(result, get_version(result), self.version)
-        return result
+
+        return version
+
+    def _with_pending_feature_changes(self, stream: bytes) -> bytes:
+        """
+        Applies the queued widget changes that can add or remove a table feature.
+
+        These are the hooks in `FEATURE_HOOKS`, such as comb, tooltips, and
+        widget JavaScript, applied in queue order to a copy of `stream`, so the
+        result has the features that `read()` would write. Other changes can't
+        change the version, and are left out, so a hook that would fail, such as
+        a font size on a field without a valid `/DA`, doesn't raise here. The widgets
+        and their queues are not changed. Every JavaScript value is applied as
+        an empty script, since only whether a script is written matters, so a
+        path or a readable object is left for `read()` to open or read. If a
+        change still can't be applied, such as removing a tooltip that a shared
+        parent field sets, `stream` is returned unchanged, so the version is the
+        committed document's, and `read()` raises the error.
+
+        Args:
+            stream (bytes): The PDF stream, such as the wrapper's stored stream.
+
+        Returns:
+            bytes: The stream with those changes applied, or `stream` when none
+                are queued or they can't be applied.
+        """
+
+        pending = {
+            key: SimpleNamespace(
+                hooks_to_trigger=[
+                    (hook, "" if hook in JAVASCRIPT_HOOKS else value)
+                    for hook, value in widget.hooks_to_trigger
+                    if hook in FEATURE_HOOKS
+                ]
+            )
+            for key, widget in self.widgets.items()
+        }
+        if not any(each.hooks_to_trigger for each in pending.values()):
+            return stream
+
+        try:
+            return trigger_widget_hooks(
+                stream, pending, getattr(self, "use_full_widget_name")
+            )
+        # any error a hook raises is left for read(), which reverts the queue
+        except Exception:  # noqa: BLE001 # pylint: disable=W0718
+            return stream
 
     def _read(self) -> bytes:
         """
         Reads the PDF stream, triggering widget hooks and updating fonts if necessary.
 
-        This internal method executes queued widget hooks. When a pending font hook
-        exists, user-facing registered font names are mapped to their internal PDF
-        resource names before hooks are applied. Applying hooks updates the wrapper's
-        stored stream and clears each widget's hook queue.
+        This internal method executes queued widget hooks. A font being changed is
+        passed to its hook with the resource name of the registered font or font
+        of the PDF with its name, and each changed widget's font is then read back
+        from the changed PDF, as reopening it reads it. The changed PDF and those
+        fonts are committed together, which updates the wrapper's stored stream
+        and clears each widget's hook queue. If a hook or reading the fonts back
+        raises, every widget's queued hooks are discarded and their properties are
+        restored to their committed values, so the stream and widgets are
+        unchanged and later reads do not retry the failed updates.
 
         Returns:
             bytes: The raw PDF stream.
+
+        Raises:
+            Exception: Any error raised while applying a hook or reading the
+                fonts back is re-raised after the queued updates are reverted.
         """
 
         widgets_with_hooks = [
@@ -608,30 +816,95 @@ class PdfWrapper:
         ]
 
         if widgets_with_hooks:
-            has_font_hook = any(
-                hook[0] == "update_text_field_font"
-                for widget in widgets_with_hooks
-                for hook in widget.hooks_to_trigger
-            )
+            font_widgets = self._queue_font_changes(widgets_with_hooks)
 
-            if has_font_hook:
-                available_fonts = self._ensure_available_fonts_loaded()
+            # the changed PDF and the fonts read back from it are committed
+            # only when both succeed
+            try:
+                stream = trigger_widget_hooks(
+                    self._stream,
+                    self.widgets,
+                    getattr(self, "use_full_widget_name"),
+                )
+                fonts = self._read_fonts(stream, font_widgets)
+            except Exception:
                 for widget in self.widgets.values():
-                    if (
-                        isinstance(widget, (Text, Dropdown))
-                        and widget.font not in available_fonts.values()
-                        and widget.font in available_fonts
-                    ):
-                        # from `new_font` to `/F1`
-                        widget.font = available_fonts.get(widget.font)
+                    widget.revert_property_updates()
+                raise
 
-            self._stream = trigger_widget_hooks(
-                self._stream,
-                self.widgets,
-                getattr(self, "use_full_widget_name"),
-            )
+            self._stream = stream
+            for widget in self.widgets.values():
+                if id(widget) in fonts:
+                    widget.__dict__["font"] = fonts[id(widget)]
+                widget.clear_property_updates()
 
         return self._stream
+
+    def _queue_font_changes(self, widgets: list) -> dict:
+        """
+        Passes each queued font change the resource name its font has.
+
+        Only fonts being changed are looked up, so a font read from the PDF that
+        has the name of a registered font, such as `Courier`, is left as it is.
+        Each font hook gets a `FontChange` with the assigned name and the
+        resource name of the registered font or font of the PDF with that name,
+        which the hook uses unless the annotation already uses the font.
+
+        Args:
+            widgets (list): The widgets with queued hooks.
+
+        Returns:
+            dict: The widgets with a queued font change, by `id`.
+        """
+        font_widgets = {
+            id(widget): widget
+            for widget in widgets
+            if any(hook == FONT_HOOK for hook, _ in widget.hooks_to_trigger)
+        }
+        if font_widgets:
+            available_fonts = self._ensure_available_fonts_loaded()
+            for widget in font_widgets.values():
+                widget.hooks_to_trigger = [
+                    (
+                        hook,
+                        FontChange(
+                            value,
+                            available_fonts[value]
+                            if value in available_fonts
+                            and value not in available_fonts.values()
+                            else None,
+                        )
+                        if hook == FONT_HOOK
+                        else value,
+                    )
+                    for hook, value in widget.hooks_to_trigger
+                ]
+
+        return font_widgets
+
+    def _read_fonts(self, stream: bytes, font_widgets: dict) -> dict:
+        """
+        Reads the fonts of widgets back from a changed PDF, as reopening it does.
+
+        Each annotation's font hook decides by its own `/DA`, so the widgets of
+        a field can get different fonts, and the key gives access to the last.
+
+        Args:
+            stream (bytes): The PDF with the font changes applied.
+            font_widgets (dict): The widgets whose font was changed, by `id`.
+
+        Returns:
+            dict: The font of each of those widgets, by `id`.
+        """
+        if not font_widgets:
+            return {}
+
+        written = build_widgets(stream, getattr(self, "use_full_widget_name"))
+        return {
+            id(widget): getattr(written[key], "font", widget.font)
+            for key, widget in self.widgets.items()
+            if id(widget) in font_widgets and key in written
+        }
 
     def write(self, dest: str | bytes | PathLike | BinaryIO) -> PdfWrapper:
         """
@@ -660,8 +933,13 @@ class PdfWrapper:
         """
         Changes the PDF version of the underlying document.
 
-        The method replaces the first PDF header version marker in the current stream
-        and updates the cached version used by later egress processing. It does not
+        The method replaces the PDF header version marker of the current stream, which
+        an earlier operation's PDF writer may have set to its own default, and updates
+        the version that `read()` writes into its output. The version is kept for the
+        content the document has now, including what `read()` adds for the wrapper's
+        current options, such as an AcroForm for `need_appearances`, even if that
+        content requires a newer version. Later operations, and options enabled
+        later, that add a newer feature raise it again. It does not
         otherwise validate or rewrite the document for version-specific compatibility.
 
         Args:
@@ -672,10 +950,17 @@ class PdfWrapper:
         """
 
         current_stream = self._read()
-        updated_stream = set_version(current_stream, self.version, version)
-        if updated_stream != current_stream:
+        updated_stream = set_version(
+            current_stream, get_version(current_stream), version
+        )
+        if updated_stream != current_stream or get_version(updated_stream) == version:
             self._stream = updated_stream
             self._version = version
+            self._baseline_version = (
+                get_required_version(self._egress(updated_stream))
+                if can_need_newer_version(version)
+                else None
+            )
 
         return self
 
@@ -685,9 +970,10 @@ class PdfWrapper:
         """
         Generates a coordinate grid on the PDF, useful for debugging layout issues.
 
-        Existing widgets are temporarily removed while the grid is drawn as page
-        watermarks, then copied back onto the resulting stream. Registered fonts are
-        restored afterward because the remove/copy cycle rewrites the PDF.
+        The grid is drawn as page watermarks merged into the page content.
+        Annotations, including widgets, keep their objects, so references to
+        them, such as the AcroForm field tree, are unchanged. Registered fonts
+        stay in the AcroForm resources and are not embedded again.
 
         Args:
             color (Tuple[float, float, float]): The color of the grid lines, specified as an RGB tuple (default: red).
@@ -697,19 +983,7 @@ class PdfWrapper:
             PdfWrapper: The `PdfWrapper` object, allowing for method chaining.
         """
 
-        stream_with_widgets = self._read()
-        # Case: Single watermark PDF, mapping pages 1:1 to output pages.
-        self._stream = copy_watermark_widgets(
-            generate_coordinate_grid(
-                remove_all_widgets(self._read()),
-                color,
-                margin,
-            ),
-            stream_with_widgets,
-            None,
-        )
-        # because copy_watermark_widgets and remove_all_widgets
-        self._reregister_font()
+        self._stream = generate_coordinate_grid(self._read(), color, margin)
 
         return self
 
@@ -721,17 +995,23 @@ class PdfWrapper:
         """
         Fills the PDF form with data from a dictionary.
 
-        Only keys that already exist in `self.widgets` are applied. Filling delegates
-        to the lower-level filler, which draws image/signature values onto the page
+        Only keys that already exist in `self.widgets` are applied. A field that
+        shares a key with a widget of another type, such as a checkbox and a radio
+        group with the same short name, keeps its value; its widgets are still made
+        read-only with `readonly=True`. A radio group fills only its own options.
+        A checkbox whose value isn't supplied, and is still the one the PDF holds,
+        as read or last filled, isn't written again. Filling delegates to the
+        lower-level filler, which draws image/signature values onto the page
         and removes only the consumed widgets. Other annotations and unfilled
         signature/image fields are preserved. After image drawing, the widget cache
         is refreshed to remove consumed fields while retaining the middleware objects
-        for surviving fields so subsequent style updates can still use them.
+        for surviving fields so subsequent style updates can still use them. With
+        `readonly=True`, every remaining widget reports `readonly` as True.
         Supplied and retained values are prepared before any assignments or PDF
         hooks are applied, so an invalid choice index or ambiguous dropdown string
         leaves widget values, pending hooks, and PDF state unchanged. Only supplied
-        values are assigned.
-        Errors during later PDF processing are not rolled back by this preparation.
+        values are assigned. If later processing raises, such as for an invalid
+        image, widget values and the PDF are restored before the error propagates.
 
         Args:
             data (Dict[str, str | bool | int | BinaryIO | bytes]): A dictionary where keys
@@ -746,11 +1026,14 @@ class PdfWrapper:
 
         Raises:
             TypeError: If a keyword argument other than `readonly` is passed. Nothing is changed.
-            ValueError: If an integer dropdown or radio index is out of range, or a
-                dropdown string matches options that differ. Nothing is changed.
+            ValueError: If an integer dropdown or radio index is out of range, a
+                dropdown string matches options that differ, or `readonly` is
+                True and the parent fields of a field form a cycle. Nothing is
+                changed.
         """
 
         reject_unsupported_kwargs(self, "fill", kwargs, ["readonly"])
+        readonly = kwargs.get("readonly", False)
         pending = [
             (self.widgets[key], self.widgets[key].prepare_value(value))
             for key, value in data.items()
@@ -759,22 +1042,34 @@ class PdfWrapper:
         for key, widget in self.widgets.items():
             if key not in data:
                 widget.prepare_value(widget.value)
-        for widget, update in pending:
-            widget.apply_value(update)
 
-        filled_stream, image_drawn_stream = fill(
-            self._read(),
-            self.widgets,
-            need_appearances=getattr(self, "need_appearances"),
-            use_full_widget_name=getattr(self, "use_full_widget_name"),
-            readonly=kwargs.get("readonly", False),
-        )
+        with self._restore_on_failure():
+            for widget, update in pending:
+                widget.apply_value(update)
 
-        self._stream = (
-            image_drawn_stream if image_drawn_stream is not None else filled_stream
-        )
-        if image_drawn_stream is not None:
-            self._init_helper()
+            filled_stream, image_drawn_stream = fill(
+                self._read(),
+                self.widgets,
+                need_appearances=getattr(self, "need_appearances"),
+                use_full_widget_name=getattr(self, "use_full_widget_name"),
+                supplied=set(data),
+                readonly=readonly,
+            )
+
+            self._stream = (
+                image_drawn_stream if image_drawn_stream is not None else filled_stream
+            )
+            for widget in self.widgets.values():
+                if type(widget) is Checkbox and widget.value is not None:
+                    # the PDF now holds it, so the next fill doesn't write it again
+                    widget.__dict__["_pdf_value"] = widget.value
+            if image_drawn_stream is not None:
+                self._init_helper()
+
+        if readonly:
+            for widget in self.widgets.values():
+                # the PDF already has the flag, so no hook is queued
+                widget.__dict__["readonly"] = True
 
         return self
 
@@ -808,7 +1103,8 @@ class PdfWrapper:
         separately because each constructs a different PDF annotation; checkboxes
         and radio groups are grouped together because they share ReportLab button
         handling; multiple dropdown fields are routed through the general creation
-        path.
+        path. If creating any group raises, the PDF and widgets are restored, so
+        no field is created.
 
         Args:
             fields (Sequence[FieldTypes]): A list of field definition objects
@@ -844,9 +1140,12 @@ class PdfWrapper:
         ):
             general_creation += needs_separate_creation_dict.pop(DropdownField, [])
 
-        for each in list(needs_separate_creation_dict.values()) + [general_creation]:
-            if each:
-                self._bulk_create_fields(each)
+        with self._restore_on_failure():
+            for each in list(needs_separate_creation_dict.values()) + [
+                general_creation
+            ]:
+                if each:
+                    self._bulk_create_fields(each)
 
         return self
 
@@ -909,18 +1208,31 @@ class PdfWrapper:
 
         This method removes any fields whose keys are included in `keys` and
         refreshes the wrapper's widget metadata after the PDF stream is updated.
+        Keys use the same names as `widgets` and also match fields without a
+        widget on any page. Removed fields are taken off their pages and out of
+        the PDF's form fields and calculation order. Reset, submit, and hide
+        actions stop naming them. An action left with no field to act on does
+        nothing, and is removed unless other actions run with it; JavaScript
+        is not changed. Objects that only removed fields used are dropped from
+        the PDF. Keys that match no field are ignored. If removal
+        raises, the PDF and widgets are restored.
 
         Args:
             keys (List[str]): A list of form field keys to remove.
 
         Returns:
             PdfWrapper: The `PdfWrapper` object, allowing for method chaining.
+
+        Raises:
+            ValueError: If the `/Parent` chain of a field or widget to remove has
+                a cycle.
         """
 
-        self._stream = remove_widgets_by_keys(
-            self._read(), keys, getattr(self, "use_full_widget_name")
-        )
-        self._init_helper()
+        with self._restore_on_failure():
+            self._stream = remove_widgets_by_keys(
+                self._stream, keys, getattr(self, "use_full_widget_name")
+            )
+            self._init_helper()
 
         return self
 
@@ -955,8 +1267,13 @@ class PdfWrapper:
         Commits deferred widget key updates, applying all queued key renames to the PDF.
 
         This method applies all widget key updates queued by the `update_widget_key` method. It updates
-        the underlying PDF stream with the new key names, rebuilds the widget cache, preserves attributes
-        that were set on the old widget objects, and clears the queue.
+        the underlying PDF stream with the new key names, rebuilds the widget cache, and clears the queue.
+        Renamed widgets are read from the PDF. A renamed field keeps the state of the widget its old key
+        gave access to that the PDF doesn't hold, such as a value not filled yet or JavaScript, without
+        queuing hooks again, when it is that widget's field. A key that gives access to another field
+        after the rename, such as one whose field was renamed by index, gets a widget read from the PDF,
+        so that state stays with the field it was set on. If committing raises, the PDF, widgets, and
+        queue are restored.
 
         Returns:
             PdfWrapper: The PdfWrapper object.
@@ -969,14 +1286,21 @@ class PdfWrapper:
         new_keys = [each[1] for each in self._keys_to_update]
         indices = [each[2] for each in self._keys_to_update]
 
-        self._stream = update_widget_keys(
-            self._read(), self.widgets, old_keys, new_keys, indices
-        )
+        with self._restore_on_failure():
+            before = get_widget_positions(self._stream)
+            self._stream = update_widget_keys(
+                self._stream, self.widgets, old_keys, new_keys, indices
+            )
+            after = get_widget_positions(self._stream)
 
-        for each in self._keys_to_update:
-            self._key_update_tracker[each[1]] = each[0]
-        self._init_helper()
-        self._keys_to_update = []
+            for old_key, new_key, _ in self._keys_to_update:
+                # only the field the old key gave access to takes its widget's state
+                if old_key in before and after.get(new_key) == before[old_key]:
+                    self._key_update_tracker[new_key] = old_key
+            self._init_helper(
+                {key for key in before if key in after and before[key] != after[key]}
+            )
+            self._keys_to_update = []
 
         return self
 
@@ -986,8 +1310,11 @@ class PdfWrapper:
 
         This method is the primary mechanism for drawing non-form field content.
         It takes a list of raw element objects, temporarily registers custom fonts
-        for ReportLab drawing, renders the elements onto page watermarks, merges those
-        watermarks into the PDF, and copies the original widgets back onto the output.
+        for ReportLab drawing, renders the elements onto page watermarks, and merges
+        those watermarks into the page content. Annotations, including widgets, keep
+        their objects, so references to them, such as the AcroForm field tree, are
+        unchanged. Registered fonts stay in the AcroForm resources and are not
+        embedded again.
 
         Args:
             elements (Sequence[RawTypes]): A list of raw elements to draw (e.g., [RawText(...), RawImage(...)]).
@@ -1001,14 +1328,7 @@ class PdfWrapper:
                 self._read(), [each.to_draw for each in elements], font_mapping
             )
 
-        stream_with_widgets = self._read()
         self._stream = merge_watermarks_with_pdf(self._read(), watermarks)
-        # Case: Single watermark PDF, mapping pages 1:1 to output pages.
-        self._stream = copy_watermark_widgets(
-            remove_all_widgets(self._read()), stream_with_widgets, None
-        )
-        # because copy_watermark_widgets and remove_all_widgets
-        self._reregister_font()
 
         return self
 
@@ -1022,8 +1342,11 @@ class PdfWrapper:
 
         Valid TrueType font data is embedded into the PDF's AcroForm resources and
         recorded under the user-provided `font_name`. The original registration input
-        is kept so font resources can be replayed after operations that rewrite the
-        PDF stream. Invalid font streams are ignored, but a missing font path raises.
+        is kept so the font can be used for drawing and registered again on wrappers
+        created from this one, such as pages and merged PDFs. A font registered while
+        `need_appearances` is disabled gets the font metrics that appearance generation
+        uses in `read()` output once it is enabled. Invalid font streams are ignored,
+        but a missing font path raises.
 
         Args:
             font_name (str): The name of the font. This name will be used to reference the font when drawing text.
@@ -1049,6 +1372,8 @@ class PdfWrapper:
             )
             self._available_fonts[font_name] = new_font_name
             self._font_register_events.append((font_name, ttf_file))
+            if not getattr(self, "need_appearances"):
+                self._fonts_without_metrics[new_font_name] = ttf_file
 
         return self
 

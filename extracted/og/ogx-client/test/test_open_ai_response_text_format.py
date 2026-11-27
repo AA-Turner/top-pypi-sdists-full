@@ -41,14 +41,16 @@ class TestOpenAIResponseTextFormat(unittest.TestCase):
         model = OpenAIResponseTextFormat()
         if include_optional:
             return OpenAIResponseTextFormat(
-                type = 'text',
-                name = '',
+                type = 'json_schema',
+                name = '0',
                 var_schema = { },
                 description = '',
                 strict = True
             )
         else:
             return OpenAIResponseTextFormat(
+                name = '0',
+                var_schema = { },
         )
         """
 

@@ -250,7 +250,8 @@ print(json.dumps({"before": before, "host_output": host_output.getvalue()}))
         host_output = _last_json_line(result.stdout)["host_output"]
         assert "HOST mistralai.workflows.core.config.config INFO Configuration loaded" in host_output
         assert "HOST mistralai.workflows.core.worker ERROR Worker stopped due to unhandled exception" in host_output
-        assert host_output.count("Traceback (most recent call last)") == 1
+        assert "error_type=ValueError" in host_output
+        assert "Traceback (most recent call last)" not in host_output
         # Only the config-discovery UserWarning reaches stderr: no SDK handler, no structlog warning.
         assert "Configuration loaded" not in result.stderr
         assert "structlog" not in result.stderr
@@ -267,8 +268,11 @@ logging.getLogger("app.before").audit("before_startup")
 import mistralai.workflows as workflows
 assert logging.getLoggerClass() is ApplicationLogger
 before = snapshot()
+config = workflows.WorkflowsConfig(
+    worker=workflows.WorkerConfig(deployment_name=None, enable_config_discovery=False),
+)
 try:
-    asyncio.run(workflows.run_worker([], enable_config_discovery=False))
+    asyncio.run(workflows.run_worker([], config=config))
 except ValueError as exc:
     assert "DEPLOYMENT_NAME is required" in str(exc)
 else:

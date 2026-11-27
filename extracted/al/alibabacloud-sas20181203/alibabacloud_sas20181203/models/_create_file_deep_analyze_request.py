@@ -19,7 +19,7 @@ class CreateFileDeepAnalyzeRequest(DaraModel):
         self.event_id = event_id
         # The file hash. If the file already exists in the cloud, you can use this parameter to trigger deep analysis.
         self.hash = hash
-        # The request source. The system verifies the purchased edition based on the request source. Valid values:
+        # The request source. The system verifies the purchased edition based on different request sources. Valid values:
         # 
         # - **edr**: AgenticEDR
         # 

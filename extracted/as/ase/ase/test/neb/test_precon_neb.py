@@ -206,6 +206,26 @@ def test_neb_optimizers(setup_images, method):
     assert R1 < R0
 
 
+def test_residual_rotational_invariance(setup_images):
+    # residual uses the per-atom fmax norm, so it must be unchanged by a
+    # rigid rotation of positions and cell (an inf-norm would not be)
+    images, _, _ = setup_images
+
+    def get_residual(images):
+        # fix mu, since estimate_mu probes along the Cartesian axes
+        mep = NEB(images, method='spline', precon=Exp(mu=1.0))
+        mep.get_forces()
+        return mep.get_residual()
+
+    R0 = get_residual(images)
+    rotated = [img.copy() for img in images]
+    for img in rotated:
+        img.rotate(37.0, (1.0, 2.0, 3.0), rotate_cell=True)
+        img.calc = calc()
+    R1 = get_residual(rotated)
+    assert R1 == pytest.approx(R0, rel=1e-10)
+
+
 def test_precon_initialisation(setup_images):
     images, _, _ = setup_images
     mep = NEB(images, method='spline', precon='Exp')

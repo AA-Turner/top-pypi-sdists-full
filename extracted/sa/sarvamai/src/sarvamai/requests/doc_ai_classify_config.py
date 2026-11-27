@@ -12,7 +12,7 @@ from .doc_ai_review_policy import DocAiReviewPolicyParams
 class DocAiClassifyConfigParams(typing_extensions.TypedDict):
     categories: typing_extensions.NotRequired[typing.Sequence[DocAiClassifyCategoryParams]]
     """
-    Categories to choose from, up to 200. Omit to let the API read types from `instructions` or suggest one.
+    Categories to choose from, up to 20 (the `max_categories` limit returned by `GET /doc-ai/v1/capabilities`). Omit to let the API read types from `instructions` or suggest one.
     """
 
     instructions: typing_extensions.NotRequired[str]

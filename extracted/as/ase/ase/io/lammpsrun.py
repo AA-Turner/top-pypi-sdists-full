@@ -27,7 +27,10 @@ def read_lammps_dump(infileobj, **kwargs):
                   with different ordering)
         - else  : normal clear-text format
 
-    :param infileobj: string to file, opened file or file-like stream
+    Parameters
+    ----------
+    infileobj : str | IOBase
+        File name in ``str``, opened file or file-like stream.
 
     """
     # !TODO: add support for lammps-regex naming schemes (output per
@@ -247,10 +250,18 @@ def construct_cell(diagdisp, offdiag):
     """Help function to create an ASE-cell with displacement vector from
     the lammps coordination system parameters.
 
-    :param diagdisp: cell dimension convoluted with the displacement vector
-    :param offdiag: off-diagonal cell elements
-    :returns: cell and cell displacement vector
-    :rtype: tuple
+    Parameters
+    ----------
+    diagdisp : np.ndarray
+        Cell dimension convoluted with the displacement vector.
+    offdiag : np.ndarray
+        Off-diagonal cell elements.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        Cell and cell displacement vector.
+
     """
     xlo, xhi, ylo, yhi, zlo, zhi = diagdisp
     xy, xz, yz = offdiag
@@ -581,13 +592,22 @@ iread_lammps_dump_binary = _LAMMPSDumpBinaryImageIterator(
 def read_lammps_dump_binary(fd, /, index=-1, **kwargs):
     """Read binary dump-files (after binary2txt.cpp from lammps/tools).
 
-    :param fileobj: file-stream containing the binary lammps data
-    :param index: integer or slice object (default: get the last timestep)
-    :param colnames: data is columns and identified by a header
-    :param intformat: lammps support different integer size.  Parameter set \
-    at compile-time and can unfortunately not derived from data file
-    :returns: list of Atoms-objects
-    :rtype: list
+    Parameters
+    ----------
+    fileobj : IOBase
+        File-stream containing the binary lammps data.
+    index : int | slice, default: -1
+        Index of the configuration.
+    colnames : list[str]
+        Column names to parse.
+    intformat : Literal['SMALLSMALL', 'SMALLBIG', 'BIGBIG']
+        Integer size in LAMMPS.  This is set at compile-time and can
+        unfortunately not derived from data file.
+
+    Returns
+    -------
+    Atoms | list[Atoms]
+
     """
     g = iread_lammps_dump_binary(fd, index=index, **kwargs)
     return list(g) if isinstance(index, (slice, str)) else next(g)
@@ -597,8 +617,16 @@ def _mass2element(mass):
     """
     Guess the element corresponding to a given atomic mass.
 
-    :param mass: Atomic mass for searching.
-    :return: Element symbol as a string.
+    Parameters
+    ----------
+    mass : float
+        Atomic mass for searching.
+
+    Returns
+    -------
+    str
+        Element symbol as a string.
+
     """
     min_idx = np.argmin(np.abs(atomic_masses - mass))
     element = chemical_symbols[min_idx]

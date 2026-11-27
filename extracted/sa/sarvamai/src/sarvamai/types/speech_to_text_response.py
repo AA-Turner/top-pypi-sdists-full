@@ -4,7 +4,9 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .segment_timestamp import SegmentTimestamp
 from .timestamps_model import TimestampsModel
+from .word_timestamp import WordTimestamp
 
 
 class SpeechToTextResponse(UniversalBaseModel):
@@ -16,7 +18,17 @@ class SpeechToTextResponse(UniversalBaseModel):
 
     timestamps: typing.Optional[TimestampsModel] = pydantic.Field(default=None)
     """
-    Chunk-level timestamps for the transcribed text (sentence/phrase segments, not individual words). Present only when `with_timestamps` is `true`; omitted otherwise.
+    Segment-level timestamps in the older parallel-list format. Present only when `with_timestamps` is `true`. Will be deprecated soon; use `timestamp_granularity` and read `words` or `segments` instead.
+    """
+
+    words: typing.Optional[typing.List[WordTimestamp]] = pydantic.Field(default=None)
+    """
+    Word-level timestamps, one entry per word in transcript order. Present only when `timestamp_granularity` is `word` (`saaras:v4` only).
+    """
+
+    segments: typing.Optional[typing.List[SegmentTimestamp]] = pydantic.Field(default=None)
+    """
+    Segment-level timestamps, one entry per chunk of audio. A REST request usually returns a single segment covering the whole clip. Present only when `timestamp_granularity` is `segment`.
     """
 
     language_code: typing.Optional[str] = pydantic.Field(default=None)

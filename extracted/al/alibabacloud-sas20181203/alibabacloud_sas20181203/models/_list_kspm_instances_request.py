@@ -19,23 +19,23 @@ class ListKspmInstancesRequest(DaraModel):
     ):
         # The list of asset type information for Kubernetes assets.
         self.cloud_asset_types = cloud_asset_types
-        # The search conditions for assets. This parameter is in JSON format. Pay attention to letter case when you specify this parameter. The following fields are included:
+        # Specifies the conditions for searching assets. This parameter is in JSON format and is case-sensitive. It includes the following fields:
         # 
-        # - **name**: the search item.
-        # - **value**: the value of the search item.
+        # - **name**: the search field.
+        # - **value**: the value of the search field.
         # - **logicalExp**: the logical relationship between multiple conditions. Valid values:
-        #     - **OR**: The conditions are in an OR relationship.
-        #     - **AND**: The conditions are in an AND relationship.
-        # > You can search by region, instance name, instance ID, alert status, risk status, or tag.
+        #     - **OR**: The conditions have an **OR** logical relationship.
+        #     - **AND**: The conditions have an **AND** logical relationship.
+        # > You can search by region, instance name, instance ID, alert status, risk status, and tags.
         self.criteria = criteria
-        # The page number of the page to return in the query results. Default value: 1, which indicates that the results are returned starting from page 1.
+        # The page number of the page to return. Default value: 1.
         self.current_page = current_page
-        # The logical relationship between multiple search conditions. Valid values:
+        # Specifies the logical relationship between multiple search conditions. Valid values:
         # 
-        # - **OR**: The search conditions are in an OR relationship.
-        # - **AND**: The search conditions are in an AND relationship.
+        # - **OR**: The search conditions have an **OR** logical relationship.
+        # - **AND**: The search conditions have an **AND** logical relationship.
         self.logical_exp = logical_exp
-        # The maximum number of entries per page in a paged query. Default value: 20.
+        # The maximum number of entries to return on each page in a paged query. Default value: 20.
         self.page_size = page_size
         # The ID of the region where the instance resides.
         self.region_id = region_id
@@ -105,36 +105,36 @@ class ListKspmInstancesRequestCloudAssetTypes(DaraModel):
         asset_type: int = None,
         vendor: int = None,
     ):
-        # The subtype of the asset. The value is in the format of asset type - subtype. Valid values:
+        # The subtype of the product. The asset type and subtype. Valid values:
         # 
         # - **0**: Workload
-        #     *  **0**: Pod
-        #     *  **1**: DaemonSet
-        #     *  **2**: StatefulSet
+        #     * **0**: Pod
+        #     * **1**: DaemonSet
+        #     * **2**: StatefulSet
         # - **1**: Service
-        #     *  **0**: Service
+        #     * **0**: Service
         # - **2**: Namespace
-        #     *  **0**: Namespace
+        #     * **0**: Namespace
         # - **3**: Authorization
-        #     *  **0**: Role
-        #     *  **1**: ClusterRole
-        #     *  **2**: ClusterRoleBinding
-        #     *  **3**: RoleBinding
-        #     *  **4**: ServiceAccount
+        #     * **0**: Role
+        #     * **1**: ClusterRole
+        #     * **2**: ClusterRoleBinding
+        #     * **3**: RoleBinding
+        #     * **4**: ServiceAccount
         # - **4**: Storage
-        #     *  **0**: PersistentVolume
-        #     *  **1**: PersistentVolumeClaim
-        #     *  **2**: StorageClass
+        #     * **0**: PersistentVolume
+        #     * **1**: PersistentVolumeClaim
+        #     * **2**: StorageClass
         # - **5**: Container
-        #     *  **0**: Image
+        #     * **0**: Image
         # - **6**: Network
-        #     *  **0**: Route
-        #     *  **0**: Ingress
+        #     * **0**: Route
+        #     * **0**: Ingress
         # - **7**: Configuration
-        #     *  **0**: ConfigMap
+        #     * **0**: ConfigMap
         # - **8**: Policies
-        #     *  **0**: LimitRanges
-        #     *  **1**: ResourceQuota.
+        #     * **0**: LimitRanges
+        #     * **1**: ResourceQuota
         self.asset_sub_type = asset_sub_type
         # The type of the asset. Valid values:
         # 
@@ -146,9 +146,9 @@ class ListKspmInstancesRequestCloudAssetTypes(DaraModel):
         # - **5**: Container
         # - **6**: Network
         # - **7**: Configuration
-        # - **8**: Policies.
+        # - **8**: Policies
         self.asset_type = asset_type
-        # The asset vendor. This parameter is fixed to **200**.
+        # The vendor of the asset. Set the value to **200**.
         self.vendor = vendor
 
     def validate(self):

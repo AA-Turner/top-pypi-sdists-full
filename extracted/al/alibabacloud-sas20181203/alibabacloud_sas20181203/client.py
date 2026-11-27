@@ -6,6 +6,7 @@ import json
 
 from typing import Dict, Generator, AsyncGenerator
 
+from alibabacloud_gateway_pop.client import Client as GatewayClientClient
 from alibabacloud_sas20181203 import models as main_models
 from alibabacloud_tea_openapi import utils_models as open_api_util_models
 from alibabacloud_tea_openapi.client import Client as OpenApiClient
@@ -22,6 +23,9 @@ class Client(OpenApiClient):
         config: open_api_util_models.Config,
     ):
         super().__init__(config)
+        self._product_id = 'Sas'
+        gateway_client = GatewayClientClient()
+        self._spi = gateway_client
         self._endpoint_rule = 'regional'
         self._endpoint_map = {
             'cn-qingdao': 'tds.cn-shanghai.aliyuncs.com',
@@ -274,6 +278,12 @@ class Client(OpenApiClient):
             query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.dry_run):
             query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.effect_end_time):
+            query['EffectEndTime'] = request.effect_end_time
+        if not DaraCore.is_null(request.effect_start_time):
+            query['EffectStartTime'] = request.effect_start_time
+        if not DaraCore.is_null(request.effect_type):
+            query['EffectType'] = request.effect_type
         if not DaraCore.is_null(request.instance_ids):
             query['InstanceIds'] = request.instance_ids
         if not DaraCore.is_null(request.instance_list):
@@ -316,6 +326,12 @@ class Client(OpenApiClient):
             query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.dry_run):
             query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.effect_end_time):
+            query['EffectEndTime'] = request.effect_end_time
+        if not DaraCore.is_null(request.effect_start_time):
+            query['EffectStartTime'] = request.effect_start_time
+        if not DaraCore.is_null(request.effect_type):
+            query['EffectType'] = request.effect_type
         if not DaraCore.is_null(request.instance_ids):
             query['InstanceIds'] = request.instance_ids
         if not DaraCore.is_null(request.instance_list):
@@ -370,6 +386,12 @@ class Client(OpenApiClient):
             query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.dry_run):
             query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.effect_end_time):
+            query['EffectEndTime'] = request.effect_end_time
+        if not DaraCore.is_null(request.effect_start_time):
+            query['EffectStartTime'] = request.effect_start_time
+        if not DaraCore.is_null(request.effect_type):
+            query['EffectType'] = request.effect_type
         if not DaraCore.is_null(request.instance_ids):
             query['InstanceIds'] = request.instance_ids
         if not DaraCore.is_null(request.remark):
@@ -408,6 +430,12 @@ class Client(OpenApiClient):
             query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.dry_run):
             query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.effect_end_time):
+            query['EffectEndTime'] = request.effect_end_time
+        if not DaraCore.is_null(request.effect_start_time):
+            query['EffectStartTime'] = request.effect_start_time
+        if not DaraCore.is_null(request.effect_type):
+            query['EffectType'] = request.effect_type
         if not DaraCore.is_null(request.instance_ids):
             query['InstanceIds'] = request.instance_ids
         if not DaraCore.is_null(request.remark):
@@ -458,6 +486,8 @@ class Client(OpenApiClient):
             query['ActionType'] = request.action_type
         if not DaraCore.is_null(request.cmdline):
             query['Cmdline'] = request.cmdline
+        if not DaraCore.is_null(request.direction):
+            query['Direction'] = request.direction
         if not DaraCore.is_null(request.domain):
             query['Domain'] = request.domain
         if not DaraCore.is_null(request.file_path):
@@ -520,6 +550,8 @@ class Client(OpenApiClient):
             query['ActionType'] = request.action_type
         if not DaraCore.is_null(request.cmdline):
             query['Cmdline'] = request.cmdline
+        if not DaraCore.is_null(request.direction):
+            query['Direction'] = request.direction
         if not DaraCore.is_null(request.domain):
             query['Domain'] = request.domain
         if not DaraCore.is_null(request.file_path):
@@ -3453,9 +3485,16 @@ class Client(OpenApiClient):
 
     def check_sts_token_auth_with_options(
         self,
+        request: main_models.CheckStsTokenAuthRequest,
         runtime: RuntimeOptions,
     ) -> main_models.CheckStsTokenAuthResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'CheckStsTokenAuth',
             version = '2018-12-03',
@@ -3474,9 +3513,16 @@ class Client(OpenApiClient):
 
     async def check_sts_token_auth_with_options_async(
         self,
+        request: main_models.CheckStsTokenAuthRequest,
         runtime: RuntimeOptions,
     ) -> main_models.CheckStsTokenAuthResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'CheckStsTokenAuth',
             version = '2018-12-03',
@@ -3493,13 +3539,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def check_sts_token_auth(self) -> main_models.CheckStsTokenAuthResponse:
+    def check_sts_token_auth(
+        self,
+        request: main_models.CheckStsTokenAuthRequest,
+    ) -> main_models.CheckStsTokenAuthResponse:
         runtime = RuntimeOptions()
-        return self.check_sts_token_auth_with_options(runtime)
+        return self.check_sts_token_auth_with_options(request, runtime)
 
-    async def check_sts_token_auth_async(self) -> main_models.CheckStsTokenAuthResponse:
+    async def check_sts_token_auth_async(
+        self,
+        request: main_models.CheckStsTokenAuthRequest,
+    ) -> main_models.CheckStsTokenAuthResponse:
         runtime = RuntimeOptions()
-        return await self.check_sts_token_auth_with_options_async(runtime)
+        return await self.check_sts_token_auth_with_options_async(request, runtime)
 
     def check_trial_fix_count_with_options(
         self,
@@ -5944,6 +5996,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.limit):
             query['Limit'] = request.limit
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -5972,6 +6026,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.limit):
             query['Limit'] = request.limit
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -8314,6 +8370,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -8342,6 +8400,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -10734,6 +10794,8 @@ class Client(OpenApiClient):
             query['AlertLevel'] = request.alert_level
         if not DaraCore.is_null(request.exclude_id_list):
             query['ExcludeIdList'] = request.exclude_id_list
+        if not DaraCore.is_null(request.file_name):
+            query['FileName'] = request.file_name
         if not DaraCore.is_null(request.id_list):
             query['IdList'] = request.id_list
         if not DaraCore.is_null(request.platform):
@@ -10774,6 +10836,8 @@ class Client(OpenApiClient):
             query['AlertLevel'] = request.alert_level
         if not DaraCore.is_null(request.exclude_id_list):
             query['ExcludeIdList'] = request.exclude_id_list
+        if not DaraCore.is_null(request.file_name):
+            query['FileName'] = request.file_name
         if not DaraCore.is_null(request.id_list):
             query['IdList'] = request.id_list
         if not DaraCore.is_null(request.platform):
@@ -11920,6 +11984,8 @@ class Client(OpenApiClient):
             query['AliyunYundunGatewayPopName'] = request.aliyun_yundun_gateway_pop_name
         if not DaraCore.is_null(request.aliyun_yundun_gateway_project_name):
             query['AliyunYundunGatewayProjectName'] = request.aliyun_yundun_gateway_project_name
+        if not DaraCore.is_null(request.cluster_id):
+            query['ClusterId'] = request.cluster_id
         if not DaraCore.is_null(request.id):
             query['Id'] = request.id
         req = open_api_util_models.OpenApiRequest(
@@ -11954,6 +12020,8 @@ class Client(OpenApiClient):
             query['AliyunYundunGatewayPopName'] = request.aliyun_yundun_gateway_pop_name
         if not DaraCore.is_null(request.aliyun_yundun_gateway_project_name):
             query['AliyunYundunGatewayProjectName'] = request.aliyun_yundun_gateway_project_name
+        if not DaraCore.is_null(request.cluster_id):
+            query['ClusterId'] = request.cluster_id
         if not DaraCore.is_null(request.id):
             query['Id'] = request.id
         req = open_api_util_models.OpenApiRequest(
@@ -12722,6 +12790,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -12750,6 +12820,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -13521,9 +13593,16 @@ class Client(OpenApiClient):
 
     def describe_aiasset_summary_with_options(
         self,
+        request: main_models.DescribeAIAssetSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAIAssetSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAIAssetSummary',
             version = '2018-12-03',
@@ -13542,9 +13621,16 @@ class Client(OpenApiClient):
 
     async def describe_aiasset_summary_with_options_async(
         self,
+        request: main_models.DescribeAIAssetSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAIAssetSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAIAssetSummary',
             version = '2018-12-03',
@@ -13561,13 +13647,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_aiasset_summary(self) -> main_models.DescribeAIAssetSummaryResponse:
+    def describe_aiasset_summary(
+        self,
+        request: main_models.DescribeAIAssetSummaryRequest,
+    ) -> main_models.DescribeAIAssetSummaryResponse:
         runtime = RuntimeOptions()
-        return self.describe_aiasset_summary_with_options(runtime)
+        return self.describe_aiasset_summary_with_options(request, runtime)
 
-    async def describe_aiasset_summary_async(self) -> main_models.DescribeAIAssetSummaryResponse:
+    async def describe_aiasset_summary_async(
+        self,
+        request: main_models.DescribeAIAssetSummaryRequest,
+    ) -> main_models.DescribeAIAssetSummaryResponse:
         runtime = RuntimeOptions()
-        return await self.describe_aiasset_summary_with_options_async(runtime)
+        return await self.describe_aiasset_summary_with_options_async(request, runtime)
 
     def describe_access_key_leak_detail_with_options(
         self,
@@ -14291,9 +14383,16 @@ class Client(OpenApiClient):
 
     def describe_all_entity_with_options(
         self,
+        request: main_models.DescribeAllEntityRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAllEntityResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAllEntity',
             version = '2018-12-03',
@@ -14312,9 +14411,16 @@ class Client(OpenApiClient):
 
     async def describe_all_entity_with_options_async(
         self,
+        request: main_models.DescribeAllEntityRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAllEntityResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAllEntity',
             version = '2018-12-03',
@@ -14331,13 +14437,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_all_entity(self) -> main_models.DescribeAllEntityResponse:
+    def describe_all_entity(
+        self,
+        request: main_models.DescribeAllEntityRequest,
+    ) -> main_models.DescribeAllEntityResponse:
         runtime = RuntimeOptions()
-        return self.describe_all_entity_with_options(runtime)
+        return self.describe_all_entity_with_options(request, runtime)
 
-    async def describe_all_entity_async(self) -> main_models.DescribeAllEntityResponse:
+    async def describe_all_entity_async(
+        self,
+        request: main_models.DescribeAllEntityRequest,
+    ) -> main_models.DescribeAllEntityResponse:
         runtime = RuntimeOptions()
-        return await self.describe_all_entity_with_options_async(runtime)
+        return await self.describe_all_entity_with_options_async(request, runtime)
 
     def describe_all_groups_with_options(
         self,
@@ -14657,9 +14769,16 @@ class Client(OpenApiClient):
 
     def describe_app_vul_scan_cycle_with_options(
         self,
+        request: main_models.DescribeAppVulScanCycleRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAppVulScanCycleResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAppVulScanCycle',
             version = '2018-12-03',
@@ -14678,9 +14797,16 @@ class Client(OpenApiClient):
 
     async def describe_app_vul_scan_cycle_with_options_async(
         self,
+        request: main_models.DescribeAppVulScanCycleRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAppVulScanCycleResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAppVulScanCycle',
             version = '2018-12-03',
@@ -14697,13 +14823,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_app_vul_scan_cycle(self) -> main_models.DescribeAppVulScanCycleResponse:
+    def describe_app_vul_scan_cycle(
+        self,
+        request: main_models.DescribeAppVulScanCycleRequest,
+    ) -> main_models.DescribeAppVulScanCycleResponse:
         runtime = RuntimeOptions()
-        return self.describe_app_vul_scan_cycle_with_options(runtime)
+        return self.describe_app_vul_scan_cycle_with_options(request, runtime)
 
-    async def describe_app_vul_scan_cycle_async(self) -> main_models.DescribeAppVulScanCycleResponse:
+    async def describe_app_vul_scan_cycle_async(
+        self,
+        request: main_models.DescribeAppVulScanCycleRequest,
+    ) -> main_models.DescribeAppVulScanCycleResponse:
         runtime = RuntimeOptions()
-        return await self.describe_app_vul_scan_cycle_with_options_async(runtime)
+        return await self.describe_app_vul_scan_cycle_with_options_async(request, runtime)
 
     def describe_asset_detail_by_uuid_with_options(
         self,
@@ -14863,9 +14995,16 @@ class Client(OpenApiClient):
 
     def describe_asset_summary_with_options(
         self,
+        request: main_models.DescribeAssetSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAssetSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAssetSummary',
             version = '2018-12-03',
@@ -14884,9 +15023,16 @@ class Client(OpenApiClient):
 
     async def describe_asset_summary_with_options_async(
         self,
+        request: main_models.DescribeAssetSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAssetSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAssetSummary',
             version = '2018-12-03',
@@ -14903,13 +15049,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_asset_summary(self) -> main_models.DescribeAssetSummaryResponse:
+    def describe_asset_summary(
+        self,
+        request: main_models.DescribeAssetSummaryRequest,
+    ) -> main_models.DescribeAssetSummaryResponse:
         runtime = RuntimeOptions()
-        return self.describe_asset_summary_with_options(runtime)
+        return self.describe_asset_summary_with_options(request, runtime)
 
-    async def describe_asset_summary_async(self) -> main_models.DescribeAssetSummaryResponse:
+    async def describe_asset_summary_async(
+        self,
+        request: main_models.DescribeAssetSummaryRequest,
+    ) -> main_models.DescribeAssetSummaryResponse:
         runtime = RuntimeOptions()
-        return await self.describe_asset_summary_with_options_async(runtime)
+        return await self.describe_asset_summary_with_options_async(request, runtime)
 
     def describe_assets_sca_process_num_with_options(
         self,
@@ -15257,9 +15409,16 @@ class Client(OpenApiClient):
 
     def describe_auto_del_config_with_options(
         self,
+        request: main_models.DescribeAutoDelConfigRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAutoDelConfigResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAutoDelConfig',
             version = '2018-12-03',
@@ -15278,9 +15437,16 @@ class Client(OpenApiClient):
 
     async def describe_auto_del_config_with_options_async(
         self,
+        request: main_models.DescribeAutoDelConfigRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeAutoDelConfigResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeAutoDelConfig',
             version = '2018-12-03',
@@ -15297,13 +15463,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_auto_del_config(self) -> main_models.DescribeAutoDelConfigResponse:
+    def describe_auto_del_config(
+        self,
+        request: main_models.DescribeAutoDelConfigRequest,
+    ) -> main_models.DescribeAutoDelConfigResponse:
         runtime = RuntimeOptions()
-        return self.describe_auto_del_config_with_options(runtime)
+        return self.describe_auto_del_config_with_options(request, runtime)
 
-    async def describe_auto_del_config_async(self) -> main_models.DescribeAutoDelConfigResponse:
+    async def describe_auto_del_config_async(
+        self,
+        request: main_models.DescribeAutoDelConfigRequest,
+    ) -> main_models.DescribeAutoDelConfigResponse:
         runtime = RuntimeOptions()
-        return await self.describe_auto_del_config_with_options_async(runtime)
+        return await self.describe_auto_del_config_with_options_async(request, runtime)
 
     def describe_back_up_export_info_with_options(
         self,
@@ -15779,9 +15951,16 @@ class Client(OpenApiClient):
 
     def describe_backup_restore_count_with_options(
         self,
+        request: main_models.DescribeBackupRestoreCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeBackupRestoreCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeBackupRestoreCount',
             version = '2018-12-03',
@@ -15800,9 +15979,16 @@ class Client(OpenApiClient):
 
     async def describe_backup_restore_count_with_options_async(
         self,
+        request: main_models.DescribeBackupRestoreCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeBackupRestoreCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeBackupRestoreCount',
             version = '2018-12-03',
@@ -15819,13 +16005,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_backup_restore_count(self) -> main_models.DescribeBackupRestoreCountResponse:
+    def describe_backup_restore_count(
+        self,
+        request: main_models.DescribeBackupRestoreCountRequest,
+    ) -> main_models.DescribeBackupRestoreCountResponse:
         runtime = RuntimeOptions()
-        return self.describe_backup_restore_count_with_options(runtime)
+        return self.describe_backup_restore_count_with_options(request, runtime)
 
-    async def describe_backup_restore_count_async(self) -> main_models.DescribeBackupRestoreCountResponse:
+    async def describe_backup_restore_count_async(
+        self,
+        request: main_models.DescribeBackupRestoreCountRequest,
+    ) -> main_models.DescribeBackupRestoreCountResponse:
         runtime = RuntimeOptions()
-        return await self.describe_backup_restore_count_with_options_async(runtime)
+        return await self.describe_backup_restore_count_with_options_async(request, runtime)
 
     def describe_binary_security_policies_with_options(
         self,
@@ -16087,9 +16279,16 @@ class Client(OpenApiClient):
 
     def describe_can_access_vpc_sale_with_options(
         self,
+        request: main_models.DescribeCanAccessVpcSaleRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeCanAccessVpcSaleResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeCanAccessVpcSale',
             version = '2018-12-03',
@@ -16108,9 +16307,16 @@ class Client(OpenApiClient):
 
     async def describe_can_access_vpc_sale_with_options_async(
         self,
+        request: main_models.DescribeCanAccessVpcSaleRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeCanAccessVpcSaleResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeCanAccessVpcSale',
             version = '2018-12-03',
@@ -16127,13 +16333,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_can_access_vpc_sale(self) -> main_models.DescribeCanAccessVpcSaleResponse:
+    def describe_can_access_vpc_sale(
+        self,
+        request: main_models.DescribeCanAccessVpcSaleRequest,
+    ) -> main_models.DescribeCanAccessVpcSaleResponse:
         runtime = RuntimeOptions()
-        return self.describe_can_access_vpc_sale_with_options(runtime)
+        return self.describe_can_access_vpc_sale_with_options(request, runtime)
 
-    async def describe_can_access_vpc_sale_async(self) -> main_models.DescribeCanAccessVpcSaleResponse:
+    async def describe_can_access_vpc_sale_async(
+        self,
+        request: main_models.DescribeCanAccessVpcSaleRequest,
+    ) -> main_models.DescribeCanAccessVpcSaleResponse:
         runtime = RuntimeOptions()
-        return await self.describe_can_access_vpc_sale_with_options_async(runtime)
+        return await self.describe_can_access_vpc_sale_with_options_async(request, runtime)
 
     def describe_can_fix_vul_list_with_options(
         self,
@@ -16315,9 +16527,16 @@ class Client(OpenApiClient):
 
     def describe_can_try_sas_with_options(
         self,
+        request: main_models.DescribeCanTrySasRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeCanTrySasResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeCanTrySas',
             version = '2018-12-03',
@@ -16336,9 +16555,16 @@ class Client(OpenApiClient):
 
     async def describe_can_try_sas_with_options_async(
         self,
+        request: main_models.DescribeCanTrySasRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeCanTrySasResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeCanTrySas',
             version = '2018-12-03',
@@ -16355,13 +16581,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_can_try_sas(self) -> main_models.DescribeCanTrySasResponse:
+    def describe_can_try_sas(
+        self,
+        request: main_models.DescribeCanTrySasRequest,
+    ) -> main_models.DescribeCanTrySasResponse:
         runtime = RuntimeOptions()
-        return self.describe_can_try_sas_with_options(runtime)
+        return self.describe_can_try_sas_with_options(request, runtime)
 
-    async def describe_can_try_sas_async(self) -> main_models.DescribeCanTrySasResponse:
+    async def describe_can_try_sas_async(
+        self,
+        request: main_models.DescribeCanTrySasRequest,
+    ) -> main_models.DescribeCanTrySasResponse:
         runtime = RuntimeOptions()
-        return await self.describe_can_try_sas_with_options_async(runtime)
+        return await self.describe_can_try_sas_with_options_async(request, runtime)
 
     def describe_chart_data_with_options(
         self,
@@ -16740,8 +16972,6 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeCheckWarningCountResponse:
         request.validate()
         query = {}
-        if not DaraCore.is_null(request.ali_uid):
-            query['AliUid'] = request.ali_uid
         if not DaraCore.is_null(request.check_id):
             query['CheckId'] = request.check_id
         if not DaraCore.is_null(request.risk_id):
@@ -16774,8 +17004,6 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeCheckWarningCountResponse:
         request.validate()
         query = {}
-        if not DaraCore.is_null(request.ali_uid):
-            query['AliUid'] = request.ali_uid
         if not DaraCore.is_null(request.check_id):
             query['CheckId'] = request.check_id
         if not DaraCore.is_null(request.risk_id):
@@ -17258,6 +17486,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeClientConfSetupResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.strategy_tag):
             query['StrategyTag'] = request.strategy_tag
         if not DaraCore.is_null(request.strategy_tag_value):
@@ -17288,6 +17518,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeClientConfSetupResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.strategy_tag):
             query['StrategyTag'] = request.strategy_tag
         if not DaraCore.is_null(request.strategy_tag_value):
@@ -17332,6 +17564,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeClientConfStrategyResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.tag):
             query['Tag'] = request.tag
         if not DaraCore.is_null(request.tag_value):
@@ -17362,6 +17596,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeClientConfStrategyResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.tag):
             query['Tag'] = request.tag
         if not DaraCore.is_null(request.tag_value):
@@ -18456,6 +18692,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeCommonOverallConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -18486,6 +18724,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeCommonOverallConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -18674,6 +18914,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeCommonTargetResultListResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -18704,6 +18946,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeCommonTargetResultListResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -18902,6 +19146,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.group_field):
             query['GroupField'] = request.group_field
+        if not DaraCore.is_null(request.include_multicloud):
+            query['IncludeMulticloud'] = request.include_multicloud
         if not DaraCore.is_null(request.value):
             query['Value'] = request.value
         req = open_api_util_models.OpenApiRequest(
@@ -18932,6 +19178,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.group_field):
             query['GroupField'] = request.group_field
+        if not DaraCore.is_null(request.include_multicloud):
+            query['IncludeMulticloud'] = request.include_multicloud
         if not DaraCore.is_null(request.value):
             query['Value'] = request.value
         req = open_api_util_models.OpenApiRequest(
@@ -18969,9 +19217,16 @@ class Client(OpenApiClient):
 
     def describe_container_field_statistics_with_options(
         self,
+        request: main_models.DescribeContainerFieldStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeContainerFieldStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeContainerFieldStatistics',
             version = '2018-12-03',
@@ -18990,9 +19245,16 @@ class Client(OpenApiClient):
 
     async def describe_container_field_statistics_with_options_async(
         self,
+        request: main_models.DescribeContainerFieldStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeContainerFieldStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeContainerFieldStatistics',
             version = '2018-12-03',
@@ -19009,13 +19271,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_container_field_statistics(self) -> main_models.DescribeContainerFieldStatisticsResponse:
+    def describe_container_field_statistics(
+        self,
+        request: main_models.DescribeContainerFieldStatisticsRequest,
+    ) -> main_models.DescribeContainerFieldStatisticsResponse:
         runtime = RuntimeOptions()
-        return self.describe_container_field_statistics_with_options(runtime)
+        return self.describe_container_field_statistics_with_options(request, runtime)
 
-    async def describe_container_field_statistics_async(self) -> main_models.DescribeContainerFieldStatisticsResponse:
+    async def describe_container_field_statistics_async(
+        self,
+        request: main_models.DescribeContainerFieldStatisticsRequest,
+    ) -> main_models.DescribeContainerFieldStatisticsResponse:
         runtime = RuntimeOptions()
-        return await self.describe_container_field_statistics_with_options_async(runtime)
+        return await self.describe_container_field_statistics_with_options_async(request, runtime)
 
     def describe_container_grouped_field_detail_with_options(
         self,
@@ -19639,9 +19907,16 @@ class Client(OpenApiClient):
 
     def describe_count_not_scanned_image_with_options(
         self,
+        request: main_models.DescribeCountNotScannedImageRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeCountNotScannedImageResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeCountNotScannedImage',
             version = '2018-12-03',
@@ -19660,9 +19935,16 @@ class Client(OpenApiClient):
 
     async def describe_count_not_scanned_image_with_options_async(
         self,
+        request: main_models.DescribeCountNotScannedImageRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeCountNotScannedImageResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeCountNotScannedImage',
             version = '2018-12-03',
@@ -19679,19 +19961,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_count_not_scanned_image(self) -> main_models.DescribeCountNotScannedImageResponse:
+    def describe_count_not_scanned_image(
+        self,
+        request: main_models.DescribeCountNotScannedImageRequest,
+    ) -> main_models.DescribeCountNotScannedImageResponse:
         runtime = RuntimeOptions()
-        return self.describe_count_not_scanned_image_with_options(runtime)
+        return self.describe_count_not_scanned_image_with_options(request, runtime)
 
-    async def describe_count_not_scanned_image_async(self) -> main_models.DescribeCountNotScannedImageResponse:
+    async def describe_count_not_scanned_image_async(
+        self,
+        request: main_models.DescribeCountNotScannedImageRequest,
+    ) -> main_models.DescribeCountNotScannedImageResponse:
         runtime = RuntimeOptions()
-        return await self.describe_count_not_scanned_image_with_options_async(runtime)
+        return await self.describe_count_not_scanned_image_with_options_async(request, runtime)
 
     def describe_count_scanned_image_with_options(
         self,
+        request: main_models.DescribeCountScannedImageRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeCountScannedImageResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeCountScannedImage',
             version = '2018-12-03',
@@ -19710,9 +20005,16 @@ class Client(OpenApiClient):
 
     async def describe_count_scanned_image_with_options_async(
         self,
+        request: main_models.DescribeCountScannedImageRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeCountScannedImageResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeCountScannedImage',
             version = '2018-12-03',
@@ -19729,13 +20031,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_count_scanned_image(self) -> main_models.DescribeCountScannedImageResponse:
+    def describe_count_scanned_image(
+        self,
+        request: main_models.DescribeCountScannedImageRequest,
+    ) -> main_models.DescribeCountScannedImageResponse:
         runtime = RuntimeOptions()
-        return self.describe_count_scanned_image_with_options(runtime)
+        return self.describe_count_scanned_image_with_options(request, runtime)
 
-    async def describe_count_scanned_image_async(self) -> main_models.DescribeCountScannedImageResponse:
+    async def describe_count_scanned_image_async(
+        self,
+        request: main_models.DescribeCountScannedImageRequest,
+    ) -> main_models.DescribeCountScannedImageResponse:
         runtime = RuntimeOptions()
-        return await self.describe_count_scanned_image_with_options_async(runtime)
+        return await self.describe_count_scanned_image_with_options_async(request, runtime)
 
     def describe_criteria_with_options(
         self,
@@ -20621,9 +20929,16 @@ class Client(OpenApiClient):
 
     def describe_default_proxy_install_version_with_options(
         self,
+        request: main_models.DescribeDefaultProxyInstallVersionRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeDefaultProxyInstallVersionResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeDefaultProxyInstallVersion',
             version = '2018-12-03',
@@ -20642,9 +20957,16 @@ class Client(OpenApiClient):
 
     async def describe_default_proxy_install_version_with_options_async(
         self,
+        request: main_models.DescribeDefaultProxyInstallVersionRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeDefaultProxyInstallVersionResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeDefaultProxyInstallVersion',
             version = '2018-12-03',
@@ -20661,13 +20983,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_default_proxy_install_version(self) -> main_models.DescribeDefaultProxyInstallVersionResponse:
+    def describe_default_proxy_install_version(
+        self,
+        request: main_models.DescribeDefaultProxyInstallVersionRequest,
+    ) -> main_models.DescribeDefaultProxyInstallVersionResponse:
         runtime = RuntimeOptions()
-        return self.describe_default_proxy_install_version_with_options(runtime)
+        return self.describe_default_proxy_install_version_with_options(request, runtime)
 
-    async def describe_default_proxy_install_version_async(self) -> main_models.DescribeDefaultProxyInstallVersionResponse:
+    async def describe_default_proxy_install_version_async(
+        self,
+        request: main_models.DescribeDefaultProxyInstallVersionRequest,
+    ) -> main_models.DescribeDefaultProxyInstallVersionResponse:
         runtime = RuntimeOptions()
-        return await self.describe_default_proxy_install_version_with_options_async(runtime)
+        return await self.describe_default_proxy_install_version_with_options_async(request, runtime)
 
     def describe_ding_talk_with_options(
         self,
@@ -21583,9 +21911,16 @@ class Client(OpenApiClient):
 
     def describe_emg_user_agreement_with_options(
         self,
+        request: main_models.DescribeEmgUserAgreementRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeEmgUserAgreementResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeEmgUserAgreement',
             version = '2018-12-03',
@@ -21604,9 +21939,16 @@ class Client(OpenApiClient):
 
     async def describe_emg_user_agreement_with_options_async(
         self,
+        request: main_models.DescribeEmgUserAgreementRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeEmgUserAgreementResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeEmgUserAgreement',
             version = '2018-12-03',
@@ -21623,13 +21965,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_emg_user_agreement(self) -> main_models.DescribeEmgUserAgreementResponse:
+    def describe_emg_user_agreement(
+        self,
+        request: main_models.DescribeEmgUserAgreementRequest,
+    ) -> main_models.DescribeEmgUserAgreementResponse:
         runtime = RuntimeOptions()
-        return self.describe_emg_user_agreement_with_options(runtime)
+        return self.describe_emg_user_agreement_with_options(request, runtime)
 
-    async def describe_emg_user_agreement_async(self) -> main_models.DescribeEmgUserAgreementResponse:
+    async def describe_emg_user_agreement_async(
+        self,
+        request: main_models.DescribeEmgUserAgreementRequest,
+    ) -> main_models.DescribeEmgUserAgreementResponse:
         runtime = RuntimeOptions()
-        return await self.describe_emg_user_agreement_with_options_async(runtime)
+        return await self.describe_emg_user_agreement_with_options_async(request, runtime)
 
     def describe_emg_vul_item_with_options(
         self,
@@ -22403,9 +22751,16 @@ class Client(OpenApiClient):
 
     def describe_exposed_statistics_with_options(
         self,
+        request: main_models.DescribeExposedStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeExposedStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeExposedStatistics',
             version = '2018-12-03',
@@ -22424,9 +22779,16 @@ class Client(OpenApiClient):
 
     async def describe_exposed_statistics_with_options_async(
         self,
+        request: main_models.DescribeExposedStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeExposedStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeExposedStatistics',
             version = '2018-12-03',
@@ -22443,13 +22805,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_exposed_statistics(self) -> main_models.DescribeExposedStatisticsResponse:
+    def describe_exposed_statistics(
+        self,
+        request: main_models.DescribeExposedStatisticsRequest,
+    ) -> main_models.DescribeExposedStatisticsResponse:
         runtime = RuntimeOptions()
-        return self.describe_exposed_statistics_with_options(runtime)
+        return self.describe_exposed_statistics_with_options(request, runtime)
 
-    async def describe_exposed_statistics_async(self) -> main_models.DescribeExposedStatisticsResponse:
+    async def describe_exposed_statistics_async(
+        self,
+        request: main_models.DescribeExposedStatisticsRequest,
+    ) -> main_models.DescribeExposedStatisticsResponse:
         runtime = RuntimeOptions()
-        return await self.describe_exposed_statistics_with_options_async(runtime)
+        return await self.describe_exposed_statistics_with_options_async(request, runtime)
 
     def describe_exposed_statistics_detail_with_options(
         self,
@@ -22637,9 +23005,16 @@ class Client(OpenApiClient):
 
     def describe_fix_used_count_with_options(
         self,
+        request: main_models.DescribeFixUsedCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeFixUsedCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeFixUsedCount',
             version = '2018-12-03',
@@ -22658,9 +23033,16 @@ class Client(OpenApiClient):
 
     async def describe_fix_used_count_with_options_async(
         self,
+        request: main_models.DescribeFixUsedCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeFixUsedCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeFixUsedCount',
             version = '2018-12-03',
@@ -22677,13 +23059,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_fix_used_count(self) -> main_models.DescribeFixUsedCountResponse:
+    def describe_fix_used_count(
+        self,
+        request: main_models.DescribeFixUsedCountRequest,
+    ) -> main_models.DescribeFixUsedCountResponse:
         runtime = RuntimeOptions()
-        return self.describe_fix_used_count_with_options(runtime)
+        return self.describe_fix_used_count_with_options(request, runtime)
 
-    async def describe_fix_used_count_async(self) -> main_models.DescribeFixUsedCountResponse:
+    async def describe_fix_used_count_async(
+        self,
+        request: main_models.DescribeFixUsedCountRequest,
+    ) -> main_models.DescribeFixUsedCountResponse:
         runtime = RuntimeOptions()
-        return await self.describe_fix_used_count_with_options_async(runtime)
+        return await self.describe_fix_used_count_with_options_async(request, runtime)
 
     def describe_front_vul_patch_list_with_options(
         self,
@@ -22938,6 +23326,8 @@ class Client(OpenApiClient):
             query['FieldValue'] = request.field_value
         if not DaraCore.is_null(request.group_field):
             query['GroupField'] = request.group_field
+        if not DaraCore.is_null(request.include_multicloud):
+            query['IncludeMulticloud'] = request.include_multicloud
         if not DaraCore.is_null(request.logical_exp):
             query['LogicalExp'] = request.logical_exp
         if not DaraCore.is_null(request.page_size):
@@ -22976,6 +23366,8 @@ class Client(OpenApiClient):
             query['FieldValue'] = request.field_value
         if not DaraCore.is_null(request.group_field):
             query['GroupField'] = request.group_field
+        if not DaraCore.is_null(request.include_multicloud):
+            query['IncludeMulticloud'] = request.include_multicloud
         if not DaraCore.is_null(request.logical_exp):
             query['LogicalExp'] = request.logical_exp
         if not DaraCore.is_null(request.page_size):
@@ -25213,9 +25605,16 @@ class Client(OpenApiClient):
 
     def describe_image_fix_cycle_config_with_options(
         self,
+        request: main_models.DescribeImageFixCycleConfigRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeImageFixCycleConfigResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeImageFixCycleConfig',
             version = '2018-12-03',
@@ -25234,9 +25633,16 @@ class Client(OpenApiClient):
 
     async def describe_image_fix_cycle_config_with_options_async(
         self,
+        request: main_models.DescribeImageFixCycleConfigRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeImageFixCycleConfigResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeImageFixCycleConfig',
             version = '2018-12-03',
@@ -25253,13 +25659,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_image_fix_cycle_config(self) -> main_models.DescribeImageFixCycleConfigResponse:
+    def describe_image_fix_cycle_config(
+        self,
+        request: main_models.DescribeImageFixCycleConfigRequest,
+    ) -> main_models.DescribeImageFixCycleConfigResponse:
         runtime = RuntimeOptions()
-        return self.describe_image_fix_cycle_config_with_options(runtime)
+        return self.describe_image_fix_cycle_config_with_options(request, runtime)
 
-    async def describe_image_fix_cycle_config_async(self) -> main_models.DescribeImageFixCycleConfigResponse:
+    async def describe_image_fix_cycle_config_async(
+        self,
+        request: main_models.DescribeImageFixCycleConfigRequest,
+    ) -> main_models.DescribeImageFixCycleConfigResponse:
         runtime = RuntimeOptions()
-        return await self.describe_image_fix_cycle_config_with_options_async(runtime)
+        return await self.describe_image_fix_cycle_config_with_options_async(request, runtime)
 
     def describe_image_fix_task_with_options(
         self,
@@ -26349,9 +26761,16 @@ class Client(OpenApiClient):
 
     def describe_image_risk_level_statistic_with_options(
         self,
+        request: main_models.DescribeImageRiskLevelStatisticRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeImageRiskLevelStatisticResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeImageRiskLevelStatistic',
             version = '2018-12-03',
@@ -26370,9 +26789,16 @@ class Client(OpenApiClient):
 
     async def describe_image_risk_level_statistic_with_options_async(
         self,
+        request: main_models.DescribeImageRiskLevelStatisticRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeImageRiskLevelStatisticResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeImageRiskLevelStatistic',
             version = '2018-12-03',
@@ -26389,19 +26815,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_image_risk_level_statistic(self) -> main_models.DescribeImageRiskLevelStatisticResponse:
+    def describe_image_risk_level_statistic(
+        self,
+        request: main_models.DescribeImageRiskLevelStatisticRequest,
+    ) -> main_models.DescribeImageRiskLevelStatisticResponse:
         runtime = RuntimeOptions()
-        return self.describe_image_risk_level_statistic_with_options(runtime)
+        return self.describe_image_risk_level_statistic_with_options(request, runtime)
 
-    async def describe_image_risk_level_statistic_async(self) -> main_models.DescribeImageRiskLevelStatisticResponse:
+    async def describe_image_risk_level_statistic_async(
+        self,
+        request: main_models.DescribeImageRiskLevelStatisticRequest,
+    ) -> main_models.DescribeImageRiskLevelStatisticResponse:
         runtime = RuntimeOptions()
-        return await self.describe_image_risk_level_statistic_with_options_async(runtime)
+        return await self.describe_image_risk_level_statistic_with_options_async(request, runtime)
 
     def describe_image_scan_auth_count_with_options(
         self,
+        request: main_models.DescribeImageScanAuthCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeImageScanAuthCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeImageScanAuthCount',
             version = '2018-12-03',
@@ -26420,9 +26859,16 @@ class Client(OpenApiClient):
 
     async def describe_image_scan_auth_count_with_options_async(
         self,
+        request: main_models.DescribeImageScanAuthCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeImageScanAuthCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeImageScanAuthCount',
             version = '2018-12-03',
@@ -26439,13 +26885,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_image_scan_auth_count(self) -> main_models.DescribeImageScanAuthCountResponse:
+    def describe_image_scan_auth_count(
+        self,
+        request: main_models.DescribeImageScanAuthCountRequest,
+    ) -> main_models.DescribeImageScanAuthCountResponse:
         runtime = RuntimeOptions()
-        return self.describe_image_scan_auth_count_with_options(runtime)
+        return self.describe_image_scan_auth_count_with_options(request, runtime)
 
-    async def describe_image_scan_auth_count_async(self) -> main_models.DescribeImageScanAuthCountResponse:
+    async def describe_image_scan_auth_count_async(
+        self,
+        request: main_models.DescribeImageScanAuthCountRequest,
+    ) -> main_models.DescribeImageScanAuthCountResponse:
         runtime = RuntimeOptions()
-        return await self.describe_image_scan_auth_count_with_options_async(runtime)
+        return await self.describe_image_scan_auth_count_with_options_async(request, runtime)
 
     def describe_image_security_scan_count_with_options(
         self,
@@ -26763,9 +27215,16 @@ class Client(OpenApiClient):
 
     def describe_image_statistics_with_options(
         self,
+        request: main_models.DescribeImageStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeImageStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeImageStatistics',
             version = '2018-12-03',
@@ -26784,9 +27243,16 @@ class Client(OpenApiClient):
 
     async def describe_image_statistics_with_options_async(
         self,
+        request: main_models.DescribeImageStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeImageStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeImageStatistics',
             version = '2018-12-03',
@@ -26803,13 +27269,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_image_statistics(self) -> main_models.DescribeImageStatisticsResponse:
+    def describe_image_statistics(
+        self,
+        request: main_models.DescribeImageStatisticsRequest,
+    ) -> main_models.DescribeImageStatisticsResponse:
         runtime = RuntimeOptions()
-        return self.describe_image_statistics_with_options(runtime)
+        return self.describe_image_statistics_with_options(request, runtime)
 
-    async def describe_image_statistics_async(self) -> main_models.DescribeImageStatisticsResponse:
+    async def describe_image_statistics_async(
+        self,
+        request: main_models.DescribeImageStatisticsRequest,
+    ) -> main_models.DescribeImageStatisticsResponse:
         runtime = RuntimeOptions()
-        return await self.describe_image_statistics_with_options_async(runtime)
+        return await self.describe_image_statistics_with_options_async(request, runtime)
 
     def describe_image_vul_list_with_options(
         self,
@@ -27167,9 +27639,16 @@ class Client(OpenApiClient):
 
     def describe_install_code_with_options(
         self,
+        request: main_models.DescribeInstallCodeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeInstallCodeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeInstallCode',
             version = '2018-12-03',
@@ -27188,9 +27667,16 @@ class Client(OpenApiClient):
 
     async def describe_install_code_with_options_async(
         self,
+        request: main_models.DescribeInstallCodeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeInstallCodeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeInstallCode',
             version = '2018-12-03',
@@ -27207,19 +27693,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_install_code(self) -> main_models.DescribeInstallCodeResponse:
+    def describe_install_code(
+        self,
+        request: main_models.DescribeInstallCodeRequest,
+    ) -> main_models.DescribeInstallCodeResponse:
         runtime = RuntimeOptions()
-        return self.describe_install_code_with_options(runtime)
+        return self.describe_install_code_with_options(request, runtime)
 
-    async def describe_install_code_async(self) -> main_models.DescribeInstallCodeResponse:
+    async def describe_install_code_async(
+        self,
+        request: main_models.DescribeInstallCodeRequest,
+    ) -> main_models.DescribeInstallCodeResponse:
         runtime = RuntimeOptions()
-        return await self.describe_install_code_with_options_async(runtime)
+        return await self.describe_install_code_with_options_async(request, runtime)
 
     def describe_install_codes_with_options(
         self,
+        request: main_models.DescribeInstallCodesRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeInstallCodesResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeInstallCodes',
             version = '2018-12-03',
@@ -27238,9 +27737,16 @@ class Client(OpenApiClient):
 
     async def describe_install_codes_with_options_async(
         self,
+        request: main_models.DescribeInstallCodesRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeInstallCodesResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeInstallCodes',
             version = '2018-12-03',
@@ -27257,13 +27763,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_install_codes(self) -> main_models.DescribeInstallCodesResponse:
+    def describe_install_codes(
+        self,
+        request: main_models.DescribeInstallCodesRequest,
+    ) -> main_models.DescribeInstallCodesResponse:
         runtime = RuntimeOptions()
-        return self.describe_install_codes_with_options(runtime)
+        return self.describe_install_codes_with_options(request, runtime)
 
-    async def describe_install_codes_async(self) -> main_models.DescribeInstallCodesResponse:
+    async def describe_install_codes_async(
+        self,
+        request: main_models.DescribeInstallCodesRequest,
+    ) -> main_models.DescribeInstallCodesResponse:
         runtime = RuntimeOptions()
-        return await self.describe_install_codes_with_options_async(runtime)
+        return await self.describe_install_codes_with_options_async(request, runtime)
 
     def describe_instance_anti_brute_force_rules_with_options(
         self,
@@ -27579,9 +28091,16 @@ class Client(OpenApiClient):
 
     def describe_latest_scan_task_with_options(
         self,
+        request: main_models.DescribeLatestScanTaskRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeLatestScanTaskResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeLatestScanTask',
             version = '2018-12-03',
@@ -27600,9 +28119,16 @@ class Client(OpenApiClient):
 
     async def describe_latest_scan_task_with_options_async(
         self,
+        request: main_models.DescribeLatestScanTaskRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeLatestScanTaskResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeLatestScanTask',
             version = '2018-12-03',
@@ -27619,13 +28145,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_latest_scan_task(self) -> main_models.DescribeLatestScanTaskResponse:
+    def describe_latest_scan_task(
+        self,
+        request: main_models.DescribeLatestScanTaskRequest,
+    ) -> main_models.DescribeLatestScanTaskResponse:
         runtime = RuntimeOptions()
-        return self.describe_latest_scan_task_with_options(runtime)
+        return self.describe_latest_scan_task_with_options(request, runtime)
 
-    async def describe_latest_scan_task_async(self) -> main_models.DescribeLatestScanTaskResponse:
+    async def describe_latest_scan_task_async(
+        self,
+        request: main_models.DescribeLatestScanTaskRequest,
+    ) -> main_models.DescribeLatestScanTaskResponse:
         runtime = RuntimeOptions()
-        return await self.describe_latest_scan_task_with_options_async(runtime)
+        return await self.describe_latest_scan_task_with_options_async(request, runtime)
 
     def describe_log_meta_with_options(
         self,
@@ -27718,6 +28250,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.from_):
             query['From'] = request.from_
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -27746,6 +28280,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.from_):
             query['From'] = request.from_
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -27863,9 +28399,16 @@ class Client(OpenApiClient):
 
     def describe_login_switch_configs_with_options(
         self,
+        request: main_models.DescribeLoginSwitchConfigsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeLoginSwitchConfigsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeLoginSwitchConfigs',
             version = '2018-12-03',
@@ -27884,9 +28427,16 @@ class Client(OpenApiClient):
 
     async def describe_login_switch_configs_with_options_async(
         self,
+        request: main_models.DescribeLoginSwitchConfigsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeLoginSwitchConfigsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeLoginSwitchConfigs',
             version = '2018-12-03',
@@ -27903,13 +28453,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_login_switch_configs(self) -> main_models.DescribeLoginSwitchConfigsResponse:
+    def describe_login_switch_configs(
+        self,
+        request: main_models.DescribeLoginSwitchConfigsRequest,
+    ) -> main_models.DescribeLoginSwitchConfigsResponse:
         runtime = RuntimeOptions()
-        return self.describe_login_switch_configs_with_options(runtime)
+        return self.describe_login_switch_configs_with_options(request, runtime)
 
-    async def describe_login_switch_configs_async(self) -> main_models.DescribeLoginSwitchConfigsResponse:
+    async def describe_login_switch_configs_async(
+        self,
+        request: main_models.DescribeLoginSwitchConfigsRequest,
+    ) -> main_models.DescribeLoginSwitchConfigsResponse:
         runtime = RuntimeOptions()
-        return await self.describe_login_switch_configs_with_options_async(runtime)
+        return await self.describe_login_switch_configs_with_options_async(request, runtime)
 
     def describe_logstore_storage_with_options(
         self,
@@ -28135,9 +28691,16 @@ class Client(OpenApiClient):
 
     def describe_module_config_with_options(
         self,
+        request: main_models.DescribeModuleConfigRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeModuleConfigResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeModuleConfig',
             version = '2018-12-03',
@@ -28156,9 +28719,16 @@ class Client(OpenApiClient):
 
     async def describe_module_config_with_options_async(
         self,
+        request: main_models.DescribeModuleConfigRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeModuleConfigResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeModuleConfig',
             version = '2018-12-03',
@@ -28175,19 +28745,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_module_config(self) -> main_models.DescribeModuleConfigResponse:
+    def describe_module_config(
+        self,
+        request: main_models.DescribeModuleConfigRequest,
+    ) -> main_models.DescribeModuleConfigResponse:
         runtime = RuntimeOptions()
-        return self.describe_module_config_with_options(runtime)
+        return self.describe_module_config_with_options(request, runtime)
 
-    async def describe_module_config_async(self) -> main_models.DescribeModuleConfigResponse:
+    async def describe_module_config_async(
+        self,
+        request: main_models.DescribeModuleConfigRequest,
+    ) -> main_models.DescribeModuleConfigResponse:
         runtime = RuntimeOptions()
-        return await self.describe_module_config_with_options_async(runtime)
+        return await self.describe_module_config_with_options_async(request, runtime)
 
     def describe_monitor_accounts_with_options(
         self,
+        request: main_models.DescribeMonitorAccountsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeMonitorAccountsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeMonitorAccounts',
             version = '2018-12-03',
@@ -28206,9 +28789,16 @@ class Client(OpenApiClient):
 
     async def describe_monitor_accounts_with_options_async(
         self,
+        request: main_models.DescribeMonitorAccountsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeMonitorAccountsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeMonitorAccounts',
             version = '2018-12-03',
@@ -28225,13 +28815,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_monitor_accounts(self) -> main_models.DescribeMonitorAccountsResponse:
+    def describe_monitor_accounts(
+        self,
+        request: main_models.DescribeMonitorAccountsRequest,
+    ) -> main_models.DescribeMonitorAccountsResponse:
         runtime = RuntimeOptions()
-        return self.describe_monitor_accounts_with_options(runtime)
+        return self.describe_monitor_accounts_with_options(request, runtime)
 
-    async def describe_monitor_accounts_async(self) -> main_models.DescribeMonitorAccountsResponse:
+    async def describe_monitor_accounts_async(
+        self,
+        request: main_models.DescribeMonitorAccountsRequest,
+    ) -> main_models.DescribeMonitorAccountsResponse:
         runtime = RuntimeOptions()
-        return await self.describe_monitor_accounts_with_options_async(runtime)
+        return await self.describe_monitor_accounts_with_options_async(request, runtime)
 
     def describe_need_async_query_with_options(
         self,
@@ -28594,6 +29190,8 @@ class Client(OpenApiClient):
             query['EndTimeQuery'] = request.end_time_query
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.root_task_id):
             query['RootTaskId'] = request.root_task_id
         if not DaraCore.is_null(request.source):
@@ -28636,6 +29234,8 @@ class Client(OpenApiClient):
             query['EndTimeQuery'] = request.end_time_query
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.root_task_id):
             query['RootTaskId'] = request.root_task_id
         if not DaraCore.is_null(request.source):
@@ -33729,9 +34329,16 @@ class Client(OpenApiClient):
 
     def describe_supervison_info_with_options(
         self,
+        request: main_models.DescribeSupervisonInfoRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeSupervisonInfoResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeSupervisonInfo',
             version = '2018-12-03',
@@ -33750,9 +34357,16 @@ class Client(OpenApiClient):
 
     async def describe_supervison_info_with_options_async(
         self,
+        request: main_models.DescribeSupervisonInfoRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeSupervisonInfoResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeSupervisonInfo',
             version = '2018-12-03',
@@ -33769,19 +34383,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_supervison_info(self) -> main_models.DescribeSupervisonInfoResponse:
+    def describe_supervison_info(
+        self,
+        request: main_models.DescribeSupervisonInfoRequest,
+    ) -> main_models.DescribeSupervisonInfoResponse:
         runtime = RuntimeOptions()
-        return self.describe_supervison_info_with_options(runtime)
+        return self.describe_supervison_info_with_options(request, runtime)
 
-    async def describe_supervison_info_async(self) -> main_models.DescribeSupervisonInfoResponse:
+    async def describe_supervison_info_async(
+        self,
+        request: main_models.DescribeSupervisonInfoRequest,
+    ) -> main_models.DescribeSupervisonInfoResponse:
         runtime = RuntimeOptions()
-        return await self.describe_supervison_info_with_options_async(runtime)
+        return await self.describe_supervison_info_with_options_async(request, runtime)
 
     def describe_support_region_with_options(
         self,
+        request: main_models.DescribeSupportRegionRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeSupportRegionResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeSupportRegion',
             version = '2018-12-03',
@@ -33800,9 +34427,16 @@ class Client(OpenApiClient):
 
     async def describe_support_region_with_options_async(
         self,
+        request: main_models.DescribeSupportRegionRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeSupportRegionResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeSupportRegion',
             version = '2018-12-03',
@@ -33819,13 +34453,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_support_region(self) -> main_models.DescribeSupportRegionResponse:
+    def describe_support_region(
+        self,
+        request: main_models.DescribeSupportRegionRequest,
+    ) -> main_models.DescribeSupportRegionResponse:
         runtime = RuntimeOptions()
-        return self.describe_support_region_with_options(runtime)
+        return self.describe_support_region_with_options(request, runtime)
 
-    async def describe_support_region_async(self) -> main_models.DescribeSupportRegionResponse:
+    async def describe_support_region_async(
+        self,
+        request: main_models.DescribeSupportRegionRequest,
+    ) -> main_models.DescribeSupportRegionResponse:
         runtime = RuntimeOptions()
-        return await self.describe_support_region_with_options_async(runtime)
+        return await self.describe_support_region_with_options_async(request, runtime)
 
     def describe_susp_event_detail_with_options(
         self,
@@ -34392,6 +35032,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeSuspiciousOverallConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -34422,6 +35064,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeSuspiciousOverallConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -34461,9 +35105,16 @@ class Client(OpenApiClient):
 
     def describe_suspicious_security_eventy_statistics_with_options(
         self,
+        request: main_models.DescribeSuspiciousSecurityEventyStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeSuspiciousSecurityEventyStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeSuspiciousSecurityEventyStatistics',
             version = '2018-12-03',
@@ -34482,9 +35133,16 @@ class Client(OpenApiClient):
 
     async def describe_suspicious_security_eventy_statistics_with_options_async(
         self,
+        request: main_models.DescribeSuspiciousSecurityEventyStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeSuspiciousSecurityEventyStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeSuspiciousSecurityEventyStatistics',
             version = '2018-12-03',
@@ -34501,13 +35159,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_suspicious_security_eventy_statistics(self) -> main_models.DescribeSuspiciousSecurityEventyStatisticsResponse:
+    def describe_suspicious_security_eventy_statistics(
+        self,
+        request: main_models.DescribeSuspiciousSecurityEventyStatisticsRequest,
+    ) -> main_models.DescribeSuspiciousSecurityEventyStatisticsResponse:
         runtime = RuntimeOptions()
-        return self.describe_suspicious_security_eventy_statistics_with_options(runtime)
+        return self.describe_suspicious_security_eventy_statistics_with_options(request, runtime)
 
-    async def describe_suspicious_security_eventy_statistics_async(self) -> main_models.DescribeSuspiciousSecurityEventyStatisticsResponse:
+    async def describe_suspicious_security_eventy_statistics_async(
+        self,
+        request: main_models.DescribeSuspiciousSecurityEventyStatisticsRequest,
+    ) -> main_models.DescribeSuspiciousSecurityEventyStatisticsResponse:
         runtime = RuntimeOptions()
-        return await self.describe_suspicious_security_eventy_statistics_with_options_async(runtime)
+        return await self.describe_suspicious_security_eventy_statistics_with_options_async(request, runtime)
 
     def describe_suspicious_uuidconfig_with_options(
         self,
@@ -34516,6 +35180,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeSuspiciousUUIDConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.type):
             query['Type'] = request.type
         req = open_api_util_models.OpenApiRequest(
@@ -34544,6 +35210,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeSuspiciousUUIDConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.type):
             query['Type'] = request.type
         req = open_api_util_models.OpenApiRequest(
@@ -35409,9 +36077,16 @@ class Client(OpenApiClient):
 
     def describe_uni_backup_statistics_with_options(
         self,
+        request: main_models.DescribeUniBackupStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeUniBackupStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeUniBackupStatistics',
             version = '2018-12-03',
@@ -35430,9 +36105,16 @@ class Client(OpenApiClient):
 
     async def describe_uni_backup_statistics_with_options_async(
         self,
+        request: main_models.DescribeUniBackupStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeUniBackupStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeUniBackupStatistics',
             version = '2018-12-03',
@@ -35449,13 +36131,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_uni_backup_statistics(self) -> main_models.DescribeUniBackupStatisticsResponse:
+    def describe_uni_backup_statistics(
+        self,
+        request: main_models.DescribeUniBackupStatisticsRequest,
+    ) -> main_models.DescribeUniBackupStatisticsResponse:
         runtime = RuntimeOptions()
-        return self.describe_uni_backup_statistics_with_options(runtime)
+        return self.describe_uni_backup_statistics_with_options(request, runtime)
 
-    async def describe_uni_backup_statistics_async(self) -> main_models.DescribeUniBackupStatisticsResponse:
+    async def describe_uni_backup_statistics_async(
+        self,
+        request: main_models.DescribeUniBackupStatisticsRequest,
+    ) -> main_models.DescribeUniBackupStatisticsResponse:
         runtime = RuntimeOptions()
-        return await self.describe_uni_backup_statistics_with_options_async(runtime)
+        return await self.describe_uni_backup_statistics_with_options_async(request, runtime)
 
     def describe_uni_recoverable_list_with_options(
         self,
@@ -35541,9 +36229,16 @@ class Client(OpenApiClient):
 
     def describe_uni_support_region_with_options(
         self,
+        request: main_models.DescribeUniSupportRegionRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeUniSupportRegionResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeUniSupportRegion',
             version = '2018-12-03',
@@ -35562,9 +36257,16 @@ class Client(OpenApiClient):
 
     async def describe_uni_support_region_with_options_async(
         self,
+        request: main_models.DescribeUniSupportRegionRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeUniSupportRegionResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeUniSupportRegion',
             version = '2018-12-03',
@@ -35581,19 +36283,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_uni_support_region(self) -> main_models.DescribeUniSupportRegionResponse:
+    def describe_uni_support_region(
+        self,
+        request: main_models.DescribeUniSupportRegionRequest,
+    ) -> main_models.DescribeUniSupportRegionResponse:
         runtime = RuntimeOptions()
-        return self.describe_uni_support_region_with_options(runtime)
+        return self.describe_uni_support_region_with_options(request, runtime)
 
-    async def describe_uni_support_region_async(self) -> main_models.DescribeUniSupportRegionResponse:
+    async def describe_uni_support_region_async(
+        self,
+        request: main_models.DescribeUniSupportRegionRequest,
+    ) -> main_models.DescribeUniSupportRegionResponse:
         runtime = RuntimeOptions()
-        return await self.describe_uni_support_region_with_options_async(runtime)
+        return await self.describe_uni_support_region_with_options_async(request, runtime)
 
     def describe_user_backup_machines_with_options(
         self,
+        request: main_models.DescribeUserBackupMachinesRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeUserBackupMachinesResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeUserBackupMachines',
             version = '2018-12-03',
@@ -35612,9 +36327,16 @@ class Client(OpenApiClient):
 
     async def describe_user_backup_machines_with_options_async(
         self,
+        request: main_models.DescribeUserBackupMachinesRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeUserBackupMachinesResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeUserBackupMachines',
             version = '2018-12-03',
@@ -35631,13 +36353,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_user_backup_machines(self) -> main_models.DescribeUserBackupMachinesResponse:
+    def describe_user_backup_machines(
+        self,
+        request: main_models.DescribeUserBackupMachinesRequest,
+    ) -> main_models.DescribeUserBackupMachinesResponse:
         runtime = RuntimeOptions()
-        return self.describe_user_backup_machines_with_options(runtime)
+        return self.describe_user_backup_machines_with_options(request, runtime)
 
-    async def describe_user_backup_machines_async(self) -> main_models.DescribeUserBackupMachinesResponse:
+    async def describe_user_backup_machines_async(
+        self,
+        request: main_models.DescribeUserBackupMachinesRequest,
+    ) -> main_models.DescribeUserBackupMachinesResponse:
         runtime = RuntimeOptions()
-        return await self.describe_user_backup_machines_with_options_async(runtime)
+        return await self.describe_user_backup_machines_with_options_async(request, runtime)
 
     def describe_user_baseline_authorization_with_options(
         self,
@@ -35993,9 +36721,16 @@ class Client(OpenApiClient):
 
     def describe_vendor_list_with_options(
         self,
+        request: main_models.DescribeVendorListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeVendorListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeVendorList',
             version = '2018-12-03',
@@ -36014,9 +36749,16 @@ class Client(OpenApiClient):
 
     async def describe_vendor_list_with_options_async(
         self,
+        request: main_models.DescribeVendorListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeVendorListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeVendorList',
             version = '2018-12-03',
@@ -36033,13 +36775,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_vendor_list(self) -> main_models.DescribeVendorListResponse:
+    def describe_vendor_list(
+        self,
+        request: main_models.DescribeVendorListRequest,
+    ) -> main_models.DescribeVendorListResponse:
         runtime = RuntimeOptions()
-        return self.describe_vendor_list_with_options(runtime)
+        return self.describe_vendor_list_with_options(request, runtime)
 
-    async def describe_vendor_list_async(self) -> main_models.DescribeVendorListResponse:
+    async def describe_vendor_list_async(
+        self,
+        request: main_models.DescribeVendorListRequest,
+    ) -> main_models.DescribeVendorListResponse:
         runtime = RuntimeOptions()
-        return await self.describe_vendor_list_with_options_async(runtime)
+        return await self.describe_vendor_list_with_options_async(request, runtime)
 
     def describe_version_config_with_options(
         self,
@@ -36351,9 +37099,16 @@ class Client(OpenApiClient):
 
     def describe_vpc_list_with_options(
         self,
+        request: main_models.DescribeVpcListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeVpcListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeVpcList',
             version = '2018-12-03',
@@ -36372,9 +37127,16 @@ class Client(OpenApiClient):
 
     async def describe_vpc_list_with_options_async(
         self,
+        request: main_models.DescribeVpcListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeVpcListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeVpcList',
             version = '2018-12-03',
@@ -36391,13 +37153,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_vpc_list(self) -> main_models.DescribeVpcListResponse:
+    def describe_vpc_list(
+        self,
+        request: main_models.DescribeVpcListRequest,
+    ) -> main_models.DescribeVpcListResponse:
         runtime = RuntimeOptions()
-        return self.describe_vpc_list_with_options(runtime)
+        return self.describe_vpc_list_with_options(request, runtime)
 
-    async def describe_vpc_list_async(self) -> main_models.DescribeVpcListResponse:
+    async def describe_vpc_list_async(
+        self,
+        request: main_models.DescribeVpcListRequest,
+    ) -> main_models.DescribeVpcListResponse:
         runtime = RuntimeOptions()
-        return await self.describe_vpc_list_with_options_async(runtime)
+        return await self.describe_vpc_list_with_options_async(request, runtime)
 
     def describe_vul_check_task_status_detail_with_options(
         self,
@@ -36787,9 +37555,16 @@ class Client(OpenApiClient):
 
     def describe_vul_fix_statistics_with_options(
         self,
+        request: main_models.DescribeVulFixStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeVulFixStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeVulFixStatistics',
             version = '2018-12-03',
@@ -36808,9 +37583,16 @@ class Client(OpenApiClient):
 
     async def describe_vul_fix_statistics_with_options_async(
         self,
+        request: main_models.DescribeVulFixStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeVulFixStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeVulFixStatistics',
             version = '2018-12-03',
@@ -36827,13 +37609,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_vul_fix_statistics(self) -> main_models.DescribeVulFixStatisticsResponse:
+    def describe_vul_fix_statistics(
+        self,
+        request: main_models.DescribeVulFixStatisticsRequest,
+    ) -> main_models.DescribeVulFixStatisticsResponse:
         runtime = RuntimeOptions()
-        return self.describe_vul_fix_statistics_with_options(runtime)
+        return self.describe_vul_fix_statistics_with_options(request, runtime)
 
-    async def describe_vul_fix_statistics_async(self) -> main_models.DescribeVulFixStatisticsResponse:
+    async def describe_vul_fix_statistics_async(
+        self,
+        request: main_models.DescribeVulFixStatisticsRequest,
+    ) -> main_models.DescribeVulFixStatisticsResponse:
         runtime = RuntimeOptions()
-        return await self.describe_vul_fix_statistics_with_options_async(runtime)
+        return await self.describe_vul_fix_statistics_with_options_async(request, runtime)
 
     def describe_vul_list_with_options(
         self,
@@ -37077,9 +37865,16 @@ class Client(OpenApiClient):
 
     def describe_vul_meta_count_statistics_with_options(
         self,
+        request: main_models.DescribeVulMetaCountStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeVulMetaCountStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeVulMetaCountStatistics',
             version = '2018-12-03',
@@ -37098,9 +37893,16 @@ class Client(OpenApiClient):
 
     async def describe_vul_meta_count_statistics_with_options_async(
         self,
+        request: main_models.DescribeVulMetaCountStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeVulMetaCountStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeVulMetaCountStatistics',
             version = '2018-12-03',
@@ -37117,13 +37919,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_vul_meta_count_statistics(self) -> main_models.DescribeVulMetaCountStatisticsResponse:
+    def describe_vul_meta_count_statistics(
+        self,
+        request: main_models.DescribeVulMetaCountStatisticsRequest,
+    ) -> main_models.DescribeVulMetaCountStatisticsResponse:
         runtime = RuntimeOptions()
-        return self.describe_vul_meta_count_statistics_with_options(runtime)
+        return self.describe_vul_meta_count_statistics_with_options(request, runtime)
 
-    async def describe_vul_meta_count_statistics_async(self) -> main_models.DescribeVulMetaCountStatisticsResponse:
+    async def describe_vul_meta_count_statistics_async(
+        self,
+        request: main_models.DescribeVulMetaCountStatisticsRequest,
+    ) -> main_models.DescribeVulMetaCountStatisticsResponse:
         runtime = RuntimeOptions()
-        return await self.describe_vul_meta_count_statistics_with_options_async(runtime)
+        return await self.describe_vul_meta_count_statistics_with_options_async(request, runtime)
 
     def describe_vul_num_statistics_with_options(
         self,
@@ -37795,9 +38603,16 @@ class Client(OpenApiClient):
 
     def describe_web_lock_exclusive_file_type_with_options(
         self,
+        request: main_models.DescribeWebLockExclusiveFileTypeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeWebLockExclusiveFileTypeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeWebLockExclusiveFileType',
             version = '2018-12-03',
@@ -37816,9 +38631,16 @@ class Client(OpenApiClient):
 
     async def describe_web_lock_exclusive_file_type_with_options_async(
         self,
+        request: main_models.DescribeWebLockExclusiveFileTypeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeWebLockExclusiveFileTypeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeWebLockExclusiveFileType',
             version = '2018-12-03',
@@ -37835,13 +38657,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_web_lock_exclusive_file_type(self) -> main_models.DescribeWebLockExclusiveFileTypeResponse:
+    def describe_web_lock_exclusive_file_type(
+        self,
+        request: main_models.DescribeWebLockExclusiveFileTypeRequest,
+    ) -> main_models.DescribeWebLockExclusiveFileTypeResponse:
         runtime = RuntimeOptions()
-        return self.describe_web_lock_exclusive_file_type_with_options(runtime)
+        return self.describe_web_lock_exclusive_file_type_with_options(request, runtime)
 
-    async def describe_web_lock_exclusive_file_type_async(self) -> main_models.DescribeWebLockExclusiveFileTypeResponse:
+    async def describe_web_lock_exclusive_file_type_async(
+        self,
+        request: main_models.DescribeWebLockExclusiveFileTypeRequest,
+    ) -> main_models.DescribeWebLockExclusiveFileTypeResponse:
         runtime = RuntimeOptions()
-        return await self.describe_web_lock_exclusive_file_type_with_options_async(runtime)
+        return await self.describe_web_lock_exclusive_file_type_with_options_async(request, runtime)
 
     def describe_web_lock_file_change_statistics_with_options(
         self,
@@ -38013,9 +38841,16 @@ class Client(OpenApiClient):
 
     def describe_web_lock_file_type_summary_with_options(
         self,
+        request: main_models.DescribeWebLockFileTypeSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeWebLockFileTypeSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeWebLockFileTypeSummary',
             version = '2018-12-03',
@@ -38034,9 +38869,16 @@ class Client(OpenApiClient):
 
     async def describe_web_lock_file_type_summary_with_options_async(
         self,
+        request: main_models.DescribeWebLockFileTypeSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeWebLockFileTypeSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeWebLockFileTypeSummary',
             version = '2018-12-03',
@@ -38053,19 +38895,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_web_lock_file_type_summary(self) -> main_models.DescribeWebLockFileTypeSummaryResponse:
+    def describe_web_lock_file_type_summary(
+        self,
+        request: main_models.DescribeWebLockFileTypeSummaryRequest,
+    ) -> main_models.DescribeWebLockFileTypeSummaryResponse:
         runtime = RuntimeOptions()
-        return self.describe_web_lock_file_type_summary_with_options(runtime)
+        return self.describe_web_lock_file_type_summary_with_options(request, runtime)
 
-    async def describe_web_lock_file_type_summary_async(self) -> main_models.DescribeWebLockFileTypeSummaryResponse:
+    async def describe_web_lock_file_type_summary_async(
+        self,
+        request: main_models.DescribeWebLockFileTypeSummaryRequest,
+    ) -> main_models.DescribeWebLockFileTypeSummaryResponse:
         runtime = RuntimeOptions()
-        return await self.describe_web_lock_file_type_summary_with_options_async(runtime)
+        return await self.describe_web_lock_file_type_summary_with_options_async(request, runtime)
 
     def describe_web_lock_inclusive_file_type_with_options(
         self,
+        request: main_models.DescribeWebLockInclusiveFileTypeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeWebLockInclusiveFileTypeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeWebLockInclusiveFileType',
             version = '2018-12-03',
@@ -38084,9 +38939,16 @@ class Client(OpenApiClient):
 
     async def describe_web_lock_inclusive_file_type_with_options_async(
         self,
+        request: main_models.DescribeWebLockInclusiveFileTypeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeWebLockInclusiveFileTypeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeWebLockInclusiveFileType',
             version = '2018-12-03',
@@ -38103,13 +38965,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_web_lock_inclusive_file_type(self) -> main_models.DescribeWebLockInclusiveFileTypeResponse:
+    def describe_web_lock_inclusive_file_type(
+        self,
+        request: main_models.DescribeWebLockInclusiveFileTypeRequest,
+    ) -> main_models.DescribeWebLockInclusiveFileTypeResponse:
         runtime = RuntimeOptions()
-        return self.describe_web_lock_inclusive_file_type_with_options(runtime)
+        return self.describe_web_lock_inclusive_file_type_with_options(request, runtime)
 
-    async def describe_web_lock_inclusive_file_type_async(self) -> main_models.DescribeWebLockInclusiveFileTypeResponse:
+    async def describe_web_lock_inclusive_file_type_async(
+        self,
+        request: main_models.DescribeWebLockInclusiveFileTypeRequest,
+    ) -> main_models.DescribeWebLockInclusiveFileTypeResponse:
         runtime = RuntimeOptions()
-        return await self.describe_web_lock_inclusive_file_type_with_options_async(runtime)
+        return await self.describe_web_lock_inclusive_file_type_with_options_async(request, runtime)
 
     def describe_web_lock_process_block_statistics_with_options(
         self,
@@ -38347,9 +39215,16 @@ class Client(OpenApiClient):
 
     def describe_web_lock_total_file_change_count_with_options(
         self,
+        request: main_models.DescribeWebLockTotalFileChangeCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeWebLockTotalFileChangeCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeWebLockTotalFileChangeCount',
             version = '2018-12-03',
@@ -38368,9 +39243,16 @@ class Client(OpenApiClient):
 
     async def describe_web_lock_total_file_change_count_with_options_async(
         self,
+        request: main_models.DescribeWebLockTotalFileChangeCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.DescribeWebLockTotalFileChangeCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'DescribeWebLockTotalFileChangeCount',
             version = '2018-12-03',
@@ -38387,13 +39269,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def describe_web_lock_total_file_change_count(self) -> main_models.DescribeWebLockTotalFileChangeCountResponse:
+    def describe_web_lock_total_file_change_count(
+        self,
+        request: main_models.DescribeWebLockTotalFileChangeCountRequest,
+    ) -> main_models.DescribeWebLockTotalFileChangeCountResponse:
         runtime = RuntimeOptions()
-        return self.describe_web_lock_total_file_change_count_with_options(runtime)
+        return self.describe_web_lock_total_file_change_count_with_options(request, runtime)
 
-    async def describe_web_lock_total_file_change_count_async(self) -> main_models.DescribeWebLockTotalFileChangeCountResponse:
+    async def describe_web_lock_total_file_change_count_async(
+        self,
+        request: main_models.DescribeWebLockTotalFileChangeCountRequest,
+    ) -> main_models.DescribeWebLockTotalFileChangeCountResponse:
         runtime = RuntimeOptions()
-        return await self.describe_web_lock_total_file_change_count_with_options_async(runtime)
+        return await self.describe_web_lock_total_file_change_count_with_options_async(request, runtime)
 
     def describe_web_path_with_options(
         self,
@@ -39569,9 +40457,16 @@ class Client(OpenApiClient):
 
     def enable_service_access_resource_directory_with_options(
         self,
+        request: main_models.EnableServiceAccessResourceDirectoryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.EnableServiceAccessResourceDirectoryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'EnableServiceAccessResourceDirectory',
             version = '2018-12-03',
@@ -39590,9 +40485,16 @@ class Client(OpenApiClient):
 
     async def enable_service_access_resource_directory_with_options_async(
         self,
+        request: main_models.EnableServiceAccessResourceDirectoryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.EnableServiceAccessResourceDirectoryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'EnableServiceAccessResourceDirectory',
             version = '2018-12-03',
@@ -39609,13 +40511,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def enable_service_access_resource_directory(self) -> main_models.EnableServiceAccessResourceDirectoryResponse:
+    def enable_service_access_resource_directory(
+        self,
+        request: main_models.EnableServiceAccessResourceDirectoryRequest,
+    ) -> main_models.EnableServiceAccessResourceDirectoryResponse:
         runtime = RuntimeOptions()
-        return self.enable_service_access_resource_directory_with_options(runtime)
+        return self.enable_service_access_resource_directory_with_options(request, runtime)
 
-    async def enable_service_access_resource_directory_async(self) -> main_models.EnableServiceAccessResourceDirectoryResponse:
+    async def enable_service_access_resource_directory_async(
+        self,
+        request: main_models.EnableServiceAccessResourceDirectoryRequest,
+    ) -> main_models.EnableServiceAccessResourceDirectoryResponse:
         runtime = RuntimeOptions()
-        return await self.enable_service_access_resource_directory_with_options_async(runtime)
+        return await self.enable_service_access_resource_directory_with_options_async(request, runtime)
 
     def exec_strategy_with_options(
         self,
@@ -40742,14 +41650,20 @@ class Client(OpenApiClient):
             query['AuditProject'] = request.audit_project
         if not DaraCore.is_null(request.audit_region_id):
             query['AuditRegionId'] = request.audit_region_id
+        if not DaraCore.is_null(request.cluster_id):
+            query['ClusterId'] = request.cluster_id
         if not DaraCore.is_null(request.cluster_name):
             query['ClusterName'] = request.cluster_name
         if not DaraCore.is_null(request.cpu_arch):
             query['CpuArch'] = request.cpu_arch
+        if not DaraCore.is_null(request.deployment_profile_codes):
+            query['DeploymentProfileCodes'] = request.deployment_profile_codes
         if not DaraCore.is_null(request.expire_date):
             query['ExpireDate'] = request.expire_date
         if not DaraCore.is_null(request.group_id):
             query['GroupId'] = request.group_id
+        if not DaraCore.is_null(request.install_policy_version):
+            query['InstallPolicyVersion'] = request.install_policy_version
         if not DaraCore.is_null(request.vendor):
             query['Vendor'] = request.vendor
         req = open_api_util_models.OpenApiRequest(
@@ -40790,14 +41704,20 @@ class Client(OpenApiClient):
             query['AuditProject'] = request.audit_project
         if not DaraCore.is_null(request.audit_region_id):
             query['AuditRegionId'] = request.audit_region_id
+        if not DaraCore.is_null(request.cluster_id):
+            query['ClusterId'] = request.cluster_id
         if not DaraCore.is_null(request.cluster_name):
             query['ClusterName'] = request.cluster_name
         if not DaraCore.is_null(request.cpu_arch):
             query['CpuArch'] = request.cpu_arch
+        if not DaraCore.is_null(request.deployment_profile_codes):
+            query['DeploymentProfileCodes'] = request.deployment_profile_codes
         if not DaraCore.is_null(request.expire_date):
             query['ExpireDate'] = request.expire_date
         if not DaraCore.is_null(request.group_id):
             query['GroupId'] = request.group_id
+        if not DaraCore.is_null(request.install_policy_version):
+            query['InstallPolicyVersion'] = request.install_policy_version
         if not DaraCore.is_null(request.vendor):
             query['Vendor'] = request.vendor
         req = open_api_util_models.OpenApiRequest(
@@ -40842,6 +41762,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.param):
             query['Param'] = request.param
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source):
             query['Source'] = request.source
         if not DaraCore.is_null(request.task_name):
@@ -40876,6 +41798,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.param):
             query['Param'] = request.param
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source):
             query['Source'] = request.source
         if not DaraCore.is_null(request.task_name):
@@ -42083,9 +43007,16 @@ class Client(OpenApiClient):
 
     def get_attack_path_event_statistics_with_options(
         self,
+        request: main_models.GetAttackPathEventStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetAttackPathEventStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetAttackPathEventStatistics',
             version = '2018-12-03',
@@ -42104,9 +43035,16 @@ class Client(OpenApiClient):
 
     async def get_attack_path_event_statistics_with_options_async(
         self,
+        request: main_models.GetAttackPathEventStatisticsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetAttackPathEventStatisticsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetAttackPathEventStatistics',
             version = '2018-12-03',
@@ -42123,13 +43061,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_attack_path_event_statistics(self) -> main_models.GetAttackPathEventStatisticsResponse:
+    def get_attack_path_event_statistics(
+        self,
+        request: main_models.GetAttackPathEventStatisticsRequest,
+    ) -> main_models.GetAttackPathEventStatisticsResponse:
         runtime = RuntimeOptions()
-        return self.get_attack_path_event_statistics_with_options(runtime)
+        return self.get_attack_path_event_statistics_with_options(request, runtime)
 
-    async def get_attack_path_event_statistics_async(self) -> main_models.GetAttackPathEventStatisticsResponse:
+    async def get_attack_path_event_statistics_async(
+        self,
+        request: main_models.GetAttackPathEventStatisticsRequest,
+    ) -> main_models.GetAttackPathEventStatisticsResponse:
         runtime = RuntimeOptions()
-        return await self.get_attack_path_event_statistics_with_options_async(runtime)
+        return await self.get_attack_path_event_statistics_with_options_async(request, runtime)
 
     def get_attack_path_sensitive_asset_config_with_options(
         self,
@@ -42277,9 +43221,16 @@ class Client(OpenApiClient):
 
     def get_attack_type_list_with_options(
         self,
+        request: main_models.GetAttackTypeListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetAttackTypeListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetAttackTypeList',
             version = '2018-12-03',
@@ -42298,9 +43249,16 @@ class Client(OpenApiClient):
 
     async def get_attack_type_list_with_options_async(
         self,
+        request: main_models.GetAttackTypeListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetAttackTypeListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetAttackTypeList',
             version = '2018-12-03',
@@ -42317,19 +43275,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_attack_type_list(self) -> main_models.GetAttackTypeListResponse:
+    def get_attack_type_list(
+        self,
+        request: main_models.GetAttackTypeListRequest,
+    ) -> main_models.GetAttackTypeListResponse:
         runtime = RuntimeOptions()
-        return self.get_attack_type_list_with_options(runtime)
+        return self.get_attack_type_list_with_options(request, runtime)
 
-    async def get_attack_type_list_async(self) -> main_models.GetAttackTypeListResponse:
+    async def get_attack_type_list_async(
+        self,
+        request: main_models.GetAttackTypeListRequest,
+    ) -> main_models.GetAttackTypeListResponse:
         runtime = RuntimeOptions()
-        return await self.get_attack_type_list_with_options_async(runtime)
+        return await self.get_attack_type_list_with_options_async(request, runtime)
 
     def get_auth_summary_with_options(
         self,
+        request: main_models.GetAuthSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetAuthSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetAuthSummary',
             version = '2018-12-03',
@@ -42348,9 +43319,16 @@ class Client(OpenApiClient):
 
     async def get_auth_summary_with_options_async(
         self,
+        request: main_models.GetAuthSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetAuthSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetAuthSummary',
             version = '2018-12-03',
@@ -42367,19 +43345,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_auth_summary(self) -> main_models.GetAuthSummaryResponse:
+    def get_auth_summary(
+        self,
+        request: main_models.GetAuthSummaryRequest,
+    ) -> main_models.GetAuthSummaryResponse:
         runtime = RuntimeOptions()
-        return self.get_auth_summary_with_options(runtime)
+        return self.get_auth_summary_with_options(request, runtime)
 
-    async def get_auth_summary_async(self) -> main_models.GetAuthSummaryResponse:
+    async def get_auth_summary_async(
+        self,
+        request: main_models.GetAuthSummaryRequest,
+    ) -> main_models.GetAuthSummaryResponse:
         runtime = RuntimeOptions()
-        return await self.get_auth_summary_with_options_async(runtime)
+        return await self.get_auth_summary_with_options_async(request, runtime)
 
     def get_auth_version_statistic_with_options(
         self,
+        request: main_models.GetAuthVersionStatisticRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetAuthVersionStatisticResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetAuthVersionStatistic',
             version = '2018-12-03',
@@ -42398,9 +43389,16 @@ class Client(OpenApiClient):
 
     async def get_auth_version_statistic_with_options_async(
         self,
+        request: main_models.GetAuthVersionStatisticRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetAuthVersionStatisticResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetAuthVersionStatistic',
             version = '2018-12-03',
@@ -42417,19 +43415,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_auth_version_statistic(self) -> main_models.GetAuthVersionStatisticResponse:
+    def get_auth_version_statistic(
+        self,
+        request: main_models.GetAuthVersionStatisticRequest,
+    ) -> main_models.GetAuthVersionStatisticResponse:
         runtime = RuntimeOptions()
-        return self.get_auth_version_statistic_with_options(runtime)
+        return self.get_auth_version_statistic_with_options(request, runtime)
 
-    async def get_auth_version_statistic_async(self) -> main_models.GetAuthVersionStatisticResponse:
+    async def get_auth_version_statistic_async(
+        self,
+        request: main_models.GetAuthVersionStatisticRequest,
+    ) -> main_models.GetAuthVersionStatisticResponse:
         runtime = RuntimeOptions()
-        return await self.get_auth_version_statistic_with_options_async(runtime)
+        return await self.get_auth_version_statistic_with_options_async(request, runtime)
 
     def get_backup_auto_config_status_with_options(
         self,
+        request: main_models.GetBackupAutoConfigStatusRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetBackupAutoConfigStatusResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetBackupAutoConfigStatus',
             version = '2018-12-03',
@@ -42448,9 +43459,16 @@ class Client(OpenApiClient):
 
     async def get_backup_auto_config_status_with_options_async(
         self,
+        request: main_models.GetBackupAutoConfigStatusRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetBackupAutoConfigStatusResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetBackupAutoConfigStatus',
             version = '2018-12-03',
@@ -42467,19 +43485,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_backup_auto_config_status(self) -> main_models.GetBackupAutoConfigStatusResponse:
+    def get_backup_auto_config_status(
+        self,
+        request: main_models.GetBackupAutoConfigStatusRequest,
+    ) -> main_models.GetBackupAutoConfigStatusResponse:
         runtime = RuntimeOptions()
-        return self.get_backup_auto_config_status_with_options(runtime)
+        return self.get_backup_auto_config_status_with_options(request, runtime)
 
-    async def get_backup_auto_config_status_async(self) -> main_models.GetBackupAutoConfigStatusResponse:
+    async def get_backup_auto_config_status_async(
+        self,
+        request: main_models.GetBackupAutoConfigStatusRequest,
+    ) -> main_models.GetBackupAutoConfigStatusResponse:
         runtime = RuntimeOptions()
-        return await self.get_backup_auto_config_status_with_options_async(runtime)
+        return await self.get_backup_auto_config_status_with_options_async(request, runtime)
 
     def get_backup_storage_count_with_options(
         self,
+        request: main_models.GetBackupStorageCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetBackupStorageCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetBackupStorageCount',
             version = '2018-12-03',
@@ -42498,9 +43529,16 @@ class Client(OpenApiClient):
 
     async def get_backup_storage_count_with_options_async(
         self,
+        request: main_models.GetBackupStorageCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetBackupStorageCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetBackupStorageCount',
             version = '2018-12-03',
@@ -42517,13 +43555,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_backup_storage_count(self) -> main_models.GetBackupStorageCountResponse:
+    def get_backup_storage_count(
+        self,
+        request: main_models.GetBackupStorageCountRequest,
+    ) -> main_models.GetBackupStorageCountResponse:
         runtime = RuntimeOptions()
-        return self.get_backup_storage_count_with_options(runtime)
+        return self.get_backup_storage_count_with_options(request, runtime)
 
-    async def get_backup_storage_count_async(self) -> main_models.GetBackupStorageCountResponse:
+    async def get_backup_storage_count_async(
+        self,
+        request: main_models.GetBackupStorageCountRequest,
+    ) -> main_models.GetBackupStorageCountResponse:
         runtime = RuntimeOptions()
-        return await self.get_backup_storage_count_with_options_async(runtime)
+        return await self.get_backup_storage_count_with_options_async(request, runtime)
 
     def get_build_risk_define_rule_config_with_options(
         self,
@@ -44133,9 +45177,16 @@ class Client(OpenApiClient):
 
     def get_cluster_strategy_count_with_options(
         self,
+        request: main_models.GetClusterStrategyCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetClusterStrategyCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetClusterStrategyCount',
             version = '2018-12-03',
@@ -44154,9 +45205,16 @@ class Client(OpenApiClient):
 
     async def get_cluster_strategy_count_with_options_async(
         self,
+        request: main_models.GetClusterStrategyCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetClusterStrategyCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetClusterStrategyCount',
             version = '2018-12-03',
@@ -44173,13 +45231,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_cluster_strategy_count(self) -> main_models.GetClusterStrategyCountResponse:
+    def get_cluster_strategy_count(
+        self,
+        request: main_models.GetClusterStrategyCountRequest,
+    ) -> main_models.GetClusterStrategyCountResponse:
         runtime = RuntimeOptions()
-        return self.get_cluster_strategy_count_with_options(runtime)
+        return self.get_cluster_strategy_count_with_options(request, runtime)
 
-    async def get_cluster_strategy_count_async(self) -> main_models.GetClusterStrategyCountResponse:
+    async def get_cluster_strategy_count_async(
+        self,
+        request: main_models.GetClusterStrategyCountRequest,
+    ) -> main_models.GetClusterStrategyCountResponse:
         runtime = RuntimeOptions()
-        return await self.get_cluster_strategy_count_with_options_async(runtime)
+        return await self.get_cluster_strategy_count_with_options_async(request, runtime)
 
     def get_cluster_susp_event_statistics_with_options(
         self,
@@ -44262,6 +45326,8 @@ class Client(OpenApiClient):
     ) -> main_models.GetCommonSwitchConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.type):
             query['Type'] = request.type
         req = open_api_util_models.OpenApiRequest(
@@ -44290,6 +45356,8 @@ class Client(OpenApiClient):
     ) -> main_models.GetCommonSwitchConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.type):
             query['Type'] = request.type
         req = open_api_util_models.OpenApiRequest(
@@ -44475,9 +45543,16 @@ class Client(OpenApiClient):
 
     def get_current_version_publish_with_options(
         self,
+        request: main_models.GetCurrentVersionPublishRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetCurrentVersionPublishResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetCurrentVersionPublish',
             version = '2018-12-03',
@@ -44496,9 +45571,16 @@ class Client(OpenApiClient):
 
     async def get_current_version_publish_with_options_async(
         self,
+        request: main_models.GetCurrentVersionPublishRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetCurrentVersionPublishResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetCurrentVersionPublish',
             version = '2018-12-03',
@@ -44515,13 +45597,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_current_version_publish(self) -> main_models.GetCurrentVersionPublishResponse:
+    def get_current_version_publish(
+        self,
+        request: main_models.GetCurrentVersionPublishRequest,
+    ) -> main_models.GetCurrentVersionPublishResponse:
         runtime = RuntimeOptions()
-        return self.get_current_version_publish_with_options(runtime)
+        return self.get_current_version_publish_with_options(request, runtime)
 
-    async def get_current_version_publish_async(self) -> main_models.GetCurrentVersionPublishResponse:
+    async def get_current_version_publish_async(
+        self,
+        request: main_models.GetCurrentVersionPublishRequest,
+    ) -> main_models.GetCurrentVersionPublishResponse:
         runtime = RuntimeOptions()
-        return await self.get_current_version_publish_with_options_async(runtime)
+        return await self.get_current_version_publish_with_options_async(request, runtime)
 
     def get_data_trend_with_options(
         self,
@@ -44611,9 +45699,16 @@ class Client(OpenApiClient):
 
     def get_defence_count_with_options(
         self,
+        request: main_models.GetDefenceCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetDefenceCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetDefenceCount',
             version = '2018-12-03',
@@ -44632,9 +45727,16 @@ class Client(OpenApiClient):
 
     async def get_defence_count_with_options_async(
         self,
+        request: main_models.GetDefenceCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetDefenceCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetDefenceCount',
             version = '2018-12-03',
@@ -44651,13 +45753,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_defence_count(self) -> main_models.GetDefenceCountResponse:
+    def get_defence_count(
+        self,
+        request: main_models.GetDefenceCountRequest,
+    ) -> main_models.GetDefenceCountResponse:
         runtime = RuntimeOptions()
-        return self.get_defence_count_with_options(runtime)
+        return self.get_defence_count_with_options(request, runtime)
 
-    async def get_defence_count_async(self) -> main_models.GetDefenceCountResponse:
+    async def get_defence_count_async(
+        self,
+        request: main_models.GetDefenceCountRequest,
+    ) -> main_models.GetDefenceCountResponse:
         runtime = RuntimeOptions()
-        return await self.get_defence_count_with_options_async(runtime)
+        return await self.get_defence_count_with_options_async(request, runtime)
 
     def get_dockerhub_image_risk_rank_info_with_options(
         self,
@@ -44801,9 +45909,16 @@ class Client(OpenApiClient):
 
     def get_file_detect_api_invoke_info_with_options(
         self,
+        request: main_models.GetFileDetectApiInvokeInfoRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetFileDetectApiInvokeInfoResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetFileDetectApiInvokeInfo',
             version = '2018-12-03',
@@ -44822,9 +45937,16 @@ class Client(OpenApiClient):
 
     async def get_file_detect_api_invoke_info_with_options_async(
         self,
+        request: main_models.GetFileDetectApiInvokeInfoRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetFileDetectApiInvokeInfoResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetFileDetectApiInvokeInfo',
             version = '2018-12-03',
@@ -44841,13 +45963,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_file_detect_api_invoke_info(self) -> main_models.GetFileDetectApiInvokeInfoResponse:
+    def get_file_detect_api_invoke_info(
+        self,
+        request: main_models.GetFileDetectApiInvokeInfoRequest,
+    ) -> main_models.GetFileDetectApiInvokeInfoResponse:
         runtime = RuntimeOptions()
-        return self.get_file_detect_api_invoke_info_with_options(runtime)
+        return self.get_file_detect_api_invoke_info_with_options(request, runtime)
 
-    async def get_file_detect_api_invoke_info_async(self) -> main_models.GetFileDetectApiInvokeInfoResponse:
+    async def get_file_detect_api_invoke_info_async(
+        self,
+        request: main_models.GetFileDetectApiInvokeInfoRequest,
+    ) -> main_models.GetFileDetectApiInvokeInfoResponse:
         runtime = RuntimeOptions()
-        return await self.get_file_detect_api_invoke_info_with_options_async(runtime)
+        return await self.get_file_detect_api_invoke_info_with_options_async(request, runtime)
 
     def get_file_detect_report_with_options(
         self,
@@ -45293,9 +46421,16 @@ class Client(OpenApiClient):
 
     def get_file_protect_dashboard_with_options(
         self,
+        request: main_models.GetFileProtectDashboardRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetFileProtectDashboardResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetFileProtectDashboard',
             version = '2018-12-03',
@@ -45314,9 +46449,16 @@ class Client(OpenApiClient):
 
     async def get_file_protect_dashboard_with_options_async(
         self,
+        request: main_models.GetFileProtectDashboardRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetFileProtectDashboardResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetFileProtectDashboard',
             version = '2018-12-03',
@@ -45333,13 +46475,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_file_protect_dashboard(self) -> main_models.GetFileProtectDashboardResponse:
+    def get_file_protect_dashboard(
+        self,
+        request: main_models.GetFileProtectDashboardRequest,
+    ) -> main_models.GetFileProtectDashboardResponse:
         runtime = RuntimeOptions()
-        return self.get_file_protect_dashboard_with_options(runtime)
+        return self.get_file_protect_dashboard_with_options(request, runtime)
 
-    async def get_file_protect_dashboard_async(self) -> main_models.GetFileProtectDashboardResponse:
+    async def get_file_protect_dashboard_async(
+        self,
+        request: main_models.GetFileProtectDashboardRequest,
+    ) -> main_models.GetFileProtectDashboardResponse:
         runtime = RuntimeOptions()
-        return await self.get_file_protect_dashboard_with_options_async(runtime)
+        return await self.get_file_protect_dashboard_with_options_async(request, runtime)
 
     def get_file_protect_event_with_options(
         self,
@@ -45553,9 +46701,16 @@ class Client(OpenApiClient):
 
     def get_file_upload_limit_with_options(
         self,
+        request: main_models.GetFileUploadLimitRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetFileUploadLimitResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetFileUploadLimit',
             version = '2018-12-03',
@@ -45574,9 +46729,16 @@ class Client(OpenApiClient):
 
     async def get_file_upload_limit_with_options_async(
         self,
+        request: main_models.GetFileUploadLimitRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetFileUploadLimitResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetFileUploadLimit',
             version = '2018-12-03',
@@ -45593,13 +46755,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_file_upload_limit(self) -> main_models.GetFileUploadLimitResponse:
+    def get_file_upload_limit(
+        self,
+        request: main_models.GetFileUploadLimitRequest,
+    ) -> main_models.GetFileUploadLimitResponse:
         runtime = RuntimeOptions()
-        return self.get_file_upload_limit_with_options(runtime)
+        return self.get_file_upload_limit_with_options(request, runtime)
 
-    async def get_file_upload_limit_async(self) -> main_models.GetFileUploadLimitResponse:
+    async def get_file_upload_limit_async(
+        self,
+        request: main_models.GetFileUploadLimitRequest,
+    ) -> main_models.GetFileUploadLimitResponse:
         runtime = RuntimeOptions()
-        return await self.get_file_upload_limit_with_options_async(runtime)
+        return await self.get_file_upload_limit_with_options_async(request, runtime)
 
     def get_function_trial_status_with_options(
         self,
@@ -46609,9 +47777,16 @@ class Client(OpenApiClient):
 
     def get_instance_auth_range_with_options(
         self,
+        request: main_models.GetInstanceAuthRangeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetInstanceAuthRangeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetInstanceAuthRange',
             version = '2018-12-03',
@@ -46630,9 +47805,16 @@ class Client(OpenApiClient):
 
     async def get_instance_auth_range_with_options_async(
         self,
+        request: main_models.GetInstanceAuthRangeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetInstanceAuthRangeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetInstanceAuthRange',
             version = '2018-12-03',
@@ -46649,13 +47831,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_instance_auth_range(self) -> main_models.GetInstanceAuthRangeResponse:
+    def get_instance_auth_range(
+        self,
+        request: main_models.GetInstanceAuthRangeRequest,
+    ) -> main_models.GetInstanceAuthRangeResponse:
         runtime = RuntimeOptions()
-        return self.get_instance_auth_range_with_options(runtime)
+        return self.get_instance_auth_range_with_options(request, runtime)
 
-    async def get_instance_auth_range_async(self) -> main_models.GetInstanceAuthRangeResponse:
+    async def get_instance_auth_range_async(
+        self,
+        request: main_models.GetInstanceAuthRangeRequest,
+    ) -> main_models.GetInstanceAuthRangeResponse:
         runtime = RuntimeOptions()
-        return await self.get_instance_auth_range_with_options_async(runtime)
+        return await self.get_instance_auth_range_with_options_async(request, runtime)
 
     def get_interception_rule_detail_with_options(
         self,
@@ -47474,6 +48662,8 @@ class Client(OpenApiClient):
     ) -> main_models.GetOnceTaskResultInfoResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.task_id):
             query['TaskId'] = request.task_id
         if not DaraCore.is_null(request.task_name):
@@ -47506,6 +48696,8 @@ class Client(OpenApiClient):
     ) -> main_models.GetOnceTaskResultInfoResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.task_id):
             query['TaskId'] = request.task_id
         if not DaraCore.is_null(request.task_name):
@@ -47547,9 +48739,16 @@ class Client(OpenApiClient):
 
     def get_opa_cluster_base_line_list_with_options(
         self,
+        request: main_models.GetOpaClusterBaseLineListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetOpaClusterBaseLineListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetOpaClusterBaseLineList',
             version = '2018-12-03',
@@ -47568,9 +48767,16 @@ class Client(OpenApiClient):
 
     async def get_opa_cluster_base_line_list_with_options_async(
         self,
+        request: main_models.GetOpaClusterBaseLineListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetOpaClusterBaseLineListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetOpaClusterBaseLineList',
             version = '2018-12-03',
@@ -47587,13 +48793,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_opa_cluster_base_line_list(self) -> main_models.GetOpaClusterBaseLineListResponse:
+    def get_opa_cluster_base_line_list(
+        self,
+        request: main_models.GetOpaClusterBaseLineListRequest,
+    ) -> main_models.GetOpaClusterBaseLineListResponse:
         runtime = RuntimeOptions()
-        return self.get_opa_cluster_base_line_list_with_options(runtime)
+        return self.get_opa_cluster_base_line_list_with_options(request, runtime)
 
-    async def get_opa_cluster_base_line_list_async(self) -> main_models.GetOpaClusterBaseLineListResponse:
+    async def get_opa_cluster_base_line_list_async(
+        self,
+        request: main_models.GetOpaClusterBaseLineListRequest,
+    ) -> main_models.GetOpaClusterBaseLineListResponse:
         runtime = RuntimeOptions()
-        return await self.get_opa_cluster_base_line_list_with_options_async(runtime)
+        return await self.get_opa_cluster_base_line_list_with_options_async(request, runtime)
 
     def get_opa_cluster_image_list_with_options(
         self,
@@ -47983,9 +49195,16 @@ class Client(OpenApiClient):
 
     def get_opa_strategy_template_summary_with_options(
         self,
+        request: main_models.GetOpaStrategyTemplateSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetOpaStrategyTemplateSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetOpaStrategyTemplateSummary',
             version = '2018-12-03',
@@ -48004,9 +49223,16 @@ class Client(OpenApiClient):
 
     async def get_opa_strategy_template_summary_with_options_async(
         self,
+        request: main_models.GetOpaStrategyTemplateSummaryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetOpaStrategyTemplateSummaryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetOpaStrategyTemplateSummary',
             version = '2018-12-03',
@@ -48023,13 +49249,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_opa_strategy_template_summary(self) -> main_models.GetOpaStrategyTemplateSummaryResponse:
+    def get_opa_strategy_template_summary(
+        self,
+        request: main_models.GetOpaStrategyTemplateSummaryRequest,
+    ) -> main_models.GetOpaStrategyTemplateSummaryResponse:
         runtime = RuntimeOptions()
-        return self.get_opa_strategy_template_summary_with_options(runtime)
+        return self.get_opa_strategy_template_summary_with_options(request, runtime)
 
-    async def get_opa_strategy_template_summary_async(self) -> main_models.GetOpaStrategyTemplateSummaryResponse:
+    async def get_opa_strategy_template_summary_async(
+        self,
+        request: main_models.GetOpaStrategyTemplateSummaryRequest,
+    ) -> main_models.GetOpaStrategyTemplateSummaryResponse:
         runtime = RuntimeOptions()
-        return await self.get_opa_strategy_template_summary_with_options_async(runtime)
+        return await self.get_opa_strategy_template_summary_with_options_async(request, runtime)
 
     def get_oss_bucket_scan_statistic_with_options(
         self,
@@ -48255,9 +49487,16 @@ class Client(OpenApiClient):
 
     def get_publish_cron_with_options(
         self,
+        request: main_models.GetPublishCronRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetPublishCronResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetPublishCron',
             version = '2018-12-03',
@@ -48276,9 +49515,16 @@ class Client(OpenApiClient):
 
     async def get_publish_cron_with_options_async(
         self,
+        request: main_models.GetPublishCronRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetPublishCronResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetPublishCron',
             version = '2018-12-03',
@@ -48295,19 +49541,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_publish_cron(self) -> main_models.GetPublishCronResponse:
+    def get_publish_cron(
+        self,
+        request: main_models.GetPublishCronRequest,
+    ) -> main_models.GetPublishCronResponse:
         runtime = RuntimeOptions()
-        return self.get_publish_cron_with_options(runtime)
+        return self.get_publish_cron_with_options(request, runtime)
 
-    async def get_publish_cron_async(self) -> main_models.GetPublishCronResponse:
+    async def get_publish_cron_async(
+        self,
+        request: main_models.GetPublishCronRequest,
+    ) -> main_models.GetPublishCronResponse:
         runtime = RuntimeOptions()
-        return await self.get_publish_cron_with_options_async(runtime)
+        return await self.get_publish_cron_with_options_async(request, runtime)
 
     def get_rd_tree_with_options(
         self,
+        request: main_models.GetRdTreeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetRdTreeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetRdTree',
             version = '2018-12-03',
@@ -48326,9 +49585,16 @@ class Client(OpenApiClient):
 
     async def get_rd_tree_with_options_async(
         self,
+        request: main_models.GetRdTreeRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetRdTreeResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetRdTree',
             version = '2018-12-03',
@@ -48345,19 +49611,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_rd_tree(self) -> main_models.GetRdTreeResponse:
+    def get_rd_tree(
+        self,
+        request: main_models.GetRdTreeRequest,
+    ) -> main_models.GetRdTreeResponse:
         runtime = RuntimeOptions()
-        return self.get_rd_tree_with_options(runtime)
+        return self.get_rd_tree_with_options(request, runtime)
 
-    async def get_rd_tree_async(self) -> main_models.GetRdTreeResponse:
+    async def get_rd_tree_async(
+        self,
+        request: main_models.GetRdTreeRequest,
+    ) -> main_models.GetRdTreeResponse:
         runtime = RuntimeOptions()
-        return await self.get_rd_tree_with_options_async(runtime)
+        return await self.get_rd_tree_with_options_async(request, runtime)
 
     def get_registry_scan_day_num_with_options(
         self,
+        request: main_models.GetRegistryScanDayNumRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetRegistryScanDayNumResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetRegistryScanDayNum',
             version = '2018-12-03',
@@ -48376,9 +49655,16 @@ class Client(OpenApiClient):
 
     async def get_registry_scan_day_num_with_options_async(
         self,
+        request: main_models.GetRegistryScanDayNumRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetRegistryScanDayNumResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetRegistryScanDayNum',
             version = '2018-12-03',
@@ -48395,19 +49681,32 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_registry_scan_day_num(self) -> main_models.GetRegistryScanDayNumResponse:
+    def get_registry_scan_day_num(
+        self,
+        request: main_models.GetRegistryScanDayNumRequest,
+    ) -> main_models.GetRegistryScanDayNumResponse:
         runtime = RuntimeOptions()
-        return self.get_registry_scan_day_num_with_options(runtime)
+        return self.get_registry_scan_day_num_with_options(request, runtime)
 
-    async def get_registry_scan_day_num_async(self) -> main_models.GetRegistryScanDayNumResponse:
+    async def get_registry_scan_day_num_async(
+        self,
+        request: main_models.GetRegistryScanDayNumRequest,
+    ) -> main_models.GetRegistryScanDayNumResponse:
         runtime = RuntimeOptions()
-        return await self.get_registry_scan_day_num_with_options_async(runtime)
+        return await self.get_registry_scan_day_num_with_options_async(request, runtime)
 
     def get_rules_count_with_options(
         self,
+        request: main_models.GetRulesCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetRulesCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetRulesCount',
             version = '2018-12-03',
@@ -48426,9 +49725,16 @@ class Client(OpenApiClient):
 
     async def get_rules_count_with_options_async(
         self,
+        request: main_models.GetRulesCountRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetRulesCountResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetRulesCount',
             version = '2018-12-03',
@@ -48445,13 +49751,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_rules_count(self) -> main_models.GetRulesCountResponse:
+    def get_rules_count(
+        self,
+        request: main_models.GetRulesCountRequest,
+    ) -> main_models.GetRulesCountResponse:
         runtime = RuntimeOptions()
-        return self.get_rules_count_with_options(runtime)
+        return self.get_rules_count_with_options(request, runtime)
 
-    async def get_rules_count_async(self) -> main_models.GetRulesCountResponse:
+    async def get_rules_count_async(
+        self,
+        request: main_models.GetRulesCountRequest,
+    ) -> main_models.GetRulesCountResponse:
         runtime = RuntimeOptions()
-        return await self.get_rules_count_with_options_async(runtime)
+        return await self.get_rules_count_with_options_async(request, runtime)
 
     def get_sas_container_web_defense_rule_with_options(
         self,
@@ -48984,6 +50296,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -49012,6 +50326,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -49339,9 +50655,14 @@ class Client(OpenApiClient):
 
     def get_tenant_check_available_with_options(
         self,
+        request: main_models.GetTenantCheckAvailableRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetTenantCheckAvailableResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = Utils.query(request.to_map())
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetTenantCheckAvailable',
             version = '2018-12-03',
@@ -49360,9 +50681,14 @@ class Client(OpenApiClient):
 
     async def get_tenant_check_available_with_options_async(
         self,
+        request: main_models.GetTenantCheckAvailableRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetTenantCheckAvailableResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = Utils.query(request.to_map())
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetTenantCheckAvailable',
             version = '2018-12-03',
@@ -49379,13 +50705,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_tenant_check_available(self) -> main_models.GetTenantCheckAvailableResponse:
+    def get_tenant_check_available(
+        self,
+        request: main_models.GetTenantCheckAvailableRequest,
+    ) -> main_models.GetTenantCheckAvailableResponse:
         runtime = RuntimeOptions()
-        return self.get_tenant_check_available_with_options(runtime)
+        return self.get_tenant_check_available_with_options(request, runtime)
 
-    async def get_tenant_check_available_async(self) -> main_models.GetTenantCheckAvailableResponse:
+    async def get_tenant_check_available_async(
+        self,
+        request: main_models.GetTenantCheckAvailableRequest,
+    ) -> main_models.GetTenantCheckAvailableResponse:
         runtime = RuntimeOptions()
-        return await self.get_tenant_check_available_with_options_async(runtime)
+        return await self.get_tenant_check_available_with_options_async(request, runtime)
 
     def get_unknown_threat_detect_statistic_with_options(
         self,
@@ -49449,9 +50781,16 @@ class Client(OpenApiClient):
 
     def get_user_lang_with_options(
         self,
+        request: main_models.GetUserLangRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetUserLangResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetUserLang',
             version = '2018-12-03',
@@ -49470,9 +50809,16 @@ class Client(OpenApiClient):
 
     async def get_user_lang_with_options_async(
         self,
+        request: main_models.GetUserLangRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetUserLangResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetUserLang',
             version = '2018-12-03',
@@ -49489,13 +50835,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_user_lang(self) -> main_models.GetUserLangResponse:
+    def get_user_lang(
+        self,
+        request: main_models.GetUserLangRequest,
+    ) -> main_models.GetUserLangResponse:
         runtime = RuntimeOptions()
-        return self.get_user_lang_with_options(runtime)
+        return self.get_user_lang_with_options(request, runtime)
 
-    async def get_user_lang_async(self) -> main_models.GetUserLangResponse:
+    async def get_user_lang_async(
+        self,
+        request: main_models.GetUserLangRequest,
+    ) -> main_models.GetUserLangResponse:
         runtime = RuntimeOptions()
-        return await self.get_user_lang_with_options_async(runtime)
+        return await self.get_user_lang_with_options_async(request, runtime)
 
     def get_valid_deduct_instances_with_options(
         self,
@@ -49647,9 +50999,16 @@ class Client(OpenApiClient):
 
     def get_virus_scan_latest_task_statistic_with_options(
         self,
+        request: main_models.GetVirusScanLatestTaskStatisticRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetVirusScanLatestTaskStatisticResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetVirusScanLatestTaskStatistic',
             version = '2018-12-03',
@@ -49668,9 +51027,16 @@ class Client(OpenApiClient):
 
     async def get_virus_scan_latest_task_statistic_with_options_async(
         self,
+        request: main_models.GetVirusScanLatestTaskStatisticRequest,
         runtime: RuntimeOptions,
     ) -> main_models.GetVirusScanLatestTaskStatisticResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'GetVirusScanLatestTaskStatistic',
             version = '2018-12-03',
@@ -49687,13 +51053,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def get_virus_scan_latest_task_statistic(self) -> main_models.GetVirusScanLatestTaskStatisticResponse:
+    def get_virus_scan_latest_task_statistic(
+        self,
+        request: main_models.GetVirusScanLatestTaskStatisticRequest,
+    ) -> main_models.GetVirusScanLatestTaskStatisticResponse:
         runtime = RuntimeOptions()
-        return self.get_virus_scan_latest_task_statistic_with_options(runtime)
+        return self.get_virus_scan_latest_task_statistic_with_options(request, runtime)
 
-    async def get_virus_scan_latest_task_statistic_async(self) -> main_models.GetVirusScanLatestTaskStatisticResponse:
+    async def get_virus_scan_latest_task_statistic_async(
+        self,
+        request: main_models.GetVirusScanLatestTaskStatisticRequest,
+    ) -> main_models.GetVirusScanLatestTaskStatisticResponse:
         runtime = RuntimeOptions()
-        return await self.get_virus_scan_latest_task_statistic_with_options_async(runtime)
+        return await self.get_virus_scan_latest_task_statistic_with_options_async(request, runtime)
 
     def get_vul_statistics_with_options(
         self,
@@ -51275,9 +52647,16 @@ class Client(OpenApiClient):
 
     def list_accounts_in_resource_directory_with_options(
         self,
+        request: main_models.ListAccountsInResourceDirectoryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListAccountsInResourceDirectoryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListAccountsInResourceDirectory',
             version = '2018-12-03',
@@ -51296,9 +52675,16 @@ class Client(OpenApiClient):
 
     async def list_accounts_in_resource_directory_with_options_async(
         self,
+        request: main_models.ListAccountsInResourceDirectoryRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListAccountsInResourceDirectoryResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListAccountsInResourceDirectory',
             version = '2018-12-03',
@@ -51315,13 +52701,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_accounts_in_resource_directory(self) -> main_models.ListAccountsInResourceDirectoryResponse:
+    def list_accounts_in_resource_directory(
+        self,
+        request: main_models.ListAccountsInResourceDirectoryRequest,
+    ) -> main_models.ListAccountsInResourceDirectoryResponse:
         runtime = RuntimeOptions()
-        return self.list_accounts_in_resource_directory_with_options(runtime)
+        return self.list_accounts_in_resource_directory_with_options(request, runtime)
 
-    async def list_accounts_in_resource_directory_async(self) -> main_models.ListAccountsInResourceDirectoryResponse:
+    async def list_accounts_in_resource_directory_async(
+        self,
+        request: main_models.ListAccountsInResourceDirectoryRequest,
+    ) -> main_models.ListAccountsInResourceDirectoryResponse:
         runtime = RuntimeOptions()
-        return await self.list_accounts_in_resource_directory_with_options_async(runtime)
+        return await self.list_accounts_in_resource_directory_with_options_async(request, runtime)
 
     def list_aegis_container_plugin_rule_with_options(
         self,
@@ -51705,9 +53097,16 @@ class Client(OpenApiClient):
 
     def list_agentless_region_with_options(
         self,
+        request: main_models.ListAgentlessRegionRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListAgentlessRegionResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListAgentlessRegion',
             version = '2018-12-03',
@@ -51726,9 +53125,16 @@ class Client(OpenApiClient):
 
     async def list_agentless_region_with_options_async(
         self,
+        request: main_models.ListAgentlessRegionRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListAgentlessRegionResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListAgentlessRegion',
             version = '2018-12-03',
@@ -51745,13 +53151,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_agentless_region(self) -> main_models.ListAgentlessRegionResponse:
+    def list_agentless_region(
+        self,
+        request: main_models.ListAgentlessRegionRequest,
+    ) -> main_models.ListAgentlessRegionResponse:
         runtime = RuntimeOptions()
-        return self.list_agentless_region_with_options(runtime)
+        return self.list_agentless_region_with_options(request, runtime)
 
-    async def list_agentless_region_async(self) -> main_models.ListAgentlessRegionResponse:
+    async def list_agentless_region_async(
+        self,
+        request: main_models.ListAgentlessRegionRequest,
+    ) -> main_models.ListAgentlessRegionResponse:
         runtime = RuntimeOptions()
-        return await self.list_agentless_region_with_options_async(runtime)
+        return await self.list_agentless_region_with_options_async(request, runtime)
 
     def list_agentless_relate_malicious_with_options(
         self,
@@ -52089,9 +53501,16 @@ class Client(OpenApiClient):
 
     def list_asset_clean_config_with_options(
         self,
+        request: main_models.ListAssetCleanConfigRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListAssetCleanConfigResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListAssetCleanConfig',
             version = '2018-12-03',
@@ -52110,9 +53529,16 @@ class Client(OpenApiClient):
 
     async def list_asset_clean_config_with_options_async(
         self,
+        request: main_models.ListAssetCleanConfigRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListAssetCleanConfigResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListAssetCleanConfig',
             version = '2018-12-03',
@@ -52129,13 +53555,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_asset_clean_config(self) -> main_models.ListAssetCleanConfigResponse:
+    def list_asset_clean_config(
+        self,
+        request: main_models.ListAssetCleanConfigRequest,
+    ) -> main_models.ListAssetCleanConfigResponse:
         runtime = RuntimeOptions()
-        return self.list_asset_clean_config_with_options(runtime)
+        return self.list_asset_clean_config_with_options(request, runtime)
 
-    async def list_asset_clean_config_async(self) -> main_models.ListAssetCleanConfigResponse:
+    async def list_asset_clean_config_async(
+        self,
+        request: main_models.ListAssetCleanConfigRequest,
+    ) -> main_models.ListAssetCleanConfigResponse:
         runtime = RuntimeOptions()
-        return await self.list_asset_clean_config_with_options_async(runtime)
+        return await self.list_asset_clean_config_with_options_async(request, runtime)
 
     def list_asset_info_publish_with_options(
         self,
@@ -53740,6 +55172,10 @@ class Client(OpenApiClient):
             query['InstanceTypes'] = request.instance_types
         if not DaraCore.is_null(request.lang):
             query['Lang'] = request.lang
+        if not DaraCore.is_null(request.last_check_time_end):
+            query['LastCheckTimeEnd'] = request.last_check_time_end
+        if not DaraCore.is_null(request.last_check_time_start):
+            query['LastCheckTimeStart'] = request.last_check_time_start
         if not DaraCore.is_null(request.operation_types):
             query['OperationTypes'] = request.operation_types
         if not DaraCore.is_null(request.page_size):
@@ -53806,6 +55242,10 @@ class Client(OpenApiClient):
             query['InstanceTypes'] = request.instance_types
         if not DaraCore.is_null(request.lang):
             query['Lang'] = request.lang
+        if not DaraCore.is_null(request.last_check_time_end):
+            query['LastCheckTimeEnd'] = request.last_check_time_end
+        if not DaraCore.is_null(request.last_check_time_start):
+            query['LastCheckTimeStart'] = request.last_check_time_start
         if not DaraCore.is_null(request.operation_types):
             query['OperationTypes'] = request.operation_types
         if not DaraCore.is_null(request.page_size):
@@ -54247,9 +55687,16 @@ class Client(OpenApiClient):
 
     def list_client_user_define_rule_types_with_options(
         self,
+        request: main_models.ListClientUserDefineRuleTypesRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListClientUserDefineRuleTypesResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListClientUserDefineRuleTypes',
             version = '2018-12-03',
@@ -54268,9 +55715,16 @@ class Client(OpenApiClient):
 
     async def list_client_user_define_rule_types_with_options_async(
         self,
+        request: main_models.ListClientUserDefineRuleTypesRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListClientUserDefineRuleTypesResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListClientUserDefineRuleTypes',
             version = '2018-12-03',
@@ -54287,13 +55741,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_client_user_define_rule_types(self) -> main_models.ListClientUserDefineRuleTypesResponse:
+    def list_client_user_define_rule_types(
+        self,
+        request: main_models.ListClientUserDefineRuleTypesRequest,
+    ) -> main_models.ListClientUserDefineRuleTypesResponse:
         runtime = RuntimeOptions()
-        return self.list_client_user_define_rule_types_with_options(runtime)
+        return self.list_client_user_define_rule_types_with_options(request, runtime)
 
-    async def list_client_user_define_rule_types_async(self) -> main_models.ListClientUserDefineRuleTypesResponse:
+    async def list_client_user_define_rule_types_async(
+        self,
+        request: main_models.ListClientUserDefineRuleTypesRequest,
+    ) -> main_models.ListClientUserDefineRuleTypesResponse:
         runtime = RuntimeOptions()
-        return await self.list_client_user_define_rule_types_with_options_async(runtime)
+        return await self.list_client_user_define_rule_types_with_options_async(request, runtime)
 
     def list_client_user_define_rules_with_options(
         self,
@@ -54308,6 +55768,8 @@ class Client(OpenApiClient):
             query['Name'] = request.name
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.rule_category):
+            query['RuleCategory'] = request.rule_category
         if not DaraCore.is_null(request.type):
             query['Type'] = request.type
         req = open_api_util_models.OpenApiRequest(
@@ -54342,6 +55804,8 @@ class Client(OpenApiClient):
             query['Name'] = request.name
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.rule_category):
+            query['RuleCategory'] = request.rule_category
         if not DaraCore.is_null(request.type):
             query['Type'] = request.type
         req = open_api_util_models.OpenApiRequest(
@@ -55223,9 +56687,16 @@ class Client(OpenApiClient):
 
     def list_container_defense_rule_clusters_with_options(
         self,
+        request: main_models.ListContainerDefenseRuleClustersRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListContainerDefenseRuleClustersResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListContainerDefenseRuleClusters',
             version = '2018-12-03',
@@ -55244,9 +56715,16 @@ class Client(OpenApiClient):
 
     async def list_container_defense_rule_clusters_with_options_async(
         self,
+        request: main_models.ListContainerDefenseRuleClustersRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListContainerDefenseRuleClustersResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListContainerDefenseRuleClusters',
             version = '2018-12-03',
@@ -55263,13 +56741,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_container_defense_rule_clusters(self) -> main_models.ListContainerDefenseRuleClustersResponse:
+    def list_container_defense_rule_clusters(
+        self,
+        request: main_models.ListContainerDefenseRuleClustersRequest,
+    ) -> main_models.ListContainerDefenseRuleClustersResponse:
         runtime = RuntimeOptions()
-        return self.list_container_defense_rule_clusters_with_options(runtime)
+        return self.list_container_defense_rule_clusters_with_options(request, runtime)
 
-    async def list_container_defense_rule_clusters_async(self) -> main_models.ListContainerDefenseRuleClustersResponse:
+    async def list_container_defense_rule_clusters_async(
+        self,
+        request: main_models.ListContainerDefenseRuleClustersRequest,
+    ) -> main_models.ListContainerDefenseRuleClustersResponse:
         runtime = RuntimeOptions()
-        return await self.list_container_defense_rule_clusters_with_options_async(runtime)
+        return await self.list_container_defense_rule_clusters_with_options_async(request, runtime)
 
     def list_criteria_strategy_with_options(
         self,
@@ -55570,6 +57054,8 @@ class Client(OpenApiClient):
             query['AlertLevel'] = request.alert_level
         if not DaraCore.is_null(request.current_page):
             query['CurrentPage'] = request.current_page
+        if not DaraCore.is_null(request.file_name):
+            query['FileName'] = request.file_name
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
         if not DaraCore.is_null(request.platform):
@@ -55608,6 +57094,8 @@ class Client(OpenApiClient):
             query['AlertLevel'] = request.alert_level
         if not DaraCore.is_null(request.current_page):
             query['CurrentPage'] = request.current_page
+        if not DaraCore.is_null(request.file_name):
+            query['FileName'] = request.file_name
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
         if not DaraCore.is_null(request.platform):
@@ -57750,6 +59238,8 @@ class Client(OpenApiClient):
             query['AliyunYundunGatewayPopName'] = request.aliyun_yundun_gateway_pop_name
         if not DaraCore.is_null(request.aliyun_yundun_gateway_project_name):
             query['AliyunYundunGatewayProjectName'] = request.aliyun_yundun_gateway_project_name
+        if not DaraCore.is_null(request.cluster_id):
+            query['ClusterId'] = request.cluster_id
         if not DaraCore.is_null(request.lang):
             query['Lang'] = request.lang
         req = open_api_util_models.OpenApiRequest(
@@ -57784,6 +59274,8 @@ class Client(OpenApiClient):
             query['AliyunYundunGatewayPopName'] = request.aliyun_yundun_gateway_pop_name
         if not DaraCore.is_null(request.aliyun_yundun_gateway_project_name):
             query['AliyunYundunGatewayProjectName'] = request.aliyun_yundun_gateway_project_name
+        if not DaraCore.is_null(request.cluster_id):
+            query['ClusterId'] = request.cluster_id
         if not DaraCore.is_null(request.lang):
             query['Lang'] = request.lang
         req = open_api_util_models.OpenApiRequest(
@@ -57911,9 +59403,16 @@ class Client(OpenApiClient):
 
     def list_log_shipper_regions_with_options(
         self,
+        request: main_models.ListLogShipperRegionsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListLogShipperRegionsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListLogShipperRegions',
             version = '2018-12-03',
@@ -57932,9 +59431,16 @@ class Client(OpenApiClient):
 
     async def list_log_shipper_regions_with_options_async(
         self,
+        request: main_models.ListLogShipperRegionsRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListLogShipperRegionsResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListLogShipperRegions',
             version = '2018-12-03',
@@ -57951,13 +59457,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_log_shipper_regions(self) -> main_models.ListLogShipperRegionsResponse:
+    def list_log_shipper_regions(
+        self,
+        request: main_models.ListLogShipperRegionsRequest,
+    ) -> main_models.ListLogShipperRegionsResponse:
         runtime = RuntimeOptions()
-        return self.list_log_shipper_regions_with_options(runtime)
+        return self.list_log_shipper_regions_with_options(request, runtime)
 
-    async def list_log_shipper_regions_async(self) -> main_models.ListLogShipperRegionsResponse:
+    async def list_log_shipper_regions_async(
+        self,
+        request: main_models.ListLogShipperRegionsRequest,
+    ) -> main_models.ListLogShipperRegionsResponse:
         runtime = RuntimeOptions()
-        return await self.list_log_shipper_regions_with_options_async(runtime)
+        return await self.list_log_shipper_regions_with_options_async(request, runtime)
 
     def list_machine_apps_with_options(
         self,
@@ -58510,12 +60022,20 @@ class Client(OpenApiClient):
     ) -> main_models.ListOperationProcessResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.check_id):
+            query['CheckId'] = request.check_id
         if not DaraCore.is_null(request.current_page):
             query['CurrentPage'] = request.current_page
         if not DaraCore.is_null(request.end_time):
             query['EndTime'] = request.end_time
+        if not DaraCore.is_null(request.instance_id):
+            query['InstanceId'] = request.instance_id
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.realtime):
+            query['Realtime'] = request.realtime
+        if not DaraCore.is_null(request.service_name):
+            query['ServiceName'] = request.service_name
         if not DaraCore.is_null(request.start_time):
             query['StartTime'] = request.start_time
         if not DaraCore.is_null(request.status_codes):
@@ -58552,12 +60072,20 @@ class Client(OpenApiClient):
     ) -> main_models.ListOperationProcessResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.check_id):
+            query['CheckId'] = request.check_id
         if not DaraCore.is_null(request.current_page):
             query['CurrentPage'] = request.current_page
         if not DaraCore.is_null(request.end_time):
             query['EndTime'] = request.end_time
+        if not DaraCore.is_null(request.instance_id):
+            query['InstanceId'] = request.instance_id
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.realtime):
+            query['Realtime'] = request.realtime
+        if not DaraCore.is_null(request.service_name):
+            query['ServiceName'] = request.service_name
         if not DaraCore.is_null(request.start_time):
             query['StartTime'] = request.start_time
         if not DaraCore.is_null(request.status_codes):
@@ -59181,9 +60709,16 @@ class Client(OpenApiClient):
 
     def list_private_k8s_with_options(
         self,
+        request: main_models.ListPrivateK8sRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListPrivateK8sResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListPrivateK8s',
             version = '2018-12-03',
@@ -59202,9 +60737,16 @@ class Client(OpenApiClient):
 
     async def list_private_k8s_with_options_async(
         self,
+        request: main_models.ListPrivateK8sRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListPrivateK8sResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListPrivateK8s',
             version = '2018-12-03',
@@ -59221,13 +60763,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_private_k8s(self) -> main_models.ListPrivateK8sResponse:
+    def list_private_k8s(
+        self,
+        request: main_models.ListPrivateK8sRequest,
+    ) -> main_models.ListPrivateK8sResponse:
         runtime = RuntimeOptions()
-        return self.list_private_k8s_with_options(runtime)
+        return self.list_private_k8s_with_options(request, runtime)
 
-    async def list_private_k8s_async(self) -> main_models.ListPrivateK8sResponse:
+    async def list_private_k8s_async(
+        self,
+        request: main_models.ListPrivateK8sRequest,
+    ) -> main_models.ListPrivateK8sResponse:
         runtime = RuntimeOptions()
-        return await self.list_private_k8s_with_options_async(runtime)
+        return await self.list_private_k8s_with_options_async(request, runtime)
 
     def list_private_registry_list_with_options(
         self,
@@ -59453,9 +61001,16 @@ class Client(OpenApiClient):
 
     def list_rd_default_sync_list_with_options(
         self,
+        request: main_models.ListRdDefaultSyncListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListRdDefaultSyncListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListRdDefaultSyncList',
             version = '2018-12-03',
@@ -59474,9 +61029,16 @@ class Client(OpenApiClient):
 
     async def list_rd_default_sync_list_with_options_async(
         self,
+        request: main_models.ListRdDefaultSyncListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListRdDefaultSyncListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListRdDefaultSyncList',
             version = '2018-12-03',
@@ -59493,13 +61055,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_rd_default_sync_list(self) -> main_models.ListRdDefaultSyncListResponse:
+    def list_rd_default_sync_list(
+        self,
+        request: main_models.ListRdDefaultSyncListRequest,
+    ) -> main_models.ListRdDefaultSyncListResponse:
         runtime = RuntimeOptions()
-        return self.list_rd_default_sync_list_with_options(runtime)
+        return self.list_rd_default_sync_list_with_options(request, runtime)
 
-    async def list_rd_default_sync_list_async(self) -> main_models.ListRdDefaultSyncListResponse:
+    async def list_rd_default_sync_list_async(
+        self,
+        request: main_models.ListRdDefaultSyncListRequest,
+    ) -> main_models.ListRdDefaultSyncListResponse:
         runtime = RuntimeOptions()
-        return await self.list_rd_default_sync_list_with_options_async(runtime)
+        return await self.list_rd_default_sync_list_with_options_async(request, runtime)
 
     def list_rule_target_all_with_options(
         self,
@@ -59737,9 +61305,16 @@ class Client(OpenApiClient):
 
     def list_support_object_suffix_with_options(
         self,
+        request: main_models.ListSupportObjectSuffixRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListSupportObjectSuffixResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListSupportObjectSuffix',
             version = '2018-12-03',
@@ -59758,9 +61333,16 @@ class Client(OpenApiClient):
 
     async def list_support_object_suffix_with_options_async(
         self,
+        request: main_models.ListSupportObjectSuffixRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListSupportObjectSuffixResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListSupportObjectSuffix',
             version = '2018-12-03',
@@ -59777,13 +61359,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_support_object_suffix(self) -> main_models.ListSupportObjectSuffixResponse:
+    def list_support_object_suffix(
+        self,
+        request: main_models.ListSupportObjectSuffixRequest,
+    ) -> main_models.ListSupportObjectSuffixResponse:
         runtime = RuntimeOptions()
-        return self.list_support_object_suffix_with_options(runtime)
+        return self.list_support_object_suffix_with_options(request, runtime)
 
-    async def list_support_object_suffix_async(self) -> main_models.ListSupportObjectSuffixResponse:
+    async def list_support_object_suffix_async(
+        self,
+        request: main_models.ListSupportObjectSuffixRequest,
+    ) -> main_models.ListSupportObjectSuffixResponse:
         runtime = RuntimeOptions()
-        return await self.list_support_object_suffix_with_options_async(runtime)
+        return await self.list_support_object_suffix_with_options_async(request, runtime)
 
     def list_system_aggregation_rules_with_options(
         self,
@@ -59853,9 +61441,16 @@ class Client(OpenApiClient):
 
     def list_system_client_rule_types_with_options(
         self,
+        request: main_models.ListSystemClientRuleTypesRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListSystemClientRuleTypesResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListSystemClientRuleTypes',
             version = '2018-12-03',
@@ -59874,9 +61469,16 @@ class Client(OpenApiClient):
 
     async def list_system_client_rule_types_with_options_async(
         self,
+        request: main_models.ListSystemClientRuleTypesRequest,
         runtime: RuntimeOptions,
     ) -> main_models.ListSystemClientRuleTypesResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'ListSystemClientRuleTypes',
             version = '2018-12-03',
@@ -59893,13 +61495,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def list_system_client_rule_types(self) -> main_models.ListSystemClientRuleTypesResponse:
+    def list_system_client_rule_types(
+        self,
+        request: main_models.ListSystemClientRuleTypesRequest,
+    ) -> main_models.ListSystemClientRuleTypesResponse:
         runtime = RuntimeOptions()
-        return self.list_system_client_rule_types_with_options(runtime)
+        return self.list_system_client_rule_types_with_options(request, runtime)
 
-    async def list_system_client_rule_types_async(self) -> main_models.ListSystemClientRuleTypesResponse:
+    async def list_system_client_rule_types_async(
+        self,
+        request: main_models.ListSystemClientRuleTypesRequest,
+    ) -> main_models.ListSystemClientRuleTypesResponse:
         runtime = RuntimeOptions()
-        return await self.list_system_client_rule_types_with_options_async(runtime)
+        return await self.list_system_client_rule_types_with_options_async(request, runtime)
 
     def list_system_client_rules_with_options(
         self,
@@ -62512,6 +64120,12 @@ class Client(OpenApiClient):
             query['AddInstanceList'] = request.add_instance_list
         if not DaraCore.is_null(request.delete_instance_list):
             query['DeleteInstanceList'] = request.delete_instance_list
+        if not DaraCore.is_null(request.effect_end_time):
+            query['EffectEndTime'] = request.effect_end_time
+        if not DaraCore.is_null(request.effect_start_time):
+            query['EffectStartTime'] = request.effect_start_time
+        if not DaraCore.is_null(request.effect_type):
+            query['EffectType'] = request.effect_type
         if not DaraCore.is_null(request.remark):
             query['Remark'] = request.remark
         if not DaraCore.is_null(request.rule_id):
@@ -62550,6 +64164,12 @@ class Client(OpenApiClient):
             query['AddInstanceList'] = request.add_instance_list
         if not DaraCore.is_null(request.delete_instance_list):
             query['DeleteInstanceList'] = request.delete_instance_list
+        if not DaraCore.is_null(request.effect_end_time):
+            query['EffectEndTime'] = request.effect_end_time
+        if not DaraCore.is_null(request.effect_start_time):
+            query['EffectStartTime'] = request.effect_start_time
+        if not DaraCore.is_null(request.effect_type):
+            query['EffectType'] = request.effect_type
         if not DaraCore.is_null(request.remark):
             query['Remark'] = request.remark
         if not DaraCore.is_null(request.rule_id):
@@ -62680,6 +64300,8 @@ class Client(OpenApiClient):
     ) -> main_models.ModifyClientConfSetupResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.strategy_config):
             query['StrategyConfig'] = request.strategy_config
         if not DaraCore.is_null(request.strategy_tag):
@@ -62712,6 +64334,8 @@ class Client(OpenApiClient):
     ) -> main_models.ModifyClientConfSetupResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.strategy_config):
             query['StrategyConfig'] = request.strategy_config
         if not DaraCore.is_null(request.strategy_tag):
@@ -62758,6 +64382,8 @@ class Client(OpenApiClient):
     ) -> main_models.ModifyClientConfStrategyResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.tag):
             query['Tag'] = request.tag
         if not DaraCore.is_null(request.tag_ext):
@@ -62794,6 +64420,8 @@ class Client(OpenApiClient):
     ) -> main_models.ModifyClientConfStrategyResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.tag):
             query['Tag'] = request.tag
         if not DaraCore.is_null(request.tag_ext):
@@ -62848,6 +64476,8 @@ class Client(OpenApiClient):
             query['ActionType'] = request.action_type
         if not DaraCore.is_null(request.cmdline):
             query['Cmdline'] = request.cmdline
+        if not DaraCore.is_null(request.direction):
+            query['Direction'] = request.direction
         if not DaraCore.is_null(request.domain):
             query['Domain'] = request.domain
         if not DaraCore.is_null(request.file_path):
@@ -62910,6 +64540,8 @@ class Client(OpenApiClient):
             query['ActionType'] = request.action_type
         if not DaraCore.is_null(request.cmdline):
             query['Cmdline'] = request.cmdline
+        if not DaraCore.is_null(request.direction):
+            query['Direction'] = request.direction
         if not DaraCore.is_null(request.domain):
             query['Domain'] = request.domain
         if not DaraCore.is_null(request.file_path):
@@ -68604,6 +70236,8 @@ class Client(OpenApiClient):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.no_target_as_on):
             query['NoTargetAsOn'] = request.no_target_as_on
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -68642,6 +70276,8 @@ class Client(OpenApiClient):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.no_target_as_on):
             query['NoTargetAsOn'] = request.no_target_as_on
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -68690,6 +70326,8 @@ class Client(OpenApiClient):
             query['FieldName'] = request.field_name
         if not DaraCore.is_null(request.field_value):
             query['FieldValue'] = request.field_value
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.target_operations):
@@ -68728,6 +70366,8 @@ class Client(OpenApiClient):
             query['FieldName'] = request.field_name
         if not DaraCore.is_null(request.field_value):
             query['FieldValue'] = request.field_value
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.target_operations):
@@ -68946,6 +70586,8 @@ class Client(OpenApiClient):
             query['Lang'] = request.lang
         if not DaraCore.is_null(request.no_target_as_on):
             query['NoTargetAsOn'] = request.no_target_as_on
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -68982,6 +70624,8 @@ class Client(OpenApiClient):
             query['Lang'] = request.lang
         if not DaraCore.is_null(request.no_target_as_on):
             query['NoTargetAsOn'] = request.no_target_as_on
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.type):
@@ -69028,6 +70672,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.lang):
             query['Lang'] = request.lang
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.target_operations):
@@ -69064,6 +70710,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.lang):
             query['Lang'] = request.lang
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.source_ip):
             query['SourceIp'] = request.source_ip
         if not DaraCore.is_null(request.target_operations):
@@ -70603,9 +72251,16 @@ class Client(OpenApiClient):
 
     def query_guid_task_list_with_options(
         self,
+        request: main_models.QueryGuidTaskListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.QueryGuidTaskListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'QueryGuidTaskList',
             version = '2018-12-03',
@@ -70624,9 +72279,16 @@ class Client(OpenApiClient):
 
     async def query_guid_task_list_with_options_async(
         self,
+        request: main_models.QueryGuidTaskListRequest,
         runtime: RuntimeOptions,
     ) -> main_models.QueryGuidTaskListResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'QueryGuidTaskList',
             version = '2018-12-03',
@@ -70643,13 +72305,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def query_guid_task_list(self) -> main_models.QueryGuidTaskListResponse:
+    def query_guid_task_list(
+        self,
+        request: main_models.QueryGuidTaskListRequest,
+    ) -> main_models.QueryGuidTaskListResponse:
         runtime = RuntimeOptions()
-        return self.query_guid_task_list_with_options(runtime)
+        return self.query_guid_task_list_with_options(request, runtime)
 
-    async def query_guid_task_list_async(self) -> main_models.QueryGuidTaskListResponse:
+    async def query_guid_task_list_async(
+        self,
+        request: main_models.QueryGuidTaskListRequest,
+    ) -> main_models.QueryGuidTaskListResponse:
         runtime = RuntimeOptions()
-        return await self.query_guid_task_list_with_options_async(runtime)
+        return await self.query_guid_task_list_with_options_async(request, runtime)
 
     def query_jenkins_image_registry_persistence_day_with_options(
         self,
@@ -70952,12 +72620,20 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.asset_type):
             query['AssetType'] = request.asset_type
+        if not DaraCore.is_null(request.auth_ids):
+            query['AuthIds'] = request.auth_ids
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.cloud_asset_sub_type):
             query['CloudAssetSubType'] = request.cloud_asset_sub_type
         if not DaraCore.is_null(request.cloud_asset_type):
             query['CloudAssetType'] = request.cloud_asset_type
+        if not DaraCore.is_null(request.cluster_ids):
+            query['ClusterIds'] = request.cluster_ids
         if not DaraCore.is_null(request.resource_directory_account_id):
             query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        if not DaraCore.is_null(request.scope_ids):
+            query['ScopeIds'] = request.scope_ids
         if not DaraCore.is_null(request.vendor):
             query['Vendor'] = request.vendor
         req = open_api_util_models.OpenApiRequest(
@@ -70988,12 +72664,20 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.asset_type):
             query['AssetType'] = request.asset_type
+        if not DaraCore.is_null(request.auth_ids):
+            query['AuthIds'] = request.auth_ids
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
         if not DaraCore.is_null(request.cloud_asset_sub_type):
             query['CloudAssetSubType'] = request.cloud_asset_sub_type
         if not DaraCore.is_null(request.cloud_asset_type):
             query['CloudAssetType'] = request.cloud_asset_type
+        if not DaraCore.is_null(request.cluster_ids):
+            query['ClusterIds'] = request.cluster_ids
         if not DaraCore.is_null(request.resource_directory_account_id):
             query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        if not DaraCore.is_null(request.scope_ids):
+            query['ScopeIds'] = request.scope_ids
         if not DaraCore.is_null(request.vendor):
             query['Vendor'] = request.vendor
         req = open_api_util_models.OpenApiRequest(
@@ -73115,9 +74799,16 @@ class Client(OpenApiClient):
 
     def start_discover_database_task_with_options(
         self,
+        request: main_models.StartDiscoverDatabaseTaskRequest,
         runtime: RuntimeOptions,
     ) -> main_models.StartDiscoverDatabaseTaskResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'StartDiscoverDatabaseTask',
             version = '2018-12-03',
@@ -73136,9 +74827,16 @@ class Client(OpenApiClient):
 
     async def start_discover_database_task_with_options_async(
         self,
+        request: main_models.StartDiscoverDatabaseTaskRequest,
         runtime: RuntimeOptions,
     ) -> main_models.StartDiscoverDatabaseTaskResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'StartDiscoverDatabaseTask',
             version = '2018-12-03',
@@ -73155,13 +74853,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def start_discover_database_task(self) -> main_models.StartDiscoverDatabaseTaskResponse:
+    def start_discover_database_task(
+        self,
+        request: main_models.StartDiscoverDatabaseTaskRequest,
+    ) -> main_models.StartDiscoverDatabaseTaskResponse:
         runtime = RuntimeOptions()
-        return self.start_discover_database_task_with_options(runtime)
+        return self.start_discover_database_task_with_options(request, runtime)
 
-    async def start_discover_database_task_async(self) -> main_models.StartDiscoverDatabaseTaskResponse:
+    async def start_discover_database_task_async(
+        self,
+        request: main_models.StartDiscoverDatabaseTaskRequest,
+    ) -> main_models.StartDiscoverDatabaseTaskResponse:
         runtime = RuntimeOptions()
-        return await self.start_discover_database_task_with_options_async(runtime)
+        return await self.start_discover_database_task_with_options_async(request, runtime)
 
     def start_honeypot_with_options(
         self,
@@ -73239,9 +74943,16 @@ class Client(OpenApiClient):
 
     def start_idc_probe_scan_with_options(
         self,
+        request: main_models.StartIdcProbeScanRequest,
         runtime: RuntimeOptions,
     ) -> main_models.StartIdcProbeScanResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'StartIdcProbeScan',
             version = '2018-12-03',
@@ -73260,9 +74971,16 @@ class Client(OpenApiClient):
 
     async def start_idc_probe_scan_with_options_async(
         self,
+        request: main_models.StartIdcProbeScanRequest,
         runtime: RuntimeOptions,
     ) -> main_models.StartIdcProbeScanResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'StartIdcProbeScan',
             version = '2018-12-03',
@@ -73279,13 +74997,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def start_idc_probe_scan(self) -> main_models.StartIdcProbeScanResponse:
+    def start_idc_probe_scan(
+        self,
+        request: main_models.StartIdcProbeScanRequest,
+    ) -> main_models.StartIdcProbeScanResponse:
         runtime = RuntimeOptions()
-        return self.start_idc_probe_scan_with_options(runtime)
+        return self.start_idc_probe_scan_with_options(request, runtime)
 
-    async def start_idc_probe_scan_async(self) -> main_models.StartIdcProbeScanResponse:
+    async def start_idc_probe_scan_async(
+        self,
+        request: main_models.StartIdcProbeScanRequest,
+    ) -> main_models.StartIdcProbeScanResponse:
         runtime = RuntimeOptions()
-        return await self.start_idc_probe_scan_with_options_async(runtime)
+        return await self.start_idc_probe_scan_with_options_async(request, runtime)
 
     def start_pre_check_database_with_options(
         self,
@@ -73683,9 +75407,16 @@ class Client(OpenApiClient):
 
     def submit_tenant_check_with_options(
         self,
+        request: main_models.SubmitTenantCheckRequest,
         runtime: RuntimeOptions,
     ) -> main_models.SubmitTenantCheckResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'SubmitTenantCheck',
             version = '2018-12-03',
@@ -73704,9 +75435,16 @@ class Client(OpenApiClient):
 
     async def submit_tenant_check_with_options_async(
         self,
+        request: main_models.SubmitTenantCheckRequest,
         runtime: RuntimeOptions,
     ) -> main_models.SubmitTenantCheckResponse:
-        req = open_api_util_models.OpenApiRequest()
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
         params = open_api_util_models.Params(
             action = 'SubmitTenantCheck',
             version = '2018-12-03',
@@ -73723,13 +75461,19 @@ class Client(OpenApiClient):
             await self.call_api_async(params, req, runtime)
         )
 
-    def submit_tenant_check(self) -> main_models.SubmitTenantCheckResponse:
+    def submit_tenant_check(
+        self,
+        request: main_models.SubmitTenantCheckRequest,
+    ) -> main_models.SubmitTenantCheckResponse:
         runtime = RuntimeOptions()
-        return self.submit_tenant_check_with_options(runtime)
+        return self.submit_tenant_check_with_options(request, runtime)
 
-    async def submit_tenant_check_async(self) -> main_models.SubmitTenantCheckResponse:
+    async def submit_tenant_check_async(
+        self,
+        request: main_models.SubmitTenantCheckRequest,
+    ) -> main_models.SubmitTenantCheckResponse:
         runtime = RuntimeOptions()
-        return await self.submit_tenant_check_with_options_async(runtime)
+        return await self.submit_tenant_check_with_options_async(request, runtime)
 
     def trigger_check_with_options(
         self,
@@ -74806,6 +76550,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.mode):
             query['Mode'] = request.mode
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.uuids):
             query['Uuids'] = request.uuids
         req = open_api_util_models.OpenApiRequest(
@@ -74836,6 +76582,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.mode):
             query['Mode'] = request.mode
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.uuids):
             query['Uuids'] = request.uuids
         req = open_api_util_models.OpenApiRequest(
@@ -74878,6 +76626,8 @@ class Client(OpenApiClient):
     ) -> main_models.UpdateCommonSwitchConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.target_default):
             query['TargetDefault'] = request.target_default
         if not DaraCore.is_null(request.type):
@@ -74908,6 +76658,8 @@ class Client(OpenApiClient):
     ) -> main_models.UpdateCommonSwitchConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.target_default):
             query['TargetDefault'] = request.target_default
         if not DaraCore.is_null(request.type):
@@ -75278,6 +77030,8 @@ class Client(OpenApiClient):
             query['AlertLevel'] = request.alert_level
         if not DaraCore.is_null(request.exclude_id_list):
             query['ExcludeIdList'] = request.exclude_id_list
+        if not DaraCore.is_null(request.file_name):
+            query['FileName'] = request.file_name
         if not DaraCore.is_null(request.id_list):
             query['IdList'] = request.id_list
         if not DaraCore.is_null(request.platform):
@@ -75320,6 +77074,8 @@ class Client(OpenApiClient):
             query['AlertLevel'] = request.alert_level
         if not DaraCore.is_null(request.exclude_id_list):
             query['ExcludeIdList'] = request.exclude_id_list
+        if not DaraCore.is_null(request.file_name):
+            query['FileName'] = request.file_name
         if not DaraCore.is_null(request.id_list):
             query['IdList'] = request.id_list
         if not DaraCore.is_null(request.platform):
@@ -75712,6 +77468,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.limit):
             query['Limit'] = request.limit
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -75740,6 +77498,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.limit):
             query['Limit'] = request.limit
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -77566,6 +79326,8 @@ class Client(OpenApiClient):
             query['Lang'] = request.lang
         if not DaraCore.is_null(request.operator):
             query['Operator'] = request.operator
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -77598,6 +79360,8 @@ class Client(OpenApiClient):
             query['Lang'] = request.lang
         if not DaraCore.is_null(request.operator):
             query['Operator'] = request.operator
+        if not DaraCore.is_null(request.resource_directory_account_id):
+            query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )

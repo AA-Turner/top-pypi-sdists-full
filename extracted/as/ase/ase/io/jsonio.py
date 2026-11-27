@@ -1,5 +1,3 @@
-# fmt: off
-
 import datetime
 import json
 
@@ -20,9 +18,10 @@ def default(obj):
         dct = obj.todict()
 
         if not isinstance(dct, dict):
-            raise RuntimeError('todict() of {} returned object of type {} '
-                               'but should have returned dict'
-                               .format(obj, type(dct)))
+            raise RuntimeError(
+                'todict() of {} returned object of type {} '
+                'but should have returned dict'.format(obj, type(dct))
+            )
         if hasattr(obj, 'ase_objtype'):
             # We modify the dictionary, so it is wise to take a copy.
             dct = dct.copy()
@@ -32,14 +31,12 @@ def default(obj):
     if isinstance(obj, np.ndarray):
         flatobj = obj.ravel()
         if np.iscomplexobj(obj):
-            flatobj.dtype = obj.real.dtype
+            flatobj = flatobj.view(obj.real.dtype)
         # We use str(obj.dtype) here instead of obj.dtype.name, because
         # they are not always the same (e.g. for numpy arrays of strings).
         # Using obj.dtype.name can break the ability to recursively decode/
         # encode such arrays.
-        return {'__ndarray__': (obj.shape,
-                                str(obj.dtype),
-                                flatobj.tolist())}
+        return {'__ndarray__': (obj.shape, str(obj.dtype), flatobj.tolist())}
     if isinstance(obj, np.integer):
         return int(obj)
     if isinstance(obj, np.floating):
@@ -51,8 +48,9 @@ def default(obj):
     if isinstance(obj, complex):
         return {'__complex__': (obj.real, obj.imag)}
 
-    raise TypeError(f'Cannot convert object of type {type(obj)} to '
-                    'dictionary for JSON')
+    raise TypeError(
+        f'Cannot convert object of type {type(obj)} to dictionary for JSON'
+    )
 
 
 class MyEncoder(json.JSONEncoder):
@@ -67,8 +65,9 @@ encode = MyEncoder().encode
 
 def object_hook(dct):
     if '__datetime__' in dct:
-        return datetime.datetime.strptime(dct['__datetime__'],
-                                          '%Y-%m-%dT%H:%M:%S.%f')
+        return datetime.datetime.strptime(
+            dct['__datetime__'], '%Y-%m-%dT%H:%M:%S.%f'
+        )
 
     if '__complex__' in dct:
         return complex(*dct['__complex__'])
@@ -94,7 +93,7 @@ def create_ndarray(shape, dtype, data):
     array = np.empty(shape, dtype=dtype)
     flatbuf = array.ravel()
     if np.iscomplexobj(array):
-        flatbuf.dtype = array.real.dtype
+        flatbuf = flatbuf.view(array.real.dtype)
     flatbuf[:] = data
     return array
 
@@ -105,23 +104,30 @@ def create_ase_object(objtype, dct):
     # We can formalize this later if it ever becomes necessary.
     if objtype == 'cell':
         from ase.cell import Cell
+
         dct.pop('pbc', None)  # compatibility; we once had pbc
         obj = Cell(**dct)
     elif objtype == 'bandstructure':
         from ase.spectrum.band_structure import BandStructure
+
         obj = BandStructure(**dct)
     elif objtype == 'bandpath':
         from ase.dft.kpoints import BandPath
+
         obj = BandPath(path=dct.pop('labelseq'), **dct)
     elif objtype == 'atoms':
         from ase import Atoms
+
         obj = Atoms.fromdict(dct)
     elif objtype == 'vibrationsdata':
         from ase.vibrations import VibrationsData
+
         obj = VibrationsData.fromdict(dct)
     else:
-        raise ValueError('Do not know how to decode object type {} '
-                         'into an actual object'.format(objtype))
+        raise ValueError(
+            'Do not know how to decode object type {} '
+            'into an actual object'.format(objtype)
+        )
     assert obj.ase_objtype == objtype
     return obj
 
@@ -144,8 +150,10 @@ def fix_int_keys_in_dicts(obj):
     This function goes the other way.
     """
     if isinstance(obj, dict):
-        return {intkey(key): fix_int_keys_in_dicts(value)
-                for key, value in obj.items()}
+        return {
+            intkey(key): fix_int_keys_in_dicts(value)
+            for key, value in obj.items()
+        }
     return obj
 
 

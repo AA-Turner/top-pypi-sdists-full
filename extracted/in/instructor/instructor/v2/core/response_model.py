@@ -3,24 +3,26 @@
 from __future__ import annotations
 
 import inspect
-import sys
 from collections.abc import Iterable
-from typing import Any, Callable, TypeVar, Union, cast, get_args, get_origin
+from types import MappingProxyType
+from typing import Annotated, Any, Callable, TypeVar, Union, cast, get_args, get_origin
 
-from pydantic import BaseModel, create_model
-from typing_extensions import NotRequired, Required
+from pydantic import (
+    BaseModel,
+    Field,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
+    create_model,
+    model_serializer,
+)
+from typing_extensions import NotRequired, ReadOnly, Required
 from typing import get_type_hints
+
+from instructor.v2.core.utils import UNION_ORIGINS
 
 T = TypeVar("T")
 
 _create_dynamic_model = cast(Callable[..., type[BaseModel]], create_model)
-
-if sys.version_info >= (3, 10):
-    from types import UnionType
-
-    _UNION_ORIGINS: tuple[Any, ...] = (Union, UnionType)
-else:  # pragma: no cover - Python 3.9 has no runtime ``X | Y`` syntax
-    _UNION_ORIGINS = (Union,)
 
 
 def is_typed_dict(cls: Any) -> bool:
@@ -31,8 +33,38 @@ def is_typed_dict(cls: Any) -> bool:
     )
 
 
+# Cache encoding explicitly requests Python field names, including synthesized
+# TypedDict fields. The empty mapping also works with ordinary serializer contexts.
+_CACHE_FIELD_NAMES_CONTEXT = MappingProxyType({})
+
+
+class _TypedDictModel(BaseModel):
+    @model_serializer(mode="wrap")
+    def _round_trip_keys(
+        self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
+    ) -> Any:
+        values = handler(self)
+        if not info.round_trip:
+            return values
+        # Cache round trips need original keys and must not invent omitted keys.
+        return {
+            (
+                name
+                if info.context is _CACHE_FIELD_NAMES_CONTEXT
+                else field.alias or name
+            ): values[key]
+            for name, field in type(self).model_fields.items()
+            if name in self.model_fields_set
+            if (key := (field.serialization_alias or name) if info.by_alias else name)
+            in values
+        }
+
+
 def _typed_dict_to_model(typed_dict: type[Any]) -> type[BaseModel]:
-    """Convert a TypedDict while preserving per-key requiredness."""
+    """Convert a TypedDict while preserving key requiredness and field metadata."""
+    from instructor.v2.core.function_calls import ResponseSchema
+
+    reserved = set(dir(_TypedDictModel)) | set(dir(ResponseSchema))
     annotations = get_type_hints(typed_dict, include_extras=True)
     required_keys = set(getattr(typed_dict, "__required_keys__", set()))
     optional_keys = set(getattr(typed_dict, "__optional_keys__", set()))
@@ -40,21 +72,41 @@ def _typed_dict_to_model(typed_dict: type[Any]) -> type[BaseModel]:
     fields: dict[str, tuple[Any, Any]] = {}
 
     for name, annotation in annotations.items():
-        annotation_origin = get_origin(annotation)
-        if annotation_origin is Required:
-            field_annotation = get_args(annotation)[0]
-            is_required = True
-        elif annotation_origin is NotRequired:
-            field_annotation = get_args(annotation)[0]
-            is_required = False
-        else:
-            field_annotation = annotation
-            is_required = name in required_keys or (name not in optional_keys and total)
+        is_required = name in required_keys or (name not in optional_keys and total)
+        metadata: list[Any] = []
+        while (annotation_origin := get_origin(annotation)) in (
+            Required,
+            NotRequired,
+            ReadOnly,
+            Annotated,
+        ):
+            if annotation_origin is Required:
+                is_required = True
+            elif annotation_origin is NotRequired:
+                is_required = False
+            elif annotation_origin is Annotated:
+                metadata = [*get_args(annotation)[1:], *metadata]
+            annotation = get_args(annotation)[0]
 
-        fields[name] = (field_annotation, ... if is_required else None)
+        if metadata:
+            annotation = Annotated[(annotation, *metadata)]
+        field_name = name
+        default: Any = ... if is_required else None
+        if name.startswith("_") or name in reserved:
+            # Keep the original wire key as an alias without shadowing model methods.
+            field_name = f"field{name}" if name.startswith("_") else f"field_{name}"
+            while (
+                field_name in annotations
+                or field_name in fields
+                or field_name in reserved
+            ):
+                field_name += "_"
+            default = Field(default=default, alias=name)
+        fields[field_name] = (annotation, default)
 
     return _create_dynamic_model(
         getattr(typed_dict, "__name__", "TypedDictModel"),
+        __base__=_TypedDictModel,
         **fields,
     )
 
@@ -63,6 +115,37 @@ def is_simple_type(typehint: type[T]) -> bool:
     from instructor.v2.dsl.simple_type import is_simple_type as _is_simple_type
 
     return _is_simple_type(typehint)
+
+
+def _is_structured_item(item: Any) -> bool:
+    if is_typed_dict(item) or (
+        get_origin(item) is None
+        and inspect.isclass(item)
+        and issubclass(item, BaseModel)
+    ):
+        return True
+    return get_origin(item) in UNION_ORIGINS and all(
+        _is_structured_item(member) for member in get_args(item)
+    )
+
+
+def _prepare_iterable_item(item: Any) -> Any:
+    from instructor.v2.dsl.simple_type import has_pydantic_schema
+
+    if is_typed_dict(item):
+        return _typed_dict_to_model(item)
+    if get_origin(item) in UNION_ORIGINS and _is_structured_item(item):
+        return Union[tuple(_prepare_iterable_item(member) for member in get_args(item))]
+    if is_simple_type(item):
+        from instructor.v2.dsl.simple_type import ModelAdapter
+
+        return ModelAdapter.__class_getitem__(item)
+    if inspect.isclass(item) and not has_pydantic_schema(item):
+        raise TypeError(
+            "response_model iterable elements must have a Pydantic validation schema; "
+            f"got {item!r}"
+        )
+    return item
 
 
 def prepare_response_model(response_model: type[T] | None) -> type[T] | None:
@@ -79,19 +162,7 @@ def prepare_response_model(response_model: type[T] | None) -> type[T] | None:
         args = get_args(working_model)
         inner = args[0] if args else None
 
-        def _is_model_type(candidate: Any) -> bool:
-            if is_typed_dict(candidate):
-                return True
-            if inspect.isclass(candidate) and issubclass(candidate, BaseModel):
-                return True
-            return get_origin(candidate) in _UNION_ORIGINS and all(
-                inspect.isclass(member) and issubclass(member, BaseModel)
-                for member in get_args(candidate)
-            )
-
-        if inner is not None and _is_model_type(inner):
-            origin = list
-        else:
+        if inner is None or not _is_structured_item(inner):
             from instructor.v2.dsl.simple_type import ModelAdapter
 
             working_model = ModelAdapter.__class_getitem__(working_model)
@@ -109,9 +180,7 @@ def prepare_response_model(response_model: type[T] | None) -> type[T] | None:
             raise ValueError(
                 "response_model must be parameterized, e.g. list[User] or Iterable[User]"
             )
-        iterable_element_class = args[0]
-        if is_typed_dict(iterable_element_class):
-            iterable_element_class = _typed_dict_to_model(iterable_element_class)
+        iterable_element_class = _prepare_iterable_item(args[0])
         working_model = IterableModel(cast(type[BaseModel], iterable_element_class))
 
     if is_simple_type(working_model):
@@ -130,5 +199,6 @@ def prepare_response_model(response_model: type[T] | None) -> type[T] | None:
     elif not inspect.isclass(working_model):
         working_model = openai_schema(working_model)
 
-    reject_async_validators(working_model)
+    if working_model is not response_model:
+        reject_async_validators(working_model)
     return cast(type[T], working_model)

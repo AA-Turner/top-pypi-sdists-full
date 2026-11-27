@@ -46,6 +46,7 @@ from mistralai.workflows.core._graph_types import (
 )
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.wire_format import AtlasWireFormat
 
 logger = get_logger(__name__)
@@ -169,8 +170,12 @@ def _expand_single_param_fields(
                 structured = _type_fields_structured_runtime(param_cls)
                 if structured is not None:
                     return structured
-        except (TypeError, AttributeError, KeyError):
-            logger.debug("runtime type expansion failed", type_name=type_name, exc_info=True)
+        except (TypeError, AttributeError, KeyError) as exc:
+            logger.debug(
+                "runtime type expansion failed",
+                type_name=type_name,
+                **extract_error_context(exc),
+            )
 
     structured = _type_fields_structured_ast(type_name, module_ast)
     if structured is not None:
@@ -576,8 +581,12 @@ def build_graph_statically(
         try:
             _validate_flat_graph(workflow_name, flat_nodes, flat_edges)
             incomplete = False
-        except GraphValidationError:
-            logger.exception("Graph validation failed", workflow_name=workflow_name)
+        except GraphValidationError as exc:
+            logger.error(
+                "Graph validation failed",
+                workflow_name=workflow_name,
+                **extract_error_context(exc),
+            )
             incomplete = True
 
         results.append(

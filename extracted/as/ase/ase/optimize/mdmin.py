@@ -4,12 +4,14 @@ import numpy as np
 
 from ase import Atoms
 from ase.optimize.optimize import Optimizer
+from ase.utils import deprecate_positionals
 
 
 class MDMin(Optimizer):
     # default parameters
     defaults = {**Optimizer.defaults, 'dt': 0.2}
 
+    @deprecate_positionals(2)
     def __init__(
         self,
         atoms: Atoms,
@@ -49,6 +51,30 @@ class MDMin(Optimizer):
             Extra arguments passed to
             :class:`~ase.optimize.optimize.Optimizer`.
 
+        Examples
+        --------
+
+        >>> from ase import Atoms
+        >>> from ase.optimize import MDMin
+        >>> from ase.calculators.emt import EMT
+        ...
+        >>> system = Atoms(
+        ... 'N2',
+        ... positions = [(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        ... calculator=EMT()
+        ... )
+        >>> dyn = MDMin(system)
+        >>> dyn.run(fmax=0.05) # doctest:+ELLIPSIS
+               Step     Time          Energy          fmax
+        MDMin:    0 ...        0.440344        3.251800
+        MDMin:    1 ...        0.278778        1.160079
+        MDMin:    2 ...        0.269160        0.689054
+        MDMin:    3 ...        0.264472        0.368254
+        MDMin:    4 ...        0.263357        0.211246
+        MDMin:    5 ...        0.262951        0.117040
+        MDMin:    6 ...        0.262833        0.066207
+        MDMin:    7 ...        0.262795        0.037033
+        ...
         """
         super().__init__(atoms, restart, logfile, trajectory, **kwargs)
 

@@ -1,5 +1,3 @@
-# fmt: off
-
 import argparse
 import traceback
 from math import pi
@@ -13,8 +11,12 @@ from ase import Atoms
 from ase.calculators.emt import EMT
 from ase.io import Trajectory
 
-all_optimizers = ase.optimize.__all__ + ['PreconLBFGS', 'PreconFIRE',
-                                         'SciPyFminCG', 'SciPyFminBFGS']
+all_optimizers = ase.optimize.__all__ + [
+    'PreconLBFGS',
+    'PreconFIRE',
+    'SciPyFminCG',
+    'SciPyFminBFGS',
+]
 all_optimizers.remove('QuasiNewton')
 all_optimizers.remove('RestartError')
 
@@ -23,9 +25,11 @@ def get_optimizer(name):
     # types: (str) -> ase.optimize.Optimizer
     if name.startswith('Precon'):
         import ase.optimize.precon as precon
+
         return getattr(precon, name)
     if name.startswith('SciPy'):
         import ase.optimize.sciopt as sciopt
+
         return getattr(sciopt, name)
     return getattr(ase.optimize, name)
 
@@ -80,8 +84,9 @@ class Wrapper:
         if self.eggbox:
             # Add egg-box error:
             s = np.dot(self.atoms.positions, self.x)
-            f += np.dot(np.sin(2 * pi * s),
-                        self.x.T) * (2 * pi * self.eggbox / 6)
+            f += np.dot(np.sin(2 * pi * s), self.x.T) * (
+                2 * pi * self.eggbox / 6
+            )
 
         t2 = time()
         self.texcl += t2 - t1
@@ -110,6 +115,7 @@ class Wrapper:
 
     def __ase_optimizable__(self):
         from ase.optimize.optimize import OptimizableAtoms
+
         return OptimizableAtoms(self)
 
 
@@ -137,8 +143,9 @@ def run_test(atoms, optimizer, tag, fmax=0.02, eggbox=0.0):
     return error, wrapper.nsteps, wrapper.texcl, tincl
 
 
-def test_optimizer(systems, optimizer, calculator, prefix='', db=None,
-                   eggbox=0.0):
+def test_optimizer(
+    systems, optimizer, calculator, prefix='', db=None, eggbox=0.0
+):
     """Test optimizer on systems."""
 
     for name, atoms in systems:
@@ -150,37 +157,50 @@ def test_optimizer(systems, optimizer, calculator, prefix='', db=None,
         atoms = atoms.copy()
         tag = f'{prefix}{optname}-{name}'
         atoms.calc = calculator(txt=tag + '.txt')
-        error, nsteps, texcl, tincl = run_test(atoms, optimizer, tag,
-                                               eggbox=eggbox)
+        error, nsteps, texcl, tincl = run_test(
+            atoms, optimizer, tag, eggbox=eggbox
+        )
 
         if db is not None:
-            db.write(atoms,
-                     id=id,
-                     optimizer=optname,
-                     name=name,
-                     error=error,
-                     n=nsteps,
-                     t=texcl,
-                     T=tincl,
-                     eggbox=eggbox)
+            db.write(
+                atoms,
+                id=id,
+                optimizer=optname,
+                name=name,
+                error=error,
+                n=nsteps,
+                t=texcl,
+                T=tincl,
+                eggbox=eggbox,
+            )
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Test ASE optimizers')
+    parser = argparse.ArgumentParser(description='Test ASE optimizers')
 
     parser.add_argument('systems', help='File containing test systems.')
-    parser.add_argument('optimizer', nargs='*',
-                        help='Optimizer name(s).  Choose from: {}. '
-                        .format(', '.join(all_optimizers)) +
-                        'Default is all optimizers.')
-    parser.add_argument('-e', '--egg-box', type=float, default=0.0,
-                        help='Fake egg-box error in eV.')
+    parser.add_argument(
+        'optimizer',
+        nargs='*',
+        help='Optimizer name(s).  Choose from: {}. '.format(
+            ', '.join(all_optimizers)
+        )
+        + 'Default is all optimizers.',
+    )
+    parser.add_argument(
+        '-e',
+        '--egg-box',
+        type=float,
+        default=0.0,
+        help='Fake egg-box error in eV.',
+    )
 
     args = parser.parse_args()
 
-    systems = [(row.name, row.toatoms())
-               for row in ase.db.connect(args.systems).select()]
+    systems = [
+        (row.name, row.toatoms())
+        for row in ase.db.connect(args.systems).select()
+    ]
 
     db = ase.db.connect('results.db')
 

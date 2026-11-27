@@ -20,14 +20,27 @@ from instructor.v2.dsl.iterable import IterableBase
 from instructor.v2.dsl.partial import PartialBase
 from instructor.v2.dsl.simple_type import AdapterBase
 from instructor.v2.providers.gemini.utils import (
+    is_truncated_at_max_tokens,
     extract_gemini_chunk_text,
     handle_gemini_json,
     handle_gemini_tools,
 )
 from instructor.v2.core.decorators import register_mode_handler
 from instructor.v2.core.handler import ModeHandler
-from instructor.v2.core.errors import ResponseParsingError
-from instructor.v2.core.json import extract_json_from_codeblock
+from instructor.v2.core.errors import IncompleteOutputException, ResponseParsingError
+from instructor.v2.core.json import (
+    extract_json_from_codeblock,
+    extract_json_from_stream,
+    extract_json_from_stream_async,
+)
+
+
+def _response_text(response: Any) -> str | None:
+    """The legacy SDK raises ValueError for blocked or empty candidates."""
+    try:
+        return getattr(response, "text", None)
+    except ValueError:
+        return None
 
 
 def reask_gemini_tools(
@@ -36,6 +49,30 @@ def reask_gemini_tools(
     exception: Exception,
 ):
     """Build a Gemini tool reask payload after validation failure."""
+    try:
+        parts = getattr(response, "parts", None) or []
+    except ValueError:
+        parts = []
+    function_call = None
+    for part in parts:
+        candidate = getattr(part, "function_call", None)
+        # Protobuf exposes an empty function-call object on text-only parts.
+        if getattr(candidate, "name", None):
+            function_call = candidate
+            break
+    if function_call is None:
+        if text := _response_text(response):
+            kwargs["contents"].append({"role": "model", "parts": [text]})
+        kwargs["contents"].append(
+            {
+                "role": "user",
+                "parts": [
+                    f"Validation Error(s) found:\n{exception}\nRecall the function arguments correctly and fix the errors"
+                ],
+            }
+        )
+        return kwargs
+
     from google.ai import generativelanguage as glm  # type: ignore
 
     reask_msgs = [
@@ -43,8 +80,8 @@ def reask_gemini_tools(
             "role": "model",
             "parts": [
                 glm.FunctionCall(
-                    name=response.parts[0].function_call.name,
-                    args=response.parts[0].function_call.args,
+                    name=function_call.name,
+                    args=function_call.args,
                 )
             ],
         },
@@ -53,7 +90,7 @@ def reask_gemini_tools(
             "parts": [
                 glm.Part(
                     function_response=glm.FunctionResponse(
-                        name=response.parts[0].function_call.name,
+                        name=function_call.name,
                         response={"error": f"Validation Error(s) found:\n{exception}"},
                     )
                 ),
@@ -74,12 +111,13 @@ def reask_gemini_json(
     exception: Exception,
 ):
     """Build a Gemini JSON reask payload after validation failure."""
+    text = _response_text(response) or "<no readable text in the previous response>"
     kwargs["contents"].append(
         {
             "role": "user",
             "parts": [
                 "Correct the following JSON response, based on the errors given below:\n\n"
-                f"JSON:\n{response.text}\n\nExceptions:\n{exception}"
+                f"JSON:\n{text}\n\nExceptions:\n{exception}"
             ],
         }
     )
@@ -93,10 +131,7 @@ def parse_gemini_json(
     strict: bool | None = None,
 ) -> BaseModel:
     """Parse Gemini text JSON responses."""
-    try:
-        text = completion.text
-    except ValueError:
-        text = None
+    text = _response_text(completion)
     if text is None:
         raise ResponseParsingError(
             "Unable to extract JSON from completion text. The response may have been blocked or empty.",
@@ -164,6 +199,9 @@ class GeminiHandlerBase(ModeHandler):
         """Extract JSON chunks from Gemini streaming responses."""
         for chunk in completion:
             try:
+                # `candidates` can be empty (e.g. a safety-blocked chunk),
+                # which raises IndexError rather than AttributeError — skip
+                # the chunk either way.
                 if self.mode == Mode.TOOLS:
                     resp = chunk.candidates[0].content.parts[0].function_call
                     resp_dict = type(resp).to_dict(resp)
@@ -171,7 +209,7 @@ class GeminiHandlerBase(ModeHandler):
                         yield json.dumps(resp_dict["args"])
                 else:
                     yield extract_gemini_chunk_text(chunk)
-            except AttributeError:
+            except (AttributeError, IndexError):
                 continue
 
     async def extract_streaming_json_async(
@@ -187,7 +225,7 @@ class GeminiHandlerBase(ModeHandler):
                         yield json.dumps(resp_dict["args"])
                 else:
                     yield extract_gemini_chunk_text(chunk)
-            except AttributeError:
+            except (AttributeError, IndexError):
                 continue
 
     def _parse_streaming(
@@ -204,16 +242,31 @@ class GeminiHandlerBase(ModeHandler):
             parse_kwargs["strict"] = strict
 
         streaming_model = cast(Any, response_model)
+        single_json = self.mode == Mode.MD_JSON and not issubclass(
+            response_model, IterableBase
+        )
         if inspect.isasyncgen(response) or isinstance(response, AsyncIterator):
             return streaming_model.from_streaming_response_async(
                 response,
-                stream_extractor=self.extract_streaming_json_async,
+                stream_extractor=(
+                    lambda events: extract_json_from_stream_async(
+                        self.extract_streaming_json_async(events), single_model=True
+                    )
+                )
+                if single_json
+                else self.extract_streaming_json_async,
                 **parse_kwargs,
             )
 
         generator = streaming_model.from_streaming_response(
             response,
-            stream_extractor=self.extract_streaming_json,
+            stream_extractor=(
+                lambda events: extract_json_from_stream(
+                    self.extract_streaming_json(events), single_model=True
+                )
+            )
+            if single_json
+            else self.extract_streaming_json,
             **parse_kwargs,
         )
         if inspect.isclass(response_model) and issubclass(response_model, IterableBase):
@@ -272,6 +325,8 @@ class GeminiToolsHandler(GeminiHandlerBase):
             return self._parse_streaming(
                 response_model, response, validation_context, strict
             )
+        if is_truncated_at_max_tokens(response):
+            raise IncompleteOutputException(last_completion=response)
         parsed = parse_gemini_tools(
             response_model, response, validation_context, strict
         )
@@ -317,6 +372,8 @@ class GeminiJSONHandler(GeminiHandlerBase):
             return self._parse_streaming(
                 response_model, response, validation_context, strict
             )
+        if is_truncated_at_max_tokens(response):
+            raise IncompleteOutputException(last_completion=response)
         parsed = parse_gemini_json(response_model, response, validation_context, strict)
         return self._finalize(response_model, response, parsed)
 

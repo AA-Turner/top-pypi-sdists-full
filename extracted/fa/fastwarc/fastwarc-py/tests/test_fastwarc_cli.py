@@ -50,6 +50,34 @@ def invoke(*arguments):
     return result
 
 
+@pytest.mark.parametrize('body, write_options, check_options', [
+    pytest.param(b'5\r\nhello\r\n0\r\n\r\n', {}, (), id='chunked'),
+    pytest.param(b'hello', {'decode_transfer': False}, ('--no-decode-transfer',), id='stale-header'),
+])
+def test_check_decode_transfer(tmp_path, body, write_options, check_options):
+    record = WarcRecord()
+    record.init_headers(WarcRecordType.response, b'uuid:cli-chunked')
+    record.is_http = True
+    record.set_bytes_payload(b'HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n' + body)
+    record.parse_http(auto_decode='none')
+    source = tmp_path / 'chunked.warc'
+    with source.open('wb') as output:
+        record.write(output, checksum_data=True, **write_options)
+
+    if not check_options:
+        assert next(ArchiveIterator(source)).reader.read() == b'hello'
+        extracted = tmp_path / 'body.bin'
+        invoke('extract', source, 0, '--payload', '-o', extracted)
+        assert extracted.read_bytes() == b'hello'
+    copied = tmp_path / 'record.warc'
+    invoke('extract', source, 0, '-o', copied)
+    assert copied.read_bytes() == source.read_bytes()
+    assert copied.read_bytes().endswith(body + b'\r\n\r\n')
+    details = tmp_path / 'check.txt'
+    invoke('check', source, '--verify-payloads', *check_options, '-o', details)
+    assert details.read_text().strip() == '<urn:uuid:cli-chunked>: OK, PAYLOAD_OK'
+
+
 def snapshot(source):
     return [(record.record_id, record.reader.read()) for record in ArchiveIterator(source, parse_http=False)]
 
@@ -130,6 +158,33 @@ def test_check_invalid_digest_returns_failure(warc_file, quiet):
     assert 'FAIL, PAYLOAD_FAIL' in details.read_text()
     if quiet:
         assert not result.output
+
+
+@pytest.mark.parametrize('corrupt_block', [False, True], ids=['valid-block', 'corrupt-block'])
+def test_check_revisit_skips_referenced_payload_digest(tmp_path, corrupt_block):
+    record = WarcRecord()
+    record.init_headers(WarcRecordType.revisit, b'uuid:cli-revisit')
+    record.is_http = True
+    record.headers['WARC-Target-URI'] = 'https://example.org/'
+    record.headers['WARC-Profile'] = 'http://netpreserve.org/warc/1.1/revisit/identical-payload-digest'
+    record.headers['WARC-Truncated'] = 'length'
+    record.headers['WARC-Refers-To'] = '<urn:uuid:original>'
+    record.headers['WARC-Payload-Digest'] = 'sha1:RB2FWY2CZX4TMUPXBVPL6SWKSQ4UKV2S'
+    record.set_bytes_content(b'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n')
+    output = io.BytesIO()
+    record.write(output, checksum_data=True)
+    data = output.getvalue()
+    if corrupt_block:
+        data = data.replace(b'200 OK', b'201 OK')
+    source = tmp_path / 'revisit.warc'
+    source.write_bytes(data)
+    details = tmp_path / 'digests.txt'
+
+    result = CliRunner().invoke(cli.main, ['check', str(source), '--verify-payloads', '-o', str(details)])
+
+    assert result.exit_code == int(corrupt_block), (result.output, result.exception)
+    status = 'FAIL' if corrupt_block else 'OK'
+    assert details.read_text() == f'{record.record_id}: {status}\n'
 
 
 def test_check_reports_missing_digests(tmp_path):

@@ -10,6 +10,10 @@ class ArtemisSessionsSendParams(TypedDict, total=False):
   """
   What to ask Artemis, at most 32768 UTF-8 bytes.
   """
+  queue: bool
+  """
+  Keep the message for the next turn instead of letting a running turn take it at its next step.
+  """
   session_id: str | None
   """
   A session to continue; omit it to start a new session.

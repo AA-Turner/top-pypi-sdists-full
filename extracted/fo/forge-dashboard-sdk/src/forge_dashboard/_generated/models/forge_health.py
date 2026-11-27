@@ -40,22 +40,54 @@ class ForgeHealth:
                 name. A forge this service learns to talk to is one more set of values here, so a client that reads these needs
                 no change for it.
             starting (bool | Unset): True while the rows shown for this forge are the ones the last run
-                saved and no refresh has asked the forge since the app started.
-                The forge is then neither reachable nor in error (errorKind is
-                absent); it has not been checked yet. The first refresh that
-                reaches it replaces this entry. A client says "starting up,
-                showing data from 3 minutes ago", and never "unreachable".
+                saved and no fetch from the forge has answered in time since the
+                app started. `reachable` is then false and errorKind is absent: it
+                is not in error, it has not been heard from. A first fetch that
+                passes the scheduled deadline of three minutes, and a pass skipped
+                behind it, leave this entry as it is, and the late answer is
+                dropped. A refresh a person asked for stops waiting after one
+                minute, but the fetch runs on and this entry stays until it
+                answers. The first fetch that answers within the scheduled deadline
+                replaces it. When three passes in a row have
+                gone unanswered, counting deadline and skipped passes together,
+                the flag and the "starting" cause go, and errorKind is
+                "unreachable", with the saved rows and staleSince kept. While it is
+                true a client says "starting up, showing data from 3 minutes ago",
+                and never "unreachable".
             cause (ForgeHealthCause | Unset): Why the rows shown for this forge are not from the latest read,
                 while the forge is not down. "starting" is the same fact as
-                the `starting` flag: the rows are the ones the last run saved and no
-                refresh has asked the forge since the app started. "slow" means
-                the latest pass gave no answer in time (it hit its deadline, or
-                was skipped because the last fetch was still running) and the
-                last good rows are held, with the forge still reachable, until
-                three passes in a row have missed. A good read clears it. Absent
-                when the rows are current, and when the forge is shown as down
-                (see errorKind). A client words it, "slow to answer" or
-                "starting up", and does not call the rows live.
+                the `starting` flag, and goes when that flag does: the rows are the
+                ones the last run saved and no fetch from the forge has answered in
+                time since the app started.
+                "slow" means the forge has not answered yet and is not counted as
+                down. Either a refresh a person asked for stopped waiting after one
+                minute and the fetch is still running, which counts as no miss, or
+                a fetch hit the scheduled deadline of three minutes and the forge
+                is held until three passes in a row have missed. The last good rows
+                are held and the forge is still reachable. A forge never read
+                before can be "slow" with no rows while its first fetch runs on.
+                It then has no `rowsReadAt`, and a client must not read the
+                missing rows as closed or gone, or offer actions for it.
+                A fetch that runs on is applied as soon as it answers. Otherwise
+                any later pass that does not miss clears the cause, including one
+                that holds a 5xx or does not ask
+                because the rate limit is spent or at its reserve. Absent when the
+                rows are current, and when the forge is shown as down (see
+                errorKind). A client words it, "slow to answer" or "starting up",
+                and does not call the rows live.
+            rows_read_at (datetime.datetime | Unset): Present only while `cause` is "slow": about when the held rows
+                were read. It is normally the time of the last full read that
+                answered, including one that could not read some repositories,
+                whose rows are older. When webhook refreshes have made every
+                repository current after a failed full refresh or a restart, it is
+                the time of the last of those, and rows refreshed before it are
+                older. A webhook may also have refreshed single repositories since,
+                so some rows can be newer. `staleSince` is worked out the same way,
+                with the same limits. `rowsReadAt` stays the same through further
+                missed and skipped passes, and goes when `cause` does. `rowsReadAt`
+                is not `staleSince`: the forge is still reachable, and nothing is
+                locked. A client can say "slow to answer, showing data from 3
+                minutes ago".
             stale_since (datetime.datetime | Unset): Present when the last refresh against this forge failed, or the
                 forge has not been asked yet since the app started (see
                 starting), and the pull requests, issues and repos in the
@@ -64,12 +96,12 @@ class ForgeHealth:
                 webhook refresh has made every repo of the forge current, even
                 while full refreshes keep failing. Absent when the data
                 is current, and for a forge that has never fetched successfully,
-                which has nothing to show. A forge that has not answered counts
-                as failed, so a hung forge does not hold back the others: after
-                three minutes in a scheduled refresh, after one minute in a
-                refresh a person asked for. A forge still answering the last
-                refresh is not asked again, and counts as failed too. A client
-                can say "unreachable, showing
+                which has nothing to show. A hung forge does not hold back the
+                others: a scheduled refresh waits three minutes for it and a
+                refresh a person asked for waits one. Only the three minutes count
+                against the forge. A fetch the person's refresh stopped waiting for
+                runs on up to that limit, and the forge is not asked again
+                meanwhile. A client can say "unreachable, showing
                 data from 3 minutes ago".
             error (str | Unset): A human-readable explanation of the last failure, if reachable is false. Mapped from
                 errorKind, not the raw underlying error text. Omitted when reachable.
@@ -115,6 +147,7 @@ class ForgeHealth:
     capabilities: ForgeCapabilities
     starting: bool | Unset = UNSET
     cause: ForgeHealthCause | Unset = UNSET
+    rows_read_at: datetime.datetime | Unset = UNSET
     stale_since: datetime.datetime | Unset = UNSET
     error: str | Unset = UNSET
     error_kind: ForgeErrorKind | Unset = UNSET
@@ -150,6 +183,10 @@ class ForgeHealth:
         if not isinstance(self.cause, Unset):
             cause = self.cause.value
 
+
+        rows_read_at: str | Unset = UNSET
+        if not isinstance(self.rows_read_at, Unset):
+            rows_read_at = self.rows_read_at.isoformat()
 
         stale_since: str | Unset = UNSET
         if not isinstance(self.stale_since, Unset):
@@ -202,6 +239,8 @@ class ForgeHealth:
             field_dict["starting"] = starting
         if cause is not UNSET:
             field_dict["cause"] = cause
+        if rows_read_at is not UNSET:
+            field_dict["rowsReadAt"] = rows_read_at
         if stale_since is not UNSET:
             field_dict["staleSince"] = stale_since
         if error is not UNSET:
@@ -256,6 +295,16 @@ class ForgeHealth:
             cause = UNSET
         else:
             cause = ForgeHealthCause(_cause)
+
+
+
+
+        _rows_read_at = d.pop("rowsReadAt", UNSET)
+        rows_read_at: datetime.datetime | Unset
+        if isinstance(_rows_read_at,  Unset):
+            rows_read_at = UNSET
+        else:
+            rows_read_at = datetime.datetime.fromisoformat(_rows_read_at)
 
 
 
@@ -337,6 +386,7 @@ class ForgeHealth:
             capabilities=capabilities,
             starting=starting,
             cause=cause,
+            rows_read_at=rows_read_at,
             stale_since=stale_since,
             error=error,
             error_kind=error_kind,

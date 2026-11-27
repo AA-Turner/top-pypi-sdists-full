@@ -1,3 +1,5 @@
+import gc
+import sys
 from typing import Any
 
 import pytest
@@ -6,7 +8,12 @@ from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows.core._events.event_context import EventContext
-from mistralai.workflows.protocol.v1.events import CustomTaskCompleted, CustomTaskStarted
+from mistralai.workflows.protocol.v1.events import (
+    CustomTaskCompleted,
+    CustomTaskFailed,
+    CustomTaskStarted,
+    WorkflowEventCategory,
+)
 from mistralai.workflows.testing import (
     activity_completed,
     activity_started,
@@ -28,16 +35,23 @@ from .fixtures_interactive_workflow import (
     TimeoutTestWorkflow,
     WorkflowWithValidationFailure,
 )
-from .utils import create_capturing_mock_events_client, create_test_worker_with_events, wait_for_pending_inputs
+from .utils import (
+    create_capturing_mock_event_publisher,
+    create_test_worker_with_events,
+    emitted,
+    wait_for_pending_inputs,
+)
 
 
 @pytest.mark.asyncio
-async def test_basic_workflow_emits_lifecycle_events(temporal_env: WorkflowEnvironment) -> None:
+async def test_basic_workflow_emits_lifecycle_events(
+    temporal_env: WorkflowEnvironment, event_categories: frozenset[WorkflowEventCategory]
+) -> None:
     captured_events: list[Any] = []
 
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
-    async with EventContext(mock_client):
+    async with EventContext(mock_client, emitted_event_categories=event_categories):
         async with create_test_worker_with_events(
             temporal_env,
             workflows=[BasicWorkflow],
@@ -63,7 +77,7 @@ async def test_basic_workflow_emits_lifecycle_events(temporal_env: WorkflowEnvir
             ]
 
             errors = compare_itemwise(
-                expected_events,
+                emitted(expected_events, event_categories),
                 captured_events,
                 exclude_paths={
                     "event_id",
@@ -81,12 +95,14 @@ async def test_basic_workflow_emits_lifecycle_events(temporal_env: WorkflowEnvir
 
 
 @pytest.mark.asyncio
-async def test_wait_for_input_emits_lifecycle_events(temporal_env: WorkflowEnvironment) -> None:
+async def test_wait_for_input_emits_lifecycle_events(
+    temporal_env: WorkflowEnvironment, event_categories: frozenset[WorkflowEventCategory]
+) -> None:
     captured_events: list[Any] = []
 
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
-    async with EventContext(mock_client):
+    async with EventContext(mock_client, emitted_event_categories=event_categories):
         async with create_test_worker_with_events(
             temporal_env,
             workflows=[SimpleApprovalWorkflow],
@@ -109,6 +125,10 @@ async def test_wait_for_input_emits_lifecycle_events(temporal_env: WorkflowEnvir
             result = await handle.result()
             assert result["status"] == "approved"
 
+            if WorkflowEventCategory.ACTIVITY not in event_categories:
+                # wait_for_input reports through CUSTOM_TASK events only; no ACTIVITY event wraps its emitters.
+                assert all(e.event_type.category != WorkflowEventCategory.ACTIVITY for e in captured_events)
+
             expected_events = [
                 activity_started("__internal__emit_workflow_started", workflow_name="simple_approval_workflow"),
                 workflow_started("simple_approval_workflow"),
@@ -129,7 +149,7 @@ async def test_wait_for_input_emits_lifecycle_events(temporal_env: WorkflowEnvir
             ]
 
             errors = compare_itemwise(
-                expected_events,
+                emitted(expected_events, event_categories),
                 captured_events,
                 exclude_paths={
                     "event_id",
@@ -158,12 +178,14 @@ async def test_wait_for_input_emits_lifecycle_events(temporal_env: WorkflowEnvir
 
 
 @pytest.mark.asyncio
-async def test_wait_for_input_emits_failed_event_on_validation_error(temporal_env: WorkflowEnvironment) -> None:
+async def test_wait_for_input_emits_failed_event_on_validation_error(
+    temporal_env: WorkflowEnvironment, event_categories: frozenset[WorkflowEventCategory]
+) -> None:
     captured_events: list[Any] = []
 
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
-    async with EventContext(mock_client):
+    async with EventContext(mock_client, emitted_event_categories=event_categories):
         async with create_test_worker_with_events(
             temporal_env,
             workflows=[WorkflowWithValidationFailure],
@@ -226,7 +248,7 @@ async def test_wait_for_input_emits_failed_event_on_validation_error(temporal_en
             ]
 
             errors = compare_itemwise(
-                expected_events,
+                emitted(expected_events, event_categories),
                 captured_events,
                 exclude_paths={
                     "event_id",
@@ -247,12 +269,14 @@ async def test_wait_for_input_emits_failed_event_on_validation_error(temporal_en
 
 
 @pytest.mark.asyncio
-async def test_wait_for_input_emits_failed_event_on_cancellation(temporal_env: WorkflowEnvironment) -> None:
+async def test_wait_for_input_emits_failed_event_on_cancellation(
+    temporal_env: WorkflowEnvironment, event_categories: frozenset[WorkflowEventCategory]
+) -> None:
     captured_events: list[Any] = []
 
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
-    async with EventContext(mock_client):
+    async with EventContext(mock_client, emitted_event_categories=event_categories):
         async with create_test_worker_with_events(
             temporal_env,
             workflows=[SimpleApprovalWorkflow],
@@ -294,7 +318,7 @@ async def test_wait_for_input_emits_failed_event_on_cancellation(temporal_env: W
             ]
 
             errors = compare_itemwise(
-                expected_events,
+                emitted(expected_events, event_categories),
                 captured_events,
                 exclude_paths={
                     "event_id",
@@ -316,12 +340,67 @@ async def test_wait_for_input_emits_failed_event_on_cancellation(temporal_env: W
 
 
 @pytest.mark.asyncio
-async def test_wait_for_input_timeout(temporal_env: WorkflowEnvironment) -> None:
+async def test_wait_for_input_teardown_does_not_emit_failed_event(temporal_env: WorkflowEnvironment) -> None:
+    """A workflow left paused in ``wait_for_input`` has its coroutine closed at teardown,
+    raising ``GeneratorExit``. That is not a cancellation inside the workflow, so it must not
+    emit a ``waiting_for_input_failed`` event nor try to run a local activity outside the
+    workflow event loop. Doing so previously raised ``_NotInWorkflowEventLoopError`` while the
+    generator was closing, surfaced by pytest as a ``PytestUnraisableExceptionWarning``.
+
+    The coroutine is closed lazily when it is garbage-collected, so the worker is shut down and
+    the handle dropped before forcing a collection, capturing any unraisable exception via
+    ``sys.unraisablehook`` while it can still be asserted on.
+    """
+    captured_events: list[Any] = []
+
+    mock_client = create_capturing_mock_event_publisher(captured_events)
+
+    unraisable_exceptions: list[BaseException] = []
+    previous_hook = sys.unraisablehook
+    sys.unraisablehook = lambda hook_args: unraisable_exceptions.append(hook_args.exc_value)
+    try:
+        async with EventContext(mock_client):
+            async with create_test_worker_with_events(
+                temporal_env,
+                workflows=[SimpleApprovalWorkflow],
+            ):
+                handle = await temporal_env.client.start_workflow(
+                    "simple_approval_workflow",
+                    {"request_id": "req-teardown-test", "description": "Test teardown"},
+                    id="test-wait-for-input-teardown",
+                    task_queue="test-task-queue",
+                )
+
+                await wait_for_pending_inputs(handle, expected_count=1)
+
+        # Drop the last reference to the paused workflow and force its coroutine to be
+        # finalized, which closes it (GeneratorExit) while our unraisable hook is installed.
+        del handle
+        gc.collect()
+    finally:
+        sys.unraisablehook = previous_hook
+
+    assert unraisable_exceptions == [], (
+        f"Closing a paused wait_for_input coroutine must not raise: {unraisable_exceptions}"
+    )
+
+    failed_events = [
+        event
+        for event in captured_events
+        if isinstance(event, CustomTaskFailed) and event.attributes.custom_task_type == "wait_for_input"
+    ]
+    assert failed_events == [], "Teardown must not emit a waiting_for_input_failed event"
+
+
+@pytest.mark.asyncio
+async def test_wait_for_input_timeout(
+    temporal_env: WorkflowEnvironment, event_categories: frozenset[WorkflowEventCategory]
+) -> None:
     """Test that wait_for_input respects the timeout parameter."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
-    async with EventContext(mock_client):
+    async with EventContext(mock_client, emitted_event_categories=event_categories):
         async with create_test_worker_with_events(
             temporal_env,
             workflows=[TimeoutTestWorkflow],
@@ -373,7 +452,7 @@ async def test_wait_for_input_timeout(temporal_env: WorkflowEnvironment) -> None
             ]
 
             errors = compare_itemwise(
-                expected_events,
+                emitted(expected_events, event_categories),
                 captured_events,
                 exclude_paths={
                     "event_id",
@@ -399,7 +478,7 @@ async def test_wait_for_input_completed_event_uses_alias_keys(temporal_env: Work
     so clients rebuilding the submitted form can match values to fields."""
     captured_events: list[Any] = []
 
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(

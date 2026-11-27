@@ -12,22 +12,25 @@ class UpdateStrictEventNameRequest(DaraModel):
         event_name_list: List[str] = None,
         lang: str = None,
         operator: str = None,
+        resource_directory_account_id: int = None,
     ):
-        # The list of strict mode alerts to operate on. This is a full list. Strict mode alerts not included in this list will have the opposite action applied.
-        # > Call [DescribeStrictEventName](~~DescribeStrictEventName~~) to obtain the list of all strict mode alerts.
-        # > -.
+        # The list of strict mode alerts to be updated. This is a full list. Strict mode alerts not included in this list will be subjected to the opposite operation.
+        # > You can call [DescribeStrictEventName](~~DescribeStrictEventName~~) to obtain the list of all strict mode alerts.
+        # > -
         self.event_name_list = event_name_list
-        # The language of the request and response. Default value: **zh**. Valid values:
+        # Specifies the language of the request and response. Default value: **zh**. Valid values:
         # 
-        # - **zh**: Chinese
+        # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang
-        # The operator for the rule action. Valid values:
-        # - *on*: enables alerting
-        # - *off*: disables alerting.
+        # Specifies the action to perform on the alerts. Valid values:
+        # 
+        # - *on*: enables alerts.
+        # - *off*: disables alerts.
         # 
         # This parameter is required.
         self.operator = operator
+        self.resource_directory_account_id = resource_directory_account_id
 
     def validate(self):
         pass
@@ -46,6 +49,9 @@ class UpdateStrictEventNameRequest(DaraModel):
         if self.operator is not None:
             result['Operator'] = self.operator
 
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         return result
 
     def from_map(self, m: dict = None):
@@ -58,6 +64,9 @@ class UpdateStrictEventNameRequest(DaraModel):
 
         if m.get('Operator') is not None:
             self.operator = m.get('Operator')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         return self
 

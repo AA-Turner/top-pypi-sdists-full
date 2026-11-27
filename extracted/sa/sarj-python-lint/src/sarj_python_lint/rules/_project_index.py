@@ -31,7 +31,7 @@ from sarj_python_lint.rules._ast_index import (
 from sarj_python_lint.rules._first_party import FirstPartyFacts, project_root
 from sarj_python_lint.rules._imports import ImportIndex
 from sarj_python_lint.rules._namespace_access import dynamic_namespace_access
-from sarj_python_lint.rules._paths import is_generated
+from sarj_python_lint.rules._paths import is_generated, is_test_path, is_test_support_path
 
 
 if TYPE_CHECKING:
@@ -74,6 +74,7 @@ _TRANSFERABLE_FACTS = (
     "_constructor_consumers",
     "_constructor_operations",
     "_direct_subclasses",
+    "_potential_bases",
     "_typed_class_consumers",
     "_mock_specs",
 )
@@ -563,6 +564,60 @@ class ProjectIndexSet:
         source = self._by_module.get(module)
         return source if isinstance(source, SourceUnit) else None
 
+    def class_references(
+        self, candidates: frozenset[SymbolRef]
+    ) -> Iterator[tuple[SourceUnit, ast.Name | ast.Attribute | None, frozenset[SymbolRef]]]:
+        excluded = self._classes.keys() - candidates
+        local: dict[str, set[str]] = {}
+        for candidate in candidates:
+            local.setdefault(candidate.module, set()).add(candidate.name)
+        for unit in self.source_units:
+            if unit.tree is None or is_test_path(unit.path) or is_test_support_path(unit.path):
+                continue
+            roots = frozenset(local.get(unit.module or "", ()))
+            yield from self._unit_class_references(unit, unit.tree, roots, candidates, excluded)
+
+    def _unit_class_references(
+        self,
+        unit: SourceUnit,
+        tree: ast.Module,
+        names: frozenset[str],
+        candidates: frozenset[SymbolRef],
+        excluded: AbstractSet[SymbolRef],
+    ) -> Iterator[tuple[SourceUnit, ast.Name | ast.Attribute | None, frozenset[SymbolRef]]]:
+        namespaces = self._runtime_namespaces
+        imports = self._runtime_origins[unit.module] if unit.module is not None else _runtime_import_origins(unit)
+        for star in imports.get("*", ()):
+            if targets := namespaces.get(_qualified_symbol(star), frozenset()) & candidates:
+                yield unit, None, targets
+        roots = names | frozenset(
+            name
+            for name, origins in imports.items()
+            if self._owned_value_targets(iter(origins), namespaces, already_escaped=excluded)
+        )
+        if roots.isdisjoint(_tree_names(tree)):
+            return
+        for use in _runtime_class_value_uses(
+            tree, roots=roots, opaque_type_providers=True, reference_contexts=(ast.Load, ast.Store, ast.Del)
+        ):
+            origins = _possible_class_symbols(unit, use.reference, imports)
+            symbols = self._owned_value_targets(origins, namespaces, already_escaped=excluded)
+            targets = frozenset(symbols)
+            if use.namespace_value and not use.type_or_constructor:
+                targets |= frozenset(
+                    chain.from_iterable(namespaces.get(_qualified_symbol(symbol), ()) for symbol in symbols)
+                )
+            if targets := targets & candidates:
+                yield unit, use.reference, targets
+
+    @staticmethod
+    def imported_symbol(
+        unit: SourceUnit, reference: ast.Name | ast.Attribute, statement: ast.Import | ast.ImportFrom
+    ) -> SymbolRef | None:
+        package = (unit.module or "") if unit.path.name == "__init__.py" else (unit.module or "").rpartition(".")[0]
+        bindings = {name: (origin,) for name, origin in _statement_import_origins(statement, package).items()}
+        return next(_imported_class_symbols(reference, bindings), None)
+
     def _namespace_write_inventory(self) -> Mapping[str, _ImportNamespaceWrites]:
         def resolve(origin: SymbolRef) -> tuple[SymbolRef, ...] | None:
             values = self._canonical_value_symbols(origin)
@@ -840,6 +895,25 @@ class ProjectIndexSet:
             return frozenset()
         return self._direct_subclasses.get(SymbolRef(unit.module, name), frozenset())
 
+    def may_be_subclassed(self, unit: SourceUnit, name: str) -> bool:
+        if unit.module is None:
+            return True
+        return SymbolRef(unit.module, name) in self._potential_bases or not self.value_origins_complete
+
+    @cached_property
+    def _potential_bases(self) -> frozenset[SymbolRef]:
+        bases: set[SymbolRef] = set()
+        for unit in self.source_units:
+            if unit.tree is None:
+                continue
+            imports = _runtime_import_origins(unit) if unit.module is None else self._runtime_origins[unit.module]
+            for reference in _potential_base_references(unit.tree):
+                for origin in _possible_class_symbols(unit, reference, imports):
+                    bases.update(self._classes.keys() & self._canonical_value_symbols(origin))
+            if not self.value_origins_complete:
+                return frozenset()
+        return frozenset(bases)
+
     @cached_property
     def _direct_subclasses(self) -> Mapping[SymbolRef, frozenset[tuple[Path, str]]]:
         subclasses: dict[SymbolRef, set[tuple[Path, str]]] = {}
@@ -1092,19 +1166,21 @@ def _possible_class_symbols(
     resolved = ProjectIndexSet.resolve(unit, reference)
     if resolved is not None:
         yield resolved
+    yield from _imported_class_symbols(reference, imports)
+
+
+def _imported_class_symbols(
+    reference: ast.Name | ast.Attribute, imports: Mapping[str, Sequence[SymbolRef] | AbstractSet[SymbolRef]]
+) -> Iterator[SymbolRef]:
     attributes: list[str] = []
     root: ast.expr = reference
     while isinstance(root, ast.Attribute):
         attributes.append(root.attr)
         root = root.value
-    if not isinstance(root, ast.Name):
-        return
-    for origin in imports.get(root.id, ()):
-        if not attributes:
-            yield origin
-            continue
-        parts = [origin.module, *([origin.name] if origin.name else []), *reversed(attributes)]
-        yield SymbolRef(".".join(parts[:-1]), parts[-1])
+    if isinstance(root, ast.Name):
+        suffix = tuple(reversed(attributes))
+        for origin in imports.get(root.id, ()):
+            yield _symbol_with_suffix(origin, suffix) if suffix else origin
 
 
 def _qualified_symbol(symbol: SymbolRef) -> str:
@@ -1113,12 +1189,28 @@ def _qualified_symbol(symbol: SymbolRef) -> str:
     return f"{symbol.module}.{symbol.name}" if symbol.name else symbol.module
 
 
+def _potential_base_references(tree: ast.Module) -> Iterator[ast.Name | ast.Attribute]:
+    for node in walk_ast(tree):
+        match node:
+            case ast.ClassDef(bases=bases):
+                expressions = bases
+            case ast.Assign(value=value) | ast.AnnAssign(value=ast.expr() as value):
+                expressions = [value]
+            case _:
+                continue
+        for expression in expressions:
+            reference = expression.value if isinstance(expression, ast.Subscript) else expression
+            if isinstance(reference, ast.Name | ast.Attribute):
+                yield reference
+
+
 def _runtime_class_value_uses(
     tree: ast.Module,
     *,
     roots: frozenset[str] | None = None,
     opaque_type_providers: bool = False,
     type_providers: _TypeProviderFacts | None = None,
+    reference_contexts: tuple[type[ast.expr_context], ...] = (ast.Load,),
 ) -> Iterator[_ClassValueUse]:
     queue: deque[tuple[ast.AST, ast.AST | None, bool]] = deque([(tree, None, False)])
     while queue:
@@ -1134,7 +1226,7 @@ def _runtime_class_value_uses(
             )
         if (
             isinstance(current, _CLASS_VALUE_NODES)
-            and isinstance(current.ctx, ast.Load)
+            and isinstance(current.ctx, reference_contexts)
             and _reference_has_root(current, roots)
         ):
             yield _ClassValueUse(
@@ -1317,6 +1409,8 @@ def _is_index_candidate(source: str) -> bool:
         or "NewType" in source
         or "class" in source
         or "spec" in source
+        or "." in source
+        or any(name in source for name in ("setattr", "delattr", "vars"))
         or ("match" in source and "str" in source)
     )
 

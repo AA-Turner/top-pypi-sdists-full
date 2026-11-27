@@ -10,7 +10,7 @@ from mistralai.workflows.plugins.mistralai import TodoList, TodoListItem
 from mistralai.workflows.protocol.v1.events import JSONPatchAdd, JSONPatchPayload, JSONPatchRemove, JSONPatchReplace
 from mistralai.workflows.testing import (
     compare_itemwise,
-    create_capturing_mock_events_client,
+    create_capturing_mock_event_publisher,
     create_test_worker_with_events,
     custom_task_completed,
     custom_task_in_progress,
@@ -138,7 +138,7 @@ class TodoItemExceptionWorkflow:
 async def test_todo_list_emits_events(temporal_env: WorkflowEnvironment) -> None:
     """Test that TodoList emits correct custom task events for status updates."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -250,7 +250,7 @@ async def test_todo_list_emits_events(temporal_env: WorkflowEnvironment) -> None
 async def test_todo_item_context_manager_emits_events(temporal_env: WorkflowEnvironment) -> None:
     """Test that TodoListItem context manager auto-sets in_progress -> done and emits correct events."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -374,7 +374,7 @@ async def test_todo_item_context_manager_emits_events(temporal_env: WorkflowEnvi
 async def test_todo_list_add_item_emits_events(temporal_env: WorkflowEnvironment) -> None:
     """Test that add_item() works and emits correct events with JSON patch add operation."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -516,7 +516,7 @@ async def test_todo_list_add_item_emits_events(temporal_env: WorkflowEnvironment
 async def test_todo_list_remove_item_emits_events(temporal_env: WorkflowEnvironment) -> None:
     """Test that remove_item() works and emits correct events with JSON patch remove operation."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -629,7 +629,7 @@ async def test_todo_list_remove_item_emits_events(temporal_env: WorkflowEnvironm
 async def test_todo_item_exception_leaves_in_progress(temporal_env: WorkflowEnvironment) -> None:
     """Test that exception in context manager leaves status as in_progress (no done event)."""
     captured_events: list[Any] = []
-    mock_client = create_capturing_mock_events_client(captured_events)
+    mock_client = create_capturing_mock_event_publisher(captured_events)
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(

@@ -41,12 +41,7 @@ class TestOpenAIResponseText(unittest.TestCase):
         model = OpenAIResponseText()
         if include_optional:
             return OpenAIResponseText(
-                format = ogx_client.models.open_ai_response_text_format.OpenAIResponseTextFormat(
-                    type = 'text', 
-                    name = '', 
-                    schema = { }, 
-                    description = '', 
-                    strict = True, ),
+                format = None,
                 verbosity = 'low'
             )
         else:

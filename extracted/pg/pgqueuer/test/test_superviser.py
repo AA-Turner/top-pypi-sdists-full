@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import signal
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from functools import partial
 from typing import Any
-from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -84,17 +84,14 @@ async def test_setup_shutdown_handlers_invalid_manager(
         supervisor.setup_shutdown_handlers(InvalidManager(), shutdown_event)
 
 
-async def test_setup_signal_handlers(
-    shutdown_event: asyncio.Event,
-) -> None:
-    with patch("pgqueuer.adapters.cli.supervisor.asyncio.get_event_loop") as mock_get_event_loop:
-        mock_loop = MagicMock()
-        mock_get_event_loop.return_value = mock_loop
+async def test_setup_signal_handlers() -> None:
+    """SIGTERM sets shutdown in the block. The block removes the handlers on exit."""
+    shutdown = asyncio.Event()
+    with supervisor.setup_signal_handlers(shutdown):
+        os.kill(os.getpid(), signal.SIGTERM)
+        await asyncio.wait_for(shutdown.wait(), timeout=1)
 
-        supervisor.setup_signal_handlers(shutdown_event)
-
-        mock_loop.add_signal_handler.assert_any_call(signal.SIGINT, ANY, signal.SIGINT)
-        mock_loop.add_signal_handler.assert_any_call(signal.SIGTERM, ANY, signal.SIGTERM)
+    assert asyncio.get_running_loop().remove_signal_handler(signal.SIGINT) is False
 
 
 async def test_runit_normal_operation(
@@ -484,19 +481,19 @@ async def test_run_manager_invalid_manager() -> None:
         )
 
 
-async def test_run_max_concurrent_tasks_twice_batch_size(
+async def test_run_max_concurrent_tasks_below_batch_size(
     queue_manager: QueueManager,
 ) -> None:
     with pytest.raises(
         RuntimeError,
-        match=r"max_concurrent_tasks must be at least twice the batch size",
+        match=r"max_concurrent_tasks must be at least the batch size",
     ):
         await supervisor.run_manager(
             queue_manager,
             dequeue_timeout=timedelta(seconds=1),
             batch_size=10,
             mode=QueueExecutionMode.continuous,
-            max_concurrent_tasks=10,
+            max_concurrent_tasks=9,
             shutdown_on_listener_failure=False,
         )
 
@@ -633,5 +630,15 @@ async def test_fallback_when_add_signal_handler_is_missing(
 
     caplog.set_level(logging.WARNING)
 
-    supervisor.setup_signal_handlers(asyncio.Event())
-    assert "not supported on this platform" in caplog.text.lower()
+    with supervisor.setup_signal_handlers(asyncio.Event()):
+        assert "not supported on this platform" in caplog.text.lower()
+
+
+async def test_second_sigint_raises_keyboard_interrupt() -> None:
+    """The first SIGINT sets shutdown. The second SIGINT raises KeyboardInterrupt (#1133)."""
+    shutdown = asyncio.Event()
+    with supervisor.setup_signal_handlers(shutdown):
+        os.kill(os.getpid(), signal.SIGINT)
+        await asyncio.wait_for(shutdown.wait(), timeout=1)
+        with pytest.raises(KeyboardInterrupt):
+            os.kill(os.getpid(), signal.SIGINT)

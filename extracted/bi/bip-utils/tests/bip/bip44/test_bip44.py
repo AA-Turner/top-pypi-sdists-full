@@ -581,6 +581,30 @@ TEST_VECT = [
             "cosmos12ecyuddg4wlnhztusgju5zxxjgznkz7fsf57kq",
         ],
     },
+    # Cronos POS
+    {
+        "coin": Bip44Coins.CRONOS_POS,
+        "names": ("Cronos POS", "CRO"),
+        "is_testnet": False,
+        "seed": b"5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4",
+        "ex_master": "xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu",
+        "wif_master": "",
+        "account": {
+            "ex_pub": "xpub6CWZrBZhmNj2Gy3kWq6ZRagV68MJ89PqE9Y4m8jLP7Wvc2KRrZ83n7Y1rokGEHz8qj7xiRN7x5m6b5uAhCghuNd74Qbe5HrrWw1Dsb9NTUQ",
+            "ex_priv": "xprv9yXDSg2ow1Aj4UyHQoZZ4SjkY6WoigfyrvcTxkKipmywjDzHK1ooEKDY1WMMRGGtejuir3PAxh1eW5ikZS1fmcUqBMU72MzRCHMGketLGEW",
+        },
+        "chain_ext": {
+            "ex_pub": "xpub6E4apuyGAJ7TyL5UhyXen38hmrmSBTqfdpG8q21MFmULiHBTLNux29fGH17wiubGzt36y6KPp1fCvsBfP6AkmuQGNjW4AhuN4e326bfgb6B",
+            "ex_priv": "xprvA15ERQSNKvZAkr11bwzeQuByDpvwn17pGbLY2dbjhRwMqUrJnqbhUMLnRmMo8DewRbTRXzSYV2JChMcDdmtpJYJR1ZBXpeiyimwn5YxRNW1",
+        },
+        "addresses": [
+            "cro1r3ywhs4ng96dnm9zkc5y3etl7tps5cvvz26lr4",
+            "cro105alq8tfp2stp723kcrqs4vcrh2smf786lme5z",
+            "cro1kvt8r5gd04dd8fn9swhz7gnrqyxqxqszf5hgz5",
+            "cro1n27yzhse30xhx9fmwvweg0y454pl05h4rwt2rq",
+            "cro1vwjtpcgkg70kmsu6d7lmds23kaqla9yyh57edq",
+        ],
+    },
     # Dash
     {
         "coin": Bip44Coins.DASH,
@@ -1071,6 +1095,30 @@ TEST_VECT = [
             "iaa12ecyuddg4wlnhztusgju5zxxjgznkz7f9t5053",
         ],
     },
+    # Kaspa (seed of rusty-kaspa tests, same master key and account public key)
+    {
+        "coin": Bip44Coins.KASPA,
+        "names": ("Kaspa", "KAS"),
+        "is_testnet": False,
+        "seed": b"6a0ede077e91c8f936e020c6a0a2d866940dacdf93dede44236ee54fc91d72c953a628a5602798615a364f5a170492a250a0514638fe27dc5b4a4e1da0c5244c",
+        "ex_master": "kprv5y2qurMHCsXYrpeDB395BY2DPKYHUGaCMpFAYRi1cmhwin1bWRyUXVbtTyy54FCGxPnnEvbK9WaiaQgkGS9ngGxmHy1bubZYY6MTokeYP2Q",
+        "wif_master": "",
+        "account": {
+            "ex_pub": "kpub2HtoTgsG6e1c7ixJ6JY49otNSzhEKkwnH6bsPHLAXUdYnfEuYw9LnhT7uRzaS4LSeit2rzutV6z8Fs9usdEGKnNe6p1JxfP71mK8rbUfYWo",
+            "ex_priv": "kprv64uT4BLNGGTJuEspzH13nfwdtxrjvJDvusgGatvYy96Zurum1Pq6Eu8e49BfS8SrKYWwsmneheqffMTSET14Q4wCjnCn74MTpP29hyNT6gm",
+        },
+        "chain_ext": {
+            "ex_pub": "kpub2MHmp2LvchvYquChgEqAovmqQrSoWSAsxus8qpfn8rAqsm2FGQtsuQmGUYPJFi9NvKYAGj9RxAkCkfm3XtqMiL2J1dgQ8i2YuPCWy5t2W36",
+            "ex_priv": "kprv68JRQWp2nLNFdR8EaDJASnq6rpcK6yT2bgwY3SGAaWdrzxh6isadMcSndJp4igPYyoMfsPmbWhX4VVsrwWAGaRv6mu81jwjmuyc5Y2MQtLt",
+        },
+        "addresses": [
+            "kaspa:qqzrk3a4acjla3zc9ngr37u4grtkr0k0mqf6qhmd9lteks00av6asl6rqhjnm",
+            "kaspa:qrqjaalxdcvuhjqhf8nuzkhxvdj7xv7tp3zlea689p8vh8hczvdt7avlxenuw",
+            "kaspa:qp5rg6m5jxy90fuc5x7twygfyrfd4ttvgtfdsvdqamg2ztgwrw62q8gxcjjry",
+            "kaspa:qpsha4x2s62tlf4g7ydrmghwn272twlw60uwsf8u8u5w0qm5rmwqkkta4cjdr",
+            "kaspa:qppjqf3axf4zwgn9dnxg6zmeh4suyxzft0mpycs26lq86avtp0yhx28v68lkm",
+        ],
+    },
     # Kava
     {
         "coin": Bip44Coins.KAVA,
@@ -1444,6 +1492,30 @@ TEST_VECT = [
             "NQ60 S4UJ QV6L F46G M3L0 864P 9S31 XJAD L3YJ",
             "NQ79 FN81 9PQQ J5Y1 986M D1FF 9VUE HANP EPUQ",
             "NQ46 Y9QA C47K CF78 M356 7VC4 CSBP X9Q1 AMCQ",
+        ],
+    },
+    # Nostr (seed of NIP-06 tests, same first address)
+    {
+        "coin": Bip44Coins.NOSTR,
+        "names": ("Nostr", ""),
+        "is_testnet": False,
+        "seed": b"173b9c5f0d165502d08a4d122b2c9bf1e33e27806eac119713600a263c1241101dc55fb7cffb8f48a59b19a5ba65b037904f907bb8d08eb5bff8a17e85c2ee93",
+        "ex_master": "xprv9s21ZrQH143K3e2FkntUKioGqrCiZPy98xTawMoWZersXvujjLQy6xBpS81msv7V1wGkMsQjx6jzmPn3VnjpMHB9FLY2wUxZor5BEbptqve",
+        "wif_master": "",
+        "account": {
+            "ex_pub": "xpub6CmqvYC8JG81UvsUPxVmWAqB5M8mKTjUsgJbCB565t4kMZuooPDH9xuCguRBNYM1vKT3pfBz4Rt71g6974kuaHxaA4nbqnM8J1tnewsJBBd",
+            "ex_priv": "xprv9ynVX2fETtZiGSo1Hvxm92tSXKJGv11dWTNzPnfUXYXmUmafFqu2cAaiqd7BVCb1QWtMAaNHgvdN6eWrPACrt5JTBFnjhHmXQZWma6oTiSP",
+        },
+        "chain_ext": {
+            "ex_pub": "xpub6DjFS1DL5jV1w32aeojfTpFv7LWXG3dmGWjxnRkTacwvhabyPwjNjAnNY66bnS636mGBKvANY5oat13GT3muWzfQ3zejN3aeHYYQvPXB94K",
+            "ex_priv": "xprv9zju2VgSFMviiYx7YnCf6gKBZJg2rauuuHpMz3Lr2HQwpnGprQR8BNTtgpcpKberHtk4trSZtDMxBkzmcNhvzM2r7xRL6mrSyNBBtXWBXYt",
+        },
+        "addresses": [
+            "npub1zutzeysacnf9rru6zqwmxd54mud0k44tst6l70ja5mhv8jjumytsd2x7nu",
+            "npub1hdwtv2cx4cdfqvkt666zavtug88k3qk2849gaxrsfu2kp259rvzsxwhhs8",
+            "npub1jjdk0k0gyx6l92qy54265wjl6a939t27tap98cwrcs6q0297ttjs6ygsky",
+            "npub1p869hlcgne4nh2wkce7p4a7rkq3k7s4lk9pun6cz0gvjfthumnnq3rsw4u",
+            "npub1gcsqyqujfj3qqme8fvc2n7f4ggrk6zy78l5aygraegsv8w967erqwzk5jh",
         ],
     },
     # OKEx Chain (Atom address)
@@ -1902,6 +1974,30 @@ TEST_VECT = [
             "0x02f9C86C8dA95C6748d063AA00c6DCD581311C06",
         ],
     },
+    # THORChain (seed of iancoleman tests, same first address)
+    {
+        "coin": Bip44Coins.THORCHAIN,
+        "names": ("THORChain", "RUNE"),
+        "is_testnet": False,
+        "seed": b"97618c3cad2ba654ec883c851da1826a732419cfa37b8a6f7f03e8aa88a9f7e6210890e0afd787e182b0031a565464f4c1d4fbeb16d2dbd12643dd466bc54abe",
+        "ex_master": "xprv9s21ZrQH143K3pBEJRrjusN9Hsib6KWSUpZajLsYeV2o7rTkfhwB4t27Gjavirf1ZCkEicQzG15AePuEfE8XyMQouH3cSx3E1dh2Z98AdtA",
+        "wif_master": "",
+        "account": {
+            "ex_pub": "xpub6CJn952aYMZg2eGCwTRrj5CAH5BBeRQnu4yMsNbWkyrvCCt4z9aaFHwWA4X4p5fbCL2qm9HqyjbiCYWxQYV2wMLBT25waLCa6jkqpBjnuAC",
+            "ex_priv": "xprv9yKRjZVghz1NpABjqRtrMwFRj3LhExgwXr3m4zBuCeKwKQYvScGKhVd2JpCVFLCDWwNCcyectVdxCcpMagVyZQjJaQxTJB65gP6GY7xUVXD",
+        },
+        "chain_ext": {
+            "ex_pub": "xpub6EDfmTtFy9bC6dW3bxwsd7aekAkdDW7M95NdEvEAPmG3oRNM6AADGyUmj8nS7JNfJ4AXFgWaKkVVoUTnHHMvEYSYHvF5vAKumafxbbhvTsG",
+            "ex_priv": "xprvA1EKMxMN8n2tt9RaVwQsFydvC8v8p3PVmrT2SXpYqRj4vd3CYcqxjBAHssGnABJ8JPP5oxmRp5J45q7CUzTs6XJzYUmJDdkHap3Yenmzmvx",
+        },
+        "addresses": [
+            "thor1zp3yx758t64vqvu8776vnwd0udrs2vwuxhc4ep",
+            "thor1rc0lwpzvhdxfgk5n6455gh9yj5xa4r9k4jf2wz",
+            "thor1ngrz2jlk368u45fpapjfkx6lvr0mnq53um8gf3",
+            "thor1u84z2jxm6fyh4ztgg2mapwm0cnuhvt0l88w67w",
+            "thor1laxfpaxcvjaz3y52qqdu6wvdp3e3zrjtuvs0ge",
+        ],
+    },
     # Ton
     {
         "coin": Bip44Coins.TON,
@@ -2297,6 +2393,30 @@ TEST_VECT = [
             "3WwjVpLfPk3t1awEGwcvNjG3vcmL1aF89xhvGzbhGaRdokWfYeHp",
         ],
     },
+    # Kaspa test net (seed of rusty-kaspa tests, same master key, account public key and second address)
+    {
+        "coin": Bip44Coins.KASPA_TESTNET,
+        "names": ("Kaspa TestNet", "KAS"),
+        "is_testnet": True,
+        "seed": b"c5d1fcaedbc58d17870e37b48581ef2b01c4c63a7fb82d5400b8b32ec68af006caa021f6b58234934e680ad7a49118f1aa25437d0093458dff5b2fd742d4b6d3",
+        "ex_master": "ktrv5himbbCxArFU2CHiEQyVHP1ABS1tA1SY88CwePzGeM8gHfWmkNBXehhKsESH7UwcxpjpDdMNbwtBfyPoZ7W59kYfVnUXKRgv8UguDns2FQb",
+        "wif_master": "",
+        "account": {
+            "ex_pub": "ktub23beJLczbxoS4emYHxm5H2rPnXJPGTwjNLAc8JyjHnSFLPMJBj5h3U8oWbn1x1jayZRov6uhvGd4zUGrWH6PkYZMWsykUsQWYqjbLnHrzUE",
+            "ex_priv": "ktrv5pcHtq66mbF8rAh5BwE4utufEVTts1Dt17F1Kva7jSuGTb29eBmSVfpKfMQPwTxg9ixf3TiRbiXM1hJq4hTLNyvfpJMpY7zFNoMBdfyk5nq",
+        },
+        "chain_ext": {
+            "ex_pub": "ktub24bygjywAFqU7UwmCJdzvoLN1QhQFm539Y62LCs9LQa5CVxwEQv2bxashKSn4jYA66fZ6xw6zUJiAfdwvVnV3S74hPfm6LpPeHZvPvp9VVT",
+            "ex_priv": "ktrv5qcdHET3KtHAtzsJ6H6zZfPdTNrurJMBnKARXpTXn536Khdngsbn4AGPr5kpyQXYdfpj74Tef91QERQcuCxjLTn5XGANNaamLpsNtcKpYLC",
+        },
+        "addresses": [
+            "kaspatest:qpu92skxut9ltmj2pugjfnac6zs4npmjzqura2e4dfu29clqltu95qhdn9nj4",
+            "kaspatest:qrc2959g0pqda53glnfd238cdnmk24zxzkj8n5x83rkktx4h73dkc4ave6wyg",
+            "kaspatest:qzjvfkhllllllf9l4den4havnunwuypuu4up7ujq4sgt79afaakgsq0pw6m7e",
+            "kaspatest:qqvlwpnln0yaydgs4qfeayqwfvsyhh8tsrnqlq535xe6gns9fjvv7tdheyuw3",
+            "kaspatest:qredm03lkavxnx467rdg08656e8h9tck6uuvumpy2lhfafkcpawlcscf89jg6",
+        ],
+    },
     # Litecoin test net
     {
         "coin": Bip44Coins.LITECOIN_TESTNET,
@@ -2495,6 +2615,12 @@ TEST_VECT_DEFAULT_PATH = [
         "seed": b"5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4",
         "default_address": "cosmos19rl4cm2hmr8afy4kldpxz3fka4jguq0auqdal4",
     },
+    # Cronos POS
+    {
+        "coin": Bip44Coins.CRONOS_POS,
+        "seed": b"5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4",
+        "default_address": "cro1r3ywhs4ng96dnm9zkc5y3etl7tps5cvvz26lr4",
+    },
     # Dash
     {
         "coin": Bip44Coins.DASH,
@@ -2615,6 +2741,12 @@ TEST_VECT_DEFAULT_PATH = [
         "seed": b"5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4",
         "default_address": "iaa19rl4cm2hmr8afy4kldpxz3fka4jguq0afzdvay",
     },
+    # Kaspa
+    {
+        "coin": Bip44Coins.KASPA,
+        "seed": b"6a0ede077e91c8f936e020c6a0a2d866940dacdf93dede44236ee54fc91d72c953a628a5602798615a364f5a170492a250a0514638fe27dc5b4a4e1da0c5244c",
+        "default_address": "kaspa:qqzrk3a4acjla3zc9ngr37u4grtkr0k0mqf6qhmd9lteks00av6asl6rqhjnm",
+    },
     # Kava
     {
         "coin": Bip44Coins.KAVA,
@@ -2703,6 +2835,18 @@ TEST_VECT_DEFAULT_PATH = [
         "coin": Bip44Coins.NIMIQ,
         "seed": b"5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4",
         "default_address": "NQ45 1KUT 73F7 ADV4 UCT8 TX64 2DE4 CHBP SJBF",
+    },
+    # Nostr (NIP-06 test vector)
+    {
+        "coin": Bip44Coins.NOSTR,
+        "seed": b"173b9c5f0d165502d08a4d122b2c9bf1e33e27806eac119713600a263c1241101dc55fb7cffb8f48a59b19a5ba65b037904f907bb8d08eb5bff8a17e85c2ee93",
+        "default_address": "npub1zutzeysacnf9rru6zqwmxd54mud0k44tst6l70ja5mhv8jjumytsd2x7nu",
+    },
+    # Nostr (NIP-06 test vector)
+    {
+        "coin": Bip44Coins.NOSTR,
+        "seed": b"5e2bd11b4d371f25098ed95ded029e2b9268cf188e6b764023bafbbd8fe843244fb72ca8f66c9378085d69fcb4d4224e709ffe071acafa7b7d5eb54b2905d553",
+        "default_address": "npub16sdj9zv4f8sl85e45vgq9n7nsgt5qphpvmf7vk8r5hhvmdjxx4es8rq74h",
     },
     # OKEx Chain (Atom address)
     {
@@ -2818,6 +2962,12 @@ TEST_VECT_DEFAULT_PATH = [
         "seed": b"5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4",
         "default_address": "0xB16f8D941d7D281aDCEf3e950aBF2147D7AC2D33",
     },
+    # THORChain (iancoleman test vector)
+    {
+        "coin": Bip44Coins.THORCHAIN,
+        "seed": b"97618c3cad2ba654ec883c851da1826a732419cfa37b8a6f7f03e8aa88a9f7e6210890e0afd787e182b0031a565464f4c1d4fbeb16d2dbd12643dd466bc54abe",
+        "default_address": "thor1zp3yx758t64vqvu8776vnwd0udrs2vwuxhc4ep",
+    },
     # Ton
     {
         "coin": Bip44Coins.TON,
@@ -2912,6 +3062,12 @@ TEST_VECT_DEFAULT_PATH = [
         "coin": Bip44Coins.ERGO_TESTNET,
         "seed": b"5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4",
         "default_address": "3Wx1BMpQVMYo5EM6h41whVbvpLtEb9b2ZrJKBs1BS7oSx4eEkJQs",
+    },
+    # Kaspa test net
+    {
+        "coin": Bip44Coins.KASPA_TESTNET,
+        "seed": b"c5d1fcaedbc58d17870e37b48581ef2b01c4c63a7fb82d5400b8b32ec68af006caa021f6b58234934e680ad7a49118f1aa25437d0093458dff5b2fd742d4b6d3",
+        "default_address": "kaspatest:qpu92skxut9ltmj2pugjfnac6zs4npmjzqura2e4dfu29clqltu95qhdn9nj4",
     },
     # Litecoin test net
     {

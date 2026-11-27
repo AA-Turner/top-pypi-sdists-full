@@ -14,23 +14,23 @@ classifiers = [
     'Development Status :: 6 - Mature',
     'Operating System :: OS Independent',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Intended Audience :: Science/Research',
     'Topic :: Scientific/Engineering :: Physics'
 ]
 
 # We should normally require the oldest Python that's not at end-of-life:
-requires-python = '>=3.10'
+requires-python = '>=3.11'
 
 # Dependencies should normally be oldest-ish possible versions which have
 # wheels for the required Python version:
 dependencies = [
-    'numpy>=1.21.6',  # April 2022
-    'scipy>=1.8.1',  # May 2022
-    'matplotlib>=3.5.2',  # May 2022
-    'typing_extensions>=4.13.1'  # Apr 2026
+    'numpy>=1.24',  # ~Jan 2023
+    'scipy>=1.10',  # Jan 2023
+    'matplotlib>=3.7',  # Feb 2023
 ]
 
 [project.urls]
@@ -42,7 +42,7 @@ Issues = 'https://gitlab.com/ase/ase/issues/'
 ase = 'ase.cli.main:main'
 
 [project.optional-dependencies]
-docs = ['sphinx', 'sphinx_book_theme', 'sphinxcontrib-video', 'sphinx-gallery', 'pillow']
+docs = ['sphinx', 'sphinx_book_theme', 'sphinxcontrib-video', 'sphinx-gallery', 'pillow', 'scikit-image']
 test = ['pytest>=7.4.0', 'pytest-xdist>=3.2.0']  # summer 2023
 spglib = ['spglib>=1.9']
 lint = ['mypy', 'ruff', 'types-docutils', 'types-PyMySQL']
@@ -104,7 +104,7 @@ skip-magic-trailing-comma = false
 
 [tool.ruff.lint]
 preview = true  # necessary to activate many pycodestyle rules
-select = [
+extend-select = [
     'F',      # Pyflakes
     'E',      # pycodestyle
     'W',      # pycodestyle
@@ -114,17 +114,132 @@ select = [
     'D407',   # missing-dashed-underline-after-section
     'UP',     # pyupgrade
     'RUF013', # implicit-optional
+    'B006',   # mutable-argument-default
 ]
 ignore = [
     'E741',   # ambiguous-variable-name
     'W505',   # doc-line-too-long
+    'UP031',  # Use format specifiers instead of percent format
+    'UP032',  # Use f-string instead of `format` call
+    'UP030',  # Use implicit references for positional format fields
+    'dict-index-missing-items',
+    'in-dict-keys',
+    'unnecessary-collection-call',
+    'if-with-same-arms',
+    'manual-from-import',
+    'useless-import-alias',
+    'unnecessary-comprehension-in-call',
+    'multiple-with-statements',
+    'blind-except',
+    'numpy-legacy-random',
+    'enumerate-for-loop',
+    'for-loop-writes',
+    'custom-type-var-for-self',
+    'repeated-append',
+    'unsorted-dunder-all',
+    'raise-vanilla-class',
+    'if-stmt-min-max',
+    'unused-unpacked-variable',
+    'mutable-argument-default',
+    'bad-string-format-type',
+    'too-many-newlines-at-end-of-file',
+    'abstract-base-class-without-abstract-method',
+    'any-eq-ne-annotation',
+    'assert-with-print-message',
+    'cached-instance-method',
+    'collapsible-if',
+    'comparison-with-itself',
+    'duplicate-isinstance-call',
+    'duplicate-union-member',
+    'empty-comment',
+    'empty-docstring',
+    'escape-sequence-in-docstring',
+    'explicit-f-string-type-conversion',
+    'expr-or-true',
+    'fallible-context-manager',
+    'falsy-dict-get-fallback',
+    'float-equality-comparison',
+    'for-loop-set-mutations',
+    'function-call-in-default-argument',
+    'function-uses-loop-variable',
+    'get-attr-with-constant',
+    'global-variable-not-assigned',
+    'hardcoded-string-charset',
+    'if-exp-instead-of-or-operator',
+    'if-expr-min-max',
+    'implicit-string-concatenation-in-collection-literal',
+    'incorrect-dict-iterator',
+    'invalid-module-name',
+    'legacy-type-comment',
+    'loop-iterator-mutation',
+    'loop-variable-overrides-iterator',
+    'manual-list-copy',
+    'math-constant',
+    'meta-class-abc-meta',
+    'missing-f-string-syntax',
+    'missing-maxsplit-arg',
+    'multiple-starts-ends-with',
+    'mutable-class-default',
+    'needless-bool',
+    'needless-else',
+    'negate-equal-op',
+    'none-not-at-end-of-union',
+    'numpy-deprecated-type-alias',
+    'open-file-with-context-handler',
+    'pep484-style-positional-only-parameter',
+    'print-empty-string',
+    'pytest-parameter-with-default-argument',
+    'pytest-raises-ambiguous-pattern',
+    'pytest-raises-with-multiple-statements',
+    'pytest-warns-with-multiple-statements',
+    'quadratic-list-summation',
+    'readlines-in-for',
+    'redefined-argument-from-local',
+    'redundant-numeric-union',
+    'regex-flag-alias',
+    'reimplemented-builtin',
+    'self-assigning-variable',
+    'self-or-cls-assignment',
+    'single-item-membership-test',
+    'slice-copy',
+    'slice-to-remove-prefix-or-suffix',
+    'sorted-min-max',
+    'split-static-string',
+    'star-arg-unpacking-after-keyword-arg',
+    'static-join-to-f-string',
+    'subclass-builtin',
+    'subprocess-run-without-check',
+    'try-except-continue',
+    'try-except-pass',
+    'type-check-without-type-error',
+    'type-name-incorrect-variance',
+    'unnecessary-cast-to-int',
+    'unnecessary-dict-comprehension-for-iterable',
+    'unnecessary-dict-index-lookup',
+    'unnecessary-double-cast-or-process',
+    'unnecessary-dunder-call',
+    'unnecessary-enumerate',
+    'unnecessary-generator-list',
+    'unnecessary-iterable-allocation-for-first-element',
+    'unnecessary-lambda',
+    'unnecessary-list-index-lookup',
+    'unnecessary-map',
+    'unnecessary-range-start',
+    'unnecessary-return-none',
+    'unsorted-dunder-slots',
+    'unused-noqa',
+    'unused-private-type-var',
+    'useless-comparison',
+    'useless-expression',
+    'useless-try-except',
+    'verbose-raise',
+    'zip-instead-of-pairwise',
 ]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 50
 
 [tool.ruff.lint.per-file-ignores]
-"!doc/tutorials/**.py" = ["UP"]  # Only pyupgrade tutorials (for now)
 "examples/**.py" = ["E402"]
 "examples/**_prerequisites.py"= ["F401"]
 

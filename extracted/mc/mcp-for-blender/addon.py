@@ -41,6 +41,12 @@ bl_info = {
     "category": "Interface",
 }
 
+# Blender deletes bl_info from an add-on that is loaded as an extension (it
+# reads blender_manifest.toml instead), so code that runs after import must
+# read the name and version from these, not from bl_info.
+ADDON_NAME = bl_info["name"]
+ADDON_VERSION = tuple(bl_info["version"])
+
 # Keep in sync with blender_mcp.addon_manager.EXPECTED_ADDON_PROTOCOL_VERSION.
 ADDON_PROTOCOL_VERSION = 16
 
@@ -76,7 +82,7 @@ MESHY_IMAGE_MAX_BYTES = 20 * 1024 * 1024
 MESHY_IMAGE_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
 # Every task: GLB only, sized to real-world height, origin at the bottom.
 MESHY_OUTPUT = {"target_formats": ["glb"], "auto_size": True, "origin_at": "bottom"}
-MESHY_HEADERS = {"User-Agent": "mcp-for-blender/" + ".".join(str(part) for part in bl_info["version"])}
+MESHY_HEADERS = {"User-Agent": "mcp-for-blender/" + ".".join(str(part) for part in ADDON_VERSION)}
 MESHY_TIMEOUT = (10, 60)
 # Preview task id -> refine task id. Blender runs commands one at a time, so
 # this is where a repeated refine request (after the MCP side lost the reply to
@@ -97,7 +103,7 @@ TRIPO_MODELS = {
 TRIPO_PROMPT_MAX = 1024
 TRIPO_IMAGE_MAX_BYTES = 20 * 1024 * 1024
 TRIPO_IMAGE_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
-TRIPO_HEADERS = {"User-Agent": "mcp-for-blender/" + ".".join(str(part) for part in bl_info["version"])}
+TRIPO_HEADERS = {"User-Agent": "mcp-for-blender/" + ".".join(str(part) for part in ADDON_VERSION)}
 TRIPO_TIMEOUT = (10, 60)
 
 # World Labs Marble: whole worlds as Gaussian splats, which Blender imports
@@ -116,7 +122,7 @@ WORLDLABS_IMAGE_MAX_BYTES = 10 * 1024 * 1024  # World Labs' limit for inline ima
 WORLDLABS_MAX_IMAGES = 4
 WORLDLABS_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
 WORLDLABS_RESOLUTIONS = ("100k", "500k", "full_res")
-WORLDLABS_HEADERS = {"User-Agent": "mcp-for-blender/" + ".".join(str(part) for part in bl_info["version"])}
+WORLDLABS_HEADERS = {"User-Agent": "mcp-for-blender/" + ".".join(str(part) for part in ADDON_VERSION)}
 WORLDLABS_TIMEOUT = (10, 60)
 
 # Set when the user disconnects so opening another blend file does not restart
@@ -361,7 +367,7 @@ POLYHAVEN_API_BASE = "https://api.polyhaven.com"
 # because Poly Pizza sends that one too.
 POLYHAVEN_HEADERS = dict(REQ_HEADERS)
 POLYHAVEN_HEADERS["User-Agent"] = (
-    "blender-mcp/" + ".".join(str(part) for part in bl_info["version"])
+    "blender-mcp/" + ".".join(str(part) for part in ADDON_VERSION)
     + " (+https://github.com/ahujasid/blender-mcp)"
 )
 
@@ -1796,8 +1802,8 @@ class BlenderMCPServer:
     def get_addon_info(self):
         """Version/capability handshake for the MCP server (and install tooling)."""
         return {
-            "name": bl_info.get("name", "MCP for Blender"),
-            "addon_version": list(bl_info.get("version", (0, 0))),
+            "name": ADDON_NAME,
+            "addon_version": list(ADDON_VERSION),
             "protocol_version": ADDON_PROTOCOL_VERSION,
             "capabilities": sorted([
                 "get_scene_info",
@@ -1975,6 +1981,27 @@ class BlenderMCPServer:
         return relations
 
     @staticmethod
+    def _action_fcurves(anim_data, action):
+        """Return F-curves for `action` across legacy (<4.4) and slotted (4.4+/5.0+) actions."""
+        if hasattr(anim_data, "action_slot"):
+            slot = getattr(anim_data, "action_slot", None)
+            if slot is not None:
+                try:
+                    from bpy_extras import anim_utils
+                    channelbag = anim_utils.action_get_channelbag_for_slot(action, slot)
+                    return channelbag.fcurves if channelbag is not None else ()
+                except Exception:
+                    pass
+                for layer in getattr(action, "layers", None) or ():
+                    for strip in getattr(layer, "strips", None) or ():
+                        for channelbag in getattr(strip, "channelbags", None) or ():
+                            if getattr(channelbag, "slot", None) == slot:
+                                return getattr(channelbag, "fcurves", None) or ()
+            if not hasattr(action, "fcurves"):
+                return ()
+        return getattr(action, "fcurves", None) or ()
+
+    @staticmethod
     def _snapshot_animation(obj):
         """Action name and per-channel keyframe summary for one object, or {}.
 
@@ -1996,7 +2023,7 @@ class BlenderMCPServer:
                 channels = []
                 total_keyframes = 0
                 frame_min, frame_max = None, None
-                for fcurve in action.fcurves:
+                for fcurve in BlenderMCPServer._action_fcurves(anim_data, action):
                     keyframe_points = fcurve.keyframe_points
                     count = len(keyframe_points)
                     total_keyframes += count
@@ -6261,7 +6288,7 @@ def premium_request(method, path, payload=None, auth=True):
     """Send one request to the Premium server. Never raises: transport
     failures and non-JSON replies come back as {error, code, message}."""
     headers = {
-        "X-Addon-Version": ".".join(str(part) for part in bl_info["version"]),
+        "X-Addon-Version": ".".join(str(part) for part in ADDON_VERSION),
         "X-Addon-Protocol": str(ADDON_PROTOCOL_VERSION),
     }
     if auth:
@@ -7378,7 +7405,7 @@ def addon_version_label(key):
 
 
 def _local_release_key():
-    return tuple(bl_info["version"]) + (0,) * (3 - len(bl_info["version"])) + (ADDON_PROTOCOL_VERSION,)
+    return ADDON_VERSION + (0,) * (3 - len(ADDON_VERSION)) + (ADDON_PROTOCOL_VERSION,)
 
 
 def check_for_addon_update():

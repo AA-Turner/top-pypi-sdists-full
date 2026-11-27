@@ -1,6 +1,12 @@
 import io
 
+import numpy as np
+import pytest
+
+import ase.io.ulm as ulm
+from ase import Atoms
 from ase.io import read
+from ase.io.trajectory import write_atoms
 
 header = """
   ___ ___ ___ _ _ _
@@ -91,3 +97,34 @@ def test_gpaw_output():
         assert config.get_initial_charges().sum() == 1
 
     assert len(configs[0].calc.get_eigenvalues()) == 4
+
+
+@pytest.mark.parametrize('shape', [(3, 4), (2, 3, 4)])
+def test_gpw_eigenvalues(tmp_path, shape):
+    """Test reading eigenvalues and occupations from gpw-files.
+
+    Non-collinear calculations store them as ``(nkpts, nbands)`` arrays,
+    without the spin axis of collinear ones: ``(nspins, nkpts, nbands)``.
+    """
+    eps = np.arange(np.prod(shape), dtype=float).reshape(shape)
+    occ = eps / 100
+    weights = np.array([0.5, 0.25, 0.25])
+    path = tmp_path / 'test.gpw'
+    with ulm.open(path, 'w', tag='gpaw') as writer:
+        writer.write(version=7)
+        write_atoms(writer.child('atoms'), Atoms('H', cell=[2, 2, 2], pbc=1))
+        writer.child('results').write(energy=-1.0)
+        wfs = writer.child('wave_functions')
+        wfs.write(fermi_levels=np.zeros(1), eigenvalues=eps, occupations=occ)
+        wfs.child('kpts').write(ibzkpts=np.zeros((3, 3)), weights=weights)
+
+    calc = read(path).calc
+    eps_skn = eps.reshape(-1, 3, 4)
+    occ_skn = occ.reshape(-1, 3, 4)
+    assert calc.get_number_of_spins() == len(eps_skn)
+    assert calc.get_k_point_weights() == pytest.approx(weights)
+    for s in range(len(eps_skn)):
+        for k in range(3):
+            assert calc.get_eigenvalues(k, s) == pytest.approx(eps_skn[s, k])
+            occ_n = calc.get_occupation_numbers(k, s)
+            assert occ_n == pytest.approx(occ_skn[s, k])

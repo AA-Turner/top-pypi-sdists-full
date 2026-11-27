@@ -10,8 +10,8 @@ class StopHoneypotRequest(DaraModel):
         honeypot_id: str = None,
         lang: str = None,
     ):
-        # The honeypot ID.
-        # > You can call the [ListHoneypot](~~ListHoneypot~~) operation to obtain this value.
+        # The ID of the honeypot.
+        # > You can call the [ListHoneypot](~~ListHoneypot~~) operation to obtain the value.
         # 
         # This parameter is required.
         self.honeypot_id = honeypot_id

@@ -65,17 +65,17 @@ class UpdateTargetListByBatchRequestOperationList(DaraModel):
         vpc_instance_id: str = None,
     ):
         # The ID of the server group.
-        # > Call the [DescribeAllGroups](~~DescribeAllGroups~~) operation to query the server group ID.
+        # > You can call the [DescribeAllGroups](~~DescribeAllGroups~~) operation to query the server group ID.
         self.group_id = group_id
         # The operation type. Valid values:
         # 
-        # - **add**: increase.
-        # - **del**: delete.
+        # - **add**: Add.
+        # - **del**: Delete.
         self.operation = operation
         # The UUID of the server.
-        # > Call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain this parameter.
+        # > You can call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain this parameter.
         self.uuid = uuid
-        # The ID of the VPC-connected instance.
+        # The VPC-connected instance ID.
         self.vpc_instance_id = vpc_instance_id
 
     def validate(self):

@@ -2,12 +2,11 @@
 # coding=UTF-8
 
 import zipfile
+from io import BytesIO
 from urllib.parse import urlunsplit
 
 import mozhttpd
 import mozunit
-from conftest import fspath
-from six import BytesIO
 
 
 def test_symbols_path_not_present(check_for_crashes, minidump_files):
@@ -19,10 +18,10 @@ def test_symbols_path_unicode(check_for_crashes, minidump_files, tmpdir, capsys)
     """Test that check_for_crashes can handle unicode in dump_directory."""
     symbols_path = tmpdir.mkdir("🍪")
 
-    assert 1 == check_for_crashes(symbols_path=fspath(symbols_path), quiet=False)
+    assert 1 == check_for_crashes(symbols_path=str(symbols_path), quiet=False)
 
     out, _ = capsys.readouterr()
-    assert fspath(symbols_path) in out
+    assert str(symbols_path) in out
 
 
 def test_symbols_path_url(check_for_crashes, minidump_files):
@@ -47,12 +46,60 @@ def test_symbols_path_url(check_for_crashes, minidump_files):
         urlhandlers=[{"method": "GET", "path": "/symbols", "function": get_symbols}],
     )
     httpd.start()
-    symbol_url = urlunsplit(
-        ("http", "%s:%d" % httpd.httpd.server_address, "/symbols", "", "")
-    )
+    symbol_url = urlunsplit((
+        "http",
+        "%s:%d" % httpd.httpd.server_address,
+        "/symbols",
+        "",
+        "",
+    ))
 
     assert 1 == check_for_crashes(symbols_path=symbol_url)
     assert data["retrieved"]
+
+
+def test_symbols_path_list(check_for_crashes, minidump_files, tmpdir, capsys):
+    """Test that passing a list of URLs and paths as symbols_path fetches all
+    URLs and passes all paths to the stackwalker."""
+    retrieved = []
+
+    def make_get_symbols(name):
+        def get_symbols(req):
+            retrieved.append(name)
+            zdata = BytesIO()
+            with zipfile.ZipFile(zdata, "w") as z:
+                z.writestr(f"{name}.txt", "abc/xyz")
+            return (200, {}, zdata.getvalue())
+
+        return get_symbols
+
+    names = ("symbols", "gtest-symbols")
+    httpd = mozhttpd.MozHttpd(
+        port=0,
+        urlhandlers=[
+            {"method": "GET", "path": f"/{name}", "function": make_get_symbols(name)}
+            for name in names
+        ],
+    )
+    httpd.start()
+    host, port = httpd.httpd.server_address
+    urls = [
+        urlunsplit((
+            "http",
+            f"{host}:{port}",
+            f"/{name}",
+            "",
+            "",
+        ))
+        for name in names
+    ]
+    local_path = str(tmpdir.mkdir("local-symbols"))
+
+    assert 1 == check_for_crashes(symbols_path=urls + [local_path], quiet=False)
+    assert sorted(retrieved) == ["gtest-symbols", "symbols"]
+
+    out, _ = capsys.readouterr()
+    assert local_path in out
 
 
 def test_symbols_retry(check_for_crashes, minidump_files):
@@ -84,9 +131,13 @@ def test_symbols_retry(check_for_crashes, minidump_files):
         urlhandlers=[{"method": "GET", "path": "/symbols", "function": get_symbols}],
     )
     httpd.start()
-    symbol_url = urlunsplit(
-        ("http", "%s:%d" % httpd.httpd.server_address, "/symbols", "", "")
-    )
+    symbol_url = urlunsplit((
+        "http",
+        "%s:%d" % httpd.httpd.server_address,
+        "/symbols",
+        "",
+        "",
+    ))
 
     assert 1 == check_for_crashes(symbols_path=symbol_url)
     assert data["retrieved"]

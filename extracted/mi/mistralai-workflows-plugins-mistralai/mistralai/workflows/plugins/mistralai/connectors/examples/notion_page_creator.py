@@ -23,7 +23,7 @@ import mistralai.workflows as workflows
 from mistralai.workflows import Depends
 from mistralai.workflows.core.logging import LoggerConfig, LogLevel, setup_logging
 from mistralai.workflows.plugins.mistralai.connectors import (
-    ToolCallClient,
+    ConnectorClient,
     connector,
     uses_connectors,
 )
@@ -48,7 +48,7 @@ async def create_notion_page(
     parent_page_id: str,
     title: str,
     content: str,
-    notion: ToolCallClient = Depends(notion_connector),
+    notion: ConnectorClient = Depends(notion_connector),
 ) -> dict[str, Any]:
     """Create a Notion page using the connector's notion-create-pages tool."""
     return await notion.call_tool(  # type: ignore[no-any-return]

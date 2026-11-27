@@ -1,6 +1,7 @@
 """Tests for execute_activities_in_parallel with primitive and Pydantic types."""
 
-from typing import Any, List
+from datetime import timedelta
+from typing import Any, List, Literal
 
 import pytest
 from pydantic import BaseModel
@@ -16,6 +17,7 @@ from mistralai.workflows.core.execution.concurrency.execute_activities_in_parall
     _validate_items,
     execute_activities_in_parallel,
 )
+from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 
 from .utils import create_test_worker, get_temporal_activities_by_names
 
@@ -438,8 +440,8 @@ class TestInputValidation:
             )
 
     @pytest.mark.asyncio
-    async def test_chain_provider_generic_type_compatible_passes(self) -> None:
-        """Chain provider returning list[str] passes when activity expects list[str]."""
+    async def test_chain_provider_generic_type_compatible_passes_validation(self) -> None:
+        """Chain provider returning list[str] passes validation when activity expects list[str]."""
 
         @workflows.activity()
         async def process_list(items: list[str]) -> str:
@@ -449,18 +451,29 @@ class TestInputValidation:
         async def good_chain(prev: list[str] | None) -> list[str] | None:
             return None
 
-        # Should not raise — origin classes match (list == list)
-        # Will raise "Must specify one execution pattern" only if we don't pass enough args,
-        # but here it should pass validation and attempt to run the workflow
-        # (which will fail because no Temporal env, but that's after validation)
-        try:
+        with pytest.raises(WorkflowsException):
             await execute_activities_in_parallel(
                 activity=process_list,
                 get_item_from_prev_item_activity=good_chain,
             )
-        except ApplicationError as e:
-            # Should NOT be a type mismatch error
-            assert "returns" not in str(e) and "expects" not in str(e)
+
+
+class TestOutsideWorkflow:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            {"items": ["a", "b"]},
+            {"get_item_from_prev_item_activity": get_next_str},
+            {"get_item_from_index_activity": get_str_by_index, "n_items": 3},
+        ],
+        ids=["list", "chain", "offset_pagination"],
+    )
+    async def test_raises_outside_workflow_code(self, pattern: dict[str, Any]) -> None:
+        with pytest.raises(WorkflowsException) as exc_info:
+            await execute_activities_in_parallel(process_single_str, **pattern)
+
+        assert exc_info.value.code == ErrorCode.CHILD_WORKFLOW_OUTSIDE_WORKFLOW
 
 
 # --- E2E tests (with Temporal env) ---
@@ -635,6 +648,69 @@ class OffsetMissingKeyE2EWorkflow:
             get_item_from_index_activity=get_dict_missing_key_by_index,
             n_items=2,
         )
+
+
+class ParallelTimeoutInput(BaseModel):
+    pattern: Literal["list", "chain", "offset"]
+    timeout_seconds: int | None = None
+
+
+@workflow.define(name="test-parallel-custom-timeout", execution_timeout=timedelta(hours=4))
+class ParallelTimeoutWorkflow:
+    @workflow.entrypoint
+    async def run(self, input: ParallelTimeoutInput) -> List[str]:
+        timeout = timedelta(seconds=input.timeout_seconds) if input.timeout_seconds is not None else None
+        if input.pattern == "list":
+            return await execute_activities_in_parallel(
+                activity=process_single_str, items=["a", "b"], execution_timeout=timeout
+            )
+        if input.pattern == "chain":
+            return await execute_activities_in_parallel(
+                activity=process_single_str,
+                get_item_from_prev_item_activity=get_next_str,
+                execution_timeout=timeout,
+            )
+        return await execute_activities_in_parallel(
+            activity=process_single_str,
+            get_item_from_index_activity=get_str_by_index,
+            n_items=4,
+            execution_timeout=timeout,
+        )
+
+
+class TestParallelExecutionTimeout:
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(30)
+    @pytest.mark.parametrize("pattern", ["list", "chain", "offset"])
+    @pytest.mark.parametrize("timeout_seconds", [None, 2 * 60 * 60])
+    async def test_child_workflows_use_requested_timeout(
+        self, temporal_env: Any, pattern: str, timeout_seconds: int | None
+    ) -> None:
+        async with create_test_worker(
+            temporal_env,
+            workflows=[ParallelTimeoutWorkflow, ParallelExecutionWorkflow],
+            activities=[process_single_str, get_next_str, get_str_by_index, execute_activity_in_batch],
+        ):
+            handle = await temporal_env.client.start_workflow(
+                get_workflow_definition(ParallelTimeoutWorkflow).name,
+                ParallelTimeoutInput(pattern=pattern, timeout_seconds=timeout_seconds).model_dump(),
+                id=f"test-parallel-timeout-{pattern}-{timeout_seconds}",
+                task_queue="test-task-queue",
+            )
+            await handle.result()
+            history = await handle.fetch_history()
+
+        child_starts = [
+            event.start_child_workflow_execution_initiated_event_attributes
+            for event in history.events
+            if event.HasField("start_child_workflow_execution_initiated_event_attributes")
+        ]
+        assert len(child_starts) == (2 if pattern == "offset" else 1)
+        assert {start.workflow_type.name for start in child_starts} == {
+            get_workflow_definition(ParallelExecutionWorkflow).name
+        }
+        expected_timeout = timedelta(hours=1) if timeout_seconds is None else timedelta(seconds=timeout_seconds)
+        assert all(start.workflow_execution_timeout.ToTimedelta() == expected_timeout for start in child_starts)
 
 
 class TestParallelActivitiesE2E:

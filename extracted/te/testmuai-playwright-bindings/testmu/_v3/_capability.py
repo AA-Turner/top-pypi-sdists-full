@@ -76,6 +76,23 @@ def _bool_he(key: str, default: bool) -> bool:
     return str(val).lower() in ("1", "true", "yes")
 
 
+def _accessibility_options() -> dict:
+    """The run's WCAG version / best practices / needs review, for whichever of them is set."""
+    from testmu._v3._test_config import get_cap_value
+
+    opts = {}
+    wcag = get_cap_value("ACCESSIBILITY_WCAG_VERSION", None)
+    if wcag:
+        opts["accessibility.wcagVersion"] = str(wcag)
+    for key, cap in (
+        ("ACCESSIBILITY_BEST_PRACTICE", "accessibility.bestPractice"),
+        ("ACCESSIBILITY_NEEDS_REVIEW", "accessibility.needsReview"),
+    ):
+        if get_cap_value(key, None) is not None:
+            opts[cap] = _bool_he(key, False)
+    return opts
+
+
 def resolve_custom_headers() -> dict:
     """Resolve custom headers: non-empty test_config > configure() value.
 
@@ -302,6 +319,14 @@ def get_capabilities(
     # file:// page and never completes the session's first new_page() (TE-28487).
     if not _is_webkit and not _is_firefox:
         capabilities["LT:Options"]["loadExtensions"] = [os.getenv("EXTENSION")]
+
+    # Without autoScan the hub scans only on an explicit lambda-accessibility-scan hook, which a
+    # test's own scan steps need: ACCESSIBILITY_SCAN_STEP marks accessibility on only for them.
+    if _accessibility and not _bool_he("ACCESSIBILITY_SCAN_STEP", False):
+        capabilities["LT:Options"]["accessibility.autoScan"] = True
+    # HyperExecute copies the run's accessibility settings into Selenium sessions only, not this one.
+    if _accessibility:
+        capabilities["LT:Options"].update(_accessibility_options())
 
     # Geolocation — conditional (matches: if os.getenv("GEO_LOCATION", False))
     if os.getenv("GEO_LOCATION", False):

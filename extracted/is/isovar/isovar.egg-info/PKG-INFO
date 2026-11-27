@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: isovar
-Version: 1.96.0
+Version: 1.97.0
 Summary: Determine mutant protein sequences from RNA using assembly around variants
 Author: Alex Rubinsteyn, Arman Aksoy, Julia Kodysh
 License-Expression: Apache-2.0
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: datacache<2,>=1.38.0
 Requires-Dist: pyensembl<3,>=2.36.0
-Requires-Dist: varcode<13,>=12.0.1
+Requires-Dist: varcode<14,>=13.0.2
 Requires-Dist: pandas<4,>=3
 Requires-Dist: pysam>=0.15.2
 Requires-Dist: edlib<2,>=1.3.9.post1

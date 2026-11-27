@@ -5,8 +5,8 @@ Utils class to deal with the sqlfluff segments manipulations
 import re
 from typing import Any, Iterable, List, Optional, Tuple
 
-from sqlfluff.core.linter import ParsedString
-from sqlfluff.core.parser import BaseSegment
+from collate_sqlfluff.core.linter import ParsedString
+from collate_sqlfluff.core.parser import BaseSegment
 
 from collate_sqllineage.utils.entities import SubQueryTuple
 

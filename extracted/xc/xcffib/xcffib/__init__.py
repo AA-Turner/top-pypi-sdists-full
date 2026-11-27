@@ -39,7 +39,7 @@ c_lib = ffi.dlopen(None)  # Loads the global symbol table (works on Unix/BSD)
 c_free = c_lib.free
 
 __xcb_proto_version__ = "1.17.0"
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 
 X_PROTOCOL = lib.X_PROTOCOL
 X_PROTOCOL_REVISION = lib.X_PROTOCOL_REVISION
@@ -521,12 +521,17 @@ class Connection:
 
     def __init__(self, display=None, fd=-1, auth=None):
         if auth is not None:
-            [name, data] = auth.split(b":")
+            name, data = auth.split(b":", 1)
 
+            # Assigning an ffi.new() result to a struct field does not keep it
+            # alive, so hold references to the buffers until xcb_connect*()
+            # has used them.
             c_auth = ffi.new("xcb_auth_info_t *")
-            c_auth.name = ffi.new("char[]", name)
+            c_auth_name = ffi.new("char[]", name)
+            c_auth_data = ffi.new("char[]", data)
+            c_auth.name = c_auth_name
             c_auth.namelen = len(name)
-            c_auth.data = ffi.new("char[]", data)
+            c_auth.data = c_auth_data
             c_auth.datalen = len(data)
         else:
             c_auth = ffi.NULL
@@ -545,8 +550,16 @@ class Connection:
         else:
             self._conn = lib.xcb_connect(display, i)
         self.pref_screen = i[0]
-        self.invalid()
-        self._init_x()
+
+        # The caller never gets a Connection to disconnect() if we raise here,
+        # so release the xcb connection (and its socket) ourselves.
+        try:
+            self.invalid()
+            self._init_x()
+        except BaseException:
+            lib.xcb_disconnect(self._conn)
+            self._conn = None
+            raise
 
     def _init_x(self):
         if core is None:
@@ -707,6 +720,7 @@ class Connection:
         cookie[0].sequence = sequence
 
         err = lib.xcb_request_check(self._conn, cookie[0])
+        err = ffi.gc(err, c_free)
         self._process_error(err)
 
     def hoist_event(self, e):
@@ -804,7 +818,7 @@ class Event(Response):
                 buffer = ffi.buffer(unpacker.cdata, buffer_size)
 
                 # Copy the event to the new buffer and skip the `full_sequence` field
-                buffer[32 : buffer_size - 5] = buffer[36 : buffer_size - 1]
+                buffer[32 : buffer_size - 4] = buffer[36:buffer_size]
 
                 # Provide the resized buffer to the unpacker
                 unpacker.buf = buffer

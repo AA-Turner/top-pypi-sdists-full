@@ -112,7 +112,7 @@ class DescribeSoarStrategyTasksResponseBodySoarStrategyTasks(DaraModel):
         self.run_mode = run_mode
         # The status of the policy task. Valid values:
         # 
-        # *   \\-1: waiting
+        # *   \-1: waiting
         # *   0: starting
         # *   1: running
         # *   2: finished

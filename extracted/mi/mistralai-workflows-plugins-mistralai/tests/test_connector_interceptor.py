@@ -6,8 +6,9 @@ auth preflight with Task events, timeout handling, and multi-connector scenarios
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from http import HTTPStatus
-from typing import Any
+from typing import Any, AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -18,19 +19,14 @@ from pydantic_core import to_json
 from temporalio.client import WorkflowFailureError
 from temporalio.converter import DataConverter
 from temporalio.testing import WorkflowEnvironment
-from temporalio.worker import Worker
+from temporalio.worker import Worker as TemporalWorker
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
 
-from mistralai.workflows import workflow
-from mistralai.workflows.core._events.event_activities import (
-    _emit_task_completed,
-    _emit_task_failed,
-    _emit_task_in_progress,
-    _emit_task_started,
-)
+from mistralai.workflows import prepare_workflows, workflow
 from mistralai.workflows.core._events.event_context import EventContext, is_permanent_event_publish_failure
 from mistralai.workflows.core._events.event_interceptor import EventInterceptor
 from mistralai.workflows.core.activity import activity
+from mistralai.workflows.core.config.config import resolve_worker_config
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
 from mistralai.workflows.core.execution.concurrency._concurrency_workflow import (
     OnBehalfOfParallelExecutionWorkflow,
@@ -68,8 +64,9 @@ from mistralai.workflows.plugins.mistralai.connectors.models import (
 )
 from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.testing import (
-    create_capturing_mock_events_client,
+    create_capturing_mock_event_publisher,
     create_test_worker,
+    get_internal_activities,
 )
 
 # ---------------------------------------------------------------------------
@@ -95,6 +92,16 @@ def _reset_fake_state() -> None:
     _creds_call_count.clear()
     _list_tools_calls.clear()
     _mcp_app_resource_uri_calls.clear()
+
+
+@asynccontextmanager
+async def _create_worker(*args: Any, workflows: list[type], **kwargs: Any) -> AsyncIterator[TemporalWorker]:
+    config = resolve_worker_config(None).model_copy(deep=True)
+    task_queue = kwargs["task_queue"]
+    config.worker.deployment_name = task_queue
+    with prepare_workflows(workflows, config=config) as prepared_workflows:
+        async with TemporalWorker(*args, workflows=prepared_workflows, **kwargs) as worker:
+            yield worker
 
 
 @activity(name="__internal__connector_resolve", _allow_reserved_name=True, _skip_registering=True)
@@ -178,7 +185,6 @@ async def fake_connector_wait_for_credentials(
     return True
 
 
-EXTRA_TASK_EVENT_ACTIVITIES = [_emit_task_started, _emit_task_in_progress, _emit_task_completed, _emit_task_failed]
 CONNECTOR_AUTH_EVENT_ACTIVITIES = [
     _emit_connector_auth_started,
     _emit_connector_auth_completed,
@@ -193,9 +199,11 @@ CONNECTOR_ACTIVITIES = [
     fake_connector_list_tools,
     fake_connector_get_mcp_app_resource_uris,
     fake_connector_wait_for_credentials,
-    *EXTRA_TASK_EVENT_ACTIVITIES,
     *CONNECTOR_AUTH_EVENT_ACTIVITIES,
 ]
+
+# A raw Worker lacks the internal activities create_test_worker registers.
+RAW_WORKER_ACTIVITIES = [*CONNECTOR_ACTIVITIES, *get_internal_activities()]
 
 # ---------------------------------------------------------------------------
 # Test workflow definitions
@@ -244,18 +252,18 @@ class NoConnectorWorkflow:
 
 @workflow.define(name="test-no-connector-tool-call-wf")
 class NoConnectorToolCallWorkflow:
-    """A workflow with no @uses_connectors that builds a ToolCallClient directly.
+    """A workflow with no @uses_connectors that builds a ConnectorClient directly.
 
     Used to prove a caller-forged resolved_connectors binding is inert: the inbound
-    interceptor strips trusted_extensions from caller input, so ToolCallClient finds
+    interceptor strips trusted_extensions from caller input, so ConnectorClient finds
     no resolved binding and raises ConnectorError instead of honouring the forge.
     """
 
     @workflow.entrypoint
     async def run(self) -> str:
-        from mistralai.workflows.plugins.mistralai.connectors.client import ToolCallClient
+        from mistralai.workflows.plugins.mistralai.connectors.client import ConnectorClient
 
-        client = ToolCallClient("github")
+        client = ConnectorClient("github")
         await client.call_tool("create_issue", {"title": "bug"})
         return "should-not-reach"
 
@@ -375,13 +383,13 @@ class WorkerIdentityWorkflow:
 
 @activity()
 async def call_connector_tool(item: str) -> str:
-    from mistralai.workflows.plugins.mistralai.connectors.client import ToolCallClient
+    from mistralai.workflows.plugins.mistralai.connectors.client import ConnectorClient
 
     context = retrieve_context()
     assert context is not None
     assert context.on_behalf_of is True
 
-    client = ToolCallClient("slack")
+    client = ConnectorClient("slack")
     result = await client.call_tool("send_message", {"text": item})
     return f"sent:{result['tool']}"
 
@@ -403,9 +411,9 @@ class ParallelConnectorWorkflow:
 class PlainChildWorkflow:
     @workflow.entrypoint
     async def run(self) -> str:
-        from mistralai.workflows.plugins.mistralai.connectors.client import ToolCallClient
+        from mistralai.workflows.plugins.mistralai.connectors.client import ConnectorClient
 
-        client = ToolCallClient("slack")
+        client = ConnectorClient("slack")
         await client.call_tool("send_message", {"text": "x"})
         return "should-not-reach"
 
@@ -450,11 +458,11 @@ async def _run_auth_timeout(
     # No poll credentials → fake_connector_wait_for_credentials returns False → timeout
     interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorWorkflow])
     async with EventContext(events_client):
-        async with Worker(
+        async with _create_worker(
             temporal_env.client,
             task_queue="test-task-queue",
             workflows=[SingleConnectorWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
@@ -498,7 +506,7 @@ class TestConnectorInterceptorIntegration:
         }
         interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorWorkflow])
         captured_events: list[Any] = []
-        mock_client = create_capturing_mock_events_client(captured_events)
+        mock_client = create_capturing_mock_event_publisher(captured_events)
         async with EventContext(mock_client):
             async with create_test_worker(
                 temporal_env,
@@ -592,7 +600,7 @@ class TestConnectorInterceptorIntegration:
             }
         interceptor = ConnectorAuthInterceptor(workflows=[MultiConnectorWorkflow])
         captured_events: list[Any] = []
-        mock_client = create_capturing_mock_events_client(captured_events)
+        mock_client = create_capturing_mock_event_publisher(captured_events)
         async with EventContext(mock_client):
             async with create_test_worker(
                 temporal_env,
@@ -627,7 +635,7 @@ class TestConnectorInterceptorIntegration:
         }
         interceptor = ConnectorAuthInterceptor(workflows=[MixedConnectorsWorkflow])
         captured_events: list[Any] = []
-        mock_client = create_capturing_mock_events_client(captured_events)
+        mock_client = create_capturing_mock_event_publisher(captured_events)
         async with EventContext(mock_client):
             async with create_test_worker(
                 temporal_env,
@@ -693,7 +701,7 @@ class TestConnectorInterceptorIntegration:
         captured_events: list[Any] = []
 
         await _run_auth_timeout(
-            temporal_env, create_capturing_mock_events_client(captured_events), "test-auth-timeout-events"
+            temporal_env, create_capturing_mock_event_publisher(captured_events), "test-auth-timeout-events"
         )
 
         connector_events = _filter_connector_auth_events(captured_events)
@@ -708,15 +716,15 @@ class TestConnectorInterceptorIntegration:
     async def test_unpublishable_failed_event_does_not_hide_the_auth_timeout(
         self, temporal_env: WorkflowEnvironment
     ) -> None:
-        mock_client = create_capturing_mock_events_client([])
-        capture_send_event = mock_client.send_event_async.side_effect
+        mock_client = create_capturing_mock_event_publisher([])
+        capture_publish = mock_client.publish.side_effect
 
-        async def reject_failed_event(*, event: Any, **kwargs: Any) -> None:
-            if event["event_type"] == "CUSTOM_TASK_FAILED":
+        async def reject_failed_event(events: list[Any]) -> None:
+            if any(event.event_type == "CUSTOM_TASK_FAILED" for event in events):
                 raise WorkflowsException("rejected", status=HTTPStatus.BAD_REQUEST)
-            await capture_send_event(event=event, **kwargs)
+            await capture_publish(events)
 
-        mock_client.send_event_async.side_effect = reject_failed_event
+        mock_client.publish.side_effect = reject_failed_event
 
         failure = await _run_auth_timeout(temporal_env, mock_client, "test-auth-timeout-unpublishable")
 
@@ -892,11 +900,11 @@ class TestConnectorInterceptorIntegration:
             {"method_type": "bearer", "headers": None, "has_default_credentials": False}
         ]
         interceptor = ConnectorAuthInterceptor(workflows=[BearerOnlyNoCredsWorkflow])
-        async with Worker(
+        async with _create_worker(
             temporal_env.client,
             task_queue="test-task-queue",
             workflows=[BearerOnlyNoCredsWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
@@ -924,13 +932,13 @@ class TestConnectorInterceptorIntegration:
         # Default fake auth method is oauth2; no user credentials configured.
         interceptor = ConnectorAuthInterceptor(workflows=[WorkerIdentityWorkflow])
         captured_events: list[Any] = []
-        mock_client = create_capturing_mock_events_client(captured_events)
+        mock_client = create_capturing_mock_event_publisher(captured_events)
         async with EventContext(mock_client):
-            async with Worker(
+            async with _create_worker(
                 temporal_env.client,
                 task_queue="test-task-queue",
                 workflows=[WorkerIdentityWorkflow],
-                activities=CONNECTOR_ACTIVITIES,
+                activities=RAW_WORKER_ACTIVITIES,
                 interceptors=[interceptor, EventInterceptor()],
                 workflow_failure_exception_types=[Exception],
                 workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
@@ -967,11 +975,11 @@ class TestConnectorInterceptorIntegration:
             namespace=temporal_env.client.namespace,
             data_converter=dc,
         )
-        async with Worker(
+        async with _create_worker(
             custom_client,
             task_queue="test-task-queue",
             workflows=[WorkerIdentityWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
@@ -1002,11 +1010,11 @@ class TestConnectorInterceptorIntegration:
             "credentials": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[BearerWithCredsWorkflow])
-        async with Worker(
+        async with _create_worker(
             temporal_env.client,
             task_queue="test-task-queue",
             workflows=[BearerWithCredsWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
@@ -1071,11 +1079,11 @@ class TestConnectorInterceptorIntegration:
             ],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[BearerWithCredsWorkflow])
-        async with Worker(
+        async with _create_worker(
             temporal_env.client,
             task_queue="test-task-queue",
             workflows=[BearerWithCredsWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
@@ -1163,7 +1171,7 @@ class TestConnectorInterceptorIntegration:
         }
         interceptor = ConnectorAuthInterceptor(workflows=[BearerWithCredsWorkflow])
         captured_events: list[Any] = []
-        mock_client = create_capturing_mock_events_client(captured_events)
+        mock_client = create_capturing_mock_event_publisher(captured_events)
         async with EventContext(mock_client):
             async with create_test_worker(
                 temporal_env,
@@ -1201,7 +1209,7 @@ class TestConnectorInterceptorIntegration:
         }
         interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorWorkflow])
         captured_events: list[Any] = []
-        mock_client = create_capturing_mock_events_client(captured_events)
+        mock_client = create_capturing_mock_event_publisher(captured_events)
         async with EventContext(mock_client):
             async with create_test_worker(
                 temporal_env,
@@ -1326,11 +1334,11 @@ class TestConnectorInterceptorIntegration:
             namespace=temporal_env.client.namespace,
             data_converter=dc,
         )
-        async with Worker(
+        async with _create_worker(
             custom_client,
             task_queue="test-task-queue",
             workflows=[SingleConnectorGithubWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
@@ -1373,7 +1381,7 @@ class TestConnectorInterceptorSlotRetrieval:
 
 
 class TestRunAsCannotBeCallerInjected:
-    """run_as is interceptor-owned. A direct ToolCallClient inherits it from the
+    """run_as is interceptor-owned. A direct ConnectorClient inherits it from the
     persisted binding, so a caller-supplied runtime binding must not be able to carry
     run_as (or other authority fields). Such fields are silently ignored — never
     honoured — so they can never influence the slot's identity."""
@@ -1723,11 +1731,11 @@ class TestNoConnectorWorkflowIgnoresInheritedBindings:
             namespace=temporal_env.client.namespace,
             data_converter=dc,
         )
-        async with Worker(
+        async with _create_worker(
             custom_client,
             task_queue="test-task-queue",
             workflows=[NoConnectorWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
@@ -1763,7 +1771,7 @@ class TestNoConnectorWorkflowIgnoresInheritedBindings:
 
     @pytest.mark.asyncio
     async def test_no_slot_tool_call_client_rejects_forged_binding(self, temporal_env: WorkflowEnvironment) -> None:
-        """A no-slot workflow that builds ToolCallClient directly must not honour a
+        """A no-slot workflow that builds ConnectorClient directly must not honour a
         caller-forged resolved_connectors binding. The inbound interceptor strips
         trusted_extensions from caller input, so the client raises ConnectorError
         rather than using the forged connector_id/credentials_name."""
@@ -1775,17 +1783,17 @@ class TestNoConnectorWorkflowIgnoresInheritedBindings:
             namespace=temporal_env.client.namespace,
             data_converter=dc,
         )
-        async with Worker(
+        async with _create_worker(
             custom_client,
             task_queue="test-task-queue",
             workflows=[NoConnectorToolCallWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
         ):
             # Forge both extensions and trusted_extensions — the inbound interceptor
-            # drops trusted_extensions, so only extensions survives. ToolCallClient reads
+            # drops trusted_extensions, so only extensions survives. ConnectorClient reads
             # trusted_extensions only, so the forge is inert.
             ctx = WorkflowContext(
                 namespace="default",
@@ -1857,11 +1865,11 @@ class TestConnectorWorkflowContinueAsNew:
             namespace=temporal_env.client.namespace,
             data_converter=dc,
         )
-        async with Worker(
+        async with _create_worker(
             custom_client,
             task_queue="test-task-queue",
             workflows=[ContinueAsNewConnectorWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
@@ -1928,7 +1936,7 @@ class TestTrustedContextInheritance:
             new_callable=AsyncMock,
             return_value={"tool": "send_message"},
         ):
-            async with Worker(
+            async with _create_worker(
                 custom_client,
                 task_queue="test-task-queue",
                 workflows=[ParallelConnectorWorkflow, OnBehalfOfParallelExecutionWorkflow],
@@ -1969,11 +1977,11 @@ class TestTrustedContextInheritance:
             namespace=temporal_env.client.namespace,
             data_converter=dc,
         )
-        async with Worker(
+        async with _create_worker(
             custom_client,
             task_queue="test-task-queue",
             workflows=[ConnectorParentWorkflow, PlainChildWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
+            activities=RAW_WORKER_ACTIVITIES,
             interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
             workflow_failure_exception_types=[Exception],
             workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),

@@ -1,25 +1,41 @@
-# fmt: off
+from collections.abc import Sequence
 
-# flake8: noqa
 import numpy as np
 from numpy import linalg
+from numpy.typing import NDArray
 
-from ase import units
+from ase import Atoms, units
 
 # Three variables extracted from what used to be endless repetitions below.
-Ax = np.array([[1, 0, 0, -1, 0, 0, 0, 0, 0],
-               [0, 1, 0, 0, -1, 0, 0, 0, 0],
-               [0, 0, 1, 0, 0, -1, 0, 0, 0],
-               [0, 0, 0, -1, 0, 0, 1, 0, 0],
-               [0, 0, 0, 0, -1, 0, 0, 1, 0],
-               [0, 0, 0, 0, 0, -1, 0, 0, 1]])
-Bx = np.array([[1, 0, 0, -1, 0, 0],
-               [0, 1, 0, 0, -1, 0],
-               [0, 0, 1, 0, 0, -1]])
+Ax = np.array(
+    [
+        [1, 0, 0, -1, 0, 0, 0, 0, 0],
+        [0, 1, 0, 0, -1, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, -1, 0, 0, 0],
+        [0, 0, 0, -1, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, -1, 0, 0, 1, 0],
+        [0, 0, 0, 0, 0, -1, 0, 0, 1],
+    ]
+)
+Bx = np.array([[1, 0, 0, -1, 0, 0], [0, 1, 0, 0, -1, 0], [0, 0, 1, 0, 0, -1]])
 Mx = Bx
 
 
 class Morse:
+    """Morse potential between two atoms.
+
+    Parameters
+    ----------
+    atomi, atomj : int
+        Indices of the two atoms.
+    D : float
+        Dissociation energy.
+    alpha : float
+        Parameter controlling the width of the potential.
+    r0 : float
+        Equilibrium bond length.
+    """
+
     def __init__(self, atomi, atomj, D, alpha, r0):
         self.atomi = atomi
         self.atomj = atomj
@@ -30,8 +46,23 @@ class Morse:
 
 
 class Bond:
-    def __init__(self, atomi, atomj, k, b0,
-                 alpha=None, rref=None):
+    """Harmonic bond-stretching potential between two atoms.
+
+    Parameters
+    ----------
+    atomi, atomj : int
+        Indices of the two atoms.
+    k : float
+        Bond force constant.
+    b0 : float
+        Equilibrium bond length.
+    alpha : sequence of float or None
+        Parameters for distance-dependent scaling of the Hessian.
+    rref : sequence of float or None
+        Reference bond lengths for distance-dependent scaling.
+    """
+
+    def __init__(self, atomi, atomj, k, b0, alpha=None, rref=None):
         self.atomi = atomi
         self.atomj = atomj
         self.k = k
@@ -42,8 +73,27 @@ class Bond:
 
 
 class Angle:
-    def __init__(self, atomi, atomj, atomk, k, a0, cos=False,
-                 alpha=None, rref=None):
+    """Harmonic angle-bending potential involving three atoms.
+
+    Parameters
+    ----------
+    atomi, atomj, atomk : int
+        Indices of the three atoms, with atomj as the central atom.
+    k : float
+        Angle force constant.
+    a0 : float
+        Equilibrium bond angle in radians.
+    cos : bool
+        If True, use the difference in cosines instead of angles.
+    alpha : sequence of float or None
+        Parameters for distance-dependent scaling of the Hessian.
+    rref : sequence of float or None
+        Reference bond lengths for distance-dependent scaling.
+    """
+
+    def __init__(
+        self, atomi, atomj, atomk, k, a0, cos=False, alpha=None, rref=None
+    ):
         self.atomi = atomi
         self.atomj = atomj
         self.atomk = atomk
@@ -56,8 +106,35 @@ class Angle:
 
 
 class Dihedral:
-    def __init__(self, atomi, atomj, atomk, atoml, k, d0=None, n=None,
-                 alpha=None, rref=None):
+    """Dihedral potential involving four atoms.
+
+    The potential is harmonic if `n` is None and `d0` is specified,
+    periodic if both are specified, and planar if `d0` is None.
+
+    Parameters
+    ----------
+    atomi, atomj, atomk, atoml : int
+        Indices of the four atoms defining the dihedral angle.
+    k : float
+        Force constant or potential amplitude.
+    d0 : float or None
+        Equilibrium dihedral angle or phase offset, in radians.
+    n : int or None
+        Periodicity of the torsional potential.
+    """
+
+    def __init__(
+        self,
+        atomi,
+        atomj,
+        atomk,
+        atoml,
+        k,
+        d0=None,
+        n=None,
+        alpha=None,
+        rref=None,
+    ):
         self.atomi = atomi
         self.atomj = atomj
         self.atomk = atomk
@@ -71,9 +148,35 @@ class Dihedral:
 
 
 class VdW:
-    def __init__(self, atomi, atomj, epsilonij=None, sigmaij=None, rminij=None,
-                 Aij=None, Bij=None, epsiloni=None, epsilonj=None,
-                 sigmai=None, sigmaj=None, rmini=None, rminj=None, scale=1.0):
+    """Van der Waals potential between two atoms.
+
+    Parameters
+    ----------
+    atomi, atomj : int
+        Indices of the two atoms.
+    Aij : float
+        Coefficient of the repulsive r^-12 term.
+    Bij : float
+        Coefficient of the attractive r^-6 term.
+    """
+
+    def __init__(
+        self,
+        atomi,
+        atomj,
+        epsilonij=None,
+        sigmaij=None,
+        rminij=None,
+        Aij=None,
+        Bij=None,
+        epsiloni=None,
+        epsilonj=None,
+        sigmai=None,
+        sigmaj=None,
+        rmini=None,
+        rminj=None,
+        scale=1.0,
+    ):
         self.atomi = atomi
         self.atomj = atomj
         if epsilonij is not None:
@@ -84,46 +187,97 @@ class VdW:
                 self.Aij = scale * epsilonij * rminij**12
                 self.Bij = scale * 2.0 * epsilonij * rminij**6
             else:
-                raise NotImplementedError("not implemented combination"
-                                          "of vdW parameters.")
+                raise NotImplementedError(
+                    'not implemented combinationof vdW parameters.'
+                )
         elif Aij is not None and Bij is not None:
             self.Aij = scale * Aij
             self.Bij = scale * Bij
         elif epsiloni is not None and epsilonj is not None:
             if sigmai is not None and sigmaj is not None:
-                self.Aij = (scale * 4.0 * np.sqrt(epsiloni * epsilonj)
-                            * ((sigmai + sigmaj) / 2.0)**12)
-                self.Bij = (scale * 4.0 * np.sqrt(epsiloni * epsilonj)
-                            * ((sigmai + sigmaj) / 2.0)**6)
+                self.Aij = (
+                    scale
+                    * 4.0
+                    * np.sqrt(epsiloni * epsilonj)
+                    * ((sigmai + sigmaj) / 2.0) ** 12
+                )
+                self.Bij = (
+                    scale
+                    * 4.0
+                    * np.sqrt(epsiloni * epsilonj)
+                    * ((sigmai + sigmaj) / 2.0) ** 6
+                )
             elif rmini is not None and rminj is not None:
-                self.Aij = (scale * np.sqrt(epsiloni * epsilonj)
-                            * ((rmini + rminj) / 2.0)**12)
-                self.Bij = (scale * 2.0 * np.sqrt(epsiloni * epsilonj)
-                            * ((rmini + rminj) / 2.0)**6)
+                self.Aij = (
+                    scale
+                    * np.sqrt(epsiloni * epsilonj)
+                    * ((rmini + rminj) / 2.0) ** 12
+                )
+                self.Bij = (
+                    scale
+                    * 2.0
+                    * np.sqrt(epsiloni * epsilonj)
+                    * ((rmini + rminj) / 2.0) ** 6
+                )
         else:
-            raise NotImplementedError("not implemented combination"
-                                      "of vdW parameters.")
+            raise NotImplementedError(
+                'not implemented combinationof vdW parameters.'
+            )
         self.r = None
 
 
 class Coulomb:
-    def __init__(self, atomi, atomj, chargeij=None,
-                 chargei=None, chargej=None, scale=1.0):
+    """Coulomb potential between two point charges.
+
+    Parameters
+    ----------
+    atomi, atomj : int
+        Indices of the two atoms.
+    chargeij : float or None
+        Product of the two charges.
+    chargei, chargej : float or None
+        Individual atomic charges, used if `chargeij` is None.
+    scale : float
+        Scaling factor for the Coulomb interaction.
+    """
+
+    def __init__(
+        self, atomi, atomj, chargeij=None, chargei=None, chargej=None, scale=1.0
+    ):
         self.atomi = atomi
         self.atomj = atomj
         if chargeij is not None:
-            self.chargeij = (scale * chargeij * 8.9875517873681764e9
-                             * units.m * units.J / units.C / units.C)
+            self.chargeij = (
+                scale
+                * chargeij
+                * 8.9875517873681764e9
+                * units.m
+                * units.J
+                / units.C
+                / units.C
+            )
         elif chargei is not None and chargej is not None:
-            self.chargeij = (scale * chargei * chargej * 8.9875517873681764e9
-                             * units.m * units.J / units.C / units.C)
+            self.chargeij = (
+                scale
+                * chargei
+                * chargej
+                * 8.9875517873681764e9
+                * units.m
+                * units.J
+                / units.C
+                / units.C
+            )
         else:
-            raise NotImplementedError("not implemented combination"
-                                      "of Coulomb parameters.")
+            raise NotImplementedError(
+                'not implemented combinationof Coulomb parameters.'
+            )
         self.r = None
 
 
-def get_morse_potential_eta(atoms, morse):
+def get_morse_potential_eta(
+    atoms: Atoms,
+    morse: Morse,
+) -> float:
     i = morse.atomi
     j = morse.atomj
 
@@ -132,14 +286,17 @@ def get_morse_potential_eta(atoms, morse):
 
     if dij > morse.r0:
         exp = np.exp(-morse.alpha * (dij - morse.r0))
-        eta = 1.0 - (1.0 - exp)**2
+        eta = 1.0 - (1.0 - exp) ** 2
     else:
         eta = 1.0
 
     return eta
 
 
-def get_morse_potential_value(atoms, morse):
+def get_morse_potential_value(
+    atoms: Atoms,
+    morse: Morse,
+) -> tuple[int, int, float]:
     i = morse.atomi
     j = morse.atomj
 
@@ -148,14 +305,17 @@ def get_morse_potential_value(atoms, morse):
 
     exp = np.exp(-morse.alpha * (dij - morse.r0))
 
-    v = morse.D * (1.0 - exp)**2
+    v = morse.D * (1.0 - exp) ** 2
 
     morse.r = dij
 
     return i, j, v
 
 
-def get_morse_potential_gradient(atoms, morse):
+def get_morse_potential_gradient(
+    atoms: Atoms,
+    morse: Morse,
+) -> tuple[int, int, NDArray[np.floating]]:
     i = morse.atomi
     j = morse.atomj
 
@@ -174,7 +334,11 @@ def get_morse_potential_gradient(atoms, morse):
     return i, j, gx
 
 
-def get_morse_potential_hessian(atoms, morse, spectral=False):
+def get_morse_potential_hessian(
+    atoms: Atoms,
+    morse: Morse,
+    spectral: bool = False,
+) -> tuple[int, int, NDArray[np.floating]]:
     i = morse.atomi
     j = morse.atomj
 
@@ -187,8 +351,13 @@ def get_morse_potential_hessian(atoms, morse, spectral=False):
 
     exp = np.exp(-morse.alpha * (dij - morse.r0))
 
-    Hr = (2.0 * morse.D * morse.alpha * exp * (morse.alpha * (2.0 * exp - 1.0) * Pij
-                                               + (1.0 - exp) / dij * Qij))
+    Hr = (
+        2.0
+        * morse.D
+        * morse.alpha
+        * exp
+        * (morse.alpha * (2.0 * exp - 1.0) * Pij + (1.0 - exp) / dij * Qij)
+    )
 
     Hx = np.dot(Mx.T, np.dot(Hr, Mx))
 
@@ -203,7 +372,15 @@ def get_morse_potential_hessian(atoms, morse, spectral=False):
     return i, j, Hx
 
 
-def get_morse_potential_reduced_hessian(atoms, morse):
+def get_morse_potential_reduced_hessian(
+    atoms: Atoms,
+    morse: Morse,
+) -> tuple[int, int, NDArray[np.floating]]:
+    """Calculate the reduced Hessian of a Morse potential.
+
+    Only the bond-stretching contribution is retained, and the absolute value
+    of the curvature is used to obtain a positive-semidefinite Hessian.
+    """
     i = morse.atomi
     j = morse.atomj
 
@@ -224,21 +401,27 @@ def get_morse_potential_reduced_hessian(atoms, morse):
     return i, j, Hx
 
 
-def get_bond_potential_value(atoms, bond):
+def get_bond_potential_value(
+    atoms: Atoms,
+    bond: Bond,
+) -> tuple[int, int, float]:
     i = bond.atomi
     j = bond.atomj
 
     rij = rel_pos_pbc(atoms, i, j)
     dij = linalg.norm(rij)
 
-    v = 0.5 * bond.k * (dij - bond.b0)**2
+    v = 0.5 * bond.k * (dij - bond.b0) ** 2
 
     bond.b = dij
 
     return i, j, v
 
 
-def get_bond_potential_gradient(atoms, bond):
+def get_bond_potential_gradient(
+    atoms: Atoms,
+    bond: Bond,
+) -> tuple[int, int, NDArray[np.floating]]:
     i = bond.atomi
     j = bond.atomj
 
@@ -255,7 +438,12 @@ def get_bond_potential_gradient(atoms, bond):
     return i, j, gx
 
 
-def get_bond_potential_hessian(atoms, bond, morses=None, spectral=False):
+def get_bond_potential_hessian(
+    atoms: Atoms,
+    bond: Bond,
+    morses: Sequence[Morse] | None = None,
+    spectral: bool = False,
+) -> tuple[int, int, NDArray[np.floating]]:
     i = bond.atomi
     j = bond.atomj
 
@@ -269,15 +457,13 @@ def get_bond_potential_hessian(atoms, bond, morses=None, spectral=False):
     Hr = bond.k * Pij + bond.k * (dij - bond.b0) / dij * Qij
 
     if bond.alpha is not None:
-        Hr *= np.exp(bond.alpha[0] * (bond.rref[0]**2 - dij**2))
+        Hr *= np.exp(bond.alpha[0] * (bond.rref[0] ** 2 - dij**2))
 
     if morses is not None:
         for m in range(len(morses)):
-            if (morses[m].atomi == i or
-                    morses[m].atomi == j):
+            if morses[m].atomi == i or morses[m].atomi == j:
                 Hr *= get_morse_potential_eta(atoms, morses[m])
-            elif (morses[m].atomj == i or
-                  morses[m].atomj == j):
+            elif morses[m].atomj == i or morses[m].atomj == j:
                 Hr *= get_morse_potential_eta(atoms, morses[m])
 
     Hx = np.dot(Bx.T, np.dot(Hr, Bx))
@@ -293,7 +479,19 @@ def get_bond_potential_hessian(atoms, bond, morses=None, spectral=False):
     return i, j, Hx
 
 
-def get_bond_potential_reduced_hessian(atoms, bond, morses=None):
+def get_bond_potential_reduced_hessian(
+    atoms: Atoms,
+    bond: Bond,
+    morses: Sequence[Morse] | None = None,
+) -> tuple[int, int, NDArray[np.floating]]:
+    """Calculate the reduced Hessian of a harmonic bond potential.
+
+    Only the bond-stretching contribution is retained, neglecting
+    the transverse contributions to the Hessian.
+
+    The Hessian is optionally scaled by distance-dependent factors
+    and Morse-potential-based bond-breaking factors.
+    """
     i = bond.atomi
     j = bond.atomj
 
@@ -306,15 +504,13 @@ def get_bond_potential_reduced_hessian(atoms, bond, morses=None):
     Hr = bond.k * Pij
 
     if bond.alpha is not None:
-        Hr *= np.exp(bond.alpha[0] * (bond.rref[0]**2 - dij**2))
+        Hr *= np.exp(bond.alpha[0] * (bond.rref[0] ** 2 - dij**2))
 
     if morses is not None:
         for m in range(len(morses)):
-            if (morses[m].atomi == i or
-                    morses[m].atomi == j):
+            if morses[m].atomi == i or morses[m].atomi == j:
                 Hr *= get_morse_potential_eta(atoms, morses[m])
-            elif (morses[m].atomj == i or
-                  morses[m].atomj == j):
+            elif morses[m].atomj == i or morses[m].atomj == j:
                 Hr *= get_morse_potential_eta(atoms, morses[m])
 
     Hx = np.dot(Bx.T, np.dot(Hr, Bx))
@@ -324,17 +520,10 @@ def get_bond_potential_reduced_hessian(atoms, bond, morses=None):
     return i, j, Hx
 
 
-def get_bond_potential_reduced_hessian_test(atoms, bond):
-
-    i, j, v = get_bond_potential_value(atoms, bond)
-    i, j, gx = get_bond_potential_gradient(atoms, bond)
-
-    Hx = np.tensordot(gx, gx, axes=0) / v / 2.0
-
-    return i, j, Hx
-
-
-def get_angle_potential_value(atoms, angle):
+def get_angle_potential_value(
+    atoms: Atoms,
+    angle: Angle,
+) -> tuple[int, int, int, float]:
 
     i = angle.atomi
     j = angle.atomj
@@ -365,7 +554,10 @@ def get_angle_potential_value(atoms, angle):
     return i, j, k, v
 
 
-def get_angle_potential_gradient(atoms, angle):
+def get_angle_potential_gradient(
+    atoms: Atoms,
+    angle: Angle,
+) -> tuple[int, int, int, NDArray[np.floating]]:
     i = angle.atomi
     j = angle.atomj
     k = angle.atomk
@@ -408,7 +600,12 @@ def get_angle_potential_gradient(atoms, angle):
     return i, j, k, gx
 
 
-def get_angle_potential_hessian(atoms, angle, morses=None, spectral=False):
+def get_angle_potential_hessian(
+    atoms: Atoms,
+    angle: Angle,
+    morses: Sequence[Morse] | None = None,
+    spectral: bool = False,
+) -> tuple[int, int, int, NDArray[np.floating]]:
     i = angle.atomi
     j = angle.atomj
     k = angle.atomk
@@ -452,44 +649,108 @@ def get_angle_potential_hessian(atoms, angle, morses=None, spectral=False):
     Hr = np.zeros((6, 6))
     if angle.cos and np.abs(sina) > 0.001:
         factor = 1.0 - 2.0 * cosa * cosa + cosa * cosa0
-        Hr[0:3, 0:3] = (angle.k * (factor * QijPkjQij / sina
-                                   - sina * da * (-ctga * QijPkjQij / sina + np.dot(Qij, Pki)
-                                                  - np.dot(Pij, Pki) * 2.0 + (Pik + P))) / sina / dij2)
-        Hr[0:3, 3:6] = (angle.k * (factor * QijPkiQkj / sina
-                                   - sina * da * (-ctga * QijPkiQkj / sina
-                                                  - np.dot(Qij, Qkj))) / sina / dijdkj)
+        Hr[0:3, 0:3] = (
+            angle.k
+            * (
+                factor * QijPkjQij / sina
+                - sina
+                * da
+                * (
+                    -ctga * QijPkjQij / sina
+                    + np.dot(Qij, Pki)
+                    - np.dot(Pij, Pki) * 2.0
+                    + (Pik + P)
+                )
+            )
+            / sina
+            / dij2
+        )
+        Hr[0:3, 3:6] = (
+            angle.k
+            * (
+                factor * QijPkiQkj / sina
+                - sina * da * (-ctga * QijPkiQkj / sina - np.dot(Qij, Qkj))
+            )
+            / sina
+            / dijdkj
+        )
         Hr[3:6, 0:3] = Hr[0:3, 3:6].T
-        Hr[3:6, 3:6] = (angle.k * (factor * QkjPijQkj / sina
-                                   - sina * da * (-ctga * QkjPijQkj / sina
-                                                  + np.dot(Qkj, Pik) -
-                                                  np.dot(Pkj, Pik)
-                                                  * 2.0 + (Pki + P))) / sina / dkj2)
+        Hr[3:6, 3:6] = (
+            angle.k
+            * (
+                factor * QkjPijQkj / sina
+                - sina
+                * da
+                * (
+                    -ctga * QkjPijQkj / sina
+                    + np.dot(Qkj, Pik)
+                    - np.dot(Pkj, Pik) * 2.0
+                    + (Pki + P)
+                )
+            )
+            / sina
+            / dkj2
+        )
     elif np.abs(sina) > 0.001:
-        Hr[0:3, 0:3] = (angle.k * (QijPkjQij / sina
-                                   + da * (-ctga * QijPkjQij / sina + np.dot(Qij, Pki)
-                                           - np.dot(Pij, Pki) * 2.0 + (Pik + P))) / sina / dij2)
-        Hr[0:3, 3:6] = (angle.k * (QijPkiQkj / sina
-                                   + da * (-ctga * QijPkiQkj / sina
-                                           - np.dot(Qij, Qkj))) / sina / dijdkj)
+        Hr[0:3, 0:3] = (
+            angle.k
+            * (
+                QijPkjQij / sina
+                + da
+                * (
+                    -ctga * QijPkjQij / sina
+                    + np.dot(Qij, Pki)
+                    - np.dot(Pij, Pki) * 2.0
+                    + (Pik + P)
+                )
+            )
+            / sina
+            / dij2
+        )
+        Hr[0:3, 3:6] = (
+            angle.k
+            * (
+                QijPkiQkj / sina
+                + da * (-ctga * QijPkiQkj / sina - np.dot(Qij, Qkj))
+            )
+            / sina
+            / dijdkj
+        )
         Hr[3:6, 0:3] = Hr[0:3, 3:6].T
-        Hr[3:6, 3:6] = (angle.k * (QkjPijQkj / sina
-                                   + da * (-ctga * QkjPijQkj / sina
-                                           + np.dot(Qkj, Pik) - np.dot(Pkj, Pik)
-                                           * 2.0 + (Pki + P))) / sina / dkj2)
+        Hr[3:6, 3:6] = (
+            angle.k
+            * (
+                QkjPijQkj / sina
+                + da
+                * (
+                    -ctga * QkjPijQkj / sina
+                    + np.dot(Qkj, Pik)
+                    - np.dot(Pkj, Pik) * 2.0
+                    + (Pki + P)
+                )
+            )
+            / sina
+            / dkj2
+        )
 
     if angle.alpha is not None:
-        Hr *= (np.exp(angle.alpha[0] * (angle.rref[0]**2 - dij**2))
-               * np.exp(angle.alpha[1] * (angle.rref[1]**2 - dkj**2)))
+        Hr *= np.exp(angle.alpha[0] * (angle.rref[0] ** 2 - dij**2)) * np.exp(
+            angle.alpha[1] * (angle.rref[1] ** 2 - dkj**2)
+        )
 
     if morses is not None:
         for m in range(len(morses)):
-            if (morses[m].atomi == i or
-                morses[m].atomi == j or
-                    morses[m].atomi == k):
+            if (
+                morses[m].atomi == i
+                or morses[m].atomi == j
+                or morses[m].atomi == k
+            ):
                 Hr *= get_morse_potential_eta(atoms, morses[m])
-            elif (morses[m].atomj == i or
-                  morses[m].atomj == j or
-                  morses[m].atomj == k):
+            elif (
+                morses[m].atomj == i
+                or morses[m].atomj == j
+                or morses[m].atomj == k
+            ):
                 Hr *= get_morse_potential_eta(atoms, morses[m])
 
     Hx = np.dot(Ax.T, np.dot(Hr, Ax))
@@ -505,7 +766,21 @@ def get_angle_potential_hessian(atoms, angle, morses=None, spectral=False):
     return i, j, k, Hx
 
 
-def get_angle_potential_reduced_hessian(atoms, angle, morses=None):
+def get_angle_potential_reduced_hessian(
+    atoms: Atoms,
+    angle: Angle,
+    morses: Sequence[Morse] | None = None,
+) -> tuple[int, int, int, NDArray[np.floating]]:
+    """Calculate the reduced Hessian of an angle potential.
+
+    Only the angle-bending contribution is retained.
+
+    The absolute value of the angular curvature is used to obtain
+    a positive-semidefinite Hessian.
+
+    The Hessian is optionally scaled by distance-dependent factors
+    and Morse-potential-based bond-breaking factors.
+    """
     i = angle.atomi
     j = angle.atomj
     k = angle.atomk
@@ -549,18 +824,23 @@ def get_angle_potential_reduced_hessian(atoms, angle, morses=None):
         Hr = Hr * angle.k / sina2
 
     if angle.alpha is not None:
-        Hr *= (np.exp(angle.alpha[0] * (angle.rref[0]**2 - dij**2))
-               * np.exp(angle.alpha[1] * (angle.rref[1]**2 - dkj**2)))
+        Hr *= np.exp(angle.alpha[0] * (angle.rref[0] ** 2 - dij**2)) * np.exp(
+            angle.alpha[1] * (angle.rref[1] ** 2 - dkj**2)
+        )
 
     if morses is not None:
         for m in range(len(morses)):
-            if (morses[m].atomi == i or
-                morses[m].atomi == j or
-                    morses[m].atomi == k):
+            if (
+                morses[m].atomi == i
+                or morses[m].atomi == j
+                or morses[m].atomi == k
+            ):
                 Hr *= get_morse_potential_eta(atoms, morses[m])
-            elif (morses[m].atomj == i or
-                  morses[m].atomj == j or
-                  morses[m].atomj == k):
+            elif (
+                morses[m].atomj == i
+                or morses[m].atomj == j
+                or morses[m].atomj == k
+            ):
                 Hr *= get_morse_potential_eta(atoms, morses[m])
 
     Hx = np.dot(Ax.T, np.dot(Hr, Ax))
@@ -570,16 +850,10 @@ def get_angle_potential_reduced_hessian(atoms, angle, morses=None):
     return i, j, k, Hx
 
 
-def get_angle_potential_reduced_hessian_test(atoms, angle):
-    i, j, k, v = get_angle_potential_value(atoms, angle)
-    i, j, k, gx = get_angle_potential_gradient(atoms, angle)
-
-    Hx = np.tensordot(gx, gx, axes=0) / v / 2.0
-
-    return i, j, k, Hx
-
-
-def get_dihedral_potential_value(atoms, dihedral):
+def get_dihedral_potential_value(
+    atoms: Atoms,
+    dihedral: Dihedral,
+) -> tuple[int, int, int, int, float]:
     i = dihedral.atomi
     j = dihedral.atomj
     k = dihedral.atomk
@@ -616,7 +890,10 @@ def get_dihedral_potential_value(atoms, dihedral):
     return i, j, k, l, v
 
 
-def get_dihedral_potential_gradient(atoms, dihedral):
+def get_dihedral_potential_gradient(
+    atoms: Atoms,
+    dihedral: Dihedral,
+) -> tuple[int, int, int, int, NDArray[np.floating]]:
     i = dihedral.atomi
     j = dihedral.atomj
     k = dihedral.atomk
@@ -663,29 +940,50 @@ def get_dihedral_potential_gradient(atoms, dihedral):
         if dihedral.n is None:
             gx *= dihedral.k * dd
         else:
-            gx *= -dihedral.k * dihedral.n * \
-                np.sin(dihedral.n * d - dihedral.d0)
+            gx *= (
+                -dihedral.k * dihedral.n * np.sin(dihedral.n * d - dihedral.d0)
+            )
 
     dihedral.d = d
 
     return i, j, k, l, gx
 
 
-def get_dihedral_potential_hessian(atoms, dihedral, morses=None,
-                                   spectral=False):
+def get_dihedral_potential_hessian(
+    atoms: Atoms,
+    dihedral: Dihedral,
+    morses: Sequence[Morse] | None = None,
+    spectral: bool = False,
+) -> tuple[int, int, int, int, NDArray[np.floating]]:
     eps = 0.000001
 
     i, j, k, l, g = get_dihedral_potential_gradient(atoms, dihedral)
 
     Hx = np.zeros((12, 12))
 
-    dihedral_eps = Dihedral(dihedral.atomi, dihedral.atomj,
-                            dihedral.atomk, dihedral.atoml,
-                            dihedral.k, dihedral.d0, dihedral.n)
-    indx = [3 * i, 3 * i + 1, 3 * i + 2,
-            3 * j, 3 * j + 1, 3 * j + 2,
-            3 * k, 3 * k + 1, 3 * k + 2,
-            3 * l, 3 * l + 1, 3 * l + 2]
+    dihedral_eps = Dihedral(
+        dihedral.atomi,
+        dihedral.atomj,
+        dihedral.atomk,
+        dihedral.atoml,
+        dihedral.k,
+        dihedral.d0,
+        dihedral.n,
+    )
+    indx = [
+        3 * i,
+        3 * i + 1,
+        3 * i + 2,
+        3 * j,
+        3 * j + 1,
+        3 * j + 2,
+        3 * k,
+        3 * k + 1,
+        3 * k + 2,
+        3 * l,
+        3 * l + 1,
+        3 * l + 2,
+    ]
     for x in range(12):
         a = atoms.copy()
         positions = np.reshape(a.get_positions(), -1)
@@ -703,21 +1001,27 @@ def get_dihedral_potential_hessian(atoms, dihedral, morses=None,
         dkj = linalg.norm(rkj)
         rkl = rel_pos_pbc(atoms, k, l)
         dkl = linalg.norm(rkl)
-        Hx *= (np.exp(dihedral.alpha[0] * (dihedral.rref[0]**2 - dij**2))
-               * np.exp(dihedral.alpha[1] * (dihedral.rref[1]**2 - dkj**2))
-               * np.exp(dihedral.alpha[2] * (dihedral.rref[2]**2 - dkl**2)))
+        Hx *= (
+            np.exp(dihedral.alpha[0] * (dihedral.rref[0] ** 2 - dij**2))
+            * np.exp(dihedral.alpha[1] * (dihedral.rref[1] ** 2 - dkj**2))
+            * np.exp(dihedral.alpha[2] * (dihedral.rref[2] ** 2 - dkl**2))
+        )
 
     if morses is not None:
         for m in range(len(morses)):
-            if (morses[m].atomi == i or
-                morses[m].atomi == j or
-                morses[m].atomi == k or
-                    morses[m].atomi == l):
+            if (
+                morses[m].atomi == i
+                or morses[m].atomi == j
+                or morses[m].atomi == k
+                or morses[m].atomi == l
+            ):
                 Hx *= get_morse_potential_eta(atoms, morses[m])
-            elif (morses[m].atomj == i or
-                  morses[m].atomj == j or
-                  morses[m].atomj == k or
-                  morses[m].atomj == l):
+            elif (
+                morses[m].atomj == i
+                or morses[m].atomj == j
+                or morses[m].atomj == k
+                or morses[m].atomj == l
+            ):
                 Hx *= get_morse_potential_eta(atoms, morses[m])
 
     if spectral:
@@ -729,7 +1033,21 @@ def get_dihedral_potential_hessian(atoms, dihedral, morses=None,
     return i, j, k, l, Hx
 
 
-def get_dihedral_potential_reduced_hessian(atoms, dihedral, morses=None):
+def get_dihedral_potential_reduced_hessian(
+    atoms: Atoms,
+    dihedral: Dihedral,
+    morses: Sequence[Morse] | None = None,
+) -> tuple[int, int, int, int, NDArray[np.floating]]:
+    """Calculate the reduced Hessian of a dihedral potential.
+
+    Only the torsional contribution is retained.
+
+    The absolute value of the torsional curvature is used to obtain
+    a positive-semidefinite Hessian.
+
+    The Hessian is optionally scaled by distance-dependent factors
+    and Morse-potential-based bond-breaking factors.
+    """
     i = dihedral.atomi
     j = dihedral.atomj
     k = dihedral.atomk
@@ -769,13 +1087,15 @@ def get_dihedral_potential_reduced_hessian(atoms, dihedral, morses=None):
     gx[9:12] = dddrl
 
     if dihedral.d0 is None:
-        Hx = np.abs(2.0 * dihedral.k * np.cos(2.0 * d)) * \
-            np.tensordot(gx, gx, axes=0)
+        Hx = np.abs(2.0 * dihedral.k * np.cos(2.0 * d)) * np.tensordot(
+            gx, gx, axes=0
+        )
     if dihedral.n is None:
         Hx = dihedral.k * np.tensordot(gx, gx, axes=0)
     else:
-        Hx = (np.abs(-dihedral.k * dihedral.n**2
-                     * np.cos(dihedral.n * d - dihedral.d0)) * np.tensordot(gx, gx, axes=0))
+        Hx = np.abs(
+            -dihedral.k * dihedral.n**2 * np.cos(dihedral.n * d - dihedral.d0)
+        ) * np.tensordot(gx, gx, axes=0)
 
     if dihedral.alpha is not None:
         rij = rel_pos_pbc(atoms, i, j)
@@ -784,21 +1104,27 @@ def get_dihedral_potential_reduced_hessian(atoms, dihedral, morses=None):
         dkj = linalg.norm(rkj)
         rkl = rel_pos_pbc(atoms, k, l)
         dkl = linalg.norm(rkl)
-        Hx *= (np.exp(dihedral.alpha[0] * (dihedral.rref[0]**2 - dij**2))
-               * np.exp(dihedral.alpha[1] * (dihedral.rref[1]**2 - dkj**2))
-               * np.exp(dihedral.alpha[2] * (dihedral.rref[2]**2 - dkl**2)))
+        Hx *= (
+            np.exp(dihedral.alpha[0] * (dihedral.rref[0] ** 2 - dij**2))
+            * np.exp(dihedral.alpha[1] * (dihedral.rref[1] ** 2 - dkj**2))
+            * np.exp(dihedral.alpha[2] * (dihedral.rref[2] ** 2 - dkl**2))
+        )
 
     if morses is not None:
         for m in range(len(morses)):
-            if (morses[m].atomi == i or
-                morses[m].atomi == j or
-                morses[m].atomi == k or
-                    morses[m].atomi == l):
+            if (
+                morses[m].atomi == i
+                or morses[m].atomi == j
+                or morses[m].atomi == k
+                or morses[m].atomi == l
+            ):
                 Hx *= get_morse_potential_eta(atoms, morses[m])
-            elif (morses[m].atomj == i or
-                  morses[m].atomj == j or
-                  morses[m].atomj == k or
-                  morses[m].atomj == l):
+            elif (
+                morses[m].atomj == i
+                or morses[m].atomj == j
+                or morses[m].atomj == k
+                or morses[m].atomj == l
+            ):
                 Hx *= get_morse_potential_eta(atoms, morses[m])
 
     dihedral.d = d
@@ -806,21 +1132,10 @@ def get_dihedral_potential_reduced_hessian(atoms, dihedral, morses=None):
     return i, j, k, l, Hx
 
 
-def get_dihedral_potential_reduced_hessian_test(atoms, dihedral):
-    i, j, k, l, gx = get_dihedral_potential_gradient(atoms, dihedral)
-
-    if dihedral.n is None:
-        i, j, k, l, v = get_dihedral_potential_value(atoms, dihedral)
-        Hx = np.tensordot(gx, gx, axes=0) / v / 2.0
-    else:
-        arg = dihedral.n * dihedral.d - dihedral.d0
-        Hx = (np.tensordot(gx, gx, axes=0) / dihedral.k / np.sin(arg) / np.sin(arg)
-              * np.cos(arg))
-
-    return i, j, k, l, Hx
-
-
-def get_vdw_potential_value(atoms, vdw):
+def get_vdw_potential_value(
+    atoms: Atoms,
+    vdw: VdW,
+) -> tuple[int, int, float]:
     i = vdw.atomi
     j = vdw.atomj
 
@@ -834,7 +1149,10 @@ def get_vdw_potential_value(atoms, vdw):
     return i, j, v
 
 
-def get_vdw_potential_gradient(atoms, vdw):
+def get_vdw_potential_gradient(
+    atoms: Atoms,
+    vdw: VdW,
+) -> tuple[int, int, NDArray[np.floating]]:
     i = vdw.atomi
     j = vdw.atomj
 
@@ -851,7 +1169,11 @@ def get_vdw_potential_gradient(atoms, vdw):
     return i, j, gx
 
 
-def get_vdw_potential_hessian(atoms, vdw, spectral=False):
+def get_vdw_potential_hessian(
+    atoms: Atoms,
+    vdw: VdW,
+    spectral: bool = False,
+) -> tuple[int, int, NDArray[np.floating]]:
     i = vdw.atomi
     j = vdw.atomj
 
@@ -862,8 +1184,9 @@ def get_vdw_potential_hessian(atoms, vdw, spectral=False):
     Pij = np.tensordot(eij, eij, axes=0)
     Qij = np.eye(3) - Pij
 
-    Hr = ((156.0 * vdw.Aij / dij**14 - 42.0 * vdw.Bij / dij**8) * Pij
-          + (-12.0 * vdw.Aij / dij**13 + 6.0 * vdw.Bij / dij**7) / dij * Qij)
+    Hr = (156.0 * vdw.Aij / dij**14 - 42.0 * vdw.Bij / dij**8) * Pij + (
+        -12.0 * vdw.Aij / dij**13 + 6.0 * vdw.Bij / dij**7
+    ) / dij * Qij
 
     Hx = np.dot(Bx.T, np.dot(Hr, Bx))
 
@@ -878,7 +1201,10 @@ def get_vdw_potential_hessian(atoms, vdw, spectral=False):
     return i, j, Hx
 
 
-def get_coulomb_potential_value(atoms, coulomb):
+def get_coulomb_potential_value(
+    atoms: Atoms,
+    coulomb: Coulomb,
+) -> tuple[int, int, float]:
     i = coulomb.atomi
     j = coulomb.atomj
 
@@ -892,7 +1218,10 @@ def get_coulomb_potential_value(atoms, coulomb):
     return i, j, v
 
 
-def get_coulomb_potential_gradient(atoms, coulomb):
+def get_coulomb_potential_gradient(
+    atoms: Atoms,
+    coulomb: Coulomb,
+) -> tuple[int, int, NDArray[np.floating]]:
     i = coulomb.atomi
     j = coulomb.atomj
 
@@ -909,7 +1238,11 @@ def get_coulomb_potential_gradient(atoms, coulomb):
     return i, j, gx
 
 
-def get_coulomb_potential_hessian(atoms, coulomb, spectral=False):
+def get_coulomb_potential_hessian(
+    atoms: Atoms,
+    coulomb: Coulomb,
+    spectral: bool = False,
+) -> tuple[int, int, NDArray[np.floating]]:
     i = coulomb.atomi
     j = coulomb.atomj
 
@@ -920,8 +1253,9 @@ def get_coulomb_potential_hessian(atoms, coulomb, spectral=False):
     Pij = np.tensordot(eij, eij, axes=0)
     Qij = np.eye(3) - Pij
 
-    Hr = (2.0 * coulomb.chargeij / dij**3) * Pij + \
-        (-coulomb.chargeij / dij / dij) / dij * Qij
+    Hr = (2.0 * coulomb.chargeij / dij**3) * Pij + (
+        -coulomb.chargeij / dij / dij
+    ) / dij * Qij
 
     Hx = np.dot(Bx.T, np.dot(Hr, Bx))
 
@@ -936,9 +1270,9 @@ def get_coulomb_potential_hessian(atoms, coulomb, spectral=False):
     return i, j, Hx
 
 
-def rel_pos_pbc(atoms, i, j):
+def rel_pos_pbc(atoms: Atoms, i: int, j: int) -> NDArray[np.floating]:
     """
-    Return difference between two atomic positions, 
+    Return difference between two atomic positions,
     correcting for jumps across PBC
     """
     d = atoms.get_positions()[i, :] - atoms.get_positions()[j, :]

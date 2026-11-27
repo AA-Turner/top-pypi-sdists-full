@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import Any, Literal, TypeVar, Protocol, Union
 
 import inspect
-import traceback
 import warnings
 
 T = TypeVar("T")
@@ -151,27 +150,32 @@ class Hooks:
         """
         Generic method to emit events for any hook type.
 
+        Handler additions and removals take effect on the next emission.
+
         Args:
             hook_name: The hook to emit
             *args: Positional arguments to pass to handlers
             **kwargs: Keyword arguments to pass to handlers
         """
-        for handler in self._handlers[hook_name]:
+        for handler in self._handlers[hook_name].copy():
             try:
                 if kwargs:
                     try:
                         sig = inspect.signature(handler)
                         sig.bind(*args, **kwargs)
-                    except TypeError:
+                    except (TypeError, ValueError):
                         handler(*args)
                         continue
                 handler(*args, **kwargs)
-            except Exception:
-                error_traceback = traceback.format_exc()
-                warnings.warn(
-                    f"Error in {hook_name.value} handler:\n{error_traceback}",
-                    stacklevel=2,
-                )
+            except Exception as error:
+                try:
+                    warnings.warn(
+                        f"Error in {hook_name.value} handler ({type(error).__name__})",
+                        stacklevel=1,
+                    )
+                except UserWarning as warning:
+                    # Warning-as-error must not expose the provider or handler traceback.
+                    raise warning from None
 
     def emit_completion_arguments(self, *args: Any, **kwargs: Any) -> None:
         """

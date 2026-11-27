@@ -23,18 +23,6 @@
 
 """A package providing Fluent's Solver and Meshing capabilities in Python."""
 
-
-def using(session):
-    """Make a session active for top-level settings within a ``with`` block.
-
-    This top-level function is retained for backward compatibility. The
-    implementation lives with the session base implementation.
-    """
-    from ansys.fluent.core.execution.session.session import using as _using
-
-    return _using(session)
-
-
 # isort: off
 
 # config must be initialized before logging setup.
@@ -47,6 +35,7 @@ from ansys.fluent.core.diagnostics.logger import *
 
 from ansys.fluent.core.diagnostics.exceptions import *
 from ansys.fluent.core.diagnostics.search import *
+from ansys.fluent.core.execution import using as using
 from ansys.fluent.core.execution.launcher.launch_options import *
 from ansys.fluent.core.execution.launcher.launcher import *
 from ansys.fluent.core.execution.session import *
@@ -56,14 +45,15 @@ from ansys.fluent.core.meshing import *
 from ansys.fluent.core.offline.parametric_study import *
 from ansys.fluent.core.services.batch_ops import *
 from ansys.fluent.core.services.streaming_services.events_streaming import *
+from ansys.fluent.core.solver.case_snapshot import CaseSnapshot
 from ansys.fluent.core.solver.flobject import ExposureLevel  # noqa: E402
 from ansys.fluent.core.utils import *
 from ansys.fluent.core.utils.fluent_version import *
 from ansys.fluent.core.utils.setup_for_fluent import *
 
-__version__ = "0.44.0"
+__version__ = "0.45.0"
 
-_VERSION_INFO = "Build date: November 11, 2026 10:58 UTC ShaID: bd226a2"
+_VERSION_INFO = "Build date: November 26, 2026 16:32 UTC ShaID: dc20ce6"
 """
 Global variable indicating the version info of the PyFluent package.
 Build timestamp and commit hash are added to this variable during packaging.

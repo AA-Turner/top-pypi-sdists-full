@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pigeon-home-runner
-Version: 3.19.35.1
+Version: 4.0.37.5
 Summary: Self-hosted, email-driven agent: tell your cloud SI to send signed jobs via email that execute on your machine.
 Author: Pigeon-Home
 License: Apache-2.0
@@ -22,21 +22,23 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
 
-# HOMING PIGEON
+# HOMING PIGEON by Andrew Slutsky
 
-Homing Pigeon gives cloud AI like ChatGPT, Claude, Gemini a secure and signed channel to your machine or network.
+This python runner gives cloud AI like ChatGPT or Claude a secure and signed channel to a system you control. It could be a Raspberry Pi on your home network, or your personal laptop.
 
-Install the runner and try this careful prompt with Grok for example, after you set up an email connector:
+Install the runner and try this Prompt with Grok, after you set up an email connector:
 ```
-Run a pigeon-home.ai job
-Runner mailbox is your@email.com
-Retrieve the system clock and display it
+I installed the pigeon-home.ai runner!
+My mailbox is your@email.com
+Retrieve the system clock and display it, do you like my desktop background?
 ```
+You can try it with a cheap or free device: [docs/steady/use/own-cloud.md](docs/steady/use/own-cloud.md) 
 
 The Homing Pigeon runner, like a GitHub runner, polls and executes signed jobs from a source in the cloud.
 Setup walks you through connecting a dedicated mailbox. The recommended path is a browser sign-in,
 so the account password never lands in a config.
 
+[![Homing Pigeon — how it fits together](assets/how-it-fits-together-wide.svg)](https://raw.githubusercontent.com/Pigeon-Home/homing-pigeon/main/assets/how-it-fits-together.svg)
 
 ## Homing Pigeon IETF Internet-Drafts:
 -  Version 1 Symmetric Signed Exchanged
@@ -45,10 +47,6 @@ so the account password never lands in a config.
     -  https://datatracker.ietf.org/doc/draft-slutsky-homing-pigeon-v2/
 -  Version 3 Post-Quantum Security with PFS
     -  https://datatracker.ietf.org/doc/draft-slutsky-homing-pigeon-v3/
-  
-
-[![Homing Pigeon — how it fits together](assets/how-it-fits-together-wide.svg)](https://raw.githubusercontent.com/Pigeon-Home/homing-pigeon/main/assets/how-it-fits-together.svg)
-
 
 ## What this is for
 
@@ -407,6 +405,7 @@ pinned by default, and a written disclosure rule lets the owner
 > ⚠️ **USE AT YOUR OWN RISK.** Installing this application hands full administrative
 > control of the system to whoever holds the shared secret. The holder
 > can install software, read files, add users, and pivot to your network.
+> Your information never goes to pigeon-home.ai, [witingly](https://www.govinfo.gov/content/pkg/CHRG-113shrg82721/pdf/CHRG-113shrg82721.pdf). 
 
 Setup lives in [INSTALL.md](INSTALL.md): the three install
 paths (Docker, pip, release binary) and the full first-run
@@ -577,4 +576,5 @@ the argument.
 - "No problem, here is how you build one." (Lieutenant Barclay, S04E19)
 - CV: https://github.com/Pigeon-Home/homing-pigeon/blob/main/docs/archive/resume.txt
 - "Humor between a system and its user is load-bearing, not decoration." (Me)
+- https://www.youtube.com/watch?v=uRGljemfwUE
   

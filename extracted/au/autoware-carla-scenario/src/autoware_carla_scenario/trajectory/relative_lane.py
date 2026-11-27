@@ -80,9 +80,11 @@ def _heading_at(points: list[tuple[float, float]], s: float) -> float:
 
     A vertex belongs to the segment that *starts* there, as in
     :mod:`~autoware_carla_scenario.coordinate.transform`'s ``_interpolate_at_s``
-    and ``_heading_at_s``, up to :data:`_VERTEX_TOLERANCE_M`; at the last
-    point, or past it, the last segment's heading.  Zero-length segments have
-    no direction and are skipped.  A caller after the segment arriving at a
+    and ``_heading_at_s``, up to :data:`_VERTEX_TOLERANCE_M` (which they do
+    not allow); at the last point, or past it, the last segment's heading.
+    Zero-length segments have no direction and are skipped -- a centreline
+    ending on a repeated point reads its last real segment's heading there,
+    as those helpers also do since #2545 (#2367).  A caller after the segment arriving at a
     vertex asks a little before it (``s - 1e-6``).
     """
     travelled = 0.0
@@ -102,6 +104,8 @@ def _heading_at(points: list[tuple[float, float]], s: float) -> float:
 
 def _point_at(points: list[tuple[float, float]], s: float) -> tuple[float, float]:
     """The centreline point at arc length *s* (clamped to the centreline)."""
+    # Kept apart from the other centreline interpolations (#2545): see
+    # ``coordinate.stacked.height_at``.
     travelled = 0.0
     for (x0, y0), (x1, y1) in zip(points, points[1:]):
         span = math.hypot(x1 - x0, y1 - y0)

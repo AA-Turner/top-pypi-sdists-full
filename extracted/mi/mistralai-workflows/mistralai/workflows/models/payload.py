@@ -23,7 +23,7 @@ class WorkflowContext(WorkflowContextBase):
     # Worker-only channel populated by interceptors (e.g. the connector
     # interceptor's resolved bindings), not by workflow callers. Travels
     # alongside `extensions` but under a caller-inaccessible metadata key,
-    # so downstream readers (ToolCallClient, RemoteSession) can trust its
+    # so downstream readers (ConnectorClient, RemoteSession) can trust its
     # contents as interceptor-owned without forgery checks.
     trusted_extensions: dict[str, Any] = Field(default_factory=dict)
     continued_run_id: str | None = None

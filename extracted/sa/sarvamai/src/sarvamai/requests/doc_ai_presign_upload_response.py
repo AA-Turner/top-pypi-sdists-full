@@ -8,7 +8,7 @@ import typing_extensions
 class DocAiPresignUploadResponseParams(typing_extensions.TypedDict):
     upload_id: str
     """
-    Handle for the uploaded file. Pass it through `upload_ids` on a later parse or extract job request.
+    Handle for the uploaded file. Pass it in `upload_ids` on a Parse, Extract, Split or Classify request. It can be used once.
     """
 
     method: str
@@ -23,7 +23,7 @@ class DocAiPresignUploadResponseParams(typing_extensions.TypedDict):
 
     headers: typing_extensions.NotRequired[typing.Dict[str, str]]
     """
-    Headers that must be sent with the upload request.
+    Headers to send with the upload request, for example `Content-Type` when you set `content_type`. Absent when there are none.
     """
 
     expires_at: str

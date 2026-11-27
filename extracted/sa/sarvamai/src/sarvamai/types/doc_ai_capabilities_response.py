@@ -9,7 +9,7 @@ from .doc_ai_capability_limits import DocAiCapabilityLimits
 
 class DocAiCapabilitiesResponse(UniversalBaseModel):
     """
-    Classify and Split capabilities of this deployment.
+    What your account offers for Split and Classify, plus the accepted input formats and limits.
     """
 
     api_contract: typing.Optional[str] = pydantic.Field(default=None)
@@ -37,7 +37,11 @@ class DocAiCapabilitiesResponse(UniversalBaseModel):
     Enabled `reasoning_input` values, e.g. `auto` and `text_only`.
     """
 
-    split_methods: typing.Optional[typing.List[str]] = None
+    split_methods: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Enabled Split methods. The value is `semantic`, where the model finds the boundaries; the request has no `method` option.
+    """
+
     features: typing.Optional[typing.Dict[str, bool]] = pydantic.Field(default=None)
     """
     Feature flags, e.g. `split_triggers` and `split_trigger_photo`.

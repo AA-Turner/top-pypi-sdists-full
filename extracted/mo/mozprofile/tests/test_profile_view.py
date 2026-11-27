@@ -5,12 +5,9 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
-import sys
 
 import mozprofile
 import mozunit
-import pytest
-from six import text_type
 
 here = os.path.dirname(os.path.abspath(__file__))
 
@@ -31,19 +28,7 @@ def test_profileprint(tmpdir):
 def test_str_cast():
     """Test casting to a string."""
     profile = mozprofile.Profile()
-    if sys.version_info[0] >= 3:
-        assert str(profile) == profile.summary()
-    else:
-        assert str(profile) == profile.summary().encode("utf-8")
-
-
-@pytest.mark.skipif(
-    sys.version_info[0] >= 3, reason="no unicode() operator starting from python3"
-)
-def test_unicode_cast():
-    """Test casting to a unicode string."""
-    profile = mozprofile.Profile()
-    assert text_type(profile) == profile.summary()
+    assert str(profile) == profile.summary()
 
 
 def test_profile_diff():

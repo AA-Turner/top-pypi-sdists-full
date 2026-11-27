@@ -13,9 +13,9 @@ class CreateCommonBandwidthPackageResponseBody(DaraModel):
     ):
         # The ID of the Internet Shared Bandwidth instance.
         self.bandwidth_package_id = bandwidth_package_id
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The resource group ID.
+        # The ID of the resource group.
         self.resource_group_id = resource_group_id
 
     def validate(self):

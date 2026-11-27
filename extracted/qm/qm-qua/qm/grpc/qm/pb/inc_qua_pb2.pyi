@@ -60,7 +60,7 @@ class QuaProgram(_message.Message):
         body: QuaProgram.StatementsCollection
         def __init__(self, variables: _Optional[_Iterable[_Union[QuaProgram.VarDeclaration, _Mapping]]] = ..., externalStreams: _Optional[_Iterable[_Union[QuaProgram.ExternalStreamDeclaration, _Mapping]]] = ..., body: _Optional[_Union[QuaProgram.StatementsCollection, _Mapping]] = ...) -> None: ...
     class VarDeclaration(_message.Message):
-        __slots__ = ["name", "type", "size", "value", "dim", "isInputStream", "structMember"]
+        __slots__ = ["name", "type", "size", "value", "dim", "isInputStream", "structMember", "volatile_tag"]
         class StructMember(_message.Message):
             __slots__ = ["name", "position"]
             NAME_FIELD_NUMBER: _ClassVar[int]
@@ -75,6 +75,7 @@ class QuaProgram(_message.Message):
         DIM_FIELD_NUMBER: _ClassVar[int]
         ISINPUTSTREAM_FIELD_NUMBER: _ClassVar[int]
         STRUCTMEMBER_FIELD_NUMBER: _ClassVar[int]
+        VOLATILE_TAG_FIELD_NUMBER: _ClassVar[int]
         name: str
         type: QuaProgram.Type
         size: int
@@ -82,16 +83,23 @@ class QuaProgram(_message.Message):
         dim: int
         isInputStream: bool
         structMember: QuaProgram.VarDeclaration.StructMember
-        def __init__(self, name: _Optional[str] = ..., type: _Optional[_Union[QuaProgram.Type, str]] = ..., size: _Optional[int] = ..., value: _Optional[_Iterable[_Union[QuaProgram.LiteralExpression, _Mapping]]] = ..., dim: _Optional[int] = ..., isInputStream: bool = ..., structMember: _Optional[_Union[QuaProgram.VarDeclaration.StructMember, _Mapping]] = ...) -> None: ...
+        volatile_tag: str
+        def __init__(self, name: _Optional[str] = ..., type: _Optional[_Union[QuaProgram.Type, str]] = ..., size: _Optional[int] = ..., value: _Optional[_Iterable[_Union[QuaProgram.LiteralExpression, _Mapping]]] = ..., dim: _Optional[int] = ..., isInputStream: bool = ..., structMember: _Optional[_Union[QuaProgram.VarDeclaration.StructMember, _Mapping]] = ..., volatile_tag: _Optional[str] = ...) -> None: ...
     class ExternalStreamDeclaration(_message.Message):
-        __slots__ = ["stream_id", "expectedTypes", "direction"]
+        __slots__ = ["stream_id", "expectedTypes", "direction", "stream_name", "volatile_names", "barrier_names"]
         STREAM_ID_FIELD_NUMBER: _ClassVar[int]
         EXPECTEDTYPES_FIELD_NUMBER: _ClassVar[int]
         DIRECTION_FIELD_NUMBER: _ClassVar[int]
+        STREAM_NAME_FIELD_NUMBER: _ClassVar[int]
+        VOLATILE_NAMES_FIELD_NUMBER: _ClassVar[int]
+        BARRIER_NAMES_FIELD_NUMBER: _ClassVar[int]
         stream_id: int
         expectedTypes: _containers.RepeatedCompositeFieldContainer[QuaProgram.VarDeclaration]
         direction: QuaProgram.Direction
-        def __init__(self, stream_id: _Optional[int] = ..., expectedTypes: _Optional[_Iterable[_Union[QuaProgram.VarDeclaration, _Mapping]]] = ..., direction: _Optional[_Union[QuaProgram.Direction, str]] = ...) -> None: ...
+        stream_name: str
+        volatile_names: _containers.RepeatedScalarFieldContainer[str]
+        barrier_names: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(self, stream_id: _Optional[int] = ..., expectedTypes: _Optional[_Iterable[_Union[QuaProgram.VarDeclaration, _Mapping]]] = ..., direction: _Optional[_Union[QuaProgram.Direction, str]] = ..., stream_name: _Optional[str] = ..., volatile_names: _Optional[_Iterable[str]] = ..., barrier_names: _Optional[_Iterable[str]] = ...) -> None: ...
     class QuantumElementReference(_message.Message):
         __slots__ = ["loc", "name"]
         LOC_FIELD_NUMBER: _ClassVar[int]
@@ -114,7 +122,7 @@ class QuaProgram(_message.Message):
         name: str
         def __init__(self, loc: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
     class AnyStatement(_message.Message):
-        __slots__ = ["play", "measure", "wait", "sync", "assign", "rus", "align", "updateFrequency", "zRotation", "pause", "save", "forEach", "waitForTrigger", "qrun", "updateCorrection", "resetPhase", "rampToZero", "resetFrame", "setDcOffset", "advanceInputStream", "strictTiming", "fastFrameRotation", "updateOscillatorFrequency", "resetGlobalPhase", "loadWaveform", "sendToExternalStream", "receiveFromExternalStream", "globalVariableAssignment", "arbitrary", "arbitraryContext"]
+        __slots__ = ["play", "measure", "wait", "sync", "assign", "rus", "align", "updateFrequency", "zRotation", "pause", "save", "forEach", "waitForTrigger", "qrun", "updateCorrection", "resetPhase", "rampToZero", "resetFrame", "setDcOffset", "advanceInputStream", "strictTiming", "fastFrameRotation", "updateOscillatorFrequency", "resetGlobalPhase", "loadWaveform", "sendToExternalStream", "receiveFromExternalStream", "globalVariableAssignment", "waitForBarrier", "arbitrary", "arbitraryContext"]
         PLAY_FIELD_NUMBER: _ClassVar[int]
         MEASURE_FIELD_NUMBER: _ClassVar[int]
         WAIT_FIELD_NUMBER: _ClassVar[int]
@@ -145,6 +153,7 @@ class QuaProgram(_message.Message):
         SENDTOEXTERNALSTREAM_FIELD_NUMBER: _ClassVar[int]
         RECEIVEFROMEXTERNALSTREAM_FIELD_NUMBER: _ClassVar[int]
         GLOBALVARIABLEASSIGNMENT_FIELD_NUMBER: _ClassVar[int]
+        WAITFORBARRIER_FIELD_NUMBER: _ClassVar[int]
         ARBITRARY_FIELD_NUMBER: _ClassVar[int]
         ARBITRARYCONTEXT_FIELD_NUMBER: _ClassVar[int]
         play: QuaProgram.PlayStatement
@@ -175,9 +184,10 @@ class QuaProgram(_message.Message):
         sendToExternalStream: QuaProgram.SendToExternalStreamStatement
         receiveFromExternalStream: QuaProgram.ReceiveFromExternalStreamStatement
         globalVariableAssignment: QuaProgram.GlobalVariableAssignmentStatement
+        waitForBarrier: QuaProgram.WaitForBarrierStatement
         arbitrary: QuaProgram.ArbitraryStatement
         arbitraryContext: QuaProgram.ArbitraryContextStatement
-        def __init__(self, play: _Optional[_Union[QuaProgram.PlayStatement, _Mapping]] = ..., measure: _Optional[_Union[QuaProgram.MeasureStatement, _Mapping]] = ..., wait: _Optional[_Union[QuaProgram.WaitStatement, _Mapping]] = ..., sync: _Optional[_Union[QuaProgram.SyncStatement, _Mapping]] = ..., assign: _Optional[_Union[QuaProgram.AssignmentStatement, _Mapping]] = ..., rus: _Optional[_Union[QuaProgram.RusStatement, _Mapping]] = ..., align: _Optional[_Union[QuaProgram.AlignStatement, _Mapping]] = ..., updateFrequency: _Optional[_Union[QuaProgram.UpdateFrequencyStatement, _Mapping]] = ..., zRotation: _Optional[_Union[QuaProgram.ZRotationStatement, _Mapping]] = ..., pause: _Optional[_Union[QuaProgram.PauseStatement, _Mapping]] = ..., save: _Optional[_Union[QuaProgram.SaveStatement, _Mapping]] = ..., forEach: _Optional[_Union[QuaProgram.ForEachStatement, _Mapping]] = ..., waitForTrigger: _Optional[_Union[QuaProgram.WaitForTriggerStatement, _Mapping]] = ..., qrun: _Optional[_Union[QuaProgram.QRunStatement, _Mapping]] = ..., updateCorrection: _Optional[_Union[QuaProgram.UpdateCorrectionStatement, _Mapping]] = ..., resetPhase: _Optional[_Union[QuaProgram.ResetPhaseStatement, _Mapping]] = ..., rampToZero: _Optional[_Union[QuaProgram.RampToZeroStatement, _Mapping]] = ..., resetFrame: _Optional[_Union[QuaProgram.ResetFrameStatement, _Mapping]] = ..., setDcOffset: _Optional[_Union[QuaProgram.SetDcOffsetStatement, _Mapping]] = ..., advanceInputStream: _Optional[_Union[QuaProgram.AdvanceInputStreamStatement, _Mapping]] = ..., strictTiming: _Optional[_Union[QuaProgram.StrictTimingStatement, _Mapping]] = ..., fastFrameRotation: _Optional[_Union[QuaProgram.FastFrameRotationStatement, _Mapping]] = ..., updateOscillatorFrequency: _Optional[_Union[QuaProgram.UpdateOscillatorFrequencyStatement, _Mapping]] = ..., resetGlobalPhase: _Optional[_Union[QuaProgram.ResetGlobalPhaseStatement, _Mapping]] = ..., loadWaveform: _Optional[_Union[QuaProgram.LoadWaveformStatement, _Mapping]] = ..., sendToExternalStream: _Optional[_Union[QuaProgram.SendToExternalStreamStatement, _Mapping]] = ..., receiveFromExternalStream: _Optional[_Union[QuaProgram.ReceiveFromExternalStreamStatement, _Mapping]] = ..., globalVariableAssignment: _Optional[_Union[QuaProgram.GlobalVariableAssignmentStatement, _Mapping]] = ..., arbitrary: _Optional[_Union[QuaProgram.ArbitraryStatement, _Mapping]] = ..., arbitraryContext: _Optional[_Union[QuaProgram.ArbitraryContextStatement, _Mapping]] = ..., **kwargs) -> None: ...
+        def __init__(self, play: _Optional[_Union[QuaProgram.PlayStatement, _Mapping]] = ..., measure: _Optional[_Union[QuaProgram.MeasureStatement, _Mapping]] = ..., wait: _Optional[_Union[QuaProgram.WaitStatement, _Mapping]] = ..., sync: _Optional[_Union[QuaProgram.SyncStatement, _Mapping]] = ..., assign: _Optional[_Union[QuaProgram.AssignmentStatement, _Mapping]] = ..., rus: _Optional[_Union[QuaProgram.RusStatement, _Mapping]] = ..., align: _Optional[_Union[QuaProgram.AlignStatement, _Mapping]] = ..., updateFrequency: _Optional[_Union[QuaProgram.UpdateFrequencyStatement, _Mapping]] = ..., zRotation: _Optional[_Union[QuaProgram.ZRotationStatement, _Mapping]] = ..., pause: _Optional[_Union[QuaProgram.PauseStatement, _Mapping]] = ..., save: _Optional[_Union[QuaProgram.SaveStatement, _Mapping]] = ..., forEach: _Optional[_Union[QuaProgram.ForEachStatement, _Mapping]] = ..., waitForTrigger: _Optional[_Union[QuaProgram.WaitForTriggerStatement, _Mapping]] = ..., qrun: _Optional[_Union[QuaProgram.QRunStatement, _Mapping]] = ..., updateCorrection: _Optional[_Union[QuaProgram.UpdateCorrectionStatement, _Mapping]] = ..., resetPhase: _Optional[_Union[QuaProgram.ResetPhaseStatement, _Mapping]] = ..., rampToZero: _Optional[_Union[QuaProgram.RampToZeroStatement, _Mapping]] = ..., resetFrame: _Optional[_Union[QuaProgram.ResetFrameStatement, _Mapping]] = ..., setDcOffset: _Optional[_Union[QuaProgram.SetDcOffsetStatement, _Mapping]] = ..., advanceInputStream: _Optional[_Union[QuaProgram.AdvanceInputStreamStatement, _Mapping]] = ..., strictTiming: _Optional[_Union[QuaProgram.StrictTimingStatement, _Mapping]] = ..., fastFrameRotation: _Optional[_Union[QuaProgram.FastFrameRotationStatement, _Mapping]] = ..., updateOscillatorFrequency: _Optional[_Union[QuaProgram.UpdateOscillatorFrequencyStatement, _Mapping]] = ..., resetGlobalPhase: _Optional[_Union[QuaProgram.ResetGlobalPhaseStatement, _Mapping]] = ..., loadWaveform: _Optional[_Union[QuaProgram.LoadWaveformStatement, _Mapping]] = ..., sendToExternalStream: _Optional[_Union[QuaProgram.SendToExternalStreamStatement, _Mapping]] = ..., receiveFromExternalStream: _Optional[_Union[QuaProgram.ReceiveFromExternalStreamStatement, _Mapping]] = ..., globalVariableAssignment: _Optional[_Union[QuaProgram.GlobalVariableAssignmentStatement, _Mapping]] = ..., waitForBarrier: _Optional[_Union[QuaProgram.WaitForBarrierStatement, _Mapping]] = ..., arbitrary: _Optional[_Union[QuaProgram.ArbitraryStatement, _Mapping]] = ..., arbitraryContext: _Optional[_Union[QuaProgram.ArbitraryContextStatement, _Mapping]] = ..., **kwargs) -> None: ...
     class AmpMultiplier(_message.Message):
         __slots__ = ["loc", "v0", "v1", "v2", "v3"]
         LOC_FIELD_NUMBER: _ClassVar[int]
@@ -676,6 +686,15 @@ class QuaProgram(_message.Message):
         is_valid: QuaProgram.VarRefExpression
         duration: int
         def __init__(self, loc: _Optional[str] = ..., stream: _Optional[_Union[QuaProgram.ExternalStreamRefExpression, _Mapping]] = ..., struct: _Optional[_Union[QuaProgram.StructVarRefExpression, _Mapping]] = ..., is_valid: _Optional[_Union[QuaProgram.VarRefExpression, _Mapping]] = ..., duration: _Optional[int] = ...) -> None: ...
+    class WaitForBarrierStatement(_message.Message):
+        __slots__ = ["loc", "barrier_name", "qe"]
+        LOC_FIELD_NUMBER: _ClassVar[int]
+        BARRIER_NAME_FIELD_NUMBER: _ClassVar[int]
+        QE_FIELD_NUMBER: _ClassVar[int]
+        loc: str
+        barrier_name: str
+        qe: _containers.RepeatedCompositeFieldContainer[QuaProgram.QuantumElementReference]
+        def __init__(self, loc: _Optional[str] = ..., barrier_name: _Optional[str] = ..., qe: _Optional[_Iterable[_Union[QuaProgram.QuantumElementReference, _Mapping]]] = ...) -> None: ...
     class GlobalVariableAssignmentStatement(_message.Message):
         __slots__ = ["loc", "variables"]
         LOC_FIELD_NUMBER: _ClassVar[int]
@@ -895,12 +914,14 @@ class QuaProgram(_message.Message):
         loc: str
         def __init__(self, name: _Optional[str] = ..., loc: _Optional[str] = ...) -> None: ...
     class ExternalStreamRefExpression(_message.Message):
-        __slots__ = ["stream_id", "loc"]
+        __slots__ = ["stream_id", "loc", "stream_name"]
         STREAM_ID_FIELD_NUMBER: _ClassVar[int]
         LOC_FIELD_NUMBER: _ClassVar[int]
+        STREAM_NAME_FIELD_NUMBER: _ClassVar[int]
         stream_id: int
         loc: str
-        def __init__(self, stream_id: _Optional[int] = ..., loc: _Optional[str] = ...) -> None: ...
+        stream_name: str
+        def __init__(self, stream_id: _Optional[int] = ..., loc: _Optional[str] = ..., stream_name: _Optional[str] = ...) -> None: ...
     class ArrayVarRefExpression(_message.Message):
         __slots__ = ["name", "structVar", "loc"]
         NAME_FIELD_NUMBER: _ClassVar[int]
@@ -1041,6 +1062,53 @@ class QuaProgram(_message.Message):
         version: int
         root: _struct_pb2.Struct
         def __init__(self, version: _Optional[int] = ..., root: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...
+    class Method(_message.Message):
+        __slots__ = ["name", "arg_types", "arg_names", "returns", "body", "loc"]
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        ARG_TYPES_FIELD_NUMBER: _ClassVar[int]
+        ARG_NAMES_FIELD_NUMBER: _ClassVar[int]
+        RETURNS_FIELD_NUMBER: _ClassVar[int]
+        BODY_FIELD_NUMBER: _ClassVar[int]
+        LOC_FIELD_NUMBER: _ClassVar[int]
+        name: str
+        arg_types: _containers.RepeatedScalarFieldContainer[QuaProgram.Type]
+        arg_names: _containers.RepeatedScalarFieldContainer[str]
+        returns: _containers.RepeatedScalarFieldContainer[QuaProgram.Type]
+        body: QuaProgram.Script
+        loc: str
+        def __init__(self, name: _Optional[str] = ..., arg_types: _Optional[_Iterable[_Union[QuaProgram.Type, str]]] = ..., arg_names: _Optional[_Iterable[str]] = ..., returns: _Optional[_Iterable[_Union[QuaProgram.Type, str]]] = ..., body: _Optional[_Union[QuaProgram.Script, _Mapping]] = ..., loc: _Optional[str] = ...) -> None: ...
+    class KernelMethod(_message.Message):
+        __slots__ = ["method", "loc"]
+        METHOD_FIELD_NUMBER: _ClassVar[int]
+        LOC_FIELD_NUMBER: _ClassVar[int]
+        method: QuaProgram.Method
+        loc: str
+        def __init__(self, method: _Optional[_Union[QuaProgram.Method, _Mapping]] = ..., loc: _Optional[str] = ...) -> None: ...
+    class TargetType(_message.Message):
+        __slots__ = ["name", "kernels"]
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        KERNELS_FIELD_NUMBER: _ClassVar[int]
+        name: str
+        kernels: _containers.RepeatedCompositeFieldContainer[QuaProgram.KernelMethod]
+        def __init__(self, name: _Optional[str] = ..., kernels: _Optional[_Iterable[_Union[QuaProgram.KernelMethod, _Mapping]]] = ...) -> None: ...
+    class CompositeTargetType(_message.Message):
+        __slots__ = ["elements", "kernels", "name"]
+        ELEMENTS_FIELD_NUMBER: _ClassVar[int]
+        KERNELS_FIELD_NUMBER: _ClassVar[int]
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        elements: _containers.RepeatedCompositeFieldContainer[QuaProgram.Target]
+        kernels: _containers.RepeatedCompositeFieldContainer[QuaProgram.KernelMethod]
+        name: str
+        def __init__(self, elements: _Optional[_Iterable[_Union[QuaProgram.Target, _Mapping]]] = ..., kernels: _Optional[_Iterable[_Union[QuaProgram.KernelMethod, _Mapping]]] = ..., name: _Optional[str] = ...) -> None: ...
+    class Target(_message.Message):
+        __slots__ = ["elements", "element_target_type", "composite_target_type"]
+        ELEMENTS_FIELD_NUMBER: _ClassVar[int]
+        ELEMENT_TARGET_TYPE_FIELD_NUMBER: _ClassVar[int]
+        COMPOSITE_TARGET_TYPE_FIELD_NUMBER: _ClassVar[int]
+        elements: _containers.RepeatedScalarFieldContainer[str]
+        element_target_type: QuaProgram.TargetType
+        composite_target_type: QuaProgram.CompositeTargetType
+        def __init__(self, elements: _Optional[_Iterable[str]] = ..., element_target_type: _Optional[_Union[QuaProgram.TargetType, _Mapping]] = ..., composite_target_type: _Optional[_Union[QuaProgram.CompositeTargetType, _Mapping]] = ...) -> None: ...
     CONFIG_FIELD_NUMBER: _ClassVar[int]
     DYNCONFIG_FIELD_NUMBER: _ClassVar[int]
     SCRIPT_FIELD_NUMBER: _ClassVar[int]

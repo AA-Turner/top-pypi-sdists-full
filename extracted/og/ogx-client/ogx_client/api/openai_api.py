@@ -132,6 +132,7 @@ class OpenaiApi:
         x_goog_api_key: Optional[StrictStr] = None,
         x_goog_user_project: Optional[StrictStr] = None,
         x_goog_api_client: Optional[StrictStr] = None,
+        x_typesafe_sdk: Optional[StrictStr] = None,
         _request_timeout: Annotated[StrictFloat, Field(gt=0)] | tuple[
                 Annotated[StrictFloat, Field(gt=0)],
                 Annotated[StrictFloat, Field(gt=0)]
@@ -159,6 +160,8 @@ class OpenaiApi:
         :type x_goog_user_project: str
         :param x_goog_api_client:
         :type x_goog_api_client: str
+        :param x_typesafe_sdk:
+        :type x_typesafe_sdk: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -190,6 +193,7 @@ class OpenaiApi:
             x_goog_api_key=x_goog_api_key,
             x_goog_user_project=x_goog_user_project,
             x_goog_api_client=x_goog_api_client,
+            x_typesafe_sdk=x_typesafe_sdk,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -226,6 +230,7 @@ class OpenaiApi:
         x_goog_api_key: Optional[StrictStr] = None,
         x_goog_user_project: Optional[StrictStr] = None,
         x_goog_api_client: Optional[StrictStr] = None,
+        x_typesafe_sdk: Optional[StrictStr] = None,
         _request_timeout: Annotated[StrictFloat, Field(gt=0)] | tuple[
                 Annotated[StrictFloat, Field(gt=0)],
                 Annotated[StrictFloat, Field(gt=0)]
@@ -253,6 +258,8 @@ class OpenaiApi:
         :type x_goog_user_project: str
         :param x_goog_api_client:
         :type x_goog_api_client: str
+        :param x_typesafe_sdk:
+        :type x_typesafe_sdk: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -284,6 +291,7 @@ class OpenaiApi:
             x_goog_api_key=x_goog_api_key,
             x_goog_user_project=x_goog_user_project,
             x_goog_api_client=x_goog_api_client,
+            x_typesafe_sdk=x_typesafe_sdk,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -318,6 +326,7 @@ class OpenaiApi:
         x_goog_api_key: Optional[StrictStr] = None,
         x_goog_user_project: Optional[StrictStr] = None,
         x_goog_api_client: Optional[StrictStr] = None,
+        x_typesafe_sdk: Optional[StrictStr] = None,
         _request_timeout: Annotated[StrictFloat, Field(gt=0)] | tuple[
                 Annotated[StrictFloat, Field(gt=0)],
                 Annotated[StrictFloat, Field(gt=0)]
@@ -345,6 +354,8 @@ class OpenaiApi:
         :type x_goog_user_project: str
         :param x_goog_api_client:
         :type x_goog_api_client: str
+        :param x_typesafe_sdk:
+        :type x_typesafe_sdk: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -376,6 +387,7 @@ class OpenaiApi:
             x_goog_api_key=x_goog_api_key,
             x_goog_user_project=x_goog_user_project,
             x_goog_api_client=x_goog_api_client,
+            x_typesafe_sdk=x_typesafe_sdk,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -405,6 +417,7 @@ class OpenaiApi:
         x_goog_api_key,
         x_goog_user_project,
         x_goog_api_client,
+        x_typesafe_sdk,
         _request_auth,
         _content_type,
         _headers,
@@ -448,6 +461,8 @@ class OpenaiApi:
             _header_params['x-goog-user-project'] = x_goog_user_project
         if x_goog_api_client is not None:
             _header_params['x-goog-api-client'] = x_goog_api_client
+        if x_typesafe_sdk is not None:
+            _header_params['x-typesafe-sdk'] = x_typesafe_sdk
         # process the form parameters
         # process the body parameter
 
@@ -566,6 +581,7 @@ class AsyncOpenaiApi(OpenaiApi):
         x_goog_api_key: Optional[StrictStr] = None,
         x_goog_user_project: Optional[StrictStr] = None,
         x_goog_api_client: Optional[StrictStr] = None,
+        x_typesafe_sdk: Optional[StrictStr] = None,
         _request_timeout: Annotated[StrictFloat, Field(gt=0)] | tuple[
                 Annotated[StrictFloat, Field(gt=0)],
                 Annotated[StrictFloat, Field(gt=0)]
@@ -593,6 +609,8 @@ class AsyncOpenaiApi(OpenaiApi):
         :type x_goog_user_project: str
         :param x_goog_api_client:
         :type x_goog_api_client: str
+        :param x_typesafe_sdk:
+        :type x_typesafe_sdk: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -624,6 +642,7 @@ class AsyncOpenaiApi(OpenaiApi):
             x_goog_api_key=x_goog_api_key,
             x_goog_user_project=x_goog_user_project,
             x_goog_api_client=x_goog_api_client,
+            x_typesafe_sdk=x_typesafe_sdk,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -660,6 +679,7 @@ class AsyncOpenaiApi(OpenaiApi):
         x_goog_api_key: Optional[StrictStr] = None,
         x_goog_user_project: Optional[StrictStr] = None,
         x_goog_api_client: Optional[StrictStr] = None,
+        x_typesafe_sdk: Optional[StrictStr] = None,
         _request_timeout: Annotated[StrictFloat, Field(gt=0)] | tuple[
                 Annotated[StrictFloat, Field(gt=0)],
                 Annotated[StrictFloat, Field(gt=0)]
@@ -687,6 +707,8 @@ class AsyncOpenaiApi(OpenaiApi):
         :type x_goog_user_project: str
         :param x_goog_api_client:
         :type x_goog_api_client: str
+        :param x_typesafe_sdk:
+        :type x_typesafe_sdk: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -718,6 +740,7 @@ class AsyncOpenaiApi(OpenaiApi):
             x_goog_api_key=x_goog_api_key,
             x_goog_user_project=x_goog_user_project,
             x_goog_api_client=x_goog_api_client,
+            x_typesafe_sdk=x_typesafe_sdk,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -752,6 +775,7 @@ class AsyncOpenaiApi(OpenaiApi):
         x_goog_api_key: Optional[StrictStr] = None,
         x_goog_user_project: Optional[StrictStr] = None,
         x_goog_api_client: Optional[StrictStr] = None,
+        x_typesafe_sdk: Optional[StrictStr] = None,
         _request_timeout: Annotated[StrictFloat, Field(gt=0)] | tuple[
                 Annotated[StrictFloat, Field(gt=0)],
                 Annotated[StrictFloat, Field(gt=0)]
@@ -779,6 +803,8 @@ class AsyncOpenaiApi(OpenaiApi):
         :type x_goog_user_project: str
         :param x_goog_api_client:
         :type x_goog_api_client: str
+        :param x_typesafe_sdk:
+        :type x_typesafe_sdk: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -810,6 +836,7 @@ class AsyncOpenaiApi(OpenaiApi):
             x_goog_api_key=x_goog_api_key,
             x_goog_user_project=x_goog_user_project,
             x_goog_api_client=x_goog_api_client,
+            x_typesafe_sdk=x_typesafe_sdk,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,

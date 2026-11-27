@@ -28,7 +28,7 @@ class DocAiJobError(UniversalBaseModel):
 
     pointer: typing.Optional[str] = pydantic.Field(default=None)
     """
-    JSON pointer to the offending field, e.g. `/config/scope`.
+    JSON pointer to the offending field, e.g. `/config/categories`.
     """
 
     retryable: bool = pydantic.Field()

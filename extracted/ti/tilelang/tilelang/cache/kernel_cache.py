@@ -1,0 +1,1056 @@
+"""The cache utils with class and database persistence - KernelCache Class"""
+
+from __future__ import annotations
+
+import contextlib
+import functools
+import json
+import logging
+import errno
+import os
+import platform
+import shutil
+import stat
+import threading
+import uuid
+import sys
+from hashlib import sha256
+from typing import Literal
+from collections.abc import Callable
+
+from tvm.target import Target
+from tvm.tirx import PrimFunc
+from tvm.runtime import Executable
+from tilelang.backend.module import BackendContext, create_backend_context
+from tilelang.engine.param import KernelParam, dump_kernel_params, load_kernel_params
+from tilelang.utils.language import get_prim_func_name
+from tilelang import env
+from tilelang.jit import JITKernel
+from tilelang.jit.adapter.base import CachedTextSource
+from tilelang.jit.diagnostics import jit_phase
+from tilelang.transform.pass_config import normalize_pass_configs
+from tilelang.contrib.hip_resource_info import dump_to_file, load_from_file
+from tilelang import __version__
+
+
+class KernelCache:
+    """
+    Caches compiled kernels using a class and database persistence to avoid redundant compilation.
+    Cache files:
+        kernel.cu: The compiled kernel source code
+        wrapped_kernel.cu: The compiled wrapped kernel source code
+        kernel_lib.so: The compiled kernel library
+        params.json: The compiled kernel parameters
+    """
+
+    _instance = None  # For implementing singleton pattern
+    _lock = threading.Lock()  # For thread safety
+    _memory_cache = {}  # In-memory cache dictionary
+    _staging_cleanup_lock = threading.Lock()
+    _last_cleaned_staging_root: str | None = None
+    supports_disk_cache: bool = True
+    execution_backend: Literal["tvm_ffi", "cython", "nvrtc", "torch", "cutedsl", "pto"] = "tvm_ffi"
+    device_kernel_path = "device_kernel.cu"
+    host_kernel_path = "host_kernel.cu"
+    kernel_lib_path = "kernel_lib.so"
+    params_path = "params.json"
+    resource_usage_path = "resource_usage.json"
+    manifest_path = "manifest.json"
+    cache_root_dir = "kernels"
+    staging_root_dir = ".staging"
+
+    @staticmethod
+    @functools.cache
+    def _get_source_compile_args() -> dict:
+        if sys.platform == "win32":
+            from tilelang.contrib.msvc import create_shared as msvc_create_shared
+
+            return {"fcompile": msvc_create_shared}
+
+        if sys.platform != "darwin":
+            return {}
+
+        from torch.utils import cpp_extension
+
+        return {"options": ["-x", "objective-c++", "-g", "-std=gnu++17"] + ["-I" + i for i in cpp_extension.include_paths()]}
+
+    @staticmethod
+    @functools.cache
+    def _get_export_link_args() -> dict:
+        if sys.platform == "win32":
+            from tilelang.contrib.msvc import create_shared as msvc_create_shared
+
+            return {"fcompile": msvc_create_shared}
+
+        return {}
+
+    @staticmethod
+    @functools.cache
+    def _get_tilelang_lib_stamp() -> str | None:
+        """Return a content-based build-stamp for TileLang native libraries.
+
+        The kernel cache key historically only depended on `tilelang.__version__`
+        and the TIR script. During development, C++ pass changes can change the
+        generated kernel *without* changing the input TIR, leading to stale cache
+        hits. Including a library stamp avoids this class of bugs.
+
+        We use a SHA-256 content hash of the library file instead of mtime so that
+        the cache key is stable across machines and fresh installs — two identical
+        builds of libtilelang.so will produce the same stamp regardless of when or
+        where they were installed.
+        """
+        import importlib
+
+        lib_dirs: list[str] = []
+        try:
+            env_mod = importlib.import_module("tilelang.env")
+            lib_dirs.extend(getattr(env_mod, "TL_LIBS", []) or [])
+        except Exception:
+            pass
+
+        if sys.platform == "win32":
+            lib_names = ["tvm_runtime.dll", "tvm_compiler.dll", "tvm_ffi.dll"]
+        elif sys.platform == "darwin":
+            lib_names = [
+                "libtilelang.dylib",
+                "libtilelang.so",
+                "libtvm_runtime.dylib",
+                "libtvm_compiler.dylib",
+            ]
+        else:
+            lib_names = ["libtilelang.so", "libtvm_runtime.so", "libtvm_compiler.so"]
+
+        stamps: list[str] = []
+        seen_names: set[str] = set()
+        for lib_dir in lib_dirs:
+            for name in lib_names:
+                if name in seen_names:
+                    continue
+                path = os.path.join(lib_dir, name)
+                if os.path.exists(path):
+                    file_hash = sha256()
+                    with open(path, "rb") as f:
+                        for chunk in iter(lambda: f.read(1 << 20), b""):
+                            file_hash.update(chunk)
+                    stamps.append(f"{name}:{file_hash.hexdigest()}")
+                    seen_names.add(name)
+        if stamps:
+            return "|".join(stamps)
+        return None
+
+    @staticmethod
+    def _get_base_key() -> dict:
+        base = {"version": __version__, "platform": platform.machine()}
+        if env.should_use_kernel_cache_lib_stamp():
+            lib_stamp = KernelCache._get_tilelang_lib_stamp()
+            if lib_stamp:
+                base["tilelang_lib"] = lib_stamp
+        if sys.platform == "darwin":
+            import torch
+
+            base["torch"] = torch.__version__
+        return base
+
+    @staticmethod
+    def _sanitize_path_component(component: str) -> str:
+        sanitized = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in component)
+        sanitized = sanitized.strip("._-")
+        return sanitized or "unknown"
+
+    @staticmethod
+    def _format_version_namespace(version: str) -> str:
+        public, sep, local = version.partition("+")
+        public = KernelCache._sanitize_path_component(public)
+        if not sep:
+            return public
+        local = "".join(ch if ch.isalnum() else "_" for ch in local).strip("_")
+        return f"{public}_{local}" if local else public
+
+    @staticmethod
+    @functools.cache
+    def _get_cache_namespace() -> str:
+        base_key = KernelCache._get_base_key()
+        version = KernelCache._format_version_namespace(str(base_key.get("version", "unknown")))
+        host_platform = KernelCache._sanitize_path_component(sys.platform)
+        host_machine = KernelCache._sanitize_path_component(platform.machine())
+        return os.path.join(version, f"{host_platform}-{host_machine}")
+
+    def __new__(cls):
+        """
+        Implements singleton pattern for KernelCache class.
+
+        Returns:
+            KernelCache: The singleton instance of KernelCache.
+        """
+        if cls.__dict__.get("_instance") is None:
+            with cls._lock:
+                if cls.__dict__.get("_instance") is None:  # Double-checked locking
+                    instance = super().__new__(cls)
+                    KernelCache._create_dirs()
+                    instance.logger = logging.getLogger(__name__)
+                    instance.logger.setLevel(logging.DEBUG)
+                    instance._memory_cache = {}  # Initialize memory cache
+                    cls._instance = instance
+        return cls._instance
+
+    @staticmethod
+    def _makedirs_shared(path: str, mode: int | None) -> None:
+        """Create ``path`` and missing parents, chmodding only newly created dirs."""
+        if mode is None:
+            os.makedirs(path, exist_ok=True)
+            return
+        path = os.path.abspath(path)
+        if os.path.isdir(path):
+            return
+        parent = os.path.dirname(path)
+        if parent and parent != path:
+            KernelCache._makedirs_shared(parent, mode)
+        try:
+            os.mkdir(path)
+        except FileExistsError:
+            if not os.path.isdir(path):
+                raise
+        else:
+            os.chmod(path, mode)
+
+    @staticmethod
+    def _create_dirs():
+        write_root = env.get_cache_write_dir()
+        os.makedirs(write_root, exist_ok=True)
+        root_mode = os.stat(write_root).st_mode
+        shared_dir_mode = (0o2755 | (root_mode & stat.S_IWGRP)) if (root_mode & stat.S_ISGID) else None
+        for subdir in (
+            KernelCache._get_namespace_root(write_root),
+            KernelCache._get_write_cache_root(),
+            KernelCache._get_staging_root(),
+        ):
+            KernelCache._makedirs_shared(subdir, shared_dir_mode)
+
+        staging_root = KernelCache._get_staging_root()
+        with KernelCache._staging_cleanup_lock:
+            if KernelCache._last_cleaned_staging_root != staging_root:
+                KernelCache._cleanup_stale_staging_dirs()
+                KernelCache._last_cleaned_staging_root = staging_root
+
+    @staticmethod
+    def _get_namespace_root(root: str) -> str:
+        """Append the version and host-platform namespace to a cache root."""
+        return os.path.join(root, KernelCache._get_cache_namespace())
+
+    @staticmethod
+    def _get_write_cache_root() -> str:
+        return os.path.join(KernelCache._get_namespace_root(env.get_cache_write_dir()), KernelCache.cache_root_dir)
+
+    @staticmethod
+    def _get_staging_root() -> str:
+        return os.path.join(KernelCache._get_namespace_root(env.get_cache_write_dir()), KernelCache.staging_root_dir)
+
+    @staticmethod
+    def _legalize_staged_entry(staging_path: str) -> None:
+        """Make a staged entry group/other readable before it is published.
+
+        Only a group-shared cache (SGID on the writable cache root) is adjusted.
+        Cache roots without SGID, including filesystems that do not support the
+        bit (e.g. Windows), are left untouched and keep the normal umask-derived
+        permissions. Only the entry directory carries the SGID bit: files get
+        0o644 (or 0o755 when executable).
+        """
+        if not os.stat(env.get_cache_write_dir()).st_mode & stat.S_ISGID:
+            return
+        os.chmod(staging_path, 0o2755)
+        for entry in os.scandir(staging_path):
+            if entry.is_file(follow_symlinks=False):
+                mode = 0o755 if entry.stat(follow_symlinks=False).st_mode & 0o111 else 0o644
+                os.chmod(entry.path, mode)
+
+    @staticmethod
+    def _cleanup_stale_staging_dirs(max_age_seconds: int = 3600):
+        """Remove stale entries from the dedicated staging root.
+
+        These are left behind when a process crashes mid-save.
+        """
+        import time
+
+        try:
+            now = time.time()
+            staging_root = KernelCache._get_staging_root()
+            if not os.path.isdir(staging_root):
+                return
+
+            for entry in os.scandir(staging_root):
+                if entry.is_dir(follow_symlinks=False):
+                    try:
+                        if now - entry.stat().st_mtime > max_age_seconds:
+                            shutil.rmtree(entry.path, ignore_errors=True)
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+
+    def _generate_key(
+        self,
+        func: Callable,
+        out_idx: list[int],
+        execution_backend: Literal["tvm_ffi", "cython", "nvrtc", "torch", "cutedsl", "pto"] = "tvm_ffi",
+        args=None,
+        target: str | Target = "auto",
+        target_host: str | Target = None,
+        pass_configs: dict = None,
+        compile_flags: list[str] | str | None = None,
+        toolchain: dict[str, str] | None = None,
+    ) -> str:
+        """
+        Generates a unique hash key for caching compiled kernels.
+
+        Args:
+            func (Callable): The function to be compiled.
+            out_idx (List[int]): Indices specifying which outputs to return.
+            execution_backend (Literal): Backend type for execution. Defaults to "tvm_ffi".
+            args: Arguments passed to the function.
+            target (Union[str, dict, Target]): Compilation target platform. Defaults to "auto".
+            target_host (Union[str, dict, Target], optional): Host target platform.
+
+        Returns:
+            str: SHA256 hash key for the kernel configuration.
+        """
+        self.execution_backend = execution_backend
+        func_binary = func.script(show_meta=True).encode()
+        key_data = {
+            "func": sha256(func_binary).hexdigest(),  # Use SHA256 to generate hash key
+            "out_idx": (tuple(out_idx) if isinstance(out_idx, (list, tuple)) else [out_idx]),
+            "args_repr": tuple(repr(arg) for arg in args),  # Use repr to serialize arguments, may need more robust serialization
+            "target": str(target),
+            "target_host": str(target_host) if target_host else None,
+            "execution_backend": execution_backend,
+            "pass_configs": pass_configs,
+            "compile_flags": compile_flags,
+            **self._get_base_key(),
+        }
+        if toolchain is not None:
+            key_data["toolchain"] = toolchain
+        # Sort keys to ensure consistency
+        key_string = json.dumps(key_data, sort_keys=True)
+        # Use SHA256 to generate hash key
+        return sha256(key_string.encode()).hexdigest()
+
+    def cached(
+        self,
+        func: PrimFunc = None,
+        out_idx: list[int] = None,
+        *args,
+        target: str | Target | None = None,
+        target_host: str | Target | None = None,
+        execution_backend: Literal["auto", "tvm_ffi", "cython", "nvrtc", "torch", "cutedsl", "pto"] | None = None,
+        verbose: bool,
+        pass_configs: dict | None = None,
+        compile_flags: list[str] | str | None = None,
+        backend_context: BackendContext | None = None,
+    ) -> JITKernel:
+        """
+        Caches and reuses compiled kernels to avoid redundant compilation.
+
+        This is the ONLY place where environment variable processing, target normalization,
+        and execution backend resolution should happen. All compilation paths go through here.
+
+        Args:
+            func: Function to be compiled or a prepared PrimFunc
+            out_idx: Indices specifying which outputs to return
+            target: Compilation target platform (None = read from TILELANG_DEFAULT_TARGET env var).
+                Use a dict for target attributes, for example {"kind": "cuda", "arch": "sm_90"}.
+            target_host: Host target platform
+            execution_backend: Execution backend (None = read from TILELANG_EXECUTION_BACKEND)
+            backend_context: Pre-resolved context supplied by compiler infrastructure.
+            verbose: Enable verbose output (None = read from TILELANG_VERBOSE)
+            *args: Arguments passed to func
+
+        Returns:
+            JITKernel: The compiled kernel, either freshly compiled or from cache
+
+        Environment Variables
+        ---------------------
+        TILELANG_DEFAULT_TARGET : str
+            Default compilation target (e.g., "cuda", "llvm", or a JSON target config string).
+            Defaults to "auto".
+        TILELANG_EXECUTION_BACKEND : str
+            Default execution backend. Defaults to "auto".
+        TILELANG_VERBOSE : str
+            Set to "1", "true", "yes", or "on" to enable verbose compilation by default.
+        TILELANG_LAYOUT_COST_MODEL : str
+            Default value for the `tl.layout_cost_model` pass config when it is
+            not set explicitly in `pass_configs`. Unset keeps the built-in default.
+        """
+
+        # Resolve env-var-derived pass-config defaults up front so they are
+        # reflected in the cache key.
+        pass_configs = normalize_pass_configs(pass_configs)
+
+        if backend_context is None:
+            if target is None:
+                target = env.get_default_target()
+            if execution_backend is None:
+                execution_backend = env.get_default_execution_backend()
+            backend_context = create_backend_context(target, target_host, execution_backend)
+        target = backend_context.target
+        target_host = backend_context.target_host
+        execution_backend = backend_context.execution_backend.name
+
+        if not env.is_cache_enabled():
+            if verbose:
+                self.logger.info("Cache is disabled; compiling kernel without caching.")
+            return JITKernel(
+                func,
+                out_idx=out_idx,
+                execution_backend=execution_backend,
+                target=target,
+                target_host=target_host,
+                verbose=verbose,
+                pass_configs=pass_configs,
+                compile_flags=compile_flags,
+                backend_context=backend_context,
+            )
+
+        key, kernel = self.lookup(
+            func=func,
+            out_idx=out_idx,
+            args=args,
+            backend_context=backend_context,
+            pass_configs=pass_configs,
+            compile_flags=compile_flags,
+            verbose=verbose,
+        )
+        if kernel is not None:
+            return kernel
+
+        if verbose:
+            self.logger.debug(f"No cached kernel for {get_prim_func_name(func, '<unknown>')}")
+        # Compile kernel if cache miss; leave critical section
+        cache_path = self._get_write_cache_path(key) if self.supports_disk_cache else None
+        with jit_phase(
+            "cache.compile",
+            verbose=verbose,
+            kernel=get_prim_func_name(func, "<unknown>"),
+            target=str(target),
+            target_host=str(target_host) if target_host is not None else None,
+            backend=execution_backend,
+            cache_key=key,
+            cache_path=cache_path,
+        ):
+            kernel = JITKernel(
+                func,
+                out_idx=out_idx,
+                execution_backend=execution_backend,
+                target=target,
+                target_host=target_host,
+                verbose=verbose,
+                pass_configs=pass_configs,
+                compile_flags=compile_flags,
+                backend_context=backend_context,
+            )
+        # Save outside the lock: staging+rename is atomic and idempotent (like the
+        # disk load above). Holding the lock here serialized every worker's save.
+        if env.is_cache_enabled() and self.supports_disk_cache:
+            assert cache_path is not None
+            self._save_kernel_to_disk(key, kernel, verbose)
+            # Set cache path on adapter so it can save cubin after first execution
+            self._set_adapter_cache_path(kernel, cache_path)
+            self._tag_kernel_cache_entry(kernel, key, cache_path)
+
+        # Store in memory cache after compilation
+        with self._lock:
+            existing = self._memory_cache.get(key)
+            if existing is not None:
+                return existing
+            self._memory_cache[key] = kernel
+        return kernel
+
+    def lookup(
+        self,
+        *,
+        func: PrimFunc,
+        out_idx: list[int] | int | None,
+        args: tuple = (),
+        backend_context: BackendContext,
+        pass_configs: dict | None,
+        compile_flags: list[str] | str | None,
+        verbose: bool = False,
+    ) -> tuple[str, JITKernel | None]:
+        """Look up a kernel in memory and disk caches without compiling on miss."""
+        key = self._generate_key(
+            func=func,
+            out_idx=out_idx,
+            execution_backend=backend_context.execution_backend.name,
+            args=args,
+            target=backend_context.target,
+            target_host=backend_context.target_host,
+            pass_configs=pass_configs,
+            compile_flags=compile_flags,
+            toolchain=backend_context.toolchain_stamp(pass_configs),
+        )
+        if verbose:
+            self.logger.info(f"Generated cache key: {key} for kernel {get_prim_func_name(func, '<unknown>')}")
+        with self._lock:
+            if key in self._memory_cache:
+                kernel_name = get_prim_func_name(func, "<unknown>")
+                self.logger.warning(
+                    "Found kernel '%s' in memory cache. For better performance, consider using `@tilelang.jit` instead of direct kernel caching.",
+                    kernel_name,
+                )
+                return key, self._memory_cache[key]
+
+        if not self.supports_disk_cache:
+            return key, None
+
+        if verbose:
+            self.logger.debug(f"Checking disk cache for kernel {get_prim_func_name(func, '<unknown>')}")
+        # Disk loads can be expensive for large kernel sets; keep them outside
+        # the global cache lock so independent cache hits can proceed in parallel.
+        kernel = self._load_kernel_from_disk(
+            key,
+            backend_context,
+            out_idx,
+            pass_configs,
+            compile_flags,
+            func,
+            verbose,
+        )
+        if kernel is not None:
+            if verbose:
+                self.logger.debug(f"Found kernel in disk cache for {get_prim_func_name(func, '<unknown>')}")
+            with self._lock:
+                existing = self._memory_cache.get(key)
+                if existing is not None:
+                    return key, existing
+                self._memory_cache[key] = kernel
+            return key, kernel
+        return key, None
+
+    def compile_to_disk(
+        self,
+        func: PrimFunc,
+        *,
+        key: str,
+        out_idx: list[int] | int | None,
+        backend_context: BackendContext,
+        pass_configs: dict | None,
+        compile_flags: list[str] | str | None,
+        verbose: bool = False,
+    ) -> str:
+        """Compile a kernel for a precomputed key and publish it to the disk cache."""
+        if not self.supports_disk_cache:
+            raise ValueError(f'Execution backend "{backend_context.execution_backend.name}" does not support disk caching')
+        cache_path = self._get_write_cache_path(key)
+        if os.path.isfile(os.path.join(cache_path, self.manifest_path)):
+            return cache_path
+
+        target = backend_context.target
+        target_host = backend_context.target_host
+        execution_backend = backend_context.execution_backend.name
+        with jit_phase(
+            "cache.compile",
+            verbose=verbose,
+            kernel=get_prim_func_name(func, "<unknown>"),
+            target=str(target),
+            target_host=str(target_host) if target_host is not None else None,
+            backend=execution_backend,
+            cache_key=key,
+            cache_path=cache_path,
+        ):
+            kernel = JITKernel(
+                func,
+                out_idx=out_idx,
+                execution_backend=execution_backend,
+                target=target,
+                target_host=target_host,
+                verbose=verbose,
+                pass_configs=pass_configs,
+                compile_flags=compile_flags,
+                backend_context=backend_context,
+            )
+        self._publish_kernel_to_disk(key, kernel, verbose)
+        if not os.path.isfile(os.path.join(cache_path, self.manifest_path)):
+            raise RuntimeError(f"Process compilation failed to publish disk cache entry at {cache_path}")
+        return cache_path
+
+    def load_published_entry(
+        self,
+        key: str,
+        cache_path: str,
+        *,
+        func: PrimFunc,
+        out_idx: list[int] | int | None,
+        backend_context: BackendContext,
+        pass_configs: dict | None,
+        compile_flags: list[str] | str | None,
+        verbose: bool = False,
+    ) -> JITKernel:
+        """Load a published disk cache entry directly without falling back to compilation."""
+        with self._lock:
+            existing = self._memory_cache.get(key)
+            if existing is not None:
+                return existing
+
+        kernel = self._load_kernel_from_path(
+            cache_path,
+            backend_context,
+            out_idx,
+            pass_configs,
+            compile_flags,
+            func,
+            verbose,
+        )
+        if kernel is None:
+            raise RuntimeError(f"Published kernel cache entry was not found at {cache_path}")
+        self._tag_kernel_cache_entry(kernel, key, cache_path)
+        self._set_adapter_cache_path(kernel, cache_path)
+        with self._lock:
+            existing = self._memory_cache.get(key)
+            if existing is not None:
+                return existing
+            self._memory_cache[key] = kernel
+        return kernel
+
+    def clear_cache(self):
+        """
+        Clears the entire kernel cache, including both in-memory and disk cache.
+        """
+        with self._lock:
+            self._memory_cache.clear()  # Clear in-memory cache
+            self._clear_disk_cache()  # Clear disk cache
+
+    def _get_write_cache_path(self, key: str) -> str:
+        """
+        Gets the writable filesystem path for a cached kernel.
+
+        Args:
+            key (str): The hash key identifying the kernel.
+
+        Returns:
+            str: Absolute path to the cache directory for this kernel.
+        """
+        return os.path.join(self._get_write_cache_root(), key)
+
+    @staticmethod
+    def _tag_kernel_cache_entry(kernel: JITKernel, key: str, cache_path: str) -> None:
+        try:
+            kernel._tilelang_cache_key = key
+            kernel._tilelang_cache_path = cache_path
+        except (AttributeError, TypeError):
+            logging.getLogger(__name__).debug(
+                "Could not tag kernel cache entry for key %s at %s",
+                key,
+                cache_path,
+                exc_info=True,
+            )
+
+    @staticmethod
+    def _load_binary(path: str):
+        with open(path, "rb") as file:
+            binary = file.read()
+        return binary
+
+    @staticmethod
+    def _fsync_file_contents(path: str):
+        """Flush a written file's data to stable storage before publishing it."""
+        with open(path, "rb+") as file:
+            os.fsync(file.fileno())
+
+    @staticmethod
+    def _fsync_dir(path: str):
+        """Best-effort directory fsync; unsupported on some platforms/filesystems."""
+        try:
+            fd = os.open(path, os.O_RDONLY)
+        except OSError:
+            return
+        try:
+            with contextlib.suppress(OSError):
+                os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    @staticmethod
+    def _hash_file(path: str) -> str:
+        file_hash = sha256()
+        with open(path, "rb") as file:
+            for chunk in iter(lambda: file.read(1 << 20), b""):
+                file_hash.update(chunk)
+        return file_hash.hexdigest()
+
+    @staticmethod
+    def _safe_write_file(path: str, mode: str, operation: Callable):
+        """Atomically write a cache file through a temporary sibling."""
+        directory, filename = os.path.split(path)
+        temp_path = os.path.join(directory, f".{filename}.{os.getpid()}_{uuid.uuid4().hex}.tmp")
+        try:
+            with open(temp_path, mode) as temp_file:
+                operation(temp_file)
+                # Without this barrier a crash can persist the rename below
+                # before the file data, publishing a truncated file.
+                temp_file.flush()
+                os.fsync(temp_file.fileno())
+            os.replace(temp_path, path)
+        finally:
+            with contextlib.suppress(OSError):
+                os.remove(temp_path)
+
+    @staticmethod
+    def _safe_write_executable(executable: Executable, path: str, export_kwargs: dict | None = None):
+        """Atomically export an executable through a temporary sibling."""
+        directory, filename = os.path.split(path)
+        stem, suffix = os.path.splitext(filename)
+        temp_path = os.path.join(directory, f".{stem}.{os.getpid()}_{uuid.uuid4().hex}.tmp{suffix}")
+        try:
+            executable.export_library(temp_path, **(export_kwargs or {}))
+            KernelCache._fsync_file_contents(temp_path)
+            os.replace(temp_path, path)
+        finally:
+            with contextlib.suppress(OSError):
+                os.remove(temp_path)
+
+    def _publish_kernel_to_disk(
+        self,
+        key: str,
+        kernel: JITKernel,
+        verbose: bool = False,
+    ) -> str:
+        """
+        Stage and atomically publish a compiled kernel to disk cache, raising on error.
+
+        All files are first written into a temporary staging directory under the
+        namespace staging root. Once every file is in place, the staging directory
+        is atomically renamed to the final cache path so that other processes never
+        observe an incomplete cache entry.
+        """
+        # Env-backed cache roots may change across tests or at runtime; recreate the
+        # namespace-specific directories lazily here so direct save helpers keep working
+        # even when the singleton instance is reused.
+        KernelCache._create_dirs()
+        cache_path = self._get_write_cache_path(key)
+
+        # Published entries are never repaired or overwritten automatically.
+        if os.path.lexists(cache_path):
+            return cache_path
+
+        # Staging dir lives under CACHE_DIR/<namespace>/.staging (same filesystem) so
+        # os.rename works without scanning the full cache root during stale cleanup.
+        staging_path = os.path.join(
+            self._get_staging_root(),
+            f"{key}_{os.getpid()}_{uuid.uuid4().hex[:8]}",
+        )
+        os.makedirs(staging_path)
+
+        try:
+            # Save kernel source code
+            self._save_kernel_source_code_to_disk(kernel, staging_path, verbose)
+
+            # Save wrapped kernel source code
+            self._save_wrapper_kernel_code_to_disk(kernel, staging_path, verbose)
+
+            # Save the kernel library
+            self._save_so_cubin_to_disk(kernel, staging_path, verbose)
+
+            # Save kernel parameters
+            params_path = os.path.join(staging_path, self.params_path)
+            if verbose:
+                self.logger.debug(f"Saving kernel parameters to disk: {params_path}")
+            KernelCache._safe_write_file(params_path, "w", lambda file: file.write(dump_kernel_params(kernel.params)))
+
+            # Persist HIP kernel-resource-usage remarks
+            usage = getattr(kernel, "_resource_usage", None) or {}
+            if usage:
+                dump_to_file(usage, os.path.join(staging_path, self.resource_usage_path))
+
+            # Record every staged file's size and content hash so loads can
+            # detect corrupted entries before loading their artifacts.
+            self._write_manifest(staging_path)
+
+            missing_files = self._get_missing_complete_cache_files(staging_path)
+            if missing_files:
+                missing_names = ", ".join(os.path.basename(path) for path in missing_files)
+                raise RuntimeError(f"Incomplete cache staging directory is missing required file(s): {missing_names}")
+
+            # Shared caches: give the staged entry group-readable permissions
+            # before it is published via rename.
+            KernelCache._legalize_staged_entry(staging_path)
+
+            # Durability barrier: a node or filesystem-client crash may otherwise
+            # persist the rename below before the staged file data, publishing a
+            # truncated entry (surfaces as CUDA_ERROR_INVALID_IMAGE at launch,
+            # notably on shared network caches).
+            for entry in os.scandir(staging_path):
+                if entry.is_file(follow_symlinks=False):
+                    KernelCache._fsync_file_contents(entry.path)
+            KernelCache._fsync_dir(staging_path)
+
+            # Atomic rename — makes the complete directory visible in one step.
+            try:
+                os.rename(staging_path, cache_path)
+            except OSError as exc:
+                if not self._is_rename_collision(exc):
+                    raise
+                # Another process won the race with a complete cache entry.
+                shutil.rmtree(staging_path, ignore_errors=True)
+            else:
+                KernelCache._fsync_dir(self._get_write_cache_root())
+        except BaseException:
+            shutil.rmtree(staging_path, ignore_errors=True)
+            raise
+        return cache_path
+
+    def _save_kernel_to_disk(self, key: str, kernel: JITKernel, verbose: bool = False):
+        """Best-effort wrapper around :meth:`_publish_kernel_to_disk` that logs I/O errors."""
+        try:
+            self._publish_kernel_to_disk(key, kernel, verbose)
+        except Exception:
+            self.logger.exception("Error during atomic cache save")
+
+    def _load_kernel_from_disk(
+        self,
+        key: str,
+        backend_context: BackendContext,
+        out_idx: list[int] | None = None,
+        pass_configs: dict | None = None,
+        compile_flags: list[str] | str | None = None,
+        func: Callable | None = None,
+        verbose: bool = False,
+    ) -> JITKernel | None:
+        """
+        Loads a previously compiled kernel from disk cache.
+
+        Args:
+            key (str): The hash key identifying the kernel.
+            backend_context: Resolved target and execution policy for this compilation.
+            out_idx (List[int], optional): Indices specifying which outputs to return.
+            pass_configs (dict, optional): Configuration for compiler passes.
+            func (Callable, optional): The original function.
+            verbose (bool): Enable verbose log messages.
+
+        Returns:
+            JITKernel: The loaded kernel, or None if the entry is absent from all roots.
+
+        Raises:
+            Exception: An existing entry is invalid or cannot be loaded.
+        """
+        for root in env.get_cache_read_dirs():
+            cache_path = os.path.join(self._get_namespace_root(root), self.cache_root_dir, key)
+            kernel = self._load_kernel_from_path(
+                cache_path,
+                backend_context,
+                out_idx,
+                pass_configs,
+                compile_flags,
+                func,
+                verbose,
+            )
+            if kernel is not None:
+                self._tag_kernel_cache_entry(kernel, key, cache_path)
+                return kernel
+        return None
+
+    def _load_kernel_from_path(
+        self,
+        cache_path: str,
+        backend_context: BackendContext,
+        out_idx: list[int] | None,
+        pass_configs: dict | None,
+        compile_flags: list[str] | str | None,
+        func: Callable | None,
+        verbose: bool,
+    ) -> JITKernel | None:
+        if not os.path.lexists(cache_path):
+            return None
+        device_kernel_path = os.path.join(cache_path, self.device_kernel_path)
+        host_kernel_path = os.path.join(cache_path, self.host_kernel_path)
+        kernel_lib_path = os.path.join(cache_path, self.kernel_lib_path)
+        params_path = os.path.join(cache_path, self.params_path)
+
+        missing_files = self._get_missing_complete_cache_files(cache_path)
+        if missing_files:
+            raise ValueError(f"Incomplete kernel cache entry at {cache_path}; missing files: {missing_files}")
+        if not self._verify_cache_dir_integrity(cache_path):
+            raise ValueError(f"Kernel cache entry at {cache_path} failed integrity verification")
+
+        if verbose:
+            self.logger.debug(f"Loading kernel parameters from file: {params_path}")
+        with open(params_path) as f:
+            params_text = f.read()
+        try:
+            kernel_params = load_kernel_params(params_text)
+        except Exception as exc:
+            raise ValueError(f"Invalid parameter metadata in kernel cache entry: {cache_path}") from exc
+        kernel = self._build_kernel(
+            func=func,
+            host_kernel_source=CachedTextSource(path=host_kernel_path),
+            device_kernel_source=CachedTextSource(path=device_kernel_path),
+            kernel_lib_path=kernel_lib_path,
+            kernel_params=kernel_params,
+            backend_context=backend_context,
+            out_idx=out_idx,
+            pass_configs=pass_configs,
+            compile_flags=compile_flags,
+        )
+        # Optional resource usage is absent in older and non-HIP entries.
+        ru_path = os.path.join(cache_path, self.resource_usage_path)
+        if os.path.exists(ru_path):
+            kernel._resource_usage = load_from_file(ru_path)
+        return kernel
+
+    def _clear_disk_cache(self):
+        """
+        Removes all cached kernels from disk.
+
+        Note:
+            This operation will delete the current kernel-cache namespace and recreate it empty.
+            Use with caution as this operation cannot be undone.
+        """
+        try:
+            shutil.rmtree(self._get_write_cache_root(), ignore_errors=True)
+            shutil.rmtree(self._get_staging_root(), ignore_errors=True)
+
+            KernelCache._create_dirs()
+        except Exception:
+            self.logger.exception("Error clearing disk cache")
+
+    def _save_kernel_source_code_to_disk(self, kernel: JITKernel, cache_path: str, verbose: bool = False):
+        device_kernel_path = os.path.join(cache_path, self.device_kernel_path)
+        if verbose:
+            self.logger.debug(f"Saving kernel source code to file: {device_kernel_path}")
+        if kernel.kernel_source is not None:
+            KernelCache._safe_write_file(device_kernel_path, "w", lambda file: file.write(kernel.kernel_source))
+
+    def _save_wrapper_kernel_code_to_disk(self, kernel: JITKernel, cache_path: str, verbose: bool = False):
+        host_kernel_path = os.path.join(cache_path, self.host_kernel_path)
+        if verbose:
+            self.logger.debug(f"Saving wrapped kernel source code to file: {host_kernel_path}")
+        KernelCache._safe_write_file(host_kernel_path, "w", lambda file: file.write(kernel.adapter.get_kernel_source()))
+
+    def _save_so_cubin_to_disk(self, kernel: JITKernel, cache_path: str, verbose: bool = False):
+        kernel_lib_path = os.path.join(cache_path, self.kernel_lib_path)
+        if (src_lib_path := getattr(kernel.adapter, "libpath", None)) is None:
+            return
+        if verbose:
+            self.logger.debug(f"Saving kernel library to file: {kernel_lib_path}")
+        KernelCache._safe_write_file(kernel_lib_path, "wb", lambda file: file.write(KernelCache._load_binary(src_lib_path)))
+
+    def _get_required_files(self, cache_path: str) -> list[str]:
+        kernel_lib_path = os.path.join(cache_path, self.kernel_lib_path)
+        params_path = os.path.join(cache_path, self.params_path)
+        return [kernel_lib_path, params_path]
+
+    def _get_complete_cache_files(self, cache_path: str) -> list[str]:
+        return list(
+            dict.fromkeys(
+                [
+                    os.path.join(cache_path, self.device_kernel_path),
+                    os.path.join(cache_path, self.host_kernel_path),
+                    os.path.join(cache_path, self.manifest_path),
+                    *self._get_required_files(cache_path),
+                ]
+            )
+        )
+
+    def _get_missing_complete_cache_files(self, cache_path: str) -> list[str]:
+        return [file for file in self._get_complete_cache_files(cache_path) if not os.path.exists(file)]
+
+    def _write_manifest(self, cache_path: str):
+        """Record size and content hash of every cache file for load-time verification."""
+        files: dict[str, dict] = {}
+        for entry in sorted(os.scandir(cache_path), key=lambda item: item.name):
+            if not entry.is_file(follow_symlinks=False) or entry.name == self.manifest_path:
+                continue
+            files[entry.name] = {
+                "size": entry.stat().st_size,
+                "sha256": KernelCache._hash_file(entry.path),
+            }
+        manifest = {"version": 1, "files": files}
+        KernelCache._safe_write_file(
+            os.path.join(cache_path, self.manifest_path),
+            "w",
+            lambda file: json.dump(manifest, file, indent=2, sort_keys=True),
+        )
+
+    def _verify_cache_dir_integrity(self, cache_path: str) -> bool:
+        """Check a cache entry against its manifest.
+
+        Every listed file must match its recorded size; the required binary
+        artifacts (e.g. kernel_lib.so, params.json) must also match their
+        recorded content hash. Source files are size-checked only so disk
+        cache hits keep deferring source reads. Returns False for entries
+        whose manifest is unreadable or that do not cover the required files.
+        """
+        manifest_file = os.path.join(cache_path, self.manifest_path)
+        try:
+            with open(manifest_file) as file:
+                files = json.load(file)["files"]
+            entries = list(files.items())
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            return False
+        required_names = {os.path.basename(path) for path in self._get_required_files(cache_path)}
+        if not required_names.issubset(files):
+            return False
+        for name, meta in entries:
+            path = os.path.join(cache_path, name)
+            try:
+                if os.path.getsize(path) != meta["size"]:
+                    return False
+                if name in required_names and KernelCache._hash_file(path) != meta["sha256"]:
+                    return False
+            except (OSError, KeyError, TypeError):
+                return False
+        return True
+
+    @staticmethod
+    def _is_rename_collision(exc: OSError) -> bool:
+        return exc.errno in {errno.EEXIST, errno.ENOTEMPTY}
+
+    def _load_kernel_source(self, device_kernel_path: str, host_kernel_path: str, verbose: bool = False) -> tuple[str | None, str | None]:
+        try:
+            if verbose:
+                self.logger.debug(f"Loading kernel source code from file: {device_kernel_path}")
+            with open(device_kernel_path) as f:
+                device_kernel_source = f.read()
+        except Exception:
+            device_kernel_source = None
+            self.logger.exception("Error loading kernel source code from disk")
+        try:
+            if verbose:
+                self.logger.debug(f"Loading wrapped kernel source code from file: {host_kernel_path}")
+            with open(host_kernel_path) as f:
+                host_kernel_source = f.read()
+        except Exception:
+            host_kernel_source = None
+            self.logger.exception("Error loading host kernel source code from disk")
+        return device_kernel_source, host_kernel_source
+
+    def _set_adapter_cache_path(self, kernel: JITKernel, cache_path: str):
+        return
+
+    def _build_kernel(
+        self,
+        func: Callable | None,
+        host_kernel_source: CachedTextSource,
+        device_kernel_source: CachedTextSource,
+        kernel_lib_path: str,
+        kernel_params: list[KernelParam],
+        backend_context: BackendContext,
+        out_idx: list[int] | None,
+        pass_configs: dict | None,
+        compile_flags: list[str] | str | None,
+    ) -> JITKernel:
+        """Build from parsed cache metadata, including an empty parameter list.
+
+        Loading failures propagate to the caller; only absent entries are misses.
+        """
+        return JITKernel.from_database(
+            func=func,
+            host_kernel_source=host_kernel_source,
+            device_kernel_source=device_kernel_source,
+            kernel_lib_path=kernel_lib_path,
+            params=kernel_params,
+            target=backend_context.target,
+            target_host=backend_context.target_host,
+            out_idx=out_idx,
+            execution_backend=backend_context.execution_backend.name,
+            pass_configs=pass_configs,
+            compile_flags=compile_flags,
+            backend_context=backend_context,
+        )

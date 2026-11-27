@@ -9,7 +9,6 @@ from promb.__version__ import __version__
 import heapq
 import itertools
 import math
-from tqdm import tqdm
 from promb.parsing import parse_fasta
 import pandas as pd
 import numpy as np
@@ -19,6 +18,7 @@ PSEUDOPROB_EPSILON = 1e-30
 HUMAN_OASIS_DB_PATH = os.path.join(os.path.dirname(__file__), 'resources', 'OASis_9mers_v1_10perc_subjects.txt.gz')
 HUMAN_REFERENCE_DB_PATH = os.path.join(os.path.dirname(__file__), 'resources', 'uniprotkb_proteome_UP000005640_2025_04_21.fasta.gz')
 HUMAN_SWISSPROT_DB_PATH = os.path.join(os.path.dirname(__file__), 'resources', 'uniprot_sprot_human.fasta.gz')
+HUMAN_SWISSPROT_HIGH_PLDDT_DB_PATH = os.path.join(os.path.dirname(__file__), 'resources', 'uniprot_sprot_human_9mers_plddt70.txt.gz')
 
 TEXT_EXTENSIONS = ('.txt', '.txt.gz')
 FASTA_EXTENSIONS = ('.fa.gz', '.fasta.gz', '.fa', '.fasta')
@@ -32,7 +32,7 @@ BLOSUM62 = BLOSUM62.to_dict(orient='index')
 def init_db(db_path: str, peptide_length=None, ignored_peptides: Sequence[str] = None, ignored_ids: Sequence[str] = None, verbose=True) -> 'PrombDB':
     """Initialize database from given path (.txt.gz, one peptide per line)
 
-    Pre-packaged databases are available as constants: "human-oas", "human-swissprot"
+    Pre-packaged databases are available as constants: "human-oas", "human-swissprot", "human-swissprot-high-plddt-9mers"
 
     peptide_length needs to be provided when loading a .fasta.gz database
     """
@@ -44,8 +44,12 @@ def init_db(db_path: str, peptide_length=None, ignored_peptides: Sequence[str] =
         db_path = HUMAN_REFERENCE_DB_PATH
     elif db_path.lower() == "human-swissprot":
         db_path = HUMAN_SWISSPROT_DB_PATH
+    elif db_path.lower() == "human-swissprot-high-plddt-9mers":
+        # the 9-mers of human-swissprot that occur at least once with a mean AlphaFold pLDDT >= 70;
+        # already one peptide per line, so no peptide_length is needed
+        db_path = HUMAN_SWISSPROT_HIGH_PLDDT_DB_PATH
     elif '.' not in db_path:
-        raise ValueError(f'Unknown database {db_path}, use "human-reference", "human-swissprot", "human-oas", or provide a file path (txt or fasta)')
+        raise ValueError(f'Unknown database {db_path}, use "human-reference", "human-swissprot", "human-swissprot-high-plddt-9mers", "human-oas", or provide a file path (txt or fasta)')
     # Load database from disk
     if db_path.endswith(TEXT_EXTENSIONS):
         if peptide_length is not None:
@@ -130,7 +134,14 @@ class PrombDB:
         return num_human_peptides / len(query_peptides)
 
     def compute_average_mutations(self, seq: str, max: int = None) -> float:
-        """Compute average number of mutations to closest peptide in reference DB
+        """Compute average number of mutations to each overlapping closest k-mer peptide in reference DB
+
+        Algorithm:
+        1. Chop sequence into all overlapping k-mers
+        2. For each k-mer, compute number of mutations to nearest match in reference DB
+        3. Return average across all k-mers in sequence
+
+        For example, 9-mers of foreign origin will have an average of 2-3 mutations to the closest human peptide.
         
         When max is provided, give up searching at this number of mutations and return max for the given peptide.
         """
@@ -187,7 +198,6 @@ class PrombDB:
         """
         try:
             from scipy.spatial.distance import cdist
-            import numpy as np
         except ImportError:
             raise ValueError('Please install "scipy" module to use this function.')
         
@@ -203,7 +213,7 @@ class PrombDB:
         assert len(self._db_peptides_encoded) == len(self.peptides)
 
         nearest_peptides = []
-        for peptide in tqdm(query_peptides):
+        for peptide in query_peptides:
             if n == 1 and self.contains(peptide):
                 nearest_peptides.append([peptide])
                 continue
@@ -360,7 +370,7 @@ class PrombDB:
             nearest_peptides=nearest_peptides,
             ignore_wildtype=True
         )
-        return (1 - mutation_freqs.sum(axis=1)).tolist()
+        return 1 - mutation_freqs.sum(axis=1)
 
     def suggest_point_mutant_candidates(self, seq: str, nearest_peptides=1, allowed_amino_acids='ACDEFGHIKLMNPQRSTVWY') -> list[str]:
         """Suggest point mutant sequences for a given sequence to reduce the avg distance to nearest reference peptides

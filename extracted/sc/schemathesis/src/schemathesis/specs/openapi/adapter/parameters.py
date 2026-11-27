@@ -65,6 +65,7 @@ from schemathesis.specs.openapi.adapter.validators import ensure_object
 from schemathesis.specs.openapi.converter import permit_forbidden_properties, to_json_schema
 from schemathesis.specs.openapi.formats import HEADER_FORMAT, STRING_FORMATS
 from schemathesis.specs.openapi.headers import KNOWN_HEADER_FORMATS
+from schemathesis.specs.openapi.utils import parameter_types
 from schemathesis.transport.serialization import Binary, quote_all, quote_generated
 
 if TYPE_CHECKING:
@@ -336,7 +337,10 @@ def build_constants_overlay_strategy(
     else:
         leaves = (((name,), schema) for name, schema in schema_properties.items() if isinstance(schema, dict))
     for path, schema in leaves:
-        keys = _constant_types_for(schema, validator_cls)
+        # Property schemas keep bundled `$ref`s into the container; splice the bundle in so they resolve
+        leaf_schema = schema_with_bundle(schema, container_schema) if isinstance(container_schema, dict) else schema
+        # A dict stays a dict with the bundle added
+        keys = _constant_types_for(cast(JsonSchemaObject, leaf_schema), validator_cls)
         if location != "body":
             # Only a request body can carry a `Binary` constant
             keys = tuple(key for key in keys if key != "bytes")
@@ -350,8 +354,6 @@ def build_constants_overlay_strategy(
                     pool_values.append((value, entry.origins[0] if entry.origins else None))
         if not pool_values:
             continue
-        # Property schemas keep bundled `$ref`s into the container; splice the bundle in so the validator resolves them
-        leaf_schema = schema_with_bundle(schema, container_schema) if isinstance(container_schema, dict) else schema
         try:
             validator = make_validator(leaf_schema, validator_cls)
         except Exception:
@@ -504,16 +506,18 @@ def _constant_types_for(schema: JsonSchemaObject, validator_cls: type) -> tuple[
     fmt = schema.get("format")
     if fmt == "binary" and schema.keys() & {"enum", "const", "pattern"}:
         return ()
-    # An unenforced `format` lets through constants the SUT rejects (`phone`); `binary` gets a length check
-    if fmt is not None and fmt != "binary" and fmt not in VALIDATED_FORMATS_BY_DRAFT.get(validator_cls, frozenset()):
-        return ()
+    validated_formats = VALIDATED_FORMATS_BY_DRAFT.get(validator_cls, frozenset())
+    for candidate_format in _branch_formats(schema):
+        # An unenforced `format` lets through constants the SUT rejects (`phone`); `binary` gets a length check
+        if candidate_format != "binary" and candidate_format not in validated_formats:
+            return ()
     result: list[ConstantType] = []
 
     def add(key: ConstantType) -> None:
         if key not in result:
             result.append(key)
 
-    for json_type in get_type(schema):
+    for json_type in parameter_types(schema):
         if json_type == "string":
             add("bytes" if fmt == "binary" else "string")
         elif json_type == "integer":
@@ -522,6 +526,25 @@ def _constant_types_for(schema: JsonSchemaObject, validator_cls: type) -> tuple[
             add("float")
             add("integer")
     return tuple(result)
+
+
+def _branch_formats(schema: JsonSchemaObject) -> Iterator[object]:
+    """`format` values of the schema and of the `allOf`, `anyOf` and `oneOf` branches nested in it."""
+    bundled = schema.get(BUNDLE_STORAGE_KEY)
+    visited: list[JsonSchemaObject] = []
+    pending = [schema]
+    while pending:
+        current = resolve_bundled_ref(pending.pop(), bundled)
+        # A branch reached again, e.g. through a reference cycle, adds nothing new.
+        if any(current is seen for seen in visited):
+            continue
+        visited.append(current)
+        if "format" in current:
+            yield current["format"]
+        for keyword in ("allOf", "anyOf", "oneOf"):
+            branches = current.get(keyword)
+            if isinstance(branches, list):
+                pending.extend(branch for branch in branches if isinstance(branch, dict))
 
 
 def _captured_variants_active(extra_data_source: ExtraDataSource | None, operation: APIOperation) -> bool:
@@ -730,7 +753,20 @@ def _with_dictionary_values(
         schema_properties=properties,
         validator_cls=operation.schema.adapter.jsonschema_validator_cls,
         generation_mode=generation_mode,
+        schema_values=_schema_values(operation, location, generation_config),
         paired=paired,
+    )
+
+
+def _schema_values(
+    operation: APIOperation, location: ParameterLocation, generation_config: GenerationConfig
+) -> Callable[[JsonSchemaObject], st.SearchStrategy]:
+    """Strategies for suggested schemas, built like the ones for the schemas the API declares at that location."""
+    from schemathesis.specs.openapi._hypothesis import make_positive_strategy
+
+    validator_cls = operation.schema.adapter.jsonschema_validator_cls
+    return lambda schema: make_positive_strategy(
+        schema, operation.label, location, None, generation_config, validator_cls
     )
 
 
@@ -843,16 +879,37 @@ def _prune_modified_constants(
     )
 
 
+def _captured_values_fill_whole_case(
+    operation: APIOperation, location: ParameterLocation, captured_variants: list[CapturedVariant]
+) -> bool:
+    """Whether a captured variant leaves nothing in the case to generate."""
+    from schemathesis.specs.openapi._auth_retry import get_security_parameters
+
+    if operation.body:
+        return False
+    # Credentials are rejected before the resource is looked up, so varying them does not vary the case.
+    security = {(parameter.name, parameter.location) for parameter in get_security_parameters(operation)}
+    return all(
+        parameter.location == location and all(parameter.name in variant.overlay for variant in captured_variants)
+        for parameter in operation.iter_parameters()
+        if (parameter.name, parameter.location) not in security
+    )
+
+
 def build_hybrid_strategy(
     original_strategy: st.SearchStrategy,
     captured_variants: list[CapturedVariant],
     usage_tracker: VariantUsageTracker,
     container_schema: JsonSchema | None = None,
     validator_cls: type[jsonschema_rs.Validator] | None = None,
+    decay_reuse: bool = True,
 ) -> st.SearchStrategy:
     """Overlay partial captured variants on generated values, preferring variants drawn least recently.
 
     A chosen variant yields a `GeneratedValue` with its provenance; a merge breaking ``container_schema`` is reverted.
+
+    ``decay_reuse`` lowers the reuse rate for recently used variants. Disable it when other inputs of
+    the case are generated, so reusing a value still produces distinct cases.
     """
     from hypothesis import strategies as st
 
@@ -863,16 +920,26 @@ def build_hybrid_strategy(
     )
 
     variant_keys = [jsonschema_rs.canonical.json.to_string(v.overlay) for v in captured_variants]
-    n_variants = len(captured_variants)
+
+    def select_variant(random: Random) -> int:
+        return usage_tracker.weighted_select(variant_keys, random) if len(variant_keys) > 1 else 0
 
     @st.composite
     def hybrid(draw: st.DrawFn) -> Any:
         random = draw(st.randoms())
 
-        if random.random() >= CAPTURED_VALUES_PROBABILITY:
-            return draw(original_strategy)
+        idx: int | None = None
+        if decay_reuse:
+            idx = select_variant(random)
+            # A value used recently counts less, so a small pool does not replace most generated values.
+            use_captured = random.random() < CAPTURED_VALUES_PROBABILITY * usage_tracker.get_weight(variant_keys[idx])
+        else:
+            # Selecting a variant shuffles the whole pool, so draws that do not reuse one skip it.
+            use_captured = random.random() < CAPTURED_VALUES_PROBABILITY
 
         drawn = draw(original_strategy)
+        if not use_captured:
+            return drawn
 
         # Upstream overlays may wrap the value in `GeneratedValue`; unwrap to merge and combine provenance
         base_meta = None
@@ -893,11 +960,8 @@ def build_hybrid_strategy(
         if not isinstance(base, (dict, list)):
             return base
 
-        if n_variants == 1:
-            idx = 0
-        else:
-            # Selection shuffles indices first: Hypothesis biases cumulative selection toward early ones
-            idx = usage_tracker.weighted_select(variant_keys, random)
+        if idx is None:
+            idx = select_variant(random)
         chosen = captured_variants[idx]
         overlay = chosen.overlay
         pool_draws = chosen.draws
@@ -1787,6 +1851,8 @@ class OpenApiBody(OpenApiComponent):
             *captured,
             container_schema=schema if isinstance(schema, dict) else None,
             validator_cls=operation.schema.adapter.jsonschema_validator_cls,
+            # Captured values fill only some body fields; the rest is generated.
+            decay_reuse=False,
         )
 
     def _build_base_strategy(
@@ -1887,6 +1953,7 @@ class OpenApiBody(OpenApiComponent):
                 container_schema=schema,
                 validator_cls=operation.schema.adapter.jsonschema_validator_cls,
                 generation_mode=generation_mode,
+                schema_values=_schema_values(operation, ParameterLocation.BODY, generation_config),
                 paired=paired,
             )
         body_overrides = resolve_body_overrides(operation=operation, body_schema=schema)
@@ -1931,6 +1998,7 @@ class OpenApiBody(OpenApiComponent):
             usage_tracker,
             container_schema=schema if isinstance(schema, dict) else None,
             validator_cls=operation.schema.adapter.jsonschema_validator_cls,
+            decay_reuse=False,
         )
         return _mix_negative_into_positive(positive_strategy, negative_strategy)
 
@@ -2612,7 +2680,13 @@ class OpenApiParameterSet(ParameterSet):
             strategy, operation, self.location, schema, generation_config, generation_mode, paired
         )
         if captured is not None:
-            strategy = build_hybrid_strategy(strategy, *captured)
+            variants, usage_tracker = captured
+            strategy = build_hybrid_strategy(
+                strategy,
+                variants,
+                usage_tracker,
+                decay_reuse=_captured_values_fill_whole_case(operation, self.location, variants),
+            )
         return _serialize_for_location(
             strategy,
             self.location,

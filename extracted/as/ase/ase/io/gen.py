@@ -6,7 +6,7 @@ Note: GEN format only supports single snapshot.
 """
 
 import re
-from typing import Dict, Sequence
+from collections.abc import Sequence
 
 from ase.atoms import Atoms
 from ase.utils import reader, writer
@@ -108,7 +108,7 @@ def write_gen(
     tags = atoms.get_tags()
 
     # Define a dictionary with symbols-id
-    symboldict: Dict[str, int] = {}
+    symboldict: dict[str, int] = {}
     for sym, tag in zip(symbols, tags):
         sym = f'{sym}{tag}' if with_tags else sym
         if sym not in symboldict:

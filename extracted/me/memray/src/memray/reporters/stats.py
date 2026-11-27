@@ -1,3 +1,4 @@
+import bisect
 import datetime
 import json
 import math
@@ -11,8 +12,6 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-import rich
-
 from memray._memray import size_fmt
 from memray._stats import Stats
 
@@ -23,23 +22,28 @@ def get_histogram_databins(data: Dict[int, int], bins: int) -> List[Tuple[int, i
     if bins <= 0:
         raise ValueError(f"Invalid input bins={bins}, should be greater than 0")
 
-    low = math.log(min(filter(None, data)))
-    high = math.log(max(data))
+    positive_sizes = [size for size in data if size]
+    largest = max(positive_sizes, default=1)
+    low = math.log(min(positive_sizes, default=1))
+    high = math.log(largest)
     if low == high:
         low = low / 2
     step = (high - low) / bins
 
-    # Determine the upper bound in bytes for each bin
-    steps = [int(math.exp(low + step * (i + 1))) for i in range(bins)]
+    # Determine the upper bound in bytes for each bin. Every bin's bound is
+    # exclusive except the last one's, which must include the largest size.
+    steps = [int(math.exp(low + step * (i + 1))) for i in range(bins - 1)]
+    steps.append(largest)
     dist: Dict[int, int] = Counter()
     for size, count in data.items():
-        bucket = min(int((math.log(size) - low) // step), bins - 1) if size else 0
+        # Bucket by the same integer bounds that we report
+        bucket = min(bisect.bisect_right(steps, size), bins - 1)
         dist[bucket] += count
     return [(steps[b], dist[b]) for b in range(bins)]
 
 
 def describe_histogram_databins(
-    databins: List[Tuple[int, int]]
+    databins: List[Tuple[int, int]],
 ) -> List[Dict[str, int]]:
     ret: List[Dict[str, int]] = []
     start = 0
@@ -121,6 +125,8 @@ class StatsReporter:
             self._render_to_terminal(histogram_params)
 
     def _render_to_terminal(self, histogram_params: Dict[str, int]) -> None:
+        import rich
+
         rich.print("📏 [bold]Total allocations:[/]")
         print(f"\t{self._stats.total_num_allocations}")
 

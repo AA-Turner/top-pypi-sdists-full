@@ -17,12 +17,13 @@ class TenVad:
         # Get the directory where this module is installed
         module_dir = os.path.dirname(os.path.abspath(__file__))
         
-        if platform.system() == "Linux" and platform.machine() == "x86_64":
-            # Try git repo structure first
-            git_path = os.path.join(module_dir, "../lib/Linux/x64/libten_vad.so")
-            # Try installed package structure (lib directory is inside the package)
-            pip_path = os.path.join(module_dir, "lib/Linux/x64/libten_vad.so")
-            
+        linux_arches = {"x86_64": "x64", "aarch64": "aarch64"}
+        machine = platform.machine()
+        if platform.system() == "Linux" and machine in linux_arches:
+            library_path = os.path.join("lib", "Linux", linux_arches[machine], "libten_vad.so")
+            git_path = os.path.join(module_dir, "..", library_path)
+            pip_path = os.path.join(module_dir, library_path)
+
             if os.path.exists(git_path):
                 self.vad_library = CDLL(git_path)
             elif os.path.exists(pip_path):
@@ -44,7 +45,7 @@ class TenVad:
                 raise FileNotFoundError("Cannot find libten_vad at {} or {}".format(git_path, pip_path))
                 
         elif platform.system().upper() == 'WINDOWS':
-            if platform.machine().upper() in ['X64', 'X86_64', 'AMD64']:
+            if machine.upper() in ['X64', 'X86_64', 'AMD64']:
                 # Try git repo structure first
                 git_path = os.path.join(module_dir, "../lib/Windows/x64/ten_vad.dll")
                 # Try installed package structure
@@ -69,7 +70,7 @@ class TenVad:
                 else:
                     raise FileNotFoundError("Cannot find ten_vad.dll at {} or {}".format(git_path, pip_path))
         else:
-            raise NotImplementedError("Unsupported platform: {} {}".format(platform.system(), platform.machine()))
+            raise NotImplementedError("Unsupported platform: {} {}".format(platform.system(), machine))
         self.vad_handler = c_void_p(0)
         self.out_probability = c_float()
         self.out_flags = c_int32()
@@ -95,34 +96,35 @@ class TenVad:
         self.create_and_init_handler()
     
     def create_and_init_handler(self):
-        assert (
-            self.vad_library.ten_vad_create(
-                POINTER(c_void_p)(self.vad_handler),
-                c_size_t(self.hop_size),
-                c_float(self.threshold),
-            ) 
-            == 0
-        ), "[TEN VAD]: create handler failure!"
+        result = self.vad_library.ten_vad_create(
+            POINTER(c_void_p)(self.vad_handler),
+            c_size_t(self.hop_size),
+            c_float(self.threshold),
+        )
+        if result != 0:
+            raise RuntimeError("[TEN VAD]: create handler failure!")
 
     def __del__(self):
-        assert (
-            self.vad_library.ten_vad_destroy(
-                POINTER(c_void_p)(self.vad_handler)
-            )
-            == 0
-        ), "[TEN VAD]: destroy handler failure!"
+        if not getattr(self, "vad_handler", None):
+            return
+        result = self.vad_library.ten_vad_destroy(
+            POINTER(c_void_p)(self.vad_handler)
+        )
+        if result != 0:
+            raise RuntimeError("[TEN VAD]: destroy handler failure!")
     
     def get_input_data(self, audio_data: np.ndarray):
+        # Explicit checks rather than assert: python -O would skip an assert and
+        # let the native code read hop_size int16 samples past a smaller buffer.
         audio_data = np.squeeze(audio_data)
-        assert (
-            len(audio_data.shape) == 1 
-            and audio_data.shape[0] == self.hop_size
-        ), "[TEN VAD]: audio data shape should be [{}]".format(self.hop_size)
-        assert (
-            type(audio_data[0]) == np.int16
-        ), "[TEN VAD]: audio data type error, must be int16"
-        data_pointer = audio_data.__array_interface__["data"][0]
-        return c_void_p(data_pointer)
+        if len(audio_data.shape) != 1 or audio_data.shape[0] != self.hop_size:
+            raise ValueError(
+                "[TEN VAD]: audio data shape should be [{}]".format(self.hop_size)
+            )
+        if type(audio_data[0]) != np.int16:
+            raise TypeError("[TEN VAD]: audio data type error, must be int16")
+        audio_data = np.ascontiguousarray(audio_data)
+        return audio_data.ctypes.data_as(c_void_p)
     
     def process(self, audio_data: np.ndarray):
         input_pointer = self.get_input_data(audio_data)

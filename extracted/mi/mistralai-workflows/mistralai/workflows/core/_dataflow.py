@@ -16,6 +16,7 @@ import libcst as cst
 import libcst.metadata as meta
 
 from mistralai.workflows.core._logger import get_logger
+from mistralai.workflows.core.logging import extract_error_context
 
 logger = get_logger(__name__)
 
@@ -50,10 +51,9 @@ def build_dataflow_views(
     try:
         return [_build(control_flow)]
     except Exception as exc:
-        logger.warning("Data-flow analysis failed", exc_info=exc)
+        logger.warning("Data-flow analysis failed", **extract_error_context(exc))
         # Only the exception type crosses the boundary: libcst's ParserSyntaxError
-        # renders the offending source line, which would persist customer source
-        # into the graphs API. The full message stays in the worker's own logs.
+        # renders the offending source line, which could expose customer source.
         return [_error_payload(control_flow, type(exc).__name__)]
 
 
@@ -156,7 +156,7 @@ def build_summary_nodes(cf: dict[str, Any]) -> list[dict[str, Any]]:
     try:
         return dataflow_only_nodes(cf, build_dataflow_views(cf))
     except Exception as exc:
-        logger.warning("Data-flow summary node collection failed", exc_info=exc)
+        logger.warning("Data-flow summary node collection failed", **extract_error_context(exc))
         return []
 
 
@@ -183,7 +183,7 @@ def build_retarget_map(cf: dict[str, Any]) -> dict[str, str]:
                     retarget[n["id"]] = sr_to_transform[key]
         return retarget
     except Exception as exc:
-        logger.warning("Retarget map failed", exc_info=exc)
+        logger.warning("Retarget map failed", **extract_error_context(exc))
         return {}
 
 

@@ -44,7 +44,7 @@ def exec_and_check_modules(expression: str) -> set[str]:
     proc = run(
         [sys.executable, '-c', command],
         capture_output=True,
-        universal_newlines=True,
+        text=True,
         check=True,
     )
     return set(json.loads(proc.stdout))
@@ -53,7 +53,7 @@ def exec_and_check_modules(expression: str) -> set[str]:
 def check_imports(
     expression: str,
     *,
-    forbidden_modules: list[str] = [],
+    forbidden_modules: list[str] | None = None,
     max_module_count: int | None = None,
     max_nonstdlib_module_count: int | None = None,
     do_print: bool = False,
@@ -73,6 +73,8 @@ def check_imports(
     do_print:
         Print loaded modules if set.
     """
+    if forbidden_modules is None:
+        forbidden_modules = []
     modules = exec_and_check_modules(expression)
 
     if do_print:
@@ -85,8 +87,6 @@ def check_imports(
             assert not r.fullmatch(module), f'{module} was imported'
 
     if max_nonstdlib_module_count is not None:
-        assert sys.version_info >= (3, 10), 'Python 3.10+ required'
-
         nonstdlib_modules = []
         for module in modules:
             if (

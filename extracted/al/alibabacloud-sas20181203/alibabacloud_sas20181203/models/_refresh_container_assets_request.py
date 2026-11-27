@@ -9,9 +9,9 @@ class RefreshContainerAssetsRequest(DaraModel):
         self,
         asset_type: str = None,
     ):
-        # The Asset Type of the container asset to refresh. Valid values:
-        # - **IMAGE**: container image.
-        # - **CONTAINER**: container.
+        # Specifies the Asset Type of the container assets to refresh. Valid values:
+        # - **IMAGE**: Container images.
+        # - **CONTAINER**: Containers.
         # 
         # This parameter is required.
         self.asset_type = asset_type

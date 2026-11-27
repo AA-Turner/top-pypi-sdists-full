@@ -1,6 +1,5 @@
-# fmt: off
-
 """Molecular Dynamics."""
+
 import warnings
 from typing import IO
 
@@ -44,8 +43,10 @@ def process_temperature(
     Return value: Temperature in Kelvin.
     """
     if (temperature is not None) + (temperature_K is not None) != 1:
-        raise TypeError("Exactly one of the parameters 'temperature',"
-                        + " and 'temperature_K', must be given")
+        raise TypeError(
+            "Exactly one of the parameters 'temperature',"
+            + " and 'temperature_K', must be given"
+        )
     if temperature is not None:
         w = "Specify the temperature in K using the 'temperature_K' argument"
         if orig_unit == 'K':
@@ -54,7 +55,7 @@ def process_temperature(
             warnings.warn(FutureWarning(w))
             return temperature / units.kB
         else:
-            raise ValueError("Unknown temperature unit " + orig_unit)
+            raise ValueError('Unknown temperature unit ' + orig_unit)
 
     assert temperature_K is not None
     return temperature_K
@@ -118,28 +119,32 @@ class MolecularDynamics(BaseDynamics):
         # That way we won't need to test multiple cases.  Currently,
         # we do not test /any/ kind of MD with any kind of Filter in ASE.
         self.atoms = atoms
-        self.masses = self.atoms.get_masses()
+        masses = self.atoms.get_masses()
 
-        if 0 in self.masses:
-            warnings.warn('Zero mass encountered in atoms; this will '
-                          'likely lead to errors if the massless atoms '
-                          'are unconstrained.')
+        if 0 in masses:
+            warnings.warn(
+                'Zero mass encountered in atoms; this will '
+                'likely lead to errors if the massless atoms '
+                'are unconstrained.'
+            )
 
-        self.masses.shape = (-1, 1)
+        self.masses = masses.reshape((-1, 1))
 
         if not self.atoms.has('momenta'):
             self.atoms.set_momenta(np.zeros([len(self.atoms), 3]))
 
         if logfile:
             logger = self.closelater(
-                MDLogger(dyn=self, atoms=atoms, logfile=logfile,
-                         comm=self.comm))
+                MDLogger(dyn=self, atoms=atoms, logfile=logfile, comm=self.comm)
+            )
             self.attach(logger, loginterval)
 
     def todict(self):
-        return {'type': 'molecular-dynamics',
-                'md-type': self.__class__.__name__,
-                'timestep': self.dt}
+        return {
+            'type': 'molecular-dynamics',
+            'md-type': self.__class__.__name__,
+            'timestep': self.dt,
+        }
 
     def irun(self, steps=50):
         """Run molecular dynamics algorithm as a generator.
@@ -207,7 +212,7 @@ class MolecularDynamics(BaseDynamics):
         return self.nsteps * self.dt
 
     def converged(self, gradient=None):
-        """ MD is 'converged' when number of maximum steps is reached. """
+        """MD is 'converged' when number of maximum steps is reached."""
         # We take gradient now (due to optimizers).  Should refactor.
         return self.nsteps >= self.max_steps
 

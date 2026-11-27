@@ -14,6 +14,7 @@ from ..types.input_audio_codec import InputAudioCodec
 from ..types.mode import Mode
 from ..types.speech_to_text_batch_model import SpeechToTextBatchModel
 from ..types.speech_to_text_language import SpeechToTextLanguage
+from ..types.timestamp_granularity import TimestampGranularity
 from .job import AsyncSpeechToTextJob, SpeechToTextJob
 from .raw_client import AsyncRawSpeechToTextJobClient, RawSpeechToTextJobClient
 
@@ -235,6 +236,7 @@ class SpeechToTextJobClient:
         mode: typing.Optional[Mode] = None,
         with_diarization: bool = False,
         with_timestamps: bool = False,
+        timestamp_granularity: typing.Optional[TimestampGranularity] = None,
         language_code: typing.Optional[SpeechToTextLanguage] = None,
         num_speakers: typing.Optional[int] = None,
         input_audio_codec: typing.Optional[InputAudioCodec] = None,
@@ -258,7 +260,12 @@ class SpeechToTextJobClient:
             Whether to enable speaker diarization (distinguishing who said what).
 
         with_timestamps : typing.Optional[bool], default=False
-            Whether to include word-level timestamps in the transcription output.
+            Whether to include the legacy segment-level `timestamps` object in the output.
+
+        timestamp_granularity : typing.Optional[TimestampGranularity], default=None
+            "segment" adds `segments` and "word" adds `words` to each output, as lists of
+            {text, start, end}. "word" is supported only by saaras:v4 in the transcribe, codemix,
+            verbatim, and translit modes. Independent of with_timestamps.
 
         language_code : typing.Optional[SpeechToTextLanguage], default=None
             The language code of the input audio (e.g., "hi-IN", "bn-IN").
@@ -295,6 +302,7 @@ class SpeechToTextJobClient:
                 with_timestamps=with_timestamps,
                 **({"input_audio_codec": input_audio_codec} if input_audio_codec is not None else {}),  # type: ignore[typeddict-item]
                 keyterms=keyterms,  # type: ignore[typeddict-item]
+                **({"timestamp_granularity": timestamp_granularity} if timestamp_granularity is not None else {}),  # type: ignore[typeddict-item]
             ),
             callback=callback,
             request_options=request_options,
@@ -575,6 +583,7 @@ class AsyncSpeechToTextJobClient:
         mode: typing.Optional[Mode] = None,
         with_diarization: bool = False,
         with_timestamps: bool = False,
+        timestamp_granularity: typing.Optional[TimestampGranularity] = None,
         language_code: typing.Optional[SpeechToTextLanguage] = None,
         num_speakers: typing.Optional[int] = None,
         input_audio_codec: typing.Optional[InputAudioCodec] = None,
@@ -598,7 +607,12 @@ class AsyncSpeechToTextJobClient:
             Whether to enable speaker diarization (distinguishing who said what).
 
         with_timestamps : typing.Optional[bool], default=False
-            Whether to include word-level timestamps in the transcription output.
+            Whether to include the legacy segment-level `timestamps` object in the output.
+
+        timestamp_granularity : typing.Optional[TimestampGranularity], default=None
+            "segment" adds `segments` and "word" adds `words` to each output, as lists of
+            {text, start, end}. "word" is supported only by saaras:v4 in the transcribe, codemix,
+            verbatim, and translit modes. Independent of with_timestamps.
 
         language_code : typing.Optional[SpeechToTextLanguage], default=None
             The language code of the input audio (e.g., "hi-IN", "bn-IN").
@@ -635,6 +649,7 @@ class AsyncSpeechToTextJobClient:
                 num_speakers=num_speakers,  # type: ignore[typeddict-item]
                 **({"input_audio_codec": input_audio_codec} if input_audio_codec is not None else {}),  # type: ignore[typeddict-item]
                 keyterms=keyterms,  # type: ignore[typeddict-item]
+                **({"timestamp_granularity": timestamp_granularity} if timestamp_granularity is not None else {}),  # type: ignore[typeddict-item]
             ),
             callback=callback,
             request_options=request_options,

@@ -1,5 +1,3 @@
-# fmt: off
-
 # Copyright (C) 2010, Jesper Friis
 # (see accompanying license files for details).
 
@@ -22,11 +20,23 @@ from ase.symbols import string2symbols
 __all__ = ['crystal']
 
 
-def crystal(symbols=None, basis=None, occupancies=None, spacegroup=1, setting=1,
-            cell=None, cellpar=None,
-            ab_normal=(0, 0, 1), a_direction=None, size=(1, 1, 1),
-            onduplicates='warn', symprec=0.001,
-            pbc=True, primitive_cell=False, **kwargs) -> ase.Atoms:
+def crystal(
+    symbols=None,
+    basis=None,
+    occupancies=None,
+    spacegroup=1,
+    setting=1,
+    cell=None,
+    cellpar=None,
+    ab_normal=(0, 0, 1),
+    a_direction=None,
+    size=(1, 1, 1),
+    onduplicates='warn',
+    symprec=0.001,
+    pbc=True,
+    primitive_cell=False,
+    **kwargs,
+) -> ase.Atoms:
     """Create an Atoms instance for a conventional unit cell of a
     space group.
 
@@ -112,10 +122,11 @@ def crystal(symbols=None, basis=None, occupancies=None, spacegroup=1, setting=1,
     """
     sg = Spacegroup(spacegroup, setting)
     if (
-            not isinstance(symbols, str) and
-            hasattr(symbols, '__getitem__') and
-            len(symbols) > 0 and
-            isinstance(symbols[0], ase.Atom)):
+        not isinstance(symbols, str)
+        and hasattr(symbols, '__getitem__')
+        and len(symbols) > 0
+        and isinstance(symbols[0], ase.Atom)
+    ):
         symbols = ase.Atoms(symbols)
     if isinstance(symbols, ase.Atoms):
         basis = symbols
@@ -148,9 +159,9 @@ def crystal(symbols=None, basis=None, occupancies=None, spacegroup=1, setting=1,
 
             occupancies_dict[str(index)] = occ.copy()
 
-    sites, kinds = sg.equivalent_sites(basis_coords,
-                                       onduplicates=onduplicates,
-                                       symprec=symprec)
+    sites, kinds = sg.equivalent_sites(
+        basis_coords, onduplicates=onduplicates, symprec=symprec
+    )
 
     # this is needed to handle deuterium masses
     masses = None
@@ -164,8 +175,10 @@ def crystal(symbols=None, basis=None, occupancies=None, spacegroup=1, setting=1,
         symbols = [symbols[i] for i in kinds]
     else:
         # make sure that we put the dominant species there
-        symbols = [sorted(occupancies_dict[str(i)].items(),
-                          key=lambda x: x[1])[-1][0] for i in kinds]
+        symbols = [
+            sorted(occupancies_dict[str(i)].items(), key=lambda x: x[1])[-1][0]
+            for i in kinds
+        ]
 
     if cell is None:
         cell = cellpar_to_cell(cellpar, ab_normal, a_direction)
@@ -185,25 +198,32 @@ def crystal(symbols=None, basis=None, occupancies=None, spacegroup=1, setting=1,
 
     kwargs['info'] = info
 
-    atoms = ase.Atoms(symbols,
-                      scaled_positions=sites,
-                      cell=cell,
-                      pbc=pbc,
-                      masses=masses,
-                      **kwargs)
+    atoms = ase.Atoms(
+        symbols,
+        scaled_positions=sites,
+        cell=cell,
+        pbc=pbc,
+        masses=masses,
+        **kwargs,
+    )
 
     if isinstance(basis, ase.Atoms):
         for name in basis.arrays:
             if not atoms.has(name):
                 array = basis.get_array(name)
-                atoms.new_array(name, [array[i] for i in kinds],
-                                dtype=array.dtype, shape=array.shape[1:])
+                atoms.new_array(
+                    name,
+                    [array[i] for i in kinds],
+                    dtype=array.dtype,
+                    shape=array.shape[1:],
+                )
 
     if kinds:
         atoms.new_array('spacegroup_kinds', np.asarray(kinds, dtype=int))
 
     if primitive_cell:
         from ase.build import cut
+
         prim_cell = sg.scaled_primitive_cell
 
         # Preserve calculator if present:

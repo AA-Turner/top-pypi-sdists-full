@@ -6,11 +6,11 @@ import functools
 import json
 import os
 import sys
-from collections.abc import AsyncGenerator, Callable, Coroutine
+from collections.abc import AsyncGenerator, Callable, Coroutine, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, TypeVar, assert_never
+from typing import TYPE_CHECKING, Annotated, TypeVar, assert_never
 
 import typer
 from pydantic_core import to_json
@@ -68,6 +68,12 @@ app = typer.Typer(
 app.add_typer(sql_cmd.sql_app, name="sql")
 
 
+Limit = Annotated[int, typer.Option("-n", "--limit", help="Maximum number of rows to display.")]
+JsonFlag = Annotated[
+    bool, typer.Option("--json", help="Print the result as a JSON array on stdout.")
+]
+
+
 class VerifyMode(Enum):
     PRESENT = "present"
     ABSENT = "absent"
@@ -115,11 +121,11 @@ def main(
         "",
         help=(
             "PostgreSQL connection string (DSN). "
-            "When omitted, PGQUEUER_DSN and standard libpq env vars "
-            "(PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT) are used. "
+            "If you do not give a DSN, PgQueuer uses PGQUEUER_DSN, then PGDSN. "
+            "Then it uses the standard libpq env vars "
+            "(PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT). "
             "Use --schema/PGQUEUER_SCHEMA to target a Postgres schema."
         ),
-        envvar="PGDSN",
     ),
     factory_fn_ref: str | None = typer.Option(
         None,
@@ -180,6 +186,30 @@ def tablefmt() -> str:
 def local_time(value: datetime) -> str:
     """Terminal-local time with its offset, whatever zone the driver returned."""
     return value.astimezone().isoformat(sep=" ", timespec="seconds")
+
+
+def job_json(job: models.Job) -> dict[str, object]:
+    """A job for --json output; payloads are arbitrary bytes, so only their size is kept."""
+    return job.model_dump(mode="json", exclude={"payload"}) | {
+        "payload_bytes": len(job.payload) if job.payload else 0
+    }
+
+
+def print_report(
+    items: Sequence[T],
+    as_json: bool,
+    empty: str,
+    headers: list[str],
+    row: Callable[[T], list[object]],
+    json_item: Callable[[T], object] | None = None,
+) -> None:
+    """Print *items* as a JSON array, or as a table with *empty* in place of no rows."""
+    if as_json:
+        print(to_json([json_item(i) for i in items] if json_item else items).decode())
+    elif not items:
+        print(empty)
+    else:
+        print(tabulate([row(i) for i in items], headers=headers, tablefmt=tablefmt()))
 
 
 async def display_stats(log_stats: list[models.LogStatistics]) -> None:
@@ -296,6 +326,38 @@ def install(
     typer.secho(f"Installed PgQueuer schema (durability={durability.value}).", err=True)
 
 
+async def verify_present(q: queries.Queries) -> int:
+    """Exit code 1 only for objects that stop a worker; a missing speed-only index warns."""
+    found = await q.missing_schema()
+    for entry in found.speed_only:
+        print(f"warning: missing {entry.describe()}, queries run slower without it")
+    for entry in found.blocking:
+        print(f"missing {entry.describe()}")
+    if not found.blocking:
+        print("All required PgQueuer database objects are present.")
+    return 1 if found.blocking else 0
+
+
+async def verify_absent(q: queries.Queries) -> int:
+    settings = q.qbe.settings
+    divergence = [
+        f"unexpected table '{table}'"
+        for table in (
+            settings.queue_table,
+            settings.statistics_table,
+            settings.schedules_table,
+            settings.queue_table_log,
+        )
+        if await q.has_table(table)
+    ]
+    if await q.has_function(settings.function):
+        divergence.append(f"unexpected function '{settings.function}'")
+    if await q.has_trigger(settings.trigger):
+        divergence.append(f"unexpected trigger '{settings.trigger}'")
+    print("\n".join(divergence) if divergence else "No PgQueuer database objects found")
+    return 1 if divergence else 0
+
+
 @app.command(help="Verify PgQueuer database objects.")
 def verify(
     ctx: Context,
@@ -306,40 +368,13 @@ def verify(
 ) -> None:
     async def run() -> None:
         async with yield_queries(ctx) as q:
-            expect_present = expect == VerifyMode.PRESENT
-            divergence = list[str]()
-
-            required_tables = [
-                q.qbe.settings.queue_table,
-                q.qbe.settings.statistics_table,
-                q.qbe.settings.schedules_table,
-                q.qbe.settings.queue_table_log,
-            ]
-
-            for table in required_tables:
-                exists = await q.has_table(table)
-                if expect_present != exists:
-                    state = "missing" if expect_present else "unexpected"
-                    divergence.append(f"{state} table '{table}'")
-
-            func_exists = await q.has_function(q.qbe.settings.function)
-            if expect_present != func_exists:
-                state = "missing" if expect_present else "unexpected"
-                divergence.append(f"{state} function '{q.qbe.settings.function}'")
-
-            trig_exists = await q.has_trigger(q.qbe.settings.trigger)
-            if expect_present != trig_exists:
-                state = "missing" if expect_present else "unexpected"
-                divergence.append(f"{state} trigger '{q.qbe.settings.trigger}'")
-
-            if divergence:
-                print("\n".join(divergence))
-            elif expect == VerifyMode.PRESENT:
-                print("All required PgQueuer database objects are present.")
+            if expect is VerifyMode.PRESENT:
+                code = await verify_present(q)
+            elif expect is VerifyMode.ABSENT:
+                code = await verify_absent(q)
             else:
-                print("No PgQueuer database objects found")
-
-            raise typer.Exit(code=1 if divergence else 0)
+                assert_never(expect)
+            raise typer.Exit(code=code)
 
     asyncio_run(run())
 
@@ -410,17 +445,19 @@ def dashboard(
         "-i",
         "--interval",
     ),
-    limit: int = typer.Option(
-        25,
-        "-n",
-        "--limit",
-    ),
+    limit: Limit = 25,
+    as_json: JsonFlag = False,
 ) -> None:
+    if as_json and interval is not None:
+        raise typer.BadParameter("--json prints once; drop --interval.")
     interval_td = timedelta(seconds=interval) if interval is not None else None
 
     async def run() -> None:
         async with yield_queries(ctx) as q:
-            await fetch_and_display(q, interval_td, limit)
+            if as_json:
+                print(to_json(await q.log_statistics(limit)).decode())
+            else:
+                await fetch_and_display(q, interval_td, limit)
 
     asyncio_run(run())
 
@@ -564,6 +601,7 @@ def schedules(
         "--remove",
         help="Remove schedules by ID or name.",
     ),
+    as_json: JsonFlag = False,
 ) -> None:
     async def run_async() -> None:
         async with yield_queries(ctx) as q:
@@ -571,7 +609,11 @@ def schedules(
                 schedule_ids = {types.ScheduleId(int(x)) for x in remove if x.isdigit()}
                 schedule_names = {types.CronEntrypoint(x) for x in remove if not x.isdigit()}
                 await q.delete_schedule(schedule_ids, schedule_names)
-            await display_schedule(await q.peek_schedule())
+            current = await q.peek_schedule()
+            if as_json:
+                print(to_json(current).decode())
+            else:
+                await display_schedule(current)
 
     asyncio_run(run_async())
 
@@ -624,29 +666,22 @@ def queue(
     asyncio_run(run_async())
 
 
-@app.command(help="List jobs held with status 'failed' for manual intervention.")
+@app.command(
+    help=(
+        "List jobs held with status 'failed' for manual intervention. "
+        "With --json, payloads are reported by size only."
+    )
+)
 def failed(
     ctx: Context,
-    limit: int = typer.Option(25, "-n", "--limit", help="Maximum number of jobs to display."),
-    as_json: bool = typer.Option(
-        False,
-        "--json",
-        help="Print the jobs as a JSON array on stdout. Payloads are reported by size only.",
-    ),
+    limit: Limit = 25,
+    as_json: JsonFlag = False,
 ) -> None:
     async def run() -> None:
         async with yield_queries(ctx) as q:
             jobs = await q.list_failed_jobs(limit=limit)
             if as_json:
-                print(
-                    json.dumps(
-                        [
-                            j.model_dump(mode="json", exclude={"payload"})
-                            | {"payload_bytes": len(j.payload) if j.payload else 0}
-                            for j in jobs
-                        ]
-                    )
-                )
+                print(json.dumps([job_json(j) for j in jobs]))
                 return
             if not jobs:
                 print("No failed jobs.")
@@ -695,8 +730,8 @@ def stale(
         "--threshold",
         help="Seconds since the last heartbeat before a picked job counts as stale.",
     ),
-    limit: int = typer.Option(25, "-n", "--limit", help="Maximum number of jobs to display."),
-    as_json: bool = typer.Option(False, "--json", help="Print the jobs as a JSON array on stdout."),
+    limit: Limit = 25,
+    as_json: JsonFlag = False,
 ) -> None:
     async def run() -> None:
         async with yield_queries(ctx) as q:
@@ -737,9 +772,7 @@ def stale(
 @app.command(help="List queue managers currently holding picked jobs.")
 def workers(
     ctx: Context,
-    as_json: bool = typer.Option(
-        False, "--json", help="Print the workers as a JSON array on stdout."
-    ),
+    as_json: JsonFlag = False,
 ) -> None:
     async def run() -> None:
         async with yield_queries(ctx) as q:
@@ -780,9 +813,7 @@ def workers(
 @app.command(help="Show how many jobs wait in 'queued' per entrypoint, and how old they are.")
 def backlog(
     ctx: Context,
-    as_json: bool = typer.Option(
-        False, "--json", help="Print one object per entrypoint as a JSON array on stdout."
-    ),
+    as_json: JsonFlag = False,
 ) -> None:
     async def run() -> None:
         async with yield_queries(ctx) as q:
@@ -816,6 +847,152 @@ def backlog(
                     tablefmt=tablefmt(),
                 )
             )
+
+    asyncio_run(run())
+
+
+@app.command(help="Count jobs in the queue table per entrypoint, status and priority.")
+def size(
+    ctx: Context,
+    as_json: JsonFlag = False,
+) -> None:
+    async def run() -> None:
+        async with yield_queries(ctx) as q:
+            sizes = await InsightsService(q).queue_size()
+        print_report(
+            sizes,
+            as_json,
+            "No jobs in the queue.",
+            ["Entrypoint", "Status", "Priority", "Count"],
+            lambda s: [s.entrypoint, s.status, s.priority, s.count],
+        )
+
+    asyncio_run(run())
+
+
+@app.command(help="Total jobs per entrypoint and status, from the statistics table.")
+def throughput(
+    ctx: Context,
+    period: float | None = typer.Option(
+        None,
+        "-p",
+        "--period",
+        help="Only count the last this many seconds. Default: all history.",
+    ),
+    as_json: JsonFlag = False,
+) -> None:
+    async def run() -> None:
+        async with yield_queries(ctx) as q:
+            totals = await q.throughput_summary(
+                None if period is None else timedelta(seconds=period)
+            )
+        print_report(
+            totals,
+            as_json,
+            "No processed jobs.",
+            ["Entrypoint", "Status", "Total"],
+            lambda t: [t.entrypoint, t.status, t.total_count],
+        )
+
+    asyncio_run(run())
+
+
+@app.command(help="Show the most recent job status changes from the log table.")
+def log(
+    ctx: Context,
+    limit: Limit = 25,
+    exceptions: bool = typer.Option(
+        False, "--exceptions", help="Only show entries with status 'exception'."
+    ),
+    as_json: JsonFlag = False,
+) -> None:
+    async def run() -> None:
+        async with yield_queries(ctx) as q:
+            if exceptions:
+                entries = await InsightsService(q).exception_logs(limit)
+            else:
+                rows = await q.driver.fetch(q.qbq.build_queue_log_query(), limit)
+                entries = [models.Log.model_validate(r) for r in rows]
+        print_report(
+            entries,
+            as_json,
+            "No log entries.",
+            ["Created", "Job ID", "Entrypoint", "Status", "Priority", "Error"],
+            lambda e: [
+                local_time(e.created),
+                e.job_id,
+                e.entrypoint,
+                e.status,
+                e.priority,
+                f"{e.traceback.exception_type}: {e.traceback.exception_message}"
+                if e.traceback
+                else "",
+            ],
+        )
+
+    asyncio_run(run())
+
+
+@app.command(
+    help=(
+        "List jobs in the queue table, highest priority first. "
+        "With --json, payloads are reported by size only."
+    )
+)
+def jobs(
+    ctx: Context,
+    limit: Limit = 25,
+    offset: int = typer.Option(0, "--offset", help="Skip this many jobs first."),
+    as_json: JsonFlag = False,
+) -> None:
+    async def run() -> None:
+        async with yield_queries(ctx) as q:
+            rows = await InsightsService(q).browse_queue(limit, offset)
+        print_report(
+            rows,
+            as_json,
+            "No jobs in the queue.",
+            [
+                "ID",
+                "Entrypoint",
+                "Status",
+                "Priority",
+                "Attempts",
+                "Created",
+                "Execute after",
+                "Payload bytes",
+            ],
+            lambda j: [
+                j.id,
+                j.entrypoint,
+                j.status,
+                j.priority,
+                j.attempts,
+                local_time(j.created),
+                local_time(j.execute_after),
+                len(j.payload) if j.payload else 0,
+            ],
+            json_item=job_json,
+        )
+
+    asyncio_run(run())
+
+
+@app.command(help="Show each PgQueuer table's persistence, estimated rows and size.")
+def tables(
+    ctx: Context,
+    as_json: JsonFlag = False,
+) -> None:
+    async def run() -> None:
+        async with yield_queries(ctx) as q:
+            infos = await InsightsService(q).schema_info()
+        print_report(
+            infos,
+            as_json,
+            "No PgQueuer tables found.",
+            ["Table", "Persistence", "Estimated rows", "Total size"],
+            lambda t: [t.table_name, t.persistence, t.estimated_rows, t.total_size],
+        )
 
     asyncio_run(run())
 

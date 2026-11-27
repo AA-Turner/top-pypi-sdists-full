@@ -16,25 +16,20 @@ class CreateVirusScanOnceTaskRequest(DaraModel):
         scan_type: str = None,
         selection_key: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. Different requests should use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You must use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies whether to perform only a dry run of the request. Valid values:
-        # - true: performs only a dry run without executing the actual operation.
-        # - false: performs the actual request.
-        # 
-        # Default value: false.
+        # Specifies whether to only precheck the request. A value of true indicates that only the request is checked and no actual operation is performed. A value of false indicates that the request is normally executed. Default value: false.
         self.dry_run = dry_run
-        # The extended information field:
-        # - **additionType**: the extended scan type
+        # The extended information fields:
+        # - **additionType**: The extended scan type.
         self.param = param
-        # The scan path information to be transmitted if the scan type is custom scan.
+        # The scan path information required for a custom scan.
         self.scan_path = scan_path
         # The scan type of the virus scan. Valid values:
-        # - **system**: system scan
-        # - **user**: custom scan
+        # - **system**: System scan.
+        # - **user**: Custom scan.
         self.scan_type = scan_type
-        # The key that stores asset information.
-        # > You can call the [GetAssetSelectionConfig](~~GetAssetSelectionConfig~~) operation to obtain this parameter.
+        # The key that stores asset information. You can call the [GetAssetSelectionConfig](~~GetAssetSelectionConfig~~) operation to obtain this parameter.
         self.selection_key = selection_key
 
     def validate(self):

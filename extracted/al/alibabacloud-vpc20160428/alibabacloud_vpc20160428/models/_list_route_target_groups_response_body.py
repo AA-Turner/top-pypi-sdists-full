@@ -84,6 +84,7 @@ class ListRouteTargetGroupsResponseBodyRouteTargetGroups(DaraModel):
         self,
         config_mode: str = None,
         create_time: str = None,
+        ip_version: str = None,
         region_id: str = None,
         resource_group_id: str = None,
         route_target_group_description: str = None,
@@ -100,6 +101,8 @@ class ListRouteTargetGroupsResponseBodyRouteTargetGroups(DaraModel):
         self.config_mode = config_mode
         # The time when the route target group was created. The time follows the ISO 8601 standard in the YYYY-MM-DDThh:mm:ssZ format. The time is displayed in UTC.
         self.create_time = create_time
+        # This parameter is required.
+        self.ip_version = ip_version
         # The region ID of the VPC to which the route target group belongs.
         # 
         # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
@@ -151,6 +154,9 @@ class ListRouteTargetGroupsResponseBodyRouteTargetGroups(DaraModel):
         if self.create_time is not None:
             result['CreateTime'] = self.create_time
 
+        if self.ip_version is not None:
+            result['IpVersion'] = self.ip_version
+
         if self.region_id is not None:
             result['RegionId'] = self.region_id
 
@@ -191,6 +197,9 @@ class ListRouteTargetGroupsResponseBodyRouteTargetGroups(DaraModel):
 
         if m.get('CreateTime') is not None:
             self.create_time = m.get('CreateTime')
+
+        if m.get('IpVersion') is not None:
+            self.ip_version = m.get('IpVersion')
 
         if m.get('RegionId') is not None:
             self.region_id = m.get('RegionId')

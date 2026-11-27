@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: igittigitt
-Version: 2.4.2
+Version: 2.5.0
 Summary: A spec-compliant .gitignore parser and path filter, 100% git-compatible, with an include/whitelist mode and a streaming, memory-bounded CLI
 Project-URL: Homepage, https://github.com/bitranox/igittigitt
 Project-URL: Repository, https://github.com/bitranox/igittigitt.git
@@ -20,14 +20,15 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: click>=8.5.1
 Requires-Dist: lib-cli-exit-tools>=2.5.0
-Requires-Dist: lib-layered-config>=8.1.0
+Requires-Dist: lib-layered-config>=9.0.3
 Requires-Dist: lib-log-rich>=8.2.2
-Requires-Dist: orjson>=3.13.0
-Requires-Dist: pydantic>=2.14.3
+Requires-Dist: orjson>=3.13.0; python_version < '3.14'
+Requires-Dist: pydantic>=2.14.4
 Requires-Dist: python-dotenv>=1.2.4
 Requires-Dist: rich-click>=1.9.9
 Requires-Dist: wcmatch>=11.1
@@ -41,19 +42,17 @@ Requires-Dist: hypothesis>=6.168.5; extra == 'dev'
 Requires-Dist: import-linter>=2.15; extra == 'dev'
 Requires-Dist: jaraco-context>=6.1.2; extra == 'dev'
 Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
-Requires-Dist: pynacl>=1.6.2; extra == 'dev'
 Requires-Dist: pyright[nodejs]>=1.1.414; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest-xdist>=3.8.0; extra == 'dev'
 Requires-Dist: pytest>=9.2.0; extra == 'dev'
-Requires-Dist: python-multipart>=0.0.32; extra == 'dev'
 Requires-Dist: rtoml>=0.14.0; extra == 'dev'
-Requires-Dist: ruff>=0.17.4; extra == 'dev'
+Requires-Dist: ruff>=0.17.6; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Requires-Dist: urllib3>=2.8.0; extra == 'dev'
-Requires-Dist: virtualenv>=21.15.6; extra == 'dev'
-Requires-Dist: wheel>=0.48.0; extra == 'dev'
+Provides-Extra: orjson
+Requires-Dist: orjson>=3.13.0; extra == 'orjson'
 Description-Content-Type: text/markdown
 
 # igittigitt
@@ -121,7 +120,12 @@ pipx install igittigitt
 ```
 
 The project targets **Python 3.10+** and is tested on Linux and Windows across CPython
-3.10-3.15, and on macOS with the newest of them. See [INSTALL.md](INSTALL.md) for every install method.
+3.10-3.15 and the free-threaded 3.14t and 3.15t builds, and on macOS with the newest of them. See
+[INSTALL.md](INSTALL.md) for every install method.
+
+From Python 3.14 orjson is optional, since it has no free-threaded build: `pip install
+"igittigitt[orjson]"` adds it. Without it, `--set` values are read with the standard library,
+which gives the same answers.
 
 ### Why we recommend uv: supply-chain protection
 
@@ -197,6 +201,60 @@ parser = igittigitt.IgnoreParser()
 parser.parse_rule_files(base_dir="src_tree")
 shutil.copytree("src_tree", "dst_tree", ignore=parser.shutil_ignore)
 ```
+
+### Spaces, backslashes and comments in rule lines
+
+A rule line is read exactly as git reads it. Git cuts only the final run of *unescaped* spaces;
+a backslash escapes the character after it, so `\ ` keeps a space and `\\` is a literal
+backslash. Tabs are never cut, and nothing is cut at the start of a line: leading spaces are part
+of the pattern, and only a `#` in the first column starts a comment, so an indented `  !keep.log`
+is a pattern for a file of that name, not a negation. A blank or spaces-only line, and a line
+ending in a backslash that escapes nothing (`lone\`), match no path. `pattern_original` and
+`check -v` show the line with its trailing spaces cut, as `git check-ignore -v` does.
+
+```python
+import igittigitt
+
+parser = igittigitt.IgnoreParser()
+for line in [
+    "*.log   ",  # trailing spaces are cut: the rule is "*.log"
+    r"name\ ",  # an escaped space stays: matches "name "
+    r"two \    ",  # the plain space before it stays too: matches "two  "
+    r"pair \\\\ ",  # "pair", a space, 2 escaped backslashes; the last space is cut
+    "tab\t",  # a tab is never cut: matches "tab<TAB>", not "tab"
+    "  indented",  # leading spaces belong to the pattern
+    "  # not a comment",  # only a '#' in the first column starts a comment
+    "# a comment",
+    r"\#hash",  # escape a leading '#' to match a name that starts with one
+    "  !keep.log",  # not a negation: a pattern for the name "  !keep.log"
+    "lone\\",  # ends in one unpaired backslash: matches nothing
+]:
+    parser.add_rule(line, base_path="/opt/project")
+
+parser.match("/opt/project/app.log")  # True
+parser.match("/opt/project/name ")  # True
+parser.match("/opt/project/name")  # False
+parser.match("/opt/project/two  ")  # True  (two spaces)
+parser.match("/opt/project/two ")  # False
+parser.match(r"/opt/project/pair \\")  # True  (two backslashes)
+parser.match("/opt/project/tab\t")  # True
+parser.match("/opt/project/tab")  # False
+parser.match("/opt/project/  indented")  # True
+parser.match("/opt/project/indented")  # False
+parser.match("/opt/project/  # not a comment")  # True
+parser.match("/opt/project/#hash")  # True
+parser.match("/opt/project/keep.log")  # True  (still ignored by *.log)
+parser.match("/opt/project/lone")  # False
+```
+
+The same rules apply to every rule file the parser reads and to the CLI's `--rule` (`-r`)
+values. `add_rule` takes one line without its line ending and removes nothing beyond git's own
+cut of trailing spaces, so never `.strip()` a line before passing it, but do drop the whole line
+ending you read with it (`\r\n` or `\n`) and a byte order mark on the first line: a `\r` or BOM
+left on the line becomes part of the pattern. To load a rule file, call `parse_rule_file` instead
+of reading it yourself; like git, it ends a line only at `\n`, drops one `\r` before it, and skips
+a leading UTF-8 byte order mark. The names in this example are POSIX file names; Windows does not
+allow a trailing space, a tab or a backslash in a file name.
 
 ### Whitelist / include mode
 
@@ -361,6 +419,12 @@ This project was built by a human with AI assistance, used as a tool under human
 - [ai-stance.md](ai-stance.md) - why we work this way and how we think about AI in software.
 - [ai-disclosure.md](ai-disclosure.md) - exactly where AI was and was not used in this project,
   and what has and has not been tested.
+
+## Naming
+
+*igittigitt* is German: the doubled *igitt*, what German speakers, and children above all, cry out
+when something disgusts them, much like "yuck!" in English. It suits the files you would rather git
+never saw.
 
 ---
 

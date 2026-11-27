@@ -50,9 +50,9 @@ class MirrorTorque(FixConstraint):
     between atom1-4 and atom5-6:
 
     >>> from ase.build import bulk
-
-    >>> atoms = bulk('Cu', 'fcc', a=3.6)
-    >>> atom1, atom2, atom3, atom4, atom5, atom6 = atoms[:6]
+    >>> from ase.constraints import MirrorTorque, FixBondLength
+    >>> atoms = bulk('Cu', 'fcc', a=3.6).repeat((2, 2, 2))
+    >>> atom1, atom2, atom3, atom4, atom5, atom6 = range(6)
     >>> con1 = MirrorTorque(atom1, atom2, atom3, atom4)
     >>> con2 = FixBondLength(atom5, atom6)
     >>> atoms.set_constraint([con1, con2])

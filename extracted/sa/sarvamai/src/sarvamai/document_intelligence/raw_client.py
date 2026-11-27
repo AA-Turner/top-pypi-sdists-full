@@ -36,9 +36,9 @@ class RawDocumentIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DocDigitizationCreateJobResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
-        Creates a new Document Intelligence job.
+        Creates a new Document Digitization job.
 
         **Supported Languages (BCP-47 format):**
         - `hi-IN`: Hindi (default)
@@ -73,7 +73,7 @@ class RawDocumentIntelligenceClient:
         Parameters
         ----------
         job_parameters : typing.Optional[DocDigitizationJobParametersParams]
-            Configuration parameters for the Document Intelligence job including language and output format. Defaults to Hindi (hi-IN) and Markdown output if omitted.
+            Configuration parameters for the Document Digitization job including language and output format. Defaults to Hindi (hi-IN) and Markdown output if omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -172,7 +172,7 @@ class RawDocumentIntelligenceClient:
         self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DocDigitizationUploadFilesResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
         Returns presigned URLs for uploading input files.
 
@@ -285,7 +285,7 @@ class RawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DocDigitizationJobStatusResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
         Validates the uploaded file and starts processing.
 
@@ -395,7 +395,7 @@ class RawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DocDigitizationJobStatusResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
         Returns the current status of a job with page-level metrics.
 
@@ -503,7 +503,7 @@ class RawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DocDigitizationDownloadFilesResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
         Returns presigned URLs for downloading output files.
 
@@ -614,9 +614,9 @@ class AsyncRawDocumentIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DocDigitizationCreateJobResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
-        Creates a new Document Intelligence job.
+        Creates a new Document Digitization job.
 
         **Supported Languages (BCP-47 format):**
         - `hi-IN`: Hindi (default)
@@ -651,7 +651,7 @@ class AsyncRawDocumentIntelligenceClient:
         Parameters
         ----------
         job_parameters : typing.Optional[DocDigitizationJobParametersParams]
-            Configuration parameters for the Document Intelligence job including language and output format. Defaults to Hindi (hi-IN) and Markdown output if omitted.
+            Configuration parameters for the Document Digitization job including language and output format. Defaults to Hindi (hi-IN) and Markdown output if omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -750,7 +750,7 @@ class AsyncRawDocumentIntelligenceClient:
         self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DocDigitizationUploadFilesResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
         Returns presigned URLs for uploading input files.
 
@@ -863,7 +863,7 @@ class AsyncRawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DocDigitizationJobStatusResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
         Validates the uploaded file and starts processing.
 
@@ -973,7 +973,7 @@ class AsyncRawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DocDigitizationJobStatusResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
         Returns the current status of a job with page-level metrics.
 
@@ -1081,7 +1081,7 @@ class AsyncRawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DocDigitizationDownloadFilesResponse]:
         """
-        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+        **Deprecated.** The `/doc-digitization/job/v1` endpoints are deprecated. Use the [Document AI API](/api/api-guides-tutorials/document-intelligence/overview) (`/doc-ai/v1`). See [Moving from the legacy Document Digitization API](/api/api-guides-tutorials/document-intelligence/overview#moving-from-the-legacy-document-digitization-api) for the call-by-call mapping.
 
         Returns presigned URLs for downloading output files.
 

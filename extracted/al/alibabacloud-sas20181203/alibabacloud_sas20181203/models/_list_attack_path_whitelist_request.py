@@ -14,21 +14,19 @@ class ListAttackPathWhitelistRequest(DaraModel):
         path_type: str = None,
         whitelist_name: str = None,
     ):
-        # The page number Settings of the current page for paging in a paged query. Default value: **1**.
+        # The page number Settings for the current page during paging in a paged query. Default value: **1**.
         self.current_page = current_page
         # The language of the request and response. Default value: **zh**. Valid values:
         # - **zh**: Chinese
         # - **en**: English
         self.lang = lang
-        # The maximum number of entries to return per page for paging in a paged query. Default value: 20.
+        # The maximum number of entries per page during paging in a paged query. Default value: 20.
         self.page_size = page_size
-        # The path name description.
-        # > You can call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query path name descriptions.
+        # The description of the path name. You can call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query path name descriptions.
         self.path_name_desc = path_name_desc
-        # The path type.
-        # > You can call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query path types.
+        # The path type. You can call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query path types.
         self.path_type = path_type
-        # The whitelist name.
+        # The name of the whitelist.
         self.whitelist_name = whitelist_name
 
     def validate(self):

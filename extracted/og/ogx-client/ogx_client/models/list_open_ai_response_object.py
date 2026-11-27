@@ -25,7 +25,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
-from ogx_client.models.open_ai_response_object_with_input import OpenAIResponseObjectWithInput
+from ogx_client.models.open_ai_response_object import OpenAIResponseObject
 from typing import Any, ClassVar
 from typing_extensions import Self
 
@@ -33,7 +33,7 @@ class ListOpenAIResponseObject(BaseModel):
     """
     Paginated list of OpenAI response objects with navigation metadata.
     """ # noqa: E501
-    data: List[OpenAIResponseObjectWithInput]
+    data: List[OpenAIResponseObject]
     has_more: StrictBool
     first_id: StrictStr
     last_id: StrictStr
@@ -156,7 +156,7 @@ class ListOpenAIResponseObject(BaseModel):
 
         _obj = cls.model_validate({
             k: v for k, v in {
-            "data": [OpenAIResponseObjectWithInput.from_dict(_item) for _item in obj["data"]] if obj.get("data") is not None else None,
+            "data": [OpenAIResponseObject.from_dict(_item) for _item in obj["data"]] if obj.get("data") is not None else None,
             "has_more": obj.get("has_more"),
             "first_id": obj.get("first_id"),
             "last_id": obj.get("last_id"),

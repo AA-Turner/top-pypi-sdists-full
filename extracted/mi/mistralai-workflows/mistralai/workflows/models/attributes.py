@@ -20,6 +20,7 @@ class EventAttributes(StrEnum):
     result = "wf.result"
     internal = "wf.internal"
 
+    activity_type = "wf.activity.type"
     activity_execution_id = "wf.activity.execution_id"
     activity_attempt = "wf.activity.attempt"
     activity_max_attempts = "wf.activity.max_attempts"
@@ -28,6 +29,7 @@ class EventAttributes(StrEnum):
 
     workflow_execution_id = "wf.workflow.execution_id"
     workflow_type = "wf.workflow.type"
+    workflow_run_id = "wf.workflow.run_id"
     workflow_duration_ms = "wf.workflow.duration.ms"
     workflow_attempt = "wf.workflow.attempt"
     workflow_max_attempts = "wf.workflow.max_attempts"

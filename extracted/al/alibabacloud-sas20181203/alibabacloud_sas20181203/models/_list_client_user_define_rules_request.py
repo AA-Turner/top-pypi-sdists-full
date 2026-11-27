@@ -12,6 +12,7 @@ class ListClientUserDefineRulesRequest(DaraModel):
         current_page: int = None,
         name: str = None,
         page_size: int = None,
+        rule_category: str = None,
         type: List[int] = None,
     ):
         # The number of the page to return.
@@ -24,7 +25,9 @@ class ListClientUserDefineRulesRequest(DaraModel):
         # 
         # This parameter is required.
         self.page_size = page_size
-        # The types of rules.
+        # The rule category. process indicates process rules, and network indicates network rules. If this parameter is not specified, all categories are queried.
+        self.rule_category = rule_category
+        # The list of rule types.
         self.type = type
 
     def validate(self):
@@ -44,6 +47,9 @@ class ListClientUserDefineRulesRequest(DaraModel):
         if self.page_size is not None:
             result['PageSize'] = self.page_size
 
+        if self.rule_category is not None:
+            result['RuleCategory'] = self.rule_category
+
         if self.type is not None:
             result['Type'] = self.type
 
@@ -59,6 +65,9 @@ class ListClientUserDefineRulesRequest(DaraModel):
 
         if m.get('PageSize') is not None:
             self.page_size = m.get('PageSize')
+
+        if m.get('RuleCategory') is not None:
+            self.rule_category = m.get('RuleCategory')
 
         if m.get('Type') is not None:
             self.type = m.get('Type')

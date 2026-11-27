@@ -12,7 +12,7 @@ class GetAgentlessTaskCountBatchRequest(DaraModel):
         target_type: int = None,
         uuid_list: List[str] = None,
     ):
-        # The detection object type. Valid values:
+        # The object type for detection. Valid values:
         # 
         # - **1**: host snapshot
         # - **2**: host image

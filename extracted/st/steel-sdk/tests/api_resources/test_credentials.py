@@ -33,6 +33,7 @@ class TestCredentials:
     def test_method_create_with_all_params(self, client: Steel) -> None:
         credential = client.credentials.create(
             value={"foo": "string"},
+            additional_origins=["x"],
             label="label",
             namespace="namespace",
             origin="origin",
@@ -72,6 +73,7 @@ class TestCredentials:
     @parametrize
     def test_method_update_with_all_params(self, client: Steel) -> None:
         credential = client.credentials.update(
+            additional_origins=["x"],
             label="label",
             namespace="namespace",
             origin="origin",
@@ -191,6 +193,7 @@ class TestAsyncCredentials:
     async def test_method_create_with_all_params(self, async_client: AsyncSteel) -> None:
         credential = await async_client.credentials.create(
             value={"foo": "string"},
+            additional_origins=["x"],
             label="label",
             namespace="namespace",
             origin="origin",
@@ -230,6 +233,7 @@ class TestAsyncCredentials:
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncSteel) -> None:
         credential = await async_client.credentials.update(
+            additional_origins=["x"],
             label="label",
             namespace="namespace",
             origin="origin",

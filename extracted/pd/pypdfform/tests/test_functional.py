@@ -1,19 +1,28 @@
 # -*- coding: utf-8 -*-
 
+import json
 import os
 import re
 import stat
 from contextlib import contextmanager
 from copy import deepcopy
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from jsonschema import ValidationError, validate
-from pikepdf import Array, Dictionary, Name, Pdf, Stream, String
+from pikepdf import Array, Dictionary, Name, ObjectStreamMode, Pdf, Stream, String
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import ArrayObject, NameObject, NumberObject, TextStringObject
+from pypdf.generic import (
+    ArrayObject,
+    DictionaryObject,
+    FloatObject,
+    NameObject,
+    NullObject,
+    NumberObject,
+    TextStringObject,
+)
 from reportlab.pdfgen.canvas import Canvas
 from typer.testing import CliRunner
 
@@ -26,9 +35,10 @@ from PyPDFForm import (
     RawElements,
 )
 from PyPDFForm.cli.root import cli_app
-from PyPDFForm.lib import egress
+from PyPDFForm.lib import egress, hooks
 from PyPDFForm.lib.constants import (
     DA,
+    FEATURE_HOOKS,
     UNIQUE_SUFFIX_LENGTH,
     AcroForm,
     T,
@@ -41,8 +51,15 @@ from PyPDFForm.lib.deprecation import deprecation_notice
 from PyPDFForm.lib.middleware.base import Widget
 from PyPDFForm.lib.middleware.checkbox import Checkbox
 from PyPDFForm.lib.middleware.radio import Radio
+from PyPDFForm.lib.middleware.text import Text
 from PyPDFForm.lib.template import get_widget_key, get_widgets_by_page
-from PyPDFForm.lib.utils import get_version, set_version
+from PyPDFForm.lib.utils import (
+    get_catalog_version,
+    get_output_version,
+    get_required_version,
+    get_version,
+    set_version,
+)
 
 
 def test_deprecation_warning():
@@ -363,9 +380,13 @@ def test_register_bad_fonts(tmp_path):
     assert "foo" not in obj.fonts
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
 def test_fill_with_customized_widgets(
-    template_stream, pdf_samples, sample_font_stream, data_dict, request
+    template_stream,
+    pdf_samples,
+    sample_font_stream,
+    data_dict,
+    request,
+    assert_same_pdf,
 ):
     expected_path = os.path.join(pdf_samples, "test_fill_with_customized_widgets.pdf")
     with open(
@@ -389,13 +410,16 @@ def test_fill_with_customized_widgets(
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
+        assert_same_pdf(obj.read(), expected)
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
 def test_fill_with_customized_widgets_readonly(
-    template_stream, pdf_samples, sample_font_stream, data_dict, request
+    template_stream,
+    pdf_samples,
+    sample_font_stream,
+    data_dict,
+    request,
+    assert_same_pdf,
 ):
     expected_path = os.path.join(
         pdf_samples, "test_fill_with_customized_widgets_readonly.pdf"
@@ -422,8 +446,7 @@ def test_fill_with_customized_widgets_readonly(
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
+        assert_same_pdf(obj.read(), expected)
 
 
 def test_fill_with_varied_int_values(template_stream, pdf_samples, request):
@@ -766,8 +789,540 @@ def test_version(pdf_samples):
     assert obj.read().startswith(b"%PDF-2.0")
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
-def test_fill_font_color(sample_template_with_font_colors, pdf_samples, request):
+@pytest.mark.parametrize("read_version_first", [False, True])
+@pytest.mark.parametrize(
+    "operation",
+    [
+        lambda obj: obj.remove_fields(["test"]),
+        lambda obj: obj.fill({"test": "test_1"}),
+        lambda obj: setattr(obj.widgets["test"], "font_size", 20),
+        lambda obj: setattr(obj, "title", "My PDF"),
+    ],
+    ids=["remove_fields", "fill", "widget_property", "title"],
+)
+def test_version_kept_after_rewrite(template_stream, operation, read_version_first):
+    obj = PdfWrapper(template_stream)
+    if read_version_first:
+        assert obj.version == "1.7"
+
+    operation(obj)
+
+    assert obj.version == "1.7"
+    assert obj.read().startswith(b"%PDF-1.7")
+    assert obj.pages[0].version == "1.7"
+    assert obj.pages[0].read().startswith(b"%PDF-1.7")
+
+
+def test_change_version_after_rewrite(template_stream):
+    obj = PdfWrapper(template_stream, title="My PDF")
+    assert obj.version == "1.7"
+    assert obj.read().startswith(b"%PDF-1.7")
+
+    obj.remove_fields(["test"]).change_version("2.0")
+    assert obj.version == "2.0"
+    assert obj.read().startswith(b"%PDF-2.0")
+    assert obj.pages[0].read().startswith(b"%PDF-2.0")
+
+    # the version PDF writers emit by default
+    obj.fill({"test_2": "test_2"}).change_version("1.3")
+    assert obj.version == "1.3"
+    assert obj.read().startswith(b"%PDF-1.3")
+    assert obj.pages[0].read().startswith(b"%PDF-1.3")
+
+
+def _blank_pdf(version):
+    writer = PdfWriter()
+    writer.add_blank_page(width=360, height=360)
+    writer.pdf_header = f"%PDF-{version}"
+    with BytesIO() as f:
+        writer.write(f)
+        return f.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("entries", "expected"),
+    [
+        ({}, None),
+        ({"/FontFile2": NullObject()}, "1.1"),
+        ({"/OpenAction": ArrayObject()}, "1.1"),
+        ({"/S": NameObject("/URI")}, "1.1"),
+        ({"/AcroForm": DictionaryObject()}, "1.2"),
+        ({"/Subtype": NameObject("/Widget")}, "1.2"),
+        ({"/Filter": NameObject("/FlateDecode")}, "1.2"),
+        (
+            {
+                "/Filter": ArrayObject(
+                    [NameObject("/ASCIIHexDecode"), NameObject("/FlateDecode")]
+                )
+            },
+            "1.2",
+        ),
+        ({"/Filter": NameObject("/ASCIIHexDecode")}, None),
+        ({"/ToUnicode": NullObject()}, "1.2"),
+        ({"/S": NameObject("/JavaScript")}, "1.3"),
+        ({"/FT": NameObject("/Sig")}, "1.3"),
+        ({"/FT": NameObject("/Tx")}, None),
+        ({"/TU": TextStringObject("tooltip")}, "1.3"),
+        ({"/Subtype": NameObject("/Stamp")}, "1.3"),
+        ({"/Subtype": NameObject("/Highlight")}, "1.3"),
+        ({"/Subtype": NameObject("/Underline")}, "1.3"),
+        ({"/Subtype": NameObject("/StrikeOut")}, "1.3"),
+        ({"/Subtype": NameObject("/Squiggly")}, "1.4"),
+        ({"/Subtype": NameObject("/Text")}, None),
+        ({"/T": TextStringObject("Reviewer")}, "1.1"),
+        ({"/Subtype": DictionaryObject()}, None),
+        ({"/SMask": NameObject("/None")}, "1.4"),
+        ({"/CA": FloatObject(0.5)}, "1.4"),
+        ({"/ca": NumberObject(1)}, "1.4"),
+        # a widget's caption in /MK
+        ({"/CA": TextStringObject("4")}, None),
+        ({"/Ff": NumberObject(1 << 24)}, "1.5"),
+        ({"/Ff": NumberObject(1 << 12)}, None),
+        ({"/S": NameObject("/JavaScript"), "/Ff": NumberObject(1 << 24)}, "1.5"),
+    ],
+)
+def test_required_version(entries, expected):
+    writer = PdfWriter()
+    writer.add_blank_page(width=360, height=360)
+    add_object = writer._add_object  # type: ignore # noqa: SLF001
+    test_dict = DictionaryObject(
+        {NameObject(key): value for key, value in entries.items()}
+    )
+    reference = add_object(test_dict)
+    # an indirect value, and a cycle back to the dictionary
+    test_dict[NameObject("/Self")] = reference
+    writer.root_object[NameObject("/Test")] = add_object(
+        ArrayObject([reference, add_object(DictionaryObject())])
+    )
+    with BytesIO() as f:
+        writer.write(f)
+        stream = f.getvalue()
+
+    assert get_required_version(stream) == expected
+
+
+def test_required_version_of_title_and_unreadable_streams():
+    writer = PdfWriter()
+    writer.add_blank_page(width=360, height=360)
+    writer.root_object[NameObject("/Test")] = DictionaryObject(
+        {NameObject("/Title"): TextStringObject("not the document title")}
+    )
+    with BytesIO() as f:
+        writer.write(f)
+        assert get_required_version(f.getvalue()) is None
+
+    writer.add_metadata({"/Title": "My PDF"})
+    with BytesIO() as f:
+        writer.write(f)
+        assert get_required_version(f.getvalue()) == "1.1"
+
+    assert get_required_version(b"") is None
+    assert get_required_version(b"not a pdf") is None
+
+
+@pytest.mark.parametrize(
+    ("version", "baseline", "required", "expected"),
+    [
+        ("1.7", "1.4", "1.5", "1.7"),
+        ("1.1", None, "1.2", "1.2"),
+        ("1.1", "1.0", "1.2", "1.2"),
+        # the template already understates its own content
+        ("1.0", "1.4", "1.2", "1.0"),
+        ("1.1", "1.0", None, "1.1"),
+        (None, None, "1.2", "1.2"),
+        (None, None, None, None),
+        ("unknown", None, "1.2", "1.2"),
+    ],
+)
+def test_output_version(version, baseline, required, expected):
+    assert get_output_version(version, baseline, required) == expected
+
+
+@pytest.mark.parametrize(
+    ("template_version", "operation", "expected", "expected_page"),
+    [
+        (
+            "1.0",
+            lambda obj, font, image: obj.annotate(
+                [Annotations.TextAnnotation(1, 10, 10)]
+            ),
+            "1.0",
+            "1.0",
+        ),
+        (
+            "1.0",
+            lambda obj, font, image: obj.draw([RawElements.RawText("text", 1, 10, 10)]),
+            "1.0",
+            "1.0",
+        ),
+        (
+            "1.0",
+            lambda obj, font, image: setattr(obj, "title", "My PDF"),
+            "1.1",
+            "1.1",
+        ),
+        (
+            "1.0",
+            lambda obj, font, image: obj.annotate(
+                [Annotations.TextAnnotation(1, 10, 10, title="Reviewer")]
+            ),
+            "1.1",
+            "1.1",
+        ),
+        (
+            "1.0",
+            lambda obj, font, image: obj.annotate(
+                [Annotations.LinkAnnotation(1, 10, 10, uri="https://example.com")]
+            ),
+            "1.1",
+            "1.1",
+        ),
+        (
+            "1.1",
+            lambda obj, font, image: obj.bulk_create_fields(
+                [Fields.TextField("name", 1, 50, 50, width=100, height=20)]
+            ),
+            "1.2",
+            "1.2",
+        ),
+        (
+            "1.0",
+            lambda obj, font, image: obj.register_font("new_font", font),
+            "1.2",
+            "1.2",
+        ),
+        (
+            "1.2",
+            lambda obj, font, image: setattr(
+                obj, "on_open_javascript", "app.alert('opened');"
+            ),
+            "1.3",
+            # pages don't copy the document-open action
+            "1.2",
+        ),
+        (
+            "1.2",
+            lambda obj, font, image: obj.bulk_create_fields(
+                [Fields.SignatureField("signature", 1, 50, 50)]
+            ),
+            "1.3",
+            "1.3",
+        ),
+        (
+            "1.2",
+            lambda obj, font, image: obj.bulk_create_fields(
+                [Fields.TextField("name", 1, 50, 50, tooltip="tooltip")]
+            ),
+            "1.3",
+            "1.3",
+        ),
+        (
+            "1.2",
+            lambda obj, font, image: obj.annotate(
+                [
+                    Annotations.RubberStampAnnotation(1, 10, 10),
+                    Annotations.HighlightAnnotation(1, 40, 10),
+                    Annotations.UnderlineAnnotation(1, 70, 10),
+                    Annotations.StrikeOutAnnotation(1, 100, 10),
+                ]
+            ),
+            "1.3",
+            "1.3",
+        ),
+        (
+            "1.3",
+            lambda obj, font, image: obj.annotate(
+                [Annotations.SquigglyAnnotation(1, 10, 10)]
+            ),
+            "1.4",
+            "1.4",
+        ),
+        (
+            "1.3",
+            lambda obj, font, image: obj.draw(
+                [RawElements.RawImage(image, 1, 10, 10, 50, 50)]
+            ),
+            "1.4",
+            "1.4",
+        ),
+        (
+            "1.4",
+            lambda obj, font, image: obj.bulk_create_fields(
+                [Fields.TextField("name", 1, 50, 50, max_length=4, comb=True)]
+            ),
+            "1.5",
+            "1.5",
+        ),
+        (
+            "1.7",
+            lambda obj, font, image: obj.bulk_create_fields(
+                [Fields.TextField("name", 1, 50, 50, max_length=4, comb=True)]
+            ),
+            "1.7",
+            "1.7",
+        ),
+    ],
+    ids=[
+        "text_annotation",
+        "draw_text",
+        "title",
+        "text_annotation_title",
+        "uri_link",
+        "text_field",
+        "register_font",
+        "on_open_javascript",
+        "signature_field",
+        "tooltip",
+        "stamp_and_text_markup",
+        "squiggly",
+        "transparent_image",
+        "comb",
+        "comb_on_newer_template",
+    ],
+)
+def test_version_raised_for_added_feature(
+    sample_font_stream,
+    image_samples,
+    template_version,
+    operation,
+    expected,
+    expected_page,
+):
+    obj = PdfWrapper(_blank_pdf(template_version))
+    operation(
+        obj,
+        sample_font_stream,
+        os.path.join(image_samples, "sample_transparent_png.png"),
+    )
+
+    assert obj.version == expected
+    assert obj.read().startswith(f"%PDF-{expected}".encode())
+    assert obj.pages[0].version == expected_page
+    assert obj.pages[0].read().startswith(f"%PDF-{expected_page}".encode())
+    assert PdfArray([obj]).merge().read().startswith(f"%PDF-{expected}".encode())
+
+
+def test_version_kept_when_template_understates_its_content(pdf_samples):
+    # the template declares 1.0 but has an AcroForm and constant opacity (1.4)
+    obj = PdfWrapper(os.path.join(pdf_samples, "versions", "1.0.pdf"))
+    obj.annotate([Annotations.RubberStampAnnotation(1, 10, 10)])
+    assert obj.version == "1.0"
+    assert obj.read().startswith(b"%PDF-1.0")
+    assert obj.pages[0].read().startswith(b"%PDF-1.0")
+
+    obj.bulk_create_fields(
+        [Fields.TextField("name", 1, 50, 50, max_length=4, comb=True)]
+    )
+    assert obj.version == "1.5"
+    assert obj.read().startswith(b"%PDF-1.5")
+
+
+def test_change_version_kept_for_existing_features():
+    obj = PdfWrapper(_blank_pdf("1.1")).bulk_create_fields(
+        [Fields.TextField("name", 1, 50, 50, width=100, height=20)]
+    )
+    assert obj.version == "1.2"
+
+    obj.change_version("1.1")
+    assert obj.version == "1.1"
+    assert obj.read().startswith(b"%PDF-1.1")
+    assert obj.pages[0].read().startswith(b"%PDF-1.1")
+    assert PdfArray([obj]).merge().read().startswith(b"%PDF-1.1")
+
+    obj.annotate([Annotations.RubberStampAnnotation(1, 10, 10)])
+    assert obj.version == "1.3"
+    assert obj.read().startswith(b"%PDF-1.3")
+    assert obj.pages[0].read().startswith(b"%PDF-1.3")
+
+
+@pytest.mark.parametrize("option", ["need_appearances", "generate_appearance_streams"])
+def test_change_version_kept_for_output_options(option):
+    # without a change, the AcroForm that read() adds for the option raises 1.1
+    assert PdfWrapper(_blank_pdf("1.1"), **{option: True}).version == "1.2"
+
+    obj = PdfWrapper(_blank_pdf("1.7"), **{option: True}).change_version("1.1")
+    assert obj.version == "1.1"
+    assert obj.read().startswith(b"%PDF-1.1")
+    assert obj.pages[0].read().startswith(b"%PDF-1.1")
+
+    obj.annotate([Annotations.RubberStampAnnotation(1, 10, 10)])
+    assert obj.version == "1.3"
+    assert obj.read().startswith(b"%PDF-1.3")
+
+
+@pytest.mark.parametrize("version", ["1.7", "1.4"])
+def test_version_keeps_pending_widget_changes(template_stream, version):
+    stream = _without_default_appearance(template_stream, "test")
+    obj = PdfWrapper(set_version(stream, get_version(stream), version))
+    assert obj.version == version
+
+    obj.widgets["test"].font_size = 20
+    assert obj.version == version
+    assert obj.widgets["test"].font_size == 20
+    assert obj.widgets["test"].hooks_to_trigger
+
+    # the font size can't be set without a default appearance
+    with pytest.raises(ValueError, match="Cannot change /DA"):
+        obj.read()
+
+
+@pytest.mark.parametrize(
+    ("template_version", "field_options", "changes", "expected"),
+    [
+        ("1.2", {}, [("tooltip", "tooltip")], "1.3"),
+        ("1.2", {}, [("tooltip", "tooltip"), ("tooltip", "")], "1.2"),
+        ("1.2", {}, [("on_hovered_over_javascript", "app.alert('over');")], "1.3"),
+        ("1.2", {}, [("on_blurred_javascript", "app.alert('blurred');")], "1.3"),
+        # an empty script still writes a JavaScript action
+        ("1.2", {}, [("on_focused_javascript", "")], "1.3"),
+        ("1.4", {}, [("max_length", 4)], "1.4"),
+        ("1.4", {}, [("comb", True)], "1.5"),
+        ("1.4", {}, [("comb", False)], "1.4"),
+        ("1.4", {}, [("comb", True), ("comb", False)], "1.4"),
+        # the only comb field, already written, is cleared
+        ("1.4", {"comb": True}, [("comb", False)], "1.4"),
+        ("1.4", {"comb": True}, [("comb", False), ("comb", True)], "1.5"),
+    ],
+)
+def test_version_previews_pending_widget_changes(
+    template_version, field_options, changes, expected
+):
+    obj = PdfWrapper(_blank_pdf(template_version)).bulk_create_fields(
+        [Fields.TextField("name", 1, 50, 50, max_length=4, **field_options)]
+    )
+    obj.read()
+    for name, value in changes:
+        setattr(obj.widgets["name"], name, value)
+    queued = list(obj.widgets["name"].hooks_to_trigger)
+
+    assert obj.version == expected
+    assert obj.widgets["name"].hooks_to_trigger == queued
+
+    assert obj.read().startswith(f"%PDF-{expected}".encode())
+    assert obj.version == expected
+
+
+def test_version_keeps_pending_javascript_file():
+    obj = PdfWrapper(_blank_pdf("1.2")).bulk_create_fields(
+        [Fields.TextField("name", 1, 50, 50)]
+    )
+    obj.widgets["name"].on_focused_javascript = StringIO("app.alert('focused');")
+    assert obj.version == "1.3"
+
+    annotation = PdfReader(BytesIO(obj.read())).pages[0]["/Annots"][0].get_object()
+    assert annotation["/AA"]["/Fo"]["/JS"] == "app.alert('focused');"
+
+
+def test_version_leaves_unreadable_javascript_path_to_read(tmp_path):
+    path = tmp_path / "invalid.js"
+    path.write_bytes(b"app.alert('\xff\xfe');")
+    obj = PdfWrapper(_blank_pdf("1.2")).bulk_create_fields(
+        [Fields.TextField("name", 1, 50, 50)]
+    )
+    obj.read()
+
+    obj.widgets["name"].on_focused_javascript = str(path)
+    # only whether a script is written matters, so the file isn't opened
+    assert obj.version == "1.3"
+    assert obj.widgets["name"].hooks_to_trigger
+
+    with pytest.raises(UnicodeDecodeError):
+        obj.read()
+
+
+def test_pending_feature_hooks_are_widget_hooks():
+    hook_names = set(
+        Text("name").SET_ATTR_TRIGGER_HOOK_MAP.values()
+    )  # including those of every widget
+    for hook in FEATURE_HOOKS:
+        assert hook in hook_names
+        assert callable(getattr(hooks, hook))
+
+
+def _pdf_with_catalog_version(header, catalog_version, squiggly_page=None):
+    writer = PdfWriter()
+    writer.add_blank_page(width=360, height=360)
+    writer.add_blank_page(width=360, height=360)
+    writer.pdf_header = f"%PDF-{header}"
+    writer.root_object[NameObject("/Version")] = catalog_version
+    if squiggly_page is not None:
+        writer.pages[squiggly_page - 1][NameObject("/Annots")] = ArrayObject(
+            [
+                writer._add_object(  # type: ignore # noqa: SLF001
+                    DictionaryObject(
+                        {
+                            NameObject("/Type"): NameObject("/Annot"),
+                            NameObject("/Subtype"): NameObject("/Squiggly"),
+                            NameObject("/Rect"): ArrayObject(
+                                [NumberObject(10), NumberObject(10)] * 2
+                            ),
+                        }
+                    )
+                )
+            ]
+        )
+    with BytesIO() as f:
+        writer.write(f)
+        return f.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("catalog_version", "expected"),
+    [
+        (NameObject("/1.4"), "1.4"),
+        (NameObject("/2.0"), "2.0"),
+        (NameObject("/3.0"), None),
+        (TextStringObject("1.4"), None),
+        (NullObject(), None),
+    ],
+)
+def test_catalog_version(catalog_version, expected):
+    stream = _pdf_with_catalog_version("1.1", catalog_version)
+    assert get_catalog_version(stream) == expected
+
+
+def test_catalog_version_of_unreadable_streams():
+    assert get_catalog_version(b"") is None
+    assert get_catalog_version(b"not a pdf") is None
+    assert get_catalog_version(_blank_pdf("1.1")) is None
+
+
+def test_pages_keep_catalog_version():
+    obj = PdfWrapper(
+        _pdf_with_catalog_version("1.1", NameObject("/1.4"), squiggly_page=2)
+    ).bulk_create_fields([Fields.TextField("name", 1, 50, 50)])
+
+    # the catalog override is kept and covers the new form, so the header is too
+    output = obj.read()
+    assert output.startswith(b"%PDF-1.1")
+    assert PdfReader(BytesIO(output)).root_object["/Version"] == "/1.4"
+    assert obj.version == "1.1"
+
+    # the page has no catalog, so the override moves to its header
+    assert obj.pages[0].version == "1.4"
+    assert obj.pages[0].read().startswith(b"%PDF-1.4")
+    assert "/Version" not in PdfReader(BytesIO(obj.pages[0].read())).root_object
+
+    # a feature newer than the override still raises both
+    obj.bulk_create_fields(
+        [Fields.TextField("comb", 1, 50, 100, max_length=4, comb=True)]
+    )
+    assert obj.read().startswith(b"%PDF-1.5")
+    assert obj.pages[0].read().startswith(b"%PDF-1.5")
+
+
+def test_catalog_version_keeps_header_of_document_without_new_features():
+    obj = PdfWrapper(
+        _pdf_with_catalog_version("1.1", NameObject("/1.4"))
+    ).bulk_create_fields([Fields.TextField("name", 1, 50, 50)])
+    assert obj.version == "1.1"
+    assert obj.read().startswith(b"%PDF-1.1")
+    assert obj.pages[0].read().startswith(b"%PDF-1.4")
+
+
+def test_fill_font_color(
+    sample_template_with_font_colors, pdf_samples, request, assert_same_pdf
+):
     expected_path = os.path.join(pdf_samples, "test_fill_font_color.pdf")
     with open(expected_path, "rb+") as f:
         obj = PdfWrapper(sample_template_with_font_colors).fill(
@@ -784,12 +1339,12 @@ def test_fill_font_color(sample_template_with_font_colors, pdf_samples, request)
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
+        assert_same_pdf(obj.read(), expected)
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
-def test_fill_complex_fonts(sample_template_with_complex_fonts, pdf_samples, request):
+def test_fill_complex_fonts(
+    sample_template_with_complex_fonts, pdf_samples, request, assert_same_pdf
+):
     expected_path = os.path.join(pdf_samples, "test_fill_complex_fonts.pdf")
     with open(expected_path, "rb+") as f:
         obj = PdfWrapper(sample_template_with_complex_fonts).fill(
@@ -814,12 +1369,12 @@ def test_fill_complex_fonts(sample_template_with_complex_fonts, pdf_samples, req
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
+        assert_same_pdf(obj.read(), expected)
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
-def test_pages_preserve_font(template_stream, pdf_samples, sample_font_stream, request):
+def test_pages_preserve_font(
+    template_stream, pdf_samples, sample_font_stream, request, assert_same_pdf
+):
     expected_path = os.path.join(pdf_samples, "pages", "test_pages_preserve_font.pdf")
     obj = PdfWrapper(template_stream)
     obj.register_font("new_font", sample_font_stream)
@@ -828,7 +1383,7 @@ def test_pages_preserve_font(template_stream, pdf_samples, sample_font_stream, r
     with open(expected_path, "rb+") as f:
         request.config.results["expected_path"] = expected_path
         request.config.results["stream"] = obj.pages[1].read()
-        assert obj.pages[1].read() == f.read()
+        assert_same_pdf(obj.pages[1].read(), f.read())
 
 
 def test_sejda_pages_1(sejda_template, pdf_samples, request):
@@ -970,8 +1525,7 @@ def test_uncheck_checkbox(pdf_samples, request):
         assert obj.read() == expected
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
-def test_blank_page(pdf_samples, request):
+def test_blank_page(pdf_samples, request, assert_same_pdf):
     expected_path = os.path.join(pdf_samples, "test_blank_page.pdf")
     with open(expected_path, "rb+") as f:
         obj = PdfWrapper(BlankPage() * 1)
@@ -981,7 +1535,7 @@ def test_blank_page(pdf_samples, request):
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
+        assert_same_pdf(obj.read(), expected, timestamped=True)
 
         assert not obj.widgets
         assert len(obj.pages) == 1
@@ -989,8 +1543,7 @@ def test_blank_page(pdf_samples, request):
         request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)
 
 
-@pytest.mark.requires_zlib_over_zlib_ng
-def test_blank_page_custom_size_multiply(pdf_samples, request):
+def test_blank_page_custom_size_multiply(pdf_samples, request, assert_same_pdf):
     expected_path = os.path.join(
         pdf_samples, "test_blank_page_custom_size_multiply.pdf"
     )
@@ -1002,7 +1555,7 @@ def test_blank_page_custom_size_multiply(pdf_samples, request):
 
         expected = f.read()
 
-        assert len(obj.read()) == len(expected)
+        assert_same_pdf(obj.read(), expected, timestamped=True)
 
         assert not obj.widgets
         assert len(obj.pages) == 3
@@ -1039,8 +1592,8 @@ def test_widget_coord_resolution():
     assert obj.widgets["radio"].page_number == 1
     assert obj.widgets["radio"].x == [400, 500, 600]
     assert obj.widgets["radio"].y == [450, 550, 650]
-    assert obj.widgets["radio"].width == 10
-    assert obj.widgets["radio"].height == 10
+    assert obj.widgets["radio"].width == [10, 10, 10]
+    assert obj.widgets["radio"].height == [10, 10, 10]
 
     assert obj.widgets["dropdown"].page_number == 1
     assert obj.widgets["dropdown"].x == 400
@@ -1123,6 +1676,267 @@ def test_remove_fields_no_keys_specified(template_stream):
         PdfWrapper(template_stream).remove_fields([]).widgets.keys()
         == PdfWrapper(template_stream).widgets.keys()
     )
+
+
+def test_remove_fields_unknown_key_writes_once(template_stream):
+    obj = PdfWrapper(template_stream)
+
+    with patch("PyPDFForm.lib.field_tree.PdfWriter", wraps=PdfWriter) as writer:
+        obj.remove_fields(["missing"])
+
+    # nothing was detached, so the PDF isn't cloned a second time
+    assert writer.call_count == 1
+    assert obj.widgets.keys() == PdfWrapper(template_stream).widgets.keys()
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "sample_template.pdf",
+        "sample_template_sejda.pdf",
+        "sample_template_with_radio_button.pdf",
+        os.path.join("dropdown", "sample_template_with_dropdown.pdf"),
+    ],
+)
+def test_fill_readonly_updates_widgets(
+    pdf_samples, template, assert_widgets_match_output
+):
+    obj = PdfWrapper(os.path.join(pdf_samples, template))
+    obj.fill(obj.sample_data, readonly=True)
+
+    assert all(widget.readonly is True for widget in obj.widgets.values())
+    assert not any(widget.hooks_to_trigger for widget in obj.widgets.values())
+    assert_widgets_match_output(obj)
+
+
+def test_operations_keep_widgets_matching_output(
+    template_stream, data_dict, assert_widgets_match_output
+):
+    obj = PdfWrapper(template_stream)
+    obj.widgets["test"].x = 200
+    obj.widgets["check"].readonly = True
+    assert_widgets_match_output(obj)
+
+    obj.fill(data_dict)
+    assert_widgets_match_output(obj)
+
+    obj.remove_fields(["test_2", "check_2"])
+    assert_widgets_match_output(obj)
+
+    other = PdfWrapper(template_stream).fill(data_dict, readonly=True)
+    merged = obj + other
+    for each in (merged, obj, other):
+        assert_widgets_match_output(each)
+
+
+def test_commit_widget_key_updates_does_not_replay_hooks(
+    template_stream, assert_widgets_match_output
+):
+    obj = PdfWrapper(template_stream)
+    obj.widgets["test"].tooltip = "tooltip"
+    obj.widgets["test"].font_size = 20
+    obj.read()
+    obj.widgets["test"].readonly = False
+    obj.fill({"test": "test"}, readonly=True)
+
+    obj.update_widget_key("test", "renamed")
+    obj.commit_widget_key_updates()
+    stream = obj.read()
+
+    renamed = obj.widgets["renamed"]
+    # the earlier readonly=False is not applied again over the fill
+    assert renamed.readonly is True
+    assert not renamed.hooks_to_trigger
+    # properties the PDF doesn't store are kept from the old widget
+    assert renamed.font_size == 20
+    assert obj.read() == stream
+    assert_widgets_match_output(obj)
+
+
+def test_commit_widget_key_updates_keeps_pending_value(
+    template_stream, assert_round_trip
+):
+    obj = PdfWrapper(template_stream)
+    obj.widgets["test"].tooltip = "tooltip"
+    obj.read()
+    # assigned without filling, so only the wrapper has it
+    obj.widgets["test"].value = "pending text"
+
+    obj.update_widget_key("test", "renamed").commit_widget_key_updates()
+    assert not obj.widgets["renamed"].hooks_to_trigger
+
+    obj.fill({})
+    assert_round_trip(obj, {"renamed": "pending text"})
+
+
+def _without_default_appearance(stream, key):
+    # neither the field nor the AcroForm default sets a default appearance
+    writer = PdfWriter(BytesIO(stream))
+    del writer.root_object["/AcroForm"][NameObject(DA)]
+    for annot in writer.pages[0]["/Annots"]:
+        annot = annot.get_object()
+        if annot.get(T) == key:
+            del annot[NameObject(DA)]
+
+    with BytesIO() as f:
+        writer.write(f)
+        return f.getvalue()
+
+
+def test_failed_hook_reverts_queued_updates(
+    template_stream, assert_widgets_match_output
+):
+    obj = PdfWrapper(_without_default_appearance(template_stream, "test"))
+    original = obj.read()
+    x = obj.widgets["test_2"].x
+    obj.widgets["test_2"].x = 300
+    obj.widgets["test"].font_size = 20
+
+    # the font size can't be set without a default appearance
+    with pytest.raises(ValueError, match="Cannot change /DA"):
+        obj.read()
+
+    assert obj.widgets["test_2"].x == x
+    assert obj.widgets["test"].font_size is None
+    assert not any(widget.hooks_to_trigger for widget in obj.widgets.values())
+    # later reads don't retry the failed updates
+    assert obj.read() == original
+    assert obj.read() == original
+    assert_widgets_match_output(obj)
+
+    obj.widgets["test_2"].x = 300
+    assert PdfWrapper(obj.read()).widgets["test_2"].x == 300
+
+
+@pytest.mark.cli_test
+def test_cli_font_size_of_acroform_default_appearance(template_stream, tmp_path):
+    # the field's /DA is the AcroForm default, which raised KeyError('/DA')
+    writer = PdfWriter(BytesIO(template_stream))
+    field = next(
+        annot.get_object()
+        for annot in writer.pages[0]["/Annots"]
+        if annot.get_object().get(T) == "test"
+    )
+    writer.root_object[AcroForm][NameObject(DA)] = field[DA]
+    del field[DA]
+    path = tmp_path / "input.pdf"
+    with open(path, "wb") as f:
+        writer.write(f)
+
+    result = CliRunner().invoke(
+        cli_app, ["update", "field", str(path), "--field", "test", "--font_size", "14"]
+    )
+
+    assert result.exit_code == 0, result.output
+    reader = PdfReader(path)
+    widget = next(
+        annot.get_object()
+        for annot in reader.pages[0]["/Annots"]
+        if annot.get_object().get(T) == "test"
+    )
+    assert widget[DA] == "/Arial 14 Tf 0 g"
+    assert reader.root_object[AcroForm][DA] == "/Arial 0 Tf 0 g"
+
+
+@pytest.mark.cli_test
+def test_cli_font_size_without_default_appearance(template_stream, tmp_path):
+    original = _without_default_appearance(template_stream, "test")
+    path = tmp_path / "input.pdf"
+    path.write_bytes(original)
+
+    result = CliRunner().invoke(
+        cli_app, ["update", "field", str(path), "--field", "test", "--font_size", "14"]
+    )
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, ValueError)
+    assert path.read_bytes() == original
+
+
+def _without_duplicate_keys(pairs):
+    # a JSON object hook that fails on a key written twice
+    keys = [key for key, _ in pairs]
+    assert len(keys) == len(set(keys)), keys
+    return dict(pairs)
+
+
+@pytest.mark.cli_test
+@pytest.mark.parametrize("use_full_widget_name", [False, True])
+def test_cli_fill_with_sample_of_field_without_name(
+    template_stream, tmp_path, use_full_widget_name
+):
+    # "test" has a null name, so it has none, and "test_2" is named "null"
+    writer = PdfWriter(BytesIO(template_stream))
+    for page in writer.pages:
+        for annot in page["/Annots"]:
+            annot = annot.get_object()
+            if annot.get(T) == "test":
+                annot[NameObject(T)] = NullObject()
+            elif annot.get(T) == "test_2":
+                annot[NameObject(T)] = TextStringObject("null")
+    path = tmp_path / "input.pdf"
+    with open(path, "wb") as f:
+        writer.write(f)
+    options = ["--use-full-widget-name"] if use_full_widget_name else []
+    runner = CliRunner()
+
+    # without full names, JSON can't name the field, so it is left out; with
+    # them, its key is ""
+    expected = {"check", "null", "check_2", "test_3", "check_3"} | (
+        {""} if use_full_widget_name else set()
+    )
+    for command in ("schema", "data", "sample"):
+        result = runner.invoke(cli_app, [*options, "inspect", command, str(path)])
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.output, object_pairs_hook=_without_duplicate_keys)
+        assert set(output["properties"] if command == "schema" else output) == expected
+
+    sample = tmp_path / "sample.json"
+    sample.write_text(result.output)
+    output_path = tmp_path / "output.pdf"
+    result = runner.invoke(
+        cli_app,
+        [*options, "fill", str(path), "-f", str(sample), "-o", str(output_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    data = PdfWrapper(str(output_path), use_full_widget_name=use_full_widget_name).data
+    assert data["null"] == "null"
+    assert data["test_3"] == "test_3"
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        lambda obj: obj.remove_fields(["test_2"]),
+        lambda obj: obj.commit_widget_key_updates(),
+    ],
+    ids=["remove_fields", "commit_widget_key_updates"],
+)
+def test_failed_operation_restores_wrapper(
+    template_stream, operation, assert_widgets_match_output
+):
+    obj = PdfWrapper(template_stream)
+    obj.widgets["test"].x = 200
+    obj.update_widget_key("test", "renamed")
+    original = obj.read()
+    widgets = dict(obj.widgets)
+
+    with (
+        patch("PyPDFForm.lib.wrapper.build_widgets", side_effect=RuntimeError),
+        pytest.raises(RuntimeError),
+    ):
+        operation(obj)
+
+    assert obj.widgets == widgets
+    assert obj.read() == original
+    assert_widgets_match_output(obj)
+
+    # the queued rename is kept, so it can still be committed
+    obj.commit_widget_key_updates()
+    assert "renamed" in obj.widgets
+    assert "test" not in obj.widgets
+    assert_widgets_match_output(obj)
 
 
 def test_merge(template_stream):
@@ -1717,32 +2531,7 @@ def get_retained_content(stream, markers):
     return found
 
 
-def check_page_ownership(stream):
-    with Pdf.open(BytesIO(stream)) as pdf:
-        pages = {page.obj.objgen for page in pdf.pages}
-        assert not [
-            obj.objgen
-            for obj in pdf.objects
-            if isinstance(obj, Dictionary)
-            and obj.get("/Type") == Name.Page
-            and obj.objgen not in pages
-        ]
-        annots = {}
-        for page in pdf.pages:
-            for annot in page.get("/Annots", []):
-                annots[annot.objgen] = annot
-                if "/P" in annot:
-                    assert annot.P.objgen == page.obj.objgen
-        for annot in annots.values():
-            parent = annot.get("/Parent") if annot.Subtype == Name.Widget else None
-            while parent is not None:
-                assert all(
-                    kid.objgen in annots or "/Kids" in kid for kid in parent.Kids
-                )
-                parent = parent.get("/Parent")
-
-
-def test_pages_exclude_other_page_content():
+def test_pages_exclude_other_page_content(assert_page_ownership):
     buffer = BytesIO()
     canvas = Canvas(buffer)
     canvas.drawString(30, 700, "KEEP_FIRST_PAGE")
@@ -1757,7 +2546,7 @@ def test_pages_exclude_other_page_content():
     assert get_retained_content(
         output, ["KEEP_FIRST_PAGE", "EXCLUDED_SECRET_SECOND_PAGE"]
     ) == {"KEEP_FIRST_PAGE"}
-    check_page_ownership(output)
+    assert_page_ownership(output)
     with Pdf.open(BytesIO(output)) as pdf:
         assert len(pdf.pages) == 1
         widget = pdf.pages[0].Annots[0]
@@ -1766,7 +2555,7 @@ def test_pages_exclude_other_page_content():
     assert PdfWrapper(output).widgets.keys() == {"field1"}
 
 
-def test_pages_keep_only_own_part_of_cross_page_fields():
+def test_pages_keep_only_own_part_of_cross_page_fields(assert_page_ownership):
     pages = PdfWrapper(build_cross_page_form()).pages
     page_1_markers = ["KEEP_PAGE_1", "KEEP_NAME", "radio_a"]
     page_2_markers = [
@@ -1790,8 +2579,8 @@ def test_pages_keep_only_own_part_of_cross_page_fields():
     ):
         stream = selection.read()
         assert get_retained_content(stream, markers) == set(expected)
-        check_page_ownership(stream)
-        check_page_ownership(PdfWrapper(stream).fill({}).read())
+        assert_page_ownership(stream)
+        assert_page_ownership(PdfWrapper(stream).fill({}).read())
 
     assert PdfWrapper(first).data == {
         "shared": "shared_value",
@@ -1872,7 +2661,9 @@ def test_pages_keep_only_own_part_of_cross_page_fields():
         ),
     ],
 )
-def test_pages_reject_other_cross_page_references(key, get_value, path):
+def test_pages_reject_other_cross_page_references(
+    key, get_value, path, assert_page_ownership
+):
     with Pdf.open(BytesIO(build_cross_page_form())) as pdf:
         pdf.pages[0].Annots[7][key] = get_value(pdf)
         stream = BytesIO()
@@ -1886,7 +2677,7 @@ def test_pages_reject_other_cross_page_references(key, get_value, path):
     ):
         form.pages  # noqa: B018 # pylint: disable=W0104
 
-    check_page_ownership(form.draw([RawElements.RawText("drawn", 1, 100, 100)]).read())
+    assert_page_ownership(form.draw([RawElements.RawText("drawn", 1, 100, 100)]).read())
 
 
 @pytest.mark.parametrize("targets", ["shared", "copied", None])
@@ -1926,6 +2717,60 @@ def test_pages_keep_actions_naming_copied_fields():
 
     with Pdf.open(BytesIO(PdfWrapper(stream.getvalue()).pages[0].read())) as pdf:
         assert [str(name) for name in pdf.pages[0].Annots[7].A.Fields] == names
+
+
+def _with_null_entry(stream, name, key):
+    # sets an entry of the field with this name (/T), at any level, to null
+    writer = PdfWriter(BytesIO(stream))
+    stack = list(writer.root_object["/AcroForm"]["/Fields"])
+    while stack:
+        field = stack.pop().get_object()
+        if field.get("/T") == name:
+            field[NameObject(key)] = NullObject()
+        stack.extend(field.get("/Kids", []))
+    with BytesIO() as f:
+        writer.write(f)
+        return f.getvalue()
+
+
+def test_pages_reject_target_below_field_with_null_name():
+    with Pdf.open(BytesIO(build_cross_page_form())) as pdf:
+        # "person" gets a null name, so its kid on page 2 is named "address"
+        pdf.pages[0].Annots[7].A = Dictionary(S=Name.Hide, T="address")
+        stream = BytesIO()
+        pdf.save(stream)
+
+    form = PdfWrapper(_with_null_entry(stream.getvalue(), "person", "/T"))
+    with pytest.raises(
+        ValueError,
+        match=r"Cannot copy page 1: /Annots\[7\]/A/T refers to content that is "
+        "not being copied",
+    ):
+        form.pages  # noqa: B018 # pylint: disable=W0104
+
+
+def test_pages_split_radio_field_with_null_options():
+    with Pdf.open(BytesIO(build_cross_page_form())) as pdf:
+        # "radio" inherits its options from "group", past its own null /Opt
+        radio = pdf.Root.AcroForm.Fields[3]
+        group = pdf.make_indirect(
+            Dictionary(T="group", Kids=[radio], Opt=["FIRST", "THIRD"])
+        )
+        radio.Parent = group
+        radio.Opt = ["placeholder"]
+        pdf.Root.AcroForm.Fields[3] = group
+        stream = BytesIO()
+        pdf.save(stream)
+
+    pages = PdfWrapper(_with_null_entry(stream.getvalue(), "radio", "/Opt")).pages
+    with Pdf.open(BytesIO(pages[0].read())) as pdf:
+        radio = next(
+            annot.Parent
+            for annot in pdf.pages[0].Annots
+            if annot.get("/Parent", {}).get("/T") == "radio"
+        )
+        assert len(radio.Kids) == 1
+        assert [str(each) for each in radio.Opt] == ["FIRST"]
 
 
 def get_values(field):
@@ -2236,16 +3081,21 @@ def test_pages_renumber_without_changing_other_fields():
         assert split[0].AP.N["/0"].objgen == kept[1].AP.N["/1"].objgen
 
 
-def test_clone_paths_keep_page_ownership():
+def test_clone_paths_keep_page_ownership(
+    assert_page_ownership, assert_annotations_preserved
+):
     template = build_cross_page_form(page_action=False)
+    merged = PdfWrapper(template) + PdfWrapper(template)
     for result in (
         PdfWrapper(template).draw([RawElements.RawText("drawn", 1, 100, 100)]),
         PdfWrapper(template).generate_coordinate_grid(),
-        PdfWrapper(template) + PdfWrapper(template),
+        merged,
         PdfWrapper(template).bulk_create_fields([Fields.TextField("new", 3, 10, 10)]),
     ):
         stream = result.read()
-        check_page_ownership(stream)
+        assert_page_ownership(stream)
+        if result is not merged:
+            assert_annotations_preserved(template, stream, changed={"new"})
         with Pdf.open(BytesIO(stream)) as pdf:
             page_1, page_2, page_3 = (page.obj for page in pdf.pages[:3])
             shared, name, radio, _, _, goto_next, goto_last, _, _ = page_1.Annots
@@ -2255,20 +3105,21 @@ def test_clone_paths_keep_page_ownership():
             assert goto_last.AA.U.D[0].objgen == page_3.objgen
 
 
-def test_rebuild_acroform_fields():
+def test_sync_acroform_fields(assert_catalog_fields):
     pdf = PdfWrapper(BlankPage() * 2)
 
     pdf.bulk_create_fields(
         [Fields.TextField("foo", 1, 100, 100), Fields.TextField("bar", 2, 100, 200)]
     )
 
+    assert_catalog_fields(pdf.read(), ["foo", "bar"])
     reader = PdfReader(BytesIO(pdf.read()))
 
     assert get_widget_key(reader.root_object[AcroForm][FieldsConst][0], False) == "foo"
     assert get_widget_key(reader.root_object[AcroForm][FieldsConst][1], False) == "bar"
 
 
-def test_rebuild_acroform_fields_ignores_note_title():
+def test_sync_acroform_fields_ignores_note_title(assert_catalog_fields):
     form = PdfWrapper(BlankPage()).annotate(
         [
             Annotations.TextAnnotation(
@@ -2278,12 +3129,1041 @@ def test_rebuild_acroform_fields_ignores_note_title():
     )
     stream = form.read()
 
-    result = egress.rebuild_acroform_fields(stream, {"signature"}, False)
+    result = egress.sync_acroform_fields(stream)
 
     assert result == stream
+    assert_catalog_fields(result, [])
     reader = PdfReader(BytesIO(result))
-    assert not reader.get_fields()
     assert reader.pages[0]["/Annots"][0].get_object()["/Contents"] == "keep note"
+
+
+def test_sync_acroform_fields_inline_widget(assert_catalog_fields):
+    # widget annotations should be indirect objects; an inline one is made one,
+    # shared by the page and the catalog
+    writer = PdfWriter()
+    page = writer.add_blank_page(200, 200)
+    page[NameObject("/Annots")] = ArrayObject(
+        [
+            DictionaryObject(
+                {
+                    NameObject("/Type"): NameObject("/Annot"),
+                    NameObject("/Subtype"): NameObject("/Widget"),
+                    NameObject("/FT"): NameObject("/Tx"),
+                    NameObject(T): TextStringObject("inline"),
+                    NameObject("/Rect"): ArrayObject(
+                        NumberObject(each) for each in (10, 10, 100, 30)
+                    ),
+                }
+            )
+        ]
+    )
+    with BytesIO() as f:
+        writer.write(f)
+        stream = f.getvalue()
+
+    result = egress.sync_acroform_fields(stream)
+
+    assert_catalog_fields(result, ["inline"])
+    assert list(PdfReader(BytesIO(result)).get_fields()) == ["inline"]
+    assert list(PdfWrapper(result).widgets) == ["inline"]
+
+
+def test_sync_acroform_fields_inline_parent(assert_catalog_fields):
+    # a parent field should be an indirect object; an inline one is made one,
+    # shared by its widget and the catalog
+    writer = PdfWriter()
+    writer.add_blank_page(200, 200)
+    widget = writer.add_annotation(
+        0,
+        {
+            NameObject("/Type"): NameObject("/Annot"),
+            NameObject("/Subtype"): NameObject("/Widget"),
+            NameObject("/Rect"): ArrayObject(
+                NumberObject(each) for each in (10, 10, 100, 30)
+            ),
+        },
+    )
+    widget[NameObject("/Parent")] = DictionaryObject(
+        {
+            NameObject("/FT"): NameObject("/Tx"),
+            NameObject(T): TextStringObject("parent"),
+            NameObject("/Kids"): ArrayObject([widget.indirect_reference]),
+        }
+    )
+    with BytesIO() as f:
+        writer.write(f)
+        stream = f.getvalue()
+
+    result = egress.sync_acroform_fields(stream)
+
+    assert_catalog_fields(result, ["parent"])
+    with Pdf.open(BytesIO(result)) as pdf:
+        parent = pdf.pages[0].Annots[0].Parent
+        assert parent.is_indirect
+        assert parent.objgen == pdf.Root.AcroForm.Fields[0].objgen
+
+
+@pytest.mark.parametrize("key", ["/CO", "/Fields"])
+def test_null_acroform_entries(template_stream, key):
+    # ISO 32000-1 treats a null dictionary value as an absent entry
+    writer = PdfWriter(BytesIO(template_stream))
+    writer.root_object["/AcroForm"][NameObject(key)] = NullObject()
+    with BytesIO() as f:
+        writer.write(f)
+        stream = f.getvalue()
+
+    result = PdfWrapper(stream).remove_fields(["test"]).read()
+
+    assert sorted(PdfReader(BytesIO(result)).get_fields()) == [
+        "check",
+        "check_2",
+        "check_3",
+        "test_2",
+        "test_3",
+    ]
+
+
+def _with_catalog_extras(stream):
+    # adds fields PyPDFForm doesn't list in `widgets`: a field without a widget,
+    # an unsupported push button on page 1, a parent of test_2 and test_3, and a
+    # calculation order
+    with Pdf.open(BytesIO(stream)) as pdf:
+        acroform = pdf.Root.AcroForm
+        page = pdf.pages[0].obj
+        fields = {str(field.T): field for field in acroform.Fields}
+        group = pdf.make_indirect(
+            Dictionary(
+                T=String("group"), Kids=Array([fields["test_2"], fields["test_3"]])
+            )
+        )
+        for name in ("test_2", "test_3"):
+            fields[name].Parent = group
+        button = pdf.make_indirect(
+            Dictionary(
+                Type=Name.Annot,
+                Subtype=Name.Widget,
+                FT=Name.Btn,
+                Ff=1 << 16,
+                T=String("submit_button"),
+                Rect=Array([0, 0, 20, 20]),
+                P=page,
+            )
+        )
+        page.Annots.append(button)
+        hidden = pdf.make_indirect(
+            Dictionary(FT=Name.Tx, T=String("hidden_business_id"), V=String("12345"))
+        )
+        acroform.Fields = Array(
+            [
+                field
+                for name, field in fields.items()
+                if name not in ("test_2", "test_3")
+            ]
+            + [group, button, hidden]
+        )
+        acroform.CO = Array([fields["test"], fields["test_2"], hidden])
+
+        with BytesIO() as f:
+            pdf.save(f)
+            return f.getvalue()
+
+
+def _get_full_name(field):
+    parts = []
+    while field is not None:
+        if "/T" in field:
+            parts.append(str(field.T))
+        field = field.get("/Parent")
+    return ".".join(reversed(parts))
+
+
+def _describe_catalog(stream):
+    # the values of the catalog's fields, by the fully qualified names
+    # assert_catalog_fields lists, the calculation order, and the other
+    # AcroForm entries
+    with Pdf.open(BytesIO(stream)) as pdf:
+        acroform = pdf.Root.get("/AcroForm", Dictionary())
+        values = {}
+        pending = list(acroform.get("/Fields", []))
+        while pending:
+            field = pending.pop()
+            kids = list(field.get("/Kids", []))
+            pending.extend(kid for kid in kids if "/T" in kid)
+            if not kids or any("/T" not in kid for kid in kids):
+                values[_get_full_name(field)] = str(field.get("/V", ""))
+
+        return {
+            "fields": values,
+            "calculation_order": [
+                _get_full_name(field) for field in acroform.get("/CO", [])
+            ],
+            "entries": sorted(key for key in acroform if key != "/Fields"),
+        }
+
+
+def test_read_preserves_catalog(template_stream, assert_catalog_fields):
+    stream = _with_catalog_extras(template_stream)
+    expected = _describe_catalog(stream)
+
+    assert expected["fields"]["hidden_business_id"] == "12345"
+    assert {"submit_button", "group.test_2", "group.test_3"} <= set(expected["fields"])
+    assert expected["calculation_order"] == [
+        "test",
+        "group.test_2",
+        "hidden_business_id",
+    ]
+    assert expected["entries"] == ["/CO", "/DA", "/DR"]
+    assert_catalog_fields(stream, list(expected["fields"]))
+    result = PdfWrapper(stream).read()
+    assert _describe_catalog(result) == expected
+    assert_catalog_fields(result, list(expected["fields"]))
+
+
+def test_read_preserves_fields_without_widgets_on_pages(sejda_template):
+    # the sejda template lists fields whose widgets are on no page
+    def get_names(stream):
+        with Pdf.open(BytesIO(stream)) as pdf:
+            return sorted(
+                str(field.get("/T", "")) for field in pdf.Root.AcroForm.Fields
+            )
+
+    names = get_names(sejda_template)
+
+    assert "Buyers Name" in names
+    assert get_names(PdfWrapper(sejda_template).read()) == names
+
+
+@pytest.mark.parametrize(
+    ("operation", "changed"),
+    [
+        (lambda obj: obj.fill({"test": "filled", "check": True}), {"test", "check"}),
+        (lambda obj: setattr(obj.widgets["test"], "font_size", 20), set()),
+        (
+            lambda obj: obj.bulk_create_fields([Fields.TextField("new", 1, 300, 300)]),
+            {"new"},
+        ),
+        (lambda obj: obj.draw([RawElements.RawText("drawn", 1, 300, 300)]), set()),
+        (lambda obj: obj.generate_coordinate_grid(), set()),
+        (
+            lambda obj: obj.update_widget_key(
+                "check", "renamed"
+            ).commit_widget_key_updates(),
+            {"check", "renamed"},
+        ),
+        (
+            lambda obj: obj.annotate(
+                [Annotations.TextAnnotation(1, 300, 300, contents="note")]
+            ),
+            set(),
+        ),
+    ],
+    ids=["fill", "style", "create", "draw", "grid", "rename", "annotate"],
+)
+def test_unrelated_edits_preserve_catalog(
+    template_stream, assert_catalog_fields, operation, changed
+):
+    stream = _with_catalog_extras(template_stream)
+    expected = _describe_catalog(stream)
+    obj = PdfWrapper(stream)
+
+    operation(obj)
+    output = obj.read()
+    result = _describe_catalog(output)
+
+    assert {
+        name: value for name, value in result["fields"].items() if name not in changed
+    } == {
+        name: value for name, value in expected["fields"].items() if name not in changed
+    }
+    assert result["calculation_order"] == expected["calculation_order"]
+    assert result["entries"] == expected["entries"]
+    assert_catalog_fields(output, list(result["fields"]))
+
+
+@pytest.mark.parametrize(
+    ("keys", "use_full_widget_name", "removed", "calculation_order"),
+    [
+        (["test"], False, {"test"}, ["group.test_2", "hidden_business_id"]),
+        (["test_2"], False, {"group.test_2"}, ["test", "hidden_business_id"]),
+        (["group.test_2"], True, {"group.test_2"}, ["test", "hidden_business_id"]),
+        (
+            ["test_2", "test_3"],
+            False,
+            {"group.test_2", "group.test_3"},
+            ["test", "hidden_business_id"],
+        ),
+        (
+            ["hidden_business_id"],
+            False,
+            {"hidden_business_id"},
+            ["test", "group.test_2"],
+        ),
+        (
+            ["submit_button"],
+            False,
+            {"submit_button"},
+            ["test", "group.test_2", "hidden_business_id"],
+        ),
+        (
+            [
+                "test",
+                "check",
+                "test_2",
+                "check_2",
+                "test_3",
+                "check_3",
+                "submit_button",
+                "hidden_business_id",
+            ],
+            False,
+            None,
+            [],
+        ),
+    ],
+    ids=[
+        "field",
+        "child",
+        "child_full_name",
+        "all_children",
+        "without_widget",
+        "unsupported",
+        "all",
+    ],
+)
+def test_remove_fields_updates_catalog(
+    template_stream,
+    assert_catalog_fields,
+    keys,
+    use_full_widget_name,
+    removed,
+    calculation_order,
+):
+    stream = _with_catalog_extras(template_stream)
+    expected = _describe_catalog(stream)
+    removed = set(expected["fields"]) if removed is None else removed
+    obj = PdfWrapper(stream, use_full_widget_name=use_full_widget_name)
+
+    obj.remove_fields(keys)
+    output = obj.read()
+    result = _describe_catalog(output)
+
+    remaining = {
+        name: value for name, value in expected["fields"].items() if name not in removed
+    }
+    assert result["fields"] == remaining
+    # an emptied parent would be listed as a field without widgets
+    assert_catalog_fields(output, list(remaining))
+    assert result["calculation_order"] == calculation_order
+    assert ("/CO" in result["entries"]) == bool(calculation_order)
+
+
+def test_remove_fields_radio_group(
+    template_with_radiobutton_stream, assert_catalog_fields
+):
+    obj = PdfWrapper(template_with_radiobutton_stream)
+    expected = [key for key in obj.widgets if key != "radio_1"]
+
+    obj.remove_fields(["radio_1"])
+
+    assert list(obj.widgets) == expected
+    assert_catalog_fields(obj.read(), expected)
+
+
+def test_remove_fields_keeps_widget_references(template_stream, assert_catalog_fields):
+    # widgets that stay on a page are the same objects as in the field tree
+    obj = PdfWrapper(template_stream).remove_fields(["test"])
+
+    assert_catalog_fields(
+        obj.read(), ["check", "test_2", "check_2", "test_3", "check_3"]
+    )
+
+
+def test_remove_all_fields_removes_values(template_stream, assert_catalog_fields):
+    obj = PdfWrapper(template_stream).fill({"test": "REVIEW_SENTINEL"})
+
+    obj.remove_fields(list(obj.widgets))
+    stream = obj.read()
+
+    assert not obj.widgets
+    assert_catalog_fields(stream, [])
+    assert not PdfReader(BytesIO(stream)).get_fields()
+    assert not PdfWrapper(stream).widgets
+    # removed fields aren't kept as unreachable objects
+    assert not get_retained_content(stream, ["REVIEW_SENTINEL"])
+
+
+@pytest.mark.cli_test
+def test_remove_fields_cli_without_widgets_on_pages(template_stream, tmp_path):
+    source = tmp_path / "input.pdf"
+    source.write_bytes(_with_catalog_extras(template_stream))
+    output = tmp_path / "output.pdf"
+
+    result = CliRunner().invoke(
+        cli_app,
+        [
+            "remove",
+            "field",
+            str(source),
+            "--field",
+            "hidden_business_id",
+            "-o",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == 0
+    fields = _describe_catalog(output.read_bytes())["fields"]
+    assert "hidden_business_id" not in fields
+    assert "test" in fields
+
+    result = CliRunner().invoke(
+        cli_app,
+        ["remove", "field", str(source), "--field", "missing_name", "-o", str(output)],
+    )
+
+    assert result.exit_code == 2
+    assert "Form field 'missing_name' does not exist" in result.output
+
+
+@pytest.mark.cli_test
+def test_remove_fields_cli_widget_not_in_catalog(template_stream, tmp_path):
+    # an unsupported widget on a page whose field isn't listed in /Fields
+    with Pdf.open(BytesIO(_with_catalog_extras(template_stream))) as pdf:
+        pdf.Root.AcroForm.Fields = Array(
+            [field for field in pdf.Root.AcroForm.Fields if field.T != "submit_button"]
+        )
+        source = tmp_path / "input.pdf"
+        pdf.save(source)
+    output = tmp_path / "output.pdf"
+
+    result = CliRunner().invoke(
+        cli_app,
+        ["remove", "field", str(source), "--field", "submit_button", "-o", str(output)],
+    )
+
+    assert result.exit_code == 0
+    with Pdf.open(output) as pdf:
+        assert all(
+            annot.get("/T") != "submit_button"
+            for page in pdf.pages
+            for annot in page.get("/Annots", [])
+        )
+
+
+def test_remove_fields_without_widgets_on_pages(sejda_template):
+    obj = PdfWrapper(sejda_template)
+    widgets = list(obj.widgets)
+
+    obj.remove_fields(["Date", "Buyers Name"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        names = [str(field.get("/T", "")) for field in pdf.Root.AcroForm.Fields]
+    assert "Date" not in names
+    assert "Buyers Name" not in names
+    # other fields without widgets on pages are kept
+    assert "Make" in names
+    assert "date" in names
+    assert list(obj.widgets) == widgets
+
+
+def _with_actions(stream, add):
+    # calls add(pdf, fields) on the form from _with_catalog_extras, where
+    # fields maps the fully qualified name of each field to it
+    with Pdf.open(BytesIO(_with_catalog_extras(stream))) as pdf:
+        fields = {str(field.T): field for field in pdf.Root.AcroForm.Fields}
+        fields.update({f"group.{kid.T}": kid for kid in fields["group"].Kids})
+        add(pdf, fields)
+
+        with BytesIO() as f:
+            pdf.save(f)
+            return f.getvalue()
+
+
+def _get_button(pdf):
+    return next(
+        annot for annot in pdf.pages[0].Annots if annot.get("/T") == "submit_button"
+    )
+
+
+def _describe_targets(targets):
+    # names as they are, and references as @ followed by their full names
+    return [
+        f"@{_get_full_name(each)}" if isinstance(each, Dictionary) else str(each)
+        for each in (targets if isinstance(targets, Array) else [targets])
+    ]
+
+
+def _describe_actions(action):
+    # the JavaScript or type of the action and the ones after it, in the
+    # order they are performed, with "again" for one reached a second time
+    result = []
+    seen = set()
+    pending = [] if action is None else [action]
+    while pending:
+        each = pending.pop()
+        if isinstance(each, Array):
+            pending.extend(reversed(list(each)))
+            continue
+        if each.is_indirect and each.objgen in seen:
+            result.append("again")
+            continue
+        seen.add(each.objgen)
+        result.append(str(each.get("/JS", each.get("/N", each.S))))
+        if "/Next" in each:
+            pending.append(each.Next)
+    return result
+
+
+def _build_action(spec, test):
+    # spec is (label, following): "reset" names only test, any other label is
+    # the JavaScript of the action, and following is None, a spec, or a list
+    label, following = spec
+    action = (
+        Dictionary(S=Name.ResetForm, Fields=Array([test]))
+        if label == "reset"
+        else Dictionary(S=Name.JavaScript, JS=String(label))
+    )
+    if isinstance(following, list):
+        action.Next = Array([_build_action(each, test) for each in following])
+    elif following is not None:
+        action.Next = _build_action(following, test)
+    return action
+
+
+def _describe_removal(template_stream, add, read):
+    # the actions read(pdf) finds before removing test, with each action that
+    # names only test shown as the Hide it becomes, and after
+    stream = _with_actions(template_stream, add)
+    with Pdf.open(BytesIO(stream)) as pdf:
+        before = _describe_actions(read(pdf))
+    with Pdf.open(BytesIO(PdfWrapper(stream).remove_fields(["test"]).read())) as pdf:
+        after = _describe_actions(read(pdf))
+    return ["/Hide" if each == "/ResetForm" else each for each in before], after
+
+
+@pytest.mark.parametrize(
+    ("action", "keys", "use_full_widget_name", "expected"),
+    [
+        (("/ResetForm", 0, ["@test", "@check"]), ["test"], False, ["@check"]),
+        (("/ResetForm", 0, ["@test"]), ["test"], False, None),
+        (("/ResetForm", 0, ["test", "check"]), ["test"], False, ["check"]),
+        (("/SubmitForm", 0, ["test"]), ["test"], False, None),
+        (("/SubmitForm", 5, ["@test", "test"]), ["test"], False, []),
+        (("/Hide", None, "@test"), ["test"], False, None),
+        (("/Hide", None, ["@test", "check"]), ["test"], False, ["check"]),
+        (("/Hide", None, "test"), ["check"], False, ["test"]),
+        (
+            ("/ResetForm", 0, ["group", "group.test_2", "@group", "@group.test_2"]),
+            ["test_2"],
+            False,
+            ["group", "@group"],
+        ),
+        (
+            ("/ResetForm", 0, ["group", "@group.test_3"]),
+            ["test_2", "test_3"],
+            False,
+            None,
+        ),
+        (
+            ("/ResetForm", 0, ["group.test_2", "test_2", "test"]),
+            ["group.test_2"],
+            True,
+            ["test_2", "test"],
+        ),
+        (
+            ("/ResetForm", 0, ["unknown", "@hidden_business_id"]),
+            ["hidden_business_id"],
+            False,
+            ["unknown"],
+        ),
+    ],
+    ids=[
+        "reference",
+        "only_reference",
+        "name",
+        "only_name",
+        "exclude",
+        "hide_reference",
+        "hide_array",
+        "hide_other_field",
+        "parent_kept",
+        "parent_removed",
+        "full_name",
+        "unknown_name",
+    ],
+)
+def test_remove_fields_updates_action_targets(
+    template_stream, action, keys, use_full_widget_name, expected
+):
+    kind, flags, targets = action
+    key = "/T" if kind == "/Hide" else "/Fields"
+
+    def add(pdf, fields):
+        values = [
+            fields[each[1:]] if each.startswith("@") else String(each)
+            for each in (targets if isinstance(targets, list) else [targets])
+        ]
+        button = _get_button(pdf)
+        button.A = Dictionary(S=Name(kind))
+        button.A[key] = Array(values) if isinstance(targets, list) else values[0]
+        if flags is not None:
+            button.A.Flags = flags
+
+    obj = PdfWrapper(
+        _with_actions(template_stream, add), use_full_widget_name=use_full_widget_name
+    )
+    obj.remove_fields(keys)
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        result = _get_button(pdf).get("/A")
+        assert (result if result is None else _describe_targets(result[key])) == (
+            expected
+        )
+
+
+@pytest.mark.parametrize(
+    ("keys", "expected"),
+    [(["test_2"], ["@group.test_3"]), (["test_2", "test_3"], None)],
+)
+def test_remove_fields_action_targets_sharing_kids(template_stream, keys, expected):
+    # removal empties /Kids in place, so an action whose /Fields is the same
+    # array would otherwise act on every field
+    def add(pdf, fields):
+        fields["group"].Kids = pdf.make_indirect(Array(fields["group"].Kids))
+        _get_button(pdf).A = Dictionary(S=Name.ResetForm, Fields=fields["group"].Kids)
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(keys)
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        result = _get_button(pdf).get("/A")
+        assert (result if result is None else _describe_targets(result.Fields)) == (
+            expected
+        )
+
+
+def test_remove_fields_action_targets_kids_cycle(template_stream):
+    # a field listed in its own /Kids
+    def add(pdf, fields):
+        fields["group"].Kids.append(fields["group"])
+        _get_button(pdf).A = Dictionary(
+            S=Name.ResetForm, Fields=Array([String("group.test_2"), String("test")])
+        )
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(["test_2"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        assert _describe_targets(_get_button(pdf).A.Fields) == ["test"]
+
+
+def test_remove_fields_removes_action_targets_from_output(template_stream):
+    # a reset button naming test by reference kept the removed field and its
+    # value in the output
+    def add(pdf, fields):
+        _get_button(pdf).A = Dictionary(
+            S=Name.ResetForm, Fields=Array([fields["test"]])
+        )
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).fill({"test": "SECRET"})
+    obj.remove_fields(["test"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf, BytesIO() as f:
+        assert "/A" not in _get_button(pdf)
+        # qpdf writes only the objects reachable from the trailer
+        pdf.save(f, object_stream_mode=ObjectStreamMode.disable)
+        assert b"SECRET" not in f.getvalue()
+
+
+def test_remove_fields_updates_actions_everywhere(template_stream):
+    # an action that only names test, followed by JavaScript, in each kind of
+    # entry that holds actions, does nothing in place
+    def add(pdf, fields):
+        def action():
+            return _build_action(("reset", ("after", None)), fields["test"])
+
+        button = _get_button(pdf)
+        button.A = action()
+        button.AA = Dictionary(D=action())
+        pdf.pages[0].obj.AA = Dictionary(O=action())
+        pdf.pages[0].obj.PresSteps = Dictionary(
+            Type=Name.NavNode, NA=action(), PA=action()
+        )
+        fields["group"].AA = Dictionary(K=action())
+        pdf.Root.OpenAction = action()
+        pdf.Root.AA = Dictionary(WC=action())
+        outlines = pdf.make_indirect(Dictionary(Type=Name.Outlines, Count=1))
+        item = pdf.make_indirect(
+            Dictionary(Title=String("item"), Parent=outlines, A=action())
+        )
+        outlines.First = item
+        outlines.Last = item
+        pdf.Root.Outlines = outlines
+        pdf.Root.Names = Dictionary(
+            JavaScript=Dictionary(
+                Names=Array(
+                    [
+                        String("document"),
+                        Dictionary(
+                            S=Name.JavaScript, JS=String("document"), Next=action()
+                        ),
+                    ]
+                )
+            )
+        )
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(["test"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        button = _get_button(pdf)
+        group = next(
+            field for field in pdf.Root.AcroForm.Fields if field.get("/T") == "group"
+        )
+        result = {
+            "annotation": button.A,
+            "annotation_trigger": button.AA.D,
+            "page_trigger": pdf.pages[0].obj.AA.O,
+            "navigation_forward": pdf.pages[0].obj.PresSteps.NA,
+            "navigation_backward": pdf.pages[0].obj.PresSteps.PA,
+            "field_trigger": group.AA.K,
+            "open_action": pdf.Root.OpenAction,
+            "catalog_trigger": pdf.Root.AA.WC,
+            "outline": pdf.Root.Outlines.First.A,
+            "named_javascript": pdf.Root.Names.JavaScript.Names[1],
+        }
+        assert {key: _describe_actions(value) for key, value in result.items()} == {
+            key: ["document", "/Hide", "after"]
+            if key == "named_javascript"
+            else ["/Hide", "after"]
+            for key in result
+        }
+
+
+@pytest.mark.parametrize(
+    ("a", "aa", "expected"),
+    [
+        (
+            ("reset", [("one", ("two", None)), ("three", None)]),
+            None,
+            (["/Hide", "one", "two", "three"], None),
+        ),
+        (
+            ("one", [("reset", ("two", None)), ("three", None)]),
+            None,
+            (["one", "/Hide", "two", "three"], None),
+        ),
+        (
+            ("one", [("reset", ("reset", None)), ("two", None)]),
+            None,
+            (["one", "/Hide", "/Hide", "two"], None),
+        ),
+        (
+            None,
+            {"/D": ("reset", None), "/U": ("one", None)},
+            ([], {"/U": ["one"]}),
+        ),
+    ],
+    ids=["chain_after", "chain_inside", "stopped_chain", "trigger"],
+)
+def test_remove_fields_chains_with_stopped_actions(template_stream, a, aa, expected):
+    # an action that names only test does nothing in place, and an entry whose
+    # actions all do nothing is removed
+    def add(pdf, fields):
+        button = _get_button(pdf)
+        if a is not None:
+            button.A = _build_action(a, fields["test"])
+        if aa is not None:
+            button.AA = Dictionary(
+                {
+                    trigger: _build_action(spec, fields["test"])
+                    for trigger, spec in aa.items()
+                }
+            )
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(["test"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        button = _get_button(pdf)
+        assert (
+            _describe_actions(button.get("/A")),
+            {
+                str(trigger): _describe_actions(action)
+                for trigger, action in button.AA.items()
+            }
+            if "/AA" in button
+            else None,
+        ) == expected
+
+
+def test_remove_fields_no_op_keeps_type_and_next(template_stream):
+    def add(pdf, fields):
+        _get_button(pdf).A = Dictionary(
+            Type=Name.Action,
+            S=Name.SubmitForm,
+            F=String("https://example.com/submit"),
+            Flags=4,
+            Fields=Array([fields["test"]]),
+            Next=Dictionary(S=Name.JavaScript, JS=String("after")),
+        )
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(["test"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        action = _get_button(pdf).A
+        assert sorted(action.keys()) == ["/Next", "/S", "/T", "/Type"]
+        assert (action.Type, action.S, list(action.T)) == ("/Action", "/Hide", [])
+        assert _describe_actions(action.Next) == ["after"]
+
+
+def test_remove_fields_shared_action_cycle(template_stream):
+    # one action that stops acting, in two entries and followed by itself
+    def add(pdf, fields):
+        reset = pdf.make_indirect(_build_action(("reset", None), fields["test"]))
+        reset.Next = reset
+        button = _get_button(pdf)
+        button.A = Dictionary(S=Name.JavaScript, JS=String("one"), Next=reset)
+        button.AA = Dictionary(D=reset)
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(["test"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        button = _get_button(pdf)
+        assert _describe_actions(button.A) == ["one", "/Hide", "again"]
+        assert "/AA" not in button
+
+
+def test_remove_fields_mutual_action_cycle(template_stream):
+    # actions that stop acting and follow each other, each followed by one
+    # that keeps acting
+    def add(pdf, fields):
+        first, second = (
+            pdf.make_indirect(_build_action(("reset", None), fields["test"]))
+            for _ in range(2)
+        )
+        first.Next = Array([second, Dictionary(S=Name.JavaScript, JS=String("x"))])
+        second.Next = Array([first, Dictionary(S=Name.JavaScript, JS=String("y"))])
+        _get_button(pdf).A = first
+
+    expected, result = _describe_removal(
+        template_stream, add, lambda pdf: _get_button(pdf).A
+    )
+
+    assert expected == ["/Hide", "/Hide", "again", "y", "x"]
+    assert result == expected
+
+
+def test_remove_fields_cycle_through_kept_action(template_stream):
+    # an action that stops acting, followed by one that leads back to it. A
+    # single /Next is written as an array, since pypdf 6.19 can't clone a
+    # /Next dictionary whose own /Next is an array.
+    def add(pdf, fields):
+        reset = pdf.make_indirect(_build_action(("reset", None), fields["test"]))
+        first = pdf.make_indirect(
+            Dictionary(S=Name.Named, N=Name.FirstPage, Next=Array([reset]))
+        )
+        reset.Next = Array([first, Dictionary(S=Name.Named, N=Name.LastPage)])
+        _get_button(pdf).AA = Dictionary(D=reset)
+
+    expected, result = _describe_removal(
+        template_stream, add, lambda pdf: _get_button(pdf).AA.D
+    )
+
+    assert expected == ["/Hide", "/FirstPage", "again", "/LastPage"]
+    assert result == expected
+
+
+@pytest.mark.parametrize("kept", [True, False])
+def test_remove_fields_shared_action_branches(template_stream, kept):
+    # each action that stops acting is followed twice by the next one, so
+    # there are 4,096 paths to the last one. The first /Next is an array,
+    # since pypdf 6.19 can't clone a /Next dictionary whose own /Next is an
+    # array.
+    def add(pdf, fields):
+        action = pdf.make_indirect(_build_action(("reset", None), fields["test"]))
+        if kept:
+            action.Next = pdf.make_indirect(Dictionary(S=Name.Named, N=Name.LastPage))
+        for _ in range(12):
+            parent = pdf.make_indirect(_build_action(("reset", None), fields["test"]))
+            parent.Next = Array([action, action])
+            action = parent
+        _get_button(pdf).A = Dictionary(
+            S=Name.JavaScript, JS=String("one"), Next=Array([action])
+        )
+
+    expected, result = _describe_removal(
+        template_stream, add, lambda pdf: _get_button(pdf).A
+    )
+
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("other", "expected"),
+    [
+        ({"/AA": {"/U": "up"}}, (["/Hide"], ["/U"])),
+        ({"/AA": {"/U": "reset"}}, ([], None)),
+        ({"/AA": {"/D": "down"}}, ([], ["/D"])),
+        ({"/Dest": True}, (["/Hide"], None)),
+    ],
+    ids=["mouse_up", "mouse_up_removed", "other_trigger", "destination"],
+)
+def test_remove_fields_keeps_overriding_action(template_stream, other, expected):
+    # an annotation's /A takes precedence over its /AA /U, and a viewer may
+    # read either /A or /Dest when both are present, so deleting /A would let
+    # the other one act
+    def add(pdf, fields):
+        button = _get_button(pdf)
+        button.A = _build_action(("reset", None), fields["test"])
+        if "/Dest" in other:
+            button.Dest = Array([pdf.pages[0].obj, Name.Fit])
+        else:
+            button.AA = Dictionary(
+                {
+                    trigger: _build_action((label, None), fields["test"])
+                    for trigger, label in other["/AA"].items()
+                }
+            )
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(["test"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        button = _get_button(pdf)
+        assert (
+            _describe_actions(button.get("/A")),
+            sorted(str(trigger) for trigger in button.AA) if "/AA" in button else None,
+        ) == expected
+
+
+def test_remove_fields_keeps_repeated_actions(template_stream):
+    # PDFium stops running a trigger's actions when it reaches one a second
+    # time, so "k" never runs, before or after removal
+    def add(pdf, fields):
+        reset = pdf.make_indirect(_build_action(("reset", None), fields["test"]))
+        _get_button(pdf).A = Dictionary(
+            S=Name.JavaScript,
+            JS=String("j"),
+            Next=Array([reset, reset, Dictionary(S=Name.JavaScript, JS=String("k"))]),
+        )
+
+    expected, result = _describe_removal(
+        template_stream, add, lambda pdf: _get_button(pdf).A
+    )
+
+    assert expected == ["j", "/Hide", "again", "k"]
+    assert result == expected
+
+
+@pytest.mark.parametrize("separately", [False, True])
+def test_remove_fields_actions_in_separate_calls(template_stream, separately):
+    # removing two fields in two calls leaves the same actions as in one
+    def add(pdf, fields):
+        second = pdf.make_indirect(
+            Dictionary(S=Name.ResetForm, Fields=Array([fields["check"]]))
+        )
+        pdf.Root.OpenAction = Dictionary(
+            S=Name.ResetForm, Fields=Array([fields["test"]]), Next=Array([second])
+        )
+
+    obj = PdfWrapper(_with_actions(template_stream, add))
+    if separately:
+        with Pdf.open(BytesIO(obj.remove_fields(["test"]).read())) as pdf:
+            assert _describe_actions(pdf.Root.OpenAction) == ["/Hide", "/ResetForm"]
+        obj.remove_fields(["check"])
+    else:
+        obj.remove_fields(["test", "check"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        assert "/OpenAction" not in pdf.Root
+
+
+@pytest.mark.parametrize("separately", [False, True])
+def test_remove_fields_overriding_action_in_separate_calls(template_stream, separately):
+    # an /A kept only for the /AA /U it takes precedence over goes with it
+    def add(pdf, fields):
+        button = _get_button(pdf)
+        button.A = _build_action(("reset", None), fields["test"])
+        button.AA = Dictionary(
+            U=Dictionary(S=Name.ResetForm, Fields=Array([fields["check"]]))
+        )
+
+    obj = PdfWrapper(_with_actions(template_stream, add))
+    if separately:
+        with Pdf.open(BytesIO(obj.remove_fields(["test"]).read())) as pdf:
+            button = _get_button(pdf)
+            assert _describe_actions(button.A) == ["/Hide"]
+            assert _describe_actions(button.AA.U) == ["/ResetForm"]
+        obj.remove_fields(["check"])
+    else:
+        obj.remove_fields(["test", "check"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        button = _get_button(pdf)
+        assert "/A" not in button
+        assert "/AA" not in button
+
+
+def test_remove_fields_long_action_chain(template_stream):
+    # more actions that stop acting in one chain than Python's recursion
+    # limit. The last action is indirect too, since pypdf 6.19 can't clone an
+    # indirect action whose /Next is a direct one.
+    def add(pdf, fields):
+        action = pdf.make_indirect(Dictionary(S=Name.JavaScript, JS=String("after")))
+        for _ in range(1050):
+            reset = pdf.make_indirect(_build_action(("reset", None), fields["test"]))
+            reset.Next = action
+            action = reset
+        _get_button(pdf).A = action
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(["test"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        assert _describe_actions(_get_button(pdf).A) == ["/Hide"] * 1050 + ["after"]
+
+
+@pytest.mark.parametrize("kind", ["indirect", "array"])
+def test_remove_fields_resolves_action_types(template_stream, kind):
+    # an indirect /S is resolved, and an /S that isn't a name, as in this
+    # structure attribute, is not an action type
+    def add(pdf, fields):
+        if kind == "indirect":
+            _get_button(pdf).A = Dictionary(
+                S=pdf.make_indirect(Name.ResetForm), Fields=Array([fields["test"]])
+            )
+        else:
+            pdf.Root.StructTreeRoot = Dictionary(
+                Type=Name.StructTreeRoot,
+                K=Dictionary(
+                    Type=Name.StructElem,
+                    S=Name.P,
+                    A=Dictionary(O=Name.Layout, S=Array([Name.ResetForm])),
+                ),
+            )
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(["test"])
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        if kind == "indirect":
+            assert "/A" not in _get_button(pdf)
+        else:
+            attribute = pdf.Root.StructTreeRoot.K.A
+            assert [str(each) for each in attribute.S] == ["/ResetForm"]
+
+
+def test_remove_fields_hide_widget_not_in_catalog(template_stream):
+    # a Hide action naming a page widget whose field isn't in /Fields
+    def add(pdf, fields):
+        pdf.Root.AcroForm.Fields = Array(
+            [field for field in pdf.Root.AcroForm.Fields if field.T != "submit_button"]
+        )
+        fields["test"].A = Dictionary(
+            S=Name.Hide, T=Array([String("submit_button"), String("check")])
+        )
+
+    obj = PdfWrapper(_with_actions(template_stream, add)).remove_fields(
+        ["submit_button"]
+    )
+
+    with Pdf.open(BytesIO(obj.read())) as pdf:
+        test = next(annot for annot in pdf.pages[0].Annots if annot.get("/T") == "test")
+        assert _describe_targets(test.A.T) == ["check"]
 
 
 @pytest.mark.parametrize("field_name", ["test", "check", "radio_1"])
@@ -2312,21 +4192,30 @@ def test_scalar_geometry(template_stream, template_with_radiobutton_stream, fiel
         assert stream == float_form.read()
         reopened = PdfWrapper(stream)
         for name, expected_value in expected.items():
-            assert getattr(reopened.widgets[field_name], name) == pytest.approx(
-                expected_value
-            )
+            for widget in (form.widgets[field_name], reopened.widgets[field_name]):
+                assert getattr(widget, name) == pytest.approx(expected_value)
 
 
 def test_invalid_scalar_geometry(template_stream):
+    form = PdfWrapper(template_stream)
+    expected = form.read()
+    widget = form.widgets["check"]
+    state = dict(vars(widget))
+
     for attribute in ("x", "y", "width", "height", "size"):
         for value in ("123", True, [123]):
-            form = PdfWrapper(template_stream)
-            setattr(form.widgets["check"], attribute, value)
-
             with pytest.raises(
                 TypeError, match="Geometry values must be integers or floats"
             ):
-                form.read()
+                setattr(widget, attribute, value)
+
+        with pytest.raises(TypeError, match=f"property '{attribute}' cannot be None"):
+            setattr(widget, attribute, None)
+
+    # rejected before the widget changes, so reads don't retry them
+    assert vars(widget) == state
+    assert not widget.hooks_to_trigger
+    assert form.read() == expected
 
 
 @pytest.mark.parametrize(
@@ -2336,7 +4225,9 @@ def test_invalid_scalar_geometry(template_stream):
         ("sample_template_sejda.pdf", "purchase_option", False),
     ],
 )
-def test_radio_group_selection(pdf_samples, filename, name, spanning_pages):
+def test_radio_group_selection(
+    pdf_samples, filename, name, spanning_pages, assert_round_trip
+):
     with Pdf.open(os.path.join(pdf_samples, filename)) as pdf:
         group = next(field for field in pdf.Root.AcroForm.Fields if name == field.T)
         children = list(group.Kids)
@@ -2376,13 +4267,12 @@ def test_radio_group_selection(pdf_samples, filename, name, spanning_pages):
                     for child in group.Kids
                 ]
                 assert [str(value) for value in group.get("/Opt", [])] == exports
-            reopened = PdfWrapper(result)
-            assert reopened.widgets[name].value == index
+            assert_round_trip(form, {name: index})
             if reopen:
-                form = reopened
+                form = PdfWrapper(result)
 
 
-def test_choice_indices(sample_template_with_dropdown):
+def test_choice_indices(sample_template_with_dropdown, assert_round_trip):
     for field_name, count in (("dropdown_1", 4), ("radio_1", 3)):
         for index in (0, count - 1):
             form = PdfWrapper(sample_template_with_dropdown)
@@ -2400,7 +4290,7 @@ def test_choice_indices(sample_template_with_dropdown):
                 assert validation.call_count == 1
 
             assert form.widgets[field_name] is widget
-            assert widget.value == index
+            assert_round_trip(form, {field_name: index})
             annotations = [
                 reference.get_object()
                 for page in PdfReader(BytesIO(form.read())).pages
@@ -2423,7 +4313,6 @@ def test_choice_indices(sample_template_with_dropdown):
                     for i, annotation in enumerate(annotations)
                     if i != index
                 )
-                assert PdfWrapper(form.read()).widgets[field_name].value == index
 
     form = PdfWrapper(sample_template_with_dropdown)
     widget = form.widgets["dropdown_1"]
@@ -2508,7 +4397,7 @@ def test_stale_choice_indices(
     assert widget.value == (0 if option_count else None)
 
 
-def test_dropdown_display_and_export_values():
+def test_dropdown_display_and_export_values(assert_round_trip):
     def get_field(output):
         return PdfReader(BytesIO(output)).pages[0]["/Annots"][0].get_object()
 
@@ -2526,9 +4415,8 @@ def test_dropdown_display_and_export_values():
         assert [list(each) for each in field["/Opt"]] == opt
         assert field["/V"] == opt[index][0]
         assert field["/I"] == [index]
-        reopened = PdfWrapper(output)
-        assert reopened.data == {"choice": index}
-        assert reopened.widgets["choice"].choices == (
+        assert_round_trip(form, {"choice": index})
+        assert PdfWrapper(output).widgets["choice"].choices == (
             ("Pear", "P"),
             ("Grape", "G"),
             ("Grape", "R"),

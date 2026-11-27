@@ -66,9 +66,9 @@ class DescribePhysicalConnectionLOAResponseBodyPhysicalConnectionLOAType(DaraMod
     ):
         # The name of the construction company.
         self.company_localized_name = company_localized_name
-        # The name of the organization that requires the Express Connect circuit deployment.
+        # The name of the enterprise that requires the Express Connect circuit.
         self.company_name = company_name
-        # The time when the construction starts. The time is in the ISO 8601 standard in the YYYY-MM-DDThh:mm:ssZ format. The time is displayed in UTC.
+        # The time when the construction team enters the site. The time follows the ISO 8601 standard in the YYYY-MM-DDThh:mm:ssZ format. The time is displayed in UTC.
         self.construction_time = construction_time
         # The LOA error code.
         self.description = description
@@ -76,15 +76,15 @@ class DescribePhysicalConnectionLOAResponseBodyPhysicalConnectionLOAType(DaraMod
         self.instance_id = instance_id
         # The line code of the carrier.
         self.line_code = line_code
-        # The cable label in the data center building.
+        # The cable label in the data center.
         self.line_label = line_label
         # The contact information for line O&M.
         self.line_spcontact_info = line_spcontact_info
-        # The telecommunications service provider. Valid values:
-        # - **中国电信**
-        # - **中国联通**
-        # - **中国移动**
-        # - **中国其他**
+        # The carrier. Valid values:
+        # - **China Telecom**.
+        # - **China Unicom**.
+        # - **China Mobile**.
+        # - **Other carriers in China**.
         self.line_service_provider = line_service_provider
         # The type of the Express Connect circuit. Valid values:
         # 
@@ -96,16 +96,16 @@ class DescribePhysicalConnectionLOAResponseBodyPhysicalConnectionLOAType(DaraMod
         # The download URL of the LOA file.
         self.loa_url = loa_url
         self.pminfo = pminfo
-        # The construction company.
+        # The construction company that enters the site.
         self.si = si
         # The status of the LOA. Valid values:
         # 
-        # - **Applying**: The LOA application is being processed.
+        # - **Applying**: The LOA application is in progress.
         # - **Accept**: The LOA application is approved.
         # - **Available**: The LOA is available.
         # - **Rejected**: The LOA application is rejected.
-        # - **Completing**: The circuit is under construction.
-        # - **Complete**: The circuit construction is complete.
+        # - **Completing**: The Express Connect circuit is under construction.
+        # - **Complete**: The construction of the Express Connect circuit is completed.
         # - **Deleted**: The LOA is deleted.
         self.status = status
 

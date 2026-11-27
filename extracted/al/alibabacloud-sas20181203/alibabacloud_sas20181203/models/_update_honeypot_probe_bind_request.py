@@ -23,37 +23,37 @@ class UpdateHoneypotProbeBindRequest(DaraModel):
         service_ip_list: List[str] = None,
         set_status: int = None,
     ):
-        # The unique ID of the bound service.
+        # The unique ID of the service binding.
         self.bind_id = bind_id
         # The list of bound ports.
         self.bind_port_list = bind_port_list
         # The service binding type. Valid values:
         # 
-        # - **forward_honey**: forwards traffic to the honeypot.
-        # - **scan_port**: listens for scans.
+        # - **forward_honey**: Forwards traffic to a honeypot.
+        # - **scan_port**: Listens for scans.
         self.bind_type = bind_type
-        # The page number of the page to return. The value starts from **1**. Default value: **1**, which indicates that the first page is returned.
+        # The page number of the page to return. Pages start from page **1**. Default value: **1**.
         self.current_page = current_page
-        # The honeypot ID.
-        # > You can call the [ListHoneypot](~~ListHoneypot~~) operation to obtain this value.
+        # The ID of the honeypot.
+        # > You can call the [ListHoneypot](~~ListHoneypot~~) operation to retrieve the value.
         self.honeypot_id = honeypot_id
-        # The probe service port ID.
+        # The ID of the probe service port.
         self.id = id
         # The language of the request and response. Valid values:
         # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang
-        # The maximum number of entries to return on each page in a paging query. Default value: 20. If you leave this parameter empty, 20 entries are returned per page by default.
-        # > Do not leave PageSize empty.
+        # The maximum number of entries to return on each page in a paged query. Default value: **20**. If you leave this paging parameter empty, 20 entries are returned by default.
+        # > Do not leave this parameter empty.
         self.page_size = page_size
         # The listening port range.
         self.ports = ports
-        # The probe ID.
-        # >You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to obtain this parameter.
+        # The ID of the probe.
+        # > You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to retrieve the value of this parameter.
         self.probe_id = probe_id
-        # The list of listening IP addresses.
+        # The list of listener IP addresses.
         self.service_ip_list = service_ip_list
-        # The listening port status setting.
+        # The status setting of the listening port.
         self.set_status = set_status
 
     def validate(self):
@@ -161,12 +161,12 @@ class UpdateHoneypotProbeBindRequestBindPortList(DaraModel):
         start_port: int = None,
         target_port: int = None,
     ):
-        # Specifies whether to bind the port. Valid values:
+        # Specifies whether the port is bound. Valid values:
         # 
         # - **true**: Yes.
         # - **false**: No.
         self.bind_port = bind_port
-        # The end port that the probe listens on.
+        # The ending listening port of the probe.
         self.end_port = end_port
         # Specifies whether the port is fixed. Valid values:
         # 
@@ -180,7 +180,7 @@ class UpdateHoneypotProbeBindRequestBindPortList(DaraModel):
         # - **tcp**
         # - **udp**
         self.proto = proto
-        # The start port that the probe listens on.
+        # The starting listening port of the probe.
         self.start_port = start_port
         # The destination port.
         self.target_port = target_port

@@ -4,7 +4,7 @@ Given a repository name (e.g. ``"myrepo"``), the agent fetches
 recent pull requests and summarises them.
 
 Unlike ``github_issue_creator.py`` which calls connector tools directly
-via ``ToolCallClient``, this example passes the connector to the
+via ``ConnectorClient``, this example passes the connector to the
 conversation API so the agent can use GitHub tools autonomously.
 
 Run the worker::

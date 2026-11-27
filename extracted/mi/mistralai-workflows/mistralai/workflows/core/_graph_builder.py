@@ -38,7 +38,7 @@ from mistralai.workflows.core._graph_types import (
     _WaitConditionNode,
 )
 from mistralai.workflows.core.activity import check_is_activity
-from mistralai.workflows.core.config.config import config
+from mistralai.workflows.core.config.config import get_workflow_decorator_config
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
 
 # Max indirection followed when resolving an awaitable to its underlying call. Real nesting is
@@ -1656,4 +1656,4 @@ def _apply_workflow_name_prefix(name: str) -> str:
     and dynamic workflow identities aligned (top-level names, child workflow IDs, and
     Atlas listing / ``/select``) when a prefix is configured.
     """
-    return f"{config.worker.workflow_name_prefix}{name}"
+    return f"{get_workflow_decorator_config().workflow_name_prefix}{name}"

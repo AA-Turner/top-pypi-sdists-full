@@ -1,13 +1,13 @@
+from typing import Any
 from unittest.mock import patch
 
 import pytest
-from pydantic import BaseModel
 
 import mistralai.workflows as workflows
+from mistralai.workflows import get_workflow_definition
 from mistralai.workflows.core._events.event_context import EventContext
 
-
-class EmptyModel(BaseModel): ...
+from .utils import create_test_worker
 
 
 @workflows.activity()
@@ -21,8 +21,8 @@ async def _activity_using_event_context() -> bool:
     return True
 
 
-@workflows.workflow.define(name="local-execution-workflow")
-class LocalExecWorkflow:
+@workflows.workflow.define(name="activity-calling-workflow")
+class ActivityCallingWorkflow:
     @workflows.workflow.entrypoint
     async def run(self) -> bool:
         return await _simple_activity()
@@ -39,13 +39,21 @@ class TestWarnings:
 
     @pytest.mark.asyncio
     @patch("mistralai.workflows.core._events.event_context.logger")
-    async def test_no_warning_out_of_local_workflow_execution(self, mock_logger):
-        """Make sure we don't emit any warning when executing a workflow locally"""
+    async def test_no_warning_when_workflow_calls_activity_without_event_context(
+        self, mock_logger: Any, temporal_env: Any
+    ) -> None:
+        """Make sure we don't emit any warning when a workflow calls an activity on a worker with no EventContext"""
 
-        await workflows.execute_workflow(
-            LocalExecWorkflow,
-            params=EmptyModel(),
-        )
+        async with create_test_worker(temporal_env, workflows=[ActivityCallingWorkflow], activities=[_simple_activity]):
+            workflow_def = get_workflow_definition(ActivityCallingWorkflow)
+            assert workflow_def is not None
+            result = await temporal_env.client.execute_workflow(
+                workflow_def.name,
+                id="test-no-event-context-warning",
+                task_queue="test-task-queue",
+            )
+
+        assert result == {"result": True}
         mock_logger.warning.assert_not_called()
 
     @pytest.mark.asyncio

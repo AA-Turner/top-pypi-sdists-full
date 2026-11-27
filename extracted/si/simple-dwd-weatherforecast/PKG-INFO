@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simple_dwd_weatherforecast
-Version: 3.6.0
+Version: 3.8.0
 Summary: A simple tool to retrieve a weather forecast from DWD OpenData
 Home-page: https://github.com/FL550/simple_dwd_weatherforecast.git
 Author: Max Fermor
@@ -121,8 +121,20 @@ All methods return their values as string. The datetime value has to be in UTC. 
 There is also data available which is updated every hour by DWD. Be careful though, as this will download each time roughly 37MB of data. Furthermore, some elements are missing from this data:
 - PRECIPITATION_PROBABILITY
 - PRECIPITATION_DURATION
+- PRECIPITATION_MIN
+- PRECIPITATION_MAX
 
 You can use this data by using the optional parameter `force_hourly=True`.
+
+`PRECIPITATION_MIN` and `PRECIPITATION_MAX` are a likely range for the
+precipitation of one hour, comparable to met.no's
+`precipitation_amount_min`/`precipitation_amount_max`. DWD does not publish
+such a range. It is derived from the probabilities of more than 0.1 to 25 mm of
+precipitation per hour (`R101` to `RR1u1`) as their 10 % and 90 % quantiles.
+`PRECIPITATION_MIN` is `0.0` unless rain is near-certain. `PRECIPITATION_MAX`
+is `None` if the 90 % quantile lies above 25 mm, where DWD gives no further
+probabilities. Quantiles cannot be added up, so `get_timeframe_sum()` and
+`get_daily_sum()` do not give a meaningful range for them.
 
 ```python
 is_valid_station_id(station_id) #Checks if given station_id is valid
@@ -140,6 +152,8 @@ class WeatherDataType(Enum):
     WIND_DIRECTION = "DD" # Unit: Degrees
     WIND_GUSTS = "FX1" # Unit: m/s
     PRECIPITATION = "RR1c" # Unit: kg/m2
+    PRECIPITATION_MIN = "precipitation_min" # Unit: kg/m2, see above
+    PRECIPITATION_MAX = "precipitation_max" # Unit: kg/m2, see above
     PRECIPITATION_PROBABILITY = "wwP" # Unit: % (0..100)
     PRECIPITATION_DURATION = "DRR1" # Unit: s
     CLOUD_COVERAGE = "N" # Unit: % (0..100)
@@ -182,6 +196,8 @@ class Weather:
 
     get_weather_report(optional bool shouldUpdate) # Returns the weather report for the geographical region of the station as HTML
 
+    get_fire_index(int days_from_today (values: 0-6), optional str kind ("woodland" = WBI (default) or "grassland" = GLFI)) # Returns the fire danger level 1-5 (very low - very high) of the nearest DWD fire index station
+    get_fire_index_station_name() # Name of the nearest fire index station
     get_uv_index(int day_from_today (values: 0-2)) # Returns the UV index for the nearest station available for today, tomorrow or the day after tomorrow
 
     supports_apparent_temperature() # Returns True if GRIB/eccodes backend is available
@@ -192,7 +208,7 @@ class Weather:
 
     get_apparent_temperature_forecast(optional bool shouldUpdate) # Returns hourly apparent/perceived temperature forecast as dict[{timestamp_utc: value_celsius}] starting from current UTC hour
 
-    update(self, optional bool force_hourly (default: False), optional bool with_forecast (default: True), optional bool with_measurements (default: False), optional bool with_report (default: False), optional bool with_uv (default: True), optional bool with_apparent_temperature (default: False)) # Updates the weather data
+    update(self, optional bool force_hourly (default: False), optional bool with_forecast (default: True), optional bool with_measurements (default: False), optional bool with_report (default: False), optional bool with_uv (default: True), optional bool with_apparent_temperature (default: False), optional bool with_fire_index (default: False)) # Updates the weather data
 
     # {datetime(2025,4,1,12,0,UTC): 3.6, datetime(2025,4,1,12,5,UTC): 0.0, ...}
     get_radar_precipitation_forecast()
@@ -283,6 +299,8 @@ class WeatherBackgroundMapType(Enum):
     KREISE = "dwd:Warngebiete_Kreise"
     GEMEINDEN = "dwd:Warngebiete_Gemeinden"
     SATELLIT = "dwd:bluemarble"
+    TOPPLUS_LIGHT = "bkg:topplus_light" # Map by BKG, see "Base map"
+    TOPPLUS_DARK = "bkg:topplus_dark"
 
 class MarkerShape(Enum):
     CIRCLE = "circle"
@@ -298,12 +316,30 @@ class Marker(
         width: int = 0,
     )
 
-get_from_location(longitude, latitude, radius_km, map_type: [WeatherMapType], background_type: [WeatherBackgroundMapType], optional integer image_width, optional integer image_height, optional markers: list[Marker], optional bool dark_mode) #Returns map as pillow image with given radius from coordinates
+get_from_location(longitude, latitude, radius_km, map_type: [WeatherMapType], background_type: [WeatherBackgroundMapType], optional integer image_width, optional integer image_height, optional markers: list[Marker], optional bool dark_mode, optional string basemap_cache_dir, optional bool basemap_blend) #Returns map as pillow image with given radius from coordinates
 
-get_germany(map_type: [WeatherMapType], optional [WeatherBackgroundMapType] background_type, optional integer image_width, optional integer image_height, optional markers: list[Marker], optional bool dark_mode) #Returns map as pillow image of whole germany
+get_germany(map_type: [WeatherMapType], optional [WeatherBackgroundMapType] background_type, optional integer image_width, optional integer image_height, optional markers: list[Marker], optional bool dark_mode, optional string basemap_cache_dir, optional bool basemap_blend) #Returns map as pillow image of whole germany
 
-get_map(minx,miny,maxx,maxy, map_type: [WeatherMapType], background_type: [WeatherBackgroundMapType], optional integer image_width, optional integer image_height, optional markers: list[Marker], optional bool dark_mode) #Returns map as pillow image
+get_map(minx,miny,maxx,maxy, map_type: [WeatherMapType], background_type: [WeatherBackgroundMapType], optional integer image_width, optional integer image_height, optional markers: list[Marker], optional bool dark_mode, optional string basemap_cache_dir, optional bool basemap_blend) #Returns map as pillow image
 ```
+
+#### Base map
+
+The background layers of the DWD show areas only. With `TOPPLUS_LIGHT` or `TOPPLUS_DARK` as background type the weather is drawn onto a map with towns, roads and rivers instead, the [TopPlusOpen](https://gdz.bkg.bund.de/index.php/default/wms-topplusopen-wms-topplus-open.html) web map by the German Federal Agency for Cartography and Geodesy (BKG).
+
+```python
+image = dwdmap.get_germany(
+    [dwdmap.WeatherMapType.NIEDERSCHLAGSRADAR],
+    [dwdmap.WeatherBackgroundMapType.TOPPLUS_LIGHT],
+    basemap_cache_dir="/tmp/basemap",
+)
+```
+
+- The map is requested from a server of the BKG (sgx.geodatenzentrum.de). It is kept in memory and, if `basemap_cache_dir` is given, on disk. After 90 days it is downloaded again. Without a connection the old map stays in use; without any map the weather is drawn on a blank background.
+- Other background types can be added, they are drawn on top of the base map. It is not visible below layers which cover the whole area, e.g. `UVINDEX` and the satellite images.
+- `TOPPLUS_DARK` is the same map with inverted lightness.
+- With `basemap_blend=True` the names and roads stay readable below the weather, while its colors stay the same on the plain background of the map. The images become larger, by about a quarter if it rains in a large part of the section.
+- The map is licensed under [dl-de/by-2-0](https://www.govdata.de/dl-de/by-2-0). The short source note is drawn onto the image. If you publish the images, also show the complete source note, which is available as `basemap.get_basemap(...).attribution`.
 
 
 ### Image loop
@@ -334,7 +370,7 @@ for image in enumerate(maploop._images):
 
 ```python
 ImageLoop(minx: float, miny: float, maxx: float, maxy: float, map_type: [WeatherMapType], background_type: [WeatherBackgroundMapType],
-        steps: int = 6, image_width: int = 520,image_height: int = 580, markers: list[Marker] = [], optional bool dark_mode) -> ImageLoop
+        steps: int = 6, image_width: int = 520,image_height: int = 580, markers: list[Marker] = [], optional bool dark_mode, optional string basemap_cache_dir, optional bool basemap_blend) -> ImageLoop
 
 get_images() -> Iterable[ImageFile.ImageFile] # Returns the image loop
 

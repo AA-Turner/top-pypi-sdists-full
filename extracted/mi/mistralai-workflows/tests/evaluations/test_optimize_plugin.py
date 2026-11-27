@@ -16,6 +16,7 @@ from mistralai.evaluations.api_models import (
     PaginatedResult,
 )
 from temporalio.client import WorkflowFailureError
+from temporalio.exceptions import ApplicationError
 
 from mistralai.workflows import get_workflow_definition, workflow
 from mistralai.workflows.plugins.evaluations import GEPA, MutatorProposal, MutatorRequest, Tunable, evaluation
@@ -399,8 +400,9 @@ class TestEvaluationOptimize:
 @pytest.mark.asyncio
 async def test_optimize_rejects_local_mode() -> None:
     # Workflow optimize reads each candidate's records back from AI Studio; a local run doesn't
-    # persist them, so local=True is rejected up front rather than returning empty scores.
-    with pytest.raises(ValueError, match="local"):
+    # persist them, so local=True is rejected up front rather than returning empty scores. It fails
+    # the workflow without retry: a retried workflow task would fail the same way, forever.
+    with pytest.raises(ApplicationError, match="local") as exc_info:
         await evaluation.optimize(
             system=TunableSystem(name="candidate", params={"x": Tunable(1, bounds=(0, 10))}),
             dataset=[{"a": 1}],
@@ -409,3 +411,5 @@ async def test_optimize_rejects_local_mode() -> None:
             algo=GEPA(iterations=1, pareto_size=1, minibatch_size=1, holdout=0),
             local=True,
         )
+    assert exc_info.value.type == "ValueError"
+    assert exc_info.value.non_retryable is True

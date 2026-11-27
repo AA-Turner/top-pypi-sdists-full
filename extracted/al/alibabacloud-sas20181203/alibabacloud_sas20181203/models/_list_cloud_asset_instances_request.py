@@ -20,35 +20,35 @@ class ListCloudAssetInstancesRequest(DaraModel):
         region_id: str = None,
         resource_directory_account_id: int = None,
     ):
-        # The data list queried based on keywords.
+        # The data list to query based on keywords.
         self.cloud_asset_query_data = cloud_asset_query_data
         # The list of cloud assets.
         self.cloud_asset_types = cloud_asset_types
         # Specifies the conditions for searching assets. This parameter is in JSON format and contains the following fields:
-        # - **name**: the search field.
-        # - **value**: the value of the search field.
-        # - **logicalExp**: the logical relationship among multiple search field values. Valid values:
-        #     - **OR**: specifies an **OR** logical relationship among multiple search field values.
-        #     - **AND**: specifies an **AND** logical relationship among multiple search field values.
+        # - **name**: the search criterion.
+        # - **value**: the value of the search criterion.
+        # - **logicalExp**: the logical relationship among multiple search criterion values. Valid values:
+        #     - **OR**: indicates that the logical relationship among multiple search criterion values is **OR**.
+        #     - **AND**: indicates that the logical relationship among multiple search criterion values is **AND**.
         # > You can call the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation to query the supported search conditions.
         self.criteria = criteria
-        # The page number of the current page in a paged query.
+        # The page number of the current page returned during paging in a paged query.
         self.current_page = current_page
         # Specifies whether to return sales-related data. Valid values:
-        # - **true**: returns sales-related data.
-        # - **false**: does not return sales-related data.
+        # - **true**: yes.
+        # - **false**: no.
         self.is_sale_data = is_sale_data
         # Specifies the logical relationship among multiple search conditions. Valid values:
         # 
-        # - **OR**: specifies an **OR** logical relationship among multiple search conditions.
-        # - **AND**: specifies an **AND** logical relationship among multiple search conditions.
+        # - **OR**: indicates that the logical relationship among multiple search conditions is **OR**.
+        # - **AND**: indicates that the logical relationship among multiple search conditions is **AND**.
         self.logical_exp = logical_exp
         # The maximum number of entries to return on each page. Maximum value: 100. Default value: 20.
         self.page_size = page_size
         # The ID of the region where the instance resides.
         self.region_id = region_id
-        # The ID of the Alibaba Cloud account for the member account in the resource directory.
-        # > You can call the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        # The ID of the Alibaba Cloud account to which the member accounts in the resource folder belong.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
 
     def validate(self):
@@ -143,20 +143,20 @@ class ListCloudAssetInstancesRequestCloudAssetTypes(DaraModel):
         asset_type: int = None,
         vendor: int = None,
     ):
-        # The subtype of the cloud product.
+        # The subtype of the cloud service.
         # 
-        # > For more information, refer to the AssetSubType parameter in the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
+        # > For more information, see the AssetSubType parameter in the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
         self.asset_sub_type = asset_sub_type
         # The type of the cloud asset.
         # 
-        # > For more information, refer to the AssetType parameter in the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
+        # > For more information, see the AssetType parameter in the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
         self.asset_type = asset_type
-        # The asset vendor. Valid values:
+        # The vendor of the server. Valid values:
         # 
         # - **0**: Alibaba Cloud asset
-        # - **1**: non-Alibaba Cloud asset
+        # - **1**: non-cloud asset
         # - **2**: IDC asset
-        # - **3**, **4**, **5**, and **7**: other cloud asset
+        # - **3**, **4**, **5**, **7**: other cloud assets
         # - **8**: lightweight asset
         self.vendor = vendor
 
@@ -200,7 +200,7 @@ class ListCloudAssetInstancesRequestCloudAssetQueryData(DaraModel):
     ):
         # The query content.
         self.data = data
-        # The query operator. Currently, only INCLUDE is supported.
+        # The query operator. Only INCLUDE is supported.
         self.operator = operator
 
     def validate(self):

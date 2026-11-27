@@ -13,15 +13,15 @@ class UpdateUnknownThreatDetectStrategyRequest(DaraModel):
         name: str = None,
         study_mode: str = None,
     ):
-        # The number of days after the model is initially created before learning stops.
+        # Specifies the number of days the model continues to learn after initial creation.
         self.duration_days_after_init = duration_days_after_init
-        # The number of days after which the model ends if no new processes are added.
+        # Specifies the number of days without new processes before the model stops.
         self.duration_days_after_stop = duration_days_after_stop
         # The ID of the policy to delete.
         # 
         # This parameter is required.
         self.id = id
-        # The policy name.
+        # The Policy Name.
         self.name = name
         # The whitelist mode. Valid values:
         # 

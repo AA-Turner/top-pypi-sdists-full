@@ -19,7 +19,7 @@ class DocAiClassifyResult(UniversalBaseModel):
 
     decisions: typing.Optional[typing.List[DocAiClassifyDecision]] = pydantic.Field(default=None)
     """
-    With `scope: page`, one decision per page.
+    Not returned today. Classify gives one decision for the whole document; use Split with categories for a decision per document in a bundle.
     """
 
     inspection: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
@@ -34,7 +34,7 @@ class DocAiClassifyResult(UniversalBaseModel):
 
     input_page: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Page number, on per-page decisions.
+    Not set. Classify returns one decision for the whole document.
     """
 
     type: typing.Optional[str] = pydantic.Field(default=None)

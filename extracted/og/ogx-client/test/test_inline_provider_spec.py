@@ -58,7 +58,6 @@ class TestInlineProviderSpec(unittest.TestCase):
                     ],
                 provider_data_validator = '',
                 is_external = True,
-                toolgroup_id = '',
                 deps__ = [
                     ''
                     ],

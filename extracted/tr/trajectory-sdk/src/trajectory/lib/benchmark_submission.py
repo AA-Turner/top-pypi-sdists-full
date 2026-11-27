@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sqlite3
 import stat
 import sys
@@ -57,6 +58,8 @@ BENCHMARK_UPLOAD_CONCURRENCY = 128
 _RESERVED_OPEN_FILES = 64
 BENCHMARK_NAME_MIN_LENGTH = 3
 BENCHMARK_NAME_MAX_LENGTH = 1024
+# The API rejects other names with 422 after the client has hashed and staged the spec.
+BENCHMARK_NAME_PATTERN = re.compile(r"[A-Za-z0-9 ._-]+")
 BENCHMARK_DESCRIPTION_MAX_LENGTH = 1024
 AGENT_ID_MAX_LENGTH = 64
 AGENT_NAME_MAX_LENGTH = 256
@@ -620,6 +623,10 @@ class SubmissionUpload:
       raise ValueError(f"benchmark name must be at least {BENCHMARK_NAME_MIN_LENGTH} characters")
     if len(name) > BENCHMARK_NAME_MAX_LENGTH:
       raise ValueError(f"benchmark name must be at most {BENCHMARK_NAME_MAX_LENGTH} characters")
+    if not BENCHMARK_NAME_PATTERN.fullmatch(name):
+      raise ValueError(
+        "benchmark name may contain only ASCII letters, digits, spaces, '.', '_' and '-'"
+      )
 
   @staticmethod
   def validate_benchmark_description(description: object) -> None:

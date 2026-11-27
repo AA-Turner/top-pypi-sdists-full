@@ -4,6 +4,8 @@ import inspect
 import json
 import logging
 import warnings
+import weakref
+from threading import RLock
 from functools import wraps
 from typing import Any, TypeVar, cast
 from typing_extensions import Self
@@ -15,6 +17,7 @@ from pydantic import (
     create_model,
 )
 
+from instructor.v2.core.messages import text_from_content_blocks
 from instructor.v2.core.errors import (
     IncompleteOutputException,
 )
@@ -53,7 +56,10 @@ def _extract_text_content(completion: Any) -> str:
     """Extract text content from various completion formats."""
     # OpenAI format
     if hasattr(completion, "choices"):
-        return completion.choices[0].message.content or ""
+        content = completion.choices[0].message.content
+        if isinstance(content, list):
+            return text_from_content_blocks(content) or ""
+        return content or ""
 
     # Simple text format
     if hasattr(completion, "text"):
@@ -91,6 +97,17 @@ def _validate_model_from_json(
     strict: bool | None = None,
 ) -> Any:
     """Validate model from JSON string with appropriate error handling."""
+    stripped = json_str.strip()
+    if stripped.startswith("```"):
+        opening, newline, body = stripped.partition("\n")
+        if (
+            newline
+            and opening.strip().lower() in {"```", "```json"}
+            and body.endswith("```")
+        ):
+            from instructor.v2.core.json import extract_json_from_codeblock
+
+            json_str = extract_json_from_codeblock(body[:-3].strip())
     try:
         if hasattr(cls, "model_validate_json"):
             if strict:
@@ -109,10 +126,10 @@ def _validate_model_from_json(
         parsed = json.loads(json_str, strict=False)
         return adapter.validate_python(parsed, context=validation_context, strict=False)
     except json.JSONDecodeError as e:
-        logger.debug(f"JSON decode error: {e}")
+        logger.debug("JSON decode error (%s)", type(e).__name__)
         raise
     except Exception as e:
-        logger.debug(f"Model validation error: {e}")
+        logger.debug("Model validation error (%s)", type(e).__name__)
         raise
 
 
@@ -592,6 +609,13 @@ class ResponseSchema(BaseModel):
         )
 
 
+# A wrapper inherits from its input class, so both sides of the cache must be weak.
+_response_schema_cache: weakref.WeakKeyDictionary[
+    type[BaseModel], weakref.ReferenceType[type[BaseModel]]
+] = weakref.WeakKeyDictionary()
+_response_schema_lock = RLock()
+
+
 def response_schema(cls: type[Model]) -> type[Model]:
     """Wrap a Pydantic model class to add ResponseSchema behavior."""
     if not inspect.isclass(cls) or not issubclass(cls, BaseModel):
@@ -600,21 +624,32 @@ def response_schema(cls: type[Model]) -> type[Model]:
             f"response_model must be a subclass of pydantic.BaseModel, got {got}"
         )
 
-    # Create the wrapped model
-    schema = cast(
-        type[BaseModel],
-        wraps(cls, updated=())(
-            cast(
-                Any,
-                create_model(
-                    cls.__name__ if hasattr(cls, "__name__") else str(cls),
-                    __base__=(cls, ResponseSchema),
-                ),
-            )
-        ),
-    )
+    with _response_schema_lock:
+        ref = _response_schema_cache.get(cls)
+        cached = ref() if ref is not None else None
+        if (
+            cached is not None
+            and vars(cached).get("__instructor_source_validator__")
+            is cls.__pydantic_validator__
+        ):
+            return cast(type[Model], cached)
 
-    return cast(type[Model], schema)
+        schema = cast(
+            type[BaseModel],
+            wraps(cls, updated=())(
+                cast(
+                    Any,
+                    create_model(
+                        cls.__name__ if hasattr(cls, "__name__") else str(cls),
+                        __base__=(cls, ResponseSchema),
+                    ),
+                )
+            ),
+        )
+
+        cast(Any, schema).__instructor_source_validator__ = cls.__pydantic_validator__
+        _response_schema_cache[cls] = weakref.ref(schema)
+        return cast(type[Model], schema)
 
 
 # Backward compatibility aliases

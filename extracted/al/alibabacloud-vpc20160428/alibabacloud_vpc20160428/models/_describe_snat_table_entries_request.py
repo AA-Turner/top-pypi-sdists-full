@@ -29,17 +29,17 @@ class DescribeSnatTableEntriesRequest(DaraModel):
         # 
         # > You must specify at least one of the **SnatTableId** and **NatGatewayId** parameters.
         self.nat_gateway_id = nat_gateway_id
-        # The IDs of the elastic network interfaces (ENIs) (network interface controller (NIC)) to query.
+        # The IDs of the elastic network interfaces (ENIs) to query.
         self.network_interface_ids = network_interface_ids
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number. Default value: **1**.
+        # The page number of the list. Default value: **1**.
         self.page_number = page_number
-        # The number of entries per page in a paging query. Maximum value: **50**. Default value: **10**.
+        # The number of entries per page for paging in a paged query. Maximum value: **50**. Default value: **10**.
         self.page_size = page_size
-        # The ID of the region where the NAT gateway is deployed.
+        # The region ID of the NAT gateway.
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id
@@ -49,11 +49,11 @@ class DescribeSnatTableEntriesRequest(DaraModel):
         self.snat_entry_id = snat_entry_id
         # The name of the SNAT entry.
         # 
-        # The name must be 2 to 128 characters in length, and must start with a letter or Chinese character. It can contain digits, underscores (_), and hyphens (-).
+        # The name must be 2 to 128 characters in length, and must start with a letter or a Chinese character. It can contain digits, underscores (_), and hyphens (-).
         self.snat_entry_name = snat_entry_name
-        # - When you query SNAT entries of an Internet NAT gateway, this parameter specifies the EIP in the SNAT entry.
+        # - When you query the SNAT entries of an Internet NAT gateway, this parameter specifies the elastic IP address (EIP) in the SNAT entry.
         #  
-        # - When you query SNAT entries of a VPC NAT gateway, this parameter specifies the NAT IP address in the SNAT entry.
+        # - When you query the SNAT entries of a VPC NAT gateway, this parameter specifies the NAT IP address in the SNAT entry.
         self.snat_ip = snat_ip
         # The ID of the SNAT table. 
         # 
@@ -63,9 +63,9 @@ class DescribeSnatTableEntriesRequest(DaraModel):
         self.source_cidr = source_cidr
         # The ID of the vSwitch.
         # 
-        # - When you query SNAT entries of an Internet NAT gateway, this parameter specifies that all ECS instances in the vSwitch can access the Internet through SNAT rules.
+        # - When you query the SNAT entries of an Internet NAT gateway, this parameter specifies that all ECS instances in the vSwitch can access the Internet by using SNAT rules.
         # 
-        # - When you query SNAT entries of a VPC NAT gateway, this parameter specifies that all ECS instances in the vSwitch can access external networks through SNAT rules.
+        # - When you query the SNAT entries of a VPC NAT gateway, this parameter specifies that all ECS instances in the vSwitch can access external networks by using SNAT rules.
         self.source_vswitch_id = source_vswitch_id
 
     def validate(self):

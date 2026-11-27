@@ -12,7 +12,7 @@ setup(
     description="Collate SQL Lineage for Analysis Tool powered by Python and sqlfluff based on sqllineage.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    packages=find_packages(exclude=("tests",)),
+    packages=find_packages(exclude=("tests", "tests.*")),
     package_data={"": [f"{STATIC_FOLDER}/*", f"{STATIC_FOLDER}/**/**/*", "data/**/*"]},
     include_package_data=True,
     classifiers=[
@@ -32,10 +32,12 @@ setup(
         # sqlparse's final release, so no newer pin will follow.
         "sqlparse==0.6.1",
         "networkx>=2.4",
-        "collate-sqlfluff==3.5.3",
+        "collate-sqlfluff==3.6.0",
         "sqlglot==29.0.1",
     ],
-    entry_points={"console_scripts": ["sqllineage = collate_sqllineage.cli:main"]},
+    entry_points={
+        "console_scripts": ["collate-sqllineage = collate_sqllineage.cli:main"]
+    },
     extras_require={
         "ci": [
             "bandit",

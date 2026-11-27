@@ -19,12 +19,12 @@ class ListHoneypotAttackerSourceRequest(DaraModel):
     ):
         # The page number of the current page in a paging query.
         self.current_page = current_page
-        # The end time in UNIX timestamp format.
+        # The end time. The value is a UNIX timestamp.
         self.end_time_stamp = end_time_stamp
         # The language of the request and response. Default value: **zh**. Valid values:
         # 
-        # - **zh**: Chinese.
-        # - **en**: English.
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
         # The maximum number of entries to return on each page in a paging query.
         self.page_size = page_size
@@ -32,7 +32,7 @@ class ListHoneypotAttackerSourceRequest(DaraModel):
         self.risk_level_list = risk_level_list
         # The source IP address of the attack.
         self.src_ip = src_ip
-        # The start time in UNIX timestamp format.
+        # The start time. The value is a UNIX timestamp.
         self.start_time_stamp = start_time_stamp
 
     def validate(self):

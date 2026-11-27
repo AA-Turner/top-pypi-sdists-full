@@ -12,28 +12,22 @@ class ModifyVulWhitelistTargetRequest(DaraModel):
         source_ip: str = None,
         target_info: str = None,
     ):
-        # The ID of the whitelist.
-        # 
-        # >  You can call the [DescribeVulWhitelist](~~DescribeVulWhitelist~~) operation to query the IDs of whitelists.
+        # The ID of the vulnerability whitelist.
+        # > You can call the [DescribeVulWhitelist](~~DescribeVulWhitelist~~) operation to obtain the ID of the vulnerability whitelist.
         # 
         # This parameter is required.
         self.id = id
-        # The reason why you add the server to the whitelist.
+        # The reason for adding the whitelist.
         self.reason = reason
-        # The source IP address of the request.
+        # The source IP address.
         self.source_ip = source_ip
-        # The applicable scope of the whitelist. The value of this parameter is in the JSON format and contains the following fields:
-        # 
-        # *   **type**: the type of the applicable scope. Valid values:
-        # 
-        #     *   **GroupId**: the ID of a server group
-        #     *   **Uuid**: the UUID of a server
-        # 
-        # *   **uuids**: the UUIDs of servers
-        # 
-        # *   **groupIds**: the IDs of server groups
-        # 
-        # >  If you leave this parameter empty, all servers are added to the whitelist. If you set the **type** field to **GroupId**, you must also specify the **groupIds** field. If you set the **type** field to **Uuid**, you must also specify the **uuids** field.
+        # Specifies the scope where the whitelist takes effect. This field is in JSON format and contains the following fields:
+        # - **type**: the scope type. Valid values:
+        #     - **GroupId**: group
+        #     - **Uuid**: server asset
+        # - **uuids**: the collection of server asset UUIDs.
+        # - **groupIds**: the collection of group IDs.
+        # > If this value is empty, the whitelist applies to all servers. If **type** is set to **GroupId**, **groupIds** cannot be empty. If **type** is set to **Uuid**, **uuids** cannot be empty.
         self.target_info = target_info
 
     def validate(self):

@@ -242,6 +242,7 @@ cdef extern from "libxml/parser.h" nogil:
                                              xmlParserInputBuffer* input,
                                              int enc)
     cdef int xmlCtxtUseOptions(xmlParserCtxt* ctxt, int options)
+    cdef void xmlStopParser(xmlParserCtxt* ctxt)
     cdef void xmlFreeParserCtxt(xmlParserCtxt* ctxt)
     cdef void xmlCtxtReset(xmlParserCtxt* ctxt)
     cdef void xmlClearParserCtxt(xmlParserCtxt* ctxt)
@@ -311,7 +312,7 @@ cdef extern from "libxml/parserInternals.h" nogil:
     cdef xmlParserInput* xmlNewStringInputStream(xmlParserCtxt* ctxt,
                                                  char* buffer)
     cdef xmlParserInput* xmlNewInputFromFile(xmlParserCtxt* ctxt,
-                                             char* filename)
+                                             const char* filename)
     cdef xmlParserInput* xmlNewInputFromMemory(
         const char *url, const void *mem, size_t size, int flags)  # actually "xmlParserInputFlags flags"
     cdef void xmlFreeInputStream(xmlParserInput* input)

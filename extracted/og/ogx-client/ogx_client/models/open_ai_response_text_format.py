@@ -19,142 +19,429 @@
 
 
 from __future__ import annotations
-import pprint
-import re  # noqa: F401
 import json
-
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional
+import pprint
+import re
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
+from typing import Any, List, Optional
+from ogx_client.models.open_ai_response_text_format_json_object import OpenAIResponseTextFormatJSONObject
+from ogx_client.models.open_ai_response_text_format_json_schema import OpenAIResponseTextFormatJSONSchema
+from ogx_client.models.open_ai_response_text_format_text import OpenAIResponseTextFormatText
+from pydantic import StrictStr, Field, model_serializer
 from typing import Any, ClassVar
-from typing_extensions import Self
+from typing_extensions import Literal, Self
+from ogx_client.lib._utils import pascal_to_snake_case
+
+OPENAIRESPONSETEXTFORMAT_ONE_OF_SCHEMAS = ["OpenAIResponseTextFormatJSONObject", "OpenAIResponseTextFormatJSONSchema", "OpenAIResponseTextFormatText"]
 
 class OpenAIResponseTextFormat(BaseModel):
     """
-    Configuration for Responses API text format.
-    """ # noqa: E501
-    type: Optional[StrictStr] = None
-    name: Optional[StrictStr] = None
-    var_schema: Optional[Dict[str, Any]] = Field(default=None, alias="schema")
-    description: Optional[StrictStr] = None
-    strict: Optional[StrictBool] = None
-    __properties: ClassVar[list[str]] = ["type", "name", "schema", "description", "strict"]
-
-    @field_validator('type')
-    def type_validate_enum(cls, value):
-        """Validates the enum"""
-        if value is None:
-            return value
-
-        if value not in set(['text', 'json_schema', 'json_object']):
-            raise ValueError("must be one of enum values ('text', 'json_schema', 'json_object')")
-        return value
+    OpenAIResponseTextFormat
+    """
+    # data type: OpenAIResponseTextFormatText
+    oneof_schema_1_validator: Optional[OpenAIResponseTextFormatText] = None
+    # data type: OpenAIResponseTextFormatJSONObject
+    oneof_schema_2_validator: Optional[OpenAIResponseTextFormatJSONObject] = None
+    # data type: OpenAIResponseTextFormatJSONSchema
+    oneof_schema_3_validator: Optional[OpenAIResponseTextFormatJSONSchema] = None
+    actual_instance: OpenAIResponseTextFormatJSONObject | OpenAIResponseTextFormatJSONSchema | OpenAIResponseTextFormatText | None = None
+    one_of_schemas: ClassVar[set[str]] = { "OpenAIResponseTextFormatJSONObject", "OpenAIResponseTextFormatJSONSchema", "OpenAIResponseTextFormatText" }
 
     model_config = ConfigDict(
-        populate_by_name=True,
         validate_assignment=True,
         protected_namespaces=(),
     )
 
 
+    discriminator_value_class_map: ClassVar[dict[str, str]] = {
+        'json_object': 'OpenAIResponseTextFormatJSONObject',
+        'json_schema': 'OpenAIResponseTextFormatJSONSchema',
+        'text': 'OpenAIResponseTextFormatText',
+        '': 'ERRORUNKNOWN'
+    }
+    discriminator_property_name: ClassVar[str] = 'type'
 
-    def __getattribute__(self, name):
-        """Override to automatically unwrap OneOf/AnyOf instances."""
-        value = super().__getattribute__(name)
+    def __init__(self, *args, **kwargs) -> None:
+        if args:
+            if len(args) > 1:
+                raise ValueError("If a position argument is used, only 1 is allowed to set `actual_instance`")
+            if kwargs:
+                raise ValueError("If a position argument is used, keyword arguments cannot be used.")
 
-        # Unwrap OneOf/AnyOf wrappers directly
-        if hasattr(value, 'actual_instance') and value.actual_instance is not None:
-            return value.actual_instance
+            # Preprocess the value to handle lists of dicts
+            value = args[0]
+            if isinstance(value, list):
+                # Try to construct model instances from dicts in the list
+                # This ensures default values are applied
+                from pydantic import ValidationError as PydanticValidationError
+                validated = None
+                if validated is not None:
+                    value = validated
 
-        # If the value is a dict, unwrap any OneOf instances in its values
-        # Only create a new dict if unwrapping is actually needed, to preserve
-        # mutability of the original (e.g. additional_properties)
-        if isinstance(value, dict):
-            needs_unwrap = any(
-                hasattr(v, 'actual_instance') and v.actual_instance is not None
-                for v in value.values()
-            )
-            if needs_unwrap:
-                return {
-                    k: v.actual_instance if hasattr(v, 'actual_instance') and v.actual_instance is not None else v
-                    for k, v in value.items()
-                }
+            super().__init__(actual_instance=value)
+        else:
+            super().__init__(**kwargs)
 
-        return value
+    def __getattr__(self, name: str):
+        """Proxy attribute access to actual_instance for transparency."""
+        # Avoid infinite recursion for private attributes and model fields
+        if name.startswith('_') or name in ('actual_instance', 'one_of_schemas', 'model_config', 'model_fields'):
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
+        actual = super().__getattribute__('actual_instance')
+        if actual is None:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}' (actual_instance is None)")
 
+        return getattr(actual, name)
 
-    def to_str(self) -> str:
-        """Returns the string representation of the model using alias"""
-        return pprint.pformat(self.model_dump(by_alias=True))
+    def __iter__(self):
+        """Iterate over items if actual_instance is iterable."""
+        if hasattr(self.actual_instance, '__iter__'):
+            return iter(self.actual_instance)
+        raise TypeError(f"'{type(self.actual_instance).__name__}' object is not iterable")
+
+    def __getitem__(self, index):
+        """Get item by index if actual_instance supports indexing."""
+        if hasattr(self.actual_instance, '__getitem__'):
+            return self.actual_instance[index]
+        raise TypeError(f"'{type(self.actual_instance).__name__}' object is not subscriptable")
+
+    def __len__(self):
+        """Get length if actual_instance supports len()."""
+        if hasattr(self.actual_instance, '__len__'):
+            return len(self.actual_instance)
+        raise TypeError(f"object of type '{type(self.actual_instance).__name__}' has no len()")
+
+    def __bool__(self):
+        """Handle truthiness checks - wrapper is truthy if actual_instance is not None."""
+        return self.actual_instance is not None
+
+    def __eq__(self, other):
+        """Handle equality comparisons transparently."""
+        if hasattr(self, 'actual_instance') and self.actual_instance is not None:
+            other_value = other.actual_instance if hasattr(other, 'actual_instance') else other
+            return self.actual_instance == other_value
+        return super().__eq__(other)
+
+    def __hash__(self):
+        """Handle hashing - use actual_instance's hash if available."""
+        if hasattr(self, 'actual_instance') and self.actual_instance is not None:
+            try:
+                return hash(self.actual_instance)
+            except TypeError:
+                return id(self)
+        return super().__hash__()
+
+    def __repr__(self):
+        """Return repr of actual_instance for debugging."""
+        if hasattr(self, 'actual_instance') and self.actual_instance is not None:
+            return repr(self.actual_instance)
+        return super().__repr__()
 
     def to_json(self) -> str:
-        """Returns the JSON representation of the model using alias"""
-        # TODO: pydantic v2: use .model_dump_json(by_alias=True, exclude_unset=True) instead
-        return json.dumps(self.to_dict())
+        """Returns the JSON representation of the actual instance"""
+        if self.actual_instance is None:
+            return "null"
+
+        if hasattr(self.actual_instance, "to_json") and callable(self.actual_instance.to_json):
+            return self.actual_instance.to_json()
+        else:
+            return json.dumps(self.actual_instance)
+
+    def to_str(self) -> str:
+        """Returns the string representation of the actual instance"""
+        return pprint.pformat(self.model_dump())
+
+    @model_serializer(mode='wrap')
+    def serialize_model(self, serializer):
+        """Custom serializer that delegates to actual_instance for proper JSON serialization."""
+        # If actual_instance is None, serialize the wrapper normally
+        if not hasattr(self, 'actual_instance') or self.actual_instance is None:
+            return serializer(self)
+
+        # If actual_instance is a Pydantic model, serialize it using the default serializer
+        # This ensures nested models are also serialized correctly
+        if hasattr(self.actual_instance, '__pydantic_serializer__'):
+            # Use Pydantic's serializer infrastructure to ensure proper serialization
+            from pydantic_core import to_jsonable_python
+            return to_jsonable_python(
+                self.actual_instance,
+                by_alias=True,
+                exclude_none=True,
+                fallback=lambda x: x if isinstance(x, str | int | float | bool | type(None)) else str(x)
+            )
+        # If it's a list of Pydantic models, serialize each one
+        elif isinstance(self.actual_instance, list):
+            from pydantic_core import to_jsonable_python
+            return [
+                to_jsonable_python(
+                    item,
+                    by_alias=True,
+                    exclude_none=True,
+                    fallback=lambda x: x if isinstance(x, str | int | float | bool | type(None)) else str(x)
+                )
+                if hasattr(item, '__pydantic_serializer__')
+                else item
+                for item in self.actual_instance
+            ]
+        # Otherwise return as-is (primitives, dicts, etc.)
+        else:
+            return self.actual_instance
+
+    @field_validator('actual_instance')
+    def actual_instance_must_validate_oneof(cls, v):
+        instance = OpenAIResponseTextFormat.model_construct()
+        error_messages = []
+        match = 0
+        # validate data type: OpenAIResponseTextFormatText
+        # Check if we should skip this variant based on discriminator
+        _should_skip_discriminator = False
+        if isinstance(v, dict) and hasattr(cls, 'discriminator_value_class_map'):
+            _disc_value = v.get(cls.discriminator_property_name)
+            if _disc_value is None and cls.discriminator_property_name != 'type':
+                _disc_value = v.get('type')
+            if _disc_value and _disc_value in cls.discriminator_value_class_map:
+                _expected_class = cls.discriminator_value_class_map[_disc_value]
+                if _expected_class != 'OpenAIResponseTextFormatText':
+                    _should_skip_discriminator = True
+
+        if _should_skip_discriminator:
+            error_messages.append(f"Skipping OpenAIResponseTextFormatText due to discriminator mismatch")
+        elif not isinstance(v, OpenAIResponseTextFormatText):
+            # Try to construct from dict if it's a dict - this applies default values
+            if isinstance(v, dict):
+                try:
+                    constructed = OpenAIResponseTextFormatText.model_validate(v)
+                    match += 1
+                    # Return the constructed instance to use it instead of raw dict
+                    return constructed
+                except (ValidationError, ValueError) as e:
+                    error_messages.append(f"Error! Cannot construct `OpenAIResponseTextFormatText` from dict: {str(e)}")
+            else:
+                error_messages.append(f"Error! Input type `{type(v)}` is not `OpenAIResponseTextFormatText`")
+        else:
+            match += 1
+        # validate data type: OpenAIResponseTextFormatJSONObject
+        # Check if we should skip this variant based on discriminator
+        _should_skip_discriminator = False
+        if isinstance(v, dict) and hasattr(cls, 'discriminator_value_class_map'):
+            _disc_value = v.get(cls.discriminator_property_name)
+            if _disc_value is None and cls.discriminator_property_name != 'type':
+                _disc_value = v.get('type')
+            if _disc_value and _disc_value in cls.discriminator_value_class_map:
+                _expected_class = cls.discriminator_value_class_map[_disc_value]
+                if _expected_class != 'OpenAIResponseTextFormatJSONObject':
+                    _should_skip_discriminator = True
+
+        if _should_skip_discriminator:
+            error_messages.append(f"Skipping OpenAIResponseTextFormatJSONObject due to discriminator mismatch")
+        elif not isinstance(v, OpenAIResponseTextFormatJSONObject):
+            # Try to construct from dict if it's a dict - this applies default values
+            if isinstance(v, dict):
+                try:
+                    constructed = OpenAIResponseTextFormatJSONObject.model_validate(v)
+                    match += 1
+                    # Return the constructed instance to use it instead of raw dict
+                    return constructed
+                except (ValidationError, ValueError) as e:
+                    error_messages.append(f"Error! Cannot construct `OpenAIResponseTextFormatJSONObject` from dict: {str(e)}")
+            else:
+                error_messages.append(f"Error! Input type `{type(v)}` is not `OpenAIResponseTextFormatJSONObject`")
+        else:
+            match += 1
+        # validate data type: OpenAIResponseTextFormatJSONSchema
+        # Check if we should skip this variant based on discriminator
+        _should_skip_discriminator = False
+        if isinstance(v, dict) and hasattr(cls, 'discriminator_value_class_map'):
+            _disc_value = v.get(cls.discriminator_property_name)
+            if _disc_value is None and cls.discriminator_property_name != 'type':
+                _disc_value = v.get('type')
+            if _disc_value and _disc_value in cls.discriminator_value_class_map:
+                _expected_class = cls.discriminator_value_class_map[_disc_value]
+                if _expected_class != 'OpenAIResponseTextFormatJSONSchema':
+                    _should_skip_discriminator = True
+
+        if _should_skip_discriminator:
+            error_messages.append(f"Skipping OpenAIResponseTextFormatJSONSchema due to discriminator mismatch")
+        elif not isinstance(v, OpenAIResponseTextFormatJSONSchema):
+            # Try to construct from dict if it's a dict - this applies default values
+            if isinstance(v, dict):
+                try:
+                    constructed = OpenAIResponseTextFormatJSONSchema.model_validate(v)
+                    match += 1
+                    # Return the constructed instance to use it instead of raw dict
+                    return constructed
+                except (ValidationError, ValueError) as e:
+                    error_messages.append(f"Error! Cannot construct `OpenAIResponseTextFormatJSONSchema` from dict: {str(e)}")
+            else:
+                error_messages.append(f"Error! Input type `{type(v)}` is not `OpenAIResponseTextFormatJSONSchema`")
+        else:
+            match += 1
+        if match > 1:
+            # Special case: empty lists can match multiple List[...] schemas in oneOf
+            # This is common in streaming where content starts empty
+            # In this case, just accept the first match (they're functionally equivalent for empty lists)
+            if isinstance(v, list) and len(v) == 0:
+                return v
+            # more than 1 match
+            raise ValueError("Multiple matches found when setting `actual_instance` in OpenAIResponseTextFormat with oneOf schemas: OpenAIResponseTextFormatJSONObject, OpenAIResponseTextFormatJSONSchema, OpenAIResponseTextFormatText. Details: " + ", ".join(error_messages))
+        elif match == 0:
+            # no match
+            raise ValueError("No match found when setting `actual_instance` in OpenAIResponseTextFormat with oneOf schemas: OpenAIResponseTextFormatJSONObject, OpenAIResponseTextFormatJSONSchema, OpenAIResponseTextFormatText. Details: " + ", ".join(error_messages))
+        else:
+            return v
 
     @classmethod
-    def from_json(cls, json_str: str) -> Self | None:
-        """Create an instance of OpenAIResponseTextFormat from a JSON string"""
-        return cls.from_dict(json.loads(json_str))
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return the dictionary representation of the model using alias.
-
-        This has the following differences from calling pydantic's
-        `self.model_dump(by_alias=True)`:
-
-        * `None` is only added to the output dict for nullable fields that
-          were set at model initialization. Other fields with value `None`
-          are ignored.
-        """
-        excluded_fields: set[str] = set([
-        ])
-
-        _dict = self.model_dump(
-            by_alias=True,
-            exclude=excluded_fields,
-            exclude_none=True,
-        )
-        # set to None if name (nullable) is None
-        # and model_fields_set contains the field
-        if self.name is None and "name" in self.model_fields_set:
-            _dict['name'] = None
-
-        # set to None if var_schema (nullable) is None
-        # and model_fields_set contains the field
-        if self.var_schema is None and "var_schema" in self.model_fields_set:
-            _dict['schema'] = None
-
-        # set to None if description (nullable) is None
-        # and model_fields_set contains the field
-        if self.description is None and "description" in self.model_fields_set:
-            _dict['description'] = None
-
-        # set to None if strict (nullable) is None
-        # and model_fields_set contains the field
-        if self.strict is None and "strict" in self.model_fields_set:
-            _dict['strict'] = None
-
-        return _dict
+    def from_dict(cls, obj: str | dict[str, Any]) -> Self:
+        # Handle primitives and lists directly - don't double-serialize them
+        if isinstance(obj, (str, int, float, bool, type(None), list)):
+            # For non-dict content, bypass from_json and use actual_instance_must_validate_oneof
+            instance = cls.model_construct()
+            instance.actual_instance = cls.actual_instance_must_validate_oneof(obj)
+            return instance
+        return cls.from_json(json.dumps(obj))
 
     @classmethod
-    def from_dict(cls, obj: dict[str, Any] | None) -> Self | None:
-        """Create an instance of OpenAIResponseTextFormat from a dict"""
-        if obj is None:
+    def from_json(cls, json_str: str) -> Self:
+        """Returns the object represented by the json string"""
+        instance = cls.model_construct()
+        error_messages = []
+        match = 0
+
+        # use oneOf discriminator to lookup the data type
+        _data_type = json.loads(json_str).get("type")
+        if not _data_type:
+            raise ValueError("Failed to lookup data type from the field `type` in the input.")
+
+        # check if data type is `OpenAIResponseTextFormatJSONObject`
+        if _data_type == "json_object":
+            instance.actual_instance = OpenAIResponseTextFormatJSONObject.from_json(json_str)
+            return instance
+
+        # check if data type is `OpenAIResponseTextFormatJSONSchema`
+        if _data_type == "json_schema":
+            instance.actual_instance = OpenAIResponseTextFormatJSONSchema.from_json(json_str)
+            return instance
+
+        # check if data type is `OpenAIResponseTextFormatText`
+        if _data_type == "text":
+            instance.actual_instance = OpenAIResponseTextFormatText.from_json(json_str)
+            return instance
+
+        # check if data type is `ERRORUNKNOWN`
+        if _data_type == "":
+            instance.actual_instance = ERRORUNKNOWN.from_json(json_str)
+            return instance
+
+        # deserialize data into OpenAIResponseTextFormatText
+        try:
+            instance.actual_instance = OpenAIResponseTextFormatText.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
+        # deserialize data into OpenAIResponseTextFormatJSONObject
+        try:
+            instance.actual_instance = OpenAIResponseTextFormatJSONObject.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
+        # deserialize data into OpenAIResponseTextFormatJSONSchema
+        try:
+            instance.actual_instance = OpenAIResponseTextFormatJSONSchema.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
+
+        if match > 1:
+            # Special case: empty lists can match multiple List[...] schemas in oneOf
+            # This is common in streaming where content starts empty
+            # In this case, just accept the first match (they're functionally equivalent for empty lists)
+            data = json.loads(json_str)
+            if isinstance(data, list) and len(data) == 0:
+                return instance  # First match already set in instance
+            # more than 1 match
+            raise ValueError("Multiple matches found when deserializing the JSON string into OpenAIResponseTextFormat with oneOf schemas: OpenAIResponseTextFormatJSONObject, OpenAIResponseTextFormatJSONSchema, OpenAIResponseTextFormatText. Details: " + ", ".join(error_messages))
+        elif match == 0:
+            # no match - try lenient fallback for streaming chunks
+            data = json.loads(json_str)
+
+            # Helper to remove None values recursively for streaming chunks
+            def remove_none_values(obj):
+                if isinstance(obj, dict):
+                    return {k: remove_none_values(v) for k, v in obj.items() if v is not None}
+                elif isinstance(obj, list):
+                    return [remove_none_values(item) for item in obj if item is not None]
+                return obj
+
+            # Helper to add default values for commonly missing required fields in streaming
+            def add_streaming_defaults(obj):
+                if isinstance(obj, dict):
+                    result = dict(obj)
+                    # Add empty string for finish_reason if missing (common in streaming chunks)
+                    if 'choices' in result and isinstance(result['choices'], list):
+                        for choice in result['choices']:
+                            if isinstance(choice, dict) and 'finish_reason' not in choice:
+                                choice['finish_reason'] = ''
+                    return result
+                return obj
+
+            # Try each variant with None values removed and defaults added
+            try:
+                cleaned_data = remove_none_values(data)
+                cleaned_data = add_streaming_defaults(cleaned_data)
+                variant = OpenAIResponseTextFormatText.model_validate(cleaned_data)
+                instance.actual_instance = variant
+                return instance
+            except Exception:
+                pass
+            try:
+                cleaned_data = remove_none_values(data)
+                cleaned_data = add_streaming_defaults(cleaned_data)
+                variant = OpenAIResponseTextFormatJSONObject.model_validate(cleaned_data)
+                instance.actual_instance = variant
+                return instance
+            except Exception:
+                pass
+            try:
+                cleaned_data = remove_none_values(data)
+                cleaned_data = add_streaming_defaults(cleaned_data)
+                variant = OpenAIResponseTextFormatJSONSchema.model_validate(cleaned_data)
+                instance.actual_instance = variant
+                return instance
+            except Exception:
+                pass
+
+            # All variants failed
+            raise ValueError("No match found when deserializing the JSON string into OpenAIResponseTextFormat with oneOf schemas: OpenAIResponseTextFormatJSONObject, OpenAIResponseTextFormatJSONSchema, OpenAIResponseTextFormatText. Details: " + ", ".join(error_messages))
+        else:
+            return instance
+
+    def to_dict(self) -> dict[str, Any] | OpenAIResponseTextFormatJSONObject | OpenAIResponseTextFormatJSONSchema | OpenAIResponseTextFormatText | None:
+        """Returns the dict representation of the actual instance"""
+        if self.actual_instance is None:
             return None
 
-        if not isinstance(obj, dict):
-            return cls.model_validate(obj)
-
-        _obj = cls.model_validate({
-            k: v for k, v in {
-            "type": obj.get("type"),
-            "name": obj.get("name"),
-            "schema": obj.get("schema"),
-            "description": obj.get("description"),
-            "strict": obj.get("strict"),
-            }.items() if k in obj
-        })
-        return _obj
+        # Handle lists specially - call to_dict() on each item if it has the method
+        if isinstance(self.actual_instance, list):
+            return [
+                item.to_dict() if hasattr(item, 'to_dict') and callable(item.to_dict)
+                else item
+                for item in self.actual_instance
+            ]
+        # Handle Pydantic models
+        elif hasattr(self.actual_instance, "to_dict") and callable(self.actual_instance.to_dict):
+            return self.actual_instance.to_dict()
+        # Handle other Pydantic models that don't have to_dict
+        elif hasattr(self.actual_instance, '__pydantic_serializer__'):
+            from pydantic_core import to_jsonable_python
+            return to_jsonable_python(
+                self.actual_instance,
+                by_alias=True,
+                exclude_none=True,
+                fallback=lambda x: x if isinstance(x, str | int | float | bool | type(None)) else str(x)
+            )
+        else:
+            # primitive type
+            return self.actual_instance
 
 

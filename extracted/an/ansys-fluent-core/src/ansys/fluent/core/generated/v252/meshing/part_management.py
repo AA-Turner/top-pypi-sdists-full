@@ -3254,9 +3254,14 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
+                    self.Solid = self._Solid(self, "Solid", service, rules, path)
                     self.Line = self._Line(self, "Line", service, rules, path)
                     self.Surface = self._Surface(self, "Surface", service, rules, path)
-                    self.Solid = self._Solid(self, "Solid", service, rules, path)
+
+                class _Solid(PyArgumentsParameterSubItem):
+                    """
+                    Enable this option to import solid bodies along with your CAD geometry.
+                    """
 
                 class _Line(PyArgumentsParameterSubItem):
                     """
@@ -3268,11 +3273,6 @@ class Root(PyMenu):
                     Enable this option to import surface bodies along with your CAD geometry.
                     """
 
-                class _Solid(PyArgumentsParameterSubItem):
-                    """
-                    Enable this option to import solid bodies along with your CAD geometry.
-                    """
-
             class _RefacetOptions(PyArgumentsSingletonSubItem):
                 """
                 Argument RefacetOptions.
@@ -3280,29 +3280,29 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
-                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
                     self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-
-                class _NormalAngle(PyArgumentsNumericalSubItem):
-                    """
-                    Specify a rotational angle (in degrees) of transformation.
-                    """
-
-                class _MaxSize(PyArgumentsNumericalSubItem):
-                    """
-                    Specify a maximum element size for the imported model to avoid very large facets during the file import.
-                    """
+                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
 
                 class _Deviation(PyArgumentsNumericalSubItem):
                     """
                     Specify the distance between facet edges and the geometry edges. Decreasing this value will result in more facets along curved edges.
                     """
 
+                class _NormalAngle(PyArgumentsNumericalSubItem):
+                    """
+                    Specify a rotational angle (in degrees) of transformation.
+                    """
+
                 class _RefacetDuringLoad(PyArgumentsParameterSubItem):
                     """
                     This option is available when DSCO is selected for the Import Route. When enabled, this option will refacet the geometry as it is converted to a .fmd file. This option eliminates the need for any refaceting operation after the geometry is loaded, which can be expensive.
+                    """
+
+                class _MaxSize(PyArgumentsNumericalSubItem):
+                    """
+                    Specify a maximum element size for the imported model to avoid very large facets during the file import.
                     """
 
         def create_instance(self) -> _AppendFmdFilesArguments:
@@ -3588,9 +3588,14 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
+                    self.Solid = self._Solid(self, "Solid", service, rules, path)
                     self.Line = self._Line(self, "Line", service, rules, path)
                     self.Surface = self._Surface(self, "Surface", service, rules, path)
-                    self.Solid = self._Solid(self, "Solid", service, rules, path)
+
+                class _Solid(PyArgumentsParameterSubItem):
+                    """
+                    Enable this option to import solid bodies along with your CAD geometry.
+                    """
 
                 class _Line(PyArgumentsParameterSubItem):
                     """
@@ -3602,11 +3607,6 @@ class Root(PyMenu):
                     Enable this option to import surface bodies along with your CAD geometry.
                     """
 
-                class _Solid(PyArgumentsParameterSubItem):
-                    """
-                    Enable this option to import solid bodies along with your CAD geometry.
-                    """
-
             class _RefacetOptions(PyArgumentsSingletonSubItem):
                 """
                 Argument RefacetOptions.
@@ -3614,29 +3614,29 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
-                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
                     self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-
-                class _NormalAngle(PyArgumentsNumericalSubItem):
-                    """
-                    Specify a rotational angle (in degrees) of transformation.
-                    """
-
-                class _MaxSize(PyArgumentsNumericalSubItem):
-                    """
-                    Specify a maximum element size for the imported model to avoid very large facets during the file import.
-                    """
+                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
 
                 class _Deviation(PyArgumentsNumericalSubItem):
                     """
                     Specify the distance between facet edges and the geometry edges. Decreasing this value will result in more facets along curved edges.
                     """
 
+                class _NormalAngle(PyArgumentsNumericalSubItem):
+                    """
+                    Specify a rotational angle (in degrees) of transformation.
+                    """
+
                 class _RefacetDuringLoad(PyArgumentsParameterSubItem):
                     """
                     This option is available when DSCO is selected for the Import Route. When enabled, this option will refacet the geometry as it is converted to a .fmd file. This option eliminates the need for any refaceting operation after the geometry is loaded, which can be expensive.
+                    """
+
+                class _MaxSize(PyArgumentsNumericalSubItem):
+                    """
+                    Specify a maximum element size for the imported model to avoid very large facets during the file import.
                     """
 
         def create_instance(self) -> _InputFileChangedArguments:
@@ -3767,9 +3767,14 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
+                    self.Solid = self._Solid(self, "Solid", service, rules, path)
                     self.Line = self._Line(self, "Line", service, rules, path)
                     self.Surface = self._Surface(self, "Surface", service, rules, path)
-                    self.Solid = self._Solid(self, "Solid", service, rules, path)
+
+                class _Solid(PyArgumentsParameterSubItem):
+                    """
+                    Enable this option to import solid bodies along with your CAD geometry.
+                    """
 
                 class _Line(PyArgumentsParameterSubItem):
                     """
@@ -3781,11 +3786,6 @@ class Root(PyMenu):
                     Enable this option to import surface bodies along with your CAD geometry.
                     """
 
-                class _Solid(PyArgumentsParameterSubItem):
-                    """
-                    Enable this option to import solid bodies along with your CAD geometry.
-                    """
-
             class _RefacetOptions(PyArgumentsSingletonSubItem):
                 """
                 Argument RefacetOptions.
@@ -3793,29 +3793,29 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
-                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
                     self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-
-                class _NormalAngle(PyArgumentsNumericalSubItem):
-                    """
-                    Specify a rotational angle (in degrees) of transformation.
-                    """
-
-                class _MaxSize(PyArgumentsNumericalSubItem):
-                    """
-                    Specify a maximum element size for the imported model to avoid very large facets during the file import.
-                    """
+                    self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
 
                 class _Deviation(PyArgumentsNumericalSubItem):
                     """
                     Specify the distance between facet edges and the geometry edges. Decreasing this value will result in more facets along curved edges.
                     """
 
+                class _NormalAngle(PyArgumentsNumericalSubItem):
+                    """
+                    Specify a rotational angle (in degrees) of transformation.
+                    """
+
                 class _RefacetDuringLoad(PyArgumentsParameterSubItem):
                     """
                     This option is available when DSCO is selected for the Import Route. When enabled, this option will refacet the geometry as it is converted to a .fmd file. This option eliminates the need for any refaceting operation after the geometry is loaded, which can be expensive.
+                    """
+
+                class _MaxSize(PyArgumentsNumericalSubItem):
+                    """
+                    Specify a maximum element size for the imported model to avoid very large facets during the file import.
                     """
 
         def create_instance(self) -> _LoadFmdFileArguments:

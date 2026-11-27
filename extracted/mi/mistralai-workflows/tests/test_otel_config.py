@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from collections.abc import Callable, Iterator
@@ -13,7 +14,7 @@ import structlog
 from opentelemetry._logs import SeverityNumber
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs._internal import LogRecord
-from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -21,6 +22,8 @@ from pydantic import SecretStr
 
 from mistralai.workflows._version import __version__
 from mistralai.workflows.core.auth import FileTokenProvider, StaticTokenProvider
+from mistralai.workflows.core.config.config import OtelRedactionMode
+from mistralai.workflows.core.logging import LogFormat, LogLevel, build_json_log_formatter, setup_logging
 from mistralai.workflows.core.tracing import _otel_config, exporters
 from mistralai.workflows.core.tracing._otel_config import (
     TELEMETRY_DISTRO_NAME_ATTRIBUTE,
@@ -136,7 +139,6 @@ def _init_tracing_from_env(
 
     monkeypatch.setenv("OTEL_ENABLED", "true")
     monkeypatch.setenv("OTEL_LOCAL", "false")
-    monkeypatch.delenv("OTEL_ENDPOINT", raising=False)
     monkeypatch.delenv("OTEL_TRACES_ENDPOINT", raising=False)
     monkeypatch.delenv("OTEL_LOGS_ENDPOINT", raising=False)
     for key, value in env.items():
@@ -452,13 +454,13 @@ class TestRotatingSaTokenTelemetryAuth:
     def test_rotating_sa_token_bearer_reaches_telemetry_endpoint_on_each_export(
         self, signal: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # SA deployments run without a static API key, so AppConfig.otel_headers bakes nothing into
-        # OTEL_EXPORTER_OTLP_HEADERS: the injected session's auth is their only telemetry auth.
+        # SA deployments run without a static API key, so the injected session's auth is their only
+        # worker-owned telemetry auth.
         # Real exporter classes, real HTTP transport, real FileTokenProvider; only the endpoint is
         # a stand-in. The refresh margin exceeds the token lifetime, so every export re-reads the
         # mounted file (the K8s service-account rotation pattern).
-        # A dev shell may export MISTRAL_API_KEY, which the SDK config load bakes into
-        # OTEL_EXPORTER_OTLP_HEADERS; drop it so the only possible bearer is the session auth's.
+        # A dev shell may provide its own OTLP headers; drop them so the only possible bearer is the
+        # session auth's.
         monkeypatch.delenv("OTEL_EXPORTER_OTLP_HEADERS", raising=False)
 
         endpoint = RecordingTelemetryEndpoint()
@@ -543,3 +545,78 @@ class TestOtelLoggingHandlerStripsStructlogExtras:
         }
         assert exported == expected_exported
         assert not [entry for entry in caplog.records if entry.name == "opentelemetry.attributes"]
+
+
+class _RaisingRepr:
+    def __repr__(self) -> str:
+        raise RuntimeError("repr failed")
+
+
+def _cyclic_dict() -> dict[str, Any]:
+    cyclic: dict[str, Any] = {"name": "cycle"}
+    cyclic["self"] = cyclic
+    return cyclic
+
+
+class TestOtelLoggingHandlerNeverRaises:
+    @pytest.mark.parametrize(
+        ("redaction", "expected_errors", "expected_events"),
+        [
+            pytest.param(
+                OtelRedactionMode.NONE,
+                ["unserializable"],
+                ["still exported"],
+                id="none-handler-drops-record",
+            ),
+            pytest.param(
+                OtelRedactionMode.DEFAULT,
+                [],
+                ["Log redaction failed; event omitted", "still exported"],
+                id="default-credential-redactor-replaces-record",
+            ),
+            pytest.param(
+                OtelRedactionMode.STRICT,
+                [],
+                ["[REDACTED]", "[REDACTED]"],
+                id="strict-masks-both-records",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "unserializable",
+        [pytest.param(_cyclic_dict, id="cyclic-dict"), pytest.param(_RaisingRepr, id="raising-repr")],
+    )
+    def test_unserializable_record_does_not_fail_the_caller(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        unserializable: Callable[[], Any],
+        redaction: OtelRedactionMode,
+        expected_errors: list[str],
+        expected_events: list[str],
+    ) -> None:
+        setup_logging(log_level=LogLevel.INFO, log_format=LogFormat.CONSOLE)
+        provider = LoggerProvider()
+        exporter = InMemoryLogRecordExporter()
+        provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+        handler = _otel_config._StructlogAwareLoggingHandler(logger_provider=provider, redaction=redaction)
+        handler.setFormatter(
+            build_json_log_formatter(
+                _otel_config._LogBodyRedactor(redaction), redact_credentials=redaction is not OtelRedactionMode.NONE
+            )
+        )
+        handled: list[logging.LogRecord] = []
+        monkeypatch.setattr(handler, "handleError", handled.append)
+
+        stdlib_logger = logging.getLogger("tests.otel_handler_never_raises")
+        monkeypatch.setattr(stdlib_logger, "handlers", [handler])
+        monkeypatch.setattr(stdlib_logger, "propagate", False)
+        log = structlog.get_logger("tests.otel_handler_never_raises")
+
+        log.info("unserializable", value=unserializable())
+        log.info("still exported")
+
+        # structlog records carry their event dict as ``msg``.
+        assert [record.msg["event"] for record in handled] == expected_errors
+        assert [
+            json.loads(str(finished.log_record.body))["event"] for finished in exporter.get_finished_logs()
+        ] == expected_events

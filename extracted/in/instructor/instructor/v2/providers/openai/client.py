@@ -6,13 +6,19 @@ Creates Instructor instances using v2 hierarchical registry system.
 from __future__ import annotations
 
 from functools import partial
-from typing import Any, Literal, overload
+from typing import Any, Literal, Protocol, cast, overload
 
 import openai
 
+from instructor.decisions.client import (
+    AsyncDecisionsClient,
+    DecisionsClient,
+    from_openai_decisions,
+)
 from instructor.v2.core.client import AsyncInstructor, Instructor
 from instructor.v2.core.mode import Mode
 from instructor.v2.core.providers import Provider
+from instructor.v2.core.openai_endpoints import OPENAI_ENDPOINTS
 from instructor.v2.core.patch import patch_v2
 
 # Ensure handlers are registered (decorators auto-register on import)
@@ -101,6 +107,24 @@ def _from_openai_compat(
 @overload
 def from_openai(
     client: openai.OpenAI,
+    mode: Literal[Mode.DECISIONS],
+    model: str | None = None,
+    **kwargs: Any,
+) -> DecisionsClient: ...
+
+
+@overload
+def from_openai(
+    client: openai.AsyncOpenAI,
+    mode: Literal[Mode.DECISIONS],
+    model: str | None = None,
+    **kwargs: Any,
+) -> AsyncDecisionsClient: ...
+
+
+@overload
+def from_openai(
+    client: openai.OpenAI,
     mode: Mode = Mode.TOOLS,
     model: str | None = None,
     **kwargs: Any,
@@ -121,17 +145,19 @@ def from_openai(
     mode: Mode = Mode.TOOLS,
     model: str | None = None,
     **kwargs: Any,
-) -> Instructor | AsyncInstructor:
-    """Create an Instructor instance from an OpenAI client using v2 registry.
+) -> Instructor | AsyncInstructor | DecisionsClient | AsyncDecisionsClient:
+    """Wrap a synchronous or asynchronous OpenAI SDK client.
 
     Args:
         client: An instance of OpenAI client (sync or async)
         mode: The mode to use (defaults to Mode.TOOLS)
-        model: Optional model to inject if not provided in requests
-        **kwargs: Additional keyword arguments to pass to the Instructor constructor
+        model: Default model for requests. Decisions mode defaults to gpt-6-luna.
+        **kwargs: Client options. Decisions mode accepts a timeout override.
 
     Returns:
-        An Instructor instance (sync or async depending on the client type)
+        A typed Decisions client for Mode.DECISIONS, or an Instructor client for
+        chat and Responses modes. The wrapper follows the supplied client's
+        synchronous or asynchronous interface.
 
     Raises:
         ModeError: If mode is not registered for OpenAI
@@ -148,6 +174,8 @@ def from_openai(
         >>> # Or use JSON_SCHEMA mode for structured outputs
         >>> instructor_client = from_openai(client, mode=Mode.JSON_SCHEMA)
     """
+    if mode is Mode.DECISIONS:
+        return from_openai_decisions(client, model, **kwargs)
     return _from_openai_compat(
         client=client,
         provider=Provider.OPENAI,
@@ -527,3 +555,97 @@ def from_deepseek(
         model=model,
         **kwargs,
     )
+
+
+class _GatewayFactory(Protocol):
+    @overload
+    def __call__(
+        self,
+        model_or_client: openai.AsyncOpenAI,
+        mode: Mode | None = None,
+        *,
+        model: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncInstructor: ...
+
+    @overload
+    def __call__(
+        self,
+        model_or_client: openai.OpenAI,
+        mode: Mode | None = None,
+        *,
+        model: str | None = None,
+        **kwargs: Any,
+    ) -> Instructor: ...
+
+    @overload
+    def __call__(
+        self,
+        model_or_client: str,
+        mode: Mode | None = None,
+        *,
+        async_client: Literal[True],
+        **kwargs: Any,
+    ) -> AsyncInstructor: ...
+
+    @overload
+    def __call__(
+        self,
+        model_or_client: str,
+        mode: Mode | None = None,
+        *,
+        async_client: Literal[False] = False,
+        **kwargs: Any,
+    ) -> Instructor: ...
+
+    @overload
+    def __call__(
+        self,
+        model_or_client: str,
+        mode: Mode | None = None,
+        *,
+        async_client: bool,
+        **kwargs: Any,
+    ) -> Instructor | AsyncInstructor: ...
+
+
+def _gateway_factory(provider: Provider) -> _GatewayFactory:
+    def factory(
+        model_or_client: str | openai.OpenAI | openai.AsyncOpenAI,
+        mode: Mode | None = None,
+        *,
+        model: str | None = None,
+        async_client: bool = False,
+        **kwargs: Any,
+    ) -> Instructor | AsyncInstructor:
+        if isinstance(model_or_client, str):
+            from instructor import from_provider
+
+            return from_provider(
+                f"{provider.value}/{model_or_client}",
+                mode=mode,
+                async_client=async_client,
+                **kwargs,
+            )
+        return _from_openai_compat(
+            model_or_client,
+            provider,
+            mode or OPENAI_ENDPOINTS[provider].default_mode,
+            model=model,
+            **kwargs,
+        )
+
+    factory.__name__ = f"from_{provider.value}"
+    factory.__doc__ = f"Create a {provider.value} Instructor client from a model name or an OpenAI SDK client."
+    return cast(_GatewayFactory, factory)
+
+
+from_zhipuai = _gateway_factory(Provider.ZHIPUAI)
+from_zai = _gateway_factory(Provider.ZAI)
+from_hubris = _gateway_factory(Provider.HUBRIS)
+from_atlascloud = _gateway_factory(Provider.ATLASCLOUD)
+from_requesty = _gateway_factory(Provider.REQUESTY)
+from_sarvam = _gateway_factory(Provider.SARVAM)
+from_orcarouter = _gateway_factory(Provider.ORCAROUTER)
+from_minimax = _gateway_factory(Provider.MINIMAX)
+from_manifest = _gateway_factory(Provider.MANIFEST)

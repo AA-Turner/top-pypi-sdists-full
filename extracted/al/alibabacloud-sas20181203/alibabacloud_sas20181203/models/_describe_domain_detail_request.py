@@ -10,13 +10,13 @@ class DescribeDomainDetailRequest(DaraModel):
         domain_name: str = None,
         source_ip: str = None,
     ):
-        # The name of the domain name or website to query.
+        # The domain name or website name to query.
         # 
-        # > Fuzzy match is not supported. Enter the complete domain name or website name.
+        # > Fuzzy search is not supported. You must enter the complete domain name or website name.
         # 
         # This parameter is required.
         self.domain_name = domain_name
-        # The IP address of the access source.
+        # The source IP address.
         self.source_ip = source_ip
 
     def validate(self):

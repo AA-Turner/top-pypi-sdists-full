@@ -172,11 +172,13 @@ class AdCampaignsResource:
         account_id: str,
         recommendations: list[dict[str, Any]],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Apply Google Ads recommendations"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "recommendations": recommendations,
@@ -189,11 +191,13 @@ class AdCampaignsResource:
         account_id: str,
         resource_names: list[str],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Dismiss Google Ads recommendations"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "resourceNames": resource_names,
@@ -228,6 +232,7 @@ class AdCampaignsResource:
         name: str,
         type: str,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
         target_cpa: float | None = None,
@@ -237,6 +242,7 @@ class AdCampaignsResource:
         """Create portfolio bid strategy"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -254,6 +260,7 @@ class AdCampaignsResource:
         strategy_id: str,
         account_id: str,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
         name: str | None = None,
@@ -265,6 +272,7 @@ class AdCampaignsResource:
         """Update portfolio bid strategy"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -297,12 +305,14 @@ class AdCampaignsResource:
         name: str,
         amount: float,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         type: str | None = "daily",
     ) -> dict[str, Any]:
         """Create a shared budget"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "name": name,
@@ -352,11 +362,13 @@ class AdCampaignsResource:
         keywords: list[Any],
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         negative: bool | None = False,
     ) -> dict[str, Any]:
         """Add Search ad-group keywords"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adSetId": ad_set_id,
                 "keywords": keywords,
@@ -373,12 +385,14 @@ class AdCampaignsResource:
         keyword_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         status: str | None = None,
         cpc_bid: float | None = None,
     ) -> dict[str, Any]:
         """Update a Search keyword"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "status": status,
                 "cpcBid": cpc_bid,
             }
@@ -391,13 +405,24 @@ class AdCampaignsResource:
         )
 
     def remove_ad_keyword(
-        self, keyword_id: str, *, idempotency_key: str | None = None
+        self,
+        keyword_id: str,
+        *,
+        stage: bool | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Remove a Search keyword"""
+        params = self._build_query(
+            {
+                "stage": stage,
+            }
+        )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
             headers["Idempotency-Key"] = idempotency_key
-        return self._client._delete(f"/v1/ads/keywords/{keyword_id}", headers=headers)
+        return self._client._delete(
+            f"/v1/ads/keywords/{keyword_id}", params=params, headers=headers
+        )
 
     def list_ad_campaigns(
         self,
@@ -562,11 +587,16 @@ class AdCampaignsResource:
         )
 
     def update_campaign_ad_schedule(
-        self, campaign_id: str, schedule: list[dict[str, Any]]
+        self,
+        campaign_id: str,
+        schedule: list[dict[str, Any]],
+        *,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Replace a campaign's ad schedule (dayparting)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "schedule": schedule,
             }
         )
@@ -665,12 +695,14 @@ class AdCampaignsResource:
         campaign_id: str,
         platform: str,
         *,
+        stage: bool | None = None,
         account_id: str | None = None,
         ad_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Delete a campaign"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
@@ -697,11 +729,13 @@ class AdCampaignsResource:
         keywords: list[Any],
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         platform: str | None = None,
     ) -> dict[str, Any]:
         """Replace campaign-level negative keywords"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "keywords": keywords,
             }
@@ -720,6 +754,7 @@ class AdCampaignsResource:
         campaign_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         platform: str | None = None,
         add: list[Any] | None = None,
         remove: list[Any] | None = None,
@@ -727,6 +762,7 @@ class AdCampaignsResource:
         """Add or remove campaign-level negative keywords"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "add": add,
                 "remove": remove,
@@ -747,10 +783,12 @@ class AdCampaignsResource:
         campaigns: list[dict[str, Any]],
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Pause or resume many campaigns"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "status": status,
                 "campaigns": campaigns,
             }
@@ -768,6 +806,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         deep_copy: bool | None = True,
         status_option: str | None = "PAUSED",
         start_time: datetime | str | None = None,
@@ -780,6 +819,7 @@ class AdCampaignsResource:
         """Duplicate a campaign"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "deepCopy": deep_copy,
                 "statusOption": status_option,
@@ -919,6 +959,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         campaign_id: str | None = None,
         deep_copy: bool | None = True,
         status_option: str | None = "PAUSED",
@@ -933,6 +974,7 @@ class AdCampaignsResource:
         """Duplicate an ad set"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "campaignId": campaign_id,
                 "deepCopy": deep_copy,
@@ -958,6 +1000,7 @@ class AdCampaignsResource:
         ad_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         ad_set_id: str | None = None,
         status_option: str | None = "PAUSED",
         rename_strategy: str | None = None,
@@ -969,6 +1012,7 @@ class AdCampaignsResource:
         """Duplicate an ad"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "adSetId": ad_set_id,
                 "statusOption": status_option,
                 "renameStrategy": rename_strategy,
@@ -1003,6 +1047,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        validate_only: bool | None = None,
         stage: bool | None = None,
         budget: dict[str, Any] | None = None,
         status: str | None = None,
@@ -1016,6 +1061,7 @@ class AdCampaignsResource:
         placements: Any | None = None,
         start_date: str | None = None,
         end_date: Any | None = None,
+        raw_targeting: dict[str, Any] | None = None,
         targeting: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
@@ -1026,6 +1072,7 @@ class AdCampaignsResource:
         """Update an ad set"""
         payload = self._build_body(
             {
+                "validateOnly": validate_only,
                 "stage": stage,
                 "platform": platform,
                 "budget": budget,
@@ -1040,6 +1087,7 @@ class AdCampaignsResource:
                 "placements": placements,
                 "startDate": start_date,
                 "endDate": end_date,
+                "rawTargeting": raw_targeting,
                 "targeting": targeting,
                 "bidAmount": bid_amount,
                 "roasAverageFloor": roas_average_floor,
@@ -1055,9 +1103,16 @@ class AdCampaignsResource:
             f"/v1/ads/ad-sets/{ad_set_id}", data=payload, headers=headers
         )
 
-    def delete_ad_set(self, ad_set_id: str) -> dict[str, Any]:
+    def delete_ad_set(
+        self, ad_set_id: str, *, stage: bool | None = None
+    ) -> dict[str, Any]:
         """Delete an ad set"""
-        return self._client._delete(f"/v1/ads/ad-sets/{ad_set_id}")
+        params = self._build_query(
+            {
+                "stage": stage,
+            }
+        )
+        return self._client._delete(f"/v1/ads/ad-sets/{ad_set_id}", params=params)
 
     def get_ad_set_targeting(
         self, ad_set_id: str, *, platform: str | None = None
@@ -1222,6 +1277,7 @@ class AdCampaignsResource:
         ad_id: str,
         *,
         idempotency_key: str | None = None,
+        validate_only: bool | None = None,
         stage: bool | None = None,
         headlines: list[Any] | None = None,
         descriptions: list[Any] | None = None,
@@ -1239,6 +1295,7 @@ class AdCampaignsResource:
         """Update ad"""
         payload = self._build_body(
             {
+                "validateOnly": validate_only,
                 "stage": stage,
                 "headlines": headlines,
                 "descriptions": descriptions,
@@ -1259,9 +1316,14 @@ class AdCampaignsResource:
             headers["Idempotency-Key"] = idempotency_key
         return self._client._put(f"/v1/ads/{ad_id}", data=payload, headers=headers)
 
-    def delete_ad(self, ad_id: str) -> dict[str, Any]:
+    def delete_ad(self, ad_id: str, *, stage: bool | None = None) -> dict[str, Any]:
         """Cancel an ad"""
-        return self._client._delete(f"/v1/ads/{ad_id}")
+        params = self._build_query(
+            {
+                "stage": stage,
+            }
+        )
+        return self._client._delete(f"/v1/ads/{ad_id}", params=params)
 
     def update_ad_status(
         self,
@@ -1312,6 +1374,7 @@ class AdCampaignsResource:
         campaign_id: str,
         account_id: str,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
         sitelinks: list[Any] | None = None,
@@ -1322,6 +1385,7 @@ class AdCampaignsResource:
         """Attach campaign assets"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -1341,12 +1405,14 @@ class AdCampaignsResource:
         account_id: str,
         updates: list[Any],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Update campaign assets"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -1364,12 +1430,14 @@ class AdCampaignsResource:
         asset_resource_names: list[str],
         campaign_asset_resource_names: list[str],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Remove campaign assets"""
         params = self._build_query(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -1404,6 +1472,7 @@ class AdCampaignsResource:
         ad_set_id: str,
         account_id: str,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
         sitelinks: list[Any] | None = None,
@@ -1414,6 +1483,7 @@ class AdCampaignsResource:
         """Attach ad-group assets"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -1431,12 +1501,14 @@ class AdCampaignsResource:
         account_id: str,
         updates: list[Any],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Update ad-group assets"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -1452,12 +1524,14 @@ class AdCampaignsResource:
         asset_resource_names: list[str],
         ad_group_asset_resource_names: list[str],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Remove ad-group assets"""
         params = self._build_query(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -1547,11 +1621,13 @@ class AdCampaignsResource:
         list_ids: list[str],
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         platform: str | None = None,
     ) -> dict[str, Any]:
         """Replace campaign negative lists"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "listIds": list_ids,
             }
@@ -1570,6 +1646,7 @@ class AdCampaignsResource:
         campaign_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         platform: str | None = None,
         add: list[str] | None = None,
         remove: list[str] | None = None,
@@ -1577,6 +1654,7 @@ class AdCampaignsResource:
         """Attach or detach campaign negative lists"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "add": add,
                 "remove": remove,
@@ -1599,6 +1677,7 @@ class AdCampaignsResource:
         goal: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         creative_features: Any | None = None,
         post_id: str | None = None,
         platform_post_id: str | None = None,
@@ -1659,6 +1738,7 @@ class AdCampaignsResource:
         """Boost post as ad"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "creativeFeatures": creative_features,
                 "postId": post_id,
                 "platformPostId": platform_post_id,
@@ -1736,6 +1816,7 @@ class AdCampaignsResource:
         name: str,
         final_urls: list[str],
         *,
+        stage: bool | None = None,
         final_mobile_urls: list[str] | None = None,
         path1: str | None = None,
         path2: str | None = None,
@@ -1747,6 +1828,7 @@ class AdCampaignsResource:
         """Create a Performance Max asset group"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "name": name,
                 "finalUrls": final_urls,
                 "finalMobileUrls": final_mobile_urls,
@@ -1775,6 +1857,7 @@ class AdCampaignsResource:
         campaign_id: str,
         asset_group_id: str,
         *,
+        stage: bool | None = None,
         name: str | None = None,
         status: str | None = None,
         final_urls: list[str] | None = None,
@@ -1786,6 +1869,7 @@ class AdCampaignsResource:
         """Update a Performance Max asset group"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "name": name,
                 "status": status,
                 "finalUrls": final_urls,
@@ -1805,11 +1889,13 @@ class AdCampaignsResource:
         campaign_id: str,
         asset_group_id: str,
         *,
+        stage: bool | None = None,
         validate_only: bool | None = False,
     ) -> dict[str, Any]:
         """Remove a Performance Max asset group"""
         params = self._build_query(
             {
+                "stage": stage,
                 "validateOnly": validate_only,
             }
         )
@@ -1823,6 +1909,7 @@ class AdCampaignsResource:
         campaign_id: str,
         asset_group_id: str,
         *,
+        stage: bool | None = None,
         link: list[Any] | None = None,
         unlink: list[Any] | None = None,
         validate_only: bool | None = False,
@@ -1830,6 +1917,7 @@ class AdCampaignsResource:
         """Link or unlink asset group assets"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "link": link,
                 "unlink": unlink,
                 "validateOnly": validate_only,
@@ -1846,11 +1934,13 @@ class AdCampaignsResource:
         asset_group_id: str,
         tree: Any,
         *,
+        stage: bool | None = None,
         validate_only: bool | None = False,
     ) -> dict[str, Any]:
         """Replace an asset group's listing-group tree"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "tree": tree,
                 "validateOnly": validate_only,
             }
@@ -1965,7 +2055,7 @@ class AdCampaignsResource:
         sitelinks: list[dict[str, Any]] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[dict[str, Any]] | None = None,
-        advantage_audience: int | None = None,
+        advantage_audience: Any | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         gender: str | None = "all",
         bid_strategy: Any | None = None,
@@ -2133,6 +2223,7 @@ class AdCampaignsResource:
         self,
         campaign_id: str,
         *,
+        stage: bool | None = None,
         goals: list[Any] | None = None,
         goal_config_level: str | None = None,
         custom_conversion_goal_id: Any | None = None,
@@ -2140,6 +2231,7 @@ class AdCampaignsResource:
         """Update campaign conversion goals"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "goals": goals,
                 "goalConfigLevel": goal_config_level,
                 "customConversionGoalId": custom_conversion_goal_id,
@@ -2220,11 +2312,13 @@ class AdCampaignsResource:
         account_id: str,
         recommendations: list[dict[str, Any]],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Apply Google Ads recommendations (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "recommendations": recommendations,
@@ -2237,11 +2331,13 @@ class AdCampaignsResource:
         account_id: str,
         resource_names: list[str],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Dismiss Google Ads recommendations (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "resourceNames": resource_names,
@@ -2278,6 +2374,7 @@ class AdCampaignsResource:
         name: str,
         type: str,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
         target_cpa: float | None = None,
@@ -2287,6 +2384,7 @@ class AdCampaignsResource:
         """Create portfolio bid strategy (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -2304,6 +2402,7 @@ class AdCampaignsResource:
         strategy_id: str,
         account_id: str,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
         name: str | None = None,
@@ -2315,6 +2414,7 @@ class AdCampaignsResource:
         """Update portfolio bid strategy (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -2347,12 +2447,14 @@ class AdCampaignsResource:
         name: str,
         amount: float,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         type: str | None = "daily",
     ) -> dict[str, Any]:
         """Create a shared budget (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "name": name,
@@ -2402,11 +2504,13 @@ class AdCampaignsResource:
         keywords: list[Any],
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         negative: bool | None = False,
     ) -> dict[str, Any]:
         """Add Search ad-group keywords (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adSetId": ad_set_id,
                 "keywords": keywords,
@@ -2425,12 +2529,14 @@ class AdCampaignsResource:
         keyword_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         status: str | None = None,
         cpc_bid: float | None = None,
     ) -> dict[str, Any]:
         """Update a Search keyword (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "status": status,
                 "cpcBid": cpc_bid,
             }
@@ -2443,14 +2549,23 @@ class AdCampaignsResource:
         )
 
     async def aremove_ad_keyword(
-        self, keyword_id: str, *, idempotency_key: str | None = None
+        self,
+        keyword_id: str,
+        *,
+        stage: bool | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Remove a Search keyword (async)"""
+        params = self._build_query(
+            {
+                "stage": stage,
+            }
+        )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
             headers["Idempotency-Key"] = idempotency_key
         return await self._client._adelete(
-            f"/v1/ads/keywords/{keyword_id}", headers=headers
+            f"/v1/ads/keywords/{keyword_id}", params=params, headers=headers
         )
 
     async def alist_ad_campaigns(
@@ -2618,11 +2733,16 @@ class AdCampaignsResource:
         )
 
     async def aupdate_campaign_ad_schedule(
-        self, campaign_id: str, schedule: list[dict[str, Any]]
+        self,
+        campaign_id: str,
+        schedule: list[dict[str, Any]],
+        *,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Replace a campaign's ad schedule (dayparting) (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "schedule": schedule,
             }
         )
@@ -2723,12 +2843,14 @@ class AdCampaignsResource:
         campaign_id: str,
         platform: str,
         *,
+        stage: bool | None = None,
         account_id: str | None = None,
         ad_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Delete a campaign (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
@@ -2757,11 +2879,13 @@ class AdCampaignsResource:
         keywords: list[Any],
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         platform: str | None = None,
     ) -> dict[str, Any]:
         """Replace campaign-level negative keywords (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "keywords": keywords,
             }
@@ -2780,6 +2904,7 @@ class AdCampaignsResource:
         campaign_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         platform: str | None = None,
         add: list[Any] | None = None,
         remove: list[Any] | None = None,
@@ -2787,6 +2912,7 @@ class AdCampaignsResource:
         """Add or remove campaign-level negative keywords (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "add": add,
                 "remove": remove,
@@ -2807,10 +2933,12 @@ class AdCampaignsResource:
         campaigns: list[dict[str, Any]],
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
     ) -> dict[str, Any]:
         """Pause or resume many campaigns (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "status": status,
                 "campaigns": campaigns,
             }
@@ -2828,6 +2956,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         deep_copy: bool | None = True,
         status_option: str | None = "PAUSED",
         start_time: datetime | str | None = None,
@@ -2840,6 +2969,7 @@ class AdCampaignsResource:
         """Duplicate a campaign (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "deepCopy": deep_copy,
                 "statusOption": status_option,
@@ -2981,6 +3111,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         campaign_id: str | None = None,
         deep_copy: bool | None = True,
         status_option: str | None = "PAUSED",
@@ -2995,6 +3126,7 @@ class AdCampaignsResource:
         """Duplicate an ad set (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "campaignId": campaign_id,
                 "deepCopy": deep_copy,
@@ -3020,6 +3152,7 @@ class AdCampaignsResource:
         ad_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         ad_set_id: str | None = None,
         status_option: str | None = "PAUSED",
         rename_strategy: str | None = None,
@@ -3031,6 +3164,7 @@ class AdCampaignsResource:
         """Duplicate an ad (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "adSetId": ad_set_id,
                 "statusOption": status_option,
                 "renameStrategy": rename_strategy,
@@ -3065,6 +3199,7 @@ class AdCampaignsResource:
         platform: str,
         *,
         idempotency_key: str | None = None,
+        validate_only: bool | None = None,
         stage: bool | None = None,
         budget: dict[str, Any] | None = None,
         status: str | None = None,
@@ -3078,6 +3213,7 @@ class AdCampaignsResource:
         placements: Any | None = None,
         start_date: str | None = None,
         end_date: Any | None = None,
+        raw_targeting: dict[str, Any] | None = None,
         targeting: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
@@ -3088,6 +3224,7 @@ class AdCampaignsResource:
         """Update an ad set (async)"""
         payload = self._build_body(
             {
+                "validateOnly": validate_only,
                 "stage": stage,
                 "platform": platform,
                 "budget": budget,
@@ -3102,6 +3239,7 @@ class AdCampaignsResource:
                 "placements": placements,
                 "startDate": start_date,
                 "endDate": end_date,
+                "rawTargeting": raw_targeting,
                 "targeting": targeting,
                 "bidAmount": bid_amount,
                 "roasAverageFloor": roas_average_floor,
@@ -3117,9 +3255,18 @@ class AdCampaignsResource:
             f"/v1/ads/ad-sets/{ad_set_id}", data=payload, headers=headers
         )
 
-    async def adelete_ad_set(self, ad_set_id: str) -> dict[str, Any]:
+    async def adelete_ad_set(
+        self, ad_set_id: str, *, stage: bool | None = None
+    ) -> dict[str, Any]:
         """Delete an ad set (async)"""
-        return await self._client._adelete(f"/v1/ads/ad-sets/{ad_set_id}")
+        params = self._build_query(
+            {
+                "stage": stage,
+            }
+        )
+        return await self._client._adelete(
+            f"/v1/ads/ad-sets/{ad_set_id}", params=params
+        )
 
     async def aget_ad_set_targeting(
         self, ad_set_id: str, *, platform: str | None = None
@@ -3284,6 +3431,7 @@ class AdCampaignsResource:
         ad_id: str,
         *,
         idempotency_key: str | None = None,
+        validate_only: bool | None = None,
         stage: bool | None = None,
         headlines: list[Any] | None = None,
         descriptions: list[Any] | None = None,
@@ -3301,6 +3449,7 @@ class AdCampaignsResource:
         """Update ad (async)"""
         payload = self._build_body(
             {
+                "validateOnly": validate_only,
                 "stage": stage,
                 "headlines": headlines,
                 "descriptions": descriptions,
@@ -3323,9 +3472,16 @@ class AdCampaignsResource:
             f"/v1/ads/{ad_id}", data=payload, headers=headers
         )
 
-    async def adelete_ad(self, ad_id: str) -> dict[str, Any]:
+    async def adelete_ad(
+        self, ad_id: str, *, stage: bool | None = None
+    ) -> dict[str, Any]:
         """Cancel an ad (async)"""
-        return await self._client._adelete(f"/v1/ads/{ad_id}")
+        params = self._build_query(
+            {
+                "stage": stage,
+            }
+        )
+        return await self._client._adelete(f"/v1/ads/{ad_id}", params=params)
 
     async def aupdate_ad_status(
         self,
@@ -3376,6 +3532,7 @@ class AdCampaignsResource:
         campaign_id: str,
         account_id: str,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
         sitelinks: list[Any] | None = None,
@@ -3386,6 +3543,7 @@ class AdCampaignsResource:
         """Attach campaign assets (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -3405,12 +3563,14 @@ class AdCampaignsResource:
         account_id: str,
         updates: list[Any],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Update campaign assets (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -3428,12 +3588,14 @@ class AdCampaignsResource:
         asset_resource_names: list[str],
         campaign_asset_resource_names: list[str],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Remove campaign assets (async)"""
         params = self._build_query(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -3470,6 +3632,7 @@ class AdCampaignsResource:
         ad_set_id: str,
         account_id: str,
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
         sitelinks: list[Any] | None = None,
@@ -3480,6 +3643,7 @@ class AdCampaignsResource:
         """Attach ad-group assets (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -3499,12 +3663,14 @@ class AdCampaignsResource:
         account_id: str,
         updates: list[Any],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Update ad-group assets (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -3522,12 +3688,14 @@ class AdCampaignsResource:
         asset_resource_names: list[str],
         ad_group_asset_resource_names: list[str],
         *,
+        stage: bool | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
     ) -> dict[str, Any]:
         """Remove ad-group assets (async)"""
         params = self._build_query(
             {
+                "stage": stage,
                 "accountId": account_id,
                 "adAccountId": ad_account_id,
                 "customerId": customer_id,
@@ -3619,11 +3787,13 @@ class AdCampaignsResource:
         list_ids: list[str],
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         platform: str | None = None,
     ) -> dict[str, Any]:
         """Replace campaign negative lists (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "listIds": list_ids,
             }
@@ -3642,6 +3812,7 @@ class AdCampaignsResource:
         campaign_id: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         platform: str | None = None,
         add: list[str] | None = None,
         remove: list[str] | None = None,
@@ -3649,6 +3820,7 @@ class AdCampaignsResource:
         """Attach or detach campaign negative lists (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "platform": platform,
                 "add": add,
                 "remove": remove,
@@ -3671,6 +3843,7 @@ class AdCampaignsResource:
         goal: str,
         *,
         idempotency_key: str | None = None,
+        stage: bool | None = None,
         creative_features: Any | None = None,
         post_id: str | None = None,
         platform_post_id: str | None = None,
@@ -3731,6 +3904,7 @@ class AdCampaignsResource:
         """Boost post as ad (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "creativeFeatures": creative_features,
                 "postId": post_id,
                 "platformPostId": platform_post_id,
@@ -3808,6 +3982,7 @@ class AdCampaignsResource:
         name: str,
         final_urls: list[str],
         *,
+        stage: bool | None = None,
         final_mobile_urls: list[str] | None = None,
         path1: str | None = None,
         path2: str | None = None,
@@ -3819,6 +3994,7 @@ class AdCampaignsResource:
         """Create a Performance Max asset group (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "name": name,
                 "finalUrls": final_urls,
                 "finalMobileUrls": final_mobile_urls,
@@ -3847,6 +4023,7 @@ class AdCampaignsResource:
         campaign_id: str,
         asset_group_id: str,
         *,
+        stage: bool | None = None,
         name: str | None = None,
         status: str | None = None,
         final_urls: list[str] | None = None,
@@ -3858,6 +4035,7 @@ class AdCampaignsResource:
         """Update a Performance Max asset group (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "name": name,
                 "status": status,
                 "finalUrls": final_urls,
@@ -3877,11 +4055,13 @@ class AdCampaignsResource:
         campaign_id: str,
         asset_group_id: str,
         *,
+        stage: bool | None = None,
         validate_only: bool | None = False,
     ) -> dict[str, Any]:
         """Remove a Performance Max asset group (async)"""
         params = self._build_query(
             {
+                "stage": stage,
                 "validateOnly": validate_only,
             }
         )
@@ -3895,6 +4075,7 @@ class AdCampaignsResource:
         campaign_id: str,
         asset_group_id: str,
         *,
+        stage: bool | None = None,
         link: list[Any] | None = None,
         unlink: list[Any] | None = None,
         validate_only: bool | None = False,
@@ -3902,6 +4083,7 @@ class AdCampaignsResource:
         """Link or unlink asset group assets (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "link": link,
                 "unlink": unlink,
                 "validateOnly": validate_only,
@@ -3918,11 +4100,13 @@ class AdCampaignsResource:
         asset_group_id: str,
         tree: Any,
         *,
+        stage: bool | None = None,
         validate_only: bool | None = False,
     ) -> dict[str, Any]:
         """Replace an asset group's listing-group tree (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "tree": tree,
                 "validateOnly": validate_only,
             }
@@ -4037,7 +4221,7 @@ class AdCampaignsResource:
         sitelinks: list[dict[str, Any]] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[dict[str, Any]] | None = None,
-        advantage_audience: int | None = None,
+        advantage_audience: Any | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         gender: str | None = "all",
         bid_strategy: Any | None = None,
@@ -4209,6 +4393,7 @@ class AdCampaignsResource:
         self,
         campaign_id: str,
         *,
+        stage: bool | None = None,
         goals: list[Any] | None = None,
         goal_config_level: str | None = None,
         custom_conversion_goal_id: Any | None = None,
@@ -4216,6 +4401,7 @@ class AdCampaignsResource:
         """Update campaign conversion goals (async)"""
         payload = self._build_body(
             {
+                "stage": stage,
                 "goals": goals,
                 "goalConfigLevel": goal_config_level,
                 "customConversionGoalId": custom_conversion_goal_id,

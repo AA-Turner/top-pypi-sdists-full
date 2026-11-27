@@ -102,6 +102,51 @@ def test_run_plain_runner_command_timeout_is_a_failure_not_a_crash() -> None:
     assert "timed out after 30s" in verdict.log_tail
 
 
+def test_run_plain_runner_command_timeout_sets_timed_out_and_records_load(monkeypatch) -> None:
+    """#4130: a wall-clock kill is distinguishable from an ordinary
+    `exit_code=-1` failure via `timed_out`, and the host's load at the
+    moment of the kill is captured so the triage classifier (and a human
+    reading the log) can see it."""
+    monkeypatch.setattr(
+        agent_mod, "_current_load_snapshot",
+        lambda: {"load1": 33.2, "load5": 20.0, "load15": 10.0, "cpu_count": 8},
+    )
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="pytest", timeout=30)
+
+    verdict = run_plain_runner_command("pytest", "/tmp/repo", timeout=30, run=fake_run)
+
+    assert verdict.timed_out is True
+    assert verdict.timeout_load == {
+        "load1": 33.2, "load5": 20.0, "load15": 10.0, "cpu_count": 8,
+    }
+
+
+def test_run_plain_runner_command_timeout_load_none_when_unmeasurable(monkeypatch) -> None:
+    """A host whose `os.getloadavg()` is unavailable (e.g. Windows) still
+    produces a verdict — `timeout_load` is simply `None`, never a crash."""
+    monkeypatch.setattr(agent_mod, "_current_load_snapshot", lambda: None)
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="pytest", timeout=30)
+
+    verdict = run_plain_runner_command("pytest", "/tmp/repo", timeout=30, run=fake_run)
+
+    assert verdict.timed_out is True
+    assert verdict.timeout_load is None
+
+
+def test_current_load_snapshot_shape() -> None:
+    """A real read, on this (POSIX) test host: a 5-key dict with a positive
+    cpu_count, or `None` if this platform genuinely can't measure it."""
+    snapshot = agent_mod._current_load_snapshot()
+    if snapshot is None:
+        return
+    assert set(snapshot) == {"load1", "load5", "load15", "cpu_count"}
+    assert snapshot["cpu_count"] >= 1
+
+
 def test_run_plain_runner_command_never_calls_the_real_runner_when_injected() -> None:
     """The injected `run` is the ONLY thing `run_plain_runner_command` calls
     to get an exit code — never `subprocess.Popen`, never the `claude`
@@ -216,6 +261,30 @@ def test_plain_runner_smoke_marker_lines_matches_claude_worker_vocabulary() -> N
     crash_text = plain_runner_smoke_marker_lines(_smoke_spec(), harness_crash)
     assert "SMOKE: harness-crash exit=3" in crash_text
     assert "SMOKE: fail" not in crash_text
+
+
+def test_plain_runner_smoke_marker_lines_timeout_carries_the_load_note() -> None:
+    """#4130: a `timed_out` verdict's `SMOKE: fail` marker carries the
+    host's load at kill time, in the exact shape
+    `coord.failure_triage`'s deterministic timeout rule scans for — this
+    is the one line that eventually reaches `failure_reason`/
+    `terminal_reason` via `coord.notify`'s "headless smoke: {reason}"
+    headline."""
+    timed_out = PlainRunnerVerdict(
+        passed=False, exit_code=-1, log_tail="timed out after 2400s",
+        timed_out=True, timeout_load={"load1": 33.2, "cpu_count": 8},
+    )
+    text = plain_runner_smoke_marker_lines(_smoke_spec(), timed_out)
+    assert "SMOKE: fail timed out, exit=-1" in text
+    assert "(host load at kill: 1m=33.20, cores=8)" in text
+
+    unmeasurable = PlainRunnerVerdict(
+        passed=False, exit_code=-1, log_tail="timed out after 2400s",
+        timed_out=True, timeout_load=None,
+    )
+    assert "(host load at kill: unknown)" in plain_runner_smoke_marker_lines(
+        _smoke_spec(), unmeasurable,
+    )
 
 
 # ── End-to-end through the real AgentServer: no claude Popen for a plain
@@ -584,3 +653,87 @@ def test_check_plain_runner_target_branch_detects_head_mismatch(tmp_path: Path) 
     assert error is not None
     assert "does not match" in error
     server.shutdown()
+
+
+# ── #4166: two branches off one base, failing identically ─────────────────
+
+
+def test_two_branches_off_one_base_report_the_second_failure_as_pre_existing(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """End-to-end through the real plain-runner path: when a second branch
+    cut from the same base fails with the same fingerprint as a first one,
+    the second leg's log says the failure predates the branch — written
+    ahead of the closing ``SMOKE:`` marker, which is the only part of the
+    log that survives into the stored leg output a fix briefing is built
+    from (`coord.progress.parse_smoke_verdict_from_log`).
+    """
+    monkeypatch.delenv("COORD_BASE_FAILURE_CACHE", raising=False)
+    repo = _init_repo_with_remote(tmp_path / "repo")
+    for branch in ("issue-1-first", "issue-2-second"):
+        subprocess.run(
+            ["git", "checkout", "-b", branch, "main"], cwd=str(repo),
+            check=True, capture_output=True,
+        )
+        (repo / f"{branch}.txt").write_text("work\n")
+        subprocess.run(["git", "add", "-A"], cwd=str(repo), check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", f"work on {branch}"], cwd=str(repo),
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "push", "-u", "origin", branch], cwd=str(repo),
+            check=True, capture_output=True,
+        )
+    subprocess.run(["git", "checkout", "main"], cwd=str(repo), check=True, capture_output=True)
+
+    real_run = subprocess.run
+
+    def fake_run(cmd, *args, **kwargs):
+        # The failure summariser is the only `claude` call on this path;
+        # stub it so the test never shells out to a real binary.
+        if isinstance(cmd, list) and cmd and cmd[0] == agent_mod.DEFAULT_WORKER_BINARY:
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(agent_mod.subprocess, "run", fake_run)
+
+    server = _server(
+        tmp_path, repo_path=repo,
+        argv=[sys.executable, "-c", "raise SystemExit('claude must never run for this leg')"],
+    )
+    # Same failure on both branches — a ratchet that tripped on the base,
+    # not something either branch introduced.
+    failing = (
+        f"{sys.executable} -c \"print('error[E0308]: mismatched types'); "
+        "print(' --> src/widget.rs:120:9'); "
+        "print('FAILED STAGES (stage order, first is likely root): cargo test'); "
+        'import sys; sys.exit(1)"'
+    )
+    logs: dict[str, str] = {}
+    try:
+        for issue, branch in ((1, "issue-1-first"), (2, "issue-2-second")):
+            spec = _spec(
+                repo, type="smoke", plain_runner=True, issue_number=issue,
+                target_branch=branch, smoke_command=failing, smoke_timeout_s=60,
+            )
+            a = server.assign(spec)
+            final = server.wait_for(a.id, timeout=30)
+            assert final.status == DONE, final.error
+            assert final.exit_code == 1
+            logs[branch] = Path(final.log_path).read_text()
+            if branch == "issue-1-first":
+                assert final.pre_existing_failure_reason is None
+            else:
+                assert final.pre_existing_failure_reason is not None
+                assert "issue-1-first" in final.pre_existing_failure_reason
+    finally:
+        server.shutdown()
+
+    assert "pre-existing failure:" not in logs["issue-1-first"]
+
+    second = logs["issue-2-second"]
+    assert "pre-existing failure:" in second
+    assert "issue-1-first" in second
+    # Ahead of the marker, or no reader would ever see it.
+    assert second.index("pre-existing failure:") < second.index("SMOKE: fail")

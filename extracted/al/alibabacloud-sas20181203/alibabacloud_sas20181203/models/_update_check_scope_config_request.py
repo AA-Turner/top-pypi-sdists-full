@@ -13,27 +13,25 @@ class UpdateCheckScopeConfigRequest(DaraModel):
         resource_directory_account_id: int = None,
         type: int = None,
     ):
-        # The JSON string of the automatic scan configuration. The following fields are included:
+        # The JSON string for the automatic scan configuration. Fields:
         # 
-        # - **autoInclude**: specifies whether to enable automatic scanning. Valid values: **true**: enabled. **false**: disabled.
-        # - **autoRule**: the configuration for enabling automatic scanning.
-        # - **ruleOperator**: the rule operator for the configuration. Set the value to **include**.
-        # - **operator**: the logical operator. Set the value to **or**.
+        # - **autoInclude**: specifies whether to enable automatic scanning. Valid values: **true** (enabled) and **false** (disabled).
+        # - **autoRule**: the enablement configuration.
+        # - **ruleOperator**: the enablement configuration rule. Valid value: **include**.
+        # - **operator**: the logical operator. Valid value: **or**.
         # - **rule**: the rule.
-        # - **condition**: the rule condition. Valid values: **vendor**: vendor, **assetType**: primary asset type, **assetSubType**: secondary asset type.
-        # > For specific meanings, refer to the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
+        # - **condition**: the rule condition. Valid values: **vendor** (vendor), **assetType** (primary asset type), and **assetSubType** (secondary asset type).
+        # > For more information about the specific meanings, refer to the [GetCloudAssetCriteria](~~GetCloudAssetCriteria~~) operation.
         # 
-        # This parameter is required when AutoType is set to 1 (automatic scan enabled). Provide a valid JSON configuration string. This parameter is not required when AutoType is set to 0.
+        # If AutoType is set to 1 (enable automatic scanning), this parameter is required and must be a valid JSON configuration string. If AutoType is set to 0, this parameter is optional.
         self.auto_config = auto_config
         # The type of the automatic scan configuration. Valid values:
-        # - **0**: Automatic scan is disabled.
-        # - **1**: Automatically scan newly added cloud assets.
+        # - **0**: disable automatic scanning
+        # - **1**: automatically scan new cloud assets
         self.auto_type = auto_type
-        # The ID of the configuration.
-        # >Call the [GetCheckScopeConfig](~~GetCheckScopeConfig~~) operation to obtain this parameter.
+        # The configuration ID. You can call the [GetCheckScopeConfig](~~GetCheckScopeConfig~~) operation to query this parameter.
         self.config_id = config_id
-        # The ID of the Alibaba Cloud account that corresponds to the member accounts in the resource folder.
-        # >Invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        # The ID of the Alibaba Cloud account that is the primary account of the member accounts of the resource folder. You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to query this parameter.
         self.resource_directory_account_id = resource_directory_account_id
         # The type of the scan scope configuration. Valid values:
         # - **1**: scan by instance

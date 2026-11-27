@@ -13,10 +13,10 @@ class GetAttackEventDashboardRequest(DaraModel):
     ):
         # The timestamp of the end time.
         self.end_time = end_time
-        # The language type for the request and response messages. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
         # The timestamp of the start time.
         self.start_time = start_time

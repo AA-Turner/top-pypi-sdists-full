@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from ase.calculators.calculator import PropertyNotImplementedError
 from ase.constraints import FixAtoms, FixScaled
 from ase.io import read
 from ase.units import GPa
@@ -44,7 +45,7 @@ def test_parse_dfpt_dielectric(testdir):
 @pytest.fixture()
 def vasprun():
     # "Hand-written" (reduced) vasprun.xml
-    sample_vasprun = """\
+    return """\
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <modeling>
  <structure name="primitive_cell" >
@@ -75,6 +76,10 @@ def vasprun():
    </set>
   </array>
  </atominfo>
+"""
+
+
+VASPRUN_STRUCTURE_INITIALPOS = """\
  <structure name="initialpos" >
   <crystal>
    <varray name="basis" >
@@ -90,15 +95,13 @@ def vasprun():
   </varray>
  </structure>
 """
-    return sample_vasprun
 
 
-@pytest.fixture()
-def calculation():
-    def factory(test_case_index=0):
+def _get_expected_values(test_case_index: int) -> dict:
+    if True:
         # list of dictionaries with the expected values for
         # test calculation xml strings
-        expected_values = [
+        return [
             {
                 'e_0_energy': -29.67691672,
                 'e_fr_energy': -29.67243317,
@@ -122,12 +125,17 @@ def calculation():
                 'forces': np.full((2, 3), np.pi),
                 'stress': np.full((3, 3), 2.0 * np.pi),
             },
-        ]
+        ][test_case_index]
 
-        e_fr_energy = expected_values[test_case_index]['e_fr_energy']
-        e_0_energy = expected_values[test_case_index]['e_0_energy']
-        forces = expected_values[test_case_index]['forces']
-        stress = expected_values[test_case_index]['stress']
+
+@pytest.fixture()
+def calculation():
+    def factory(test_case_index=0):
+        expected = _get_expected_values(test_case_index)
+        e_fr_energy = expected['e_fr_energy']
+        e_0_energy = expected['e_0_energy']
+        forces = expected['forces']
+        stress = expected['stress']
 
         # "Hand-written" calculation record
         sample_calculation = f"""\
@@ -166,13 +174,13 @@ def calculation():
    </varray>
   </structure>
   <varray name="forces" >
-   <v>      {forces[0, 0]:.8f} {forces[0, 1]:.8f} {forces[0, 2]:.8f} </v>
-   <v>      {forces[1, 0]:.8f} {forces[1, 1]:.8f} {forces[1, 2]:.8f} </v>
+   <v>{forces[0, 0]:17.8f}{forces[0, 1]:17.8f}{forces[0, 2]:17.8f} </v>
+   <v>{forces[1, 0]:17.8f}{forces[1, 1]:17.8f}{forces[1, 2]:17.8f} </v>
   </varray>
   <varray name="stress" >
-   <v>    {stress[0, 0]:.8f} {stress[0, 1]:.8f} {stress[0, 2]:.8f}  </v>
-   <v>    {stress[1, 0]:.8f} {stress[1, 1]:.8f} {stress[1, 2]:.8f} </v>
-   <v>    {stress[2, 0]:.8f} {stress[2, 1]:.8f} {stress[2, 2]:.8f} </v>
+   <v>{stress[0, 0]:17.8f}{stress[0, 1]:17.8f}{stress[0, 2]:17.8f} </v>
+   <v>{stress[1, 0]:17.8f}{stress[1, 1]:17.8f}{stress[1, 2]:17.8f} </v>
+   <v>{stress[2, 0]:17.8f}{stress[2, 1]:17.8f}{stress[2, 2]:17.8f} </v>
   </varray>
   <energy>
    <i name="e_fr_energy">   {e_fr_energy:.8f} </i>
@@ -180,14 +188,14 @@ def calculation():
    <i name="e_0_energy">    {e_0_energy:.8f} </i>
   </energy>
 """
-        return sample_calculation, expected_values[test_case_index]
+        return sample_calculation, expected
 
     return factory
 
 
 def test_atoms(vasprun):
-
-    atoms = read(StringIO(vasprun), index=-1, format='vasp-xml')
+    buf = StringIO(vasprun + VASPRUN_STRUCTURE_INITIALPOS)
+    atoms = read(buf, index=-1, format='vasp-xml')
 
     # check number of atoms
     assert len(atoms) == 2
@@ -236,61 +244,53 @@ def check_calculation(vasprun_record, expected_values, index=-1):
 
 
 def test_calculation(vasprun, calculation):
-
     calculation_record, expected_values = calculation(test_case_index=0)
-    check_calculation(vasprun + calculation_record, expected_values)
+    vasprun_record = vasprun + VASPRUN_STRUCTURE_INITIALPOS + calculation_record
+    check_calculation(vasprun_record, expected_values)
 
 
 def test_two_calculations(vasprun, calculation):
-
-    (first_calculation_record, first_expected_values) = calculation(
-        test_case_index=0
-    )
-
-    (second_calculation_record, second_expected_values) = calculation(
-        test_case_index=1
-    )
+    calculation_record_0, expected_values_0 = calculation(test_case_index=0)
+    calculation_record_1, expected_values_1 = calculation(test_case_index=1)
 
     extended_vasprun = (
-        vasprun + first_calculation_record + second_calculation_record
+        vasprun
+        + VASPRUN_STRUCTURE_INITIALPOS
+        + calculation_record_0
+        + calculation_record_1
     )
     # make sure we have two atoms objects in the list if we read all records
     images = read(StringIO(extended_vasprun), index=':', format='vasp-xml')
     assert len(images) == 2
-    check_calculation(extended_vasprun, second_expected_values)
+    check_calculation(extended_vasprun, expected_values_1)
 
     # make sure we can read the first (second from the end)
     # calculation by passing index=-2
-    check_calculation(extended_vasprun, first_expected_values, index=-2)
+    check_calculation(extended_vasprun, expected_values_0, index=-2)
 
 
 def test_corrupted_calculation(vasprun, calculation):
-
-    (first_calculation_record, first_expected_values) = calculation(
-        test_case_index=0
-    )
-
-    second_calculation_record, _ = calculation(test_case_index=1)
+    calculation_record_0, expected_values_0 = calculation(test_case_index=0)
+    calculation_record_1, _ = calculation(test_case_index=1)
 
     # corrupted calculation that does not have energy record.
     # Thus the parser is expected to read the previous one.
-    corrupted_record = '\n'.join(second_calculation_record.split('\n')[:-6])
+    corrupted_record = '\n'.join(calculation_record_1.split('\n')[:-6])
     # assert that we actually do have two calculations in the set up
-    xml_string = vasprun + first_calculation_record + corrupted_record
+    xml_string = (
+        vasprun
+        + VASPRUN_STRUCTURE_INITIALPOS
+        + calculation_record_0
+        + corrupted_record
+    )
     images = read(StringIO(xml_string), index=':', format='vasp-xml')
-    assert len(images) == 1
-    check_calculation(
-        vasprun + first_calculation_record + corrupted_record,
-        expected_values=first_expected_values,
-        index=-2,
-    )
-    # check that the parser skips the corrupted last one
-    # Should there be a warning in this case?
-    check_calculation(
-        vasprun + first_calculation_record + corrupted_record,
-        expected_values=first_expected_values,
-        index=-1,
-    )
+    assert len(images) == 2
+    check_calculation(xml_string, expected_values=expected_values_0, index=-2)
+
+    # make sure we can read the last image but without energy
+    atoms = read(StringIO(xml_string), index=-1, format='vasp-xml')
+    with pytest.raises(PropertyNotImplementedError):
+        atoms.get_potential_energy()
 
 
 def test_vasp_parameters(vasprun, calculation):
@@ -345,11 +345,13 @@ def test_vasp_parameters(vasprun, calculation):
  </parameters>
     """
     calculation_record, _ = calculation()
-    atoms = read(
-        StringIO(vasprun + calculation_record + vasp_parameters),
-        index=-1,
-        format='vasp-xml',
+    buf = StringIO(
+        vasprun
+        + vasp_parameters
+        + VASPRUN_STRUCTURE_INITIALPOS
+        + calculation_record
     )
+    atoms = read(buf, index=-1, format='vasp-xml')
 
     expected_parameters = OrderedDict(
         [
@@ -399,6 +401,7 @@ def test_constraints(vasprun):
     ]
 
     # insert the selective block before the last </structure>
+    vasprun += VASPRUN_STRUCTURE_INITIALPOS
     tmp = vasprun.splitlines(keepends=True)
     tmp[-1:-1] = selective
     vasprun = ''.join(tmp)
@@ -449,4 +452,5 @@ def test_vasprun_line_mode(vasprun):
   </kpoints_labels>
  </kpoints>
 """
-    assert read(StringIO(vasprun + line_mode), format='vasp-xml')
+    buf = StringIO(vasprun + line_mode + VASPRUN_STRUCTURE_INITIALPOS)
+    assert read(buf, format='vasp-xml')

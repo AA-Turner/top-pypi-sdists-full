@@ -9,7 +9,7 @@ from .doc_ai_page_range import DocAiPageRangeParams
 class DocAiSplitConstraintsParams(typing_extensions.TypedDict):
     must_keep_together: typing_extensions.NotRequired[typing.Sequence[DocAiPageRangeParams]]
     """
-    Page runs that stay in one document.
+    Page runs that stay in one document. Not enabled for every account: a request that uses it returns `422 UNSUPPORTED_CAPABILITY` when it is off.
     """
 
     must_split_before: typing_extensions.NotRequired[typing.Sequence[int]]

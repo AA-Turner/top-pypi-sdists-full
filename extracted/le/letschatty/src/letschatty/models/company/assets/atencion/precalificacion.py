@@ -26,9 +26,12 @@ from .acciones_basicas import (
     AccionIaResponde,
     AccionNada,
     CambiarMotivo,
+    CuandoEntra,
     _AccionBase,
     campo_cambiar_motivo,
+    campo_cuando_entra,
     campo_derivar_cuando,
+    espera_respuesta,
     campo_mensaje_al_derivar,
     discriminador_con_respaldo,
     limpiar_casos_de_derivacion,
@@ -94,6 +97,8 @@ class Rama(BaseModel):
     def validar(self) -> "Rama":
         if getattr(self.enviar, "tipo", None) == "precalificar":
             raise ValueError("Una rama no puede precalificar otra vez")
+        if espera_respuesta(self.enviar):
+            raise ValueError("En una rama la IA entra enseguida: «Cuándo entra» es de la respuesta del camino")
         gestion = self.al_responder.gestion_ia if self.al_responder is not None else None
         if getattr(gestion, "tipo", None) == "precalificar":
             raise ValueError("Una rama no puede precalificar otra vez")
@@ -171,6 +176,8 @@ class Precalificacion(BaseModel):
 class AccionPrecalificar(_AccionBase):
     tipo: Literal["precalificar"] = "precalificar"
     precalificacion: Precalificacion
+    # «Cuándo entra» (ver `acciones_basicas.CuandoEntra`).
+    cuando_entra: CuandoEntra = campo_cuando_entra()
 
 
 # «Si responde → Lo gestiona la IA» (`AlResponder.gestion_ia`): las acciones de IA que pueden arrancar

@@ -31,13 +31,40 @@ Subcommands:
   routed through the daemon, so running this from the operator's laptop (a
   thin client) used to either fail quietly or run with whatever ``gh``
   identity happened to be on PATH there.
+- ``coord acceptance propose-amendment --repo R --issue N DIFF_FILE
+  --touches PATH --rationale TEXT`` / ``coord acceptance verify-amendment
+  --repo R ARTIFACT_FILE`` (#4178, docs/ORACLE_LOOP.md "Sealed amendment as
+  data"): a worker/planner session never edits a sealed path
+  (``tests/acceptance/**``, or a declared driver entrypoint) directly —
+  that is a mandatory ``request-changes``. Instead it proposes a
+  ``SealedAmendmentArtifact`` (a plain unified diff + the sealed paths it
+  touches + a human-readable rationale), and ``verify-amendment`` applies
+  it in a throwaway scratch copy and re-runs the sealed suite there,
+  reporting pass/fail WITHOUT touching the real checkout or the sealed
+  suite's source.
+- ``coord acceptance approve-amendment --repo R ARTIFACT_FILE --approved-by
+  NAME`` (#4179, docs/ORACLE_LOOP.md "Sealed amendment as data" step 3): a
+  HUMAN — never a model — re-runs ``verify-amendment`` fresh and, only if
+  it is still green, stamps the artifact with an approval record (who,
+  when, and a content fingerprint binding the approval to these exact
+  bytes). Run this yourself from a shell; nothing dispatches it.
+- ``coord acceptance apply-amendment --repo R APPROVED_ARTIFACT_FILE``
+  (#4179, step 4): the command a ``test-author`` leg runs IN-SESSION to
+  apply exactly the approved bytes to its own checkout as its own commit,
+  then re-run the sealed suite there. Refuses an artifact missing the
+  approval stamp, or whose content fingerprint no longer matches it. A red
+  suite after a clean apply is reported as a finding on the underlying
+  work the amendment unblocks, never grounds to edit the amendment itself.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
+from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -62,7 +89,21 @@ from coord.acceptance_drivers import DriverError, run_driver
 from coord.commands._common import _CONFIG_OPTION, _load_config
 from coord.comments import format_needs_attention
 from coord.dispatch import DispatchRefused
-from coord.models import Repo
+from coord.models import (
+    Repo,
+    SealedAmendmentArtifact,
+    SealedAmendmentVerdict,
+    path_is_sealed_entry,
+)
+from coord.pr_body_lint import downgrade_closing_keywords, find_closing_references
+
+# #4179: the ONE spelling of a sealed-amendment-apply commit's subject line —
+# `acceptance_apply_amendment` below is the only writer, `coord.review`'s
+# `build_review_briefing` is the only reader (surfacing reviewer guidance
+# when it sees one), so this constant is the single source of truth both
+# sides share rather than each hardcoding (and risking drifting from) the
+# same literal string.
+SEALED_AMENDMENT_APPLY_COMMIT_SUBJECT_PREFIX = "Apply approved sealed amendment for #"
 
 
 @click.group("acceptance")
@@ -536,6 +577,735 @@ def _remove_acceptance_worktree(repo_dir: Path, wt_path: Path) -> None:
             )
         except (subprocess.SubprocessError, OSError):
             pass
+
+
+# ---------------------------------------------------------------------------
+# #4178/#4179: sealed-amendment artifact — propose, verify, approve, apply.
+#
+# docs/ORACLE_LOOP.md's "Sealed amendment as data" flow: (1) a worker/planner
+# session proposes a `SealedAmendmentArtifact` (never edits a sealed path
+# itself — that is a mandatory `request-changes` per CLAUDE.md); (2) this
+# module's `verify-amendment` applies it in a throwaway scratch copy and
+# re-runs the sealed suite there, leaving the real checkout untouched; (3) a
+# human — never a model — runs `approve-amendment`, which re-verifies fresh
+# and stamps the artifact; (4) a `test-author` leg runs `apply-amendment` to
+# apply exactly the approved bytes to its own checkout as its own commit and
+# re-run the sealed suite there.
+# ---------------------------------------------------------------------------
+
+
+def _amendment_scratch_path(repo_name: str, issue_number: int) -> Path:
+    """Throwaway worktree for ``coord acceptance verify-amendment``'s
+    read-only check (#4178).
+
+    A SEPARATE tree from :func:`_acceptance_worktree_path` (the merge-time
+    trust gate's own reused-per-round worktree) — the two commands can run
+    at overlapping points in an issue's lifecycle (an amendment is
+    typically proposed and verified well before there is a SHA to
+    `record`), and sharing one path would let either command's `git
+    worktree remove --force` clobber the other's in-flight build (the
+    same hazard #2352 fixed for `record` alone)."""
+    from coord.state import COORD_DIR  # noqa: PLC0415
+
+    return COORD_DIR / "acceptance-amendment-worktrees" / f"{repo_name}-{issue_number}"
+
+
+def _read_json_artifact_file(path: Path) -> dict:
+    """Read and parse *path* as a JSON object, or raise a
+    ``click.ClickException`` naming exactly what's wrong. The single read
+    both :func:`_load_sealed_amendment_artifact` and
+    :func:`_load_approved_sealed_amendment` build on — one ``json.loads``
+    call, never two independent reads of the same file that could
+    observe different bytes."""
+    try:
+        raw = json.loads(path.read_text())
+    except OSError as e:
+        raise click.ClickException(f"could not read artifact {path}: {e}") from e
+    except json.JSONDecodeError as e:
+        raise click.ClickException(f"artifact {path} is not valid JSON: {e}") from e
+    if not isinstance(raw, dict):
+        raise click.ClickException(f"artifact {path} must be a JSON object")
+    return raw
+
+
+def _sealed_amendment_artifact_from_raw(raw: dict, path: Path) -> SealedAmendmentArtifact:
+    """Parse already-loaded *raw* JSON (see :func:`_read_json_artifact_file`)
+    into a :class:`SealedAmendmentArtifact`, or raise a
+    ``click.ClickException`` naming exactly what's wrong — a worker/planner-
+    emitted file is untrusted input, so a missing/mistyped/empty field is a
+    clear error, never a silent default that papers over a malformed
+    artifact."""
+    try:
+        touched_paths_raw = raw["touched_paths"]
+        if not isinstance(touched_paths_raw, list) or not touched_paths_raw:
+            raise ValueError("touched_paths must be a non-empty list")
+        rationale = str(raw["rationale"])
+        if not rationale:
+            raise ValueError("rationale must not be empty")
+        return SealedAmendmentArtifact(
+            repo_name=str(raw["repo_name"]),
+            issue_number=int(raw["issue_number"]),
+            diff=str(raw["diff"]),
+            touched_paths=tuple(str(p) for p in touched_paths_raw),
+            rationale=rationale,
+            proposed_by=str(raw.get("proposed_by", "worker")),
+        )
+    except (KeyError, TypeError, ValueError) as e:
+        raise click.ClickException(f"artifact {path} is malformed: {e}") from e
+
+
+def _load_sealed_amendment_artifact(path: Path) -> SealedAmendmentArtifact:
+    """Parse *path* (JSON, as written by ``coord acceptance
+    propose-amendment``) into a :class:`SealedAmendmentArtifact`. See
+    :func:`_sealed_amendment_artifact_from_raw`."""
+    return _sealed_amendment_artifact_from_raw(_read_json_artifact_file(path), path)
+
+
+def _out_of_scope_paths(diff_paths: list[str], sealed_paths: list[str]) -> list[str]:
+    """*diff_paths* (the real file paths :func:`_verify_sealed_amendment`
+    parsed out of the artifact's diff text — never the artifact's
+    self-declared ``touched_paths``) that are NOT inside *sealed_paths* —
+    an absolute path, a ``..`` traversal segment, or a path simply outside
+    the repo's sealed set are all rejected the same way, fail-closed: this
+    command only verifies an amendment to the sealed oracle, not an
+    arbitrary patch.
+
+    The "is this path covered by that declared prefix/file" question
+    itself is answered by :func:`coord.models.path_is_sealed_entry` — the
+    ONE matching rule ``coord.review``'s own sealed-acceptance-path check
+    already shares with ``coordinator_doc_overlap`` (#4008) — rather than
+    a second copy of the prefix-matching logic living here too.
+    """
+    out = []
+    for p in diff_paths:
+        if (
+            Path(p).is_absolute()
+            or ".." in Path(p).parts
+            or not any(path_is_sealed_entry(p, sealed) for sealed in sealed_paths)
+        ):
+            out.append(p)
+    return out
+
+
+def _touched_paths_mismatch(
+    declared_touched_paths: tuple[str, ...], diff_paths: list[str],
+) -> str | None:
+    """``None`` when *declared_touched_paths* (the artifact's self-declared
+    ``touched_paths``) names exactly the set of file paths the diff itself
+    touches; otherwise a human-readable reason naming the mismatch.
+
+    Grading the artifact's self-declared metadata instead of the diff it
+    is about to apply lets a diff carry edits the declared list hides —
+    comparing both sides closes that gap rather than trusting either one
+    alone.
+    """
+    declared = set(declared_touched_paths)
+    actual = set(diff_paths)
+    if declared == actual:
+        return None
+    parts = []
+    extra = sorted(actual - declared)
+    if extra:
+        parts.append(f"diff touches {', '.join(extra)}, not declared in touched_paths")
+    missing = sorted(declared - actual)
+    if missing:
+        parts.append(f"touched_paths declares {', '.join(missing)}, not touched by the diff")
+    return (
+        "declared touched_paths does not match the diff's actual file "
+        "paths: " + "; ".join(parts)
+    )
+
+
+def _apply_sealed_amendment_diff(scratch_path: Path, diff: str) -> str | None:
+    """Apply *diff* (a plain unified diff) inside *scratch_path* via ``git
+    apply``, ``--check``ing first so a diff that won't apply at all is
+    reported without partially mutating the scratch tree. Returns an error
+    message on failure, ``None`` on success."""
+    check = subprocess.run(
+        ["git", "apply", "--check", "-"],
+        cwd=str(scratch_path), input=diff, capture_output=True, text=True,
+    )
+    if check.returncode != 0:
+        return f"diff does not apply cleanly: {check.stderr.strip()}"
+    applied = subprocess.run(
+        ["git", "apply", "-"],
+        cwd=str(scratch_path), input=diff, capture_output=True, text=True,
+    )
+    if applied.returncode != 0:
+        return f"diff failed to apply: {applied.stderr.strip()}"
+    return None
+
+
+def _verify_sealed_amendment(
+    cfg, repo: str, artifact: SealedAmendmentArtifact, route_path: str | None,
+) -> SealedAmendmentVerdict:
+    """The read-only check itself (#4178): resolve *repo*'s acceptance
+    driver, reject *artifact* outright if it reaches outside the repo's
+    declared sealed set, then apply its diff in a throwaway scratch copy
+    (never the base checkout — see :func:`_amendment_scratch_path`) and
+    re-run the sealed suite there.
+
+    Every branch below is independently reachable and independently
+    failing — no default-permissive fallback: an unresolvable driver or
+    missing local checkout raises the same way ``run``/``record`` already
+    do (via :func:`_resolve_driver`/:func:`_check_local_capability`,
+    exit(1) with a clear message), an out-of-scope path, a declared/actual
+    touched-path mismatch, or a diff that won't apply returns ``ok=False``
+    before anything runs, and the sealed suite's own re-run result in the
+    scratch copy is a real, freshly observed verdict
+    (:func:`coord.acceptance.build_verdict`), never inferred from the mere
+    absence of an exception.
+
+    The scope check is graded against the paths the diff text itself
+    touches (:func:`coord.github_ops.diff_file_paths`), not the artifact's
+    self-declared ``touched_paths`` — a declared list is untrusted input
+    from the proposing session, so it is cross-checked against the diff
+    rather than taken as ground truth.
+    """
+    from coord.test_orchestrator import find_local_repo_path  # noqa: PLC0415
+
+    driver_cfg = _resolve_driver(cfg, repo, route_path)
+    _check_local_capability(driver_cfg, repo, cfg)
+
+    sealed_paths = cfg.acceptance.sealed_paths(repo)
+    diff_paths = github_ops.diff_file_paths(artifact.diff)
+    out_of_scope = _out_of_scope_paths(diff_paths, sealed_paths)
+    if out_of_scope:
+        return SealedAmendmentVerdict(
+            ok=False,
+            reason=(
+                "diff touches paths outside the repo's sealed set "
+                f"({', '.join(sorted(out_of_scope))}) — verify-amendment "
+                "only checks amendments to the declared sealed acceptance "
+                "paths (AcceptanceConfig.sealed_paths())"
+            ),
+        )
+    mismatch = _touched_paths_mismatch(artifact.touched_paths, diff_paths)
+    if mismatch:
+        return SealedAmendmentVerdict(ok=False, reason=mismatch)
+
+    repo_dir = find_local_repo_path(repo, cfg)
+    if repo_dir is None or not repo_dir.exists():
+        return SealedAmendmentVerdict(
+            ok=False,
+            reason=(
+                f"no local repo checkout found for {repo!r} (repo_paths in "
+                "coordinator.yml)"
+            ),
+        )
+
+    wt_path = _amendment_scratch_path(repo, artifact.issue_number)
+    _remove_acceptance_worktree(repo_dir, wt_path)
+    wt_path.parent.mkdir(parents=True, exist_ok=True)
+    add_res = subprocess.run(
+        ["git", "worktree", "add", "--force", "--detach", str(wt_path), "HEAD"],
+        cwd=str(repo_dir), capture_output=True, text=True,
+    )
+    if add_res.returncode != 0:
+        return SealedAmendmentVerdict(
+            ok=False,
+            reason=f"could not create scratch copy: {add_res.stderr.strip()}",
+        )
+
+    try:
+        apply_error = _apply_sealed_amendment_diff(wt_path, artifact.diff)
+        if apply_error is not None:
+            return SealedAmendmentVerdict(ok=False, reason=apply_error)
+
+        acceptance_root = acceptance_root_for_driver(wt_path, driver_cfg.entrypoint)
+        ms: str | None = None
+        try:
+            ms = ms_dir_for_issue(acceptance_root, artifact.issue_number)
+        except Exception:  # noqa: BLE001
+            ms = None
+
+        try:
+            result = run_driver(
+                driver_cfg.kind, driver_cfg.run, cwd=str(wt_path), ms=ms,
+                setup_command=driver_cfg.setup, entrypoint=driver_cfg.entrypoint,
+            )
+        except DriverError as e:
+            return SealedAmendmentVerdict(ok=False, reason=f"sealed suite driver error: {e}")
+
+        verdict = build_verdict(result.tests, scope="all")
+        reason = None if verdict["green"] else (
+            failure_summary(verdict) or "sealed suite failed after amendment"
+        )
+        return SealedAmendmentVerdict(
+            ok=bool(verdict["green"]), reason=reason, acceptance_verdict=verdict,
+        )
+    finally:
+        # Always cleaned up — this command never keeps state around for a
+        # later step the way `record`'s "kept for inspection" does: its
+        # output is a one-shot advisory verdict a human reads, not a board
+        # row, so there is nothing a later invocation needs the worktree
+        # for.
+        _remove_acceptance_worktree(repo_dir, wt_path)
+
+
+@acceptance_group.command(
+    "propose-amendment",
+    help=(
+        "#4178, docs/ORACLE_LOOP.md 'Sealed amendment as data' step 1: "
+        "write a sealed-amendment patch artifact (JSON) from a plain "
+        "unified diff — the data shape a worker or planner session "
+        "proposes an edit to a sealed path through, instead of editing "
+        "tests/acceptance/** (or a declared driver entrypoint) directly, "
+        "which is a mandatory request-changes. DIFF_FILE is a unified "
+        "diff (e.g. the output of `git diff`); --touches names each "
+        "repo-relative file it edits (repeatable). Never applies "
+        "anything — pass the artifact to `coord acceptance "
+        "verify-amendment` next."
+    ),
+)
+@click.option("--repo", required=True, help="Local repo name (coordinator.yml repos[].name).")
+@click.option("--issue", "issue_number", type=int, required=True, help="Issue number this amendment unblocks.")
+@click.argument("diff_file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--touches", "touched_paths", multiple=True, required=True,
+    help="Repo-relative file the diff edits (repeatable).",
+)
+@click.option("--rationale", required=True, help="Human-readable why, for the approver.")
+@click.option(
+    "--proposed-by", "proposed_by", default="worker",
+    type=click.Choice(["worker", "planner"]),
+    help="Which kind of session is proposing this amendment (audit only).",
+)
+@click.option(
+    "--out", "out_path", type=click.Path(dir_okay=False, path_type=Path), default=None,
+    help="Write the artifact JSON here instead of stdout.",
+)
+def acceptance_propose_amendment(
+    repo: str,
+    issue_number: int,
+    diff_file: Path,
+    touched_paths: tuple[str, ...],
+    rationale: str,
+    proposed_by: str,
+    out_path: Path | None,
+) -> None:
+    """Build and emit a :class:`SealedAmendmentArtifact` as JSON."""
+    artifact = SealedAmendmentArtifact(
+        repo_name=repo,
+        issue_number=issue_number,
+        diff=diff_file.read_text(),
+        touched_paths=tuple(touched_paths),
+        rationale=rationale,
+        proposed_by=proposed_by,
+    )
+    payload = json.dumps(asdict(artifact), indent=2)
+    if out_path is not None:
+        out_path.write_text(payload + "\n")
+        click.echo(f"wrote sealed-amendment artifact to {out_path}")
+    else:
+        click.echo(payload)
+
+
+@acceptance_group.command(
+    "verify-amendment",
+    help=(
+        "#4178, docs/ORACLE_LOOP.md 'Sealed amendment as data' step 2: "
+        "read-only check of a sealed-amendment artifact (as written by "
+        "`coord acceptance propose-amendment`) BEFORE any human approves "
+        "it or a test-author leg applies it. Applies ARTIFACT_FILE's diff "
+        "in a throwaway scratch copy of REPO's local checkout and "
+        "re-runs the sealed acceptance suite there — the real checkout, "
+        "and the sealed suite's source, are never touched by this "
+        "command. Prints a structured pass/fail verdict; exit code "
+        "mirrors it."
+    ),
+)
+@click.option("--repo", required=True, help="Local repo name (coordinator.yml repos[].name).")
+@click.argument("artifact_file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--for-path", "route_path", default=None,
+    help=(
+        "Repo-relative path (e.g. 'coord/foo.py') used to resolve a "
+        "routed acceptance driver (acceptance.drivers.<repo>.routes) — "
+        "required when the repo's driver is routed; unused/ignored for a "
+        "flat (unrouted) driver."
+    ),
+)
+@_CONFIG_OPTION
+def acceptance_verify_amendment(
+    repo: str,
+    artifact_file: Path,
+    route_path: str | None,
+    config_path: Path,
+) -> None:
+    """Verify a sealed-amendment artifact in a throwaway scratch copy."""
+    cfg = _load_config(config_path)
+    artifact = _load_sealed_amendment_artifact(artifact_file)
+    if artifact.repo_name and artifact.repo_name != repo:
+        click.echo(
+            f"warning: artifact declares repo_name={artifact.repo_name!r}, "
+            f"running against --repo {repo!r} instead",
+            err=True,
+        )
+
+    verdict = _verify_sealed_amendment(cfg, repo, artifact, route_path)
+    click.echo(json.dumps(
+        {
+            "ok": verdict.ok,
+            "reason": verdict.reason,
+            "acceptance_verdict": verdict.acceptance_verdict,
+        },
+        indent=2,
+    ))
+    if not verdict.ok:
+        sys.exit(1)
+
+
+_AMENDMENT_FINGERPRINT_FIELDS = ("repo_name", "issue_number", "diff", "touched_paths", "rationale")
+
+
+def _sealed_amendment_fingerprint(artifact: SealedAmendmentArtifact) -> str:
+    """A content fingerprint over every field that actually changes what
+    ``verify-amendment`` grades (#4179) — binds a human's approval to
+    exactly these bytes.
+
+    ``apply-amendment`` re-derives this same hash from whatever JSON is on
+    disk at apply time and compares it to the stamp ``approve-amendment``
+    wrote; a mismatch means the diff/rationale/touched_paths changed since
+    a human looked at it (edited, corrupted, or swapped for a different
+    file entirely), and apply-amendment must refuse rather than apply bytes
+    nobody actually signed off on. ``proposed_by`` is excluded — it is
+    audit-only metadata (see :class:`SealedAmendmentArtifact`'s docstring)
+    and was never part of what verify-amendment checked.
+    """
+    payload = {}
+    for field in _AMENDMENT_FINGERPRINT_FIELDS:
+        value = getattr(artifact, field)
+        payload[field] = list(value) if isinstance(value, tuple) else value
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def _load_approved_sealed_amendment(path: Path) -> tuple[SealedAmendmentArtifact, str, str]:
+    """Parse *path* (JSON, as written by ``coord acceptance
+    approve-amendment``) into ``(artifact, approved_by, approved_at)`` —
+    or raise a ``click.ClickException`` naming exactly what's wrong.
+
+    Reuses :func:`_sealed_amendment_artifact_from_raw` for the base shape
+    (repo_name/issue_number/diff/touched_paths/rationale) over the SAME
+    parsed JSON used below for the approval stamp — one read, so the
+    fingerprint and the stamp it's compared against can never observe
+    different bytes — then requires the approval stamp (``approved_by``,
+    ``approved_at``, ``fingerprint``) on top of it — a proposed-but-never-
+    approved artifact, or one whose stamp is simply absent, is rejected the
+    same clear way a malformed one is, never silently treated as approved.
+    The fingerprint is then recomputed from the artifact fields actually
+    read off disk and compared to the stamped value, catching a file
+    edited (or corrupted) after approval, or a stamped field that disagrees
+    with the diff shipping alongside it — a speed bump, not a trust
+    boundary: anyone with a shell can write their own ``approved_by``/
+    ``approved_at``/``fingerprint`` onto an unapproved artifact the same
+    way ``approve-amendment`` does.
+    """
+    raw = _read_json_artifact_file(path)
+    artifact = _sealed_amendment_artifact_from_raw(raw, path)
+    approved_by = raw.get("approved_by")
+    approved_at = raw.get("approved_at")
+    fingerprint = raw.get("fingerprint")
+    if not approved_by or not approved_at or not fingerprint:
+        raise click.ClickException(
+            f"artifact {path} has not been approved — run `coord acceptance "
+            "approve-amendment` on it first; apply-amendment only ever "
+            "applies an artifact carrying that command's approval stamp"
+        )
+    expected = _sealed_amendment_fingerprint(artifact)
+    if fingerprint != expected:
+        raise click.ClickException(
+            f"artifact {path}'s content fingerprint does not match its "
+            "approval stamp — the diff, rationale, or touched_paths "
+            "changed since a human approved it. Re-propose, re-verify, and "
+            "re-approve rather than applying bytes nobody signed off on."
+        )
+    return artifact, str(approved_by), str(approved_at)
+
+
+@acceptance_group.command(
+    "approve-amendment",
+    help=(
+        "#4179, docs/ORACLE_LOOP.md 'Sealed amendment as data' step 3: a "
+        "HUMAN signs off on a sealed-amendment artifact. Re-runs "
+        "verify-amendment fresh (never trusts a verdict from an earlier "
+        "run, which may be stale relative to the current sealed suite) "
+        "and, only if it is still green, stamps ARTIFACT_FILE with "
+        "approved_by/approved_at and a content fingerprint binding the "
+        "approval to these exact bytes. Run this yourself from a shell — "
+        "nothing in this codebase ever dispatches it to a model; "
+        "`apply-amendment` refuses an artifact missing this stamp."
+    ),
+)
+@click.option("--repo", required=True, help="Local repo name (coordinator.yml repos[].name).")
+@click.argument("artifact_file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--approved-by", "approved_by", required=True,
+    help="Your name/identity, recorded on the approval stamp.",
+)
+@click.option(
+    "--for-path", "route_path", default=None,
+    help=(
+        "Repo-relative path (e.g. 'coord/foo.py') used to resolve a "
+        "routed acceptance driver (acceptance.drivers.<repo>.routes) — "
+        "required when the repo's driver is routed; unused/ignored for a "
+        "flat (unrouted) driver."
+    ),
+)
+@click.option(
+    "--out", "out_path", type=click.Path(dir_okay=False, path_type=Path), default=None,
+    help="Write the approved artifact JSON here instead of stdout.",
+)
+@_CONFIG_OPTION
+def acceptance_approve_amendment(
+    repo: str,
+    artifact_file: Path,
+    approved_by: str,
+    route_path: str | None,
+    out_path: Path | None,
+    config_path: Path,
+) -> None:
+    """Re-verify a sealed-amendment artifact fresh, then stamp it approved."""
+    cfg = _load_config(config_path)
+    artifact = _load_sealed_amendment_artifact(artifact_file)
+    if artifact.repo_name and artifact.repo_name != repo:
+        click.echo(
+            f"warning: artifact declares repo_name={artifact.repo_name!r}, "
+            f"running against --repo {repo!r} instead",
+            err=True,
+        )
+
+    verdict = _verify_sealed_amendment(cfg, repo, artifact, route_path)
+    if not verdict.ok:
+        click.echo(json.dumps(
+            {
+                "ok": verdict.ok,
+                "reason": verdict.reason,
+                "acceptance_verdict": verdict.acceptance_verdict,
+            },
+            indent=2,
+        ), err=True)
+        click.echo(
+            "\nerror: refusing to approve — verify-amendment is not green "
+            "right now (see above). Approval must be based on a fresh "
+            "pass, not a verdict from an earlier run.",
+            err=True,
+        )
+        sys.exit(1)
+
+    payload = asdict(artifact)
+    payload["approved_by"] = approved_by
+    payload["approved_at"] = datetime.now(timezone.utc).isoformat()
+    payload["fingerprint"] = _sealed_amendment_fingerprint(artifact)
+    text = json.dumps(payload, indent=2)
+    if out_path is not None:
+        out_path.write_text(text + "\n")
+        click.echo(f"wrote approved sealed-amendment artifact to {out_path}")
+    else:
+        click.echo(text)
+
+
+@acceptance_group.command(
+    "apply-amendment",
+    help=(
+        "#4179, docs/ORACLE_LOOP.md 'Sealed amendment as data' step 4: the "
+        "in-session command a `test-author` leg runs to apply an APPROVED "
+        "sealed-amendment artifact (as written by `coord acceptance "
+        "approve-amendment`) to its own checkout, as its own commit — "
+        "exactly the approved bytes, never a model's own edit of them. "
+        "Re-runs the sealed suite afterward; a red result after a clean "
+        "apply is reported as a FINDING on the underlying work the "
+        "amendment unblocks, never grounds to edit the amendment further."
+    ),
+)
+@click.option("--repo", required=True, help="Local repo name (coordinator.yml repos[].name).")
+@click.argument("approved_artifact_file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--path", "path_opt", type=click.Path(file_okay=False), default=None,
+    help="Repo checkout to apply the amendment and re-run the driver in (default: current directory).",
+)
+@click.option(
+    "--for-path", "route_path", default=None,
+    help=(
+        "Repo-relative path (e.g. 'coord/foo.py') used to resolve a "
+        "routed acceptance driver (acceptance.drivers.<repo>.routes) — "
+        "required when the repo's driver is routed; unused/ignored for a "
+        "flat (unrouted) driver. NOT the same as --path (the checkout dir)."
+    ),
+)
+@_CONFIG_OPTION
+def acceptance_apply_amendment(
+    repo: str,
+    approved_artifact_file: Path,
+    path_opt: str | None,
+    route_path: str | None,
+    config_path: Path,
+) -> None:
+    """Apply an approved sealed-amendment artifact as its own commit, then
+    re-run the sealed suite in the same checkout."""
+    cfg = _load_config(config_path)
+    artifact, approved_by, approved_at = _load_approved_sealed_amendment(approved_artifact_file)
+    if artifact.repo_name and artifact.repo_name != repo:
+        click.echo(
+            f"warning: artifact declares repo_name={artifact.repo_name!r}, "
+            f"running against --repo {repo!r} instead",
+            err=True,
+        )
+
+    driver_cfg = _resolve_driver(cfg, repo, route_path)
+    _check_local_capability(driver_cfg, repo, cfg)
+    cwd = Path(path_opt).expanduser() if path_opt else Path.cwd()
+
+    # Same scope re-check `verify-amendment` already ran at proposal time
+    # (#4178) — re-derived here, independently, rather than trusted from
+    # the artifact's approval alone: this command is the one that actually
+    # mutates the real checkout, so it must be at least as strict as the
+    # read-only check that came before it.
+    sealed_paths = cfg.acceptance.sealed_paths(repo)
+    diff_paths = github_ops.diff_file_paths(artifact.diff)
+    out_of_scope = _out_of_scope_paths(diff_paths, sealed_paths)
+    if out_of_scope:
+        click.echo(
+            "error: diff touches paths outside the repo's sealed set "
+            f"({', '.join(sorted(out_of_scope))}) — apply-amendment only "
+            "applies an amendment to the declared sealed acceptance paths",
+            err=True,
+        )
+        sys.exit(1)
+    mismatch = _touched_paths_mismatch(artifact.touched_paths, diff_paths)
+    if mismatch:
+        click.echo(f"error: {mismatch}", err=True)
+        sys.exit(1)
+
+    # Refuse up front if any of the diff's own files already have
+    # uncommitted changes (staged or not) in this checkout — otherwise
+    # that pre-existing content, including a freehand edit to the same
+    # sealed file, would ride along into the commit below regardless of
+    # how tightly that commit is scoped.
+    dirty_check = subprocess.run(
+        ["git", "status", "--porcelain", "--", *diff_paths], cwd=str(cwd), capture_output=True, text=True,
+    )
+    if dirty_check.returncode != 0:
+        click.echo(f"error: could not check working tree state: {dirty_check.stderr.strip()}", err=True)
+        sys.exit(1)
+    if dirty_check.stdout.strip():
+        click.echo(
+            "error: refusing to apply — these amendment paths already have "
+            "uncommitted changes in this checkout (commit, stash, or "
+            f"discard them first):\n{dirty_check.stdout.strip()}",
+            err=True,
+        )
+        sys.exit(1)
+
+    apply_error = _apply_sealed_amendment_diff(cwd, artifact.diff)
+    if apply_error is not None:
+        click.echo(f"error: {apply_error}", err=True)
+        sys.exit(1)
+
+    # Scope staging AND the commit itself to exactly the diff's own files
+    # — never `git add -A`, and the commit below also takes the same
+    # pathspec (equivalent to `--only`) rather than trusting the index —
+    # so any unrelated change already sitting staged in this checkout is
+    # left alone rather than swept into "the approved bytes".
+    add_res = subprocess.run(
+        ["git", "add", "--", *diff_paths], cwd=str(cwd), capture_output=True, text=True,
+    )
+    if add_res.returncode != 0:
+        click.echo(f"error: could not stage amendment: {add_res.stderr.strip()}", err=True)
+        sys.exit(1)
+
+    # `rationale` is written by the proposing session, not this command —
+    # untrusted input by this module's own standard. A closing keyword in
+    # it (e.g. "Closes #123") would auto-close that issue on merge, which
+    # is exactly what the `Refs #N` below (never `Fixes #N`) is trying to
+    # avoid; downgrade any closing keyword found in it the same way
+    # `coord.merge_queue` already downgrades one found in a PR body.
+    rationale_closes = find_closing_references(artifact.rationale)
+    safe_rationale, _ = downgrade_closing_keywords(artifact.rationale, set(rationale_closes))
+    commit_message = (
+        f"{SEALED_AMENDMENT_APPLY_COMMIT_SUBJECT_PREFIX}{artifact.issue_number}\n\n"
+        f"{safe_rationale}\n\n"
+        f"Approved-by: {approved_by}\n"
+        f"Approved-at: {approved_at}\n\n"
+        f"Refs #{artifact.issue_number}"
+    )
+    commit_res = subprocess.run(
+        ["git", "commit", "-m", commit_message, "--", *diff_paths], cwd=str(cwd), capture_output=True, text=True,
+    )
+    if commit_res.returncode != 0:
+        click.echo(f"error: could not commit amendment: {commit_res.stderr.strip() or commit_res.stdout.strip()}", err=True)
+        sys.exit(1)
+    commit_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=str(cwd), capture_output=True, text=True, check=True,
+    ).stdout.strip()
+
+    # Confirm, from an observation taken AFTER the commit, that exactly
+    # the diff's own files landed in it — never infer "exactly the
+    # approved bytes" from the pathspec above alone, or from the mere
+    # absence of a non-zero exit code.
+    committed_res = subprocess.run(
+        ["git", "show", "--name-only", "--format=", commit_sha], cwd=str(cwd), capture_output=True, text=True,
+    )
+    committed_paths = {p for p in committed_res.stdout.splitlines() if p.strip()}
+    if committed_res.returncode != 0 or committed_paths != set(diff_paths):
+        click.echo(
+            f"error: commit {commit_sha} does not contain exactly the "
+            f"amendment's own files (committed {sorted(committed_paths)}, "
+            f"expected {sorted(diff_paths)}) — refusing to report success",
+            err=True,
+        )
+        sys.exit(1)
+
+    # Full-suite scope (`ms=None`), mirroring `acceptance_run`'s own
+    # `--all` branch — an amendment can touch call sites shared across
+    # more than one issue's slice, so this re-run must see all of them,
+    # not just the amendment's own issue.
+    try:
+        result = run_driver(
+            driver_cfg.kind, driver_cfg.run, cwd=str(cwd),
+            ms=None, setup_command=driver_cfg.setup, entrypoint=driver_cfg.entrypoint,
+        )
+    except DriverError as e:
+        click.echo(json.dumps({
+            "committed": True,
+            "commit_sha": commit_sha,
+            "ok": False,
+            "finding": (
+                f"sealed suite driver error after applying the approved "
+                f"amendment: {e}. This amendment was already applied and "
+                "committed exactly as approved — the error is evidence "
+                "about the underlying work (issue #" + str(artifact.issue_number) +
+                "), not a defect in the amendment. Do not edit the test."
+            ),
+            "acceptance_verdict": None,
+        }, indent=2))
+        sys.exit(1)
+
+    verdict = build_verdict(result.tests, scope="all")
+    if verdict["green"]:
+        click.echo(json.dumps({
+            "committed": True,
+            "commit_sha": commit_sha,
+            "ok": True,
+            "finding": None,
+            "acceptance_verdict": verdict,
+        }, indent=2))
+        return
+
+    reason = failure_summary(verdict) or "sealed suite failed after amendment"
+    click.echo(json.dumps({
+        "committed": True,
+        "commit_sha": commit_sha,
+        "ok": False,
+        "finding": (
+            f"amendment applied and committed exactly as approved ({commit_sha}); "
+            f"the sealed suite failed afterward: {reason}. This is a finding on "
+            f"the underlying work (issue #{artifact.issue_number}), never grounds "
+            "to edit this amendment or the sealed suite further."
+        ),
+        "acceptance_verdict": verdict,
+    }, indent=2))
+    sys.exit(1)
 
 
 def _acceptance_record_via_daemon(svc, params: dict) -> None:

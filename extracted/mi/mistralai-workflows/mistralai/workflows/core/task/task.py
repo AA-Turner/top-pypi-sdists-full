@@ -24,10 +24,10 @@ from mistralai.workflows.core._events.event_failure import event_failure_message
 from mistralai.workflows.core._events.event_utils import create_base_event_fields, should_publish_event
 from mistralai.workflows.core._events.json_patch import make_json_patch
 from mistralai.workflows.core._logger import get_logger
-from mistralai.workflows.core.temporal.utils import require_activity_context_value
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.tracing._otel_config import _get_calling_module_name
 from mistralai.workflows.core.tracing._temporal_tracing_interceptor import TraceDataSerializer
-from mistralai.workflows.core.tracing.utils import workflow_execution_span_attributes
+from mistralai.workflows.core.tracing.workflow_context import workflow_context_span_attributes
 from mistralai.workflows.core.utils.contextvars import unwrap_contextual_result
 from mistralai.workflows.models import EventSpanType
 from mistralai.workflows.protocol.v1.events import (
@@ -147,28 +147,17 @@ class Task[T]:
 
         if temporalio.workflow.in_workflow():
             workflow_info = temporalio.workflow.info()
-            attributes["wf.workflow.type"] = workflow_info.workflow_type
-            attributes.update(workflow_execution_span_attributes(workflow_info.workflow_id))
-            attributes["wf.run.id"] = workflow_info.run_id
+            attributes.update(workflow_context_span_attributes(workflow_info))
             attributes["wf.task_queue"] = workflow_info.task_queue
+            # Legacy alias of wf.workflow.run_id kept for a release in case readers of the
+            # old key exist; drop it once wf.workflow.run_id is confirmed everywhere.
+            attributes["wf.run.id"] = workflow_info.run_id
         elif temporalio.activity.in_activity():
             activity_info = temporalio.activity.info()
-            attributes["wf.workflow.type"] = require_activity_context_value(
-                activity_info.workflow_type,
-                field_name="workflow_type",
-            )
-            workflow_execution_id = require_activity_context_value(
-                activity_info.workflow_id,
-                field_name="workflow_id",
-            )
-            attributes.update(workflow_execution_span_attributes(workflow_execution_id))
-            attributes["wf.run.id"] = require_activity_context_value(
-                activity_info.workflow_run_id,
-                field_name="workflow_run_id",
-            )
+            attributes.update(workflow_context_span_attributes(activity_info))
             attributes["wf.task_queue"] = activity_info.task_queue
-            attributes["wf.activity.type"] = activity_info.activity_type
-            attributes["wf.activity.attempt"] = activity_info.attempt
+            if activity_info.workflow_run_id:
+                attributes["wf.run.id"] = activity_info.workflow_run_id
 
         return attributes
 
@@ -391,12 +380,11 @@ class Task[T]:
                         ),
                     )
                 )
-        except PydanticSerializationError:
+        except PydanticSerializationError as exc:
             logger.error(
                 "Failed JSON patch - state updated locally but not published",
-                previous=previous,
-                new=state,
                 task_id=self._id,
+                **extract_error_context(exc),
             )
 
     async def update_state(self, updates: dict[str, Any]) -> None:

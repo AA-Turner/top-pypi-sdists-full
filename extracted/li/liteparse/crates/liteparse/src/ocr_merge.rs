@@ -1621,6 +1621,50 @@ fn merge_ocr_outcomes(
         // OCR lines whose bounding boxes touched within tolerance to suppress each
         // other, dropping every second line on scanned pages.
         let native_count = page.text_items.len();
+        let native_cjk = page.text_items.iter().any(|it| it.text.chars().any(is_cjk));
+        // scripts the page's own text is written in (a few letters each, so a stray symbol
+        // doesn't count)
+        let native_scripts: HashSet<u32> = {
+            let mut n: HashMap<u32, usize> = HashMap::new();
+            for c in page
+                .text_items
+                .iter()
+                .flat_map(|it| it.text.chars())
+                .filter(|c| c.is_alphabetic())
+            {
+                *n.entry(script_of(c)).or_default() += 1;
+            }
+            n.into_iter()
+                .filter(|&(_, k)| k >= 3)
+                .map(|(s, _)| s)
+                .collect()
+        };
+        // the page's scripts: its own text's, and any script its OCR reads repeatedly (in 3+
+        // results or 20+ letters, at any confidence). Icon and texture junk reads as one-off
+        // fragments in random scripts; real text in a script, however weakly read, recurs
+        let page_scripts: HashSet<u32> = {
+            let (mut results, mut letters): (HashMap<u32, usize>, HashMap<u32, usize>) =
+                (HashMap::new(), HashMap::new());
+            for r in &ocr_results {
+                let mut seen: HashSet<u32> = HashSet::new();
+                for c in r.text.chars().filter(|c| c.is_alphabetic()) {
+                    let sc = script_of(c);
+                    *letters.entry(sc).or_default() += 1;
+                    seen.insert(sc);
+                }
+                for sc in seen {
+                    *results.entry(sc).or_default() += 1;
+                }
+            }
+            let mut set = native_scripts.clone();
+            set.extend(
+                letters
+                    .iter()
+                    .filter(|&(sc, &k)| k >= 20 || results.get(sc).copied().unwrap_or(0) >= 3)
+                    .map(|(&sc, _)| sc),
+            );
+            set
+        };
         // Kept native items an OCR line superseded on a partial page (see `partial`).
         let mut superseded = vec![false; native_count];
         let debug_ocr = std::env::var_os("LITEPARSE_DEBUG_OCR").is_some();
@@ -1710,6 +1754,24 @@ fn merge_ocr_outcomes(
             // no letters or digits is decoration. Both would otherwise be
             // glued onto the adjacent native line by the projection's
             // item-merge pass, corrupting cell text.
+            // Pictures on a born-digital page (logos, toolbar icons, bullets) read as junk:
+            // "eEE", "L BB A00", "중5도을::동" come back under 0.6 while real picture text reads
+            // above 0.8, and a lone CJK glyph on a page with no CJK text is an icon ("零" for a
+            // bullet star, read at 0.97). Likewise a short reading in a script the page's text
+            // doesn't use: icons and textures read as Devanagari, Thai or Telugu fragments.
+            if (has_native_text
+                && !partial
+                && (r.confidence < 0.6 || (!native_cjk && is_lone_cjk(&r.text))))
+                || is_foreign_fragment(&r.text, &page_scripts)
+            {
+                if debug_ocr {
+                    eprintln!(
+                        "[ocr-merge]   skip(picture-junk) {:?} conf={:.2}",
+                        r.text, r.confidence
+                    );
+                }
+                continue;
+            }
             if has_native_text && is_rule_artifact(&r.text, ocr_w, ocr_h) {
                 if debug_ocr {
                     eprintln!(
@@ -2066,10 +2128,31 @@ const ACCENTED_VOWELS: &str = "àáâãäåāăąǎȁȃȧ\
     ùúûüũūŭůűųǔǖǘǚǜȕȗ\
     ụủưứừửữự";
 
+/// Codes and identifiers carry no vowel signal: a token with a digit, `_` or `[` ("1044R",
+/// "VDD_HV", "PC[13]"), a URL or address, or a short all-caps one ("CLTN", "HCKC", "BSDS"). A timetable, a pinout
+/// or a code table is mostly these, and counting them put whole clean pages under the garble
+/// floor, so their text layer was replaced by OCR. Substitution garble decodes to word-like
+/// tokens, which are still counted.
+fn is_code_token(tok: &str) -> bool {
+    if tok
+        .chars()
+        .any(|c| c.is_ascii_digit() || matches!(c, '_' | '[' | '/' | '@'))
+        || tok.contains("www.")
+    {
+        return true;
+    }
+    let letters = tok.chars().filter(|c| c.is_alphabetic()).count();
+    letters <= 5 && tok.chars().all(|c| !c.is_alphabetic() || c.is_uppercase())
+}
+
 fn count_letters_and_vowels(text: &str) -> (usize, usize) {
     let mut letters = 0usize;
     let mut vowels = 0usize;
-    for ch in text.chars() {
+    for ch in text
+        .split_whitespace()
+        .filter(|t| !is_code_token(t))
+        .flat_map(str::chars)
+    {
         if ch.is_ascii_alphabetic() {
             letters += 1;
             if matches!(ch.to_ascii_lowercase(), 'a' | 'e' | 'i' | 'o' | 'u') {
@@ -2081,6 +2164,18 @@ fn count_letters_and_vowels(text: &str) -> (usize, usize) {
         }
     }
     (letters, vowels)
+}
+
+/// Letters outside Latin script (accented Latin vowels and other Latin letters excluded).
+fn other_script_letters(text: &str) -> usize {
+    text.chars()
+        .filter(|c| {
+            c.is_alphabetic()
+                && !c.is_ascii()
+                && !('\u{00C0}'..='\u{024F}').contains(c)
+                && !('\u{1E00}'..='\u{1EFF}').contains(c)
+        })
+        .count()
 }
 
 /// Minimum ASCII letters before a group of text is worth judging for garbling.
@@ -2136,6 +2231,10 @@ fn garbled_scope(page: &Page) -> GarbledScope {
     let mut total_vowels = 0usize;
     // Keyed by font name, so text sharing a ToUnicode map is judged together.
     let mut per_font: HashMap<Option<&str>, (usize, usize)> = HashMap::new();
+    // Letters of other scripts (Cyrillic, Greek, ...): the vowel ratio reads Latin text only, so
+    // a page or font that is mostly another script is not judged by its few Latin words.
+    let mut per_font_other: HashMap<Option<&str>, usize> = HashMap::new();
+    let mut total_other = 0usize;
     // Complex-script text with unmapped conjunct / ligature glyphs (see `script_intrusions`).
     let mut per_font_script: HashMap<Option<&str>, (usize, usize)> = HashMap::new();
     let (mut total_script, mut total_intrusions) = (0usize, 0usize);
@@ -2147,6 +2246,9 @@ fn garbled_scope(page: &Page) -> GarbledScope {
     let (mut total_ctrl, mut total_chars) = (0usize, 0usize);
     let mut per_font_tok: HashMap<Option<&str>, (usize, usize)> = HashMap::new();
     let (mut total_judged, mut total_malformed) = (0usize, 0usize);
+    // Glyphs with no mapping at all (see `unmapped_chars`).
+    let mut per_font_unmapped: HashMap<Option<&str>, (usize, usize)> = HashMap::new();
+    let (mut total_unmapped, mut total_visible) = (0usize, 0usize);
     // Misread glyphs (see `misread_glyphs`), per base font: intruding char -> its distinct words
     // and the distinct tails it opens.
     let mut per_base_misread: HashMap<Option<&str>, MisreadByChar> = HashMap::new();
@@ -2171,6 +2273,19 @@ fn garbled_scope(page: &Page) -> GarbledScope {
                 .or_insert((0, 0));
             e.0 += c;
             e.1 += n;
+            // (glyphs PDFium already flagged as unmappable are judged by `native_text_length`)
+            let (u, n) = if it.has_unicode_map_error {
+                (0, 0)
+            } else {
+                unmapped_chars(&it.text)
+            };
+            total_unmapped += u;
+            total_visible += n;
+            let e = per_font_unmapped
+                .entry(it.font_name.as_deref())
+                .or_insert((0, 0));
+            e.0 += u;
+            e.1 += n;
             let (j, m) = malformed_tokens(&it.text);
             total_judged += j;
             total_malformed += m;
@@ -2188,6 +2303,9 @@ fn garbled_scope(page: &Page) -> GarbledScope {
         let (l, v) = count_letters_and_vowels(&it.text);
         total_letters += l;
         total_vowels += v;
+        let o = other_script_letters(&it.text);
+        total_other += o;
+        *per_font_other.entry(it.font_name.as_deref()).or_insert(0) += o;
         let entry = per_font.entry(it.font_name.as_deref()).or_insert((0, 0));
         entry.0 += l;
         entry.1 += v;
@@ -2209,11 +2327,12 @@ fn garbled_scope(page: &Page) -> GarbledScope {
         e.1 += sy;
     }
 
-    if ratio_is_garbled(total_letters, total_vowels)
+    if (ratio_is_garbled(total_letters, total_vowels) && total_other <= total_letters)
         || intrusions_are_garbled(total_script, total_intrusions)
         || symbols_are_garbled(total_sym_letters, total_sym)
         || controls_are_garbled(total_ctrl, total_chars)
         || tokens_are_garbled(total_judged, total_malformed)
+        || unmapped_are_garbled(total_unmapped, total_visible)
     {
         return GarbledScope::WholePage;
     }
@@ -2221,7 +2340,11 @@ fn garbled_scope(page: &Page) -> GarbledScope {
     let min_share = (total_letters as f32 * GARBLE_MIN_FONT_SHARE).ceil() as usize;
     let mut fonts: HashSet<Option<String>> = per_font
         .into_iter()
-        .filter(|&(_, (letters, vowels))| letters >= min_share && ratio_is_garbled(letters, vowels))
+        .filter(|&(font, (letters, vowels))| {
+            letters >= min_share
+                && ratio_is_garbled(letters, vowels)
+                && per_font_other.get(&font).copied().unwrap_or(0) <= letters
+        })
         .map(|(font, _)| font.map(str::to_string))
         .collect();
     fonts.extend(
@@ -2247,6 +2370,12 @@ fn garbled_scope(page: &Page) -> GarbledScope {
         per_font_tok
             .into_iter()
             .filter(|&(_, (j, m))| tokens_are_garbled(j, m))
+            .map(|(font, _)| font.map(str::to_string)),
+    );
+    fonts.extend(
+        per_font_unmapped
+            .into_iter()
+            .filter(|&(_, (u, n))| unmapped_are_garbled(u, n))
             .map(|(font, _)| font.map(str::to_string)),
     );
     // A misread glyph condemns every subset of its base font on the page: a producer that
@@ -2363,6 +2492,31 @@ fn control_chars(text: &str) -> (usize, usize) {
         }
     }
     (ctrl, visible + ctrl)
+}
+
+/// (unmapped glyphs, visible characters) in `text`: U+FFFD, which PDF text extraction yields for
+/// a glyph its font maps to nothing usable, and private-use code points, which a font without a
+/// ToUnicode map reports for its own glyph ids. A page of "����� ��������" reads as nothing.
+/// Symbol fonts (whose private-use codes are their glyphs) are left out by the caller.
+fn unmapped_chars(text: &str) -> (usize, usize) {
+    let mut unmapped = 0;
+    let mut visible = 0;
+    for c in text.chars().filter(|c| !c.is_whitespace()) {
+        visible += 1;
+        if c == '\u{FFFD}' || ('\u{E000}'..='\u{F8FF}').contains(&c) {
+            unmapped += 1;
+        }
+    }
+    (unmapped, visible)
+}
+
+/// Fewest unmapped glyphs, and their least share of the visible characters, for text to count as
+/// garbled: a stray unmapped bullet or logo glyph stays under it.
+const UNMAPPED_MIN: usize = 10;
+const UNMAPPED_MIN_RATE: f32 = 0.15;
+
+fn unmapped_are_garbled(unmapped: usize, chars: usize) -> bool {
+    unmapped >= UNMAPPED_MIN && unmapped as f32 >= chars as f32 * UNMAPPED_MIN_RATE
 }
 
 const CONTROL_MIN: usize = 5;
@@ -2644,6 +2798,55 @@ const RULE_ARTIFACT_MAX_ASPECT: f32 = 0.35;
 /// An OCR result that is a misread of a rule/border or pure decoration, not
 /// text: no letters or digits at all, or a single bar-like glyph in a box far
 /// narrower than it is tall.
+/// Han, kana or Hangul.
+fn is_cjk(c: char) -> bool {
+    matches!(c,
+        '\u{3040}'..='\u{30FF}' | '\u{3400}'..='\u{4DBF}' | '\u{4E00}'..='\u{9FFF}'
+        | '\u{AC00}'..='\u{D7AF}' | '\u{F900}'..='\u{FAFF}')
+}
+
+/// OCR junk by script, for a short reading (up to 12 letters) mostly in a script the page doesn't
+/// use (`page`): one with a token mixing letters of two or more non-Latin scripts ("ব๔েு": no
+/// writing does that), or one of up to 8 letters. Icons, logos and textures read as Devanagari,
+/// Thai or Telugu fragments. Latin is never foreign (labels, codes and units appear on pages of
+/// every script).
+fn is_foreign_fragment(text: &str, page: &HashSet<u32>) -> bool {
+    let letters: Vec<u32> = text
+        .chars()
+        .filter(|c| c.is_alphabetic())
+        .map(script_of)
+        .collect();
+    if letters.is_empty() || letters.len() > 12 {
+        return false;
+    }
+    let mut n: HashMap<u32, usize> = HashMap::new();
+    for &s in &letters {
+        *n.entry(s).or_default() += 1;
+    }
+    let (script, k) = n.into_iter().max_by_key(|&(s, k)| (k, s)).unwrap();
+    // text in a script the page uses stays, misreads and all (Lao read with Thai letters,
+    // Nepali with a stray Bengali one)
+    if script == 0 || script == 2 || page.contains(&script) {
+        return false;
+    }
+    let mixed = text.split_whitespace().any(|tok| {
+        let scripts: HashSet<u32> = tok
+            .chars()
+            .filter(|c| c.is_alphabetic())
+            .map(script_of)
+            .filter(|&s| s != 0 && s != 2)
+            .collect();
+        scripts.len() >= 2 && !(scripts.len() == 2 && scripts.contains(&1))
+    });
+    mixed || (letters.len() <= 8 && k * 2 >= letters.len() && !page.is_empty())
+}
+
+/// A reading of one or two CJK characters and nothing else.
+fn is_lone_cjk(text: &str) -> bool {
+    let t: Vec<char> = text.chars().filter(|c| !c.is_whitespace()).collect();
+    !t.is_empty() && t.len() <= 2 && t.iter().all(|&c| is_cjk(c))
+}
+
 fn is_rule_artifact(text: &str, w: f32, h: f32) -> bool {
     let trimmed = text.trim();
     if trimmed.is_empty() || !trimmed.chars().any(|c| c.is_alphanumeric()) {
@@ -3422,6 +3625,23 @@ mod tests {
             .iter()
             .map(|t| ("Helvetica", *t))
             .collect();
+        let page = make_font_page(&items);
+        assert!(matches!(garbled_scope(&page), GarbledScope::None));
+        assert!(!page_is_garbled(&page));
+    }
+
+    /// A bus timetable / pinout: almost every letter is in a station code or a signal name, so
+    /// the raw vowel ratio sits under the garble floor though the text layer is clean.
+    #[test]
+    fn test_garbled_scope_code_table_is_clean() {
+        let rows = [
+            "Trip Duty Duty Bus CT CLTN CLTN HCKC HCKC DALS BALP ESXR ISLNH BLBY TCTR",
+            "No. Start End Run KR S KR AR GR JC HS SN S SQ SG",
+            "J2320 J2520 D902 DG04 DF17 D410 CE15 CE08 CD01 8104 8221 0C07 0C08",
+            "VDD_HV VSS_HV VDD_LV VSS_LV PC[13] PC[12] PH[10] PE[12] PCIR PCIR HPCR VCSN",
+            "137 442 442 227 1034 1044 1053 1055 1101 1105 1109 1116 1129 1134",
+        ];
+        let items: Vec<(&str, &str)> = rows.iter().map(|t| ("Helvetica", *t)).collect();
         let page = make_font_page(&items);
         assert!(matches!(garbled_scope(&page), GarbledScope::None));
         assert!(!page_is_garbled(&page));

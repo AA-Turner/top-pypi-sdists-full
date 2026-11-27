@@ -80,7 +80,7 @@ async def _execute_parallel_workflow(params: WorkflowParams) -> WorkflowResults:
     raise WorkflowError(f"Unknown workflow result type: {type(res)}")
 
 
-@workflow.define(name=PARALLEL_EXECUTION_WORKFLOW_NAME, workflow_display_name="parallel-execution", is_technical=True)
+@workflow.define(name=PARALLEL_EXECUTION_WORKFLOW_NAME, is_technical=True)
 class ParallelExecutionWorkflow:
     """Workflow implementation for concurrent item processing."""
 
@@ -91,7 +91,6 @@ class ParallelExecutionWorkflow:
 
 @workflow.define(
     name=OBO_PARALLEL_EXECUTION_WORKFLOW_NAME,
-    workflow_display_name="parallel-execution-obo",
     is_technical=True,
     on_behalf_of=True,
 )

@@ -19,6 +19,10 @@ class ResolvedConnectorBinding(BaseModel):
     mcp_ui_resource_uris_fetched: bool = False
     status: str = "ready"
 
+    @property
+    def connector_id_or_name(self) -> str:
+        return self.connector_id or self.connector_name
+
 
 class _ResolvedConnectorBindings(BaseModel):
     model_config = ConfigDict(extra="ignore")

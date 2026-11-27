@@ -11,6 +11,7 @@ from mistralai.extra.workflows.encoding.models import EncodedPayloadOptions
 from pydantic import TypeAdapter, ValidationError
 
 from mistralai.workflows.core._logger import get_logger
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.exceptions import ErrorCode
 from mistralai.workflows.protocol.v1.events import (
     JSON_PATCH_PAYLOAD_TYPE,
@@ -314,7 +315,7 @@ def _strip_unserializable_payloads(event: WorkflowEvent) -> WorkflowEvent:
                 "Replacing unserializable event payload",
                 event_type=event.event_type,
                 field=field_name,
-                error=str(e),
+                **extract_error_context(e),
             )
             replacements[field_name] = JSONPayload(value={"error": ErrorCode.UNSERIALIZABLE_PAYLOAD_ERROR.value})
 
@@ -328,9 +329,7 @@ async def maybe_encode_event(
     event: WorkflowEvent,
     encoder: EventPayloadEncoder | None,
 ) -> WorkflowEvent:
-    """Encrypt event if an encoder is provided.
-
-    Returns the event unchanged if no encoder is configured.
+    """Encrypt event if an encoder is provided, strip unserializable payloads otherwise.
 
     Use this before batching to ensure size calculations account for
     the base64 overhead of encrypted payloads.
@@ -340,9 +339,9 @@ async def maybe_encode_event(
     activity that produced it still completes.
     """
     if encoder is None:
-        return event
+        return _strip_unserializable_payloads(event)
     try:
         return await encoder.encode_event(event)
     except Exception as e:
-        logger.warning("Failed to encode event", event_type=event.event_type, error=str(e))
+        logger.warning("Failed to encode event", event_type=event.event_type, **extract_error_context(e))
         return await encoder.encode_event(_strip_unserializable_payloads(event))

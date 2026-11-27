@@ -9,6 +9,41 @@ if TYPE_CHECKING:
     from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam
 
 
+def text_from_content_blocks(blocks: list[Any]) -> str | None:
+    """Join text fragments while leaving opaque provider blocks untouched."""
+    parts = []
+    for block in blocks:
+        if isinstance(block, dict):
+            kind, text = block.get("type"), block.get("text")
+        else:
+            kind, text = getattr(block, "type", None), getattr(block, "text", None)
+        if kind == "text" and isinstance(text, str):
+            parts.append(text)
+    return "".join(parts) if parts else None
+
+
+def append_system_instruction(message: dict[str, Any], instruction: str) -> None:
+    """Append `instruction` to an existing system message in place.
+
+    String content gets the text appended. List content gets it appended to
+    the first dict part with string `text` (images and other parts untouched);
+    if there is no such part, a new text part is added. Callers must pass a
+    message that is already safe to mutate (see `copy_messages_for_mutation`).
+    """
+    content = message.get("content")
+    if isinstance(content, str):
+        message["content"] = f"{content}\n\n{instruction}"
+        return
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and isinstance(part.get("text"), str):
+                part["text"] += f"\n\n{instruction}"
+                return
+        content.append({"type": "text", "text": instruction})
+        return
+    message["content"] = instruction
+
+
 def extract_messages(kwargs: dict[str, Any]) -> Any:
     if "messages" in kwargs:
         return kwargs["messages"]
@@ -74,39 +109,29 @@ def merge_consecutive_messages(messages: list[dict[str, Any]]) -> list[dict[str,
     if not messages:
         return []
 
-    message_count = len(messages)
     new_messages: list[dict[str, Any]] = []
-    flat_string = True
-    for message in messages[: min(10, message_count)]:
-        if not isinstance(message.get("content", ""), str):
-            flat_string = False
-            break
-
-    if flat_string and message_count > 10:
-        flat_string = all(
-            isinstance(message.get("content", ""), str) for message in messages[10:]
-        )
-
+    flat_string = all(
+        isinstance(message.get("content", ""), str) for message in messages
+    )
     for message in messages:
         role = message.get("role", "user")
         new_content = message.get("content", "")
-        is_plain_message = set(message).issubset({"role", "content"})
         if new_content is None:
             new_content = ""
+        if flat_string:
+            new_content = [new_content]
+        elif isinstance(new_content, str):
+            new_content = [{"type": "text", "text": new_content}]
         elif isinstance(new_content, list):
             new_content = list(new_content)
-        if not flat_string and isinstance(new_content, str):
-            new_content = [{"type": "text", "text": new_content}]
 
         if (
             new_messages
             and role == new_messages[-1]["role"]
-            and is_plain_message
+            and set(message).issubset({"role", "content"})
             and set(new_messages[-1]).issubset({"role", "content"})
         ):
-            if flat_string:
-                new_messages[-1]["content"] += f"\n\n{new_content}"
-            elif isinstance(new_content, list):
+            if isinstance(new_content, list):
                 new_messages[-1]["content"].extend(new_content)
             else:
                 new_messages[-1]["content"].append(new_content)
@@ -115,14 +140,23 @@ def merge_consecutive_messages(messages: list[dict[str, Any]]) -> list[dict[str,
             new_message.update(role=role, content=new_content)
             new_messages.append(new_message)
 
+    if flat_string:
+        for message in new_messages:
+            message["content"] = "\n\n".join(message["content"])
     return new_messages
 
 
-def get_message_content(message: ChatCompletionMessageParam) -> list[Any]:
-    """Return message content in list form for Gemini-style APIs."""
+def get_message_content(message: ChatCompletionMessageParam | None) -> list[Any]:
+    """Return message content in list form for Gemini-style APIs.
+
+    The returned list is always a new object: callers treat it as their own
+    `parts` list (e.g. `transform_to_gemini_prompt` hoists the system prompt
+    into it with `.insert(0, ...)`), and returning the caller's own content
+    list would splice the hoisted prompt into the caller's message.
+    """
     if not message:
         return [""]
     content = message.get("content", "")
     if isinstance(content, list):
-        return content if content else [""]
+        return list(content) if content else [""]
     return [content if content is not None else ""]

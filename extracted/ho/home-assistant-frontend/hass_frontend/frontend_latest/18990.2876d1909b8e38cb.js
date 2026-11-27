@@ -1,0 +1,2 @@
+export const __rspack_esm_ids=[18990];export const __webpack_modules__={48189(t,o,e){var r=e(16056);let s;e.d(o,{},{buildMapStyle:async(t,o,a)=>{const[{osm:c},n]=await Promise.all([e.e(39710).then(e.bind(e,22605)),(s??=fetch("/static/map/urls.json?v=20261125.1").then(t=>t.json()).catch(t=>{throw s=void 0,t}),s)]),l=o=>c({...o,theme:t,urls:n}),i=[o,...a?[a]:[],{}];let d;for(const t of i)try{d=l(t);break}catch{d=void 0}if(!d)throw new Error(`Could not build map style "${t}"`);return(0,r.U)(t,d)}})}};
+//# sourceMappingURL=18990.2876d1909b8e38cb.js.map

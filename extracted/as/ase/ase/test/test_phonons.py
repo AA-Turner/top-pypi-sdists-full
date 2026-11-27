@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import pytest
 
 from ase import Atoms, units
 from ase.build import bulk, molecule
@@ -10,11 +11,12 @@ from ase.io.trajectory import Trajectory
 from ase.phonons import Phonons
 
 
-def check_set_atoms(atoms, set_atoms, expected_atoms):
+def check_set_atoms(atoms, select_atoms, expected_atoms):
     """Perform a test that .set_atoms() only displaces the expected atoms."""
     atoms.calc = EMT()
-    phonons = Phonons(atoms, EMT())
-    phonons.set_atoms(set_atoms)
+    phonons = Phonons(atoms, EMT(), use_mean_minimum_images=False)
+    with pytest.warns(FutureWarning):
+        phonons.set_atoms(select_atoms)
 
     # TODO: For now, because there is no public API to iterate over/inspect
     #       displacements, we run and check the number of files in the cache.
@@ -25,18 +27,29 @@ def check_set_atoms(atoms, set_atoms, expected_atoms):
 
 
 def test_set_atoms_indices(testdir):
-    check_set_atoms(molecule('CO2'), set_atoms=[0, 1], expected_atoms=[0, 1])
+    check_set_atoms(molecule('CO2'), select_atoms=[0, 1], expected_atoms=[0, 1])
 
 
 def test_set_atoms_symbol(testdir):
-    check_set_atoms(molecule('CO2'), set_atoms=['O'], expected_atoms=[1, 2])
+    check_set_atoms(molecule('CO2'), select_atoms=['O'], expected_atoms=[1, 2])
+
+
+def test_set_atoms_two_symbols(testdir):
+    check_set_atoms(
+        molecule('CO2'), select_atoms=['O', 'C'], expected_atoms=[0, 1, 2]
+    )
 
 
 def test_check_eq_forces(testdir):
     atoms = bulk('C')
     atoms.calc = EMT()
 
-    phonons = Phonons(atoms, EMT(), supercell=(1, 2, 1))
+    phonons = Phonons(
+        atoms,
+        EMT(),
+        supercell=(1, 2, 1),
+        use_mean_minimum_images=True,
+    )
     phonons.run()
     fmin, fmax, _i_min, _i_max = phonons.check_eq_forces()
     assert fmin < fmax
@@ -48,7 +61,8 @@ def test_check_consistent_format(testdir):
     atoms = molecule('H2')
     atoms.calc = EMT()
 
-    phonons = Phonons(atoms, EMT())
+    with pytest.warns(FutureWarning, match='use_mean_minimum_images'):
+        phonons = Phonons(atoms, EMT())
     phonons.run()
 
     # Check that the data stored for `eq` is shaped like the data stored for
@@ -68,9 +82,11 @@ def test_get_band_structure_with_modes(testdir):
     npoints = 100  # k-points in band path
     natoms = len(atoms)
 
-    ph = Phonons(atoms, EMT(), supercell=(N, N, N), delta=0.05)
+    ph = Phonons(
+        atoms, EMT(), supercell=(N, N, N), use_mean_minimum_images=False
+    )
     ph.run()
-    ph.read(acoustic=True)
+    ph.read()
     ph.clean()
 
     path = atoms.cell.bandpath('GXULGK', npoints=npoints)
@@ -126,14 +142,19 @@ def test_frequencies_amplitudes(testdir):
     calc = LennardJones(sigma=LJ_sigma, epsilon=LJ_epsilon, rc=1.5 * d0)
 
     print('Calculating phonons')
-    N = 7
+    N = 5
     ph = Phonons(
-        atoms, calc, supercell=(N, 1, 1), delta=0.005, name='phonon_CuO'
+        atoms,
+        calc,
+        supercell=(N, 1, 1),
+        delta=0.005,
+        name='phonon_CuO',
+        use_mean_minimum_images=True,
     )
     ph.run()
     assert ph.check_eq_forces()[1] < 1e-9, 'System is not at equilibrium'
     # Read forces and assemble the dynamical matrix
-    ph.read(acoustic=True)
+    ph.read()
     ph.clean()
 
     path = atoms.cell.bandpath(npoints=50, pbc=[1, 0, 0])
@@ -196,7 +217,7 @@ def test_frequencies_amplitudes(testdir):
     )
 
     for kk, br, hbaromega in checkmodes:
-        print(f'Ckecking k-point {kk} branch {br}')
+        print(f'Checking k-point {kk} branch {br}')
         ph.write_modes(
             kk, branches=(br,), repeat=(repeat, 1, 1), kT=T * units.kB
         )
@@ -253,12 +274,17 @@ def test_partial_dos(testdir):
     # Calculating phonons
     N = 3
     ph = Phonons(
-        atoms, calc, supercell=(N, N, N), delta=0.005, name='phonon_ZnS'
+        atoms,
+        calc,
+        supercell=(N, N, N),
+        delta=0.005,
+        name='phonon_ZnS',
+        use_mean_minimum_images=False,
     )
     ph.run()
     assert ph.check_eq_forces()[1] < 1e-9, 'System is not at equilibrium'
     # Read forces and assemble the dynamical matrix
-    ph.read(acoustic=True)
+    ph.read()
     ph.clean()
 
     # Analyzing phonons
@@ -273,3 +299,81 @@ def test_partial_dos(testdir):
     dosTotal_array = dos.get_weights()
 
     assert np.allclose(dosTotal_array, dosS_array + dosZn_array)
+
+
+def test_cutoff(testdir):
+    atoms = bulk('Al', 'fcc', a=4.05)
+
+    invmass_X = np.repeat(atoms.get_masses() ** -0.5, 3)
+    invmass_XX = np.outer(invmass_X, invmass_X)
+
+    ph = Phonons(
+        atoms,
+        EMT(),
+        supercell=(3, 3, 3),
+        delta=0.05,
+        use_mean_minimum_images=False,
+    )
+    ph.run()
+    ph.read()
+
+    with pytest.warns(FutureWarning):
+        C_NXX = ph.get_force_constant()
+    with pytest.warns(FutureWarning):
+        D_XX = ph.compute_dynamical_matrix([0.2, 0.3, 0.3], C_NXX * invmass_XX)
+
+    assert C_NXX[0, 0, 0] == pytest.approx(3.21090, rel=1e-3)
+    assert C_NXX[8, 0, 2] == pytest.approx(0.01390, rel=1e-3)
+    assert D_XX[0, 0].real == pytest.approx(0.0795, rel=1e-3)
+
+    ph.read(cutoff=3.5)
+
+    with pytest.warns(FutureWarning):
+        C_NXX = ph.get_force_constant()
+    with pytest.warns(FutureWarning):
+        D_XX = ph.compute_dynamical_matrix([0.2, 0.3, 0.3], C_NXX * invmass_XX)
+
+    assert C_NXX[0, 0, 0] == pytest.approx(3.45943, rel=1e-3)
+    assert C_NXX[8, 0, 2] == pytest.approx(0.0, abs=1e-10)
+    assert D_XX[0, 0].real == pytest.approx(0.0976, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    'use_mean_minimum_images, reference',
+    [
+        # Old behavior: Negative energy near Gamma and some value at K.
+        (False, [-2.238175, 6.1449]),
+        # New behavior: Energy near Gamma is now positive,
+        # and the value at K is significantly different.
+        (True, [0.75196, 8.42653]),
+    ],
+)
+def test_mean_minimum_images_improvement(
+    testdir, use_mean_minimum_images, reference
+):
+    atoms = bulk('Au', 'fcc', a=4.08)
+
+    # q-points, 1 near Gamma and 1 at the high symmetry point K.
+    q_qc = np.array([[0.028125, 0.028125, 0.05625], [0.375, 0.375, 0.75]])
+
+    N = 2
+
+    ph = Phonons(
+        atoms,
+        EMT(),
+        supercell=(N, N, N),
+        use_mean_minimum_images=use_mean_minimum_images,
+    )
+    ph.run()
+    ph.read()
+    ph.clean()
+
+    w_ql = (
+        ph.band_structure(
+            q_qc,
+            verbose=False,
+        )
+        * 1000
+    )  # meV
+
+    assert w_ql[:, 0] == pytest.approx(reference, abs=1e-4)

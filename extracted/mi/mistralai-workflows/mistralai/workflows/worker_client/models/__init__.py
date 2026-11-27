@@ -103,28 +103,12 @@ if TYPE_CHECKING:
         DeleteExecutionMetadataResponse,
         DeleteExecutionMetadataResponseTypedDict,
     )
-    from .deploymentauthorizedcredentiallistresponse import (
-        DeploymentAuthorizedCredentialListResponse,
-        DeploymentAuthorizedCredentialListResponseTypedDict,
-    )
-    from .deploymentauthorizedcredentialrequest import (
-        DeploymentAuthorizedCredentialRequest,
-        DeploymentAuthorizedCredentialRequestTypedDict,
-    )
-    from .deploymentauthorizedcredentialresponse import (
-        DeploymentAuthorizedCredentialResponse,
-        DeploymentAuthorizedCredentialResponseTypedDict,
-    )
     from .deploymentlocation import DeploymentLocation, DeploymentLocationTypedDict
     from .encodedpayloadoptions import EncodedPayloadOptions
     from .encryptedpatchvalue import EncryptedPatchValue, EncryptedPatchValueTypedDict
     from .executoridentityrequest import (
         ExecutorIdentityRequest,
         ExecutorIdentityRequestTypedDict,
-    )
-    from .executoridentityresponse import (
-        ExecutorIdentityResponse,
-        ExecutorIdentityResponseTypedDict,
     )
     from .executoridentitytokenresponse import (
         ExecutorIdentityTokenResponse,
@@ -150,12 +134,8 @@ if TYPE_CHECKING:
     from .jsonpatchremove import JSONPatchRemove, JSONPatchRemoveTypedDict
     from .jsonpatchreplace import JSONPatchReplace, JSONPatchReplaceTypedDict
     from .jsonpayload_input import JSONPayloadInput, JSONPayloadInputTypedDict
-    from .list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_getop import (
-        ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest,
-        ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequestTypedDict,
-    )
     from .locationtype import LocationType
-    from .principaltype import PrincipalType
+    from .payloadencryptionlevel import PayloadEncryptionLevel
     from .querydefinition import QueryDefinition, QueryDefinitionTypedDict
     from .registerexecutionrequest import (
         RegisterExecutionRequest,
@@ -353,12 +333,6 @@ __all__ = [
     "DeleteExecutionMetadataResponseTypedDict",
     "DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequest",
     "DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequestTypedDict",
-    "DeploymentAuthorizedCredentialListResponse",
-    "DeploymentAuthorizedCredentialListResponseTypedDict",
-    "DeploymentAuthorizedCredentialRequest",
-    "DeploymentAuthorizedCredentialRequestTypedDict",
-    "DeploymentAuthorizedCredentialResponse",
-    "DeploymentAuthorizedCredentialResponseTypedDict",
     "DeploymentLocation",
     "DeploymentLocationTypedDict",
     "EncodedPayloadOptions",
@@ -366,8 +340,6 @@ __all__ = [
     "EncryptedPatchValueTypedDict",
     "ExecutorIdentityRequest",
     "ExecutorIdentityRequestTypedDict",
-    "ExecutorIdentityResponse",
-    "ExecutorIdentityResponseTypedDict",
     "ExecutorIdentityTokenResponse",
     "ExecutorIdentityTokenResponseTypedDict",
     "Failure",
@@ -388,14 +360,12 @@ __all__ = [
     "JSONPatchReplaceTypedDict",
     "JSONPayloadInput",
     "JSONPayloadInputTypedDict",
-    "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest",
-    "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequestTypedDict",
     "Loc",
     "LocTypedDict",
     "LocationType",
     "Payload",
+    "PayloadEncryptionLevel",
     "PayloadTypedDict",
-    "PrincipalType",
     "QueryDefinition",
     "QueryDefinitionTypedDict",
     "RegisterExecutionRequest",
@@ -540,12 +510,6 @@ _dynamic_imports: dict[str, str] = {
     "DeleteExecutionMetadataRequestTypedDict": ".deleteexecutionmetadatarequest",
     "DeleteExecutionMetadataResponse": ".deleteexecutionmetadataresponse",
     "DeleteExecutionMetadataResponseTypedDict": ".deleteexecutionmetadataresponse",
-    "DeploymentAuthorizedCredentialListResponse": ".deploymentauthorizedcredentiallistresponse",
-    "DeploymentAuthorizedCredentialListResponseTypedDict": ".deploymentauthorizedcredentiallistresponse",
-    "DeploymentAuthorizedCredentialRequest": ".deploymentauthorizedcredentialrequest",
-    "DeploymentAuthorizedCredentialRequestTypedDict": ".deploymentauthorizedcredentialrequest",
-    "DeploymentAuthorizedCredentialResponse": ".deploymentauthorizedcredentialresponse",
-    "DeploymentAuthorizedCredentialResponseTypedDict": ".deploymentauthorizedcredentialresponse",
     "DeploymentLocation": ".deploymentlocation",
     "DeploymentLocationTypedDict": ".deploymentlocation",
     "EncodedPayloadOptions": ".encodedpayloadoptions",
@@ -553,8 +517,6 @@ _dynamic_imports: dict[str, str] = {
     "EncryptedPatchValueTypedDict": ".encryptedpatchvalue",
     "ExecutorIdentityRequest": ".executoridentityrequest",
     "ExecutorIdentityRequestTypedDict": ".executoridentityrequest",
-    "ExecutorIdentityResponse": ".executoridentityresponse",
-    "ExecutorIdentityResponseTypedDict": ".executoridentityresponse",
     "ExecutorIdentityTokenResponse": ".executoridentitytokenresponse",
     "ExecutorIdentityTokenResponseTypedDict": ".executoridentitytokenresponse",
     "Failure": ".failure",
@@ -577,10 +539,8 @@ _dynamic_imports: dict[str, str] = {
     "JSONPatchReplaceTypedDict": ".jsonpatchreplace",
     "JSONPayloadInput": ".jsonpayload_input",
     "JSONPayloadInputTypedDict": ".jsonpayload_input",
-    "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest": ".list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_getop",
-    "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequestTypedDict": ".list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_getop",
     "LocationType": ".locationtype",
-    "PrincipalType": ".principaltype",
+    "PayloadEncryptionLevel": ".payloadencryptionlevel",
     "QueryDefinition": ".querydefinition",
     "QueryDefinitionTypedDict": ".querydefinition",
     "RegisterExecutionRequest": ".registerexecutionrequest",

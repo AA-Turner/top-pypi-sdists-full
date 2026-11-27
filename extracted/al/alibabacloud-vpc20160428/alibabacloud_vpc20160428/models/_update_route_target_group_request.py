@@ -11,6 +11,8 @@ class UpdateRouteTargetGroupRequest(DaraModel):
     def __init__(
         self,
         client_token: str = None,
+        dry_run: bool = None,
+        ip_version: str = None,
         region_id: str = None,
         route_target_group_description: str = None,
         route_target_group_id: str = None,
@@ -19,6 +21,8 @@ class UpdateRouteTargetGroupRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, and you must ensure that the value is unique among different requests. The client token can contain only ASCII characters. Note: If you do not specify this parameter, the system automatically uses the RequestId of the API request as the client token. The RequestId of each API request may be different.
         self.client_token = client_token
+        self.dry_run = dry_run
+        self.ip_version = ip_version
         # The region ID of the route target group instance. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
         # 
         # This parameter is required.
@@ -57,6 +61,12 @@ class UpdateRouteTargetGroupRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
+
+        if self.ip_version is not None:
+            result['IpVersion'] = self.ip_version
+
         if self.region_id is not None:
             result['RegionId'] = self.region_id
 
@@ -80,6 +90,12 @@ class UpdateRouteTargetGroupRequest(DaraModel):
         m = m or dict()
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
+
+        if m.get('IpVersion') is not None:
+            self.ip_version = m.get('IpVersion')
 
         if m.get('RegionId') is not None:
             self.region_id = m.get('RegionId')

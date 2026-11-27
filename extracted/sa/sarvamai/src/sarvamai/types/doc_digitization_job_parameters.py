@@ -10,7 +10,7 @@ from .doc_digitization_supported_language import DocDigitizationSupportedLanguag
 
 class DocDigitizationJobParameters(UniversalBaseModel):
     """
-    Configuration parameters for Document Intelligence job. Specify the document language and desired output format.
+    Configuration parameters for a Document Digitization job. Specify the document language and desired output format.
     """
 
     language: typing.Optional[DocDigitizationSupportedLanguage] = pydantic.Field(default=None)

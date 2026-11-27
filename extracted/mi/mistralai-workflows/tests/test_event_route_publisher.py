@@ -8,12 +8,8 @@ from unittest.mock import patch
 
 import httpx
 import pytest
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
-from mistralai.workflows.core import metrics as workflows_metrics
 from mistralai.workflows.core._events.event_route_publisher import EventRoutePublisher
-from mistralai.workflows.core.metrics import EventRouteFallbackReason
 from mistralai.workflows.exceptions import WorkflowsException
 from mistralai.workflows.protocol.v1.events import WorkflowEvent
 from mistralai.workflows.protocol.v2.worker import (
@@ -31,32 +27,6 @@ _CONTEXT_PATCH = "mistralai.workflows.core._events.event_route_publisher.retriev
 _EXECUTION_TOKEN = "00000000-0000-0000-0000-000000000001"
 _TransportHandler = Callable[[httpx.Request], Coroutine[None, None, httpx.Response]]
 _TransportOverride = Callable[[httpx.Request], httpx.Response]
-
-
-def _read_v1_fallback_counts(reader: InMemoryMetricReader) -> dict[str | None, int]:
-    """Fallback counts keyed by the metric's `reason` attribute."""
-    data = reader.get_metrics_data()
-    counts: dict[str | None, int] = {}
-    for resource_metric in data.resource_metrics if data else []:
-        for scope_metric in resource_metric.scope_metrics:
-            for metric in scope_metric.metrics:
-                if metric.name != "mistral_workflows_event_route_v1_fallback":
-                    continue
-                for point in metric.data.data_points:
-                    reason = point.attributes.get("reason") if point.attributes else None
-                    counts[reason] = counts.get(reason, 0) + point.value
-    return counts
-
-
-@asynccontextmanager
-async def _capture_v1_fallback_metric() -> AsyncIterator[InMemoryMetricReader]:
-    reader = InMemoryMetricReader()
-    meter_provider = MeterProvider(metric_readers=[reader])
-    with (
-        patch.object(workflows_metrics, "_counters", {}),
-        patch.object(workflows_metrics.metrics, "get_meter", meter_provider.get_meter),
-    ):
-        yield reader
 
 
 def _make_event_batch(count: int) -> list[WorkflowEvent]:
@@ -114,10 +84,9 @@ class _MockEventRouteTransport:
 @asynccontextmanager
 async def _publisher_harness(
     capture_request: _TransportHandler,
-    events_api_version: str = "v2",
 ) -> AsyncIterator[EventRoutePublisher]:
     worker_client = create_http_test_worker_client(httpx.MockTransport(capture_request))
-    publisher = EventRoutePublisher(worker_client, events_api_version=events_api_version)
+    publisher = EventRoutePublisher(worker_client)
 
     async with worker_client:
         yield publisher
@@ -173,25 +142,11 @@ _EVENT_CASES = (
 
 class TestEventRoutePublisher:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        ("events", "events_api_version"),
-        [
-            pytest.param([], "v2", id="empty-batch"),
-            pytest.param([create_test_workflow_event()], "v1", id="v1-mode"),
-        ],
-    )
-    async def test_skips_v2_when_ineligible(
-        self,
-        events: list[WorkflowEvent],
-        events_api_version: str,
-    ) -> None:
+    async def test_empty_batch_does_not_publish(self) -> None:
         transport = _MockEventRouteTransport()
 
-        async with _publisher_harness(
-            transport,
-            events_api_version=events_api_version,
-        ) as publisher:
-            assert await publisher.try_publish_via_v2(events) is False
+        async with _publisher_harness(transport) as publisher:
+            await publisher.publish([])
         assert transport.requests == []
 
     @pytest.mark.asyncio
@@ -206,71 +161,57 @@ class TestEventRoutePublisher:
             return _event_publish_success_response(request)
 
         async with _publisher_harness(handler) as publisher:
-            published = await publisher.try_publish_via_v2(
-                [create_test_workflow_event(workflow_exec_id="exec-1", workflow_run_id="run-1")]
-            )
+            await publisher.publish([create_test_workflow_event(workflow_exec_id="exec-1", workflow_run_id="run-1")])
 
-        assert published is True
         assert captured["workflow_exec_id"] == "exec-1"
         assert captured["workflow_run_id"] == "run-1"
         assert captured.get("execution_token") is None
 
     @pytest.mark.asyncio
-    async def test_token_less_request_falls_back_to_v1_when_api_rejects_ids(self) -> None:
-        # Old API without run-identity minting rejects the token-less request (422) → v1 fallback.
+    async def test_token_less_request_surfaces_rejected_run_identity(self) -> None:
         def reject(request: httpx.Request) -> httpx.Response:
             return httpx.Response(HTTPStatus.UNPROCESSABLE_ENTITY, json={"detail": "execution_token required"})
 
         transport = _MockEventRouteTransport(overrides={"/v2/workflows/workers/event-route-token": reject})
 
-        async with _capture_v1_fallback_metric() as reader:
-            async with _publisher_harness(transport) as publisher:
-                assert await publisher.try_publish_via_v2([create_test_workflow_event()]) is False
+        async with _publisher_harness(transport) as publisher:
+            with pytest.raises(WorkflowsException) as exc_info:
+                await publisher.publish([create_test_workflow_event()])
 
-            assert _read_v1_fallback_counts(reader) == {EventRouteFallbackReason.TOKEN_REQUIRED: 1}
-
+        assert exc_info.value.status == HTTPStatus.UNPROCESSABLE_ENTITY
         assert [path for path, _ in transport.requests] == ["/v2/workflows/workers/event-route-token"]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("response", "expected_reason"),
+        "response",
         [
             pytest.param(
                 httpx.Response(HTTPStatus.NOT_FOUND, json={"detail": "Not Found"}),
-                EventRouteFallbackReason.ROUTE_UNAVAILABLE,
                 id="route-absent-fastapi-json",
             ),
             pytest.param(
                 httpx.Response(HTTPStatus.NOT_FOUND, text="<html>404</html>"),
-                EventRouteFallbackReason.ROUTE_UNAVAILABLE,
                 id="route-absent-gateway-html",
             ),
             pytest.param(
                 httpx.Response(
                     HTTPStatus.SERVICE_UNAVAILABLE, json={"detail": "Event route token service is not enabled"}
                 ),
-                EventRouteFallbackReason.TOKEN_SERVICE_UNAVAILABLE,
                 id="token-service-off",
             ),
         ],
     )
-    async def test_unusable_v2_route_falls_back_to_v1(
-        self,
-        response: httpx.Response,
-        expected_reason: EventRouteFallbackReason,
-    ) -> None:
-        # No v2 route (untagged 404) or no token service behind it (503) → v1 rather than a lost event.
+    async def test_unusable_v2_route_surfaces_error(self, response: httpx.Response) -> None:
         def reject(request: httpx.Request) -> httpx.Response:
             return response
 
         transport = _MockEventRouteTransport(overrides={"/v2/workflows/workers/event-route-token": reject})
 
-        async with _capture_v1_fallback_metric() as reader:
-            async with _publisher_harness(transport) as publisher:
-                assert await publisher.try_publish_via_v2([create_test_workflow_event()]) is False
+        async with _publisher_harness(transport) as publisher:
+            with pytest.raises(WorkflowsException) as exc_info:
+                await publisher.publish([create_test_workflow_event()])
 
-            assert _read_v1_fallback_counts(reader) == {expected_reason: 1}
-
+        assert exc_info.value.status == response.status_code
         assert [path for path, _ in transport.requests] == ["/v2/workflows/workers/event-route-token"]
 
     @pytest.mark.asyncio
@@ -286,7 +227,7 @@ class TestEventRoutePublisher:
         with patch(_CONTEXT_PATCH, return_value=create_test_workflow_context(_EXECUTION_TOKEN)):
             async with _publisher_harness(handler) as publisher:
                 with pytest.raises(WorkflowsException):
-                    await publisher.try_publish_via_v2([create_test_workflow_event()])
+                    await publisher.publish([create_test_workflow_event()])
 
         assert captured.get("execution_token") == _EXECUTION_TOKEN
 
@@ -300,7 +241,7 @@ class TestEventRoutePublisher:
 
         async with _publisher_harness(transport) as publisher:
             with pytest.raises(WorkflowsException):
-                await publisher.try_publish_via_v2(events)
+                await publisher.publish(events)
         assert transport.requests == []
 
     @pytest.mark.asyncio
@@ -326,7 +267,7 @@ class TestEventRoutePublisher:
         transport = _MockEventRouteTransport(overrides={send_path: send_expired_then_succeed})
 
         async with _publisher_harness(transport) as publisher:
-            assert await publisher.try_publish_via_v2(events) is True
+            await publisher.publish(events)
 
         assert transport.requests == [
             ("/v2/workflows/workers/event-route-token", None),
@@ -353,12 +294,9 @@ class TestEventRoutePublisher:
 
         transport = _MockEventRouteTransport(overrides={failure_path: fail_request})
 
-        async with _capture_v1_fallback_metric() as reader:
-            async with _publisher_harness(transport) as publisher:
-                with pytest.raises(WorkflowsException) as exc_info:
-                    await publisher.try_publish_via_v2(events)
-
-            assert _read_v1_fallback_counts(reader) == {}
+        async with _publisher_harness(transport) as publisher:
+            with pytest.raises(WorkflowsException) as exc_info:
+                await publisher.publish(events)
 
         assert exc_info.value.status == scenario.status
         expected_code = scenario.body.get("code")
@@ -375,8 +313,8 @@ class TestEventRoutePublisher:
         transport = _MockEventRouteTransport()
 
         async with _publisher_harness(transport) as publisher:
-            assert await publisher.try_publish_via_v2([create_test_workflow_event(event_id="evt-1")]) is True
-            assert await publisher.try_publish_via_v2([create_test_workflow_event(event_id="evt-2")]) is True
+            await publisher.publish([create_test_workflow_event(event_id="evt-1")])
+            await publisher.publish([create_test_workflow_event(event_id="evt-2")])
 
         assert transport.requests == [
             ("/v2/workflows/workers/event-route-token", None),
@@ -393,7 +331,7 @@ class TestEventRoutePublisher:
 
         async with _publisher_harness(transport) as publisher:
             with pytest.raises(WorkflowsException):
-                await publisher.try_publish_via_v2([create_test_workflow_event()])
+                await publisher.publish([create_test_workflow_event()])
 
         assert [path for path, _ in transport.requests] == ["/v2/workflows/workers/event-route-token"]
 
@@ -402,10 +340,7 @@ class TestEventRoutePublisher:
         transport = _MockEventRouteTransport()
 
         async with _publisher_harness(transport) as publisher:
-            assert (
-                await publisher.try_publish_via_v2([create_test_workflow_event(parent_workflow_exec_id="parent-1")])
-                is True
-            )
+            await publisher.publish([create_test_workflow_event(parent_workflow_exec_id="parent-1")])
 
         assert transport.requests == [
             ("/v2/workflows/workers/event-route-token", None),
@@ -417,14 +352,11 @@ class TestEventRoutePublisher:
         transport = _MockEventRouteTransport()
 
         async with _publisher_harness(transport) as publisher:
-            assert (
-                await publisher.try_publish_via_v2(
-                    [
-                        create_test_workflow_event(),
-                        create_test_workflow_event(event_id="evt-1", parent_workflow_exec_id="parent-1"),
-                    ]
-                )
-                is True
+            await publisher.publish(
+                [
+                    create_test_workflow_event(),
+                    create_test_workflow_event(event_id="evt-1", parent_workflow_exec_id="parent-1"),
+                ]
             )
 
         assert transport.requests == [
@@ -448,10 +380,10 @@ class TestEventRoutePublisher:
 
         async with _publisher_harness(transport) as publisher:
             with pytest.raises(WorkflowsException) as exc_info:
-                await publisher.try_publish_via_v2([create_test_workflow_event(event_id="evt-1")])
+                await publisher.publish([create_test_workflow_event(event_id="evt-1")])
             _assert_workflows_exception_code(exc_info, HTTPStatus.UNAUTHORIZED, EVENT_ROUTE_TOKEN_INVALID_CODE)
 
-            assert await publisher.try_publish_via_v2([create_test_workflow_event(event_id="evt-2")]) is True
+            await publisher.publish([create_test_workflow_event(event_id="evt-2")])
 
         assert transport.requests == [
             ("/v2/workflows/workers/event-route-token", None),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.11.3
+Version: 1.11.4
 Summary: Crawlee for Python
 Keywords: apify,automation,chrome,crawlee,crawler,headless,scraper,scraping
 Author: Apify Technologies s.r.o.
@@ -63,6 +63,7 @@ Requires-Dist: lxml[html-clean]>=5.2.0 ; extra == 'pydantic-ai'
 Requires-Dist: redis[hiredis]>=7.0.0 ; extra == 'redis'
 Requires-Dist: sqlalchemy[asyncio]>=2.0.0 ; extra == 'sql-mysql'
 Requires-Dist: aiomysql>=0.3.2 ; extra == 'sql-mysql'
+Requires-Dist: pymysql<1.2.1 ; extra == 'sql-mysql'
 Requires-Dist: cryptography>=46.0.5 ; extra == 'sql-mysql'
 Requires-Dist: sqlalchemy[asyncio]>=2.0.0 ; extra == 'sql-postgres'
 Requires-Dist: asyncpg>=0.24.0 ; extra == 'sql-postgres'
@@ -300,6 +301,10 @@ Crawlee is open-source and runs anywhere, but since it's developed by [Apify](ht
 ## Support
 
 If you find any bug or issue with Crawlee, please [submit an issue on GitHub](https://github.com/apify/crawlee-python/issues). For questions, you can ask on [Stack Overflow](https://stackoverflow.com/questions/tagged/apify), in GitHub Discussions or you can join our [Discord server](https://discord.com/invite/jyEM2PRvMU).
+
+## Supported versions
+
+New features and bug fixes land in the latest major version. The previous major version keeps receiving fixes for high and critical severity vulnerabilities for 12 months after the next major is released, and reaches end of life after that. See the [security policy](https://github.com/apify/crawlee-python/security/policy) for the current status of each version and for how to report a vulnerability.
 
 ## Contributing
 

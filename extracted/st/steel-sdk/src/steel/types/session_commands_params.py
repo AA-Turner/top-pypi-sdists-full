@@ -21,14 +21,13 @@ __all__ = [
     "CommandsReloadCommand",
     "CommandsSnapshotCommand",
     "CommandsClickCommand",
-    "CommandsDblclickCommand",
     "CommandsHoverCommand",
     "CommandsFocusCommand",
     "CommandsTypeCommand",
     "CommandsFillCommand",
     "CommandsPressCommand",
-    "CommandsKeydownCommand",
-    "CommandsKeyupCommand",
+    "CommandsKeyboardCommand",
+    "CommandsReleaseCommand",
     "CommandsMouseCommand",
     "CommandsSelectCommand",
     "CommandsCheckCommand",
@@ -44,6 +43,7 @@ __all__ = [
     "CommandsScrollCommand",
     "CommandsFindCommand",
     "CommandsTabCommand",
+    "CommandsDialogCommand",
     "Observe",
 ]
 
@@ -137,23 +137,11 @@ class CommandsClickCommand(TypedDict, total=False):
     target: Required[CommandTargetParam]
     """A ref from a snapshot such as e12, a CSS selector, or a locator."""
 
-    expect: CommandExpectationParam
-    """Fails the command when the element does not have this role or name."""
+    button: Literal["left", "right", "middle"]
+    """left by default."""
 
-    frame: CommandFrameParam
-    """The iframe to look in. List nested iframes from the outside in."""
-
-    tab: str
-    """A tab id such as t2. A command on a ref does not need it."""
-
-
-class CommandsDblclickCommand(TypedDict, total=False):
-    """Double-clicks the element with the mouse."""
-
-    command: Required[Literal["dblclick"]]
-
-    target: Required[CommandTargetParam]
-    """A ref from a snapshot such as e12, a CSS selector, or a locator."""
+    clicks: int
+    """2 makes a double click and 3 a triple click. 1 by default."""
 
     expect: CommandExpectationParam
     """Fails the command when the element does not have this role or name."""
@@ -248,7 +236,10 @@ class CommandsFillCommand(TypedDict, total=False):
 
 
 class CommandsPressCommand(TypedDict, total=False):
-    """Presses a key, such as Enter, or a combination such as Control+a."""
+    """Presses a key, such as Enter, or a combination such as Control+a.
+
+    On a tab with an open dialog, Enter without a target accepts the dialog and Escape dismisses it.
+    """
 
     command: Required[Literal["press"]]
 
@@ -267,23 +258,24 @@ class CommandsPressCommand(TypedDict, total=False):
     """A ref from a snapshot such as e12, a CSS selector, or a locator."""
 
 
-class CommandsKeydownCommand(TypedDict, total=False):
-    """Holds a key down until its keyup."""
+class CommandsKeyboardCommand(TypedDict, total=False):
+    """Holds a key down, or lets go of a key held down."""
 
-    command: Required[Literal["keydown"]]
+    action: Required[Literal["down", "up"]]
+
+    command: Required[Literal["keyboard"]]
 
     key: Required[str]
+    """One key, not a combination such as Control+a."""
 
     tab: str
     """A tab id such as t2. A command on a ref does not need it."""
 
 
-class CommandsKeyupCommand(TypedDict, total=False):
-    """Lets go of a key held with keydown."""
+class CommandsReleaseCommand(TypedDict, total=False):
+    """Lets go of every key and mouse button held on the tab."""
 
-    command: Required[Literal["keyup"]]
-
-    key: Required[str]
+    command: Required[Literal["release"]]
 
     tab: str
     """A tab id such as t2. A command on a ref does not need it."""
@@ -518,6 +510,10 @@ class CommandsEvalCommand(TypedDict, total=False):
     command: Required[Literal["eval"]]
 
     script: Required[str]
+    """An expression, or an async function body that gives its value with return.
+
+    A promise result is awaited.
+    """
 
     tab: str
     """A tab id such as t2. A command on a ref does not need it."""
@@ -593,6 +589,26 @@ class CommandsTabCommand(TypedDict, total=False):
     url: str
 
 
+class CommandsDialogCommand(TypedDict, total=False):
+    """Answers an open dialog.
+
+    It never sends a key to the page, and fails if the dialog is not open.
+    """
+
+    action: Required[Literal["accept", "dismiss"]]
+
+    command: Required[Literal["dialog"]]
+
+    dialog: Required[str]
+    """The id of the dialog, such as d-3, from dialog in a response."""
+
+    text: str
+    """The answer to a prompt.
+
+    Works only with accept. A prompt gets its default text without it.
+    """
+
+
 Commands: TypeAlias = Union[
     CommandsNavigateCommand,
     CommandsBackCommand,
@@ -600,14 +616,13 @@ Commands: TypeAlias = Union[
     CommandsReloadCommand,
     CommandsSnapshotCommand,
     CommandsClickCommand,
-    CommandsDblclickCommand,
     CommandsHoverCommand,
     CommandsFocusCommand,
     CommandsTypeCommand,
     CommandsFillCommand,
     CommandsPressCommand,
-    CommandsKeydownCommand,
-    CommandsKeyupCommand,
+    CommandsKeyboardCommand,
+    CommandsReleaseCommand,
     CommandsMouseCommand,
     CommandsSelectCommand,
     CommandsCheckCommand,
@@ -623,6 +638,7 @@ Commands: TypeAlias = Union[
     CommandsScrollCommand,
     CommandsFindCommand,
     CommandsTabCommand,
+    CommandsDialogCommand,
     Iterable[CommandParam],
 ]
 
@@ -630,7 +646,7 @@ Commands: TypeAlias = Union[
 class Observe(TypedDict, total=False):
     """Returns a snapshot, or a diff against the last one, after the commands."""
 
-    mode: Required[Literal["none", "snapshot", "diff"]]
+    mode: Required[Literal["snapshot", "diff"]]
 
     base: str
     """A snapshot id to diff against."""

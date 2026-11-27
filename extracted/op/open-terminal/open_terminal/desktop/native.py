@@ -10,6 +10,7 @@ import ctypes
 import contextlib
 import io
 import logging
+import shutil
 import subprocess
 import sys
 import time
@@ -123,6 +124,7 @@ def check_permissions():
 class NativeDesktop:
     transport = "frames"
     fps = 30
+    draws_cursor = False
 
     def __init__(self, fs):
         if fs.username:
@@ -145,6 +147,11 @@ class NativeDesktop:
         self.target = ()
         self.width = self.height = 0
         self.frame = None
+        self.latest = None
+        self.screen = self.screen_task = None
+        self.raw = self.basic = self.plain = None
+        self.shared = None
+        self.shared_at = 0.0
         self.unscrolled = [0.0, 0.0]
 
     @property
@@ -160,7 +167,6 @@ class NativeDesktop:
 
     def setup(self):
         check_permissions()
-        import mss
         import pyautogui
 
         self.input = pyautogui
@@ -169,12 +175,97 @@ class NativeDesktop:
             self.input.DARWIN_CATCH_UP_TIME = 0.001
         # A remote viewer must be able to use screen corners, like the VNC viewer.
         self.input.FAILSAFE = False
+        if sys.platform == "linux":
+            self.open_capture()
+        else:
+            self.measure(*self.input.size())
+
+    def open_capture(self):
+        import mss
+
         self.capture = mss.mss()
         self.grab()
+        if sys.platform == "linux":
+            self.plain, self.capture = self.capture, mss.mss(with_cursor=True)
+            try:
+                self.capture.grab(self.capture.monitors[1])
+                self.fps, self.draws_cursor = 60, True
+            except mss.ScreenShotError:  # No XFixes; viewers show their own cursor.
+                self.capture.close()
+                self.capture, self.plain = self.plain, None
+
+    def screen_command(self):
+        """A process that writes raw BGRX frames, only when the screen changes."""
+        size = (str(self.width), str(self.height))
+        if sys.platform == "darwin":
+            return (sys.executable, "-u", "-m", "open_terminal.desktop.screen", *size, "60")
+        # Desktop Duplication numbers displays itself, so use it only when there is one.
+        if sys.platform == "win32" and shutil.which("ffmpeg") and ctypes.windll.user32.GetSystemMetrics(80) == 1:
+            return (
+                "ffmpeg", "-nostdin", "-loglevel", "error", "-filter_complex",
+                "ddagrab=framerate=60:dup_frames=0,hwdownload,format=bgra,"
+                f"scale={size[0]}:{size[1]}:flags=bilinear,format=bgr0",
+                "-fps_mode", "passthrough", "-f", "rawvideo", "pipe:1",
+            )
+        return None
+
+    def measure(self, width, height):
+        self.screen_width, self.screen_height = width, height
+        scale = min(1, 1920 / width, 1080 / height)
+        self.width, self.height = round(width * scale), round(height * scale)
+
+    async def start_screen(self):
+        command = self.screen_command()
+        if command is None:
+            raise RuntimeError("needs one display and FFmpeg 7")
+        self.screen = await self.spawn(*command, stdout=asyncio.subprocess.PIPE)
+        data = await asyncio.wait_for(self.read_screen(), 15)
+        self.update_frame(data)
+        self.screen_started = time.monotonic()
+        self.fps, self.draws_cursor = 60, True
+
+    async def read_screen(self):
+        return await self.screen.stdout.readexactly(self.width * self.height * 4)
+
+    def update_frame(self, data):
+        self.latest = Image.frombytes("RGB", (self.width, self.height), data, "raw", "BGRX")
+
+    async def follow_screen(self):
+        try:
+            while True:
+                try:
+                    while True:
+                        self.update_frame(await self.read_screen())
+                except asyncio.IncompleteReadError:
+                    size = await self.work(self.input.size)
+                    unchanged = tuple(size) == (self.screen_width, self.screen_height)
+                    if unchanged and time.monotonic() - self.screen_started < 5:
+                        raise
+                    await self.stop_process(self.screen)
+                    self.measure(*size)
+                    await self.start_screen()
+        except Exception as exc:
+            log.warning("Screen capture stopped, using basic capture: %s", str(exc) or type(exc).__name__)
+            await self.stop_process(self.screen)
+            self.latest = None
+            self.fps, self.draws_cursor = type(self).fps, False
+            # Viewers reconnect, to show their own cursor again.
+            for peer in list(self.peers):
+                with contextlib.suppress(Exception):
+                    await peer.close(code=1012)
 
     async def start(self):
         try:
             await self.work(self.setup)
+            if sys.platform != "linux":
+                try:
+                    await self.start_screen()
+                    self.screen_task = asyncio.create_task(self.follow_screen())
+                except Exception as exc:
+                    log.warning("Screen capture unavailable, using basic capture: %s", str(exc) or type(exc).__name__)
+                    if self.screen:
+                        await self.stop_process(self.screen)
+                    await self.work(self.open_capture)
             await self.audio.start()
         except HTTPException:
             raise
@@ -211,24 +302,41 @@ class NativeDesktop:
                 await process.wait()
 
     def grab(self):
+        if (latest := self.latest) is not None:
+            return latest
+        if self.capture is None:
+            self.open_capture()
         screen = next(
             (m for m in self.capture.monitors[1:] if m["left"] == 0 and m["top"] == 0),
             self.capture.monitors[1],
         )
-        shot = self.capture.grab(screen)
+        try:
+            shot = self.capture.grab(screen)
+        except Exception:
+            if self.plain is None:
+                raise
+            shot = self.plain.grab(screen)  # The app that set this cursor has gone.
+        if self.basic is not None and shot.raw == self.raw:
+            return self.basic  # Unchanged, so there is nothing to compare or encode.
+        self.raw = shot.raw
         image = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
         self.origin = (screen["left"], screen["top"]) if sys.platform == "linux" else (0, 0)
         # X11's root size spans every monitor; input must match the captured one.
-        self.screen_width, self.screen_height = (
+        self.measure(*(
             (screen["width"], screen["height"])
             if sys.platform == "linux" else self.input.size()
-        )
-        scale = min(1, 1920 / self.screen_width, 1080 / self.screen_height)
-        self.width, self.height = (
-            round(self.screen_width * scale),
-            round(self.screen_height * scale),
-        )
-        return image.resize((self.width, self.height), Image.Resampling.BILINEAR)
+        ))
+        self.basic = image.resize((self.width, self.height), Image.Resampling.BILINEAR)
+        return self.basic
+
+    def next_frame(self, last):
+        """Grab the screen, or reuse a fresh grab this viewer has not had yet."""
+        if self.latest is not None:
+            return self.grab()  # Already one picture for everyone.
+        now = time.monotonic()
+        if self.shared is None or self.shared is last or now - self.shared_at > 1 / self.fps:
+            self.shared, self.shared_at = self.grab(), now
+        return self.shared
 
     def position(self, x, y, buttons=(), size=None):
         width, height = size or (self.width, self.height)
@@ -372,23 +480,29 @@ class NativeDesktop:
         keys, buttons = set(), set()
         encoder = Frames()
         video = VideoEncoder()
+        # Each viewer encodes on its own thread, so one does not wait for another.
+        encoding = ThreadPoolExecutor(max_workers=1, thread_name_prefix="desktop-encode")
         h264 = False  # The viewer says with each acknowledgment whether it decodes video.
         pending = deque()
         input_ready = asyncio.Event()
 
-        def encode(level):
+        def encode(image, level):
             if not h264 and video.process is not None:
                 # The viewer stopped decoding, so its picture may be out of date.
                 video.close()
                 encoder.reset()
-            return encoder.packets(self.grab(), level, video if h264 else None)
+            return encoder.packets(image, level, video if h264 else None)
 
         async def frames():
+            image = None
             while True:
                 await ready.wait()
                 start = time.monotonic()
                 # A slow viewer gets lighter frames; still areas are sharpened afterwards.
-                packets = await self.work(encode, ready.adapt())
+                image = await self.work(self.next_frame, image)
+                packets = await asyncio.get_running_loop().run_in_executor(
+                    encoding, encode, image, ready.adapt()
+                )
                 if packets:
                     ready.sent(len(packets))
                     for packet in packets:
@@ -465,17 +579,23 @@ class NativeDesktop:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             await asyncio.to_thread(video.close)
+            encoding.shutdown(wait=False, cancel_futures=True)
             async with self.actions:
                 with contextlib.suppress(Exception):
                     await self.send_input(self.release, keys, buttons)
             self.peers.discard(ws)
 
     async def close(self):
+        if self.screen_task:
+            self.screen_task.cancel()
+            await asyncio.gather(self.screen_task, return_exceptions=True)
+        if self.screen:
+            await self.stop_process(self.screen)
         await self.audio.close()
         for peer in list(self.peers):
             with contextlib.suppress(Exception):
                 await peer.close(code=1012)
-        if self.capture:
-            await self.work(self.capture.close)
+        for capture in filter(None, (self.capture, self.plain)):
+            await self.work(capture.close)
         self.worker.shutdown(wait=False, cancel_futures=True)
         self.inputs.shutdown(wait=False, cancel_futures=True)

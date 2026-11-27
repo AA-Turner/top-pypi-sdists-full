@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xsdata
-Version: 26.11
+Version: 26.11.1
 Summary: Python XML Binding
 Author-email: Christodoulos Tsoulloftas <chris@komposta.net>
 License-Expression: MIT
@@ -127,7 +127,14 @@ Check the [documentation](https://xsdata.readthedocs.io) for more ✨✨✨
 - Support xinclude statements and unknown properties
 - Customize behaviour through config
 
-## Changelog: 26.11 (2026-11-26)
+## Changelog: 26.11.1 (2026-11-27)
+
+**Security**
+
+- Escape QNames, WSDL service constants and patterns in generated code
+  ([GHSA-cx95-gjrm-h7hh](https://github.com/tefra/xsdata/security/advisories/GHSA-cx95-gjrm-h7hh))
+
+## 26.11 (2026-11-26)
 
 **Security**
 

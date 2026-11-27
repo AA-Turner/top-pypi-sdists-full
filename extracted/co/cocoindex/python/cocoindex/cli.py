@@ -5,7 +5,7 @@ import os
 import signal
 import sys
 import time
-from typing import Any, AsyncIterator, Literal, NamedTuple, TextIO
+from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, NamedTuple, TextIO
 import pathlib
 
 import click
@@ -38,6 +38,9 @@ from cocoindex.inspect import (
     query_stable_path_details_by_name,
 )
 from cocoindex._internal.stable_path import StablePath
+
+if TYPE_CHECKING:
+    from cocoindex.connectors.google_drive._oauth import UserAccountBase
 
 
 # ---------------------------------------------------------------------------
@@ -834,13 +837,25 @@ def show(
         )
 
 
+def _parse_selected_path(text: str) -> StablePath:
+    try:
+        return StablePath(_core.StablePath.parse(text))
+    except ValueError as e:
+        raise click.BadParameter(str(e), param_hint="'--select'") from e
+
+
 def _parse_stable_path(path_str: str) -> StablePath:
     """Parse a CLI stable path string into a StablePath.
 
-    Accepts formats like:
-      /"files"/"file1.txt"   (quoted parts, as displayed by StablePath.__str__)
-      /files/file1.txt       (unquoted parts)
+    Reads the path as `cocoindex show` prints it, as `--select` does:
+      /@process_file/"docs/a.md"   (a Symbol, then a string)
+    Text that is not in that form is read the older way, every part a string:
+      /files/file1.txt
     """
+    try:
+        return StablePath(_core.StablePath.parse(path_str))
+    except ValueError:
+        pass
     path = StablePath()
     # Strip leading slash
     stripped = path_str.strip("/")
@@ -1153,6 +1168,19 @@ def _fail_on_unhandled_failures(handle: UpdateHandle[Any], verb: str) -> None:
     default=False,
     help="Compute target actions without applying them. Prints planned actions.",
 )
+@click.option(
+    "--select",
+    "select",
+    multiple=True,
+    metavar="PATH",
+    callback=lambda _ctx, _param, value: [_parse_selected_path(v) for v in value],
+    help=(
+        "Run only the component at PATH and the components below it; repeat "
+        "to run several. Write PATH as `cocoindex show` prints it, such as "
+        "'/@process_file/\"docs/a.md\"'. Other components are not run and "
+        "not treated as gone."
+    ),
+)
 def update(
     app_target: str,
     force: bool,
@@ -1161,6 +1189,7 @@ def update(
     full_reprocess: bool,
     live: bool,
     preview: bool,
+    select: list[StablePath],
 ) -> None:
     """
     Run an app in catch-up mode. With --live, run in live mode.
@@ -1174,6 +1203,9 @@ def update(
         raise click.UsageError("--preview and --reset cannot be used together.")
     if preview and live:
         raise click.UsageError("--preview and --live cannot be used together.")
+    if select and reset:
+        raise click.UsageError("--select and --reset cannot be used together.")
+    component_selector = select or None
 
     app = _load_app(app_target)
 
@@ -1190,6 +1222,7 @@ def update(
                 handle = app.update(
                     full_reprocess=full_reprocess,
                     preview=True,
+                    component_selector=component_selector,
                 )
                 started = time.monotonic()
                 actions: list[Any] = await handle.result()
@@ -1229,6 +1262,7 @@ def update(
             handle = app.update(
                 full_reprocess=full_reprocess,
                 live=live,
+                component_selector=component_selector,
             )
             if not quiet:
                 await show_progress(handle)
@@ -1397,12 +1431,37 @@ def auth_sign_out_group() -> None:
     """Sign out of an account a connector reads."""
 
 
-@auth_sign_in_group.command("google-drive")
-@click.argument(
+def _sign_in(account: "UserAccountBase", client_secrets: str | None) -> None:
+    """Run ``account``'s interactive sign-in and say who signed in."""
+    from cocoindex.connectors.google_drive import SignInError
+
+    try:
+        email = account.sign_in(client_secrets)
+    except SignInError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"Signed in as {email}.")
+
+
+def _sign_out(account: "UserAccountBase") -> None:
+    """End ``account``'s sign-in and say whether there was one."""
+    from cocoindex.connectors.google_drive import SignInError
+
+    try:
+        existed = account.sign_out()
+    except SignInError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo("Signed out." if existed else "No sign-in was stored.")
+
+
+_CLIENT_SECRETS_ARGUMENT = click.argument(
     "client_secrets",
     required=False,
     type=click.Path(exists=True, dir_okay=False, resolve_path=True),
 )
+
+
+@auth_sign_in_group.command("google-drive")
+@_CLIENT_SECRETS_ARGUMENT
 @click.option(
     "--token-path",
     type=click.Path(dir_okay=False),
@@ -1420,13 +1479,9 @@ def google_drive_sign_in(client_secrets: str | None, token_path: str | None) -> 
     Opens the consent page in the browser, or prints the link when this host has
     none, and keeps the tokens in a file readable by this user only.
     """
-    from cocoindex.connectors.google_drive import SignInError, UserAccount
+    from cocoindex.connectors.google_drive import UserAccount
 
-    try:
-        email = UserAccount(token_path).sign_in(client_secrets)
-    except SignInError as exc:
-        raise click.ClickException(str(exc)) from exc
-    click.echo(f"Signed in as {email}.")
+    _sign_in(UserAccount(token_path), client_secrets)
 
 
 @auth_sign_out_group.command("google-drive")
@@ -1439,13 +1494,53 @@ def google_drive_sign_in(client_secrets: str | None, token_path: str | None) -> 
 )
 def google_drive_sign_out(token_path: str | None) -> None:
     """Revoke the sign-in at Google and delete its token file."""
-    from cocoindex.connectors.google_drive import SignInError, UserAccount
+    from cocoindex.connectors.google_drive import UserAccount
 
-    try:
-        existed = UserAccount(token_path).sign_out()
-    except SignInError as exc:
-        raise click.ClickException(str(exc)) from exc
-    click.echo("Signed out." if existed else "No sign-in was stored.")
+    _sign_out(UserAccount(token_path))
+
+
+@auth_sign_in_group.command("google-docs")
+@_CLIENT_SECRETS_ARGUMENT
+@click.option(
+    "--token-path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Where to keep the sign-in; default: cocoindex/google_docs_token.json "
+    "under the user's config directory.",
+)
+def google_docs_sign_in(client_secrets: str | None, token_path: str | None) -> None:
+    """Sign in with a Google account to keep Google Docs in its Drive.
+
+    Asks only for access to the files CocoIndex creates (drive.file): the docs
+    it creates and edits, nothing else in the Drive. The sign-in is kept apart
+    from `auth sign-in google-drive`'s.
+
+    Uses CocoIndex's own OAuth client when this release includes one. To use a
+    Desktop-app OAuth client of your own, pass CLIENT_SECRETS, the JSON file you
+    downloaded for it.
+    """
+    from cocoindex.connectors.google_docs import UserAccount
+
+    _sign_in(UserAccount(token_path), client_secrets)
+
+
+@auth_sign_out_group.command("google-docs")
+@click.option(
+    "--token-path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="The sign-in to end; default: the one `auth sign-in google-docs` "
+    "writes by default.",
+)
+def google_docs_sign_out(token_path: str | None) -> None:
+    """Revoke the Google Docs sign-in at Google and delete its token file.
+
+    Google revokes everything the OAuth client holds for the account, so an
+    `auth sign-in google-drive` made with the same client ends too.
+    """
+    from cocoindex.connectors.google_docs import UserAccount
+
+    _sign_out(UserAccount(token_path))
 
 
 if __name__ == "__main__":

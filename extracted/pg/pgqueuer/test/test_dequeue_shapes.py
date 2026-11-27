@@ -15,12 +15,14 @@ import re
 import uuid
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from pgqueuer import db, queries
 from pgqueuer.adapters.persistence import qb
 from pgqueuer.adapters.persistence.composer import ComposedQuery
+from pgqueuer.adapters.persistence.dequeue import DequeueArgs, DequeueShape, dequeue_shape
 from pgqueuer.domain.settings import DBSettings
 from pgqueuer.domain.types import QueueEntrypoint, QueueManagerId
 
@@ -39,9 +41,10 @@ def compose(
     concurrency_limit: int,
     global_limit: int | None,
     builder: qb.QueryQueueBuilder | None = None,
+    batch_size: Any = 10,
 ) -> ComposedQuery:
     return (builder or pinned_builder()).build_dequeue_query(
-        batch_size=10,
+        batch_size=batch_size,
         entrypoints=[QueueEntrypoint("fetch")],
         concurrency_limits=[concurrency_limit],
         queue_manager_id=QueueManagerId(uuid.UUID(int=0)),
@@ -55,16 +58,41 @@ def update_snapshots() -> bool:
 
 
 @pytest.mark.parametrize(
-    ("snapshot", "concurrency_limit", "global_limit"),
+    ("concurrency_limits", "global_limit", "expected"),
     [
-        ("dequeue_no_gates.sql", 0, None),
-        ("dequeue_entrypoint_gate.sql", 2, None),
-        ("dequeue_global_gate.sql", 0, 3),
-        ("dequeue_both_gates.sql", 2, 3),
+        ([0], None, DequeueShape.no_gates),
+        ([0, 2], None, DequeueShape.entrypoint_gate),
+        ([0], 3, DequeueShape.global_gate),
+        ([2], 3, DequeueShape.both_gates),
+    ],
+)
+def test_dequeue_shape_follows_the_configured_gates(
+    concurrency_limits: list[int],
+    global_limit: int | None,
+    expected: DequeueShape,
+) -> None:
+    args = DequeueArgs(
+        batch_size=10,
+        entrypoints=[QueueEntrypoint(f"ep{i}") for i in range(len(concurrency_limits))],
+        concurrency_limits=concurrency_limits,
+        queue_manager_id=QueueManagerId(uuid.UUID(int=0)),
+        global_concurrency_limit=global_limit,
+        heartbeat_timeout=timedelta(seconds=30),
+    )
+    assert dequeue_shape(args) is expected
+
+
+@pytest.mark.parametrize(
+    ("shape", "concurrency_limit", "global_limit"),
+    [
+        (DequeueShape.no_gates, 0, None),
+        (DequeueShape.entrypoint_gate, 2, None),
+        (DequeueShape.global_gate, 0, 3),
+        (DequeueShape.both_gates, 2, 3),
     ],
 )
 def test_dequeue_sql_matches_snapshot(
-    snapshot: str,
+    shape: DequeueShape,
     concurrency_limit: int,
     global_limit: int | None,
 ) -> None:
@@ -73,7 +101,7 @@ def test_dequeue_sql_matches_snapshot(
     placeholders = {int(n) for n in re.findall(r"\$(\d+)", query.sql)}
     assert placeholders == set(range(1, len(query.args) + 1))
 
-    path = SNAPSHOT_DIR / snapshot
+    path = SNAPSHOT_DIR / f"dequeue_{shape.value}.sql"
     expected = query.sql + "\n"
     if update_snapshots():
         path.write_text(expected)
@@ -94,19 +122,42 @@ def test_dequeue_sql_is_cached_per_shape() -> None:
     assert compose(2, 3, builder).sql is compose(2, 3, builder).sql
 
 
+def test_dequeue_template_cache_is_not_part_of_the_builder_value() -> None:
+    builder = pinned_builder()
+    compose(2, 3, builder)
+    assert builder == pinned_builder()
+    assert "dequeue_templates" not in repr(builder)
+
+
 def test_dequeue_args_are_rebound_every_call() -> None:
     # Cached SQL must never share argument objects between calls: a driver
     # (a public Protocol) that mutates args in place must not poison later
     # dequeues.
     builder = pinned_builder()
     first = compose(2, 3, builder)
-    entrypoints = first.args[1]
+    entrypoints = first.args[0]
     assert isinstance(entrypoints, list)
     entrypoints.append("evil")
 
     second = compose(2, 3, builder)
-    assert second.args[1] == ["fetch"]
-    assert second.args[4] == [2]
+    assert second.args[0] == ["fetch"]
+    assert second.args[3] == [2]
+
+
+@pytest.mark.parametrize("batch_size", [0, -1, True])
+def test_dequeue_rejects_batch_size_that_is_not_a_positive_int(batch_size: Any) -> None:
+    # batch_size is rendered into the SQL text, so only a positive int may reach it.
+    with pytest.raises(ValueError, match="positive integer"):
+        compose(2, None, batch_size=batch_size)
+
+
+def test_dequeue_sql_is_cached_per_batch_size() -> None:
+    builder = pinned_builder()
+    ten = compose(2, 3, builder, batch_size=10)
+    eleven = compose(2, 3, builder, batch_size=11)
+    assert ten.sql != eleven.sql
+    assert compose(2, 3, builder, batch_size=10).sql is ten.sql
+    assert compose(2, 3, builder, batch_size=11).sql is eleven.sql
 
 
 def test_dequeue_rejects_mismatched_concurrency_limits() -> None:

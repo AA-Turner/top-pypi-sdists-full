@@ -7,7 +7,7 @@ from .constants import CONNECTORS_KEY, MISTRALAI_PLUGIN_KEY
 from .run_as import RunAsArg, normalize_run_as
 
 if TYPE_CHECKING:
-    from .client import ToolCallClient
+    from .client import ConnectorClient
 
 ClassType = TypeVar("ClassType", bound=type)
 
@@ -18,6 +18,15 @@ class ConnectorSlot:
     Pure configuration — holds the connector name, run_as identity, and
     authentication type. The actual auth flow is driven by
     :class:`~interceptor.ConnectorAuthInterceptor`.
+
+    Args:
+        connector_name: The connector's name, such as ``"notion"``.
+        run_as: Whose connection the connector uses: ``"auto"`` or ``"deployment"``, as on :func:`connector`.
+            ``None`` is ``"auto"``.
+        auto_auth: Whether a missing connection starts an authorization flow that asks the user to connect.
+        credentials_name: The name of one of the connector's stored credentials, such as ``"team"``.
+            ``None`` leaves the choice to the connectors API.
+        allow_mcp_ui: Whether MCP app resources the connector's tools declare are shown after their calls.
     """
 
     def __init__(
@@ -31,29 +40,32 @@ class ConnectorSlot:
     ):
         self.connector_name = connector_name
         self.run_as_explicit: bool = run_as is not None
+        """Whether ``run_as`` was given, rather than left to its default."""
         self.run_as = normalize_run_as(run_as)
         self.auto_auth = auto_auth
         self.credentials_name = credentials_name
         self.allow_mcp_ui = allow_mcp_ui
 
-    def __call__(self) -> ToolCallClient:
-        """Return a :class:`ToolCallClient` for this connector.
+    def __call__(self) -> ConnectorClient:
+        """Return a :class:`ConnectorClient` for this connector.
 
         This makes a ``ConnectorSlot`` usable as a ``Depends`` factory::
 
             notion = connector("notion", run_as="deployment")
-            async def my_activity(client: ToolCallClient = Depends(notion)): ...
+            async def my_activity(client: ConnectorClient = Depends(notion)):
+                async with client.mcp_client() as mcp: ...
 
         """
-        from .client import ToolCallClient
+        from .client import ConnectorClient
 
-        return ToolCallClient(
+        return ConnectorClient(
             self.connector_name,
             credentials_name=self.credentials_name,
             run_as=self.run_as if self.run_as_explicit else None,
         )
 
     def to_metadata(self) -> dict[str, Any]:
+        """The connector's entry in a workflow's plugin metadata."""
         meta: dict[str, Any] = {
             "connector_name": self.connector_name,
             "auto_auth": self.auto_auth,
@@ -87,6 +99,14 @@ def connector(
     tools is surfaced as a side app in Vibe after each matching tool call.
     The workflow continues without waiting for, or consuming, app interaction
     results.
+
+    Args:
+        name: The connector's name, such as ``"notion"``.
+        run_as: Whose connection the connector uses: ``"auto"`` or ``"deployment"``. ``None`` is ``"auto"``.
+        auto_auth: Whether a missing connection starts an authorization flow that asks the user to connect.
+        credentials_name: The name of one of the connector's stored credentials, such as ``"team"``.
+            ``None`` leaves the choice to the connectors API.
+        allow_mcp_ui: Whether MCP app resources the connector's tools declare are shown after their calls.
     """
     return ConnectorSlot(
         name,

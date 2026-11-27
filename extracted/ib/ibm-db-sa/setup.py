@@ -10,11 +10,12 @@ VERSION = re.compile(r".*__version__ = '(.*?)'", re.S).match(v.read()).group(1)
 v.close()
 
 readme = os.path.join(os.path.dirname(__file__), 'README.md')
+sqlalchemy_requirement = "sqlalchemy>=1.4,<2.2"
 if 'USE_PYODBC' in os.environ and os.environ['USE_PYODBC'] == '1':
-    require = ['sqlalchemy>=0.7.3']
+    require = [sqlalchemy_requirement]
 else:
-    require = ['sqlalchemy>=0.7.3','ibm_db>=2.0.0']
-    
+    require = [sqlalchemy_requirement,'ibm_db>=2.0.0']
+
 
 setup(
          name='ibm_db_sa',
@@ -37,28 +38,27 @@ setup(
          long_description=open(readme).read(),
          platforms='All',
          install_requires= require,
+         python_requires=">=3.10",
          packages=['ibm_db_sa'],
         entry_points={
          'sqlalchemy.dialects': [
                      'db2as400=ibm_db_sa.ibm_db_as400:AS400Dialect',
                      'db2=ibm_db_sa.ibm_db:DB2Dialect_ibm_db',
                      'db2.ibm_db=ibm_db_sa.ibm_db:DB2Dialect_ibm_db',
-                     'db2.zxjdbc=ibm_db_sa.zxjdbc:DB2Dialect_zxjdbc',
                      'db2.pyodbc=ibm_db_sa.pyodbc:DB2Dialect_pyodbc',
-                     'db2.zxjdbc400=ibm_db_sa.zxjdbc:AS400Dialect_zxjdbc',
                      'db2.pyodbc400=ibm_db_sa.pyodbc:AS400Dialect_pyodbc',
 
                      # older "ibm_db_sa://" style for backwards
                      # compatibility
                      'ibm_db_sa=ibm_db_sa.ibm_db:DB2Dialect_ibm_db',
-                     'ibm_db_sa.zxjdbc=ibm_db_sa.zxjdbc:DB2Dialect_zxjdbc',
                      'ibm_db_sa.pyodbc=ibm_db_sa.pyodbc:DB2Dialect_pyodbc',
-                     'ibm_db_sa.zxjdbc400=ibm_db_sa.zxjdbc:AS400Dialect_zxjdbc',
                      'ibm_db_sa.pyodbc400=ibm_db_sa.pyodbc:AS400Dialect_pyodbc',
                     ]
        },
        zip_safe=False,
        extras_require={
-           "dev": ["nose>=0.11"]
+           "test": ["pytest>=7.0"],
+           # Deprecated alias of "test", kept so "ibm_db_sa[dev]" still installs.
+           "dev": ["pytest>=7.0"],
        }
      )

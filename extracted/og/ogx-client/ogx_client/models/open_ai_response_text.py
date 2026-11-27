@@ -25,7 +25,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
-from ogx_client.models.open_ai_response_text_format import OpenAIResponseTextFormat
+from ogx_client.models.open_ai_response_text_format_text_open_ai_response_text_format_json_object_open_ai_response_text_format_json_schema import OpenAIResponseTextFormatTextOpenAIResponseTextFormatJSONObjectOpenAIResponseTextFormatJSONSchema
 from typing import Any, ClassVar
 from typing_extensions import Self
 
@@ -33,7 +33,7 @@ class OpenAIResponseText(BaseModel):
     """
     Text response configuration for OpenAI responses.
     """ # noqa: E501
-    format: Optional[OpenAIResponseTextFormat] = None
+    format: Optional[OpenAIResponseTextFormatTextOpenAIResponseTextFormatJSONObjectOpenAIResponseTextFormatJSONSchema] = None
     verbosity: Optional[StrictStr] = None
     __properties: ClassVar[list[str]] = ["format", "verbosity"]
 
@@ -148,7 +148,7 @@ class OpenAIResponseText(BaseModel):
 
         _obj = cls.model_validate({
             k: v for k, v in {
-            "format": OpenAIResponseTextFormat.from_dict(obj["format"]) if obj.get("format") is not None else None,
+            "format": OpenAIResponseTextFormatTextOpenAIResponseTextFormatJSONObjectOpenAIResponseTextFormatJSONSchema.from_dict(obj["format"]) if obj.get("format") is not None else None,
             "verbosity": obj.get("verbosity"),
             }.items() if k in obj
         })

@@ -28,16 +28,16 @@ class ListAttackPathEventRequest(DaraModel):
         self.end_time = end_time
         # The language of the request and response. Default value: **zh**. Valid values:
         # 
-        # - **zh**: Chinese
-        # - **en**: English
+        # - **zh**: Chinese.
+        # - **en**: English.
         self.lang = lang
-        # The maximum number of entries to return on each page in a paging query. Default value: **20**.
+        # The maximum number of entries to return on each page for a paging query. Default value: **20**.
         self.page_size = page_size
         # The description of the path name.
-        # > You can call the [ListAvailableAttackPath](~~ListAvailableAttackPath~~) operation to query the description of the path name.
+        # > You can call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query the description of the path name.
         self.path_name_desc = path_name_desc
         # The path type.
-        # > You can call the [ListAvailableAttackPath](~~ListAvailableAttackPath~~) operation to query the path type.
+        # > You can call [ListAvailableAttackPath](~~ListAvailableAttackPath~~) to query the path type.
         self.path_type = path_type
         # The list of risk levels.
         self.risk_level_list = risk_level_list
@@ -130,18 +130,18 @@ class ListAttackPathEventRequestAttackPathAssetList(DaraModel):
     ):
         # The subtype of the cloud service asset.
         # 
-        # > You can call the [ListSupportAttackPathAsset](~~ListSupportAttackPathAsset~~) operation to query the subtype of the cloud service asset.
+        # > You can call [ListSupportAttackPathAsset](~~ListSupportAttackPathAsset~~) to query the subtype of the cloud service asset.
         self.asset_sub_type = asset_sub_type
         # The type of the cloud service asset.
         # 
-        # > You can call the [ListSupportAttackPathAsset](~~ListSupportAttackPathAsset~~) operation to query the type of the cloud service asset.
+        # > You can call [ListSupportAttackPathAsset](~~ListSupportAttackPathAsset~~) to query the type of the cloud service asset.
         self.asset_type = asset_type
         # The node type. Valid values:
-        # - **start**: the start node
-        # - **end**: the end node
+        # - **start**: Start node.
+        # - **end**: End node.
         self.node_type = node_type
         # The vendor of the cloud service asset.
-        # > You can call the [ListSupportAttackPathAsset](~~ListSupportAttackPathAsset~~) operation to query the vendor of the cloud service asset.
+        # > You can call [ListSupportAttackPathAsset](~~ListSupportAttackPathAsset~~) to query the vendor of the cloud service asset.
         self.vendor = vendor
 
     def validate(self):

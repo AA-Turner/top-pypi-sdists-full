@@ -155,7 +155,7 @@ class ListCheckItemsResponseBodyCheckItems(DaraModel):
         self.check_type = check_type
         # The description information of the check item.
         self.description = description
-        # The sub-type of the cloud product\\"s asset.
+        # The sub-type of the cloud product\"s asset.
         self.instance_sub_type = instance_sub_type
         # The asset type of the cloud product.
         self.instance_type = instance_type

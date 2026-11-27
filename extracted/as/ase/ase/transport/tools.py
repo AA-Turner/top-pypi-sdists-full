@@ -1,20 +1,26 @@
 import numpy as np
 
+from ase.transport.greenfunction import asetransport_deprecated
 
+
+@asetransport_deprecated
 def dagger(matrix):
     return np.conj(matrix.T)
 
 
+@asetransport_deprecated
 def rotate_matrix(h, u):
     return np.dot(u.T.conj(), np.dot(h, u))
 
 
+@asetransport_deprecated
 def get_subspace(matrix, index):
     """Get the subspace spanned by the basis function listed in index"""
     assert matrix.ndim == 2 and matrix.shape[0] == matrix.shape[1]
     return matrix.take(index, 0).take(index, 1)
 
 
+@asetransport_deprecated
 def normalize(matrix, S=None):
     """Normalize column vectors.
 
@@ -23,13 +29,12 @@ def normalize(matrix, S=None):
       <matrix[:,i]| S |matrix[:,i]> = 1
 
     """
-    for col in matrix.T:
-        if S is None:
-            col /= np.linalg.norm(col)
-        else:
-            col /= np.sqrt(np.dot(col.conj(), np.dot(S, col)))
+    from ase.dft.wannier import normalize as wannier_normalize
+
+    return wannier_normalize(matrix, S)
 
 
+@asetransport_deprecated
 def subdiagonalize(h_ii, s_ii, index_j):
     nb = h_ii.shape[0]
     nb_sub = len(index_j)
@@ -53,6 +58,7 @@ def subdiagonalize(h_ii, s_ii, index_j):
     return h1_ii, s1_ii, c_ii, e_j
 
 
+@asetransport_deprecated
 def cutcoupling(h, s, index_n):
     for i in index_n:
         s[:, i] = 0.0
@@ -64,6 +70,7 @@ def cutcoupling(h, s, index_n):
         h[i, i] = Ei
 
 
+@asetransport_deprecated
 def fermidistribution(energy, kt):
     # fermi level is fixed to zero
     # energy can be a single number or a list

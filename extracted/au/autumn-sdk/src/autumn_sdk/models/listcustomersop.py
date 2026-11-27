@@ -1974,6 +1974,8 @@ class ListCustomersListTypedDict(TypedDict):
     r"""The metadata for the customer."""
     send_email_receipts: bool
     r"""Whether to send email receipts to the customer."""
+    currency: Nullable[str]
+    r"""The currency this customer is billed in (e.g. usd, eur). Null if not set, in which case the organization's default currency is used."""
     billing_controls: ListCustomersBillingControlsTypedDict
     r"""Billing controls for the customer (auto top-ups, etc.)"""
     subscriptions: List[ListCustomersSubscriptionTypedDict]
@@ -2020,6 +2022,9 @@ class ListCustomersList(BaseModel):
     send_email_receipts: bool
     r"""Whether to send email receipts to the customer."""
 
+    currency: Nullable[str]
+    r"""The currency this customer is billed in (e.g. usd, eur). Null if not set, in which case the organization's default currency is used."""
+
     billing_controls: ListCustomersBillingControls
     r"""Billing controls for the customer (auto top-ups, etc.)"""
 
@@ -2047,7 +2052,9 @@ class ListCustomersList(BaseModel):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(["config", "processors"])
-        nullable_fields = set(["id", "name", "email", "fingerprint", "stripe_id"])
+        nullable_fields = set(
+            ["id", "name", "email", "fingerprint", "stripe_id", "currency"]
+        )
         serialized = handler(self)
         m = {}
 

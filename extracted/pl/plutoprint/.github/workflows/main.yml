@@ -3,14 +3,14 @@ name: Build and Publish
 on: [push, pull_request]
 
 env:
-  PLUTOBOOK_VERSION: 0.20.0
+  PLUTOBOOK_VERSION: 0.21.0
 jobs:
   build_sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.10'
 
@@ -28,13 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag' || contains(github.event.head_commit.message, '[build:wheels]')
     steps:
-      - uses: actions/checkout@v6
-      - name: Copy fontconfig files
-        run: |
-          cp -rv /etc/fonts/* fontconfig
-
+      - uses: actions/checkout@v7
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.3.1
+        uses: pypa/cibuildwheel@v4.3.5
         env:
           CIBW_BUILD: |
             cp310-manylinux_x86_64
@@ -43,7 +39,17 @@ jobs:
             cp313-manylinux_x86_64
             cp314-manylinux_x86_64
             cp315-manylinux_x86_64
-          CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/plutoprint/plutobook-manylinux_2_28_x86_64:v${{ env.PLUTOBOOK_VERSION }}
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_BEFORE_ALL_LINUX: >
+            mkdir -p /plutobook &&
+            curl -L https://github.com/plutoprint/plutobook/releases/download/v${{ env.PLUTOBOOK_VERSION }}/plutobook-${{ env.PLUTOBOOK_VERSION }}-linux-x64.tar.gz | tar -xz -C /plutobook &&
+            cp -r /plutobook/plutobook-linux-x64/etc/fonts/* /project/fontconfig
+          CIBW_CONFIG_SETTINGS_LINUX: |
+            setup-args="-Dplutobook-libdir=/plutobook/plutobook-linux-x64/lib"
+            setup-args="-Dplutobook-incdir=/plutobook/plutobook-linux-x64/include/plutobook"
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            LD_LIBRARY_PATH=/plutobook/plutobook-linux-x64/lib
+            auditwheel repair -w {dest_dir} {wheel}
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: >
             python -c "import plutoprint; print(plutoprint.__build_info__)" &&
@@ -59,7 +65,7 @@ jobs:
     runs-on: windows-latest
     if: github.ref_type == 'tag' || contains(github.event.head_commit.message, '[build:wheels]')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download and Extract PlutoBook
         run: |
           curl -L https://github.com/plutoprint/plutobook/releases/download/v${{ env.PLUTOBOOK_VERSION }}/plutobook-${{ env.PLUTOBOOK_VERSION }}-win-x64.zip -o plutobook-win-x64.zip
@@ -67,7 +73,7 @@ jobs:
           cp -r "${{ runner.temp }}\plutobook\plutobook-win-x64\bin\fonts\*" fontconfig
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.3.1
+        uses: pypa/cibuildwheel@v4.3.5
         env:
           CIBW_BUILD: cp310-win_amd64 cp311-win_amd64 cp312-win_amd64 cp313-win_amd64 cp314-win_amd64 cp315-win_amd64
           CIBW_BEFORE_BUILD: pip install delvewheel
@@ -89,35 +95,24 @@ jobs:
 
   build_macos_wheels:
     if: github.ref_type == 'tag' || contains(github.event.head_commit.message, '[build:wheels]')
-    runs-on: macos-15
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
-      - name: Checkout PlutoBook
-        uses: actions/checkout@v6
-        with:
-          repository: 'plutoprint/plutobook'
-          ref: 'v${{ env.PLUTOBOOK_VERSION }}'
-          path: 'plutobook'
+      - uses: actions/checkout@v7
+      - name: Download and Extract PlutoBook
+        run: |
+          curl -L https://github.com/plutoprint/plutobook/releases/download/v${{ env.PLUTOBOOK_VERSION }}/plutobook-${{ env.PLUTOBOOK_VERSION }}-macos-arm64.tar.gz -o plutobook-macos-arm64.tar.gz
+          mkdir -p "${{ runner.temp }}/plutobook"
+          tar -xzf plutobook-macos-arm64.tar.gz -C "${{ runner.temp }}/plutobook"
 
-      - name: Install PlutoBook dependencies
-        run: |
-          brew update
-          brew install cairo expat icu4c freetype fontconfig harfbuzz curl jpeg-turbo webp ninja meson pkg-config
-      - name: Build and Install PlutoBook
-        run: |
-          export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig:$PKG_CONFIG_PATH"
-          meson setup plutobook plutobook/build --buildtype=release --wrap-mode=nodownload
-          meson compile -C plutobook/build
-          meson install -C plutobook/build --strip
-
-      - name: Copy fontconfig files
-        run: |
-          cp -rv /opt/homebrew/etc/fonts/* fontconfig
+          lib=$(realpath "${{ runner.temp }}/plutobook/plutobook-macos-arm64/lib/libplutobook.dylib")
+          install_name_tool -id "$lib" "$lib"
+          codesign --force --sign - "$lib"
+          cp -rv "${{ runner.temp }}/plutobook/plutobook-macos-arm64/etc/fonts/"* fontconfig
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.3.1
+        uses: pypa/cibuildwheel@v4.3.5
         env:
-          MACOSX_DEPLOYMENT_TARGET: "15.0"
+          MACOSX_DEPLOYMENT_TARGET: "14.0"
           CIBW_BUILD: |
             cp310-macosx_arm64
             cp311-macosx_arm64
@@ -125,6 +120,9 @@ jobs:
             cp313-macosx_arm64
             cp314-macosx_arm64
             cp315-macosx_arm64
+          CIBW_CONFIG_SETTINGS_MACOS: |
+            setup-args="-Dplutobook-libdir=${{ runner.temp }}/plutobook/plutobook-macos-arm64/lib"
+            setup-args="-Dplutobook-incdir=${{ runner.temp }}/plutobook/plutobook-macos-arm64/include/plutobook"
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: >
             python -c "import plutoprint; print(plutoprint.__build_info__)" &&

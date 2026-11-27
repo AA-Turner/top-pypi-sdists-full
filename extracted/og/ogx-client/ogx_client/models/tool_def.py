@@ -32,13 +32,12 @@ class ToolDef(BaseModel):
     """
     Tool definition used in runtime contexts.
     """ # noqa: E501
-    toolgroup_id: Optional[StrictStr] = None
     name: StrictStr = Field(description="The name of the tool.")
     description: Optional[StrictStr] = None
     input_schema: Optional[Dict[str, Any]] = None
     output_schema: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
-    __properties: ClassVar[list[str]] = ["toolgroup_id", "name", "description", "input_schema", "output_schema", "metadata"]
+    __properties: ClassVar[list[str]] = ["name", "description", "input_schema", "output_schema", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -106,11 +105,6 @@ class ToolDef(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if toolgroup_id (nullable) is None
-        # and model_fields_set contains the field
-        if self.toolgroup_id is None and "toolgroup_id" in self.model_fields_set:
-            _dict['toolgroup_id'] = None
-
         # set to None if description (nullable) is None
         # and model_fields_set contains the field
         if self.description is None and "description" in self.model_fields_set:
@@ -144,7 +138,6 @@ class ToolDef(BaseModel):
 
         _obj = cls.model_validate({
             k: v for k, v in {
-            "toolgroup_id": obj.get("toolgroup_id"),
             "name": obj.get("name"),
             "description": obj.get("description"),
             "input_schema": obj.get("input_schema"),

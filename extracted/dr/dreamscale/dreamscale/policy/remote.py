@@ -375,11 +375,42 @@ class AsyncRemotePolicy:
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
 
-    async def _send_latency(self, records: list[dict[str, Any]], dropped: int) -> None:
+    async def _send_latency(
+        self, records: list[dict[str, Any]], dropped: int, connect: dict[str, Any] | None = None
+    ) -> None:
         if not await self._connection.client.report_latency(
-            self.session_id, records, dropped=dropped
+            self.session_id, records, dropped=dropped, connect=connect
         ):
             self._latency.disable()
+
+    def record_connect(self, *, reopening: bool = False) -> None:
+        """Queue the session's request→ready stamps once it is ready to serve (calibration
+        done): the create call, the wait for the session, the transport connect and the
+        calibration, each a duration on the monotonic clock. Best-effort."""
+        stamps = self._connection_timing_monotonic
+        keys = ("connect_started_at", "session_create_started_at", "session_id_received_at",
+                "session_ready_at", "transport_connected_at")
+        values = [stamps.get(key) for key in keys]
+        now = time.monotonic()
+        if any(not isinstance(v, float | int) for v in values) or not all(
+            a <= b for a, b in zip([*values, now], [*values, now][1:], strict=False)
+        ):
+            return
+        begun, create, received, ready, connected = (float(v) for v in values)
+
+        def ms(a: float, b: float) -> float:
+            return round((b - a) * 1000.0, 3)
+
+        self._latency.set_connect({
+            "started_unix_ns": self._latency.wall_ns(round(begun * 1e9)),
+            "retry_ms": ms(begun, create),
+            "create_ms": ms(create, received),
+            "wait_ms": ms(received, ready),
+            "transport_ms": ms(ready, connected),
+            "calibration_ms": ms(connected, now),
+            "transport": self.transport_mode,
+            "reopening": reopening,
+        })
 
     @property
     def runtime_contract(self) -> RuntimeContract:
@@ -2222,6 +2253,10 @@ async def _aconnect(
             context=context, deployment=checkpoint, steady_send=steady_send,
         )
         region_hint.finish(hint, progress)
+        # The raw connect (CLI, canary) never calibrates at open: its request→ready ends
+        # here. The facade replaces this with its own once calibration is done.
+        with suppress(Exception):
+            policy.record_connect()
         return policy
     except BaseException:
         region_hint.finish(hint, None)

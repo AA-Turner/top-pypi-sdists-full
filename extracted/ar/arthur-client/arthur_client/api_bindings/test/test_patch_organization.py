@@ -36,7 +36,8 @@ class TestPatchOrganization(unittest.TestCase):
         if include_optional:
             return PatchOrganization(
                 name = '',
-                agentic_apps_first_dashboard = 'agentic_trace'
+                agentic_apps_first_dashboard = 'agentic_trace',
+                default_currency = 'USD'
             )
         else:
             return PatchOrganization(

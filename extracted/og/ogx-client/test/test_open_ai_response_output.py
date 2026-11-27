@@ -65,6 +65,7 @@ class TestOpenAIResponseOutput(unittest.TestCase):
                 call_id = '',
                 name = '',
                 arguments = '',
+                namespace = '',
                 server_label = '',
                 error = '',
                 output = '',

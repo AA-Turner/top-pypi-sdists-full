@@ -183,8 +183,10 @@ class EMT(Calculator):
         return gamma1, gamma2
 
     def calculate(
-        self, atoms=None, properties=['energy'], system_changes=all_changes
+        self, atoms=None, properties=None, system_changes=all_changes
     ):
+        if properties is None:
+            properties = ['energy']
         Calculator.calculate(self, atoms, properties, system_changes)
 
         if 'numbers' in system_changes:

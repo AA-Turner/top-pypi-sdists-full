@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
-from typing import Literal, overload
+import functools
+import types
+from types import SimpleNamespace
+from typing import Any, Literal, overload
 from typing_extensions import override
 
 import numpy as np
@@ -33,8 +36,10 @@ from tabpfn.inference import (
     InferenceEngineExplicitKVCache,
     InferenceEngineOnDemand,
     MultiDeviceInferenceEngine,
+    _member_rows,
     _model_input_arguments,
     _model_input_device,
+    _prepare_member_inputs,
     _prepare_model_inputs,
     _resolve_kv_cache_precision,
 )
@@ -44,8 +49,11 @@ from tabpfn.preprocessing import (
     PreprocessorConfig,
     generate_classification_ensemble_configs,
 )
+from tabpfn.preprocessing.clean import overwrite_fit_input
 from tabpfn.preprocessing.ensemble import TabPFNEnsemblePreprocessor
-from tabpfn.preprocessing.torch import FeatureSchema
+from tabpfn.preprocessing.pipeline_interface import SharedColumnsTable
+from tabpfn.preprocessing.torch import FeatureSchema, TorchSoftClipOutliers
+from tabpfn.preprocessing.torch.member_rows import MemberRowSource
 from tabpfn.regressor import _concat_block_outputs
 from tabpfn.settings import settings
 
@@ -625,6 +633,82 @@ def test__explicit_kv_cache__drops_member_train_features_after_build() -> None:
     assert all(member.y_train is not None for member in engine.ensemble_members)
     outputs = list(engine.iter_outputs(X_test, autocast=False, task_type="multiclass"))
     assert len(outputs) == len(engine.ensemble_members)
+
+
+def test__prepare_member_inputs__forced_dtype__holds_after_gpu_preprocessing() -> None:
+    """A pipeline that returns float32 still gives the model the forced dtype."""
+
+    def upcasting_pipeline(X: Tensor, feature_schema: FeatureSchema, **_: Any) -> Any:
+        return types.SimpleNamespace(
+            x=X.to(torch.float32), feature_schema=feature_schema
+        )
+
+    member = types.SimpleNamespace(
+        X_train=np.ones((5, 3), dtype=np.float32),
+        y_train=np.zeros(5),
+        gpu_preprocessor=upcasting_pipeline,
+        feature_schema=FeatureSchema.from_only_categorical_indices([], 3),
+    )
+
+    X, y, _ = _prepare_member_inputs(
+        member,  # type: ignore[arg-type]
+        np.empty((0, 3), np.float32),
+        torch.device("cpu"),
+        torch.float16,
+        _DeviceInputModel(),
+    )
+
+    assert X.dtype == torch.float16
+    assert y.dtype == torch.float16
+
+
+def test__explicit_kv_cache__outlier_removal__fits_a_block_of_columns_at_a_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The cache build preprocesses the train rows in place, a block at a time."""
+    rng = default_rng(seed=0)
+    n_train = 50
+    X_train = rng.standard_normal(size=(n_train, 4))
+    y_train = rng.integers(low=0, high=2, size=(n_train, 1))
+    # One column per block.
+    monkeypatch.setattr(
+        "tabpfn.preprocessing.torch.pipeline_interface.IN_PLACE_BLOCK_BYTES",
+        n_train * 4,
+    )
+    fitted_widths: list[int] = []
+    fit = TorchSoftClipOutliers.fit
+
+    def recording_fit(
+        self: TorchSoftClipOutliers, x: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
+        fitted_widths.append(x.shape[-1])
+        return fit(self, x)
+
+    monkeypatch.setattr(TorchSoftClipOutliers, "fit", recording_fit)
+
+    InferenceEngineExplicitKVCache(
+        X_train,
+        y_train,
+        ensemble_preprocessor=TabPFNEnsemblePreprocessor(
+            configs=_create_test_ensemble_configs(
+                n_configs=2, n_classes=2, num_models=1, outlier_removal_std=1.0
+            ),
+            n_samples=n_train,
+            feature_schema=FeatureSchema.from_only_categorical_indices([], 4),
+            random_state=rng,
+            n_preprocessing_jobs=1,
+        ),
+        models=[_TestModelWithKVCache()],
+        devices=[torch.device("cpu")],
+        dtype_byte_size=4,
+        force_inference_dtype=None,
+        save_peak_mem=True,
+        autocast=False,
+        task_type="multiclass",
+    )
+
+    assert fitted_widths
+    assert max(fitted_widths) == 1
 
 
 @pytest.mark.parametrize(
@@ -1210,20 +1294,8 @@ class _TestModelRecordingCacheOptions(_TestModelWithKVCache):
         return super().forward(x, y, **kwargs)
 
 
-@pytest.mark.parametrize(
-    ("precision", "dtype", "follows_grid"),
-    [
-        ("adaptive", torch.int8, True),
-        ("int8", torch.int8, False),
-        ("auto", None, False),
-    ],
-)
-def test__explicit_kv_cache__precision__reaches_the_cache_build(
-    precision: str,
-    dtype: torch.dtype | None,
-    follows_grid: bool,
-) -> None:
-    """The "adaptive" option stores int8 unless a backend's grid applies."""
+def _cache_build_options(**engine_kwargs: Any) -> PerformanceOptions:
+    """The performance options a `fit_with_cache` engine builds its one cache with."""
     rng = default_rng(seed=0)
     n_train, n_features, n_classes = 50, 4, 3
     X_train = rng.standard_normal(size=(n_train, n_features))
@@ -1249,13 +1321,39 @@ def test__explicit_kv_cache__precision__reaches_the_cache_build(
         save_peak_mem=True,
         autocast=False,
         task_type="multiclass",
-        kv_cache_precision=precision,  # type: ignore[arg-type]
+        **engine_kwargs,
     )
 
     (options,) = model.cache_build_options
     assert options is not None
+    return options
+
+
+@pytest.mark.parametrize(
+    ("precision", "dtype", "follows_grid"),
+    [
+        ("adaptive", torch.int8, True),
+        ("int8", torch.int8, False),
+        ("auto", None, False),
+    ],
+)
+def test__explicit_kv_cache__precision__reaches_the_cache_build(
+    precision: str,
+    dtype: torch.dtype | None,
+    follows_grid: bool,
+) -> None:
+    """The "adaptive" option stores int8 unless a backend's grid applies."""
+    options = _cache_build_options(kv_cache_precision=precision)
+
     assert options.kv_cache_dtype == dtype
     assert options.kv_cache_follows_attention_grid is follows_grid
+
+
+@pytest.mark.parametrize("on_host", [None, True, False])
+def test__explicit_kv_cache__on_host__reaches_the_cache_build(
+    on_host: bool | None,
+) -> None:
+    assert _cache_build_options(kv_cache_on_host=on_host).kv_cache_on_host is on_host
 
 
 def test__resolve_kv_cache_precision__warns_when_unsupported() -> None:
@@ -1299,6 +1397,72 @@ def test__prepare_model_inputs__row_blocks__match_one_concatenation(
     torch.testing.assert_close(y, torch.as_tensor(y_train, dtype=torch.float32))
 
 
+@pytest.mark.parametrize(
+    "estimator_cls", [TabPFNClassifier, TabPFNRegressor], ids=lambda c: c.__name__
+)
+@pytest.mark.parametrize("inference_precision", ["auto", torch.float64])
+def test__fit_with_cache__shared_member_tables__train_inputs_built_by_row_blocks(
+    monkeypatch: pytest.MonkeyPatch,
+    estimator_cls: type[TabPFNClassifier | TabPFNRegressor],
+    inference_precision: torch.dtype | str,
+) -> None:
+    """Members that share the caller's table build their caches without ever
+    building the whole table, and predict as members holding their own arrays.
+    """
+    rng = default_rng(0)
+    X_train = rng.standard_normal((80, 6)).astype(np.float32)
+    X_test = rng.standard_normal((9, 6)).astype(np.float32)
+    # A categorical column, which the members encode and hold as their own.
+    X_train[:, 0] = rng.integers(0, 3, 80)
+    X_test[:, 0] = rng.integers(0, 3, 9)
+    y_train = (
+        rng.integers(0, 3, 80)
+        if estimator_cls is TabPFNClassifier
+        else rng.standard_normal(80)
+    )
+
+    def fit() -> TabPFNClassifier | TabPFNRegressor:
+        return estimator_cls(
+            n_estimators=2,
+            device="cpu",
+            random_state=0,
+            fit_mode="fit_with_cache",
+            inference_precision=inference_precision,
+            categorical_features_indices=[0],
+            # The members share a table only when every CPU step selects or encodes.
+            inference_config={"ENABLE_GPU_PREPROCESSING": True},
+        ).fit(X_train, y_train)
+
+    expected = fit().predict(X_test)
+
+    gathered: list[tuple[int, int]] = []
+    built_widths: list[int] = []
+    copy_rows_into = SharedColumnsTable.copy_rows_into
+    build_whole = SharedColumnsTable.__array__
+
+    def spy_gather(
+        table: SharedColumnsTable, start: int, stop: int, out: Tensor
+    ) -> None:
+        gathered.append((stop - start, table.shape[1]))
+        copy_rows_into(table, start, stop, out)
+
+    def spy_build(table: SharedColumnsTable, *args: Any, **kwargs: Any) -> np.ndarray:
+        built_widths.append(table.shape[1])
+        return build_whole(table, *args, **kwargs)
+
+    monkeypatch.setattr(SharedColumnsTable, "copy_rows_into", spy_gather)
+    monkeypatch.setattr(SharedColumnsTable, "__array__", spy_build)
+    monkeypatch.setattr("tabpfn.inference._MODEL_INPUT_BLOCK_BYTES", 6 * 4 * 16)
+    with overwrite_fit_input():
+        model = fit()
+
+    assert X_train.shape[1] not in built_widths
+    member_blocks = [rows for rows, width in gathered if width == X_train.shape[1]]
+    assert member_blocks
+    assert max(member_blocks) <= 16
+    np.testing.assert_array_equal(model.predict(X_test), expected)
+
+
 class _DeviceInputModel(nn.Module):
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:  # noqa: ARG002
         return x
@@ -1331,12 +1495,32 @@ def test__model_input_device__large_input_of_a_host_input_model__stays_on_the_ho
     expected: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("tabpfn.inference.HOST_MODEL_INPUT_MIN_BYTES", min_bytes)
+    monkeypatch.setattr(settings.tabpfn, "host_model_input_min_bytes", min_bytes)
     X_train, X_test = np.zeros((30, 4)), np.zeros((5, 4))
 
     actual = _model_input_device(model, torch.device(device), X_train, X_test, None)
 
     assert actual == torch.device(expected)
+
+
+@pytest.mark.parametrize(("device", "expected"), [("cuda", True), ("mps", False)])
+def test__builds_member_by_member__mps__keeps_the_default_build(
+    device: str, *, expected: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """MPS runs every member alone, which only the default build ensures."""
+    monkeypatch.setattr(settings.tabpfn, "host_model_input_min_bytes", 0)
+    engine = SimpleNamespace(
+        model_caches=[SimpleNamespace(get_any=_HostInputModel)],
+        force_inference_dtype=None,
+    )
+
+    actual = InferenceEngineExplicitKVCache._builds_member_by_member(
+        engine,  # type: ignore[arg-type]
+        np.zeros((30, 4)),
+        [torch.device(device)],
+    )
+
+    assert actual is expected
 
 
 @pytest.mark.parametrize(
@@ -1369,6 +1553,40 @@ def test__model_input_arguments__host_input_model__reads_the_table_from_x_host()
     assert model(x, y, **kwargs) is X
 
 
+class _FreeingHostInputModel(nn.Module):
+    def forward(
+        self,
+        x: torch.Tensor | None,
+        y: torch.Tensor,  # noqa: ARG002
+        *,
+        x_host: torch.Tensor | None = None,
+        free_x_host: bool = False,  # noqa: ARG002
+    ) -> torch.Tensor:
+        return x_host if x is None else x
+
+
+@pytest.mark.parametrize(
+    ("model", "input_device", "device", "frees"),
+    [
+        (_FreeingHostInputModel(), "cpu", "cuda", True),
+        # A model that cannot free the input is not told that it may.
+        (_HostInputModel(), "cpu", "cuda", False),
+        # An input on the model's device is not passed as `x_host`.
+        (_FreeingHostInputModel(), "cpu", "cpu", False),
+    ],
+)
+def test__model_input_arguments__input_given_up__freeing_model_is_told(
+    model: nn.Module, input_device: str, device: str, *, frees: bool
+) -> None:
+    X = torch.zeros((5, 1, 3), device=input_device)
+
+    _, kwargs = _model_input_arguments(X, torch.device(device), given_up_to=model)
+
+    assert kwargs.get("free_x_host", False) is frees
+    # A caller that keeps the input never says it may be freed.
+    assert "free_x_host" not in _model_input_arguments(X, torch.device(device))[1]
+
+
 def test__prepare_model_inputs__x_device__holds_the_rows_and_matches_device() -> None:
     rng = default_rng(0)
     X_train = rng.standard_normal((40, 3))
@@ -1382,3 +1600,94 @@ def test__prepare_model_inputs__x_device__holds_the_rows_and_matches_device() ->
     torch.testing.assert_close(X_full, expected, rtol=0, atol=0)
     assert X_full.device == cpu
     assert y.device == cpu
+
+
+def test__forward__input_held_off_the_device__model_reading_row_sources_gets_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the input is held off the device, a model that reads row sources gets the
+    members' rows as a row source, and predicts the same as from the built input.
+    """
+    rng = default_rng(0)
+    X = rng.standard_normal((90, 6))
+    X[:, 2] = rng.integers(0, 3, len(X))
+    y = rng.integers(0, 2, 70)
+    # Use steps that run by blocks, independent of the checkpoint's preprocessing.
+    config = {
+        "ENABLE_GPU_PREPROCESSING": True,
+        "FINGERPRINT_FEATURE": False,
+        "FEATURE_SHIFT_METHOD": "shuffle",
+        "OUTLIER_REMOVAL_STD": 12.0,
+        "PREPROCESS_TRANSFORMS": [
+            PreprocessorConfig("safepower", categorical_name="ordinal_shuffled"),
+            PreprocessorConfig("quantile_norm", categorical_name="ordinal"),
+        ],
+    }
+    model = TabPFNClassifier(
+        n_estimators=2, device="cpu", random_state=0, inference_config=config
+    ).fit(X[:70], y)
+    expected = model.predict_proba(X[70:])
+    architecture = type(model.models_[0])
+    forward = architecture.forward
+    sources: list[MemberRowSource] = []
+
+    @functools.wraps(forward)
+    def reading_forward(
+        self: nn.Module, x: Tensor | None, *args: object, **kwargs: object
+    ) -> object:
+        source = kwargs.pop("x_host", None)
+        if x is None:
+            assert isinstance(source, MemberRowSource)
+            sources.append(source)
+            R, _, C = source.shape
+            x = source.read(slice(0, R), slice(0, C), torch.device("cpu"))
+            # Make `x` contiguous like the built input. A strided `x` can round
+            # differently.
+            x = x.transpose(0, 1).contiguous()
+        return forward(self, x, *args, **kwargs)
+
+    monkeypatch.setattr(architecture, "forward", reading_forward)
+    monkeypatch.setattr(architecture, "reads_row_sources", True, raising=False)
+    # Report the input as held off the device, which a CPU run cannot show otherwise.
+    # Every member takes the row-source path, so no input is built on that device.
+    monkeypatch.setattr(
+        "tabpfn.inference._model_input_device", lambda *_: torch.device("meta")
+    )
+
+    actual = model.predict_proba(X[70:])
+
+    assert sources
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test__member_rows__gpu_step_that_reads_whole_rows__warns_and_builds_whole(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """At the sizes that hold the input in host memory, building it whole can run out
+    of memory, so the fallback says so.
+    """
+    rng = default_rng(0)
+    X = rng.standard_normal((60, 4))
+    model = TabPFNClassifier(
+        n_estimators=1,
+        device="cpu",
+        inference_config={"ENABLE_GPU_PREPROCESSING": True},
+    ).fit(X[:40], rng.integers(0, 2, 40))
+    member = model.executor_.ensemble_members[0]
+    architecture = model.models_[0]
+    monkeypatch.setattr(type(architecture), "reads_row_sources", True, raising=False)
+    monkeypatch.setattr(
+        "tabpfn.inference._model_input_device", lambda *_: torch.device("meta")
+    )
+    monkeypatch.setattr("tabpfn.inference.MemberRows.fit", lambda *_: None)
+
+    with pytest.warns(UserWarning, match="reads whole rows"):
+        rows = _member_rows(
+            member,
+            member.transform_X_test(X[40:]),
+            torch.device("cpu"),
+            None,
+            architecture,
+        )
+
+    assert rows is None

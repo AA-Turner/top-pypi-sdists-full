@@ -1,11 +1,16 @@
 import asyncio
 import json
+import os
+import signal
+import threading
+import time
 import warnings
-from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import ExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass
+from datetime import timedelta
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Callable, DefaultDict, Iterator, List, Sequence, Type
+from types import FrameType
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Iterator, List, Sequence, Type
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
@@ -17,7 +22,9 @@ from mistralai.extra.workflows.encoding.config import PayloadEncryptionConfig as
 from mistralai.extra.workflows.encoding.config import WorkflowEncodingConfig
 from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 from opentelemetry.instrumentation.utils import suppress_instrumentation
-from pydantic import BaseModel, SecretStr
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk.metrics import MeterProvider
+from pydantic import SecretStr
 from temporalio.client import Client as TemporalClient
 from temporalio.client import Interceptor
 from temporalio.common import VersioningBehavior, WorkerDeploymentVersion
@@ -35,6 +42,7 @@ from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
 from mistralai.workflows.client import translate_model
 from mistralai.workflows.core._events.event_context import EventContext
 from mistralai.workflows.core._events.event_interceptor import EventInterceptor
+from mistralai.workflows.core._events.event_route_publisher import EventRoutePublisher
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core._registration.execution_registration_interceptor import (
     ExecutionRegistrationInterceptor,
@@ -44,8 +52,18 @@ from mistralai.workflows.core.auth import get_token_provider
 from mistralai.workflows.core.auth.header_files import get_deployment_headers
 from mistralai.workflows.core.auth.startup_read import read_credential_at_startup
 from mistralai.workflows.core.config import config_discovery
-from mistralai.workflows.core.config.config import AppConfig, config, log_configuration, setup_default_logging
+from mistralai.workflows.core.config.config import (
+    AppConfig,
+    log_configuration,
+    resolve_worker_config,
+    setup_default_logging,
+    use_config,
+)
 from mistralai.workflows.core.config.config import WorkerConfig as WorkerSettings
+from mistralai.workflows.core.definition._workflow_preparation import (
+    _use_workflow_config_for_worker,
+    configure_workflows_for_worker,
+)
 from mistralai.workflows.core.definition.workflow_definition import (
     get_workflow_definition,
 )
@@ -58,12 +76,8 @@ from mistralai.workflows.core.execution.concurrency._concurrency_workflow import
 from mistralai.workflows.core.execution.sticky_session.get_sticky_worker_session import (
     GET_STICKY_WORKER_SESSION_ACTIVITY_NAME,
 )
-from mistralai.workflows.core.execution.sticky_session.sticky_worker_session import (
-    StickyWorkerSession,
-    check_activity_is_sticky_to_worker,
-)
+from mistralai.workflows.core.execution.sticky_session.sticky_worker_session import StickyWorkerSession
 from mistralai.workflows.core.logging import extract_error_context
-from mistralai.workflows.core.rate_limiting.rate_limit import get_rate_limit
 from mistralai.workflows.core.sandbox import (
     get_sandbox_restrictions,
     log_if_sandbox_restriction_error,
@@ -90,7 +104,15 @@ from mistralai.workflows.core.tracing._temporal_tracing_interceptor import (
 )
 from mistralai.workflows.core.tracing.init_tracing import init_tracing
 from mistralai.workflows.core.utils.health_server import HealthServer
-from mistralai.workflows.core.worker_client import get_worker_client
+from mistralai.workflows.core.worker_client import get_worker_client, share_worker_client
+from mistralai.workflows.core.worker_polls import (
+    WorkerConfig as WorkerConfig,
+)
+from mistralai.workflows.core.worker_polls import (
+    estimate_connection_polls,
+    format_poll_warning,
+    group_activities_by_worker_config,
+)
 from mistralai.workflows.core.worker_registrations import (
     build_worker_registrations,
     set_worker_registrations,
@@ -102,6 +124,7 @@ from mistralai.workflows.plugins._discovery import (
     collect_plugin_interceptors,
     list_plugins,
 )
+from mistralai.workflows.protocol.v1.worker import PayloadEncryptionLevel
 from mistralai.workflows.protocol.v1.workflow import (
     DeploymentLocation,
     WorkflowRegistrationRef,
@@ -112,14 +135,6 @@ from mistralai.workflows.worker_client.errors.sdkerror import SDKError
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 logger = get_logger(__name__)
-
-
-class WorkerConfig(BaseModel):
-    task_queue: str
-    max_task_queue_activities_per_second: float | None = None
-
-    def __hash__(self) -> int:
-        return hash((self.task_queue, self.max_task_queue_activities_per_second))
 
 
 @tenacity.retry(
@@ -138,15 +153,23 @@ async def _register_workflow_specs(
     deployment_name: str,
     worker_name: str,
     deployment_location: DeploymentLocation | None = None,
+    *,
+    payload_encryption_mode: PayloadEncryptionLevel = PayloadEncryptionLevel.NONE,
 ) -> WorkflowSpecsRegisterResponse:
     try:
         result = await worker_client.register_workflow_definitions_async(
-            definitions=[translate_model(wc_models.WorkflowSpecWithTaskQueue, d) for d in workflow_definitions],
+            # Omitting `schedules` tells the API this worker doesn't manage schedules, so it keeps the existing
+            # ones. An empty list would make it delete those declared by v3 workers.
+            definitions=[
+                wc_models.WorkflowSpecWithTaskQueue.model_validate(d.model_dump(mode="json", exclude={"schedules"}))
+                for d in workflow_definitions
+            ],
             deployment_name=deployment_name,
             worker_name=worker_name,
             deployment_location=translate_model(wc_models.DeploymentLocation, deployment_location)
             if deployment_location
             else None,
+            payload_encryption_mode=payload_encryption_mode.value,
         )
         return translate_model(WorkflowSpecsRegisterResponse, result)
     except Exception as exc:
@@ -178,6 +201,8 @@ async def _worker_heartbeat(
     deployment_name: str,
     worker_name: str,
     deployment_location: DeploymentLocation | None = None,
+    *,
+    payload_encryption_mode: PayloadEncryptionLevel = PayloadEncryptionLevel.NONE,
 ) -> None:
     refs = list(workflow_registration_refs)
 
@@ -195,6 +220,7 @@ async def _worker_heartbeat(
                     ],
                     deployment_name=deployment_name,
                     worker_name=worker_name,
+                    payload_encryption_mode=payload_encryption_mode.value,
                 )
             return True
         except Exception as exc:
@@ -202,13 +228,10 @@ async def _worker_heartbeat(
                 logger.warning(
                     "Heartbeat endpoint not available, disabling heartbeat and falling back to full registration",
                     **extract_error_context(exc),
-                    exc_info=exc,
                 )
                 heartbeat_endpoint_available = False
             else:
-                logger.warning(
-                    "Heartbeat failed, falling back to full registration", **extract_error_context(exc), exc_info=exc
-                )
+                logger.warning("Heartbeat failed, falling back to full registration", **extract_error_context(exc))
             return False
 
     try:
@@ -223,6 +246,7 @@ async def _worker_heartbeat(
                     deployment_name=deployment_name,
                     worker_name=worker_name,
                     deployment_location=deployment_location,
+                    payload_encryption_mode=payload_encryption_mode,
                 )
                 refs = [
                     WorkflowRegistrationRef(
@@ -233,9 +257,9 @@ async def _worker_heartbeat(
                 ]
                 set_worker_registrations(build_worker_registrations(workflow_definitions, refs))
             except Exception as exc:
-                logger.error("Full re-registration also failed", **extract_error_context(exc), exc_info=exc)
+                logger.error("Full re-registration also failed", **extract_error_context(exc))
     except Exception as exc:
-        logger.error("Error in heartbeat task", **extract_error_context(exc), exc_info=exc)
+        logger.error("Error in heartbeat task", **extract_error_context(exc))
         raise WorkflowsException(code=ErrorCode.WORKER_REGISTRATION_ERROR, message="Fail to heartbeat worker")
 
 
@@ -322,7 +346,6 @@ async def _auto_register_as_current_version(
             deployment_name=deployment_name,
             build_id=build_id,
             retry_budget_seconds=_AUTO_REGISTER_RETRY_BUDGET_SECONDS,
-            exc_info=exc,
         )
         return
 
@@ -333,14 +356,14 @@ async def _auto_register_as_current_version(
     )
 
 
-def _get_workflow_definitions(workflows: Sequence[Type], task_queue: str) -> List[WorkflowSpecWithTaskQueue]:
+def _get_workflow_definitions(workflows: Sequence[Type], deployment_name: str) -> List[WorkflowSpecWithTaskQueue]:
     workflow_definitions: List[WorkflowSpecWithTaskQueue] = []
     for workflow in workflows:
         workflow_def = get_workflow_definition(workflow)
         workflow_def_with_task_queue = WorkflowSpecWithTaskQueue.model_validate(
             {
                 **workflow_def.model_dump(),
-                "task_queue": task_queue,
+                "task_queue": deployment_name,
             }
         )
         workflow_definitions.append(workflow_def_with_task_queue)
@@ -410,15 +433,28 @@ def _create_temporal_workers(
     workflows: List[ClassType],
     config: AppConfig,
     task_queue: str,
+    workflow_config_registrations: ExitStack,
 ) -> tuple[List[Worker], List[Type]]:
     """Create Temporal workers and return (workers, plugin_workflows)."""
     parallel_workflows = _get_parallel_execution_workflows(workflows)
     all_workflows: List[Type] = [*workflows, *parallel_workflows]
     pre_plugin_len = len(all_workflows)
 
+    # Plugins can index workflow metadata while their interceptors are constructed, so apply
+    # definition-time configuration before exposing the workflow classes to plugin hooks.
+    configure_workflows_for_worker(all_workflows, config, workflow_config_registrations)
+    for workflow_type in all_workflows:
+        workflow_config_registrations.enter_context(_use_workflow_config_for_worker(workflow_type, config, task_queue))
+
     # Collect worker interceptors from plugins
     plugin_interceptors = collect_plugin_interceptors(all_workflows)
     plugin_workflows = all_workflows[pre_plugin_len:]
+
+    # Hooks may append plugin-owned workflows. Configure only those additions here; the original
+    # workflows were already configured before their metadata could be snapshotted.
+    configure_workflows_for_worker(plugin_workflows, config, workflow_config_registrations)
+    for workflow_type in plugin_workflows:
+        workflow_config_registrations.enter_context(_use_workflow_config_for_worker(workflow_type, config, task_queue))
 
     # Get all activities (based on the imports made before running the workers)
     all_activities = get_all_temporal_activities()
@@ -434,33 +470,8 @@ def _create_temporal_workers(
 
     all_activities.append(get_sticky_worker_session)
 
-    # Split activities into workers based on their needs
-    # 1. Sticky activities go to a dedicated task queue
-    # 2. Rate limited activities go to a dedicated task queue (one task queue per rate limit)
-    activities_per_worker_config: DefaultDict[WorkerConfig, list[Callable]] = defaultdict(list)
-
-    for act in all_activities:
-        if check_activity_is_sticky_to_worker(act):  # 1.
-            worker_config = WorkerConfig(task_queue=sticky_worker_session_task_queue)
-        elif rate_limit := get_rate_limit(act):  # 2.
-            max_task_queue_activities_per_second = (
-                rate_limit.max_execution / rate_limit.time_window_in_sec
-                # * config.temporal.temporal_frontend_num_task_queue_partitions
-            )
-            worker_config = WorkerConfig(
-                task_queue=rate_limit.task_queue,
-                max_task_queue_activities_per_second=max_task_queue_activities_per_second,
-            )
-        else:
-            continue
-
-        activities_per_worker_config[worker_config].append(act)
-
-    # 3. We also register all acitvities on the main worker
-    #    in order to be able to execute them as local activities
-    #    see `run_activities_locally`.
-    main_worker_config = WorkerConfig(task_queue=task_queue)
-    activities_per_worker_config[main_worker_config] = all_activities
+    # Split activities into workers based on their needs (see group_activities_by_worker_config)
+    activity_groups = group_activities_by_worker_config(all_activities, task_queue, sticky_worker_session_task_queue)
 
     versioning_cfg = config.worker.versioning
     main_task_queue = task_queue
@@ -469,10 +480,8 @@ def _create_temporal_workers(
     if versioning_cfg.enabled and versioning_cfg.deployment_name and versioning_cfg.build_id:
         if main_task_queue == "default":
             raise ValueError(
-                "Versioned workers must not use the 'default' task queue. "
-                "Temporal deployment versioning is task-queue-scoped: registering a versioned worker on 'default' "
-                "permanently pins it and blocks all unversioned workers. "
-                "Set DEPLOYMENT_NAME to a non-default value."
+                "Versioned workers must not use DEPLOYMENT_NAME='default'. "
+                "Set DEPLOYMENT_NAME to a unique, non-default name before enabling worker versioning."
             )
         default_behavior = VersioningBehavior.PINNED
         deployment_config = WorkerDeploymentConfig(
@@ -492,8 +501,10 @@ def _create_temporal_workers(
         logger.warning("Worker versioning enabled but deployment name or build ID missing; running without versioning")
 
     workers: List[Worker] = []
-    for worker_config_obj, activities in activities_per_worker_config.items():
-        is_main_worker = worker_config_obj.task_queue == main_task_queue
+    for group in activity_groups:
+        worker_config_obj = group.worker_config
+        activities = group.activities
+        is_main_worker = group.is_main
         worker_kwargs: dict[str, Any] = {
             "client": temporal_client,
             "task_queue": worker_config_obj.task_queue,
@@ -506,6 +517,8 @@ def _create_temporal_workers(
             "workflow_runner": SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
             "interceptors": plugin_interceptors,
             "max_concurrent_activities": config.worker.max_concurrent_activities,
+            "max_cached_workflows": config.worker.max_cached_workflows,
+            "graceful_shutdown_timeout": timedelta(seconds=config.worker.graceful_shutdown_timeout_seconds),
         }
         worker_kwargs["workflow_task_poller_behavior"] = PollerBehaviorSimpleMaximum(
             maximum=config.worker.max_workflow_task_pollers
@@ -518,22 +531,59 @@ def _create_temporal_workers(
             worker_kwargs["deployment_config"] = deployment_config
         else:
             # Temporal 1.24 rejects overlapping unversioned workers unless they have distinct deployment build IDs.
+            worker_deployment_version = WorkerDeploymentVersion(
+                deployment_name=worker_config_obj.task_queue,
+                build_id=f"{config.worker.worker_name}-{worker_config_obj.task_queue}-{uuid4().hex}",
+            )
             worker_kwargs["deployment_config"] = WorkerDeploymentConfig(
-                version=WorkerDeploymentVersion(
-                    deployment_name=worker_config_obj.task_queue,
-                    build_id=f"{config.worker.worker_name}-{worker_config_obj.task_queue}-{uuid4().hex}",
-                ),
+                version=worker_deployment_version,
                 use_worker_versioning=False,
             )
+            if is_main_worker:
+                synthetic_deployment_version = (
+                    worker_deployment_version.deployment_name,
+                    worker_deployment_version.build_id,
+                )
+                for workflow_type in all_workflows:
+                    workflow_config_registrations.enter_context(
+                        _use_workflow_config_for_worker(
+                            workflow_type,
+                            config,
+                            task_queue,
+                            deployment_version_override=synthetic_deployment_version,
+                        )
+                    )
         try:
             workers.append(Worker(**worker_kwargs))
         except RuntimeError as e:
             log_if_sandbox_restriction_error(e, context="validation")
             raise
+
+    poll_estimate = estimate_connection_polls(
+        activity_groups,
+        activity_polls_per_worker=config.worker.max_activity_task_pollers,
+        workflow_polls=config.worker.max_workflow_task_pollers,
+        connection_stream_limit=config.worker.connection_stream_limit,
+    )
+    if poll_warning := format_poll_warning(poll_estimate):
+        logger.warning(
+            "Worker poll count approaches the Temporal connection's stream limit",
+            detail=poll_warning,
+            total_polls=poll_estimate.total_polls,
+            connection_stream_limit=poll_estimate.connection_stream_limit,
+            threshold=poll_estimate.warning_threshold,
+            headroom=poll_estimate.headroom,
+            rate_limit_keys=poll_estimate.rate_limit_keys,
+            activity_polls_per_worker=poll_estimate.activity_polls_per_worker,
+            workflow_polls=poll_estimate.main_workflow_polls,
+        )
+
     return workers, plugin_workflows
 
 
 _GRAPH_PAYLOAD_VERSION = 3
+# Graph analysis holds the GIL: running it in parallel only starves the workflow task threads.
+_GRAPH_BUILD_CONCURRENCY = 1
 _GRAPH_SUMMARY_CONCURRENCY = 4
 _GRAPH_SUMMARY_REQUEST_TIMEOUT_S = 60.0
 _GRAPH_SUMMARY_MAX_ATTEMPTS = 3
@@ -559,8 +609,9 @@ _GRAPH_SUMMARY_RETRYABLE_STATUSES = {
 _GRAPH_SUMMARY_UNAVAILABLE_STATUSES = {HTTPStatus.NOT_FOUND, HTTPStatus.METHOD_NOT_ALLOWED}
 
 
-def _summaries_enabled() -> bool:
-    return config.worker.graph.graph_summarise_enabled and get_token_provider() is not None
+def _summaries_enabled(config: AppConfig | None = None) -> bool:
+    config = config if config is not None else resolve_worker_config(None)
+    return config.worker.graph.graph_summarise_enabled and get_token_provider(app_config=config) is not None
 
 
 async def _request_graph_summaries(
@@ -613,7 +664,9 @@ async def _upload_workflow_graphs(
     refs: list[WorkflowRegistrationRef],
     classes: list[ClassType],
     client: PrivateWorkerClient,
+    config: AppConfig | None = None,
 ) -> None:
+    config = config if config is not None else resolve_worker_config(None)
     # Deferred import: _graph pulls in ast/inspect/textwrap at module level, adding startup
     # cost to every worker process even when graph upload is disabled. Keep it lazy here.
     from mistralai.workflows.core._graph import build_graph_dynamically
@@ -625,7 +678,8 @@ async def _upload_workflow_graphs(
         logger.warning("Worker HTTP client unavailable, skipping graph upload")
         return
 
-    summaries_enabled = _summaries_enabled()
+    summaries_enabled = _summaries_enabled(config)
+    build_semaphore = asyncio.Semaphore(_GRAPH_BUILD_CONCURRENCY)
     summary_semaphore = asyncio.Semaphore(_GRAPH_SUMMARY_CONCURRENCY)
 
     async def _upload_one(ref: WorkflowRegistrationRef, cls: ClassType) -> None:
@@ -635,29 +689,28 @@ async def _upload_workflow_graphs(
 
         graph_data = None
         error: str | None = None
-        try:
-            graph_data = await asyncio.to_thread(build_graph_dynamically, cls)
-        except Exception as exc:
-            error = str(exc) or type(exc).__name__
-            logger.warning(
-                "Failed to build workflow graph", workflow=cls.__name__, **extract_error_context(exc), exc_info=exc
-            )
-
         views: list[dict[str, Any]] | None = None
         extra_nodes: list[FlatNode] | None = None
-        if graph_data is not None and config.worker.graph.dataflow_views_enabled:
-            # Imported here, not at function top, so the kill-switch also avoids
-            # paying libcst's import cost.
-            from mistralai.workflows.core._dataflow import dataflow_only_nodes, expand_views
+        async with build_semaphore:
+            try:
+                graph_data = await asyncio.to_thread(build_graph_dynamically, cls)
+            except Exception as exc:
+                error = type(exc).__name__
+                logger.warning("Failed to build workflow graph", workflow=cls.__name__, **extract_error_context(exc))
 
-            # libcst parsing is CPU-bound and this task runs on the worker's loop
-            # while Temporal pollers are starting; keep it off the loop.
-            cf_dict = graph_data.to_dict(include_sources=True)
-            views = await asyncio.to_thread(expand_views, cf_dict)
-            # Built before summarising so the summariser can describe the nodes
-            # that only exist in the data-flow views — transforms and fan-out
-            # groups — which would otherwise fall back to a generic label.
-            extra_nodes = [FlatNode(**n) for n in dataflow_only_nodes(cf_dict, views)]
+            if graph_data is not None and config.worker.graph.dataflow_views_enabled:
+                # Imported here, not at function top, so the kill-switch also avoids
+                # paying libcst's import cost.
+                from mistralai.workflows.core._dataflow import dataflow_only_nodes, expand_views
+
+                # libcst parsing is CPU-bound and this task runs on the worker's loop
+                # while Temporal pollers are starting; keep it off the loop.
+                cf_dict = graph_data.to_dict(include_sources=True)
+                views = await asyncio.to_thread(expand_views, cf_dict)
+                # Built before summarising so the summariser can describe the nodes
+                # that only exist in the data-flow views — transforms and fan-out
+                # groups — which would otherwise fall back to a generic label.
+                extra_nodes = [FlatNode(**n) for n in dataflow_only_nodes(cf_dict, views)]
 
         workflow_identifier = get_workflow_definition(cls).name
         if graph_data is not None and summaries_enabled:
@@ -724,9 +777,7 @@ async def _upload_workflow_graphs(
             response = await http_client.send(request)
             response.raise_for_status()
         except Exception as exc:
-            logger.warning(
-                "Failed to upload workflow graph", workflow=cls.__name__, **extract_error_context(exc), exc_info=exc
-            )
+            logger.warning("Failed to upload workflow graph", workflow=cls.__name__, **extract_error_context(exc))
 
     await asyncio.gather(*[_upload_one(ref, cls) for ref, cls in zip(refs, classes)])
 
@@ -735,14 +786,32 @@ async def _safe_upload_workflow_graphs(
     refs: list[WorkflowRegistrationRef],
     classes: list[ClassType],
     client: PrivateWorkerClient,
+    config: AppConfig | None = None,
 ) -> None:
     # Runs as a sibling task inside the worker's TaskGroup. Graph upload is best-effort
     # metadata, so swallow every exception here: an unhandled error would otherwise cancel
     # the TaskGroup and crash the worker.
     try:
-        await _upload_workflow_graphs(refs=refs, classes=classes, client=client)
+        await _upload_workflow_graphs(refs=refs, classes=classes, client=client, config=config)
     except Exception as exc:
-        logger.warning("Workflow graph upload failed", **extract_error_context(exc), exc_info=exc)
+        logger.warning("Workflow graph upload failed", **extract_error_context(exc))
+
+
+def _check_payload_encryption_requirement(config: AppConfig, required: PayloadEncryptionLevel) -> None:
+    configured = config.worker.payload_encryption_level
+    if configured.satisfies(required):
+        return
+    reason = (
+        f"The server requires payload encryption mode '{required}' or stronger, but this worker is "
+        f"configured with '{configured}'. Set TEMPORAL_PAYLOAD_ENCRYPTION__MODE={required} and "
+        "TEMPORAL_PAYLOAD_ENCRYPTION__MAIN_KEY."
+    )
+    # The worker's terminal-error report only names the error, so the remediation is logged here.
+    logger.error("Payload encryption requirement not met", reason=reason)
+    raise WorkflowsException(
+        code=ErrorCode.WORKER_PAYLOAD_ENCRYPTION_REQUIRED,
+        message=reason,
+    )
 
 
 def _api_key_hint(api_key: SecretStr | None) -> str:
@@ -752,38 +821,42 @@ def _api_key_hint(api_key: SecretStr | None) -> str:
     return f"...{value[-4:]}" if len(value) >= 4 else "<not set>"
 
 
-def _log_authentication_failure(exc: WorkflowsException) -> None:
+def _log_authentication_failure(exc: WorkflowsException, config: AppConfig) -> None:
+    error_context = extract_error_context(exc)
+    error_context["http_status"] = exc.status.value
     if str(exc.code) == ErrorCode.TEMPORAL_CONNECTION_ERROR and config.temporal.api_key:
         logger.error(
             "Authentication failed. Check your TEMPORAL_API_KEY.",
             api_key_hint=_api_key_hint(config.temporal.api_key),
-            http_status=exc.status.value,
-            **exc.logging_properties,
+            **error_context,
         )
         return
     if config.common.mistral_sa_token_path:
         logger.error(
             "Authentication failed. Check the service-account token.",
             sa_token_path=config.common.mistral_sa_token_path,
-            http_status=exc.status.value,
-            **exc.logging_properties,
+            **error_context,
         )
         return
     logger.error(
         "Authentication failed. Check your MISTRAL_API_KEY.",
         api_key_hint=_api_key_hint(config.common.mistral_api_key),
-        http_status=exc.status.value,
-        **exc.logging_properties,
+        **error_context,
     )
 
 
 @contextmanager
-def _report_worker_errors(*, exit_on_terminal_error: bool, unexpected_error_message: str) -> Iterator[None]:
+def _report_worker_errors(
+    *,
+    config: AppConfig,
+    exit_on_terminal_error: bool,
+    unexpected_error_message: str,
+) -> Iterator[None]:
     try:
         yield
     except WorkflowsException as exc:
         if exc.status == HTTPStatus.UNAUTHORIZED:
-            _log_authentication_failure(exc)
+            _log_authentication_failure(exc, config)
             if exit_on_terminal_error:
                 raise SystemExit(1) from None
             raise
@@ -791,27 +864,148 @@ def _report_worker_errors(*, exit_on_terminal_error: bool, unexpected_error_mess
         if label:
             ctx = extract_error_context(exc)
             logger.error(label, api_error_code=ctx.get("api_error_code"), http_status=ctx.get("http_status"))
-            raise SystemExit(1) from None
+            if exit_on_terminal_error:
+                raise SystemExit(1) from None
         raise
 
     except Exception as exc:
-        logger.error(unexpected_error_message, **extract_error_context(exc), exc_info=exc)
+        logger.error(unexpected_error_message, **extract_error_context(exc))
         raise
+
+
+# Stop requests of the attached run_worker calls in this process. The first call installs _on_sigterm; the last
+# one to leave puts SIG_DFL back.
+_sigterm_stop_requests: list[Callable[[], None]] = []
+
+
+def _on_sigterm(_signum: int, _frame: FrameType | None) -> None:
+    for request_stop in list(_sigterm_stop_requests):
+        request_stop()
+
+
+def _reset_sigterm_in_fork_child() -> None:
+    # A forked child (multiprocessing, a subprocess helper) runs no worker. With _on_sigterm it would ignore SIGTERM,
+    # so Pool.terminate() would hang.
+    _sigterm_stop_requests.clear()
+    if signal.getsignal(signal.SIGTERM) is _on_sigterm:
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_sigterm_in_fork_child)
+
+
+@contextmanager
+def _sigterm_requests_stop(*, enabled: bool) -> Iterator[asyncio.Event | None]:
+    """Yield an event that SIGTERM sets, the way asyncio.Runner handles SIGINT, or None if SIGTERM is not taken.
+
+    SIGTERM is taken only from the main thread and only while nobody else owns it: the handler is still SIG_DFL, or
+    it is already ours because another run_worker in this process installed it.
+    """
+    current_handler = signal.getsignal(signal.SIGTERM)
+    if not (
+        enabled
+        and threading.current_thread() is threading.main_thread()
+        and (current_handler is signal.SIG_DFL or current_handler is _on_sigterm)
+    ):
+        yield None
+        return
+
+    loop = asyncio.get_running_loop()
+    stop_requested = asyncio.Event()
+
+    def set_stop_requested() -> None:
+        # Later SIGTERMs are ignored. The handler stays installed until run_worker returns, so they cannot kill the
+        # drain or the telemetry flush.
+        if stop_requested.is_set():
+            return
+        logger.info("Received SIGTERM, stopping worker")
+        stop_requested.set()
+
+    def request_stop() -> None:
+        # Runs in a signal handler: call_soon_threadsafe is safe there and wakes a loop blocked in select().
+        loop.call_soon_threadsafe(set_stop_requested)
+
+    # Registered before the install and removed after the restore, so _on_sigterm never runs with an empty registry.
+    _sigterm_stop_requests.append(request_stop)
+    installed = True
+    if current_handler is signal.SIG_DFL:
+        try:
+            signal.signal(signal.SIGTERM, _on_sigterm)
+        except ValueError:
+            # Like asyncio.Runner: an embedded interpreter can refuse signal handlers even in the main thread.
+            installed = False
+    if not installed:
+        _sigterm_stop_requests.remove(request_stop)
+        yield None
+        return
+
+    try:
+        yield stop_requested
+    finally:
+        # A handler the caller installed meanwhile stays.
+        if _sigterm_stop_requests == [request_stop] and signal.getsignal(signal.SIGTERM) is _on_sigterm:
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        _sigterm_stop_requests.remove(request_stop)
+
+
+@asynccontextmanager
+async def _stop_workers_when_requested(
+    stop_requested: asyncio.Event | None, workers: Sequence[Worker], health_server: HealthServer | None
+) -> AsyncIterator[None]:
+    if stop_requested is None:
+        yield
+        return
+
+    async def stop() -> None:
+        await stop_requested.wait()
+        # shutdown() instead of a cancel of run(), because temporalio documents that a cancel can also cancel the
+        # shutdown.
+        await asyncio.gather(*[worker.shutdown() for worker in workers])
+        if health_server is not None:
+            await asyncio.get_running_loop().run_in_executor(None, health_server.shutdown)
+
+    stop_task = asyncio.create_task(stop())
+    try:
+        yield
+    finally:
+        # The body's cleanup has already stopped every worker. A worker whose run() was cancelled during its
+        # shutdown never reports the shutdown complete, so waiting for the stop task could hang.
+        stop_task.cancel()
 
 
 async def _run_worker(
     workflows: List[ClassType],
+    config: AppConfig | None = None,
     *,
     exit_on_terminal_error: bool = True,
+    stop_requested: asyncio.Event | None = None,
 ) -> None:
-    with _report_worker_errors(
-        exit_on_terminal_error=exit_on_terminal_error,
-        unexpected_error_message="Worker stopped due to unhandled exception",
+    config = config if config is not None else resolve_worker_config(None)
+    with use_config(config):
+        await _run_worker_with_config(
+            workflows, config, exit_on_terminal_error=exit_on_terminal_error, stop_requested=stop_requested
+        )
+
+
+async def _run_worker_with_config(
+    workflows: List[ClassType],
+    config: AppConfig,
+    *,
+    exit_on_terminal_error: bool,
+    stop_requested: asyncio.Event | None,
+) -> None:
+    with (
+        _report_worker_errors(
+            config=config,
+            exit_on_terminal_error=exit_on_terminal_error,
+            unexpected_error_message="Worker stopped due to unhandled exception",
+        ),
+        ExitStack() as workflow_config_registrations,
     ):
         logger.info("Worker config", config=config.common.model_dump())
         config.validate_for_worker_startup()
-        task_queue = config.get_effective_task_queue(raise_on_conflict=True)
-        deployment_name = task_queue
+        deployment_name = config.get_effective_task_queue()
         worker_name = config.worker.worker_name
         deployment_location = config.worker.deployment_location
 
@@ -825,9 +1019,18 @@ async def _run_worker(
             k8s_namespace=deployment_location.k8s_namespace,
         )
 
+        token_provider = get_token_provider(app_config=config)
         worker_client = get_worker_client(
             base_url=config.worker.server_url,
-            token_provider=get_token_provider(),
+            timeout=config.http.timeout,
+            token_provider=token_provider,
+            headers=get_deployment_headers(),
+        )
+        # Its own connection pool, so event traffic filling the shared one can't starve the heartbeat.
+        heartbeat_client = get_worker_client(
+            base_url=config.worker.server_url,
+            timeout=config.http.timeout,
+            token_provider=token_provider,
             headers=get_deployment_headers(),
         )
 
@@ -885,14 +1088,15 @@ async def _run_worker(
             temporal_client=temporal_client,
             workflows=workflows,
             config=config,
-            task_queue=task_queue,
+            task_queue=deployment_name,
+            workflow_config_registrations=workflow_config_registrations,
         )
 
         # Get workflow definitions for custom workflows + internal workflows
-        workflow_definitions = _get_workflow_definitions(workflows, task_queue)
-        workflow_definitions += _get_workflow_definitions(_get_parallel_execution_workflows(workflows), task_queue)
+        workflow_definitions = _get_workflow_definitions(workflows, deployment_name)
+        workflow_definitions += _get_workflow_definitions(_get_parallel_execution_workflows(workflows), deployment_name)
         if plugin_workflows:
-            workflow_definitions += _get_workflow_definitions(plugin_workflows, task_queue)
+            workflow_definitions += _get_workflow_definitions(plugin_workflows, deployment_name)
 
         # Build deployment location from config
         location_proto = DeploymentLocation(
@@ -908,34 +1112,39 @@ async def _run_worker(
             deployment_name=deployment_name,
             worker_name=worker_name,
             deployment_location=location_proto,
+            payload_encryption_mode=config.worker.payload_encryption_level,
         )
         if response.has_conflicts and not config.worker.allow_multiple_workers:
             raise ValueError(
                 "Some workflows are already registered by another worker. "
-                "Please use a custom task queue or set `ALLOW_MULTIPLE_WORKERS` to True"
+                "Use a different DEPLOYMENT_NAME or set ALLOW_MULTIPLE_WORKERS=True."
             )
         set_worker_registrations(build_worker_registrations(workflow_definitions, response.workflow_registration_refs))
+        event_route_publisher = EventRoutePublisher(worker_client)
         async with (
             worker_client,
+            heartbeat_client,
+            share_worker_client(worker_client),
             asyncio.TaskGroup() as tg,
             dependency_injector.with_dependencies(),
             EventContext(
-                worker_client.events,
-                worker_client,
-                events_api_version=config.worker.events_api_version,
+                event_route_publisher,
                 payload_encoder=payload_encoding.event_payload_encoder,
                 custom_event_payload_encoder=payload_encoding.custom_event_payload_encoder,
+                worker_client=worker_client,
+                route_token_manager=event_route_publisher.route_token_manager,
             ),
         ):
             register_task = tg.create_task(
                 _worker_heartbeat(
-                    worker_client=worker_client,
+                    worker_client=heartbeat_client,
                     workflow_definitions=workflow_definitions,
                     workflow_registration_refs=response.workflow_registration_refs,
                     interval=10,
                     deployment_name=deployment_name,
                     worker_name=worker_name,
                     deployment_location=location_proto,
+                    payload_encryption_mode=config.worker.payload_encryption_level,
                 )
             )
 
@@ -971,6 +1180,7 @@ async def _run_worker(
                             refs=refs[: len(workflows)],
                             classes=workflows,
                             client=worker_client,
+                            config=config,
                         )
                     )
                 else:
@@ -991,71 +1201,113 @@ async def _run_worker(
                         metric_buffer,
                         runtime_metrics_meter_provider.get_meter("mistralai.workflows.temporal_runtime"),
                         interval_s=config.common.temporal_runtime_metrics_drain_interval_s,
-                        meter_provider=runtime_metrics_meter_provider,
                         buffer_size=config.common.temporal_runtime_metrics_buffer_size,
                     )
                 )
 
-            logger.info(
-                "Starting Temporal worker",
-                task_queue=task_queue,
-                namespace=config.temporal.namespace,
-                location_type=deployment_location.location_type,
-            )
-            health_server = (
-                HealthServer(config.worker.health_server_host, config.worker.health_server_port)
-                if config.worker.health_server_port
-                else None
-            )
-            try:
-                workers_and_health_server = workers + [health_server] if health_server is not None else workers
-                await asyncio.gather(*[worker.run() for worker in workers_and_health_server])
-            finally:
-                logger.info("Worker shutting down, cleaning up resources")
-                set_worker_service_client(None)
-                set_worker_registrations({})
-                register_task.cancel()
-                if auto_register_task:
-                    auto_register_task.cancel()
-                if graph_upload_task:
-                    graph_upload_task.cancel()
-                token_refresh_task.cancel()
+            # A SIGTERM during startup skips polling. The cleanup below still runs, so run_worker returns None.
+            polled_workers = workers
+            health_server = None
+            if stop_requested is not None and stop_requested.is_set():
+                logger.info("SIGTERM received during startup, the worker does not start polling")
+                polled_workers = []
+            else:
+                logger.info(
+                    "Starting Temporal worker",
+                    deployment_name=deployment_name,
+                    namespace=config.temporal.namespace,
+                    location_type=deployment_location.location_type,
+                )
+                if config.worker.health_server_port:
+                    health_server = HealthServer(config.worker.health_server_host, config.worker.health_server_port)
+            async with _stop_workers_when_requested(stop_requested, polled_workers, health_server):
+                workers_and_health_server = (
+                    polled_workers + [health_server] if health_server is not None else polled_workers
+                )
+                runs = [asyncio.create_task(worker.run()) for worker in workers_and_health_server]
                 try:
-                    await register_task
-                except asyncio.CancelledError:
-                    pass
-                if auto_register_task:
+                    await asyncio.gather(*runs)
+                finally:
+                    logger.info("Worker shutting down, cleaning up resources")
+                    set_worker_service_client(None)
+                    set_worker_registrations({})
+                    register_task.cancel()
+                    if auto_register_task:
+                        auto_register_task.cancel()
+                    if graph_upload_task:
+                        graph_upload_task.cancel()
+                    token_refresh_task.cancel()
                     try:
-                        await auto_register_task
+                        await register_task
                     except asyncio.CancelledError:
                         pass
-                if graph_upload_task:
+                    if auto_register_task:
+                        try:
+                            await auto_register_task
+                        except asyncio.CancelledError:
+                            pass
+                    if graph_upload_task:
+                        try:
+                            await graph_upload_task
+                        except asyncio.CancelledError:
+                            pass
                     try:
-                        await graph_upload_task
+                        await token_refresh_task
                     except asyncio.CancelledError:
                         pass
-                try:
-                    await token_refresh_task
-                except asyncio.CancelledError:
-                    pass
-                # Stop the workers first (core stops emitting), then final-drain the pump so teardown metrics
-                # are captured before the provider is shut down.
-                await asyncio.gather(*[worker.shutdown() for worker in workers])
-                if pump_task:
-                    pump_task.cancel()
-                    try:
-                        await pump_task
-                    except asyncio.CancelledError:
-                        pass
-                # Shut down the dedicated runtime-metrics provider (skip if it's the shared local one).
-                if runtime_metrics_meter_provider is not None and runtime_metrics_meter_provider is not meter_provider:
-                    runtime_metrics_meter_provider.shutdown()
-                if health_server is not None:
-                    await asyncio.get_running_loop().run_in_executor(None, health_server.shutdown)
-                # Flush and shutdown OTLP log exporter
-                if logger_provider is not None:
-                    logger_provider.shutdown()
-                logger.info("Worker shutdown complete")
+                    # Stop the workers first (core stops emitting), then final-drain the pump so teardown metrics
+                    # are captured before the provider is shut down.
+                    # Wait only for workers still running: one whose run() was cancelled during its shutdown never
+                    # reports the shutdown complete. zip stops at the last Temporal worker, before the health server.
+                    await asyncio.gather(
+                        *[worker.shutdown() for worker, run in zip(polled_workers, runs) if not run.done()]
+                    )
+                    if pump_task:
+                        pump_task.cancel()
+                        try:
+                            await pump_task
+                        except asyncio.CancelledError:
+                            pass
+                    telemetry_deadline = time.monotonic() + _TELEMETRY_SHUTDOWN_TIMEOUT_SECONDS
+                    if runtime_metrics_meter_provider is not None:
+                        _flush_runtime_metrics(
+                            runtime_metrics_meter_provider,
+                            shared=runtime_metrics_meter_provider is meter_provider,
+                            deadline=telemetry_deadline,
+                        )
+                    if health_server is not None:
+                        await asyncio.get_running_loop().run_in_executor(None, health_server.shutdown)
+                    if logger_provider is not None:
+                        _shutdown_logs(logger_provider, deadline=telemetry_deadline)
+                    logger.info("Worker shutdown complete")
+
+
+# OTLP HTTP exporters wait out their 10 s timeout on an endpoint that does not answer. This caps the total
+# wait on metrics and logs at stop.
+_TELEMETRY_SHUTDOWN_TIMEOUT_SECONDS = 3.0
+
+
+def _flush_runtime_metrics(provider: MeterProvider, *, shared: bool, deadline: float) -> None:
+    if shared:
+        # The shared local provider exports to the console and lives on after the worker.
+        provider.force_flush()
+        return
+    # force_flush cannot be bounded: the OTLP HTTP exporter ignores its timeout. shutdown stops waiting at the deadline.
+    provider.shutdown(timeout_millis=_remaining_millis(deadline))
+
+
+def _shutdown_logs(provider: LoggerProvider, *, deadline: float) -> None:
+    # LoggerProvider.shutdown takes no timeout. Run it in a daemon thread and stop waiting at the deadline.
+    shutdown = threading.Thread(target=provider.shutdown, name="otel-log-shutdown", daemon=True)
+    shutdown.start()
+    wait_s = _remaining_millis(deadline) / 1000
+    shutdown.join(wait_s)
+    if shutdown.is_alive():
+        logger.warning("OpenTelemetry logs not exported before worker stop; pending logs dropped", timeout_s=wait_s)
+
+
+def _remaining_millis(deadline: float) -> float:
+    return max(0.0, (deadline - time.monotonic()) * 1000)
 
 
 async def run_worker(
@@ -1064,6 +1316,8 @@ async def run_worker(
     api_key: str | None = None,
     namespace: str | None = None,
     enable_config_discovery: bool | None = None,
+    *,
+    config: AppConfig | None = None,
 ) -> asyncio.Task | None:
     """
     Initialize and run a Temporal worker with the specified workflows.
@@ -1073,55 +1327,70 @@ async def run_worker(
         detach: If True, run the worker in a detached thread
         api_key: Optional API key for the Mistral API authentication (sent as Bearer token)
         namespace: Optional namespace to use for the worker
+        config: Explicit SDK configuration. When omitted, environment variables are resolved at call time.
+
+    When attached (``detach=False``) and no other ``SIGTERM`` handler is installed, ``SIGTERM`` stops the worker:
+    it stops polling, waits up to ``graceful_shutdown_timeout_seconds`` for running activities, cancels the rest,
+    and returns ``None``. A ``SIGTERM`` during startup lets startup finish, then returns ``None`` without polling.
+    Several attached ``run_worker`` calls in one process share the handler, and one ``SIGTERM`` stops them all.
     """
-    setup_default_logging()
-    log_configuration()
-    original_config = config.model_copy(deep=True)
+    uses_legacy_config = config is None
+    resolved_config = resolve_worker_config(config)
+    original_config = resolved_config.model_copy(deep=True) if uses_legacy_config else None
+    setup_default_logging(resolved_config)
+    log_configuration(resolved_config)
 
-    def _revert_config() -> None:
-        config.__dict__.update(original_config.__dict__)  # pyright: ignore[reportAttributeAccessIssue]
+    def _restore_legacy_config() -> None:
+        if original_config is not None:
+            resolved_config.__dict__.update(original_config.__dict__)
 
-    # Every later read keeps the last good value, so only this first read needs the retry.
-    with _report_worker_errors(
-        exit_on_terminal_error=not detach,
-        unexpected_error_message="Failed to read worker header files",
-    ):
-        await read_credential_at_startup(get_deployment_headers, "header files")
-
-    enable_config_discovery = (
-        enable_config_discovery if enable_config_discovery is not None else config.worker.enable_config_discovery
-    )
-    if not enable_config_discovery:
-        warnings.warn("Disabling automatic config discovery")
-        if namespace is not None:
-            config.temporal.namespace = namespace
-        if api_key is not None:
-            config.common.mistral_api_key = SecretStr(api_key)
-    else:
-        if namespace is not None:
-            warnings.warn("Namespace provided but config discovery is enabled. Ignoring namespace.")
+    with use_config(resolved_config), _sigterm_requests_stop(enabled=not detach) as stop_requested:
+        # Every later read keeps the last good value, so only this first read needs the retry.
         try:
-            # A detached caller connects to Temporal from the discovered settings as soon as this returns.
             with _report_worker_errors(
+                config=resolved_config,
                 exit_on_terminal_error=not detach,
-                unexpected_error_message="Worker config discovery failed",
+                unexpected_error_message="Failed to read worker header files",
             ):
-                await config_discovery.apply_worker_runtime_config()
+                await read_credential_at_startup(lambda: get_deployment_headers(resolved_config.worker), "header files")
         except BaseException:
-            # Discovery can fail after adopting some values, which later discoveries would treat as local settings.
-            _revert_config()
+            _restore_legacy_config()
             raise
-    if detach:
-        task = asyncio.create_task(_run_worker(workflows, exit_on_terminal_error=False))
+        enable_config_discovery = (
+            enable_config_discovery
+            if enable_config_discovery is not None
+            else resolved_config.worker.enable_config_discovery
+        )
+        if not enable_config_discovery:
+            warnings.warn("Disabling automatic config discovery")
+            if namespace is not None:
+                resolved_config.temporal.namespace = namespace
+            if api_key is not None:
+                resolved_config.common.mistral_api_key = SecretStr(api_key)
+        else:
+            if namespace is not None:
+                warnings.warn("Namespace provided but config discovery is enabled. Ignoring namespace.")
+            try:
+                with _report_worker_errors(
+                    config=resolved_config,
+                    exit_on_terminal_error=not detach,
+                    unexpected_error_message="Worker config discovery failed",
+                ):
+                    runtime_config = await config_discovery.apply_worker_runtime_config(config=resolved_config)
+                    if runtime_config is not None:
+                        _check_payload_encryption_requirement(
+                            resolved_config, runtime_config.required_payload_encryption_mode
+                        )
+            except BaseException:
+                _restore_legacy_config()
+                raise
+        if detach:
+            task = asyncio.create_task(_run_worker(workflows, resolved_config, exit_on_terminal_error=False))
+            task.add_done_callback(lambda _task: _restore_legacy_config())
+            return task
 
-        def _on_worker_done(_: asyncio.Task) -> None:
-            _revert_config()
-
-        task.add_done_callback(_on_worker_done)
-        return task
-    else:
         try:
-            await _run_worker(workflows)
+            await _run_worker(workflows, resolved_config, stop_requested=stop_requested)
+            return None
         finally:
-            _revert_config()
-        return None
+            _restore_legacy_config()

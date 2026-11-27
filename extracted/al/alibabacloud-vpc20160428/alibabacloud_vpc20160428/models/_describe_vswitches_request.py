@@ -32,7 +32,7 @@ class DescribeVSwitchesRequest(DaraModel):
     ):
         # Specifies whether to only precheck the request. Valid values:
         # - **true**: The system prechecks the request without creating resources. The system checks whether required parameters are specified, the request format is valid, and service limits are met. If the request fails the precheck, the corresponding error is returned. If the request passes the precheck, the `DryRunOperation` error code is returned.
-        # - **false** (default): The system sends a normal request. If the request passes the precheck, an HTTP 2xx status code is returned and the operation is performed.
+        # - **false** (default): The system sends a normal request. If the request passes the precheck, the system returns an HTTP 2xx status code and performs the operation.
         self.dry_run = dry_run
         # Specifies whether to query the vSwitches that have IPv6 CIDR blocks enabled in the specified region. Valid values:
         # 
@@ -43,8 +43,8 @@ class DescribeVSwitchesRequest(DaraModel):
         # If you do not specify this parameter, the system queries all vSwitches in the specified region by default.
         self.enable_ipv_6 = enable_ipv_6
         # Specifies whether to query the IPv6 single-stack vSwitches in the specified region. Valid values:
-        # - true: Queries the IPv6 single-stack vSwitches in the specified region.
-        # - false: Does not query the IPv6 single-stack vSwitches in the specified region.
+        # - **true**: Queries the IPv6 single-stack vSwitches in the specified region.
+        # - **false**: Does not query the IPv6 single-stack vSwitches in the specified region.
         # 
         # If you do not specify this parameter, the system queries all vSwitches in the specified region by default.
         self.ipv_6only = ipv_6only
@@ -60,7 +60,7 @@ class DescribeVSwitchesRequest(DaraModel):
         self.owner_id = owner_id
         # The page number of the list. Default value: **1**.
         self.page_number = page_number
-        # The number of entries per page for a paged query. Maximum value: **50**. Default value: **10**.
+        # The number of entries per page in a paged query. Maximum value: **50**. Default value: **10**.
         self.page_size = page_size
         # The ID of the region to which the vSwitch belongs. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
@@ -78,9 +78,9 @@ class DescribeVSwitchesRequest(DaraModel):
         self.v_switch_id = v_switch_id
         # The name of the vSwitch.
         # 
-        # The name must be 1 to 128 characters in length and cannot start with `http://` or `https://`.
+        # The name must be 1 to 128 characters in length, and cannot start with `http://` or `https://`.
         self.v_switch_name = v_switch_name
-        # The Alibaba Cloud account ID of the resource ownership.
+        # The Alibaba Cloud account ID for resource ownership.
         self.v_switch_owner_id = v_switch_owner_id
         # The ID of the VPC to which the vSwitch to be queried belongs. 
         # 
@@ -231,11 +231,11 @@ class DescribeVSwitchesRequestTag(DaraModel):
         key: str = None,
         value: str = None,
     ):
-        # The tag key of the resource. You can specify up to 20 tag keys. If you specify this parameter, you cannot specify an empty string.
+        # The tag key of the resource. You can specify up to 20 tag keys. If you specify this parameter, you cannot enter an empty string.
         # 
         # A tag key can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.key = key
-        # The tag value of the resource. You can specify up to 20 tag values. If you specify this parameter, you can specify an empty string.
+        # The tag value of the resource. You can specify up to 20 tag values. If you specify this parameter, you can enter an empty string.
         # 
         # A tag value can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.value = value

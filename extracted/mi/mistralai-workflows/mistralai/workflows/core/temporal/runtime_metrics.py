@@ -12,6 +12,7 @@ whole buffer/pump bridge, plus the dedicated worker_id-free MeterProvider, can g
 import asyncio
 import math
 import time
+from collections.abc import Mapping
 from typing import NamedTuple
 
 from opentelemetry.metrics import Counter, Histogram, Meter, _Gauge
@@ -22,18 +23,20 @@ from temporalio.runtime import (
     BUFFERED_METRIC_KIND_GAUGE,
     BUFFERED_METRIC_KIND_HISTOGRAM,
     BufferedMetricUpdate,
+    LoggingConfig,
     MetricBuffer,
     MetricBufferDurationFormat,
     OpenTelemetryConfig,
     Runtime,
     TelemetryConfig,
+    TelemetryFilter,
 )
 
 from mistralai.workflows._version import __version__
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import TokenProvider, get_token_provider
 from mistralai.workflows.core.config.config import config
-from mistralai.workflows.core.logging import extract_error_context
+from mistralai.workflows.core.logging import LogLevel, extract_error_context
 from mistralai.workflows.core.tracing._otel_config import (
     TELEMETRY_DISTRO_NAME_ATTRIBUTE,
     TELEMETRY_DISTRO_VERSION_ATTRIBUTE,
@@ -99,6 +102,37 @@ def _runtime_global_tags() -> dict[str, str]:
     return {**TEMPORAL_RUNTIME_METRIC_GLOBAL_TAGS, "service.version": config.common.app_version}
 
 
+# The Rust core module whose WARN lines are a cancelled activity's heartbeat spam (AGE-2388). Env-filter
+# directives match by longest target prefix, so this one overrides the core WARN directive.
+_HEARTBEAT_MANAGER_LOG_TARGET = "temporalio_sdk_core::worker::activities::activity_heartbeat_manager"
+
+
+def _core_console_logging() -> LoggingConfig:
+    """temporalio's default Rust core console filter, minus the heartbeat manager's WARN outside debug runs.
+
+    Those lines bypass Python logging, so they reach every terminal bound to the process (AGE-2388).
+    """
+    if config.common.log_level == LogLevel.DEBUG:
+        return LoggingConfig.default
+    temporalio_default = TelemetryFilter(core_level="WARN", other_level="ERROR").formatted()
+    return LoggingConfig(filter=f"{temporalio_default},{_HEARTBEAT_MANAGER_LOG_TARGET}=ERROR")
+
+
+def _telemetry_config(
+    *,
+    metrics: OpenTelemetryConfig | MetricBuffer | None = None,
+    global_tags: Mapping[str, str] | None = None,
+    attach_service_name: bool = True,
+) -> TelemetryConfig:
+    """Every Runtime this module builds goes through here, so each one applies the core console filter."""
+    return TelemetryConfig(
+        logging=_core_console_logging(),
+        metrics=metrics,
+        global_tags=global_tags or {},
+        attach_service_name=attach_service_name,
+    )
+
+
 def build_runtime() -> RuntimeBundle:
     """Build the worker's Temporal Runtime with a MetricBuffer for the pump to drain.
 
@@ -106,14 +140,18 @@ def build_runtime() -> RuntimeBundle:
     for rotating credentials). Pump-less callers use ``build_client_runtime`` instead.
     """
     if not (config.common.otel_enabled and config.common.mistral_workflows_otel_metrics_export):
-        return RuntimeBundle(Runtime(telemetry=TelemetryConfig()), None)
+        return RuntimeBundle(Runtime(telemetry=_telemetry_config()), None)
 
     buffer = MetricBuffer(
         config.common.temporal_runtime_metrics_buffer_size,
         MetricBufferDurationFormat.MILLISECONDS,
     )
     runtime = Runtime(
-        telemetry=TelemetryConfig(metrics=buffer, global_tags=_runtime_global_tags(), attach_service_name=False)
+        telemetry=_telemetry_config(
+            metrics=buffer,
+            global_tags=_runtime_global_tags(),
+            attach_service_name=False,
+        )
     )
     return RuntimeBundle(runtime, buffer)
 
@@ -138,7 +176,7 @@ def _resolve_metrics_auth(provider: TokenProvider | None) -> _MetricsAuth:
 
 def _build_otlp_runtime(metrics_base: str, *, headers: dict[str, str] | None) -> Runtime:
     return Runtime(
-        telemetry=TelemetryConfig(
+        telemetry=_telemetry_config(
             metrics=OpenTelemetryConfig(url=f"{metrics_base}/v1/metrics", http=True, headers=headers),
             global_tags=_runtime_global_tags(),
             attach_service_name=False,
@@ -154,15 +192,15 @@ def build_client_runtime() -> Runtime:
     unreadable credential can't bake a durable auth header, so runtime metrics are disabled for that caller.
     """
     if not (config.common.otel_enabled and config.common.mistral_workflows_otel_metrics_export):
-        return Runtime(telemetry=TelemetryConfig())
+        return Runtime(telemetry=_telemetry_config())
 
-    explicit_endpoint = config.common.otel_endpoint or config.common.otel_metrics_endpoint
+    explicit_endpoint = config.common.otel_metrics_endpoint
     if explicit_endpoint:
         return _build_otlp_runtime(explicit_endpoint, headers=None)
 
     auth = _resolve_metrics_auth(get_token_provider(config.worker.agent.mistral_client_api_key))
     if auth.disable:
-        return Runtime(telemetry=TelemetryConfig())
+        return Runtime(telemetry=_telemetry_config())
     assert config.worker.agent.mistral_client_server_url is not None  # guaranteed by WorkerConfig validator
     metrics_base = f"{config.worker.agent.mistral_client_server_url.rstrip('/')}/telemetry"
     return _build_otlp_runtime(metrics_base, headers=auth.headers)
@@ -229,7 +267,6 @@ def _drain(meter: Meter, cache: dict[tuple[str, int], _Instrument], buffer: Metr
                 "failed to re-emit a buffered temporal runtime metric; skipping",
                 metric=update.metric.name,
                 **extract_error_context(exc),
-                exc_info=exc,
             )
     return count
 
@@ -239,10 +276,11 @@ async def pump_runtime_metrics(
     meter: Meter,
     *,
     interval_s: float,
-    meter_provider: MeterProvider,
+    meter_provider: MeterProvider | None = None,
     buffer_size: int,
 ) -> None:
-    """Drain the buffer on an interval and re-emit through the Python meter; final drain + flush on cancel.
+    """Drain the buffer on an interval and re-emit through the Python meter; final drain on cancel.
+    The caller must flush or shut down the meter's provider to export the final drain; ``meter_provider`` is unused.
     Warns (throttled) when a drained batch nears ``buffer_size`` — the only signal core may be dropping."""
     cache: dict[tuple[str, int], _Instrument] = {}
     near_capacity = max(1, int(buffer_size * _BUFFER_NEAR_CAPACITY_RATIO))
@@ -257,7 +295,6 @@ async def pump_runtime_metrics(
                 logger.warning(
                     "failed to drain temporal runtime metrics; continuing",
                     **extract_error_context(exc),
-                    exc_info=exc,
                 )
             now = time.monotonic()
             if drained >= near_capacity and now - last_capacity_warn >= _BUFFER_WARN_INTERVAL_SECONDS:
@@ -269,14 +306,12 @@ async def pump_runtime_metrics(
                 )
             await asyncio.sleep(interval_s)
     except asyncio.CancelledError:
-        # Best-effort final drain + flush; never let it mask the CancelledError the worker awaits.
+        # Best-effort final drain; never let it mask the CancelledError the worker awaits.
         try:
             _drain(meter, cache, buffer)
-            meter_provider.force_flush()
         except Exception as exc:
             logger.warning(
-                "failed final drain/flush of temporal runtime metrics on shutdown",
+                "failed final drain of temporal runtime metrics on shutdown",
                 **extract_error_context(exc),
-                exc_info=exc,
             )
         raise

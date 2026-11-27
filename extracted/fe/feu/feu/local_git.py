@@ -1,4 +1,8 @@
-r"""Contain git utility functions."""
+r"""Contain git utility functions to inspect the tags of the current
+repository.
+
+These functions require the ``gitpython`` package.
+"""
 
 from __future__ import annotations
 
@@ -9,20 +13,31 @@ from typing import TYPE_CHECKING
 
 from packaging.version import InvalidVersion, Version
 
-from feu.imports import check_git, is_git_available
+from feu.imports import check_git
 
-if TYPE_CHECKING or is_git_available():
+if TYPE_CHECKING:
     import git
-else:  # pragma: no cover
-    from feu.utils.fallback.git import git
 
 
 def get_tags() -> list[git.TagReference]:
     r"""Get the list of git tags sorted by date/time for the current
     repository.
 
+    The repository is searched from the current working directory
+    and its parent directories. The tags are sorted by the commit
+    date of the commit they point to.
+
     Returns:
-        The list of git tags sorted by date/time.
+        The list of git tags sorted by commit date/time, from the
+            oldest to the most recent.
+
+    Raises:
+        MissingPackageError: if the ``gitpython`` package is not installed.
+        git.InvalidGitRepositoryError: if the current directory is
+            not in a git repository.
+
+    The repository is closed before returning, so that no ``git``
+    helper process is left running.
 
     Example:
         ```pycon
@@ -33,12 +48,17 @@ def get_tags() -> list[git.TagReference]:
         ```
     """
     check_git()
-    repo = git.Repo(search_parent_directories=True)
-    return sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
+    import git  # noqa: PLC0415
+
+    with git.Repo(search_parent_directories=True) as repo:
+        return sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
 
 
-def get_last_tag_name(raise_error: bool = True) -> str | None:
+def get_last_tag_name(*, raise_error: bool = True) -> str | None:
     r"""Get the name of the most recent tag in the current repository.
+
+    The most recent tag is the tag pointing to the most recent commit,
+    see ``get_tags``.
 
     Args:
         raise_error: If ``True``, a ``RuntimeError`` is raised when
@@ -51,6 +71,7 @@ def get_last_tag_name(raise_error: bool = True) -> str | None:
 
     Raises:
         RuntimeError: if no tag was found and ``raise_error=True``.
+        MissingPackageError: if the ``gitpython`` package is not installed.
 
     Example:
         ```pycon
@@ -71,11 +92,13 @@ def get_last_tag_name(raise_error: bool = True) -> str | None:
     return tags[-1].name
 
 
-def get_last_version_tag_name(raise_error: bool = True) -> str | None:
+def get_last_version_tag_name(*, raise_error: bool = True) -> str | None:
     r"""Get the name of the most recent version tag in the current
     repository.
 
-    A version tag is a tag starting with ``v{number}*``.
+    A version tag is a tag made of the prefix ``v`` followed by a
+    valid PEP 440 version, e.g. ``v1.2.3``. The other tags are
+    ignored.
 
     Args:
         raise_error: If ``True``, a ``RuntimeError`` is raised when
@@ -89,6 +112,8 @@ def get_last_version_tag_name(raise_error: bool = True) -> str | None:
     Raises:
         RuntimeError: if no version tag was found and
             ``raise_error=True``.
+        MissingPackageError: if the ``gitpython`` package is not
+            installed.
 
     Example:
         ```pycon
@@ -109,6 +134,6 @@ def get_last_version_tag_name(raise_error: bool = True) -> str | None:
             return tag.name
 
     if raise_error:
-        msg = "No tag was found"
+        msg = "No version tag was found (a version tag is 'v' followed by a PEP 440 version)"
         raise RuntimeError(msg)
     return None

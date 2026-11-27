@@ -262,8 +262,8 @@ def write_onetep_in(
     xc='PBE',
     ngwf_count=-1,
     ngwf_radius=9.0,
-    keywords={},
-    pseudopotentials={},
+    keywords=None,
+    pseudopotentials=None,
     pseudo_path='.',
     pseudo_suffix=None,
     **kwargs,
@@ -340,6 +340,10 @@ def write_onetep_in(
         pseudopotentials in pseudo_path.
     """
 
+    if pseudopotentials is None:
+        pseudopotentials = {}
+    if keywords is None:
+        keywords = {}
     label = kwargs.get('label', 'onetep')
     try:
         directory = kwargs.get('directory', Path(dirname(fd.name)))
@@ -956,7 +960,7 @@ class _OnetepHelper:
                 tmp = np.loadtxt(
                     self.fdo_lines[idx + offset : idx + n], dtype='str'
                 ).reshape(-1, 4)
-                els = np.char.array(tmp[:, 0])
+                els = tmp[:, 0]
                 if offset == 2:
                     pos = tmp[:, 1:].astype(np.float64)
                 else:
@@ -1004,7 +1008,7 @@ class _OnetepHelper:
                     dtype='str',
                     usecols=(1, 3, 4, 5),
                 )
-                els = np.char.array(tmp[:, 0])
+                els = tmp[:, 0]
                 pos = tmp[:, 1:].astype(np.float64) * units['Bohr']
                 try:
                     atoms = Atoms(els, pos)

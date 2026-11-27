@@ -341,18 +341,21 @@ THREADS_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_threads")
 RUNS_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_runs")
 
 
-def _parse_tool_names(value: str) -> frozenset[str]:
+def _parse_names(value: str) -> frozenset[str]:
     return frozenset(name.strip() for name in value.split(",") if name.strip())
 
 
 A2A_ALLOWED_TOOL_CALL_RESULTS = env(
     "A2A_ALLOWED_TOOL_CALL_RESULTS",
-    cast=_parse_tool_names,
+    cast=_parse_names,
     default=None,
+)
+A2A_ALLOWED_DATA_MIME_TYPES = env(
+    "A2A_ALLOWED_DATA_MIME_TYPES", cast=_parse_names, default=""
 )
 A2A_A2UI_ENABLED = env("A2A_A2UI_ENABLED", cast=bool, default=False)
 A2A_A2UI_TOOL_CALL_RESULTS = env(
-    "A2A_A2UI_TOOL_CALL_RESULTS", cast=_parse_tool_names, default=""
+    "A2A_A2UI_TOOL_CALL_RESULTS", cast=_parse_names, default=""
 )
 WEBHOOKS_ENABLED = HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks")
 # Not in public docs: populated by langgraph.json config, not set as env var directly

@@ -1,11 +1,17 @@
+# Keep this shared module cohesive for protocol regression review.
+# OIDC claim provenance and freshness remain in the shared backend contract.
+# pylint: disable=too-many-lines
 from __future__ import annotations
 
 import base64
 import datetime as dt
+import math
 from calendar import timegm
+from contextlib import suppress
 from json import loads
 from time import time as _time
 from typing import TYPE_CHECKING, Any, Literal, cast
+from urllib.parse import parse_qs, urlsplit
 
 import jwt
 from cryptography.hazmat.backends import default_backend
@@ -16,6 +22,7 @@ from jwt import (
     InvalidTokenError,
     PyJWTError,
 )
+from jwt.algorithms import get_default_algorithms
 from jwt.utils import base64url_decode
 
 from social_core.backends.base import ResponseT_co
@@ -36,13 +43,19 @@ _ID_TOKEN_CONTEXT_KEY = "_oidc_id_token_context"
 _VALIDATED_ID_TOKEN_KEY = "_oidc_validated_id_token"
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
     from jwt.types import Options
     from requests.auth import AuthBase
 
     from social_core.storage import PartialMixin, UserProtocol
     from social_core.strategy import BaseStrategy
+
+
+def _diagnostic_algorithm(algorithm: object) -> str:
+    if isinstance(algorithm, str) and algorithm in get_default_algorithms():
+        return algorithm
+    return "unknown"
 
 
 class OpenIdConnectAssociation:
@@ -119,6 +132,64 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[Respons
         super().__init__(strategy, redirect_uri=redirect_uri)
         self.id_token: dict[str, Any] | None = None
         self._oidc_association_transaction: dict[str, Any] | None = None
+
+    def prepare_auth(self, user: UserProtocol | None = None) -> None:
+        super().prepare_auth(user)
+        if self.ASSOCIATION_ONLY:
+            key = f"{self.name}_state"
+            context = self.strategy.session_get(key)
+            if isinstance(context, dict):
+                self.strategy.session_set(
+                    key,
+                    {
+                        **context,
+                        "timestamp": timegm(dt.datetime.now(dt.UTC).timetuple()),
+                    },
+                )
+
+    def auth_url(self) -> str:
+        """Save the effective freshness policy sent in the authorization URL."""
+        url = super().auth_url()
+        parameters = parse_qs(urlsplit(url).query, keep_blank_values=True)
+        state = parameters.get("state", [None])[0]
+        key = (
+            f"{self.name}_state"
+            if self.ASSOCIATION_ONLY
+            else self.transaction_key(state)
+            if isinstance(state, str)
+            else None
+        )
+        transaction = self.strategy.session_get(key) if key is not None else None
+        if key is None or not isinstance(transaction, dict):
+            raise AuthSessionError(self, code="session_context_missing", stage="begin")
+        max_age = parameters.get("max_age", [None])[0]
+        acr_values = parameters.get("acr_values", [None])[0]
+        if max_age is not None:
+            try:
+                parsed_max_age = int(max_age)
+            except (TypeError, ValueError) as error:
+                raise AuthConfigurationError(
+                    self, code="invalid_setting", parameter="max_age", stage="begin"
+                ) from error
+            if parsed_max_age < 0:
+                raise AuthConfigurationError(
+                    self, code="invalid_setting", parameter="max_age", stage="begin"
+                )
+        else:
+            parsed_max_age = None
+        if acr_values is not None and not acr_values.split():
+            raise AuthConfigurationError(
+                self, code="invalid_setting", parameter="acr_values", stage="begin"
+            )
+        self.strategy.session_set(
+            key,
+            {
+                **transaction,
+                "oidc_requested_max_age": parsed_max_age,
+                "oidc_requested_acr_values": acr_values,
+            },
+        )
+        return url
 
     def validate_association_state(
         self, request_state: Any, user: UserProtocol | None = None
@@ -428,6 +499,83 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[Respons
                 stage="token_validation",
             )
 
+    def validate_acr(self, id_token) -> None:
+        """
+        Require the authentication context class requested with ACR_VALUES.
+
+        The request parameter reaches the provider through the browser, which
+        can drop it, and the provider may not honor it, so the ID token has to
+        show it was met (OpenID Connect Core 3.1.3.7, step 12).
+        """
+        transaction = (
+            self._oidc_association_transaction
+            if self.ASSOCIATION_ONLY
+            else self._oauth2_transaction
+        )
+        if isinstance(transaction, dict) and "oidc_requested_acr_values" in transaction:
+            acr_values = transaction["oidc_requested_acr_values"]
+        else:
+            acr_values = self.setting("ACR_VALUES", default=self.ACR_VALUES)
+        if acr_values is not None and id_token.get("acr") not in acr_values.split():
+            raise AuthResponseError(
+                self,
+                "Incorrect id_token: acr",
+                claim="acr",
+                code="invalid_claim",
+                stage="token_validation",
+            )
+
+    def validate_max_age(self, id_token: dict[str, Any]) -> None:
+        """Check requested authentication freshness against validated claims."""
+        transaction = (
+            self._oidc_association_transaction
+            if self.ASSOCIATION_ONLY
+            else self._oauth2_transaction
+        )
+        if isinstance(transaction, dict) and "oidc_requested_max_age" in transaction:
+            max_age = transaction["oidc_requested_max_age"]
+        else:
+            max_age = self.setting("MAX_AGE", default=self.MAX_AGE)
+        if max_age is None:
+            return
+        transaction = (
+            self._oidc_association_transaction
+            if self.ASSOCIATION_ONLY
+            else self._oauth2_transaction
+        )
+        requested_at = (
+            transaction.get("timestamp") if isinstance(transaction, dict) else None
+        )
+        if not isinstance(requested_at, int) or isinstance(requested_at, bool):
+            raise AuthSessionError(
+                self, code="session_context_missing", stage="token_validation"
+            )
+        auth_time = id_token.get("auth_time")
+        if (
+            isinstance(auth_time, bool)
+            or not isinstance(auth_time, (int, float))
+            or (isinstance(auth_time, float) and not math.isfinite(auth_time))
+        ):
+            raise AuthResponseError(
+                self, claim="auth_time", code="missing_claim", stage="token_validation"
+            )
+        leeway = cast("float", self.setting("JWT_LEEWAY", self.JWT_LEEWAY))
+        now = timegm(dt.datetime.now(dt.UTC).timetuple())
+        if auth_time > now + leeway:
+            raise AuthResponseError(
+                self,
+                claim="auth_time",
+                code="response_not_yet_valid",
+                stage="token_validation",
+            )
+        if requested_at - auth_time > max_age + leeway:
+            raise AuthResponseError(
+                self,
+                claim="auth_time",
+                code="response_expired",
+                stage="token_validation",
+            )
+
     def validate_claims(self, id_token) -> None:
         self.validate_temporal_claims(id_token)
 
@@ -469,8 +617,19 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[Respons
                 stage="token_validation",
             )
 
+    def _load_signing_jwk(self, key: dict[str, Any]) -> jwt.PyJWK:
+        try:
+            return jwt.PyJWK(key)
+        except (PyJWTError, TypeError):
+            self.log_debug(
+                "Unable to load ID token signing JWK (algorithm=%s)",
+                _diagnostic_algorithm(key.get("alg")),
+            )
+            raise
+
     def find_valid_key(self, id_token):
-        kid = jwt.get_unverified_header(id_token).get("kid")
+        header = jwt.get_unverified_header(id_token)
+        kid = header.get("kid")
 
         keys = self.get_jwks_keys()
         if kid is not None:
@@ -482,20 +641,45 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[Respons
                 self.get_jwks_keys_for_uri.invalidate(self, self.jwks_uri())
                 keys = self.get_jwks_keys()
 
+        candidate_found = False
         for key in keys:
             if kid is None or kid == key.get("kid"):
+                candidate_found = True
                 if "alg" not in key:
                     key["alg"] = cast(
                         "list[str]", self.setting("JWT_ALGORITHMS", self.JWT_ALGORITHMS)
                     )[0]
-                rsakey = jwt.PyJWK(key)
+                rsakey = self._load_signing_jwk(key)
                 message, encoded_sig = id_token.rsplit(".", 1)
                 decoded_sig = base64url_decode(encoded_sig.encode("utf-8"))
                 if rsakey.Algorithm.verify(
                     message.encode("utf-8"), rsakey.key, decoded_sig
                 ):
                     return key
+                self.log_debug(
+                    "ID token signature did not verify with candidate JWK (algorithm=%s)",
+                    _diagnostic_algorithm(rsakey.algorithm_name),
+                )
+        if not candidate_found:
+            self.log_debug(
+                "No ID token signing JWK available (algorithm=%s)"
+                if kid is None
+                else "No matching ID token signing JWK after cache refresh (algorithm=%s)",
+                _diagnostic_algorithm(header.get("alg")),
+            )
         return None
+
+    def _log_disallowed_signing_algorithm(
+        self, id_token: str, algorithms: Sequence[str]
+    ) -> None:
+        # Re-reading the header for logging must preserve the decode error.
+        with suppress(PyJWTError):
+            algorithm = jwt.get_unverified_header(id_token).get("alg")
+            if not algorithm or algorithm not in algorithms:
+                self.log_debug(
+                    "ID token signing algorithm rejected by allowlist (algorithm=%s)",
+                    _diagnostic_algorithm(algorithm),
+                )
 
     def decode_and_validate_id_token(self, id_token, access_token):
         """Validate an ID token's signature and self-contained claims."""
@@ -514,12 +698,16 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[Respons
                 stage="token_validation",
             )
 
+        algorithms: list[str] | None = None
         try:
-            rsakey = jwt.PyJWK(key)
+            rsakey = self._load_signing_jwk(key)
+            algorithms = cast(
+                "list[str] | None", self.setting("JWT_ALGORITHMS", self.JWT_ALGORITHMS)
+            )
             claims = jwt.decode(
                 id_token,
                 rsakey.key,
-                algorithms=self.setting("JWT_ALGORITHMS", self.JWT_ALGORITHMS),
+                algorithms=algorithms,
                 audience=client_id,
                 issuer=self.id_token_issuer(),
                 options=cast(
@@ -545,6 +733,8 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[Respons
                 stage="token_validation",
             ) from error
         except InvalidTokenError as error:
+            if isinstance(error, jwt.InvalidAlgorithmError) and algorithms is not None:
+                self._log_disallowed_signing_algorithm(id_token, algorithms)
             raise jwt_error(self, error) from error
         except PyJWTError as error:
             raise jwt_error(self, error) from error
@@ -571,6 +761,8 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[Respons
         claims = self.decode_and_validate_id_token(id_token, access_token)
         self.validate_required_id_token_claims(claims)
         self.validate_claims(claims)
+        self.validate_acr(claims)
+        self.validate_max_age(claims)
 
         return claims
 
@@ -821,11 +1013,17 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[Respons
 
     def get_stored_user_id_keys(self, id_key: str) -> tuple[str, ...]:
         """Older OIDC backends stored the subject under the alias ``id``."""
-        return (
-            ("sub", "id")
-            if id_key == "sub"
-            else super().get_stored_user_id_keys(id_key)
-        )
+        keys = super().get_stored_user_id_keys(id_key)
+        return tuple(dict.fromkeys(("sub", "id", *keys))) if id_key == "sub" else keys
+
+    def get_nested_stored_user_ids(
+        self, extra_data: dict[str, Any], id_key: str
+    ) -> tuple[object, ...]:
+        """The refresh continuity context keeps the validated subject since 5.1.0."""
+        context = extra_data.get(_ID_TOKEN_CONTEXT_KEY)
+        if id_key == "sub" and isinstance(context, dict) and "sub" in context:
+            return (context["sub"],)
+        return super().get_nested_stored_user_ids(extra_data, id_key)
 
     def get_user_id(self, details, response):
         id_key = self.id_key()
@@ -880,6 +1078,27 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[Respons
             "first_name": get_value(first_name_key),
             "last_name": get_value(last_name_key),
         }
+
+    def get_email_verified(self, response: dict[str, Any]) -> bool | None:
+        """Read verification from the source of the selected email claim."""
+        email_key = self.setting("EMAIL_KEY", self.EMAIL_KEY)
+        marker_key = self.setting(
+            "EMAIL_VERIFIED_KEY", "email_verified" if email_key == "email" else None
+        )
+        if marker_key is None:
+            return None
+        if not isinstance(marker_key, str) or not marker_key:
+            raise AuthConfigurationError(
+                self,
+                code="invalid_setting",
+                parameter="EMAIL_VERIFIED_KEY",
+                stage="pipeline",
+            )
+        source = response if email_key in response else self.id_token
+        if not isinstance(source, dict):
+            return None
+        marker = source.get(marker_key)
+        return None if marker is None else marker is True
 
     def validate_at_hash(self, claims, access_token, key):
         """

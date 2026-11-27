@@ -22,6 +22,7 @@
 #include "port.hpp"
 #include "user_handle_table.hpp"
 #include "wnf_state.hpp"
+#include "clipboard.hpp"
 
 #include "apiset/apiset.hpp"
 
@@ -145,6 +146,38 @@ namespace sogen
         };
     }
 
+    // A DC that was never reset starts as an empty rectangle at the origin that every accumulation extends; DCB_RESET
+    // empties it, and the next accumulation then takes the new rectangle as it is.
+    struct gdi_dc_bounds
+    {
+        int32_t left{};
+        int32_t top{};
+        int32_t right{};
+        int32_t bottom{};
+        bool emptied{};
+        bool enabled{};
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(this->left);
+            buffer.write(this->top);
+            buffer.write(this->right);
+            buffer.write(this->bottom);
+            buffer.write(this->emptied);
+            buffer.write(this->enabled);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(this->left);
+            buffer.read(this->top);
+            buffer.read(this->right);
+            buffer.read(this->bottom);
+            buffer.read(this->emptied);
+            buffer.read(this->enabled);
+        }
+    };
+
     struct gdi_dc_state
     {
         uint32_t selected_bitmap{};
@@ -154,6 +187,8 @@ namespace sogen
         bool is_memory_dc{};
         // Retrieved with GetDC and friends, which hand out the desktop window's DC for no window.
         bool is_window_dc{};
+        gdi_dc_bounds application_bounds{};
+        gdi_dc_bounds window_manager_bounds{};
 
         void serialize(utils::buffer_serializer& buffer) const
         {
@@ -163,6 +198,8 @@ namespace sogen
             buffer.write(this->current_y);
             buffer.write(this->is_memory_dc);
             buffer.write(this->is_window_dc);
+            this->application_bounds.serialize(buffer);
+            this->window_manager_bounds.serialize(buffer);
         }
 
         void deserialize(utils::buffer_deserializer& buffer)
@@ -173,6 +210,8 @@ namespace sogen
             buffer.read(this->current_y);
             buffer.read(this->is_memory_dc);
             buffer.read(this->is_window_dc);
+            this->application_bounds.deserialize(buffer);
+            this->window_manager_bounds.deserialize(buffer);
         }
     };
 
@@ -211,17 +250,43 @@ namespace sogen
             CLSMENUNAME<EmulatorTraits<Emu64>> menu_name{};
             bool ansi_proc{};
             uint16_t atom{};
+            std::u16string name{};
+            bool synthesised{};
 
             class_entry() = default;
 
             class_entry(const emulator_pointer guest_obj, const EMU_WNDCLASSEX& wnd_class,
-                        const CLSMENUNAME<EmulatorTraits<Emu64>>& menu_name, const uint16_t atom, const bool ansi_proc = false)
+                        const CLSMENUNAME<EmulatorTraits<Emu64>>& menu_name, const uint16_t atom, std::u16string name,
+                        const bool ansi_proc = false)
                 : guest_obj_addr(guest_obj),
                   wnd_class(wnd_class),
                   menu_name(menu_name),
                   ansi_proc(ansi_proc),
-                  atom(atom)
+                  atom(atom),
+                  name(std::move(name))
             {
+            }
+
+            void serialize(utils::buffer_serializer& buffer) const
+            {
+                buffer.write(this->guest_obj_addr);
+                buffer.write(this->wnd_class);
+                buffer.write(this->menu_name);
+                buffer.write(this->ansi_proc);
+                buffer.write(this->atom);
+                buffer.write(this->name);
+                buffer.write(this->synthesised);
+            }
+
+            void deserialize(utils::buffer_deserializer& buffer)
+            {
+                buffer.read(this->guest_obj_addr);
+                buffer.read(this->wnd_class);
+                buffer.read(this->menu_name);
+                buffer.read(this->ansi_proc);
+                buffer.read(this->atom);
+                buffer.read(this->name);
+                buffer.read(this->synthesised);
             }
         };
 
@@ -561,6 +626,8 @@ namespace sogen
         dxgk_state dxgk{};
         std::optional<handle> etw_notification_event{};
         hwnd mouse_capture_window{};
+        hwnd update_locked_window{};
+        uint32_t update_lock_thread_id{};
         std::optional<ULONG> timer_resolution_request{};
         // The window that currently holds keyboard focus / is the foreground window, and the last known
         // cursor position in screen coordinates. Games poll these via GetForegroundWindow/GetActiveWindow
@@ -693,7 +760,7 @@ namespace sogen
 
         std::vector<low_level_input> pending_low_level_input{};
         uint64_t next_low_level_input_id{1};
-        uint64_t next_hook_handle{1};
+        uint32_t next_hook_uniqueness{1};
         // The host sends the character of a key as its own event, so it has to be dropped with a swallowed key press.
         bool drop_low_level_characters{};
 
@@ -716,6 +783,8 @@ namespace sogen
         void set_display_mode(windows_emulator& win_emu, uint32_t width, uint32_t height);
         void set_mouse_capture(hwnd window);
         void release_mouse_capture(hwnd window);
+        void release_update_lock(hwnd window);
+        void release_update_lock_of_thread(uint32_t locking_thread_id);
         // The storage a pagefile section's views alias, created on first use. 0 when the section's views share one guest
         // backing instead, because they cannot alias host memory or the section only reserves.
         uint64_t section_view_storage(section& section_entry, bool can_alias_host_memory, bool shareable);
@@ -789,6 +858,7 @@ namespace sogen
         std::map<uint32_t, handle> thread_handles_by_id{};
         handle initial_thread_handle{};
         std::map<uint16_t, atom_entry> atoms{};
+        clipboard_state clipboard{};
         utils::insensitive_u16string_map<class_entry> classes{};
 
         apiset_map apiset;

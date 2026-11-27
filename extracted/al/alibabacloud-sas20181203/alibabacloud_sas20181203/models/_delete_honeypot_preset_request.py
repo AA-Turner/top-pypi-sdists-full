@@ -11,13 +11,13 @@ class DeleteHoneypotPresetRequest(DaraModel):
         lang: str = None,
     ):
         # The unique ID of the honeypot template.
-        # >Call the [ListHoneypotPreset](~~ListHoneypotPreset~~) operation to obtain this parameter.
+        # >You can call the [ListHoneypotPreset](~~ListHoneypotPreset~~) operation to obtain this parameter.
         # 
         # This parameter is required.
         self.honeypot_preset_id = honeypot_preset_id
-        # The language of the content in the request and response. Default value: **zh**. Valid values:
+        # Specifies the language of the request and response. Default value: **zh**. Valid values:
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
 
     def validate(self):

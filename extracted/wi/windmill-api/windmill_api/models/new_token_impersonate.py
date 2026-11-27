@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Dict, List, Type, TypeVar, Union
+from typing import Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -17,13 +17,20 @@ class NewTokenImpersonate:
         impersonate_email (str):
         label (Union[Unset, str]):
         expiration (Union[Unset, datetime.datetime]):
-        workspace_id (Union[Unset, str]):
+        workspace_id (Union[Unset, str]): Bind the token to this workspace; omit for a token that reaches every
+            workspace.
+        super_admin (Union[Unset, bool]): Carry the impersonated account's superadmin rights. Defaults to false.
+        admin (Union[Unset, bool]): Carry the impersonated account's workspace admin rights. Defaults to false.
+        allowed_ips (Union[Unset, List[str]]): IPs or CIDRs the token may be used from; omit to allow any.
     """
 
     impersonate_email: str
     label: Union[Unset, str] = UNSET
     expiration: Union[Unset, datetime.datetime] = UNSET
     workspace_id: Union[Unset, str] = UNSET
+    super_admin: Union[Unset, bool] = UNSET
+    admin: Union[Unset, bool] = UNSET
+    allowed_ips: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +41,11 @@ class NewTokenImpersonate:
             expiration = self.expiration.isoformat()
 
         workspace_id = self.workspace_id
+        super_admin = self.super_admin
+        admin = self.admin
+        allowed_ips: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.allowed_ips, Unset):
+            allowed_ips = self.allowed_ips
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -48,6 +60,12 @@ class NewTokenImpersonate:
             field_dict["expiration"] = expiration
         if workspace_id is not UNSET:
             field_dict["workspace_id"] = workspace_id
+        if super_admin is not UNSET:
+            field_dict["super_admin"] = super_admin
+        if admin is not UNSET:
+            field_dict["admin"] = admin
+        if allowed_ips is not UNSET:
+            field_dict["allowed_ips"] = allowed_ips
 
         return field_dict
 
@@ -67,11 +85,20 @@ class NewTokenImpersonate:
 
         workspace_id = d.pop("workspace_id", UNSET)
 
+        super_admin = d.pop("super_admin", UNSET)
+
+        admin = d.pop("admin", UNSET)
+
+        allowed_ips = cast(List[str], d.pop("allowed_ips", UNSET))
+
         new_token_impersonate = cls(
             impersonate_email=impersonate_email,
             label=label,
             expiration=expiration,
             workspace_id=workspace_id,
+            super_admin=super_admin,
+            admin=admin,
+            allowed_ips=allowed_ips,
         )
 
         new_token_impersonate.additional_properties = d

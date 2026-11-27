@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MPL-2.0
 from __future__ import annotations
 
-from importlib.metadata import version
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -10,7 +11,6 @@ import numpy as np
 import pytest
 import scipy.sparse as sps
 from numpy.exceptions import AxisError
-from packaging.version import Version
 
 from fast_array_utils import stats, types
 from testing.fast_array_utils import SUPPORTED_TYPES, Flags
@@ -39,11 +39,6 @@ STAT_FUNCS = [stats.sum, stats.min, stats.max, stats.mean, stats.mean_var, stats
 # can’t select these using a category filter
 ATS_SPARSE_DS = {at for at in SUPPORTED_TYPES if at.mod == "anndata.abc"}
 ATS_CUPY_SPARSE = {at for at in SUPPORTED_TYPES if "cupyx.scipy" in str(at)}
-
-
-def _xfail_if_old_scipy(array_type: ArrayType[Any], ndim: Literal[1, 2]) -> pytest.MarkDecorator:
-    cond = ndim == 1 and bool(array_type.flags & Flags.Sparse) and Version(version("scipy")) < Version("1.14")
-    return pytest.mark.xfail(cond, reason="Sparse matrices don’t support 1d arrays")
 
 
 @pytest.fixture(
@@ -143,10 +138,7 @@ def pbmc64k_reduced_raw() -> sps.csr_array[np.float32]:
 @pytest.mark.array_type(skip={*ATS_SPARSE_DS, Flags.Matrix})
 @pytest.mark.parametrize("func", STAT_FUNCS)
 @pytest.mark.parametrize(("ndim", "axis"), [(1, 0), (2, 3), (2, -1)], ids=["1d-ax0", "2d-ax3", "2d-axneg"])
-def test_ndim_error(
-    request: pytest.FixtureRequest, array_type: ArrayType[Array], func: StatFunNoDtype, ndim: Literal[1, 2], axis: Literal[0, 1] | None
-) -> None:
-    request.applymarker(_xfail_if_old_scipy(array_type, ndim))
+def test_ndim_error(array_type: ArrayType[Array], func: StatFunNoDtype, ndim: Literal[1, 2], axis: Literal[0, 1] | None) -> None:
     check_ndim(array_type, ndim)
     # not using the fixture because we don’t need to test multiple dtypes
     np_arr = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32)
@@ -161,15 +153,12 @@ def test_ndim_error(
 @pytest.mark.array_type(skip=ATS_SPARSE_DS)
 def test_sum(
     *,
-    request: pytest.FixtureRequest,
     array_type: ArrayType[CpuArray | GpuArray | DiskArray | types.DaskArray],
     dtype_in: type[DTypeIn],
     dtype_arg: type[DTypeOut] | None,
     axis: Literal[0, 1] | None,
     np_arr: NDArray[DTypeIn],
-    ndim: Literal[1, 2],
 ) -> None:
-    request.applymarker(_xfail_if_old_scipy(array_type, ndim))
     if np.dtype(dtype_arg).kind in "iu" and (array_type.flags & Flags.Gpu) and (array_type.flags & Flags.Sparse):
         pytest.skip("GPU sparse matrices don’t support int dtypes")
     arr = array_type(np_arr.copy())
@@ -240,8 +229,7 @@ def test_dask_shapes(array_type: ArrayType[types.DaskArray], axis: Literal[0, 1]
 
 
 @pytest.mark.array_type(skip=ATS_SPARSE_DS)
-def test_mean(request: pytest.FixtureRequest, array_type: ArrayType[Array], axis: Literal[0, 1] | None, np_arr: NDArray[DTypeIn], ndim: Literal[1, 2]) -> None:
-    request.applymarker(_xfail_if_old_scipy(array_type, ndim))
+def test_mean(array_type: ArrayType[Array], axis: Literal[0, 1] | None, np_arr: NDArray[DTypeIn]) -> None:
     arr = array_type(np_arr)
 
     result = stats.mean(arr, axis=axis)  # type: ignore[arg-type]  # https://github.com/python/mypy/issues/16777
@@ -256,25 +244,22 @@ def test_mean(request: pytest.FixtureRequest, array_type: ArrayType[Array], axis
 
 @pytest.mark.array_type(skip=Flags.Disk)
 def test_mean_var(
-    request: pytest.FixtureRequest,
     array_type: ArrayType[CpuArray | GpuArray | types.DaskArray],
     axis: Literal[0, 1] | None,
     np_arr: NDArray[DTypeIn],
-    ndim: Literal[1, 2],
 ) -> None:
-    request.applymarker(_xfail_if_old_scipy(array_type, ndim))
     arr = array_type(np_arr)
 
     mean, var = stats.mean_var(arr, axis=axis, correction=1)
     if isinstance(mean, types.DaskArray) and isinstance(var, types.DaskArray):
         mean, var = mean.compute(), var.compute()  # type: ignore[assignment]
-    if isinstance(mean, types.CupyArray) and isinstance(var, types.CupyArray):
-        mean, var = mean.get(), var.get()
+    # new names: `.get()` returns a less specific dtype than `mean` and `var` have
+    mean_np, var_np = (mean.get(), var.get()) if isinstance(mean, types.CupyArray) and isinstance(var, types.CupyArray) else (mean, var)
 
     mean_expected = np.mean(np_arr, axis=axis)
     var_expected = np.var(np_arr, axis=axis, ddof=1)
-    np.testing.assert_array_equal(mean, mean_expected)
-    np.testing.assert_array_almost_equal(var, var_expected)  # type: ignore[arg-type]
+    np.testing.assert_array_equal(mean_np, mean_expected)
+    np.testing.assert_array_almost_equal(var_np, var_expected)  # type: ignore[arg-type]
 
 
 @pytest.mark.skipif(not find_spec("sklearn"), reason="sklearn not installed")
@@ -396,12 +381,29 @@ def test_stats_benchmark(
     n_elems, density = 10_000_000, 0.01
     n = int(np.sqrt(n_elems / density if "sparse" in array_type.mod else n_elems))
     arr = array_type.random((n, n), density=density, dtype=dtype)
+    if (
+        func is stats.is_constant
+        and isinstance(arr, types.CSBase)
+        and ((array_type.name == "csr_array" and axis == 1) or (array_type.name == "csc_array" and axis == 0))
+    ):
+        # random rows break at the first entry, so make every row constant (explicit zeros) to scan all entries
+        arr.data[:] = 0
 
     func(arr, axis=axis)  # warmup: numba compile
 
-    is_very_fast = func is stats.is_constant and ((array_type.name == "csr_array" and axis == 1) or (array_type.name == "csc_array" and axis == 0))
+    @benchmark
+    def call() -> None:
+        func(arr, axis=axis)
+
+
+@pytest.mark.benchmark
+@pytest.mark.array_type(select=Flags.Sparse, skip=Flags.Matrix | Flags.Dask | Flags.Disk | Flags.Gpu)
+def test_mean_var_threaded_benchmark(benchmark: BenchmarkFixture, array_type: ArrayType[CpuArray, None]) -> None:
+    """Calls from worker threads run serially, so they only overlap if numba releases the GIL."""
+    mats = [array_type.random((20_000, 5_000), density=0.1, dtype=np.float64) for _ in range(4)]
+    stats.mean_var(mats[0], axis=0)  # warmup: numba compile
 
     @benchmark
     def call() -> None:
-        for _ in range(100 if is_very_fast else 1):
-            func(arr, axis=axis)
+        with ThreadPoolExecutor(len(mats)) as pool:
+            list(pool.map(partial(stats.mean_var, axis=0), mats))

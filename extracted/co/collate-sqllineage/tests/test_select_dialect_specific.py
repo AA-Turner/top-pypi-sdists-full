@@ -151,3 +151,11 @@ FROM mytable""",
         {"mytable"},
         dialect=dialect,
     )
+
+
+def test_select_backtick_quoted_function_call():
+    assert_table_lineage_equal(
+        "SELECT `computed`.`url_decode`(page_url) AS url FROM `proj.ds.events`",
+        {"proj.ds.events"},
+        dialect="bigquery",
+    )

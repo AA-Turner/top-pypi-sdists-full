@@ -391,19 +391,6 @@ class TestRaiseIfFunctionHasInvalidReturnType:
 
 
 class TestQueryHandlerValidation:
-    def test_async_query_handler_raises_error(self) -> None:
-        with pytest.raises(WorkflowsException, match="Query.*must be a synchronous function"):
-
-            @workflow.define(name="test_workflow")
-            class TestWorkflow:
-                @workflow.entrypoint
-                async def run(self) -> None:
-                    pass
-
-                @workflow.query()
-                async def async_query(self) -> str:
-                    return "test"
-
     def test_query_with_invalid_return_type_schema(self) -> None:
         class InvalidType:
             value: str

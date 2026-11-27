@@ -10,35 +10,37 @@ class OperateSuspiciousOverallConfigRequest(DaraModel):
         config: str = None,
         lang: str = None,
         no_target_as_on: bool = None,
+        resource_directory_account_id: int = None,
         source_ip: str = None,
         type: str = None,
     ):
         # The switch status. Valid values:
         # 
-        # - **on**: Enable
-        # - **off**: Disable
+        # - **on**: Enabled
+        # - **off**: Disabled
         # 
         # This parameter is required.
         self.config = config
-        # The language type for the request and response messages. Default value: **zh**. Valid values:
+        # Specifies the language type for requests and response messages. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
         # - **en**: English
         self.lang = lang
-        # Specifies whether asset configuration is required. Default value: **false**. Valid values:
-        # - **true**: Required
-        # - **false**: Not required
-        # > This value takes effect only when **config** is set to **on**.
+        # Specifies whether to configure assets. Default value: **false**. Valid values:
+        # - **true**: Yes
+        # - **false**: No
+        # > This value is valid only when **config** is set to **on**.
         self.no_target_as_on = no_target_as_on
-        # The IP address of the access source.
+        self.resource_directory_account_id = resource_directory_account_id
+        # The source IP address.
         self.source_ip = source_ip
         # The switch type. Valid values:
         # 
         # - **auto_breaking**: Anti-virus
         # - **ransomware_breaking**: Anti-ransomware (bait capture)
-        # - **webshell_cloud_breaking**: Website backdoor connection defense
+        # - **webshell_cloud_breaking**: Web shell connection defense
         # - **alinet**: Malicious network behavior defense
-        # - **k8s_log_analysis**: Container K8s threat detection
+        # - **k8s_log_analysis**: Container Kubernetes threat detection
         # - **alisecguard**: Client self-protection defense mode
         # 
         # This parameter is required.
@@ -61,6 +63,9 @@ class OperateSuspiciousOverallConfigRequest(DaraModel):
         if self.no_target_as_on is not None:
             result['NoTargetAsOn'] = self.no_target_as_on
 
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         if self.source_ip is not None:
             result['SourceIp'] = self.source_ip
 
@@ -79,6 +84,9 @@ class OperateSuspiciousOverallConfigRequest(DaraModel):
 
         if m.get('NoTargetAsOn') is not None:
             self.no_target_as_on = m.get('NoTargetAsOn')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         if m.get('SourceIp') is not None:
             self.source_ip = m.get('SourceIp')

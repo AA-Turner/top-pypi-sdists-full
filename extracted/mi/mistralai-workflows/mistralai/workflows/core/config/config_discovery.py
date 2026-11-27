@@ -10,7 +10,8 @@ from mistralai.workflows.client import translate_model
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import get_token_provider
 from mistralai.workflows.core.auth.header_files import get_deployment_headers
-from mistralai.workflows.core.config.config import adopt_remote_default, apply_remote_defaults, config
+from mistralai.workflows.core.config.config import AppConfig, adopt_remote_default, apply_remote_defaults
+from mistralai.workflows.core.config.config import config as legacy_config
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.protocol.v1.worker import WorkerInfo
@@ -18,24 +19,29 @@ from mistralai.workflows.worker_client.errors import SDKError
 
 logger = get_logger(__name__)
 
+_IGNORED_WORKER_FEATURES = {"events_api_version"}
+
 
 class WorkerRuntimeConfig(WorkerInfo):
-    def apply(self) -> dict[str, Any]:
+    def apply(self, target: AppConfig | None = None) -> dict[str, Any]:
         """Apply the resolved configuration, returning the feature values that won."""
+        target = target if target is not None else legacy_config
         # The connection settings are adopted field by field rather than through
         # `RemotelyOverridable`: the server names them differently and the scheduler URL needs
         # normalizing. New flags belong on the annotation path instead.
-        adopt_remote_default(config.temporal, "namespace", self.namespace)
-        adopt_remote_default(config.temporal, "server_url", normalize_temporal_url(self.scheduler_url))
-        adopt_remote_default(config.temporal, "tls", self.tls)
-        return apply_remote_defaults(config, self.features.model_dump())
+        adopt_remote_default(target.temporal, "namespace", self.namespace)
+        adopt_remote_default(target.temporal, "server_url", normalize_temporal_url(self.scheduler_url))
+        adopt_remote_default(target.temporal, "tls", self.tls)
+        features = self.features.model_dump(exclude=_IGNORED_WORKER_FEATURES)
+        return apply_remote_defaults(target, features)
 
 
-async def _fetch_worker_runtime_config() -> WorkerRuntimeConfig:
+async def _fetch_worker_runtime_config(target: AppConfig) -> WorkerRuntimeConfig:
     async with get_worker_client(
-        base_url=config.worker.server_url,
-        token_provider=get_token_provider(),
-        headers=get_deployment_headers(),
+        base_url=target.worker.server_url,
+        timeout=target.http.timeout,
+        token_provider=get_token_provider(app_config=target),
+        headers=get_deployment_headers(target.worker),
     ) as worker_client:
         result = await worker_client.whoami_async()
         response = translate_model(WorkerInfo, result)
@@ -43,25 +49,22 @@ async def _fetch_worker_runtime_config() -> WorkerRuntimeConfig:
     return WorkerRuntimeConfig.model_validate_json(response.model_dump_json())
 
 
-async def apply_worker_runtime_config(api_key: str | None = None) -> WorkerRuntimeConfig | None:
-    if api_key is not None:
-        warnings.warn(
-            "Passing `api_key` to apply_worker_runtime_config is deprecated and ignored; "
-            "authentication resolves through the token provider.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+async def apply_worker_runtime_config(
+    *,
+    config: AppConfig | None = None,
+) -> WorkerRuntimeConfig | None:
+    target = config if config is not None else legacy_config
     try:
-        runtime_config = await _fetch_worker_runtime_config()
-        effective_features = runtime_config.apply()
+        runtime_config = await _fetch_worker_runtime_config(target)
+        effective_features = runtime_config.apply(target)
         logger.info(
             "Applied worker runtime config",
             namespace=runtime_config.namespace,
             scheduler_url=runtime_config.scheduler_url,
             tls=runtime_config.tls,
-            effective_namespace=config.temporal.namespace,
-            effective_server_url=config.temporal.server_url,
-            effective_tls=config.temporal.tls,
+            effective_namespace=target.temporal.namespace,
+            effective_server_url=target.temporal.server_url,
+            effective_tls=target.temporal.tls,
             server_features=runtime_config.features.model_dump(),
             effective_features=effective_features,
         )

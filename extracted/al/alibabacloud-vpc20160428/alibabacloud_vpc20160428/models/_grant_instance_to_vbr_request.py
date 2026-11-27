@@ -35,7 +35,7 @@ class GrantInstanceToVbrRequest(DaraModel):
         self.region_id = region_id
         # The list of VBR instances to be authorized.
         self.vbr_instance_ids = vbr_instance_ids
-        # The ID of the Alibaba Cloud account that owns the VBR instance to be authorized. This account must be different from the caller\\"s account. You cannot specify the caller\\"s own account ID. This operation is used for cross-account authorization.
+        # The ID of the Alibaba Cloud account that owns the VBR instance to be authorized. This account must be different from the caller\"s account. You cannot specify the caller\"s own account ID. This operation is used for cross-account authorization.
         # 
         # This parameter is required.
         self.vbr_owner_uid = vbr_owner_uid

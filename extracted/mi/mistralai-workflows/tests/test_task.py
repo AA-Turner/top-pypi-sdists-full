@@ -2,6 +2,8 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from pydantic_core import PydanticSerializationError
+from structlog.testing import capture_logs
 
 from mistralai.workflows.core.task.task import Task
 
@@ -42,18 +44,6 @@ class TestTaskCreation:
         task: Task[None] = Task(type="test-task", id="custom-id-123")
         assert task.id == "custom-id-123"
 
-    def test_task_creation_in_activity_succeeds(self) -> None:
-        with patch("mistralai.workflows.core.task.task.temporalio.activity.in_activity", return_value=True):
-            task: Task[None] = Task(type="test-task")
-            assert task.type == "test-task"
-
-    def test_task_creation_in_workflow_succeeds(self) -> None:
-        with patch("mistralai.workflows.core.task.task.temporalio.workflow.in_workflow", return_value=True):
-            with patch("mistralai.workflows.core.task.task.temporalio.workflow.uuid4", return_value="mock-uuid"):
-                task: Task[None] = Task(type="test-task", id="explicit-id")
-                assert task.type == "test-task"
-                assert task.id == "explicit-id"
-
 
 @pytest.mark.usefixtures("mock_should_publish_event")
 class TestTaskStateManagement:
@@ -68,6 +58,31 @@ class TestTaskStateManagement:
         task: Task[None] = Task(type="processing")
         with pytest.raises(RuntimeError, match="Cannot set_state\\(\\) on task created without state"):
             await task.set_state({"progress": 50})  # type: ignore
+
+    @pytest.mark.asyncio
+    async def test_set_state_serialization_failure_does_not_log_state(self) -> None:
+        secret = "SYNTHETIC_SECRET"
+        task: Task[dict[str, str]] = Task(type="processing", state={"value": secret}, id="task-1")
+
+        with (
+            patch("mistralai.workflows.core.task.task.should_publish_event", return_value=True),
+            patch(
+                "mistralai.workflows.core.task.task.make_json_patch",
+                side_effect=PydanticSerializationError(secret),
+            ),
+            capture_logs() as logs,
+        ):
+            await task.set_state({"value": secret})
+
+        assert secret not in str(logs)
+        assert logs == [
+            {
+                "event": "Failed JSON patch - state updated locally but not published",
+                "task_id": "task-1",
+                "error_type": "PydanticSerializationError",
+                "log_level": "error",
+            }
+        ]
 
     @pytest.mark.asyncio
     async def test_update_state_with_dict(self) -> None:

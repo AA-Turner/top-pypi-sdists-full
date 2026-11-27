@@ -13,11 +13,11 @@ class DescribeAttestorsRequest(DaraModel):
         resource_owner_id: int = None,
         source_ip: str = None,
     ):
-        # The page number.
+        # The page number of the current page in a paging query.
         self.current_page = current_page
-        # The name of the witness.
+        # The name of the attestor.
         self.name = name
-        # The number of entries per page.
+        # The maximum number of entries to return on each page in a paging query.
         self.page_size = page_size
         self.resource_owner_id = resource_owner_id
         # The source IP address.

@@ -9,8 +9,8 @@ class DeleteAttackPathWhitelistRequest(DaraModel):
         self,
         attack_path_whitelist_id: str = None,
     ):
-        # The ID of the attack path whitelist entry.
-        # > You can call [ListAttackPathWhitelist](~~ListAttackPathWhitelist~~) to query attack path whitelist IDs.
+        # The ID of the attack path whitelist.
+        # > You can call the [ListAttackPathWhitelist](~~ListAttackPathWhitelist~~) operation to query the attack path whitelist ID.
         # 
         # This parameter is required.
         self.attack_path_whitelist_id = attack_path_whitelist_id

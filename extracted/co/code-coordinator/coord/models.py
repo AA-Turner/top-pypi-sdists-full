@@ -266,6 +266,14 @@ class Repo:
     # behaviour, but `dispatch_smoke` logs that the verdict it is about to
     # produce is narrower than CI (see `resolve_smoke_command`).
     ci_command: str | None = None
+    # #4166: the repo's declared fast compliance set — e.g. for quadraui,
+    # CI-shaped clippy, both ratchets, fmt, `gen_wire_types --check`, and
+    # the binding checks when binding-core is touched. A work/fix leg's
+    # briefing (`coord.agent`'s catch-all system-prompt branch) tells the
+    # worker to run this before its final push. `None` (the default) means
+    # no precheck is declared for this repo — a leg sees no such
+    # instruction, byte-for-byte the pre-#4166 behaviour.
+    precheck: str | None = None
     # #296: optional shell command to interactively run the app for manual
     # smoke testing.  Surfaced in the TUI Test stage detail panel so the
     # tester knows exactly what to launch.
@@ -707,6 +715,42 @@ class Machine:
 
     def repo_path(self, repo_name: str) -> str | None:
         return self.repo_paths.get(repo_name)
+
+    def covers_capabilities(self, capabilities: "Iterable[str]") -> bool:
+        """Whether this machine declares EVERY capability in *capabilities*
+        (#4147). Used to score a machine against one failing Test-fan-out
+        leg's own capability set (e.g. ``("gtk", "windows")`` for a
+        combined leg) — a partial match does not count as covering that
+        leg, since the leg's own suite needs all of them together to run
+        at all. An empty *capabilities* is trivially covered by every
+        machine (vacuous truth), matching `all()`'s own behaviour.
+        """
+        return all(cap in self.capabilities for cap in capabilities)
+
+
+@dataclass(frozen=True)
+class FanoutLegVerdict:
+    """One capability-partition leg of a #3182 Test-stage fan-out, as read
+    back off the board (#4147).
+
+    Shared shape between `coord.smoke.fanout_leg_verdicts` (the one reader)
+    and its two callers — `coord.smoke.finalize_smoke_fanout`'s own verdict
+    fold, and `coord.dispatch`'s fix-leg capability routing — so a fan-out
+    leg's identity (``leg_id``), the capability set it ran
+    (``capabilities``, e.g. ``("macos",)`` or ``("gtk", "windows")`` for a
+    combined partition), its own terminal verdict (``state``: ``"passed"``
+    / ``"failed"`` / ``"skipped"`` / `coord.state.TEST_STATE_BLOCKED` /
+    `None` if still running), the one-line reason recorded alongside it,
+    and the Test-stage command it ran, are read exactly once rather than
+    reconstructed independently by each caller (#2096, "one question, one
+    answer").
+    """
+
+    leg_id: str
+    capabilities: tuple[str, ...]
+    state: str | None
+    reason: str | None
+    command: str | None
 
 
 # #930 review fix: assignment ``type`` values that should flow through the
@@ -1826,6 +1870,17 @@ class Assignment:
     # between workflow and single legs before anyone relaxes Test/Review for
     # workflow legs.
     mode: str | None = None
+    # #4147: capabilities `coord.dispatch.route_work_by_capability` could
+    # not satisfy on ANY configured machine for this `type="work"`
+    # dispatch — the leg still dispatched to the best-covering machine
+    # (routing never refuses), this just names what that machine can't
+    # verify. Empty for every row predating this column and for the
+    # overwhelming common case (every machine, or the one actually chosen,
+    # already covers the diff's required capabilities). Set once, at
+    # dispatch time, from `route_work_by_capability`'s own
+    # `CapabilityRouting.unmet_capabilities` — see
+    # `coord.state._record_dispatched_local`.
+    unsatisfied_capabilities: list[str] = field(default_factory=list)
 
 
 def effective_issue_number(assignment: "Assignment | dict") -> int:
@@ -2000,6 +2055,29 @@ class SplitChunk:
     #: not trust this field on its own, since a child can declare a
     #: dependency on something undeclared or filed later.
     after: tuple[int, ...] = field(default_factory=tuple)
+    #: #4175: symbol names (free-form strings — a function, type, API, or
+    #: any other seam the agent names) this chunk DELETES, e.g. a `Removes:
+    #: Foo::bar` line in the size-triage wire format
+    #: (`coord.decomposition_chat.parse_size_triage_response`). Carried
+    #: alongside `introduces`/`consumes` so a later chunk's `Consumes:` can
+    #: be checked against an earlier chunk's `Introduces:`/`Removes:` — this
+    #: slice only parses and stores the declaration; a sibling slice (#4176)
+    #: owns grepping a removed symbol against `AcceptanceConfig.
+    #: sealed_paths()`. Empty by default — no existing producer sets this.
+    removes: tuple[str, ...] = field(default_factory=tuple)
+    #: #4175: symbol names this chunk ADDS, e.g. an `Introduces: Foo::bar`
+    #: line. `coord.preflight_size.verify_split_proposal` cross-references
+    #: this against every LATER chunk's `consumes` to require a matching
+    #: `after:` edge — the same "a semantic dependency file-overlap can
+    #: never see must be declared" posture `after` itself already enforces
+    #: for prose dependencies. Empty by default.
+    introduces: tuple[str, ...] = field(default_factory=tuple)
+    #: #4175: symbol names this chunk USES but did not itself introduce,
+    #: e.g. a `Consumes: Foo::bar` line. A symbol here that matches an
+    #: EARLIER chunk's `introduces` is a dependency `verify_split_proposal`
+    #: requires a matching `after:` edge for — see `introduces` above. Empty
+    #: by default.
+    consumes: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass
@@ -2010,6 +2088,72 @@ class SplitProposal:
     issue_title: str
     rationale: str
     chunks: list[SplitChunk] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SealedAmendmentArtifact:
+    """A sealed-amendment patch, proposed as DATA by a worker or planner
+    session instead of edited directly (#4178, docs/ORACLE_LOOP.md's
+    "Sealed amendment as data" flow — the properly-typed path for the
+    quadraui#2876 shape: a deleted/changed symbol breaks a sealed call
+    site or struct literal under ``AcceptanceConfig.sealed_paths()``, see
+    :class:`coord.preflight_size.SealedAmendment`, the detector this
+    artifact's shape satisfies).
+
+    No model ever applies this diff to a real checkout. The flow is:
+    (1) a worker/planner session emits this artifact; (2)
+    ``coord acceptance verify-amendment`` applies it to a throwaway
+    scratch copy and re-runs the sealed suite there, read-only toward the
+    real checkout — see :func:`coord.commands.acceptance.
+    _verify_sealed_amendment`; (3) a human approves it; (4) a
+    ``test-author`` leg applies exactly the approved bytes as its own
+    commit (#4179 — the next slice in this flow).
+
+    ``repo_name``/``issue_number`` name the work-in-progress issue the
+    amendment unblocks. ``diff`` is a plain unified diff (``git
+    apply``-compatible, e.g. the output of ``git diff``). ``touched_paths``
+    is the repo-relative file(s) the proposer declares the diff edits —
+    ``verify-amendment`` cross-checks this declaration against the file
+    paths the diff text itself touches (:func:`coord.github_ops.
+    diff_file_paths`) rather than trusting either one alone, since a
+    worker/planner-emitted artifact is untrusted input. ``rationale`` is
+    the human-readable "why" an approver reads before signing off.
+    ``proposed_by`` records which kind of session emitted it, for audit
+    purposes only — it does not change how the artifact is verified.
+    """
+
+    repo_name: str
+    issue_number: int
+    diff: str
+    touched_paths: tuple[str, ...]
+    rationale: str
+    proposed_by: str = "worker"
+
+
+@dataclass(frozen=True)
+class SealedAmendmentVerdict:
+    """The read-only result of ``coord acceptance verify-amendment``
+    (#4178) — never a mutation of the real checkout, and never itself an
+    approval (see :class:`SealedAmendmentArtifact`'s docstring for the
+    full propose/verify/approve/apply flow).
+
+    ``ok`` is ``True`` only when the diff's own file paths (not the
+    artifact's self-declared ``touched_paths`` alone) all resolved inside
+    the repo's declared sealed set, those paths matched the declared
+    ``touched_paths`` exactly, the diff applied cleanly in the scratch
+    copy, AND the sealed suite re-run there came back green — each a
+    real, independently-failing check (never a default-permissive
+    fallback). ``reason`` carries the first failure's cause when ``ok`` is
+    ``False``. ``acceptance_verdict`` is the raw
+    :func:`coord.acceptance.build_verdict` dict from the scratch-copy
+    re-run, present only once the suite actually ran — ``None`` when
+    verification failed earlier (out-of-scope path, declared/actual
+    mismatch, or the diff didn't apply).
+    """
+
+    ok: bool
+    reason: str | None
+    acceptance_verdict: dict | None = None
 
 
 @dataclass

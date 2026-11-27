@@ -84,7 +84,7 @@ class TestStoragePool(testing.PyLXDTestCase):
         self.assertTrue(models.StoragePool.exists(self.client, name))
 
     def test_not_exists(self):
-        """A storage pool exists."""
+        """A storage pool does not exist."""
 
         def not_found(request, context):
             context.status_code = 404
@@ -96,11 +96,11 @@ class TestStoragePool(testing.PyLXDTestCase):
             {
                 "text": not_found,
                 "method": "GET",
-                "url": r"^http://pylxd.test/1.0/storage-pools/an-missing-storage-pool$",
+                "url": r"^http://pylxd.test/1.0/storage-pools/a-missing-storage-pool$",
             }
         )
 
-        name = "an-missing-storage-pool"
+        name = "a-missing-storage-pool"
 
         with mock.patch.object(self.client, "assert_has_api_extension"):
             self.assertFalse(models.StoragePool.exists(self.client, name))
@@ -224,6 +224,13 @@ class TestStorageVolume(testing.PyLXDTestCase):
         # now make sure that it's available without mocking it out.
         testing.add_api_extension_helper(self, ["storage"])
 
+        with self.assertRaises(ValueError):
+            a_storage_pool.volumes.create()
+        with self.assertRaises(TypeError):
+            a_storage_pool.volumes.create("not-a-dict")
+        with self.assertRaises(ValueError):
+            a_storage_pool.volumes.create({})
+
         a_volume = a_storage_pool.volumes.create(self.client, config)
 
         self.assertEqual(config["name"], a_volume.name)
@@ -235,9 +242,25 @@ class TestStorageVolume(testing.PyLXDTestCase):
         a_storage_pool.volumes.create(self.client, config, wait=True)
 
     def test_rename(self):
-        testing.add_api_extension_helper(self, ["storage"])
+        testing.add_api_extension_helper(self, ["storage", "storage_api_volume_rename"])
         a_storage_pool = models.StoragePool(self.client, name="lxd")
         a_volume = a_storage_pool.volumes.get("custom", "cu1")
+
+        with self.assertRaises(TypeError) as cm:
+            a_volume.rename("not-a-dict")
+        self.assertEqual(str(cm.exception), "'_input' must be a dict")
+
+        with self.assertRaises(ValueError) as cm:
+            a_volume.rename({"pool": "pool3"})
+        self.assertEqual(
+            str(cm.exception), "'_input' parameter must include a 'name' key"
+        )
+
+        with self.assertRaises(ValueError) as cm:
+            a_volume.rename({"name": "vol1"})
+        self.assertEqual(
+            str(cm.exception), "'_input' parameter must include a 'pool' key"
+        )
 
         _input = {"name": "vol1", "pool": "pool3", "migration": True}
         result = a_volume.rename(_input)
@@ -245,7 +268,7 @@ class TestStorageVolume(testing.PyLXDTestCase):
         self.assertEqual(result["fs"], "secret2")
 
     def test_rename_async(self):
-        testing.add_api_extension_helper(self, ["storage"])
+        testing.add_api_extension_helper(self, ["storage", "storage_api_volume_rename"])
         a_storage_pool = models.StoragePool(self.client, name="async-lxd")
         a_volume = a_storage_pool.volumes.get("custom", "cu1")
 
@@ -458,14 +481,40 @@ class TestStoragePoolAsync(testing.PyLXDTestCase):
         """Async response with wait=False should not wait."""
         self._setup_create_mocks("async", "/1.0/operations/create-pool-nowait")
 
-        with mock.patch.object(
-            self.client.operations, "wait_for_operation"
-        ) as mock_wait:
+        with (
+            mock.patch.object(
+                self.client.operations, "wait_for_operation"
+            ) as mock_wait,
+            mock.patch.object(
+                models.StoragePool, "get", side_effect=AssertionError("unexpected GET")
+            ) as mock_get,
+        ):
             storage_pool = models.StoragePool.create(
                 self.client, self.config, wait=False
             )
             mock_wait.assert_not_called()
+            mock_get.assert_not_called()
             self.assertEqual(self.config["name"], storage_pool.name)
+
+    def test_create_volume_async_wait_false_returns_sparse_volume(self):
+        """Async volume creation should not fetch before the operation completes."""
+        storage_pool = models.StoragePool(self.client, name="test-pool")
+        config = {"name": "test-volume", "type": "custom"}
+        response = mock.Mock(status_code=202)
+
+        with (
+            mock.patch.object(type(storage_pool.api), "post", return_value=response),
+            mock.patch.object(
+                models.StorageVolume,
+                "get",
+                side_effect=AssertionError("unexpected GET"),
+            ) as mock_get,
+        ):
+            volume = storage_pool.volumes.create(self.client, config, wait=False)
+
+        mock_get.assert_not_called()
+        self.assertEqual("test-volume", volume.name)
+        self.assertIs(storage_pool, volume.storage_pool)
 
     def test_create_sync_no_wait(self):
         """Sync response should never wait, testing old LXD compatibility."""
@@ -723,10 +772,11 @@ class TestStorageVolumeSnapshotAsync(testing.PyLXDTestCase):
             type="custom",
             storage_pool=self.storage_pool,
         )
-        self.mock_wait = mock.patch.object(
+        self.mock_wait_patcher = mock.patch.object(
             self.client.operations, "wait_for_operation"
-        ).start()
-        self.addCleanup(mock.patch.stopall)
+        )
+        self.mock_wait = self.mock_wait_patcher.start()
+        self.addCleanup(self.mock_wait_patcher.stop)
 
     def _mock_async_op(self, operation_id, method="POST", url_suffix=""):
         """Helper to mock async operation responses."""
@@ -791,6 +841,71 @@ class TestStorageVolumeSnapshotAsync(testing.PyLXDTestCase):
 
         self.mock_wait.assert_called_once_with("/1.0/operations/snapshot-create-op")
         self.assertEqual("snap1", snapshot.name)
+
+    def test_create_sync_with_auto_name(self):
+        """Test sync snapshot creation with auto-generated name."""
+        self.add_rule(
+            {
+                "json": {
+                    "type": "sync",
+                    "status": "Success",
+                    "status_code": 200,
+                    "metadata": {
+                        "name": "test-volume/snap-sync",
+                        "content_type": "filesystem",
+                    },
+                },
+                "status_code": 200,
+                "method": "POST",
+                "url": r"^http://pylxd.test/1.0/storage-pools/test-pool/volumes/custom/test-volume/snapshots$",
+            }
+        )
+        self._mock_snapshot_get("snap-sync")
+
+        snapshot = models.StorageVolumeSnapshot.create(self.volume, wait=True)
+
+        self.mock_wait.assert_not_called()
+        self.assertEqual("snap-sync", snapshot.name)
+
+    def test_create_async_without_wait_returns_sparse_snapshot(self):
+        """Named async snapshots should not be fetched before completion."""
+        response = mock.Mock(status_code=202)
+        with (
+            mock.patch.object(type(self.volume.api), "post", return_value=response),
+            mock.patch.object(
+                models.StorageVolumeSnapshot,
+                "get",
+                side_effect=AssertionError("unexpected GET"),
+            ) as mock_get,
+        ):
+            snapshot = models.StorageVolumeSnapshot.create(
+                self.volume, name="manual-name", wait=False
+            )
+
+        mock_get.assert_not_called()
+        self.assertEqual("manual-name", snapshot.name)
+        self.assertIs(self.volume, snapshot.volume)
+        self.mock_wait.assert_not_called()
+
+    def test_create_async_without_wait_requires_name(self):
+        """An autogenerated snapshot name cannot be resolved without waiting."""
+        with mock.patch.object(type(self.volume.api), "post") as mock_post:
+            with self.assertRaisesRegex(ValueError, "name must be provided"):
+                models.StorageVolumeSnapshot.create(self.volume, wait=False)
+
+        mock_post.assert_not_called()
+
+    def test_restore_from_requires_storage_extensions(self):
+        """Restoring a snapshot requires both storage API extensions."""
+        for missing_extension in ("storage", "storage_api_volume_snapshots"):
+            with self.subTest(extension=missing_extension):
+                with mock.patch.object(
+                    self.client,
+                    "has_api_extension",
+                    side_effect=lambda name: name != missing_extension,
+                ):
+                    with self.assertRaises(exceptions.LXDAPIExtensionNotAvailable):
+                        self.volume.restore_from("snapshot")
 
     def test_rename_async_with_wait(self):
         """Test async snapshot rename with wait=True"""

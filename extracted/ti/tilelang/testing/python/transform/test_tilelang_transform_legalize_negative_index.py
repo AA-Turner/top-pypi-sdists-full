@@ -1,0 +1,630 @@
+from tilelang import tvm as tvm
+import pytest
+import tilelang as tl
+import tilelang.language as T
+import tilelang.testing
+
+
+def _check(original, expected):
+    """Helper function to verify structural equality after transformations"""
+    func = original
+    mod = tvm.IRModule.from_expr(func.with_attr("global_symbol", "main"))
+    mod = tl.transform.LegalizeNegativeIndex()(mod)
+    expected = tvm.IRModule.from_expr(expected.with_attr("global_symbol", "main"))
+    tvm.ir.assert_structural_equal(mod["main"], expected["main"], True)
+
+
+def test_buffer_load_negative_index_legalized():
+    """
+    Test that negative indices are legalized by adding buffer extent.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        value = A[-1]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        value = A[1023]  # A[-1] becomes A[1023]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_mixed_negative_positive_indices():
+    """
+    Test mixed negative and positive indices - only negative ones are legalized.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024, 512), T.float32)):
+        value = A[-1, 10]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((1024, 512), T.float32)):
+        value = A[1023, 10]  # A[-1, 10] becomes A[1023, 10]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_multiple_negative_indices():
+    """
+    Test multiple negative indices in different dimensions.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024, 512, 256), T.float32)):
+        value = A[-1, -2, -3]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((1024, 512, 256), T.float32)):
+        value = A[1023, 510, 253]  # -1+1024=1023, -2+512=510, -3+256=253
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_negative_index_in_expression():
+    """
+    Test negative index as part of a larger expression.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        B = T.alloc_buffer((1024,), T.float32)
+        for i in T.serial(1, 1024):
+            value = A[-i]
+            B[-i] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        B = T.alloc_buffer((1024,), T.float32)
+        for i in T.serial(1, 1024):
+            value = A[1024 - i]
+            B[1024 - i] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_non_negative_index_unchanged():
+    """
+    Test that non-negative indices remain unchanged.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        value = A[0]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        # No changes expected for non-negative indices
+        value = A[0]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_unknown_sign_index_warning():
+    """
+    Test that indices with unknown sign trigger warnings but are processed.
+    This test mainly checks that the pass doesn't crash on unknown signs.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        i = T.Var("i", T.int32)
+        value = A[i]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        i = T.Var("i", T.int32)
+        # Unknown sign indices should remain unchanged
+        value = A[i]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_vector_index_negative_broadcast():
+    """
+    Test negative indices in vectorized operations (broadcast case).
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        vec = T.Broadcast(-1, 4)
+        value = A[vec]
+        B = T.alloc_buffer((4,), T.float32)
+        B[T.Ramp(0, 1, 4)] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        # vec is unused and can be delimed by Simplify.
+        vec = T.Broadcast(-1, 4)  # noqa: F841
+        value = A[T.Broadcast(1023, 4)]
+        B = T.alloc_buffer((4,), T.float32)
+        B[T.Ramp(0, 1, 4)] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_vector_index_negative_ramp():
+    """
+    Test negative indices in vectorized operations (ramp case).
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        vec = T.Ramp(-4, 1, 4)  # indices: [-4, -3, -2, -1]
+        value = A[vec]
+        B = T.alloc_buffer((4,), T.float32)
+        B[T.Ramp(0, 1, 4)] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        # vec is unused and can be delimed by Simplify.
+        vec = T.Ramp(-4, 1, 4)  # noqa: F841
+        value = A[T.Ramp(1020, 1, 4)]
+        B = T.alloc_buffer((4,), T.float32)
+        B[T.Ramp(0, 1, 4)] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_vector_index_mixed_sign_ramp():
+    """
+    Test vectorized ramp indices that mix Python-negative and non-negative
+    lanes.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        vec = T.Ramp(-2, 1, 4)  # indices: [-2, -1, 0, 1]
+        value = A[vec]
+        B = T.alloc_buffer((4,), T.float32)
+        B[T.Ramp(0, 1, 4)] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        vec = T.Ramp(-2, 1, 4)  # noqa: F841
+        value = A[T.Shuffle([1022, 1023, 0, 1], [0, 1, 2, 3])]
+        B = T.alloc_buffer((4,), T.float32)
+        B[T.Ramp(0, 1, 4)] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_vector_index_mixed_sign_ramp_preserves_int64_extent():
+    """
+    Test mixed-sign ramp legalization preserves the buffer extent dtype.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((T.int64(3000000000),), T.float32)):
+        vec = T.Ramp(T.int32(-2), T.int32(1), 4)
+        value = A[vec]
+        B = T.alloc_buffer((4,), T.float32)
+        B[T.Ramp(0, 1, 4)] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((T.int64(3000000000),), T.float32)):
+        vec = T.Ramp(T.int32(-2), T.int32(1), 4)  # noqa: F841
+        value = A[
+            T.Shuffle(
+                [
+                    T.int64(2999999998),
+                    T.int64(2999999999),
+                    T.int64(0),
+                    T.int64(1),
+                ],
+                [0, 1, 2, 3],
+            )
+        ]
+        B = T.alloc_buffer((4,), T.float32)
+        B[T.Ramp(0, 1, 4)] = value
+
+    _check(before, after)
+
+
+def test_buffer_load_vector_index_mixed_sign_ramp_in_kernel():
+    """
+    Test a sliding-window KV-cache style vector load that crosses a ring-buffer
+    boundary inside a kernel body.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32), B: T.Tensor((4,), T.float32)):
+        with T.Kernel(1, threads=1) as _:
+            vec = T.Ramp(-2, 1, 4)  # indices: [-2, -1, 0, 1]
+            B[T.Ramp(0, 1, 4)] = A[vec]
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32), B: T.Tensor((4,), T.float32)):
+        with T.Kernel(1, threads=1) as _:
+            vec = T.Ramp(-2, 1, 4)  # noqa: F841
+            B[T.Ramp(0, 1, 4)] = A[T.Shuffle([1022, 1023, 0, 1], [0, 1, 2, 3])]
+
+    _check(before, after)
+
+
+def test_buffer_load_vector_index_runtime_unknown_sign_ramp_in_kernel():
+    """
+    Test runtime-dependent vector ramp lanes whose sign cannot be proven statically.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32), B: T.Tensor((4, 4), T.float32)):
+        with T.Kernel(1, threads=1) as _:
+            for t in T.serial(4):
+                B[t, T.Ramp(0, 1, 4)] = A[T.Ramp(t - 2, 1, 4)]
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32), B: T.Tensor((4, 4), T.float32)):
+        with T.Kernel(1, threads=1) as _:
+            for t in T.serial(4):
+                B[t, T.Ramp(0, 1, 4)] = A[
+                    T.Shuffle(
+                        [
+                            T.Select(t < 2, t + 1022, t - 2),
+                            T.Select(t < 1, t + 1023, t - 1),
+                            t,
+                            t + 1,
+                        ],
+                        [0, 1, 2, 3],
+                    )
+                ]
+
+    _check(before, after)
+
+
+def test_buffer_load_nested_buffer_loads():
+    """
+    Test legalization with nested buffer load expressions.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024, 512), T.float32)):
+        inner_val = A[-1, 10]
+        outer_val = A[inner_val.astype(T.int32), -2]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = outer_val
+
+    @T.prim_func
+    def after(A: T.Tensor((1024, 512), T.float32)):
+        inner_val = A[1023, 10]
+        outer_val = A[inner_val.astype(T.int32), 510]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = outer_val
+
+    _check(before, after)
+
+
+def test_buffer_store_negative_index():
+    """
+    Test negative indices in buffer store operations are legalized.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        A[-1] = 42.0
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        A[1023] = 42.0
+
+    _check(before, after)
+
+
+def test_buffer_store_mixed_negative_positive_indices():
+    """
+    Test mixed negative and positive indices in buffer store.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024, 512), T.float32)):
+        A[-1, 10] = 42.0
+
+    @T.prim_func
+    def after(A: T.Tensor((1024, 512), T.float32)):
+        A[1023, 10] = 42.0
+
+    _check(before, after)
+
+
+def test_buffer_store_multiple_negative_indices():
+    """
+    Test multiple negative indices in different dimensions for buffer store.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024, 512, 256), T.float32)):
+        A[-1, -2, -3] = 42.0
+
+    @T.prim_func
+    def after(A: T.Tensor((1024, 512, 256), T.float32)):
+        A[1023, 510, 253] = 42.0  # -1+1024=1023, -2+512=510, -3+256=253
+
+    _check(before, after)
+
+
+def test_buffer_store_negative_index_in_expression():
+    """
+    Test negative index as part of a larger expression in buffer store.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        for i in T.serial(1, 1024):
+            A[-i] = i * 2.0
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        for i in T.serial(1, 1024):
+            A[1024 - i] = i * 2.0
+
+    _check(before, after)
+
+
+def test_buffer_store_vector_index_negative_broadcast():
+    """
+    Test negative indices in vectorized store operations (broadcast case).
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        vec = T.Broadcast(-1, 4)
+        values = T.Broadcast(42.0, 4)
+        A[vec] = values
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        # vec is unused and can be delimed by Simplify.
+        vec = T.Broadcast(-1, 4)  # noqa: F841
+        values = T.Broadcast(42.0, 4)
+        A[T.Broadcast(1023, 4)] = values
+
+    _check(before, after)
+
+
+def test_buffer_store_vector_index_negative_ramp():
+    """
+    Test negative indices in vectorized store operations (ramp case).
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        vec = T.Ramp(-4, 1, 4)  # indices: [-4, -3, -2, -1]
+        values = T.Ramp(0.0, 1.0, 4)  # values: [0.0, 1.0, 2.0, 3.0]
+        A[vec] = values
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        # vec is unused and can be delimed by Simplify.
+        vec = T.Ramp(-4, 1, 4)  # noqa: F841
+        values = T.Ramp(0.0, 1.0, 4)
+        A[T.Ramp(1020, 1, 4)] = values
+
+    _check(before, after)
+
+
+def test_buffer_store_vector_index_mixed_sign_ramp():
+    """
+    Test vectorized store ramp indices that mix Python-negative and
+    non-negative lanes.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32)):
+        vec = T.Ramp(-2, 1, 4)  # indices: [-2, -1, 0, 1]
+        values = T.Ramp(0.0, 1.0, 4)
+        A[vec] = values
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32)):
+        vec = T.Ramp(-2, 1, 4)  # noqa: F841
+        values = T.Ramp(0.0, 1.0, 4)
+        A[T.Shuffle([1022, 1023, 0, 1], [0, 1, 2, 3])] = values
+
+    _check(before, after)
+
+
+def test_buffer_store_vector_index_runtime_unknown_sign_ramp():
+    """
+    Test runtime-dependent vector store ramp lanes whose sign cannot be proven statically.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32), B: T.Tensor((4, 4), T.float32)):
+        with T.Kernel(1, threads=1) as _:
+            for t in T.serial(4):
+                A[T.Ramp(t - 2, 1, 4)] = B[t, T.Ramp(0, 1, 4)]
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32), B: T.Tensor((4, 4), T.float32)):
+        with T.Kernel(1, threads=1) as _:
+            for t in T.serial(4):
+                A[
+                    T.Shuffle(
+                        [
+                            T.Select(t < 2, t + 1022, t - 2),
+                            T.Select(t < 1, t + 1023, t - 1),
+                            t,
+                            t + 1,
+                        ],
+                        [0, 1, 2, 3],
+                    )
+                ] = B[t, T.Ramp(0, 1, 4)]
+
+    _check(before, after)
+
+
+def test_buffer_store_nested_in_condition():
+    """
+    Test negative index buffer store within conditional statements.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((1024,), T.float32), flag: T.int32):
+        if flag > 0:
+            if flag <= 0:
+                A[-1025] = 0.0
+            else:
+                A[-1] = 42.0
+        else:
+            A[-2] = 24.0
+
+    @T.prim_func
+    def after(A: T.Tensor((1024,), T.float32), flag: T.int32):
+        if flag > 0:
+            A[1023] = 42.0
+        else:
+            A[1022] = 24.0
+
+    _check(before, after)
+
+
+@pytest.mark.parametrize("dead_branch", ["then", "else", "then_without_else"])
+@pytest.mark.parametrize("access", ["load", "store"])
+def test_out_of_range_negative_index_in_unreachable_branch(dead_branch, access):
+    """A zero-width buffer may appear in a branch excluded by the loop bounds."""
+    tir = tvm.tirx
+    empty = tir.decl_buffer((0,), "int32", name="empty")
+    values = tir.decl_buffer((8,), "int32", name="values")
+    out = tir.decl_buffer((1,), "int32", name="out")
+    j = tir.Var("j", "int32")
+    live = tir.BufferStore(out, values[-1], [0])
+    if access == "load":
+        dead = tir.BufferStore(out, empty[j - 1], [0])
+    else:
+        dead = tir.BufferStore(empty, 42, [j - 1])
+
+    if dead_branch == "else":
+        body = tir.IfThenElse(j == 0, live, dead)
+    else:
+        body = tir.IfThenElse(j != 0, dead, live if dead_branch == "then" else None)
+    expected = tir.Evaluate(0) if dead_branch == "then_without_else" else tir.BufferStore(out, values[7], [0])
+    buffers = [empty, values, out]
+    params = [buffer.data for buffer in buffers]
+    buffer_map = {buffer.data: buffer for buffer in buffers}
+    before = tir.PrimFunc(params, tir.For(j, 0, 1, tir.ForKind.PARALLEL, body), buffer_map=buffer_map)
+    after = tir.PrimFunc(params, tir.For(j, 0, 1, tir.ForKind.PARALLEL, expected), buffer_map=buffer_map)
+    _check(before, after)
+
+
+@pytest.mark.parametrize("dead_branch", ["true", "false"])
+def test_out_of_range_negative_index_in_unreachable_if_then_else(dead_branch):
+    @T.prim_func
+    def before(empty: T.Tensor((0,), "int32"), values: T.Tensor((8,), "int32"), out: T.Tensor((1,), "int32")):
+        for j in T.Parallel(1):
+            if dead_branch == "true":
+                out[j] = T.if_then_else(j != 0, empty[j - 1], values[-1])
+            else:
+                out[j] = T.if_then_else(j == 0, values[-1], empty[j - 1])
+
+    @T.prim_func
+    def after(empty: T.Tensor((0,), "int32"), values: T.Tensor((8,), "int32"), out: T.Tensor((1,), "int32")):
+        for j in T.Parallel(1):
+            out[j] = values[7]
+
+    _check(before, after)
+
+
+@pytest.mark.parametrize("branch_kind", ["then", "else", "if_then_else"])
+def test_out_of_range_negative_index_in_runtime_branch_is_rejected(branch_kind):
+    """An unknown condition must not exempt a potentially executed access."""
+
+    @T.prim_func
+    def before(A: T.Tensor((8,), "int32"), B: T.Tensor((1,), "int32"), flag: T.int32):
+        if branch_kind == "if_then_else":
+            B[0] = T.if_then_else(flag > 0, A[-10], A[-1])
+        elif branch_kind == "then":
+            if flag > 0:
+                B[0] = A[-10]
+            else:
+                B[0] = A[-1]
+        else:
+            if flag > 0:
+                B[0] = A[-1]
+            else:
+                B[0] = A[-10]
+
+    with pytest.raises(ValueError, match="out of range"):
+        tl.transform.LegalizeNegativeIndex()(tvm.IRModule.from_expr(before))
+
+
+@pytest.mark.parametrize("use_if_then_else", [False, True])
+def test_out_of_range_negative_index_in_provable_condition_is_rejected(use_if_then_else):
+    """A condition that is always true can still contain an evaluated access."""
+
+    @T.prim_func
+    def before(A: T.Tensor((8,), "int32"), B: T.Tensor((1,), "int32")):
+        for j in T.Parallel(1):
+            if use_if_then_else:
+                B[j] = T.if_then_else(T.Or(A[-10] > 0, j == 0), A[-1], A[-2])
+            else:
+                if T.Or(A[-10] > 0, j == 0):
+                    B[j] = A[-1]
+                else:
+                    B[j] = A[-2]
+
+    with pytest.raises(ValueError, match="out of range"):
+        tl.transform.LegalizeNegativeIndex()(tvm.IRModule.from_expr(before))
+
+
+def test_out_of_range_constant_negative_index_is_rejected():
+    """A single wrap only legalizes an index that is in range.
+
+    `A[-10]` on a length-8 buffer used to become `A[-2]`, which reads before the
+    start of the allocation. NumPy and PyTorch reject the same index, so this
+    rejects it too instead of emitting the out-of-bounds load.
+    """
+
+    @T.prim_func
+    def before(A: T.Tensor((8,), T.float32)):
+        value = A[-10]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    # The index comes from the program under compilation, so the failure is reported
+    # as a user-facing ValueError rather than an internal invariant.
+    with pytest.raises(ValueError, match="out of range"):
+        mod = tvm.IRModule.from_expr(before.with_attr("global_symbol", "main"))
+        tl.transform.LegalizeNegativeIndex()(mod)
+
+
+def test_largest_in_range_constant_negative_index_is_still_legalized():
+    """Control: the most negative index that is still in range wraps as before."""
+
+    @T.prim_func
+    def before(A: T.Tensor((8,), T.float32)):
+        value = A[-8]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    @T.prim_func
+    def after(A: T.Tensor((8,), T.float32)):
+        value = A[0]  # A[-8] becomes A[0]
+        B = T.alloc_buffer((1,), T.float32)
+        B[0] = value
+
+    _check(before, after)
+
+
+if __name__ == "__main__":
+    tilelang.testing.main()

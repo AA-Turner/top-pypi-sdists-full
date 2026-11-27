@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: latch
-Version: 2.78.0
+Version: 2.79.0
 Summary: The Latch SDK
 Project-URL: Homepage, https://latch.bio
 Project-URL: Documentation, https://latch.wiki
@@ -42,7 +42,6 @@ Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: >=3.9
 Requires-Dist: apscheduler>=3.10.0
-Requires-Dist: asyncssh==2.13.2
 Requires-Dist: boto3>=1.26.0
 Requires-Dist: click>=8.0
 Requires-Dist: dill>=0.4.0
@@ -65,7 +64,6 @@ Requires-Dist: rich>=14.0.0
 Requires-Dist: scp>=0.14.0
 Requires-Dist: tqdm>=4.63.0
 Requires-Dist: typing-extensions>=4.12.0
-Requires-Dist: watchfiles==1.1.1
 Requires-Dist: websockets<16,>=11
 Provides-Extra: pandas
 Requires-Dist: pandas>=2.0.0; extra == 'pandas'

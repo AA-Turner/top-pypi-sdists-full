@@ -27,6 +27,7 @@ from .tmux_world import (
     inbox_row,
     lemonaid,
     restore_all,
+    scout_log,
     tmux,
     wait,
     window,
@@ -74,7 +75,7 @@ def test_every_lemon_comes_back_in_its_own_window_and_its_row_points_there(world
         channel("B"): "subscribed",
         channel("C"): "no brief",
         channel("OLD"): "subscribed",
-    }
+    }, scout_log()
     for name, where in {**WHERE, "OLD": "work:3"}.items():  # B was heard from last in work:2
         running = world.running(name)
         assert running is not None
@@ -189,7 +190,9 @@ def test_telling_a_dead_lemon_never_types_into_the_lemon_on_its_old_tty(world):
 
     assert "mailbox" not in tmux("capture-pane", "-p", "-t", b["pane"]), told.stderr
     assert b"read your mailbox" not in world.received("B")
-    resumed = wait("OLD to be resumed", lambda: world.running("OLD"))
+    resumed = wait(
+        "OLD to be resumed", lambda: world.running("OLD"), show=lambda: told.stdout + told.stderr
+    )
     assert resumed["pane"] != b["pane"]
     assert "mailbox" in resumed["prompt"]
     assert world.running("B") == b

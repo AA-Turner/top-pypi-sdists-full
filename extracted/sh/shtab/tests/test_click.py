@@ -5,8 +5,8 @@ import pytest
 from examples import click_process, click_subcommand
 from shtab.main import main
 
-from .test_shtab import no_log_info  # noqa: F401, pylint: disable=unused-import, yapf: disable
-from .test_shtab import fix_shell
+# pylint: disable-next=unused-import
+from .test_shtab import fix_shell, no_log_info  # noqa: F401
 
 ARG_HELP = version('click') >= '8.5'
 

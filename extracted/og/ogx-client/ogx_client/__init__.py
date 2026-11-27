@@ -29,7 +29,7 @@ from ogx_client.exceptions import (
     RateLimitError,
     InternalServerError)
 
-__version__ = "1.5.0"
+__version__ = "2.0.0"
 
 # Define package exports
 __all__ = [
@@ -93,8 +93,8 @@ __all__ = [
     "AsyncRoutesApi",
     "SkillsApi",
     "AsyncSkillsApi",
-    "ToolsApi",
-    "AsyncToolsApi",
+    "SystemoneApi",
+    "AsyncSystemoneApi",
     "VectorIoApi",
     "AsyncVectorIoApi",
     "VectorStoresApi",
@@ -307,8 +307,6 @@ __all__ = [
     "ListSkillsResponse",
     "ListStringAllowedToolsFilter",
     "ListToolDefsResponse",
-    "ListToolGroupsResponse",
-    "ListToolsRequest",
     "ListToolsResponse",
     "MCPListToolsTool",
     "MemoryToolConfig",
@@ -419,9 +417,10 @@ __all__ = [
     "OpenAIResponseInputToolFileSearch",
     "OpenAIResponseInputToolFunction",
     "OpenAIResponseInputToolMCP",
+    "OpenAIResponseInputToolNamespace",
     "OpenAIResponseInputToolWebSearch",
     "OpenAIResponseInputToolWebSearch4Variants",
-    "OpenAIResponseInputToolWebSearch4Variants1",
+    "OpenAIResponseInputToolWebSearch5Variants",
     "OpenAIResponseMCPApprovalRequest",
     "OpenAIResponseMCPApprovalResponse",
     "OpenAIResponseMessage",
@@ -468,7 +467,6 @@ __all__ = [
     "OpenAIResponseObjectStreamResponseWebSearchCallCompleted",
     "OpenAIResponseObjectStreamResponseWebSearchCallInProgress",
     "OpenAIResponseObjectStreamResponseWebSearchCallSearching",
-    "OpenAIResponseObjectWithInput",
     "OpenAIResponseOutput",
     "OpenAIResponseOutputItem",
     "OpenAIResponseOutputMessageContent",
@@ -487,6 +485,10 @@ __all__ = [
     "OpenAIResponseReasoning",
     "OpenAIResponseText",
     "OpenAIResponseTextFormat",
+    "OpenAIResponseTextFormatJSONObject",
+    "OpenAIResponseTextFormatJSONSchema",
+    "OpenAIResponseTextFormatText",
+    "OpenAIResponseTextFormatTextOpenAIResponseTextFormatJSONObjectOpenAIResponseTextFormatJSONSchema",
     "OpenAIResponseTool",
     "OpenAIResponseToolMCP",
     "OpenAIResponseUsage",
@@ -580,10 +582,30 @@ __all__ = [
     "StringNumberBoolean1",
     "StringObject",
     "StringObject1",
+    "StringObjectArray",
+    "StringObjectArray1",
+    "StringObjectArray2",
+    "StringObjectArray3",
+    "StringObjectArray4",
+    "StringObjectArray5",
+    "StringObjectArray6",
+    "StringObjectArray7",
     "StringOpenAIChatCompletionContentPartTextParamOpenAIChatCompletionContentPartImageParam",
     "StringOpenAIChatCompletionContentPartTextParamOpenAIChatCompletionContentPartImageParam1",
     "StringType",
     "SystemMessage",
+    "SystemOneChoiceAnswer",
+    "SystemOneChoiceQuestion",
+    "SystemOneNoulAnswer",
+    "SystemOneNoulAnswerSystemOneChoiceAnswerSystemOneScoreAnswer",
+    "SystemOneNoulCriteria",
+    "SystemOneNoulQuestion",
+    "SystemOneNoulQuestionSystemOneChoiceQuestionSystemOneScoreQuestion",
+    "SystemOneRequest",
+    "SystemOneResponse",
+    "SystemOneScoreAnswer",
+    "SystemOneScoreQuestion",
+    "SystemOneUsage",
     "TextContentItem",
     "TextDelta",
     "TokenLogProbs",
@@ -594,12 +616,13 @@ __all__ = [
     "ToolChoiceTool",
     "ToolConfig",
     "ToolDef",
-    "ToolGroup",
     "ToolGroupInput",
     "ToolInvocationResult",
     "ToolResponseMessage",
     "TopKSamplingStrategy",
     "TopPSamplingStrategy",
+    "TypeSafeListModelsResponse",
+    "TypeSafeModelInfo",
     "URL",
     "URLOrData",
     "UnionType",
@@ -706,8 +729,8 @@ from ogx_client.api.routes_api import RoutesApi as RoutesApi
 from ogx_client.api.routes_api import AsyncRoutesApi as AsyncRoutesApi
 from ogx_client.api.skills_api import SkillsApi as SkillsApi
 from ogx_client.api.skills_api import AsyncSkillsApi as AsyncSkillsApi
-from ogx_client.api.tools_api import ToolsApi as ToolsApi
-from ogx_client.api.tools_api import AsyncToolsApi as AsyncToolsApi
+from ogx_client.api.systemone_api import SystemoneApi as SystemoneApi
+from ogx_client.api.systemone_api import AsyncSystemoneApi as AsyncSystemoneApi
 from ogx_client.api.vector_io_api import VectorIoApi as VectorIoApi
 from ogx_client.api.vector_io_api import AsyncVectorIoApi as AsyncVectorIoApi
 from ogx_client.api.vector_stores_api import VectorStoresApi as VectorStoresApi
@@ -928,8 +951,6 @@ from ogx_client.models.list_skills_request import ListSkillsRequest as ListSkill
 from ogx_client.models.list_skills_response import ListSkillsResponse as ListSkillsResponse
 from ogx_client.models.list_string_allowed_tools_filter import ListStringAllowedToolsFilter as ListStringAllowedToolsFilter
 from ogx_client.models.list_tool_defs_response import ListToolDefsResponse as ListToolDefsResponse
-from ogx_client.models.list_tool_groups_response import ListToolGroupsResponse as ListToolGroupsResponse
-from ogx_client.models.list_tools_request import ListToolsRequest as ListToolsRequest
 from ogx_client.models.list_tools_response import ListToolsResponse as ListToolsResponse
 from ogx_client.models.mcp_list_tools_tool import MCPListToolsTool as MCPListToolsTool
 from ogx_client.models.memory_tool_config import MemoryToolConfig as MemoryToolConfig
@@ -1040,9 +1061,10 @@ from ogx_client.models.open_ai_response_input_tool_choice_web_search import Open
 from ogx_client.models.open_ai_response_input_tool_file_search import OpenAIResponseInputToolFileSearch as OpenAIResponseInputToolFileSearch
 from ogx_client.models.open_ai_response_input_tool_function import OpenAIResponseInputToolFunction as OpenAIResponseInputToolFunction
 from ogx_client.models.open_ai_response_input_tool_mcp import OpenAIResponseInputToolMCP as OpenAIResponseInputToolMCP
+from ogx_client.models.open_ai_response_input_tool_namespace import OpenAIResponseInputToolNamespace as OpenAIResponseInputToolNamespace
 from ogx_client.models.open_ai_response_input_tool_web_search import OpenAIResponseInputToolWebSearch as OpenAIResponseInputToolWebSearch
 from ogx_client.models.open_ai_response_input_tool_web_search4_variants import OpenAIResponseInputToolWebSearch4Variants as OpenAIResponseInputToolWebSearch4Variants
-from ogx_client.models.open_ai_response_input_tool_web_search4_variants1 import OpenAIResponseInputToolWebSearch4Variants1 as OpenAIResponseInputToolWebSearch4Variants1
+from ogx_client.models.open_ai_response_input_tool_web_search5_variants import OpenAIResponseInputToolWebSearch5Variants as OpenAIResponseInputToolWebSearch5Variants
 from ogx_client.models.open_ai_response_mcp_approval_request import OpenAIResponseMCPApprovalRequest as OpenAIResponseMCPApprovalRequest
 from ogx_client.models.open_ai_response_mcp_approval_response import OpenAIResponseMCPApprovalResponse as OpenAIResponseMCPApprovalResponse
 from ogx_client.models.open_ai_response_message import OpenAIResponseMessage as OpenAIResponseMessage
@@ -1089,7 +1111,6 @@ from ogx_client.models.open_ai_response_object_stream_response_refusal_done impo
 from ogx_client.models.open_ai_response_object_stream_response_web_search_call_completed import OpenAIResponseObjectStreamResponseWebSearchCallCompleted as OpenAIResponseObjectStreamResponseWebSearchCallCompleted
 from ogx_client.models.open_ai_response_object_stream_response_web_search_call_in_progress import OpenAIResponseObjectStreamResponseWebSearchCallInProgress as OpenAIResponseObjectStreamResponseWebSearchCallInProgress
 from ogx_client.models.open_ai_response_object_stream_response_web_search_call_searching import OpenAIResponseObjectStreamResponseWebSearchCallSearching as OpenAIResponseObjectStreamResponseWebSearchCallSearching
-from ogx_client.models.open_ai_response_object_with_input import OpenAIResponseObjectWithInput as OpenAIResponseObjectWithInput
 from ogx_client.models.open_ai_response_output import OpenAIResponseOutput as OpenAIResponseOutput
 from ogx_client.models.open_ai_response_output_item import OpenAIResponseOutputItem as OpenAIResponseOutputItem
 from ogx_client.models.open_ai_response_output_message_content import OpenAIResponseOutputMessageContent as OpenAIResponseOutputMessageContent
@@ -1108,6 +1129,10 @@ from ogx_client.models.open_ai_response_prompt import OpenAIResponsePrompt as Op
 from ogx_client.models.open_ai_response_reasoning import OpenAIResponseReasoning as OpenAIResponseReasoning
 from ogx_client.models.open_ai_response_text import OpenAIResponseText as OpenAIResponseText
 from ogx_client.models.open_ai_response_text_format import OpenAIResponseTextFormat as OpenAIResponseTextFormat
+from ogx_client.models.open_ai_response_text_format_json_object import OpenAIResponseTextFormatJSONObject as OpenAIResponseTextFormatJSONObject
+from ogx_client.models.open_ai_response_text_format_json_schema import OpenAIResponseTextFormatJSONSchema as OpenAIResponseTextFormatJSONSchema
+from ogx_client.models.open_ai_response_text_format_text import OpenAIResponseTextFormatText as OpenAIResponseTextFormatText
+from ogx_client.models.open_ai_response_text_format_text_open_ai_response_text_format_json_object_open_ai_response_text_format_json_schema import OpenAIResponseTextFormatTextOpenAIResponseTextFormatJSONObjectOpenAIResponseTextFormatJSONSchema as OpenAIResponseTextFormatTextOpenAIResponseTextFormatJSONObjectOpenAIResponseTextFormatJSONSchema
 from ogx_client.models.open_ai_response_tool import OpenAIResponseTool as OpenAIResponseTool
 from ogx_client.models.open_ai_response_tool_mcp import OpenAIResponseToolMCP as OpenAIResponseToolMCP
 from ogx_client.models.open_ai_response_usage import OpenAIResponseUsage as OpenAIResponseUsage
@@ -1201,10 +1226,30 @@ from ogx_client.models.string_number_boolean import StringNumberBoolean as Strin
 from ogx_client.models.string_number_boolean1 import StringNumberBoolean1 as StringNumberBoolean1
 from ogx_client.models.string_object import StringObject as StringObject
 from ogx_client.models.string_object1 import StringObject1 as StringObject1
+from ogx_client.models.string_object_array import StringObjectArray as StringObjectArray
+from ogx_client.models.string_object_array1 import StringObjectArray1 as StringObjectArray1
+from ogx_client.models.string_object_array2 import StringObjectArray2 as StringObjectArray2
+from ogx_client.models.string_object_array3 import StringObjectArray3 as StringObjectArray3
+from ogx_client.models.string_object_array4 import StringObjectArray4 as StringObjectArray4
+from ogx_client.models.string_object_array5 import StringObjectArray5 as StringObjectArray5
+from ogx_client.models.string_object_array6 import StringObjectArray6 as StringObjectArray6
+from ogx_client.models.string_object_array7 import StringObjectArray7 as StringObjectArray7
 from ogx_client.models.string_open_ai_chat_completion_content_part_text_param_open_ai_chat_completion_content_part_image_param import StringOpenAIChatCompletionContentPartTextParamOpenAIChatCompletionContentPartImageParam as StringOpenAIChatCompletionContentPartTextParamOpenAIChatCompletionContentPartImageParam
 from ogx_client.models.string_open_ai_chat_completion_content_part_text_param_open_ai_chat_completion_content_part_image_param1 import StringOpenAIChatCompletionContentPartTextParamOpenAIChatCompletionContentPartImageParam1 as StringOpenAIChatCompletionContentPartTextParamOpenAIChatCompletionContentPartImageParam1
 from ogx_client.models.string_type import StringType as StringType
 from ogx_client.models.system_message import SystemMessage as SystemMessage
+from ogx_client.models.system_one_choice_answer import SystemOneChoiceAnswer as SystemOneChoiceAnswer
+from ogx_client.models.system_one_choice_question import SystemOneChoiceQuestion as SystemOneChoiceQuestion
+from ogx_client.models.system_one_noul_answer import SystemOneNoulAnswer as SystemOneNoulAnswer
+from ogx_client.models.system_one_noul_answer_system_one_choice_answer_system_one_score_answer import SystemOneNoulAnswerSystemOneChoiceAnswerSystemOneScoreAnswer as SystemOneNoulAnswerSystemOneChoiceAnswerSystemOneScoreAnswer
+from ogx_client.models.system_one_noul_criteria import SystemOneNoulCriteria as SystemOneNoulCriteria
+from ogx_client.models.system_one_noul_question import SystemOneNoulQuestion as SystemOneNoulQuestion
+from ogx_client.models.system_one_noul_question_system_one_choice_question_system_one_score_question import SystemOneNoulQuestionSystemOneChoiceQuestionSystemOneScoreQuestion as SystemOneNoulQuestionSystemOneChoiceQuestionSystemOneScoreQuestion
+from ogx_client.models.system_one_request import SystemOneRequest as SystemOneRequest
+from ogx_client.models.system_one_response import SystemOneResponse as SystemOneResponse
+from ogx_client.models.system_one_score_answer import SystemOneScoreAnswer as SystemOneScoreAnswer
+from ogx_client.models.system_one_score_question import SystemOneScoreQuestion as SystemOneScoreQuestion
+from ogx_client.models.system_one_usage import SystemOneUsage as SystemOneUsage
 from ogx_client.models.text_content_item import TextContentItem as TextContentItem
 from ogx_client.models.text_delta import TextDelta as TextDelta
 from ogx_client.models.token_log_probs import TokenLogProbs as TokenLogProbs
@@ -1215,12 +1260,13 @@ from ogx_client.models.tool_choice_none import ToolChoiceNone as ToolChoiceNone
 from ogx_client.models.tool_choice_tool import ToolChoiceTool as ToolChoiceTool
 from ogx_client.models.tool_config import ToolConfig as ToolConfig
 from ogx_client.models.tool_def import ToolDef as ToolDef
-from ogx_client.models.tool_group import ToolGroup as ToolGroup
 from ogx_client.models.tool_group_input import ToolGroupInput as ToolGroupInput
 from ogx_client.models.tool_invocation_result import ToolInvocationResult as ToolInvocationResult
 from ogx_client.models.tool_response_message import ToolResponseMessage as ToolResponseMessage
 from ogx_client.models.top_k_sampling_strategy import TopKSamplingStrategy as TopKSamplingStrategy
 from ogx_client.models.top_p_sampling_strategy import TopPSamplingStrategy as TopPSamplingStrategy
+from ogx_client.models.type_safe_list_models_response import TypeSafeListModelsResponse as TypeSafeListModelsResponse
+from ogx_client.models.type_safe_model_info import TypeSafeModelInfo as TypeSafeModelInfo
 from ogx_client.models.url import URL as URL
 from ogx_client.models.urlor_data import URLOrData as URLOrData
 from ogx_client.models.union_type import UnionType as UnionType

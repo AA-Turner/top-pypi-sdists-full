@@ -1,5 +1,3 @@
-# fmt: off
-
 import fractions
 import functools
 import re
@@ -104,9 +102,9 @@ def bisect(A, X, Y, f):
         return
     i = len(X) // 2
     j = len(Y) // 2
-    bisect(A[:i + 1, :j + 1], X[:i + 1], Y[:j + 1], f)
-    bisect(A[:i + 1, j:], X[:i + 1], Y[j:], f)
-    bisect(A[i:, :j + 1], X[i:], Y[:j + 1], f)
+    bisect(A[: i + 1, : j + 1], X[: i + 1], Y[: j + 1], f)
+    bisect(A[: i + 1, j:], X[: i + 1], Y[j:], f)
+    bisect(A[i:, : j + 1], X[i:], Y[: j + 1], f)
     bisect(A[i:, j:], X[i:], Y[j:], f)
 
 
@@ -127,7 +125,8 @@ def print_results(results):
 class Pourbaix:
     @deprecated(
         'Use ase.pourbaix.Pourbaix.  '
-        'This class will be removed in a future version of ASE.')
+        'This class will be removed in a future version of ASE.'
+    )
     def __init__(self, references, formula=None, T=300.0, **kwargs):
         """Pourbaix object.
 
@@ -181,39 +180,6 @@ class Pourbaix:
         concentration: float
             Concentration of solvated references.
 
-        Returns optimal coefficients and energy:
-
-        >>> from ase.phasediagram import Pourbaix, solvated
-        >>> refs = solvated('CoO') + [
-        ...     ('Co', 0.0),
-        ...     ('CoO', -2.509),
-        ...     ('Co3O4', -9.402)]
-        >>> pb = Pourbaix(refs, Co=3, O=4)
-        >>> coefs, energy = pb.decompose(U=1.5, pH=0,
-        ...                              concentration=1e-6,
-        ...                              verbose=True)
-        0    HCoO2-(aq)    -3.974
-        1    CoO2--(aq)    -3.098
-        2    H2O(aq)       -2.458
-        3    CoOH+(aq)     -2.787
-        4    CoO(aq)       -2.265
-        5    CoOH++(aq)    -1.355
-        6    Co++(aq)      -0.921
-        7    H+(aq)         0.000
-        8    Co+++(aq)      1.030
-        9    Co             0.000
-        10   CoO           -2.509
-        11   Co3O4         -9.402
-        12   e-            -1.500
-        reference    coefficient      energy
-        ------------------------------------
-        H2O(aq)                4      -2.458
-        Co++(aq)               3      -0.921
-        H+(aq)                -8       0.000
-        e-                    -2      -1.500
-        ------------------------------------
-        Total energy:                 -9.596
-        ------------------------------------
         """
 
         alpha = np.log(10) * self.kT
@@ -250,17 +216,15 @@ class Pourbaix:
                 if aq:
                     energy -= entropy
             if verbose:
-                print('{:<5}{:10}{:10.3f}'.format(len(energies),
-                                                  name, energy))
+                print('{:<5}{:10}{:10.3f}'.format(len(energies), name, energy))
             energies.append(energy)
             names.append(name)
 
         from scipy.optimize import linprog
 
-        result = linprog(c=energies,
-                         A_eq=np.transpose(eq2),
-                         b_eq=eq1,
-                         bounds=bounds)
+        result = linprog(
+            c=energies, A_eq=np.transpose(eq2), b_eq=eq1, bounds=bounds
+        )
 
         if verbose:
             print_results(zip(names, result.x, energies))
@@ -290,12 +254,14 @@ class Pourbaix:
         compositions = [None] * len(colors)
         names = [ref[-1] for ref in self.references]
         for indices, color in colors.items():
-            compositions[color] = ' + '.join(names[i] for i in indices
-                                             if names[i] not in
-                                             ['H2O(aq)', 'H+(aq)', 'e-'])
+            compositions[color] = ' + '.join(
+                names[i]
+                for i in indices
+                if names[i] not in ['H2O(aq)', 'H+(aq)', 'e-']
+            )
         text = []
         for i, name in enumerate(compositions):
-            b = (a == i)
+            b = a == i
             x = np.dot(b.sum(1), U) / b.sum()
             y = np.dot(b.sum(0), pH) / b.sum()
             name = re.sub(r'(\S)([+-]+)', r'\1$^{\2}$', name)
@@ -305,6 +271,7 @@ class Pourbaix:
         if plot:
             import matplotlib.cm as cm
             import matplotlib.pyplot as plt
+
             if ax is None:
                 ax = plt.gca()
 
@@ -312,10 +279,13 @@ class Pourbaix:
             # white border.  Unrasterized pcolormesh produces
             # unreasonably large files.  Avoid this by using the more
             # general imshow.
-            ax.imshow(a, cmap=cm.Accent,
-                      extent=[min(pH), max(pH), min(U), max(U)],
-                      origin='lower',
-                      aspect='auto')
+            ax.imshow(
+                a,
+                cmap=cm.Accent,
+                extent=[min(pH), max(pH), min(U), max(U)],
+                origin='lower',
+                aspect='auto',
+            )
 
             for x, y, name in text:
                 ax.text(y, x, name, horizontalalignment='center')
@@ -352,12 +322,15 @@ class PhaseDiagram:
             contain zinc or oxygen.
         verbose: bool
             Write information.
+
         """
 
         if not references:
-            raise ValueError("You must provide a non-empty list of references"
-                             " for the phase diagram! "
-                             "You have provided '{}'".format(references))
+            raise ValueError(
+                'You must provide a non-empty list of references'
+                ' for the phase diagram! '
+                "You have provided '{}'".format(references)
+            )
         filter = parse_formula(filter)[0]
 
         self.verbose = verbose
@@ -459,7 +432,7 @@ class PhaseDiagram:
         for i, Y in enumerate(X):
             try:
                 x = np.linalg.solve((Y[1:] - Y[:1]).T, -Y[0])
-            except np.linalg.linalg.LinAlgError:
+            except np.linalg.LinAlgError:
                 continue
             if (x > -eps).all() and x.sum() < 1 + eps:
                 indices = self.simplices[i]
@@ -473,7 +446,8 @@ class PhaseDiagram:
 
         # Pick the one with lowest energy:
         energy, indices, points, scaledcoefs = min(
-            candidates, key=lambda x: x[0])
+            candidates, key=lambda x: x[0]
+        )
 
         coefs = []
         results = []
@@ -509,13 +483,15 @@ class PhaseDiagram:
             if dims == 3:
                 projection = '3d'
                 from mpl_toolkits.mplot3d import Axes3D
+
                 Axes3D  # silence pyflakes
             fig = plt.figure()
             ax = fig.add_subplot(projection=projection)
         else:
             if dims == 3 and not hasattr(ax, 'set_zlim'):
-                raise ValueError('Cannot make 3d plot unless axes projection '
-                                 'is 3d')
+                raise ValueError(
+                    'Cannot make 3d plot unless axes projection is 3d'
+                )
 
         if dims == 2:
             if N == 2:
@@ -523,25 +499,29 @@ class PhaseDiagram:
             elif N == 3:
                 self.plot2d3(ax)
             else:
-                raise ValueError('Can only make 2-d plots for 2 and 3 '
-                                 'component systems!')
+                raise ValueError(
+                    'Can only make 2-d plots for 2 and 3 component systems!'
+                )
         else:
             if N == 3:
                 self.plot3d3(ax)
             elif N == 4:
                 self.plot3d4(ax)
             else:
-                raise ValueError('Can only make 3-d plots for 3 and 4 '
-                                 'component systems!')
+                raise ValueError(
+                    'Can only make 3-d plots for 3 and 4 component systems!'
+                )
         if show:
             plt.show()
         return ax
 
-    def plot2d2(self, ax=None,
-                only_label_simplices=False, only_plot_simplices=False):
+    def plot2d2(
+        self, ax=None, only_label_simplices=False, only_plot_simplices=False
+    ):
         x, e = self.points[:, 1:].T
-        names = [re.sub(r'(\d+)', r'$_{\1}$', ref[2])
-                 for ref in self.references]
+        names = [
+            re.sub(r'(\d+)', r'$_{\1}$', ref[2]) for ref in self.references
+        ]
         hull = self.hull
         simplices = self.simplices
         xlabel = self.symbols[1]
@@ -570,8 +550,9 @@ class PhaseDiagram:
         x, y = self.points[:, 1:-1].T.copy()
         x += y / 2
         y *= 3**0.5 / 2
-        names = [re.sub(r'(\d+)', r'$_{\1}$', ref[2])
-                 for ref in self.references]
+        names = [
+            re.sub(r'(\d+)', r'$_{\1}$', ref[2]) for ref in self.references
+        ]
         hull = self.hull
         simplices = self.simplices
 
@@ -588,19 +569,17 @@ class PhaseDiagram:
     def plot3d3(self, ax):
         x, y, e = self.points[:, 1:].T
 
-        ax.scatter(x[self.hull], y[self.hull], e[self.hull],
-                   c='g', marker='o')
-        ax.scatter(x[~self.hull], y[~self.hull], e[~self.hull],
-                   c='r', marker='s')
+        ax.scatter(x[self.hull], y[self.hull], e[self.hull], c='g', marker='o')
+        ax.scatter(
+            x[~self.hull], y[~self.hull], e[~self.hull], c='r', marker='s'
+        )
 
         for a, b, c, ref in zip(x, y, e, self.references):
             name = re.sub(r'(\d+)', r'$_{\1}$', ref[2])
             ax.text(a, b, c, name, ha='center', va='bottom')
 
         for i, j, k in self.simplices:
-            ax.plot(x[[i, j, k, i]],
-                    y[[i, j, k, i]],
-                    zs=e[[i, j, k, i]], c='b')
+            ax.plot(x[[i, j, k, i]], y[[i, j, k, i]], zs=e[[i, j, k, i]], c='b')
 
         ax.set_xlim3d(0, 1)
         ax.set_ylim3d(0, 1)
@@ -613,21 +592,24 @@ class PhaseDiagram:
         x, y, z = self.points[:, 1:-1].T
         a = x / 2 + y + z / 2
         b = 3**0.5 * (x / 2 + y / 6)
-        c = (2 / 3)**0.5 * z
+        c = (2 / 3) ** 0.5 * z
 
-        ax.scatter(a[self.hull], b[self.hull], c[self.hull],
-                   c='g', marker='o')
-        ax.scatter(a[~self.hull], b[~self.hull], c[~self.hull],
-                   c='r', marker='s')
+        ax.scatter(a[self.hull], b[self.hull], c[self.hull], c='g', marker='o')
+        ax.scatter(
+            a[~self.hull], b[~self.hull], c[~self.hull], c='r', marker='s'
+        )
 
         for x, y, z, ref in zip(a, b, c, self.references):
             name = re.sub(r'(\d+)', r'$_{\1}$', ref[2])
             ax.text(x, y, z, name, ha='center', va='bottom')
 
         for i, j, k, w in self.simplices:
-            ax.plot(a[[i, j, k, i, w, k, j, w]],
-                    b[[i, j, k, i, w, k, j, w]],
-                    zs=c[[i, j, k, i, w, k, j, w]], c='b')
+            ax.plot(
+                a[[i, j, k, i, w, k, j, w]],
+                b[[i, j, k, i, w, k, j, w]],
+                zs=c[[i, j, k, i, w, k, j, w]],
+                c='b',
+            )
 
         ax.set_xlim3d(0, 1)
         ax.set_ylim3d(0, 1)

@@ -6,27 +6,12 @@ from typing_extensions import Literal
 from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
+from .command_held import CommandHeld
 from .command_dialog import CommandDialog
 from .command_result import CommandResult
 from .command_error_info import CommandErrorInfo
 
-__all__ = ["SessionCommandsResponse", "Execution", "Page", "Observe"]
-
-
-class Execution(BaseModel):
-    id: str
-
-    effect: Literal["none", "applied", "unknown"]
-    """What happened to the page: nothing, a change, or a possible change."""
-
-    ran: int
-    """Commands started."""
-
-    replayed: bool
-
-    state: Literal["queued", "running", "completed", "failed", "cancelled", "timeout", "expired"]
-
-    error: Optional[CommandErrorInfo] = None
+__all__ = ["SessionCommandsResponse", "Page", "Observe"]
 
 
 class Page(BaseModel):
@@ -59,17 +44,23 @@ class Observe(BaseModel):
 
 class SessionCommandsResponse(BaseModel):
     id: str
-    """The id of this execution, the same as execution.id.
+    """The id of this execution. Use it to get or cancel the execution."""
 
-    Use it to get or cancel the execution.
-    """
-
-    execution: Execution
+    effect: Literal["none", "applied", "unknown"]
+    """What happened to the page: nothing, a change, or a possible change."""
 
     page: Optional[Page] = None
     """The tab the execution used."""
 
+    ran: int
+    """Commands started."""
+
+    replayed: bool
+    """This is the stored result of an earlier request. Nothing ran again."""
+
     results: List[CommandResult]
+
+    state: Literal["running", "completed", "failed", "cancelled", "timeout"]
 
     body_expired: Optional[bool] = FieldInfo(alias="bodyExpired", default=None)
 
@@ -83,7 +74,19 @@ class SessionCommandsResponse(BaseModel):
     session since then. Input from CDP clients or the live view does not count.
     """
 
+    held: Optional[List[CommandHeld]] = None
+    """Tabs with keys or a mouse button still held down.
+
+    Left out when nothing is held.
+    """
+
     next: Optional[str] = None
     """Send it as after in the next request."""
 
     observe: Optional[Observe] = None
+
+    stopped: Optional[CommandErrorInfo] = None
+    """
+    Why the execution stopped early, such as a cancel, a timeout, or a browser
+    restart. A failed command has its error in results instead.
+    """

@@ -27,6 +27,12 @@ class ErrorSummaryFormatter(BaseFormatter):
         )
         self.test_time_divisor = 1
         self.test_time_divisor_group = None
+        # Tests that have not ended, in start order (a dict used as an
+        # ordered set).
+        self.running_tests = {}
+        # test -> group to fail when the test ends, unless it ends in an
+        # expected crash.
+        self.pending_group_failures = {}
         self.line_count = 0
         self.dump_passing_tests = False
 
@@ -105,6 +111,10 @@ class ErrorSummaryFormatter(BaseFormatter):
         return self._output("test_groups", {"groups": list(item["tests"].keys())})
 
     def suite_end(self, data):
+        for group in self.pending_group_failures.values():
+            self.groups[group]["status"] = "ERROR"
+        self.pending_group_failures = {}
+
         output = []
         for group, info in self.groups.items():
             if info["group_start"] is not None and info["group_end"] is not None:
@@ -146,8 +156,10 @@ class ErrorSummaryFormatter(BaseFormatter):
 
     def test_start(self, item):
         test = self._clean_test_name(item["test"])
+        self.running_tests[test] = None
         group = item.get("group", self.test_to_group.get(test, None))
         if group:
+            self.test_to_group[test] = group
             self.groups[group]["test_starts"][test] = item["time"]
 
     def test_status(self, item):
@@ -169,6 +181,7 @@ class ErrorSummaryFormatter(BaseFormatter):
 
     def test_end(self, item):
         test = self._clean_test_name(item["test"])
+        self.running_tests.pop(test, None)
         group = item.get("group", self.test_to_group.get(test, None))
         if group:
             self.groups[group]["status"] = self._get_group_result(group, item)
@@ -179,6 +192,10 @@ class ErrorSummaryFormatter(BaseFormatter):
                     math.ceil(elapsed / self.test_time_divisor)
                 )
 
+        pending_group = self.pending_group_failures.pop(test, None)
+        if pending_group and not self._expects_crash(item):
+            self.groups[pending_group]["status"] = "ERROR"
+
         if not self.dump_passing_tests and "expected" not in item:
             return
 
@@ -186,6 +203,46 @@ class ErrorSummaryFormatter(BaseFormatter):
             item["expected"] = item["status"]
 
         return self._output_test(test, None, item)
+
+    @staticmethod
+    def _expects_crash(item):
+        expected = item.get("expected", item["status"])
+        if isinstance(expected, str):
+            expected = [expected]
+        return "CRASH" in expected or "CRASH" in item.get("known_intermittent", [])
+
+    def assertion_count(self, item):
+        count = item["count"]
+        min_expected = item["min_expected"]
+        max_expected = item["max_expected"]
+        if min_expected <= count <= max_expected:
+            return
+
+        if min_expected != max_expected:
+            expected = f"{min_expected} to {max_expected}"
+        else:
+            expected = str(min_expected)
+        if count < min_expected:
+            status, expected_status = "PASS", "FAIL"
+            comparison = "is less than"
+        else:
+            status, expected_status = "FAIL", "PASS"
+            comparison = "is more than"
+
+        test = self._clean_test_name(item["test"])
+        group = self.test_to_group.get(test)
+        if group:
+            self.groups[group]["status"] = "ERROR"
+
+        return self._output_test(
+            test,
+            None,
+            {
+                "status": status,
+                "expected": expected_status,
+                "message": f"assertion count {count} {comparison} expected {expected} assertions",
+            },
+        )
 
     def log(self, item):
         if item["level"] not in ("ERROR", "CRITICAL"):
@@ -216,7 +273,9 @@ class ErrorSummaryFormatter(BaseFormatter):
             "stackwalk_stderr": item.get("stackwalk_stderr"),
         }
 
-        if item.get("test"):
+        if item.get("group"):
+            data["group"] = item["group"]
+        elif item.get("test"):
             data["group"] = self.test_to_group.get(
                 self._clean_test_name(item["test"]), ""
             )
@@ -225,8 +284,12 @@ class ErrorSummaryFormatter(BaseFormatter):
                 if self._clean_test_name(item["test"]) in self.groups:
                     data["group"] = self._clean_test_name(item["test"])
 
+        if data.get("group"):
             # unlike test group summary, if we crash expect error unless expected
-            if (
+            # or logged quietly (e.g. the test will be retried)
+            if item.get("quiet"):
+                pass
+            elif (
                 (
                     "expected" in item
                     and "status" in item
@@ -241,6 +304,71 @@ class ErrorSummaryFormatter(BaseFormatter):
                 self.groups[data["group"]]["status"] = "ERROR"
 
         return self._output("crash", data)
+
+    def asan_error(self, item):
+        """An AddressSanitizer report is the crash of the process it names,
+        usually without a minidump: write it as a crash of the test that was
+        running and fail its group, unless the run will be retried or the
+        test ends in an expected crash."""
+        test, group = self._sanitizer_target(item)
+
+        signature = f"AddressSanitizer: {item['kind']}"
+        function = item.get("function") or next(
+            (f["function"] for f in item.get("stack") or [] if f.get("function")),
+            None,
+        )
+        if function:
+            signature += f" [@ {function}]"
+
+        quiet = bool(item.get("quiet"))
+        if group and not quiet and test in self.running_tests:
+            self.pending_group_failures[test] = group
+            quiet = True
+        return self.crash({
+            "test": test,
+            "group": group,
+            "signature": signature,
+            "quiet": quiet,
+        })
+
+    def _sanitizer_target(self, item):
+        """The test and group a sanitizer report belongs to: the test the
+        report names, else the last started test of its scope's group, else
+        the last started test."""
+        test = item.get("test")
+        scope = item.get("scope")
+        if test:
+            test = self._clean_test_name(test)
+            return test, self._sanitizer_group(test, scope)
+
+        group = self._sanitizer_group(None, scope)
+        running = [
+            t
+            for t in self.running_tests
+            if group is None or self.test_to_group.get(t) == group
+        ]
+        test = running[-1] if running else None
+        if group is None and test:
+            group = self._sanitizer_group(test, None)
+        return test, group
+
+    def _sanitizer_group(self, test, scope):
+        if test:
+            if test in self.test_to_group:
+                return self.test_to_group[test]
+            if test in self.groups:
+                return test
+        if scope:
+            scope = self._clean_test_name(scope)
+            if scope in self.groups or scope in self.manifest_groups:
+                return scope
+            if scope in self.test_to_group:
+                return self.test_to_group[scope]
+            # wptrunner prefixes group names with the subsuite
+            suffixed = [g for g in self.manifest_groups if g.endswith(":" + scope)]
+            if len(suffixed) == 1:
+                return suffixed[0]
+        return None
 
     def lint(self, item):
         data = {

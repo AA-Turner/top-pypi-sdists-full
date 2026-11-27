@@ -45,7 +45,7 @@ class ApiError(Exception):
 
     @property
     def raw_message(self) -> str:
-        return self.raw_message
+        return self._raw_message
 
 
 class FutureVersionError(Exception):

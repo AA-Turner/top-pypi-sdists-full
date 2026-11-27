@@ -25,34 +25,34 @@ class GetAssetsPropertyDetailRequest(DaraModel):
         # 
         # - **lkm**: kernel module
         # - **autorun**: startup item
-        # - **web_server**: web site.
+        # - **web_server**: web site
         # 
         # This parameter is required.
         self.biz = biz
         # The page number of the page to return. Default value: **1**.
         self.current_page = current_page
-        # The aggregation item name of the Asset Fingerprints to query.
-        # > Call the [GetAssetsPropertyItem](~~GetAssetsPropertyItem~~) operation to obtain this parameter.
+        # The name of the aggregation item for Asset Fingerprints to query.
+        # > Invoke the [GetAssetsPropertyItem](~~GetAssetsPropertyItem~~) operation to obtain this parameter.
         self.item_name = item_name
-        # The language type of the request and response messages. Valid values:
+        # The language of the request and response. Valid values:
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
-        # The token that marks the starting position for the query. Leave this parameter empty to query from the beginning.
+        # The token that marks the starting position of the current read operation. If this parameter is left empty, the read operation starts from the beginning.
         # 
-        # > Do not specify this parameter for the first call. The response includes the NextToken value for the next call. Each subsequent response contains the NextToken value for the following call.
+        # > You do not need to specify this parameter for the first call. The response to the first call contains the NextToken value for the second call, and the response to each subsequent call contains the NextToken value for the next call.
         self.next_token = next_token
-        # The maximum number of entries per page for a paging query. Default value: 20. If you leave this parameter empty, 20 entries are returned per page by default.
-        # > Do not leave PageSize empty.
+        # The maximum number of entries to return on each page in a paged query. Default value: 20. If this parameter is left empty, 20 entries are returned on each page during paging.
+        # > Do not leave this parameter empty.
         self.page_size = page_size
-        # The server name or IP address.
+        # The name or IP address of the server.
         self.remark = remark
         # The collection of search criteria for querying Asset Fingerprints details.
         self.search_criteria_list = search_criteria_list
-        # Specifies whether to use the NextToken method to retrieve the vulnerability list. If this parameter is used, TotalCount is no longer returned. Valid values:
+        # Specifies whether to use the NextToken method to retrieve list data. If you use this parameter, TotalCount is not returned. Valid values:
         # 
-        # - **true**: Use the NextToken method.
-        # - **false**: Do not use the NextToken method.
+        # - **true**: uses the NextToken method.
+        # - **false**: does not use the NextToken method.
         self.use_next_token = use_next_token
         # The UUID of the asset to query.
         # > Call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain this parameter.
@@ -147,12 +147,12 @@ class GetAssetsPropertyDetailRequestSearchCriteriaList(DaraModel):
         value: str = None,
     ):
         # The name of the search criterion. Valid values:
-        # - **remarkItemName**: the aggregation item name of Asset Fingerprints. Fuzzy match is supported.
+        # - **remarkItemName**: the name of the aggregation item for Asset Fingerprints. Fuzzy match is supported.
         # 
         # 
-        # >-   - When **Biz** is set to **web_server**, **remarkItemName** indicates the domain name.
-        # >-   - When **Biz** is set to **lkm**, **remarkItemName** indicates the module name.
-        # >-   - When **Biz** is set to **autorun**, **remarkItemName** indicates the startup item path.
+        # > - If **Biz** is set to **web_server**, **remarkItemName** specifies the domain name.
+        # > - If **Biz** is set to **lkm**, **remarkItemName** specifies the module name.
+        # > - If **Biz** is set to **autorun**, **remarkItemName** specifies the path of the startup item.
         self.name = name
         # The value of the search criterion.
         self.value = value

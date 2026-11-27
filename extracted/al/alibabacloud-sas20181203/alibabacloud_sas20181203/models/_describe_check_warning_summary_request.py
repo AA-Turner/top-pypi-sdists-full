@@ -24,53 +24,53 @@ class DescribeCheckWarningSummaryRequest(DaraModel):
         uuids: str = None,
     ):
         # The ID of the container cluster to query.
-        # > Call the [DescribeGroupedContainerInstances](~~DescribeGroupedContainerInstances~~) operation to obtain this parameter.
+        # > You can call the [DescribeGroupedContainerInstances](~~DescribeGroupedContainerInstances~~) operation to query this parameter.
         self.cluster_id = cluster_id
         # The container field. Valid values:
         # 
         # - **clusterId**: cluster ID
         # - **image**: image name
         # - **imageId**: image ID
-        # - **namespace**: namespace.
+        # - **namespace**: namespace
         self.container_field_name = container_field_name
         # The value of the container field.
         self.container_field_value = container_field_value
-        # The page number for a paged query.
+        # The page number for a paging query.
         self.current_page = current_page
-        # The group ID of the server to query.
-        # > Call the [DescribeAllGroups](~~DescribeAllGroups~~) operation to obtain the group ID of the server.
+        # The ID of the server group to query.
+        # > You can call the [DescribeAllGroups](~~DescribeAllGroups~~) operation to query the server group ID.
         self.group_id = group_id
         # The language of the request and response. Valid values:
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
-        # The maximum number of entries per page for a paged query.
+        # The maximum number of entries to return per page in a paging query.
         self.page_size = page_size
         # The name of the baseline check risk item.
         self.risk_name = risk_name
         # The status of the baseline check. Valid values:
-        # - **1**: failed 
-        # - **3**: passed.
+        # - **1**: Failed 
+        # - **3**: Passed
         self.risk_status = risk_status
-        # The source IP address of the request.
+        # The source IP address.
         self.source_ip = source_ip
         # The status of the check item. Valid values:
-        # - **1**: failed
-        # - **2**: verifying 
-        # - **3**: passed 
-        # - **5**: expired 
-        # - **6**: ignored.
+        # - **1**: Failed
+        # - **2**: Verifying 
+        # - **3**: Passed 
+        # - **5**: Invalid 
+        # - **6**: Ignored
         self.status = status
         # The ID of the baseline check policy.
         self.strategy_id = strategy_id
         # The query type. Valid values:
-        # - **uuid**: asset ID.
+        # - **uuid**: asset ID
         self.target_type = target_type
-        # The level-1 type of the baseline.
-        # > Call the [DescribeRiskType](~~DescribeRiskType~~) operation to obtain this parameter.
+        # The primary type of the baseline.
+        # > You can call the [DescribeRiskType](~~DescribeRiskType~~) operation to query this parameter.
         self.type_name = type_name
         # The UUID of the asset.
-        # > Call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain this parameter.
+        # > You can call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to query this parameter.
         self.uuids = uuids
 
     def validate(self):

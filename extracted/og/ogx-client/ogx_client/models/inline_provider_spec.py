@@ -44,12 +44,11 @@ class InlineProviderSpec(BaseModel):
     pip_packages: Optional[List[StrictStr]] = Field(default=None, description="The pip dependencies needed for this implementation")
     provider_data_validator: Optional[StrictStr] = None
     is_external: Optional[StrictBool] = Field(default=False, description="Notes whether this provider is an external provider.")
-    toolgroup_id: Optional[StrictStr] = None
     deps__: Optional[List[StrictStr]] = None
     container_image: Optional[StrictStr] = None
     execution_mode: Optional[StrictStr] = Field(default='inline', description=" How this provider's work is executed. 'inline' runs the implementation in the server process (default, unchanged behavior). 'worker' runs the implementation in a separate worker process via the job queue, so long or large operations do not block the server. ")
     description: Optional[StrictStr] = None
-    __properties: ClassVar[list[str]] = ["api", "provider_type", "config_class", "api_dependencies", "optional_api_dependencies", "deprecation_warning", "deprecation_error", "module", "pip_packages", "provider_data_validator", "is_external", "toolgroup_id", "deps__", "container_image", "execution_mode", "description"]
+    __properties: ClassVar[list[str]] = ["api", "provider_type", "config_class", "api_dependencies", "optional_api_dependencies", "deprecation_warning", "deprecation_error", "module", "pip_packages", "provider_data_validator", "is_external", "deps__", "container_image", "execution_mode", "description"]
 
     @field_validator('execution_mode')
     def execution_mode_validate_enum(cls, value):
@@ -147,11 +146,6 @@ class InlineProviderSpec(BaseModel):
         if self.provider_data_validator is None and "provider_data_validator" in self.model_fields_set:
             _dict['provider_data_validator'] = None
 
-        # set to None if toolgroup_id (nullable) is None
-        # and model_fields_set contains the field
-        if self.toolgroup_id is None and "toolgroup_id" in self.model_fields_set:
-            _dict['toolgroup_id'] = None
-
         # set to None if container_image (nullable) is None
         # and model_fields_set contains the field
         if self.container_image is None and "container_image" in self.model_fields_set:
@@ -186,7 +180,6 @@ class InlineProviderSpec(BaseModel):
             "pip_packages": obj.get("pip_packages"),
             "provider_data_validator": obj.get("provider_data_validator"),
             "is_external": obj.get("is_external") if obj.get("is_external") is not None else False,
-            "toolgroup_id": obj.get("toolgroup_id"),
             "deps__": obj.get("deps__"),
             "container_image": obj.get("container_image"),
             "execution_mode": obj.get("execution_mode") if obj.get("execution_mode") is not None else 'inline',

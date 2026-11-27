@@ -64,7 +64,7 @@ class AddPrivateRegistryResponseBodyData(DaraModel):
     ):
         # The user ID.
         self.ali_uid = ali_uid
-        # The domain name of the registry.
+        # The domain name of the repository.
         self.domain_name = domain_name
         # The unique ID.
         self.id = id
@@ -78,18 +78,18 @@ class AddPrivateRegistryResponseBodyData(DaraModel):
         # - **1**: HTTP.
         # - **2**: HTTPS.
         self.protocol_type = protocol_type
-        # The region ID of the registry.
+        # The region ID of the repository.
         self.region_id = region_id
-        # The IP address of the registry.
+        # The IP address of the repository.
         self.registry_host_ip = registry_host_ip
-        # The type of the image registry. Valid values:
+        # The type of the image repository. Valid values:
         # 
         # - **harbor**: Harbor environment.
         # - **quay**: Quay environment.
         self.registry_type = registry_type
-        # The version of the image registry. Default value: **-**. Valid values:
+        # The version of the image repository. Default value: **-**. Valid values:
         # 
-        # - **\\-**: Default.
+        # - **\-**: Default.
         # - **V1**: Version 1.0.
         # - **V2**: Version 2.0.
         self.registry_version = registry_version

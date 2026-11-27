@@ -38,6 +38,7 @@ keywords = [
     "hd-wallet",
     "slip10",
     "slip32",
+    "slip39",
     "bip38",
     "bip39",
     "bip39-substrate",
@@ -45,6 +46,7 @@ keywords = [
     "bip44",
     "bip49",
     "bip84",
+    "bip85",
     "bip86",
     "bip173",
     "bip350",
@@ -82,6 +84,7 @@ keywords = [
     "celo",
     "certik",
     "cosmos",
+    "cronos",
     "dash",
     "digibyte",
     "dogecoin",
@@ -100,6 +103,7 @@ keywords = [
     "injective",
     "iris",
     "irisnet",
+    "kaspa",
     "kava",
     "litecoin",
     "matic",
@@ -113,6 +117,7 @@ keywords = [
     "neo",
     "neutron",
     "nimiq",
+    "nostr",
     "okex chain",
     "ontology",
     "optimism",
@@ -128,6 +133,7 @@ keywords = [
     "terra",
     "tezos",
     "theta",
+    "thorchain",
     "ton",
     "tron",
     "vechain",
@@ -177,6 +183,7 @@ bip_utils = [
     "bip/bip39/wordlist/*.txt",
     "electrum/mnemonic_v1/wordlist/*.txt",
     "monero/mnemonic_legacy/wordlist/*.txt",
+    "slip/slip39/wordlist/*.txt",
 ]
 
 [tool.setuptools.dynamic]
@@ -191,6 +198,8 @@ optional-dependencies.develop = {file = ["requirements-dev.txt"]}
 [tool.ruff]
 target-version = "py37"
 line-length = 120
+# Apply exclusions also to files passed explicitly (e.g. Codacy passes requirements.txt as a Python file)
+force-exclude = true
 exclude = [
     ".eggs",
     ".egg-info",
@@ -203,6 +212,7 @@ exclude = [
     "tests",
     "my_tests",
     "venv",
+    "requirements*.txt",
 ]
 
 [tool.ruff.lint]
@@ -265,7 +275,7 @@ convention = "google"
 max-complexity = 10
 
 [tool.mypy]
-python_version = "3.7"
+python_version = "3.10"
 ignore_missing_imports = true
 follow_imports = "skip"
 exclude = [

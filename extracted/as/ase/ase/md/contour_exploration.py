@@ -1,5 +1,3 @@
-# fmt: off
-
 from typing import IO
 
 import numpy as np
@@ -9,19 +7,18 @@ from ase.optimize.optimize import Dynamics
 
 
 def subtract_projection(a, b):
-    '''returns new vector that removes vector a's projection vector b. Is
-    also equivalent to the vector rejection.'''
+    """returns new vector that removes vector a's projection vector b. Is
+    also equivalent to the vector rejection."""
     aout = a - np.vdot(a, b) / np.vdot(b, b) * b
     return aout
 
 
 def normalize(a):
-    '''Makes a unit vector out of a vector'''
+    """Makes a unit vector out of a vector"""
     return a / np.linalg.norm(a)
 
 
 class ContourExploration(Dynamics):
-
     def __init__(
         self,
         atoms: Atoms,
@@ -132,6 +129,42 @@ class ContourExploration(Dynamics):
             overwriten each time the dynamics is restarted from scratch.
             If True, the new structures are appended to the trajectory
             file instead.
+
+        Physical background and limitations
+        -----------------------------------
+
+        Contour Exploration evolves the system along constant potential energy
+        contours on the potential energy surface. The method uses
+        curvature-based extrapolation and a potentiostat to correct for
+        potential energy errors. It is similar to molecular dynamics but with a
+        potentiostat rather than a thermostat. Without changes in kinetic
+        energy, it is more useful to automatically scale step sizes to the
+        curvature of the potential energy contour via an ``angle_limit`` while
+        enforcing a ``maxstep`` to ensure potentiostatic accuracy. [1] To
+        escape loops on the potential energy surface or to break symmetries, a
+        random drift vector parallel to the contour can be applied as a
+        fraction of the step size via ``parallel_drift``. Contour exploration
+        cannot be used at minima since the contour is a single point.
+
+        References
+        ----------
+        [1] :doi:`M. J. Waters and J. M. Rondinelli, J. Phys.: Condens. Matter
+        33, 445901 (2021). <10.1088/1361-648X/ac1af0>`
+
+        Example
+        --------
+        Contour exploration at the current potential energy.  The atoms are
+        displaced first, because the method cannot be used at a minimum:
+
+        >>> from ase.build import bulk
+        >>> from ase.calculators.emt import EMT
+        >>> from ase.md.contour_exploration import ContourExploration
+        >>> atoms = bulk('Cu', cubic=True)
+        >>> atoms.rattle(stdev=0.05, seed=42)
+        >>> atoms.calc = EMT()
+        >>> dyn = ContourExploration(atoms)
+        >>> dyn.run(10)
+        False
         """
 
         if potentiostat_step_scale is None:
@@ -167,7 +200,8 @@ class ContourExploration(Dynamics):
 
         if energy_target is None:
             self.energy_target = atoms.get_potential_energy(
-                force_consistent=True)
+                force_consistent=True
+            )
         else:
             self.energy_target = energy_target
 
@@ -176,8 +210,9 @@ class ContourExploration(Dynamics):
         # 'target_shift_previous_steps' steps to equilibrate and should prevent
         # occilations. These need to be initialized before the initialize_old
         # step to prevent a crash
-        self.previous_energies = np.full(target_shift_previous_steps,
-                                         self.energy_target)
+        self.previous_energies = np.full(
+            target_shift_previous_steps, self.energy_target
+        )
 
         # these first two are purely for logging,
         # auto scaling will still occur
@@ -187,10 +222,13 @@ class ContourExploration(Dynamics):
 
         # loginterval exists for the MolecularDynamics class but not for
         # the more general Dynamics class
-        Dynamics.__init__(self, atoms,
-                          logfile, trajectory,  # loginterval,
-                          append_trajectory=append_trajectory,
-                          )
+        Dynamics.__init__(
+            self,
+            atoms,
+            logfile,
+            trajectory,  # loginterval,
+            append_trajectory=append_trajectory,
+        )
 
         self._actual_atoms = atoms
 
@@ -203,12 +241,14 @@ class ContourExploration(Dynamics):
 
     # Required stuff for Dynamics
     def todict(self):
-        return {'type': 'contour-exploration',
-                'dyn-type': self.__class__.__name__,
-                'stepsize': self.step_size}
+        return {
+            'type': 'contour-exploration',
+            'dyn-type': self.__class__.__name__,
+            'stepsize': self.step_size,
+        }
 
     def run(self, steps=50):
-        """ Call Dynamics.run and adjust max_steps """
+        """Call Dynamics.run and adjust max_steps"""
         return Dynamics.run(self, steps=steps)
 
     def log(self, gradient):
@@ -216,13 +256,14 @@ class ContourExploration(Dynamics):
             # name = self.__class__.__name__
             if self.nsteps == 0:
                 args = (
-                    "Step",
-                    "Energy_Target",
-                    "Energy",
-                    "Curvature",
-                    "Step_Size",
-                    "Energy_Deviation_per_atom")
-                msg = "# %4s %15s %15s %12s %12s %15s\n" % args
+                    'Step',
+                    'Energy_Target',
+                    'Energy',
+                    'Curvature',
+                    'Step_Size',
+                    'Energy_Deviation_per_atom',
+                )
+                msg = '# %4s %15s %15s %12s %12s %15s\n' % args
                 self.logfile.write(msg)
             e = self._actual_atoms.get_potential_energy(force_consistent=True)
             dev_per_atom = (e - self.energy_target) / len(self._actual_atoms)
@@ -232,18 +273,19 @@ class ContourExploration(Dynamics):
                 e,
                 self.curvature,
                 self.step_size,
-                dev_per_atom)
-            msg = "%6d %15.6f %15.6f %12.6f %12.6f %24.9f\n" % args
+                dev_per_atom,
+            )
+            msg = '%6d %15.6f %15.6f %12.6f %12.6f %24.9f\n' % args
             self.logfile.write(msg)
 
     def rand_vect(self):
-        '''Returns a random (Natoms,3) vector'''
+        """Returns a random (Natoms,3) vector"""
         vect = self.rng.normal(size=(len(self._actual_atoms), 3))
         return vect
 
     def create_drift_unit_vector(self, N, T):
-        '''Creates a random drift unit vector with no projection on N or T and
-        with out a net translation so systems don't wander'''
+        """Creates a random drift unit vector with no projection on N or T and
+        with out a net translation so systems don't wander"""
         drift = self.rand_vect()
         drift = subtract_projection(drift, N)
         drift = subtract_projection(drift, T)
@@ -253,35 +295,38 @@ class ContourExploration(Dynamics):
         return D
 
     def compute_step_contributions(self, potentiostat_step_size):
-        '''Computes the orthogonal component sizes of the step so that the net
-        step obeys the smaller of step_size or maxstep.'''
+        """Computes the orthogonal component sizes of the step so that the net
+        step obeys the smaller of step_size or maxstep."""
         if abs(potentiostat_step_size) < self.step_size:
             delta_s_perpendicular = potentiostat_step_size
             contour_step_size = np.sqrt(
-                self.step_size**2 - potentiostat_step_size**2)
-            delta_s_parallel = np.sqrt(
-                1 - self.parallel_drift**2) * contour_step_size
+                self.step_size**2 - potentiostat_step_size**2
+            )
+            delta_s_parallel = (
+                np.sqrt(1 - self.parallel_drift**2) * contour_step_size
+            )
             delta_s_drift = contour_step_size * self.parallel_drift
 
         else:
             # in this case all priority goes to potentiostat terms
             delta_s_parallel = 0.0
             delta_s_drift = 0.0
-            delta_s_perpendicular = np.sign(
-                potentiostat_step_size) * self.step_size
+            delta_s_perpendicular = (
+                np.sign(potentiostat_step_size) * self.step_size
+            )
 
         return delta_s_perpendicular, delta_s_parallel, delta_s_drift
 
     def _compute_update_without_fs(self, potentiostat_step_size, scale=1.0):
-        '''Only uses the forces to compute an orthogonal update vector'''
+        """Only uses the forces to compute an orthogonal update vector"""
 
         # Without the use of curvature there is no way to estimate the
         # limiting step size
         self.step_size = self.maxstep * scale
 
-        delta_s_perpendicular, delta_s_parallel, delta_s_drift = \
-            self.compute_step_contributions(
-                potentiostat_step_size)
+        delta_s_perpendicular, delta_s_parallel, delta_s_drift = (
+            self.compute_step_contributions(potentiostat_step_size)
+        )
 
         dr_perpendicular = self.N * delta_s_perpendicular
         dr_parallel = delta_s_parallel * self.T
@@ -294,8 +339,8 @@ class ContourExploration(Dynamics):
         return dr
 
     def _compute_update_with_fs(self, potentiostat_step_size):
-        '''Uses the Frenet–Serret formulas to perform curvature based
-        extrapolation to compute the update vector'''
+        """Uses the Frenet–Serret formulas to perform curvature based
+        extrapolation to compute the update vector"""
         # this should keep the dr clear of the constraints
         # by using the actual change, not a velocity vector
         delta_r = self.r - self.rold
@@ -325,9 +370,9 @@ class ContourExploration(Dynamics):
             self.step_size = min(self.step_size, self.maxstep)
 
         # now we can compute a safe step
-        delta_s_perpendicular, delta_s_parallel, delta_s_drift = \
-            self.compute_step_contributions(
-                potentiostat_step_size)
+        delta_s_perpendicular, delta_s_parallel, delta_s_drift = (
+            self.compute_step_contributions(potentiostat_step_size)
+        )
 
         N_guess = self.N + dNds * delta_s_parallel
         T_guess = self.T + dTds * delta_s_parallel
@@ -338,9 +383,12 @@ class ContourExploration(Dynamics):
 
         dr_perpendicular = delta_s_perpendicular * (N_guess)
 
-        dr_parallel = delta_s_parallel * self.T * \
-            (1 - (delta_s_parallel * curvature)**2 / 6.0) \
+        dr_parallel = (
+            delta_s_parallel
+            * self.T
+            * (1 - (delta_s_parallel * curvature) ** 2 / 6.0)
             + self.N * (curvature / 2.0) * delta_s_parallel**2
+        )
 
         D = self.create_drift_unit_vector(N_guess, T_guess)
         dr_drift = D * delta_s_drift
@@ -353,17 +401,17 @@ class ContourExploration(Dynamics):
         return dr
 
     def update_previous_energies(self, energy):
-        '''Updates the energy history in self.previous_energies to include the
-         current energy.'''
+        """Updates the energy history in self.previous_energies to include the
+        current energy."""
         # np.roll shifts the values to keep nice sequential ordering.
         self.previous_energies = np.roll(self.previous_energies, 1)
         self.previous_energies[0] = energy
 
     def compute_potentiostat_step_size(self, forces, energy):
-        '''Computes the potentiostat step size by linear extrapolation of the
+        """Computes the potentiostat step size by linear extrapolation of the
         potential energy using the forces. The step size can be positive or
         negative depending on whether or not the energy is too high or too low.
-        '''
+        """
         if self.use_target_shift:
             target_shift = self.energy_target - np.mean(self.previous_energies)
         else:
@@ -374,8 +422,9 @@ class ContourExploration(Dynamics):
 
         f_norm = np.linalg.norm(forces)
         # can be positive or negative
-        potentiostat_step_size = (deltaU / f_norm) * \
-            self.potentiostat_step_scale
+        potentiostat_step_size = (
+            deltaU / f_norm
+        ) * self.potentiostat_step_scale
         return potentiostat_step_size
 
     def step(self, f=None):
@@ -404,8 +453,8 @@ class ContourExploration(Dynamics):
                 # we must have the old positions and vectors for an FS step
                 # if we don't, we can only do a small step
                 dr = self._compute_update_without_fs(
-                    potentiostat_step_size,
-                    scale=self.initialization_step_scale)
+                    potentiostat_step_size, scale=self.initialization_step_scale
+                )
         else:  # of course we can run less accuratly without FS.
             dr = self._compute_update_without_fs(potentiostat_step_size)
 

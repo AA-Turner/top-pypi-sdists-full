@@ -44,12 +44,13 @@ class TestNonRecoverableErrors:
         assert exc_info.value.__cause__ is None
 
     @pytest.mark.asyncio
-    async def test_unauthorized_logs_structured_error(self):
+    async def test_unauthorized_does_not_log_arbitrary_error_properties(self):
+        secret = "SYNTHETIC_SECRET"
         exc = WorkflowsException(
-            message="Invalid API key",
+            message=secret,
             status=HTTPStatus.UNAUTHORIZED,
             code="unauthorized",
-            logging_properties={"temporal_connection_error": "upstream rejected credentials"},
+            logging_properties={"temporal_connection_error": secret},
         )
         with _raise_in_worker(exc):
             with patch("mistralai.workflows.core.worker.logger") as mock_logger:
@@ -59,7 +60,9 @@ class TestNonRecoverableErrors:
         call_kwargs = mock_logger.error.call_args
         assert "Authentication failed" in call_kwargs[0][0]
         assert call_kwargs[1]["http_status"] == 401
-        assert call_kwargs[1]["temporal_connection_error"] == "upstream rejected credentials"
+        assert call_kwargs[1]["error_type"] == "WorkflowsException"
+        assert "temporal_connection_error" not in call_kwargs[1]
+        assert secret not in str(call_kwargs)
 
     @pytest.mark.asyncio
     async def test_temporal_unauthorized_names_explicit_temporal_api_key(self):
@@ -168,6 +171,20 @@ class TestNonRecoverableErrors:
                 await _run_worker([], exit_on_terminal_error=False)
 
         assert exc_info.value is exc
+
+    @pytest.mark.asyncio
+    async def test_detached_worker_preserves_terminal_workflows_exception(self):
+        exc = WorkflowsException(
+            message="Failed to register workflow specs",
+            status=HTTPStatus.FORBIDDEN,
+            code="WF_1104",
+        )
+        with _raise_in_worker(exc), patch("mistralai.workflows.core.worker.logger") as mock_logger:
+            with pytest.raises(WorkflowsException) as exc_info:
+                await _run_worker([], exit_on_terminal_error=False)
+
+        assert exc_info.value is exc
+        assert mock_logger.error.call_args.args[0] == _TERMINAL_CODES["WF_1104"]
 
     @pytest.mark.asyncio
     async def test_wf_1104_exits_with_code_1(self):

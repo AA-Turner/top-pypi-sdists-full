@@ -1,5 +1,3 @@
-# fmt: off
-
 # flake8: noqa
 import time
 
@@ -10,11 +8,27 @@ from ase.parallel import world
 from ase.transport.greenfunction import GreenFunction
 from ase.transport.selfenergy import LeadSelfEnergy
 from ase.transport.tools import dagger
+from ase.transport import asetransport_deprecated
 
 
 class STM:
-    def __init__(self, h1, s1, h2, s2, h10, s10, h20, s20,
-                 eta1, eta2, w=0.5, pdos=[], logfile=None):
+    @asetransport_deprecated
+    def __init__(
+        self,
+        h1,
+        s1,
+        h2,
+        s2,
+        h10,
+        s10,
+        h20,
+        s20,
+        eta1,
+        eta2,
+        w=0.5,
+        pdos=[],
+        logfile=None,
+    ):
         """XXX
 
         1. Tip
@@ -36,7 +50,7 @@ class STM:
             same as h10, but for the surface
 
         The s* are the corresponding overlap matrices.  eta1, and eta
-        2 are (finite) infinitesimals.  """
+        2 are (finite) infinitesimals."""
 
         self.pl1 = len(h10) // 2  # principal layer size for the tip
         self.pl2 = len(h20) // 2  # principal layer size for the surface
@@ -56,11 +70,11 @@ class STM:
 
     def initialize(self, energies, bias=0):
         """
-            energies: list of energies
-            for which the transmission function should be evaluated.
-            bias.
-            Will precalculate the surface greenfunctions of the tip and
-            surface.
+        energies: list of energies
+        for which the transmission function should be evaluated.
+        bias.
+        Will precalculate the surface greenfunctions of the tip and
+        surface.
         """
         self.bias = bias
         self.energies = energies
@@ -70,7 +84,7 @@ class STM:
 
         # periodic part of the tip
         hs1_dii = self.h10[:pl1, :pl1], self.s10[:pl1, :pl1]
-        hs1_dij = self.h10[:pl1, pl1:2 * pl1], self.s10[:pl1, pl1:2 * pl1]
+        hs1_dij = self.h10[:pl1, pl1 : 2 * pl1], self.s10[:pl1, pl1 : 2 * pl1]
         # coupling between per. and non. per part of the tip
         h1_im = np.zeros((pl1, nbf1), complex)
         s1_im = np.zeros((pl1, nbf1), complex)
@@ -79,7 +93,7 @@ class STM:
 
         # periodic part the surface
         hs2_dii = self.h20[:pl2, :pl2], self.s20[:pl2, :pl2]
-        hs2_dij = self.h20[pl2:2 * pl2, :pl2], self.s20[pl2:2 * pl2, :pl2]
+        hs2_dij = self.h20[pl2 : 2 * pl2, :pl2], self.s20[pl2 : 2 * pl2, :pl2]
         # coupling between per. and non. per part of the surface
         h2_im = np.zeros((pl2, nbf2), complex)
         s2_im = np.zeros((pl2, nbf2), complex)
@@ -89,10 +103,18 @@ class STM:
         # tip and surface greenfunction
         self.selfenergy1 = LeadSelfEnergy(hs1_dii, hs1_dij, hs1_dim, self.eta1)
         self.selfenergy2 = LeadSelfEnergy(hs2_dii, hs2_dij, hs2_dim, self.eta2)
-        self.greenfunction1 = GreenFunction(self.h1 - self.bias * self.w * self.s1, self.s1,
-                                            [self.selfenergy1], self.eta1)
-        self.greenfunction2 = GreenFunction(self.h2 - self.bias * (self.w - 1) * self.s2, self.s2,
-                                            [self.selfenergy2], self.eta2)
+        self.greenfunction1 = GreenFunction(
+            self.h1 - self.bias * self.w * self.s1,
+            self.s1,
+            [self.selfenergy1],
+            self.eta1,
+        )
+        self.greenfunction2 = GreenFunction(
+            self.h2 - self.bias * (self.w - 1) * self.s2,
+            self.s2,
+            [self.selfenergy2],
+            self.eta2,
+        )
 
         # Shift the bands due to the bias.
         bias_shift1 = -bias * self.w
@@ -111,8 +133,10 @@ class STM:
         for e, energy in enumerate(self.energies):
             if self.log is not None:  # and world.rank == 0:
                 T = time.localtime()
-                self.log.write(' %d:%02d:%02d, ' % (T[3], T[4], T[5]) +
-                               '%d, %d, %02f\n' % (world.rank, e, energy))
+                self.log.write(
+                    ' %d:%02d:%02d, ' % (T[3], T[4], T[5])
+                    + '%d, %d, %02f\n' % (world.rank, e, energy)
+                )
             gft1_mm = self.greenfunction1.retarded(energy)[coupling_list1]
             gft1_mm = np.take(gft1_mm, coupling_list1, axis=1)
 
@@ -159,8 +183,8 @@ class STM:
             else:
                 gf2 = gft2
 
-            a1 = (gf1 - dagger(gf1))
-            a2 = (gf2 - dagger(gf2))
+            a1 = gf1 - dagger(gf1)
+            a2 = gf2 - dagger(gf2)
             self.v_12 = v_12
             self.a2 = a2
             self.v_21 = v_21
@@ -206,5 +230,6 @@ class STM:
         if i2 < i1:
             step = -1
 
-        return np.sign(bias) * trapezoid(x=energies[i1:i2:step],
-                                         y=T_e[i1:i2:step])
+        return np.sign(bias) * trapezoid(
+            x=energies[i1:i2:step], y=T_e[i1:i2:step]
+        )

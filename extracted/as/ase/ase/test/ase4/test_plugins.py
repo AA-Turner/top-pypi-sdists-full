@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """Tests for experimental ASE v4 plugin system."""
 
 import os

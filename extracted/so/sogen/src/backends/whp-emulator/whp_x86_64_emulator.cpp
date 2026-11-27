@@ -1,6 +1,7 @@
 #define WHP_EMULATOR_IMPL
 #include "whp_x86_64_emulator.hpp"
 #include "guest_page_slabs.hpp"
+#include "whp_registers.hpp"
 
 #include <WinHvPlatform.h>
 #include <windows.h>
@@ -211,122 +212,6 @@ namespace sogen::whp
             return std::shared_ptr<uint8_t>(raw_memory, mapped_page::virtual_free_deleter{.size = size});
         }
 
-        enum class register_kind
-        {
-            reg64,
-            segment,
-            table,
-            fp,
-            fp_control,
-            fp_last_instruction,
-            fp_last_data,
-            xmm_control,
-            zero,
-            reg128,
-        };
-
-        struct register_mapping
-        {
-            WHV_REGISTER_NAME name{};
-            register_kind kind = register_kind::reg64;
-            size_t logical_size = sizeof(uint64_t);
-        };
-
-        struct gp_register_access
-        {
-            size_t offset = 0;
-            size_t width = sizeof(uint64_t);
-            bool zero_extend_32 = false;
-        };
-
-        std::optional<gp_register_access> classify_gp_register_access(const x86_register reg)
-        {
-            switch (reg)
-            {
-            case x86_register::al:
-            case x86_register::bl:
-            case x86_register::cl:
-            case x86_register::dl:
-            case x86_register::sil:
-            case x86_register::dil:
-            case x86_register::bpl:
-            case x86_register::spl:
-            case x86_register::r8b:
-            case x86_register::r9b:
-            case x86_register::r10b:
-            case x86_register::r11b:
-            case x86_register::r12b:
-            case x86_register::r13b:
-            case x86_register::r14b:
-            case x86_register::r15b:
-                return gp_register_access{.offset = 0, .width = sizeof(uint8_t)};
-            case x86_register::ah:
-            case x86_register::bh:
-            case x86_register::ch:
-            case x86_register::dh:
-                return gp_register_access{.offset = 1, .width = sizeof(uint8_t)};
-            case x86_register::ax:
-            case x86_register::bx:
-            case x86_register::cx:
-            case x86_register::dx:
-            case x86_register::si:
-            case x86_register::di:
-            case x86_register::bp:
-            case x86_register::sp:
-            case x86_register::r8w:
-            case x86_register::r9w:
-            case x86_register::r10w:
-            case x86_register::r11w:
-            case x86_register::r12w:
-            case x86_register::r13w:
-            case x86_register::r14w:
-            case x86_register::r15w:
-            case x86_register::ip:
-            case x86_register::flags:
-                return gp_register_access{.offset = 0, .width = sizeof(uint16_t)};
-            case x86_register::eax:
-            case x86_register::ebx:
-            case x86_register::ecx:
-            case x86_register::edx:
-            case x86_register::esi:
-            case x86_register::edi:
-            case x86_register::ebp:
-            case x86_register::esp:
-            case x86_register::r8d:
-            case x86_register::r9d:
-            case x86_register::r10d:
-            case x86_register::r11d:
-            case x86_register::r12d:
-            case x86_register::r13d:
-            case x86_register::r14d:
-            case x86_register::r15d:
-            case x86_register::eip:
-            case x86_register::eflags:
-                return gp_register_access{.offset = 0, .width = sizeof(uint32_t), .zero_extend_32 = true};
-            case x86_register::rax:
-            case x86_register::rbx:
-            case x86_register::rcx:
-            case x86_register::rdx:
-            case x86_register::rsi:
-            case x86_register::rdi:
-            case x86_register::rbp:
-            case x86_register::rsp:
-            case x86_register::r8:
-            case x86_register::r9:
-            case x86_register::r10:
-            case x86_register::r11:
-            case x86_register::r12:
-            case x86_register::r13:
-            case x86_register::r14:
-            case x86_register::r15:
-            case x86_register::rip:
-            case x86_register::rflags:
-                return gp_register_access{.offset = 0, .width = sizeof(uint64_t)};
-            default:
-                return std::nullopt;
-            }
-        }
-
         uint32_t to_whp_map_flags(const memory_permission permissions)
         {
             uint32_t flags = 0;
@@ -347,22 +232,6 @@ namespace sogen::whp
             }
 
             return flags;
-        }
-
-        WHV_X64_SEGMENT_REGISTER make_segment(const uint16_t selector, const bool is_code)
-        {
-            WHV_X64_SEGMENT_REGISTER segment{};
-            segment.Base = 0;
-            segment.Limit = 0xFFFFF;
-            segment.Selector = selector;
-            segment.SegmentType = is_code ? 0xB : 0x3;
-            segment.NonSystemSegment = 1;
-            segment.DescriptorPrivilegeLevel = selector == 0x33 || selector == 0x2B || selector == 0x53 ? 3 : 0;
-            segment.Present = 1;
-            segment.Long = is_code ? 1 : 0;
-            segment.Default = is_code ? 0 : 1;
-            segment.Granularity = 1;
-            return segment;
         }
 
         memory_operation map_memory_operation(const WHV_MEMORY_ACCESS_TYPE type)
@@ -456,491 +325,6 @@ namespace sogen::whp
             }
 
             throw std::runtime_error(stream.str());
-        }
-
-        constexpr std::array<WHV_REGISTER_NAME, 64> snapshot_register_names()
-        {
-            return std::array<WHV_REGISTER_NAME, 64>{{
-                WHvX64RegisterRax,
-                WHvX64RegisterRbx,
-                WHvX64RegisterRcx,
-                WHvX64RegisterRdx,
-                WHvX64RegisterRsi,
-                WHvX64RegisterRdi,
-                WHvX64RegisterRbp,
-                WHvX64RegisterRsp,
-                WHvX64RegisterR8,
-                WHvX64RegisterR9,
-                WHvX64RegisterR10,
-                WHvX64RegisterR11,
-                WHvX64RegisterR12,
-                WHvX64RegisterR13,
-                WHvX64RegisterR14,
-                WHvX64RegisterR15,
-                WHvX64RegisterRip,
-                WHvX64RegisterRflags,
-                WHvX64RegisterCs,
-                WHvX64RegisterSs,
-                WHvX64RegisterDs,
-                WHvX64RegisterEs,
-                WHvX64RegisterFs,
-                WHvX64RegisterGs,
-                WHvX64RegisterCr0,
-                WHvX64RegisterCr2,
-                WHvX64RegisterCr3,
-                WHvX64RegisterCr4,
-                WHvX64RegisterDr0,
-                WHvX64RegisterDr1,
-                WHvX64RegisterDr2,
-                WHvX64RegisterDr3,
-                WHvX64RegisterDr6,
-                WHvX64RegisterDr7,
-                WHvX64RegisterGdtr,
-                WHvX64RegisterIdtr,
-                WHvX64RegisterEfer,
-                WHvX64RegisterXCr0,
-                WHvX64RegisterFpControlStatus,
-                WHvX64RegisterXmmControlStatus,
-                WHvX64RegisterFpMmx0,
-                WHvX64RegisterFpMmx1,
-                WHvX64RegisterFpMmx2,
-                WHvX64RegisterFpMmx3,
-                WHvX64RegisterFpMmx4,
-                WHvX64RegisterFpMmx5,
-                WHvX64RegisterFpMmx6,
-                WHvX64RegisterFpMmx7,
-                WHvX64RegisterXmm0,
-                WHvX64RegisterXmm1,
-                WHvX64RegisterXmm2,
-                WHvX64RegisterXmm3,
-                WHvX64RegisterXmm4,
-                WHvX64RegisterXmm5,
-                WHvX64RegisterXmm6,
-                WHvX64RegisterXmm7,
-                WHvX64RegisterXmm8,
-                WHvX64RegisterXmm9,
-                WHvX64RegisterXmm10,
-                WHvX64RegisterXmm11,
-                WHvX64RegisterXmm12,
-                WHvX64RegisterXmm13,
-                WHvX64RegisterXmm14,
-                WHvX64RegisterXmm15,
-            }};
-        }
-
-        // x86_64_cpu::floating_point_state's registers: the x87 and SSE control registers, then ST0-ST7 and XMM0-XMM15.
-        constexpr std::array<WHV_REGISTER_NAME, 2> floating_point_control_names{{
-            WHvX64RegisterFpControlStatus,
-            WHvX64RegisterXmmControlStatus,
-        }};
-        constexpr size_t floating_point_first_st = floating_point_control_names.size();
-        constexpr size_t floating_point_first_xmm = floating_point_first_st + 8;
-
-        constexpr std::array<WHV_REGISTER_NAME, 26> floating_point_register_names()
-        {
-            return std::array<WHV_REGISTER_NAME, 26>{{
-                WHvX64RegisterFpControlStatus,
-                WHvX64RegisterXmmControlStatus,
-                WHvX64RegisterFpMmx0,
-                WHvX64RegisterFpMmx1,
-                WHvX64RegisterFpMmx2,
-                WHvX64RegisterFpMmx3,
-                WHvX64RegisterFpMmx4,
-                WHvX64RegisterFpMmx5,
-                WHvX64RegisterFpMmx6,
-                WHvX64RegisterFpMmx7,
-                WHvX64RegisterXmm0,
-                WHvX64RegisterXmm1,
-                WHvX64RegisterXmm2,
-                WHvX64RegisterXmm3,
-                WHvX64RegisterXmm4,
-                WHvX64RegisterXmm5,
-                WHvX64RegisterXmm6,
-                WHvX64RegisterXmm7,
-                WHvX64RegisterXmm8,
-                WHvX64RegisterXmm9,
-                WHvX64RegisterXmm10,
-                WHvX64RegisterXmm11,
-                WHvX64RegisterXmm12,
-                WHvX64RegisterXmm13,
-                WHvX64RegisterXmm14,
-                WHvX64RegisterXmm15,
-            }};
-        }
-
-        // The MXCSR mask the backend writes with every MXCSR.
-        constexpr UINT32 written_mxcsr_mask = 0xFFFFFFFF;
-
-        register_mapping map_register(const x86_register reg)
-        {
-            switch (reg)
-            {
-            case x86_register::al:
-            case x86_register::ah:
-            case x86_register::ax:
-            case x86_register::eax:
-            case x86_register::rax:
-                return {
-                    .name = WHvX64RegisterRax,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::bl:
-            case x86_register::bh:
-            case x86_register::bx:
-            case x86_register::ebx:
-            case x86_register::rbx:
-                return {
-                    .name = WHvX64RegisterRbx,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::cl:
-            case x86_register::ch:
-            case x86_register::cx:
-            case x86_register::ecx:
-            case x86_register::rcx:
-                return {
-                    .name = WHvX64RegisterRcx,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::dl:
-            case x86_register::dh:
-            case x86_register::dx:
-            case x86_register::edx:
-            case x86_register::rdx:
-                return {
-                    .name = WHvX64RegisterRdx,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::si:
-            case x86_register::sil:
-            case x86_register::esi:
-            case x86_register::rsi:
-                return {
-                    .name = WHvX64RegisterRsi,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::di:
-            case x86_register::dil:
-            case x86_register::edi:
-            case x86_register::rdi:
-                return {
-                    .name = WHvX64RegisterRdi,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::bp:
-            case x86_register::bpl:
-            case x86_register::ebp:
-            case x86_register::rbp:
-                return {
-                    .name = WHvX64RegisterRbp,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::sp:
-            case x86_register::spl:
-            case x86_register::esp:
-            case x86_register::rsp:
-                return {
-                    .name = WHvX64RegisterRsp,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::ip:
-            case x86_register::eip:
-            case x86_register::rip:
-                return {
-                    .name = WHvX64RegisterRip,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::r8:
-            case x86_register::r8d:
-            case x86_register::r8w:
-            case x86_register::r8b:
-                return {
-                    .name = WHvX64RegisterR8,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::r9:
-            case x86_register::r9d:
-            case x86_register::r9w:
-            case x86_register::r9b:
-                return {
-                    .name = WHvX64RegisterR9,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::r10:
-            case x86_register::r10d:
-            case x86_register::r10w:
-            case x86_register::r10b:
-                return {
-                    .name = WHvX64RegisterR10,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::r11:
-            case x86_register::r11d:
-            case x86_register::r11w:
-            case x86_register::r11b:
-                return {
-                    .name = WHvX64RegisterR11,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::r12:
-            case x86_register::r12d:
-            case x86_register::r12w:
-            case x86_register::r12b:
-                return {
-                    .name = WHvX64RegisterR12,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::r13:
-            case x86_register::r13d:
-            case x86_register::r13w:
-            case x86_register::r13b:
-                return {
-                    .name = WHvX64RegisterR13,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::r14:
-            case x86_register::r14d:
-            case x86_register::r14w:
-            case x86_register::r14b:
-                return {
-                    .name = WHvX64RegisterR14,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::r15:
-            case x86_register::r15d:
-            case x86_register::r15w:
-            case x86_register::r15b:
-                return {
-                    .name = WHvX64RegisterR15,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::flags:
-                return {
-                    .name = WHvX64RegisterRflags,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint16_t),
-                };
-            case x86_register::eflags:
-                return {
-                    .name = WHvX64RegisterRflags,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint32_t),
-                };
-            case x86_register::rflags:
-                return {
-                    .name = WHvX64RegisterRflags,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::cs:
-                return {
-                    .name = WHvX64RegisterCs,
-                    .kind = register_kind::segment,
-                    .logical_size = sizeof(uint16_t),
-                };
-            case x86_register::ss:
-                return {
-                    .name = WHvX64RegisterSs,
-                    .kind = register_kind::segment,
-                    .logical_size = sizeof(uint16_t),
-                };
-            case x86_register::ds:
-                return {
-                    .name = WHvX64RegisterDs,
-                    .kind = register_kind::segment,
-                    .logical_size = sizeof(uint16_t),
-                };
-            case x86_register::es:
-                return {
-                    .name = WHvX64RegisterEs,
-                    .kind = register_kind::segment,
-                    .logical_size = sizeof(uint16_t),
-                };
-            case x86_register::fs:
-                return {
-                    .name = WHvX64RegisterFs,
-                    .kind = register_kind::segment,
-                    .logical_size = sizeof(uint16_t),
-                };
-            case x86_register::fs_base:
-                return {
-                    .name = WHvX64RegisterFs,
-                    .kind = register_kind::segment,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::gs:
-                return {
-                    .name = WHvX64RegisterGs,
-                    .kind = register_kind::segment,
-                    .logical_size = sizeof(uint16_t),
-                };
-            case x86_register::gs_base:
-                return {
-                    .name = WHvX64RegisterGs,
-                    .kind = register_kind::segment,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::gdtr:
-                return {
-                    .name = WHvX64RegisterGdtr,
-                    .kind = register_kind::table,
-                    .logical_size = sizeof(WHV_X64_TABLE_REGISTER),
-                };
-            case x86_register::idtr:
-                return {
-                    .name = WHvX64RegisterIdtr,
-                    .kind = register_kind::table,
-                    .logical_size = sizeof(WHV_X64_TABLE_REGISTER),
-                };
-            case x86_register::cr0:
-                return {
-                    .name = WHvX64RegisterCr0,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::cr2:
-                return {
-                    .name = WHvX64RegisterCr2,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::cr3:
-                return {
-                    .name = WHvX64RegisterCr3,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::cr4:
-                return {
-                    .name = WHvX64RegisterCr4,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::dr0:
-                return {
-                    .name = WHvX64RegisterDr0,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::dr1:
-                return {
-                    .name = WHvX64RegisterDr1,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::dr2:
-                return {
-                    .name = WHvX64RegisterDr2,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::dr3:
-                return {
-                    .name = WHvX64RegisterDr3,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::dr6:
-                return {
-                    .name = WHvX64RegisterDr6,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::dr7:
-                return {
-                    .name = WHvX64RegisterDr7,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            case x86_register::fpcw:
-            case x86_register::fpsw:
-            case x86_register::fptag:
-                return {
-                    .name = WHvX64RegisterFpControlStatus,
-                    .kind = register_kind::fp_control,
-                    .logical_size = sizeof(uint16_t),
-                };
-            case x86_register::fip:
-            case x86_register::fcs:
-            case x86_register::fop:
-                return {
-                    .name = WHvX64RegisterFpControlStatus,
-                    .kind = register_kind::fp_last_instruction,
-                    .logical_size = sizeof(uint32_t),
-                };
-            case x86_register::fdp:
-            case x86_register::fds:
-                return {
-                    .name = WHvX64RegisterXmmControlStatus,
-                    .kind = register_kind::fp_last_data,
-                    .logical_size = sizeof(uint32_t),
-                };
-            case x86_register::mxcsr:
-                return {
-                    .name = WHvX64RegisterXmmControlStatus,
-                    .kind = register_kind::xmm_control,
-                    .logical_size = sizeof(uint32_t),
-                };
-            case x86_register::msr:
-                return {
-                    .name = WHvX64RegisterEfer,
-                    .kind = register_kind::reg64,
-                    .logical_size = sizeof(uint64_t),
-                };
-            default:
-                break;
-            }
-
-            if (reg >= x86_register::xmm0 && reg <= x86_register::xmm15)
-            {
-                const auto index = static_cast<int>(reg) - static_cast<int>(x86_register::xmm0);
-                return {
-                    .name = static_cast<WHV_REGISTER_NAME>(WHvX64RegisterXmm0 + index),
-                    .kind = register_kind::reg128,
-                    .logical_size = sizeof(WHV_UINT128),
-                };
-            }
-
-            // WHP's AVX register layout does not match the debugger-facing YMM register
-            // layout. Until we translate it explicitly, expose YMM as synthetic zero-filled
-            // state rather than returning malformed data.
-            if (reg >= x86_register::ymm0 && reg <= x86_register::ymm15)
-            {
-                return {
-                    .name = {}, // no WHV_REGISTER_NAME exists for this
-                    .kind = register_kind::zero,
-                    .logical_size = 32,
-                };
-            }
-
-            if (reg >= x86_register::st0 && reg <= x86_register::st7)
-            {
-                const auto index = static_cast<int>(reg) - static_cast<int>(x86_register::st0);
-                return {
-                    .name = static_cast<WHV_REGISTER_NAME>(WHvX64RegisterFpMmx0 + index),
-                    .kind = register_kind::fp,
-                    .logical_size = 10,
-                };
-            }
-
-            throw std::runtime_error("Unsupported WHP register");
         }
 
         class whp_x86_64_emulator;
@@ -1727,9 +1111,18 @@ namespace sogen::whp
                         this->apply_patched_execution_breakpoints(guest_address);
                     }
 
+                    const bool was_writable = this->is_page_table_entry_writable(*page);
                     page->permissions = permissions;
+                    const bool entry_loses_write = was_writable && !this->is_page_table_entry_writable(*page);
+                    if (entry_loses_write)
+                    {
+                        this->ensure_virtual_mapping(guest_address);
+                    }
                     this->remap_page(*page);
-                    this->ensure_virtual_mapping(guest_address);
+                    if (!entry_loses_write)
+                    {
+                        this->ensure_virtual_mapping(guest_address);
+                    }
                 }
             }
 
@@ -1913,6 +1306,8 @@ namespace sogen::whp
                 }
 
                 std::unique_lock lock(this->partition_mutex_);
+                bool write_taken_away = false;
+                std::vector<uint64_t> entries_gaining_write{};
 
                 for (size_t offset = 0; offset < size; offset += page_size)
                 {
@@ -1923,19 +1318,54 @@ namespace sogen::whp
                         continue;
                     }
 
-                    entry->second->permissions = permissions;
+                    auto& page = *entry->second;
+                    const bool was_writable = this->is_page_table_entry_writable(page);
+                    const bool had_write = (page.permissions & memory_permission::write) != memory_permission::none;
+                    page.permissions = permissions;
+                    if (page.host_page == nullptr || was_writable == this->is_page_table_entry_writable(page))
+                    {
+                        continue;
+                    }
+
+                    if (was_writable)
+                    {
+                        this->ensure_virtual_mapping(guest_address);
+                        write_taken_away |= had_write;
+                    }
+                    else
+                    {
+                        entries_gaining_write.push_back(guest_address);
+                    }
                 }
 
                 this->remap_pages(address, size);
+                for (const auto guest_address : entries_gaining_write)
+                {
+                    this->ensure_virtual_mapping(guest_address);
+                }
+
+                if (write_taken_away)
+                {
+                    const auto epoch = this->flush_virtual_address_mappings();
+                    lock.unlock();
+                    this->wait_for_tlb_epoch(epoch);
+                }
             }
 
             emulator_hook* hook_instruction(const int instruction_type, instruction_hook_callback callback) override
             {
                 std::unique_lock lock(this->partition_mutex_);
 
+                // The exits change first, so a change that throws leaves no hook behind.
+                const auto type = static_cast<x86_hookable_instructions>(instruction_type);
+                if (type == x86_hookable_instructions::rdtsc || type == x86_hookable_instructions::rdtscp)
+                {
+                    this->update_rdtsc_exit(true);
+                }
+
                 auto* hook = this->make_hook();
                 auto& entry = this->instruction_hooks_[hook];
-                entry.type = static_cast<x86_hookable_instructions>(instruction_type);
+                entry.type = type;
                 entry.callback = std::move(callback);
 
                 if (entry.type == x86_hookable_instructions::syscall)
@@ -1943,7 +1373,6 @@ namespace sogen::whp
                     this->syscall_hook_ = &entry;
                 }
 
-                this->update_rdtsc_exit();
                 return hook;
             }
 
@@ -2187,6 +1616,7 @@ namespace sogen::whp
             WHV_EXTENDED_VM_EXITS enabled_exits_{};
             // Whether RDTSC/RDTSCP exits can follow the hooks after setup; see update_rdtsc_exit().
             bool rdtsc_exit_switchable_ = false;
+            std::atomic_bool exits_changing_{false};
             WHV_PROCESSOR_XSAVE_FEATURES supported_xsave_features_{};
             bool has_supported_xsave_features_ = false;
 
@@ -2302,16 +1732,17 @@ namespace sogen::whp
                 }
             }
 
-            void update_rdtsc_exit()
+            void update_rdtsc_exit(const bool adding_rdtsc_hook = false)
             {
                 if (!this->rdtsc_exit_switchable_)
                 {
                     return;
                 }
 
-                const bool wanted = std::ranges::any_of(this->instruction_hooks_, [](const auto& hook) {
-                    return hook.second.type == x86_hookable_instructions::rdtsc || hook.second.type == x86_hookable_instructions::rdtscp;
-                });
+                const bool wanted = adding_rdtsc_hook || std::ranges::any_of(this->instruction_hooks_, [](const auto& hook) {
+                                        return hook.second.type == x86_hookable_instructions::rdtsc ||
+                                               hook.second.type == x86_hookable_instructions::rdtscp;
+                                    });
                 if (wanted == (this->enabled_exits_.X64RdtscExit != 0))
                 {
                     return;
@@ -2319,8 +1750,35 @@ namespace sogen::whp
 
                 auto exits = this->enabled_exits_;
                 exits.X64RdtscExit = wanted ? 1 : 0;
+
+                // WHvSetPartitionProperty(ExtendedVmExits) fails with WHV_E_INVALID_VP_STATE while a vCPU runs the guest, and so
+                // does a run that starts while the exits change.
+                this->exits_changing_ = true;
+                const auto exits_changed = utils::finally([this] { this->exits_changing_ = false; });
+                this->wait_until_no_vcpu_runs_the_guest();
                 WHP_CHECK_HR(WHvSetPartitionProperty(this->partition_, WHvPartitionPropertyCodeExtendedVmExits, &exits, sizeof(exits)));
                 this->enabled_exits_ = exits;
+            }
+
+            // Assumes partition_mutex_ is held exclusively and exits_changing_ is set.
+            void wait_until_no_vcpu_runs_the_guest()
+            {
+                auto cancel_at = std::chrono::steady_clock::time_point{};
+                while (std::ranges::any_of(this->vcpus_, [](const auto& vcpu) { return vcpu->run_active_.load(); }))
+                {
+                    if (std::chrono::steady_clock::now() >= cancel_at)
+                    {
+                        for (const auto& vcpu : this->vcpus_)
+                        {
+                            if (vcpu->run_active_)
+                            {
+                                (void)WHvCancelRunVirtualProcessor(this->partition_, vcpu->vp_index_, 0);
+                            }
+                        }
+                        cancel_at = std::chrono::steady_clock::now() + std::chrono::milliseconds(1);
+                    }
+                    YieldProcessor();
+                }
             }
 
             void initialize_virtual_processor_state(whp_vcpu& vcpu)
@@ -2689,10 +2147,29 @@ namespace sogen::whp
                 return false;
             }
 
+            // Assumes partition_mutex_ is held. An MMIO page's writes must still exit.
+            bool page_table_holds_write(const mapped_page& page) const
+            {
+                return page.user_accessible && (page.permissions & memory_permission::read) != memory_permission::none &&
+                       this->find_mmio_region(page.guest_page_base) == nullptr;
+            }
+
+            // Assumes partition_mutex_ is held. Where a permission change flips it, the entry has to lose write before the
+            // page's mapping can give access, and gain it only after the mapping took access away; otherwise the two together
+            // allow a write that neither the old nor the new permissions allow.
+            bool is_page_table_entry_writable(const mapped_page& page) const
+            {
+                return (page.permissions & memory_permission::write) != memory_permission::none || !this->page_table_holds_write(page);
+            }
+
             // Assumes partition_mutex_ is held.
             memory_permission effective_page_permissions(const mapped_page& page) const
             {
                 auto permissions = page.permissions;
+                if (this->page_table_holds_write(page))
+                {
+                    permissions |= memory_permission::write;
+                }
                 if (page.page_execution_hook_count != 0 && !this->is_page_being_stepped(page.guest_page_base))
                 {
                     permissions &= ~memory_permission::exec;
@@ -3459,9 +2936,14 @@ namespace sogen::whp
                 const auto pd_gpa = this->ensure_child_table(pdpt_gpa, pdpt_index);
                 const auto pt_gpa = this->ensure_child_table(pd_gpa, pd_index);
 
+                const auto& page = *mapped_page->second;
                 auto* const pt_entries = this->get_page_table_entries(pt_gpa);
-                auto entry = mapped_page->second->guest_physical_address | page_table_entry_present | page_table_entry_writable;
-                if (mapped_page->second->user_accessible)
+                auto entry = page.guest_physical_address | page_table_entry_present;
+                if (this->is_page_table_entry_writable(page))
+                {
+                    entry |= page_table_entry_writable;
+                }
+                if (page.user_accessible)
                 {
                     entry |= page_table_entry_user;
                 }
@@ -3507,7 +2989,11 @@ namespace sogen::whp
                     if (!guard_tripped && backed && permitted)
                     {
                         this->ensure_virtual_mapping(page_base);
-                        this->remap_page(*it->second);
+                        const auto needed_flags = to_whp_map_flags(operation);
+                        if ((it->second->map_flags & needed_flags) != needed_flags)
+                        {
+                            this->remap_page(*it->second);
+                        }
                         repaired = true;
                     }
                 }
@@ -3596,12 +3082,21 @@ namespace sogen::whp
                 return epoch;
             }
 
-            // Assumes partition_mutex_ is held. A vCPU that is not executing guest code applies the pending
-            // flush before it can enter the guest again, so only running vCPUs have to acknowledge.
+            // A vCPU that is not executing guest code applies the pending flush before it can enter the guest again, so only
+            // running vCPUs have to acknowledge.
             bool is_tlb_epoch_acknowledged(const uint64_t epoch) const
             {
                 return std::ranges::all_of(this->vcpus_,
                                            [&](const auto& vcpu) { return !vcpu->run_active_ || vcpu->acked_tlb_epoch_ >= epoch; });
+            }
+
+            // Assumes partition_mutex_ is not held: a cancelled vCPU's exit may need it.
+            void wait_for_tlb_epoch(const uint64_t epoch) const
+            {
+                while (!this->is_tlb_epoch_acknowledged(epoch))
+                {
+                    YieldProcessor();
+                }
             }
 
             // Assumes partition_mutex_ is held (shared is sufficient for reads, exclusive for writes
@@ -3832,7 +3327,7 @@ namespace sogen::whp
                     this->expire_mmio_read_grace_pages(vcpu);
                     WHV_RUN_VP_EXIT_CONTEXT exit_context{};
                     vcpu.run_active_ = true;
-                    if (vcpu.pending_tlb_flush_.load())
+                    if (vcpu.pending_tlb_flush_.load() || this->exits_changing_.load())
                     {
                         vcpu.run_active_ = false;
                         continue;
@@ -3853,9 +3348,10 @@ namespace sogen::whp
                         }
 
                         // A cancel without a stop request comes from flush_virtual_address_mappings
-                        // (another vCPU changed the shared page tables) - never from a real stop, which
-                        // always sets stop_requested_ first. Re-enter so the pending TLB flush is applied
-                        // at the loop top; do not treat it as a stop regardless of whether rip advanced.
+                        // (another vCPU changed the shared page tables) or update_rdtsc_exit (the exits
+                        // change) - never from a real stop, which always sets stop_requested_ first. Re-enter
+                        // so the pending TLB flush is applied, or the exits change is waited out, at the loop
+                        // top; do not treat it as a stop regardless of whether rip advanced.
                         // A stop with a step of the backend's own on its way re-enters too, to make the step first.
                         continue;
                     }

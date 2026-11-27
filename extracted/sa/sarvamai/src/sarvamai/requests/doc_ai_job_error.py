@@ -25,7 +25,7 @@ class DocAiJobErrorParams(typing_extensions.TypedDict):
 
     pointer: typing_extensions.NotRequired[str]
     """
-    JSON pointer to the offending field, e.g. `/config/scope`.
+    JSON pointer to the offending field, e.g. `/config/categories`.
     """
 
     retryable: bool

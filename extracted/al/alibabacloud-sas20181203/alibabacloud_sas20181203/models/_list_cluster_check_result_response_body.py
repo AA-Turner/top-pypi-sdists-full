@@ -72,11 +72,11 @@ class ListClusterCheckResultResponseBodyPageInfo(DaraModel):
         page_size: int = None,
         total_count: int = None,
     ):
-        # The number of data entries displayed on the current page during paging in a paged query.
+        # The number of data entries returned on the current page during paging in a paged query.
         self.count = count
         # The page number of the current page during paging in a paged query.
         self.current_page = current_page
-        # The number of alerting events to display on each page during paging in a paged query. Default value: **20**, which indicates that 20 alerting events are displayed on each page.
+        # The number of alerting events to return on each page during paging in a paged query. Default value: **20**, which indicates that 20 alerting events are displayed on each page.
         self.page_size = page_size
         # The total number of entries.
         self.total_count = total_count
@@ -143,7 +143,7 @@ class ListClusterCheckResultResponseBodyChecks(DaraModel):
         self.asset_type = asset_type
         # The ID of the check item.
         self.check_id = check_id
-        # The standards, regulations, and sections associated with the check result.
+        # The standard, regulation, and section information associated with the check result.
         self.check_policies = check_policies
         # The name of the check item.
         self.check_show_name = check_show_name
@@ -172,7 +172,7 @@ class ListClusterCheckResultResponseBodyChecks(DaraModel):
         self.instance_sub_type = instance_sub_type
         # The asset type of the cloud service.
         self.instance_type = instance_type
-        # The timestamp of the latest check. Unit: milliseconds.
+        # The timestamp of the last check. Unit: milliseconds.
         self.last_check_time = last_check_time
         # The risk level of the check item. Valid values:
         # 
@@ -196,11 +196,11 @@ class ListClusterCheckResultResponseBodyChecks(DaraModel):
         self.trial_permission_type = trial_permission_type
         # The vendor of the asset. Valid values:
         # 
-        # 0: Alibaba Cloud.
-        # 3: Other cloud.
-        # 4: Other cloud.
-        # 5: Other cloud.
-        # 7: Other cloud.
+        # 0: Alibaba Cloud
+        # 3: Third-party cloud
+        # 4: Third-party cloud
+        # 5: Third-party cloud
+        # 7: Third-party cloud
         self.vendor = vendor
 
     def validate(self):
@@ -319,15 +319,15 @@ class ListClusterCheckResultResponseBodyChecksCheckPolicies(DaraModel):
         standard_id: int = None,
         standard_show_name: str = None,
     ):
-        # The ID of the regulation for the check item.
+        # The regulation ID of the check item.
         self.requirement_id = requirement_id
         # The display name of the regulation for the check item.
         self.requirement_show_name = requirement_show_name
-        # The ID of the section for the check item.
+        # The section ID of the check item.
         self.section_id = section_id
         # The display name of the section for the check item.
         self.section_show_name = section_show_name
-        # The ID of the standard for the check item.
+        # The standard ID of the check item.
         self.standard_id = standard_id
         # The display name of the standard for the check item.
         self.standard_show_name = standard_show_name

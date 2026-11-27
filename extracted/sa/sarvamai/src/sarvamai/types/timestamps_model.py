@@ -7,19 +7,23 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class TimestampsModel(UniversalBaseModel):
+    """
+    Segment-level timestamps in the older parallel-list format, returned when `with_timestamps` is `true`. Will be deprecated soon; use `timestamp_granularity` instead.
+    """
+
     words: typing.List[str] = pydantic.Field()
     """
-    List of transcript chunks (sentence or phrase segments). Not individual words.
+    Chunks of the transcript, in order, each of which can hold several sentences. Despite the field name, these are not single words. For per-word timing, use `timestamp_granularity=word`.
     """
 
     start_time_seconds: typing.List[float] = pydantic.Field()
     """
-    List of start times for each chunk in seconds.
+    Start time of each entry in `words`, in seconds.
     """
 
     end_time_seconds: typing.List[float] = pydantic.Field()
     """
-    List of end times for each chunk in seconds.
+    End time of each entry in `words`, in seconds.
     """
 
     if IS_PYDANTIC_V2:

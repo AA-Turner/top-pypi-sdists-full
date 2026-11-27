@@ -1,5 +1,3 @@
-# fmt: off
-
 """This module provides I/O functions for the MAGRES file format, introduced
 by CASTEP as an output format to store structural data and ab-initio
 calculated NMR parameters.
@@ -22,16 +20,19 @@ _mprops = {
     'ms': ('sigma', 1),
     'sus': ('S', 0),
     'efg': ('V', 1),
-    'isc': ('K', 2)}
+    'isc': ('K', 2),
+}
 # (matrix name, number of atoms in interaction) for various magres quantities
 
 
 def read_magres(fd, include_unrecognised=False):
     """Read magres file."""
 
-    block_parsers = {'magres': _magres.parse_magres_block,
-                     'atoms': _magres.parse_atoms_block,
-                     'calculation': _magres.parse_generic_block, }
+    block_parsers = {
+        'magres': _magres.parse_magres_block,
+        'atoms': _magres.parse_atoms_block,
+        'calculation': _magres.parse_generic_block,
+    }
 
     file_contents = fd.read()
 
@@ -106,10 +107,7 @@ def read_magres(fd, include_unrecognised=False):
             if custom_species is not None:
                 custom_species.append(a['species'])
 
-    atoms = Atoms(cell=cell,
-                  pbc=pbc,
-                  symbols=symbols,
-                  positions=positions)
+    atoms = Atoms(cell=cell, pbc=pbc, symbols=symbols, positions=positions)
 
     # Add custom species if present
     if custom_species is not None:
@@ -139,7 +137,8 @@ def read_magres(fd, include_unrecognised=False):
             u_arr = [[None] * (i + 1) for i in range(len(li_list))]
         else:
             raise ValueError(
-                'Invalid order value passed to create_magres_array')
+                'Invalid order value passed to create_magres_array'
+            )
 
         for s in block:
             # Find the atom index/indices
@@ -179,8 +178,9 @@ def read_magres(fd, include_unrecognised=False):
                 mn, order = _mprops[u0]
 
                 if order > 0:
-                    u_arr = create_magres_array(mn, order,
-                                                data_dict['magres'][u])
+                    u_arr = create_magres_array(
+                        mn, order, data_dict['magres'][u]
+                    )
                     atoms.new_array(u, u_arr)
                 else:
                     # atoms.info['magres_data'] = atoms.info.get('magres_data',
@@ -232,34 +232,38 @@ def write_magres(fd, image):
     if image.has('indices'):
         indices = image.get_array('indices')
     else:
-        indices = [labels[:i + 1].count(labels[i]) for i in range(len(labels))]
+        indices = [labels[: i + 1].count(labels[i]) for i in range(len(labels))]
 
     # Iterate over atoms
-    symbols = (image.get_array('castep_custom_species')
-               if image.has('castep_custom_species')
-               else image.get_chemical_symbols())
+    symbols = (
+        image.get_array('castep_custom_species')
+        if image.has('castep_custom_species')
+        else image.get_chemical_symbols()
+    )
 
-    atom_info = list(zip(symbols,
-                         image.get_positions()))
+    atom_info = list(zip(symbols, image.get_positions()))
     if len(atom_info) > 0:
         image_data['atoms']['units'].append(['atom', 'Angstrom'])
         image_data['atoms']['atom'] = []
 
     for i, a in enumerate(atom_info):
-        image_data['atoms']['atom'].append({
-            'index': indices[i],
-            'position': a[1],
-            'species': a[0],
-            'label': labels[i]})
+        image_data['atoms']['atom'].append(
+            {
+                'index': indices[i],
+                'position': a[1],
+                'species': a[0],
+                'label': labels[i],
+            }
+        )
 
     # Spacegroup, if present
     if 'spacegroup' in image.info:
-        image_data['atoms']['symmetry'] = [image.info['spacegroup']
-                                           .symbol.replace(' ', '')]
+        image_data['atoms']['symmetry'] = [
+            image.info['spacegroup'].symbol.replace(' ', '')
+        ]
 
     # Now go on to do the same for magres information
     if 'magres_units' in image.info:
-
         image_data['magres'] = {'units': []}
 
         for u in image.info['magres_units']:
@@ -267,34 +271,34 @@ def write_magres(fd, image):
             p = u.split('_')[0]
             if p in _mprops:
                 image_data['magres']['units'].append(
-                    [u, image.info['magres_units'][u]])
+                    [u, image.info['magres_units'][u]]
+                )
                 image_data['magres'][u] = []
                 mn, order = _mprops[p]
 
                 if order == 0:
                     # The case of susceptibility
-                    tens = {
-                        mn: image.calc.results[u]
-                    }
+                    tens = {mn: image.calc.results[u]}
                     image_data['magres'][u] = tens
                 else:
                     arr = image.get_array(u)
                     li_tab = zip(labels, indices)
                     for i, (lab, ind) in enumerate(li_tab):
                         if order == 2:
-                            for j, (lab2, ind2) in enumerate(li_tab[:i + 1]):
+                            for j, (lab2, ind2) in enumerate(li_tab[: i + 1]):
                                 if arr[i][j] is not None:
-                                    tens = {mn: arr[i][j],
-                                            'atom1': {'label': lab,
-                                                      'index': ind},
-                                            'atom2': {'label': lab2,
-                                                      'index': ind2}}
+                                    tens = {
+                                        mn: arr[i][j],
+                                        'atom1': {'label': lab, 'index': ind},
+                                        'atom2': {'label': lab2, 'index': ind2},
+                                    }
                                     image_data['magres'][u].append(tens)
                         elif order == 1:
                             if arr[i] is not None:
-                                tens = {mn: arr[i],
-                                        'atom': {'label': lab,
-                                                 'index': ind}}
+                                tens = {
+                                    mn: arr[i],
+                                    'atom': {'label': lab, 'index': ind},
+                                }
                                 image_data['magres'][u].append(tens)
 
     # Calculation block, if present
@@ -308,24 +312,29 @@ def write_magres(fd, image):
 
     def write_magres_block(data):
         """
-            Write out a <magres> block from its dictionary representation
+        Write out a <magres> block from its dictionary representation
         """
 
         out = []
 
         def nout(tag, tensor_name):
             if tag in data:
-                out.append(' '.join([' ', tag,
-                                     tensor_string(data[tag][tensor_name])]))
+                out.append(
+                    ' '.join([' ', tag, tensor_string(data[tag][tensor_name])])
+                )
 
         def siout(tag, tensor_name):
             if tag in data:
                 for atom_si in data[tag]:
-                    out.append(('  %s %s %d '
-                                '%s') % (tag,
-                                         atom_si['atom']['label'],
-                                         atom_si['atom']['index'],
-                                         tensor_string(atom_si[tensor_name])))
+                    out.append(
+                        ('  %s %s %d %s')
+                        % (
+                            tag,
+                            atom_si['atom']['label'],
+                            atom_si['atom']['index'],
+                            tensor_string(atom_si[tensor_name]),
+                        )
+                    )
 
         write_units(data, out)
 
@@ -339,13 +348,17 @@ def write_magres(fd, image):
         def sisiout(tag, tensor_name):
             if tag in data:
                 for isc in data[tag]:
-                    out.append(('  %s %s %d %s %d '
-                                '%s') % (tag,
-                                         isc['atom1']['label'],
-                                         isc['atom1']['index'],
-                                         isc['atom2']['label'],
-                                         isc['atom2']['index'],
-                                         tensor_string(isc[tensor_name])))
+                    out.append(
+                        ('  %s %s %d %s %d %s')
+                        % (
+                            tag,
+                            isc['atom1']['label'],
+                            isc['atom1']['index'],
+                            isc['atom2']['label'],
+                            isc['atom2']['index'],
+                            tensor_string(isc[tensor_name]),
+                        )
+                    )
 
         sisiout('isc_fc', 'K')
         sisiout('isc_orbital_p', 'K')
@@ -362,7 +375,7 @@ def write_magres(fd, image):
 
         if 'lattice' in data:
             for lat in data['lattice']:
-                out.append(f"  lattice {tensor_string(lat)}")
+                out.append(f'  lattice {tensor_string(lat)}')
 
         if 'symmetry' in data:
             for sym in data['symmetry']:
@@ -370,11 +383,15 @@ def write_magres(fd, image):
 
         if 'atom' in data:
             for a in data['atom']:
-                out.append(('  atom %s %s %s '
-                            '%s') % (a['species'],
-                                     a['label'],
-                                     a['index'],
-                                     ' '.join(str(x) for x in a['position'])))
+                out.append(
+                    ('  atom %s %s %s %s')
+                    % (
+                        a['species'],
+                        a['label'],
+                        a['index'],
+                        ' '.join(str(x) for x in a['position']),
+                    )
+                )
 
         return '\n'.join(out)
 
@@ -388,9 +405,13 @@ def write_magres(fd, image):
         return '\n'.join(out)
 
     # Using this to preserve order
-    block_writers = OrderedDict([('calculation', write_generic_block),
-                                 ('atoms', write_atoms_block),
-                                 ('magres', write_magres_block)])
+    block_writers = OrderedDict(
+        [
+            ('calculation', write_generic_block),
+            ('atoms', write_atoms_block),
+            ('magres', write_magres_block),
+        ]
+    )
 
     # First, write the header
     fd.write('#$magres-abinitio-v1.0\n')

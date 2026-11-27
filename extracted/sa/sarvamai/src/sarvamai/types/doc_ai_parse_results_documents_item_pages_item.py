@@ -4,13 +4,33 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .doc_ai_parse_results_documents_item_pages_item_blocks_item import (
+    DocAiParseResultsDocumentsItemPagesItemBlocksItem,
+)
 
 
 class DocAiParseResultsDocumentsItemPagesItem(UniversalBaseModel):
-    page_number: typing.Optional[int] = None
-    content: typing.Optional[str] = pydantic.Field(default=None)
+    page_num: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Page content in the requested output_format (HTML or Markdown).
+    Page number, starting at 1.
+    """
+
+    status: typing.Optional[str] = None
+    image_width: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Width in pixels of the page image that `coordinates` refer to.
+    """
+
+    image_height: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Height in pixels of the page image that `coordinates` refer to.
+    """
+
+    blocks: typing.Optional[typing.List[DocAiParseResultsDocumentsItemPagesItemBlocksItem]] = pydantic.Field(
+        default=None
+    )
+    """
+    The text blocks on the page. Each has a `reading_order`.
     """
 
     if IS_PYDANTIC_V2:

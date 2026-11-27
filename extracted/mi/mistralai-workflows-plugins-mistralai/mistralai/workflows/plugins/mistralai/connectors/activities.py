@@ -1,7 +1,7 @@
 """Activities for connector operations using the Mistral SDK.
 
 These activities are scheduled by the ``ConnectorAuthInterceptor`` (for auth
-preflight) and by ``ToolCallClient`` (for tool calls).  They run outside the
+preflight) and by ``ConnectorClient`` (for tool calls).  They run outside the
 Temporal workflow sandbox as regular activity tasks.
 """
 
@@ -12,8 +12,12 @@ import datetime
 import time
 from typing import Any
 
+import opentelemetry.semconv._incubating.attributes.gen_ai_attributes as gen_ai_attributes
+import opentelemetry.semconv.attributes.error_attributes as error_attributes
 import structlog
 import temporalio.activity
+from opentelemetry import trace
+from opentelemetry.trace import StatusCode
 
 from mistralai.client import Mistral
 from mistralai.client.models import CredentialsResponse, PublicAuthenticationMethod
@@ -32,10 +36,26 @@ from mistralai.workflows.plugins.mistralai.connectors.models import (
 from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs, require_connector_activity_run_as
 
 logger = structlog.get_logger(__name__)
+tracer = trace.get_tracer(__name__)
+
+# Shared with the harness and Vibe Work execute_tool spans so the traces UI can
+# resolve connector logos by id.
+CONNECTOR_ID_ATTRIBUTE = "mistral.connector.id"
 
 
 def _build_connector_client(run_as: RunAs = RunAs.AUTO) -> Mistral:
     return get_mistral_client(run_as=require_connector_activity_run_as(run_as))
+
+
+def _execute_tool_span_attributes(tool_name: str, connector_id: str | None) -> dict[str, str]:
+    attributes = {
+        gen_ai_attributes.GEN_AI_OPERATION_NAME: gen_ai_attributes.GenAiOperationNameValues.EXECUTE_TOOL.value,
+        gen_ai_attributes.GEN_AI_TOOL_NAME: tool_name,
+        gen_ai_attributes.GEN_AI_TOOL_TYPE: "function",
+    }
+    if connector_id:
+        attributes[CONNECTOR_ID_ATTRIBUTE] = connector_id
+    return attributes
 
 
 @activity(
@@ -100,8 +120,13 @@ async def connector_tool_call(
     credentials_name: str | None = None,
     mcp_ui_resource_uri: str | None = None,
     run_as: RunAs = RunAs.AUTO,
+    connector_id: str | None = None,
 ) -> Any:
-    """Call a tool on a connector via the Mistral SDK."""
+    """Call a tool on a connector via the Mistral SDK.
+
+    ``connector_id`` is the resolved connector UUID, when known. It is only used
+    to tag the ``execute_tool`` span so trace UIs can show the connector logo.
+    """
     client = _build_connector_client(run_as)
 
     logger.info(
@@ -127,26 +152,34 @@ async def connector_tool_call(
         arguments=arguments,
     )
 
-    try:
-        result = await client.beta.connectors.call_tool_async(**call_kwargs)
-    except Exception as e:
-        fail_mcp_app_call_events(mcp_app_events, message=event_failure_message(e))
-        raise
+    with tracer.start_as_current_span(
+        f"execute_tool {tool_name}",
+        attributes=_execute_tool_span_attributes(tool_name, connector_id),
+    ) as span:
+        try:
+            result = await client.beta.connectors.call_tool_async(**call_kwargs)
+        except Exception as e:
+            span.set_attribute(error_attributes.ERROR_TYPE, type(e).__qualname__)
+            fail_mcp_app_call_events(mcp_app_events, message=event_failure_message(e))
+            raise
 
-    metadata = result.metadata
-    if metadata and metadata.mcp_meta and metadata.mcp_meta.is_error:
-        logger.error(
-            "Connector tool call returned MCP error",
-            connector_id_or_name=connector_id_or_name,
-            tool_name=tool_name,
-            # We dump the whole response because the context of the error is in the 'content' field
-            response=result.model_dump(),
-        )
-        fail_mcp_app_call_events(
-            mcp_app_events,
-            message=f"[{connector_id_or_name}] connector tool call failed",
-        )
-        raise ConnectorToolCallError(connector_id_or_name=connector_id_or_name, response=result)
+        metadata = result.metadata
+        if metadata and metadata.mcp_meta and metadata.mcp_meta.is_error:
+            logger.error(
+                "Connector tool call returned MCP error",
+                connector_id_or_name=connector_id_or_name,
+                tool_name=tool_name,
+                # We dump the whole response because the context of the error is in the 'content' field
+                response=result.model_dump(),
+            )
+            span.set_attribute(error_attributes.ERROR_TYPE, ConnectorToolCallError.__qualname__)
+            fail_mcp_app_call_events(
+                mcp_app_events,
+                message=f"[{connector_id_or_name}] connector tool call failed",
+            )
+            raise ConnectorToolCallError(connector_id_or_name=connector_id_or_name, response=result)
+
+        span.set_status(StatusCode.OK)
 
     # Returned to the workflow with the legacy dump options to avoid changing the
     # shape consumed by existing (non-MCP) connector_tool_call callers.

@@ -181,6 +181,16 @@ def test_aliases() -> None:
     assert cast(Any, m.my_field) == {"hello": False}
 
 
+def test_aliased_fields_are_written_once() -> None:
+    class Model(BaseModel):
+        my_field: int = Field(alias="myField")
+
+    m = Model.construct(myField=1, other=2)
+    assert m.my_field == 1
+    assert cast(Any, m).other == 2
+    assert json.loads(m.to_json(), object_pairs_hook=list) == [("myField", 1), ("other", 2)]
+
+
 def test_repr() -> None:
     model = BasicModel(foo="bar")
     assert str(model) == "BasicModel(foo='bar')"

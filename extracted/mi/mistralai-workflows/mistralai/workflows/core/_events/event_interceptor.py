@@ -5,7 +5,7 @@ import temporalio.activity
 import temporalio.client
 import temporalio.worker
 import temporalio.workflow
-from temporalio.exceptions import ApplicationError
+from temporalio.exceptions import ApplicationError, is_cancelled_exception
 
 from mistralai.workflows.core._events.event_activities import (
     _emit_workflow_canceled,
@@ -25,14 +25,19 @@ from mistralai.workflows.core._events.event_failure import event_failure_message
 from mistralai.workflows.core._events.event_utils import (
     create_stable_activity_event_fields,
 )
+from mistralai.workflows.core._events.manual_publish_state import _ManualPublishState, manual_publish_state_var
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core._registration.registration_activity import (
     REGISTER_EXECUTION_ACTIVITY_NAME,
 )
-from mistralai.workflows.core.definition.workflow_definition import (
-    get_workflow_display_name,
+from mistralai.workflows.core.execution.workflow_run_config import (
+    RECORD_WORKFLOW_RUN_CONFIG_ACTIVITY_NAME,
+    WorkflowRunConfigHolder,
+    record_workflow_run_config,
+    workflow_run_config_holder_var,
 )
 from mistralai.workflows.core.logging import extract_error_context
+from mistralai.workflows.core.temporal.utils import is_current_run
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 from mistralai.workflows.protocol.v1.events import (
     ActivityTaskCompleted,
@@ -46,6 +51,7 @@ from mistralai.workflows.protocol.v1.events import (
     Failure,
     JSONPayload,
     WorkflowEvent,
+    WorkflowEventCategory,
 )
 
 logger = get_logger(__name__)
@@ -90,8 +96,8 @@ class _EventActivityInboundInterceptor(temporalio.worker.ActivityInboundIntercep
     """Activity interceptor that sends activity task events to the API.
 
     Emits ACTIVITY_TASK_STARTED, ACTIVITY_TASK_COMPLETED, ACTIVITY_TASK_RETRYING,
-    and ACTIVITY_TASK_FAILED events. The activity does not complete successfully
-    until every event it sent is published.
+    and ACTIVITY_TASK_FAILED events when the ACTIVITY category is enabled. The activity
+    does not complete successfully until every event it sent is published.
     """
 
     async def execute_activity(self, input: temporalio.worker.ExecuteActivityInput) -> Any:
@@ -99,17 +105,41 @@ class _EventActivityInboundInterceptor(temporalio.worker.ActivityInboundIntercep
         if not context:
             return await self.next.execute_activity(input)
 
+        publisher = BackgroundEventPublisher(context)
+        publisher_token = BackgroundEventPublisher.set_current(publisher)
+        try:
+            if not context.emits(WorkflowEventCategory.ACTIVITY):
+                # CUSTOM_TASK events the body sends from inside the activity still go through the publisher.
+                return await self._execute_streaming_only(input, publisher)
+            return await self._execute_with_activity_events(input, context, publisher)
+        finally:
+            await publisher.shutdown()
+            reset_contextvar(_background_event_publisher, publisher_token)
+
+    async def _execute_streaming_only(
+        self, input: temporalio.worker.ExecuteActivityInput, publisher: BackgroundEventPublisher
+    ) -> Any:
+        try:
+            result = await self.next.execute_activity(input)
+        except Exception:
+            await publisher.drain_preserving_error()
+            raise
+        await publisher.drain()
+        return result
+
+    async def _execute_with_activity_events(
+        self,
+        input: temporalio.worker.ExecuteActivityInput,
+        context: EventContext,
+        publisher: BackgroundEventPublisher,
+    ) -> Any:
         activity_info = temporalio.activity.info()
         task_id = activity_info.activity_id
         activity_name = activity_info.activity_type
 
-        # Skip event emission for the registration activity — it is an
-        # internal implementation detail that should not appear in SSE streams.
-        if activity_name == REGISTER_EXECUTION_ACTIVITY_NAME:
+        # Skip event emission for internal bookkeeping activities that should not appear in SSE streams.
+        if activity_name in (REGISTER_EXECUTION_ACTIVITY_NAME, RECORD_WORKFLOW_RUN_CONFIG_ACTIVITY_NAME):
             return await self.next.execute_activity(input)
-
-        publisher = BackgroundEventPublisher(context)
-        publisher_token = BackgroundEventPublisher.set_current(publisher)
 
         try:
             # Sent on every attempt: if an earlier attempt failed to publish it, this one does, under the same id.
@@ -142,9 +172,15 @@ class _EventActivityInboundInterceptor(temporalio.worker.ActivityInboundIntercep
         except Exception as e:
             await _publish_activity_failure(context, publisher, e)
             raise
-        finally:
-            await publisher.shutdown()
-            reset_contextvar(_background_event_publisher, publisher_token)
+
+
+def _is_workflow_cancellation(error: Exception) -> bool:
+    """Mirror Temporal's rule for ending a run as CANCELED rather than FAILED.
+
+    A cancel that arrives while the workflow awaits an activity or child surfaces as an
+    ActivityError or ChildWorkflowError caused by CancelledError, not as asyncio.CancelledError.
+    """
+    return temporalio.workflow.cancellation_reason() is not None and is_cancelled_exception(error)
 
 
 class _EventWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundInterceptor):
@@ -152,35 +188,76 @@ class _EventWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundIntercep
 
     Emits WORKFLOW_EXECUTION_STARTED, WORKFLOW_EXECUTION_COMPLETED,
     WORKFLOW_EXECUTION_FAILED, and WORKFLOW_EXECUTION_CANCELED events.
+
+    Records the run's WorkflowRunConfig first, so emitters follow the settings the run started with.
     """
+
+    def __init__(self, next: temporalio.worker.WorkflowInboundInterceptor) -> None:
+        super().__init__(next)
+        self._run_config_holder = WorkflowRunConfigHolder()
+        self._manual_publish_state = _ManualPublishState()
 
     async def execute_workflow(self, input: temporalio.worker.ExecuteWorkflowInput) -> Any:
         context = EventContext.get_singleton()
         if not context:
             return await super().execute_workflow(input)
 
+        holder_token = workflow_run_config_holder_var.set(self._run_config_holder)
+        state_token = manual_publish_state_var.set(self._manual_publish_state)
+        try:
+            self._run_config_holder.run_config = await record_workflow_run_config()
+            return await self._execute_with_events(input)
+        finally:
+            reset_contextvar(manual_publish_state_var, state_token)
+            reset_contextvar(workflow_run_config_holder_var, holder_token)
+
+    async def handle_signal(self, input: temporalio.worker.HandleSignalInput) -> None:
+        holder_token = workflow_run_config_holder_var.set(self._run_config_holder)
+        state_token = manual_publish_state_var.set(self._manual_publish_state)
+        try:
+            await super().handle_signal(input)
+        finally:
+            reset_contextvar(manual_publish_state_var, state_token)
+            reset_contextvar(workflow_run_config_holder_var, holder_token)
+
+    async def handle_update_handler(self, input: temporalio.worker.HandleUpdateInput) -> Any:
+        holder_token = workflow_run_config_holder_var.set(self._run_config_holder)
+        state_token = manual_publish_state_var.set(self._manual_publish_state)
+        try:
+            return await super().handle_update_handler(input)
+        finally:
+            reset_contextvar(manual_publish_state_var, state_token)
+            reset_contextvar(workflow_run_config_holder_var, holder_token)
+
+    async def _execute_with_events(self, input: temporalio.worker.ExecuteWorkflowInput) -> Any:
         info = temporalio.workflow.info()
         task_id = str(temporalio.workflow.uuid4())
-        display_name = get_workflow_display_name(info.workflow_type)
 
         try:
-            await execute_emitter(
-                _emit_workflow_started, task_id, info.workflow_type, list(input.args), display_name, info.attempt
-            )
+            await execute_emitter(_emit_workflow_started, task_id, info.workflow_type, list(input.args), info.attempt)
             result = await super().execute_workflow(input)
             await execute_emitter(_emit_workflow_completed, task_id, result, info.attempt)
             return result
 
-        except asyncio.CancelledError as e:
+        except asyncio.CancelledError:
+            if not is_current_run(info.run_id):
+                raise
             await execute_emitter_preserving_error(
-                _emit_workflow_canceled, task_id, str(e) if str(e) else None, info.attempt
+                _emit_workflow_canceled, task_id, temporalio.workflow.cancellation_reason() or None, info.attempt
             )
             raise
 
         except Exception as e:
-            await execute_emitter_preserving_error(
-                _emit_workflow_failed, task_id, event_failure_message(e), info.attempt
-            )
+            if not is_current_run(info.run_id):
+                raise
+            if _is_workflow_cancellation(e):
+                await execute_emitter_preserving_error(
+                    _emit_workflow_canceled, task_id, temporalio.workflow.cancellation_reason() or None, info.attempt
+                )
+            else:
+                await execute_emitter_preserving_error(
+                    _emit_workflow_failed, task_id, event_failure_message(e), info.attempt
+                )
             raise
 
 

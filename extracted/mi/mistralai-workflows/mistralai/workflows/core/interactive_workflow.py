@@ -16,6 +16,7 @@ from mistralai.workflows.core._events.event_activities import (
 from mistralai.workflows.core._events.event_failure import event_failure_message
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core._registration.search_key_ingestion import discard_search_keys, ingest_search_keys
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.workflow import workflow
 
 logger = get_logger(__name__)
@@ -182,12 +183,19 @@ class InteractiveWorkflow:
         def check_received() -> bool:
             return self._pending_inputs.get(task_id, pending_request).has_received_input
 
+        closing = False
         try:
             # Emit CUSTOM_TASK_STARTED event via activity to notify stream consumers
             await execute_emitter(_emit_waiting_for_input_started, task_id, schema_dict, label)
             await self._set_waiting_state(WAITING_FOR_INPUT_STATE)
             await temporalio.workflow.wait_condition(check_received, timeout=timeout)
             validated_input = schema.model_validate(pending_request.input)
+        except GeneratorExit:
+            # The coroutine is being closed during teardown, not cancelled inside
+            # the workflow. We are no longer in the workflow event loop, so emitting
+            # an event here would fail; just let the close propagate.
+            closing = True
+            raise
         except BaseException as e:
             await execute_emitter_preserving_error(
                 _emit_waiting_for_input_failed, task_id, schema_dict, label, event_failure_message(e)
@@ -196,7 +204,9 @@ class InteractiveWorkflow:
         finally:
             self._pending_inputs.pop(task_id, None)
             self._pending_wait_count -= 1
-            if self._pending_wait_count == 0:
+            # Updating the waiting state calls workflow APIs, which also fail outside the
+            # workflow event loop.
+            if self._pending_wait_count == 0 and not closing:
                 if temporalio.workflow.patched(_CLEAR_WAITING_STATE_VIA_DELETE):
                     await self._clear_waiting_state()
                 else:
@@ -222,7 +232,7 @@ class InteractiveWorkflow:
             logger.warning(
                 "Could not write the wait-state search key; the execution continues without it",
                 state=state,
-                error=str(e),
+                **extract_error_context(e),
             )
 
     async def _clear_waiting_state(self) -> None:
@@ -232,7 +242,7 @@ class InteractiveWorkflow:
         except Exception as e:
             logger.warning(
                 "Could not clear the wait-state search key; the execution continues with it set",
-                error=str(e),
+                **extract_error_context(e),
             )
 
     @workflow.update(name="__submit_input", _internal=True)

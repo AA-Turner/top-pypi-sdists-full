@@ -1,5 +1,3 @@
-# fmt: off
-
 from ase import Atoms
 
 
@@ -17,6 +15,7 @@ class NGLDisplay:
         import nglview
         import nglview.color
         from ipywidgets import Dropdown, FloatSlider, HBox, IntSlider, VBox
+
         self.atoms = atoms
         if isinstance(atoms[0], Atoms):
             # Assume this is a trajectory or struct list
@@ -31,33 +30,44 @@ class NGLDisplay:
             self.frm = None
 
         self.colors = {}
-        self.view._remote_call('setSize', target='Widget',
-                               args=['%dpx' % (xsize,), '%dpx' % (ysize,)])
+        self.view._remote_call(
+            'setSize',
+            target='Widget',
+            args=['%dpx' % (xsize,), '%dpx' % (ysize,)],
+        )
         self.view.add_unitcell()
         self.view.add_spacefill()
         self.view.camera = 'orthographic'
-        self.view.parameters = {"clipDist": 0}
+        self.view.parameters = {'clipDist': 0}
 
         self.view.center()
 
-        self.asel = Dropdown(options=['All'] +
-                             list(set(self.struct.get_chemical_symbols())),
-                             value='All', description='Show')
+        self.asel = Dropdown(
+            options=['All'] + list(set(self.struct.get_chemical_symbols())),
+            value='All',
+            description='Show',
+        )
 
-        self.csel = Dropdown(options=nglview.color.COLOR_SCHEMES,
-                             value='element', description='Color scheme')
+        self.csel = Dropdown(
+            options=nglview.color.COLOR_SCHEMES,
+            value='element',
+            description='Color scheme',
+        )
 
-        self.rad = FloatSlider(value=0.5, min=0.0, max=1.5, step=0.01,
-                               description='Ball size')
+        self.rad = FloatSlider(
+            value=0.5, min=0.0, max=1.5, step=0.01, description='Ball size'
+        )
 
         self.asel.observe(self._select_atom)
         self.csel.observe(self._update_repr)
         self.rad.observe(self._update_repr)
 
-        self.view.update_spacefill(radiusType='covalent',
-                                   radiusScale=0.5,
-                                   color_scheme=self.csel.value,
-                                   color_scale='rainbow')
+        self.view.update_spacefill(
+            radiusType='covalent',
+            radiusScale=0.5,
+            color_scheme=self.csel.value,
+            color_scale='rainbow',
+        )
 
         wdg = [self.asel, self.csel, self.rad]
         if self.frm:
@@ -70,23 +80,25 @@ class NGLDisplay:
         self.gui.custom_colors = self.custom_colors
 
     def _update_repr(self, chg=None):
-        self.view.update_spacefill(radiusType='covalent',
-                                   radiusScale=self.rad.value,
-                                   color_scheme=self.csel.value,
-                                   color_scale='rainbow')
+        self.view.update_spacefill(
+            radiusType='covalent',
+            radiusScale=self.rad.value,
+            color_scheme=self.csel.value,
+            color_scale='rainbow',
+        )
 
     def _update_frame(self, chg=None):
         self.view.frame = self.frm.value
-        return
 
     def _select_atom(self, chg=None):
         sel = self.asel.value
         self.view.remove_spacefill()
         for e in set(self.struct.get_chemical_symbols()):
-            if (sel == 'All' or e == sel):
+            if sel == 'All' or e == sel:
                 if e in self.colors:
-                    self.view.add_spacefill(selection='#' + e,
-                                            color=self.colors[e])
+                    self.view.add_spacefill(
+                        selection='#' + e, color=self.colors[e]
+                    )
                 else:
                     self.view.add_spacefill(selection='#' + e)
         self._update_repr()
@@ -107,8 +119,8 @@ class NGLDisplay:
 def view_ngl(atoms, data=None, repeat=None, w=500, h=500):
     """
     Returns the nglviewer + some control widgets in the VBox ipywidget.
-    The viewer supports any Atoms objectand any sequence of Atoms objects.
-    The returned object has two shortcuts members:
+    The viewer supports any Atoms object and any sequence of Atoms objects.
+    The returned object has two shortcut members:
 
     .view:
         nglviewer ipywidget for direct interaction

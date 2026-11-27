@@ -1,5 +1,3 @@
-# fmt: off
-
 import shlex
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
@@ -17,8 +15,8 @@ from ase.calculators.calculator import (
 from ase.config import cfg as _cfg
 
 link_calculator_docs = (
-    "https://ase-lib.org/ase/calculators/"
-    "calculators.html#calculator-configuration"
+    'https://docs.ase-lib.org/ase/calculators/'
+    'calculators.html#calculator-configuration'
 )
 
 
@@ -66,9 +64,12 @@ class BaseProfile(ABC):
         """
 
     def run(
-        self, directory: Path, inputfile: str | None,
-        outputfile: str, errorfile: str | None = None,
-        append: bool = False
+        self,
+        directory: Path,
+        inputfile: str | None,
+        outputfile: str,
+        errorfile: str | None = None,
+        append: bool = False,
     ) -> None:
         """
         Run the command in the given directory.
@@ -141,7 +142,8 @@ class BaseProfile(ABC):
 
         kwargs = {
             varname: section[varname]
-            for varname in cls.configvars if varname in section
+            for varname in cls.configvars
+            if varname in section
         }
 
         try:
@@ -183,20 +185,18 @@ class CalculatorTemplate(ABC):
         self.implemented_properties = frozenset(implemented_properties)
 
     @abstractmethod
-    def write_input(self, profile, directory, atoms, parameters, properties):
-        ...
+    def write_input(
+        self, profile, directory, atoms, parameters, properties
+    ): ...
 
     @abstractmethod
-    def execute(self, directory, profile):
-        ...
+    def execute(self, directory, profile): ...
 
     @abstractmethod
-    def read_results(self, directory: PathLike) -> Mapping[str, Any]:
-        ...
+    def read_results(self, directory: PathLike) -> Mapping[str, Any]: ...
 
     @abstractmethod
-    def load_profile(self, cfg):
-        ...
+    def load_profile(self, cfg): ...
 
     def socketio_calculator(
         self,
@@ -240,7 +240,7 @@ class CalculatorTemplate(ABC):
         # XXX need socketio ABC or something
         argv = profile.get_command(
             inputfile=None,
-            calc_command=self.socketio_argv(profile, unixsocket, port)
+            calc_command=self.socketio_argv(profile, unixsocket, port),
         )
         parameters = {
             **self.socketio_parameters(unixsocket, port),

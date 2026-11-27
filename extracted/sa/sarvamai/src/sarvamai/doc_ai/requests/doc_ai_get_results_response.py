@@ -20,10 +20,12 @@ class DocAiGetResultsResponse_ExtractParams(typing_extensions.TypedDict):
     result: typing.Dict[str, typing.Any]
     annotations: typing.Dict[str, typing.Any]
     version: int
+    source_map: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    documents: typing_extensions.NotRequired[typing.Sequence[typing.Dict[str, typing.Any]]]
 
 
-class DocAiGetResultsResponse_ParseParams(typing_extensions.TypedDict):
-    type: typing.Literal["parse"]
+class DocAiGetResultsResponse_DigitiseParams(typing_extensions.TypedDict):
+    type: typing.Literal["digitise"]
     job_id: str
     status: str
     usage: DocAiUsageParams
@@ -53,7 +55,7 @@ class DocAiGetResultsResponse_SplitParams(typing_extensions.TypedDict):
 
 DocAiGetResultsResponseParams = typing.Union[
     DocAiGetResultsResponse_ExtractParams,
-    DocAiGetResultsResponse_ParseParams,
+    DocAiGetResultsResponse_DigitiseParams,
     DocAiGetResultsResponse_ClassifyParams,
     DocAiGetResultsResponse_SplitParams,
 ]

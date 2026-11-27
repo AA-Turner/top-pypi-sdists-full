@@ -252,7 +252,7 @@ class StructuredWave(AcousticField):
 
         return (w / w.max()).astype(np.float32)
 
-    def _set_up_source(self, source, burst=None):
+    def _set_up_source(self, source, dead_piezo=None, burst=None):
         """
         Set up the k-Wave source for the acoustic field simulation.
         All grid/physical parameters are taken from self.medium (SIMULATION
@@ -283,7 +283,18 @@ class StructuredWave(AcousticField):
         sensitivity = float(self.params.acoustic['emission']['sensitivity'])
 
         active_list = np.array([int(char) for char in ''.join(f"{int(self.pattern.activeList[i:i+2], 16):08b}" for i in range(0, len(self.pattern.activeList), 2))])
-
+        dead_mask = np.zeros(num_elements, dtype=bool)
+        if dead_piezo is not None:
+            dead_idx = np.asarray(dead_piezo, dtype=int)
+            if dead_idx.size and (dead_idx.min() < 0 or dead_idx.max() >= num_elements):
+                raise ValueError(
+                    f"dead_piezo indices must be in [0, {num_elements - 1}], got {dead_idx}.")
+            dead_mask[dead_idx] = True
+        
+        active_mask = active_list.astype(bool) & ~dead_mask
+        if not active_mask.any():
+            raise ValueError("No emitting element left after the dead-piezo mask.")
+            
         probe_physical_width = (num_elements - 1) * pitch + element_width
         grid_center_x = (Nx * dx) / 2.0
         probe_start_x = grid_center_x - (probe_physical_width / 2.0)

@@ -1,3 +1,0 @@
-"""
-ServiceNow Snowflake query tests.
-"""

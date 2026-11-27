@@ -33,13 +33,13 @@ class AllocateEipAddressProRequest(DaraModel):
     ):
         # Specifies whether to enable automatic payment. Valid values:
         # 
-        # - **false**: Automatic payment is disabled. After an order is generated, you must go to the User Center to complete the payment.
+        # - **false**: Automatic payment is disabled. After an order is generated, you must go to the Billing Management console to complete the payment.
         # 
-        # - **true**: Automatic payment is enabled, and the order is automatically paid.
+        # - **true**: Automatic payment is enabled. The order is automatically paid.
         # 
         # This parameter is required if **InstanceChargeType** is set to **PrePaid**. If **InstanceChargeType** is set to **PostPaid**, you can leave this parameter empty.
         self.auto_pay = auto_pay
-        # The maximum bandwidth of the EIP to be allocated. Unit: Mbit/s.
+        # The maximum bandwidth of the specified EIP. Unit: Mbit/s.
         # 
         # - If **InstanceChargeType** is set to **PostPaid** and **InternetChargeType** is set to **PayByBandwidth**, valid values for **Bandwidth** are **1** to **500**.
         # 
@@ -51,41 +51,41 @@ class AllocateEipAddressProRequest(DaraModel):
         self.bandwidth = bandwidth
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # You can use the client to generate the value, but you must make sure that it is unique among different requests. The client token can contain only ASCII characters.
+        # You can use the client to generate the value, but you must ensure that it is unique among different requests. The client token can contain only ASCII characters.
         # 
         # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request is unique.
         self.client_token = client_token
         # The line type. Valid values:
         # 
         # - **BGP** (default): BGP (multi-ISP) line. BGP (multi-ISP) EIPs are supported in all regions.
-        # - **BGP_PRO**: BGP (multi-ISP) Pro line. BGP (multi-ISP) Pro EIPs are supported only in the Hong Kong (China), Singapore, Malaysia (Kuala Lumpur), Philippines (Manila), Indonesia (Jakarta), and Thailand (Bangkok) regions.
+        # - **BGP_PRO**: BGP (multi-ISP) Pro line. BGP (multi-ISP) Pro EIPs are supported only in the Hong Kong (China), Japan (Tokyo), Singapore, Malaysia (Kuala Lumpur), Philippines (Manila), Indonesia (Jakarta), and Thailand (Bangkok) regions.
         # 
         # For more information about BGP (multi-ISP) and BGP (multi-ISP) Pro lines, see [EIP line types](https://help.aliyun.com/document_detail/32321.html).
         # 
         # - If you are a single-ISP bandwidth whitelist user, you can also select the following types:
         #     - **ChinaTelecom**: China Telecom
         #     - **ChinaUnicom**: China Unicom
-        #     - **ChinaMobile**: China Mobile
+        #     - **ChinaMobile**: China Mobile shift
         #     - **ChinaTelecom_L2**: China Telecom L2
         #     - **ChinaUnicom_L2**: China Unicom L2
-        #     - **ChinaMobile_L2**: China Mobile L2
+        #     - **ChinaMobile_L2**: China Mobile L2 shift
         # - If you are an Alibaba Finance Cloud user in the China (Hangzhou) region, this parameter is required. Set the value to **BGP_FinanceCloud**.
         self.isp = isp
-        # The billing method of the EIP to be allocated. Valid values:
+        # The Billable methods of the specified EIP. Valid values:
         #           
         # - **PrePaid**: subscription.
         # 
-        # - **PostPaid** (default): pay-as-you-go.
+        # - **PostPaid** (default): pay-as-you-go billing method.
         # 
         # If **InstanceChargeType** is set to **PrePaid**, **InternetChargeType** must be set to **PayByBandwidth**.
         # 
         # If **InstanceChargeType** is set to **PostPaid**, **InternetChargeType** can be set to **PayByBandwidth** or **PayByTraffic**.
         self.instance_charge_type = instance_charge_type
-        # The instance ID of the EIP to be allocated.
+        # The instance ID of the specified EIP.
         # 
-        # You must specify either **IpAddress** or **InstanceId**. If neither is specified, the system randomly allocates an EIP.
+        # You only need to specify one of the **IpAddress** and **InstanceId** parameters. If neither parameter is specified, the system randomly allocates an EIP.
         self.instance_id = instance_id
-        # The metering method of the EIP to be allocated. Valid values:
+        # The metering method of the specified EIP. Valid values:
         # 
         # - **PayByBandwidth** (default): pay-by-bandwidth.
         # 
@@ -95,7 +95,7 @@ class AllocateEipAddressProRequest(DaraModel):
         # 
         # If **InstanceChargeType** is set to **PostPaid**, **InternetChargeType** can be set to **PayByBandwidth** or **PayByTraffic**.
         self.internet_charge_type = internet_charge_type
-        # The IP address of the EIP to be allocated.
+        # The IP address of the specified EIP.
         # 
         # You must specify either **IpAddress** or **InstanceId**. If neither is specified, the system randomly allocates an EIP.
         self.ip_address = ip_address
@@ -111,13 +111,13 @@ class AllocateEipAddressProRequest(DaraModel):
         # 
         # This parameter is required if **InstanceChargeType** is set to **PrePaid**.
         # 
-        # Leave this parameter empty if **InstanceChargeType** is set to **PostPaid**.
+        # Do not specify this parameter if **InstanceChargeType** is set to **PostPaid**.
         self.period = period
         # The billing cycle of the subscription. Valid values:
         # 
-        # - **Month** (default): billed by month.
+        # - **Month** (default): monthly billing.
         # 
-        # - **Year**: billed by year.
+        # - **Year**: yearly billing.
         # 
         # This parameter is required if **InstanceChargeType** is set to **PrePaid**. If **InstanceChargeType** is set to **PostPaid**, you can leave this parameter empty.
         self.pricing_cycle = pricing_cycle
@@ -125,15 +125,15 @@ class AllocateEipAddressProRequest(DaraModel):
         # 
         # The EIP is allocated from this IP address pool.
         # 
-        # By default, the IP address pool feature is not available. To use this feature, contact your account manager.
+        # The IP address pool feature is disabled by default. To use this feature, contact your account manager.
         self.public_ip_address_pool_id = public_ip_address_pool_id
-        # The region ID of the EIP to be allocated.
+        # The region ID of the specified EIP.
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The ID of the resource group to which the EIP to be allocated belongs.
+        # The ID of the resource group to which the specified EIP belongs.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
@@ -296,11 +296,11 @@ class AllocateEipAddressProRequestTag(DaraModel):
         key: str = None,
         value: str = None,
     ):
-        # The tag key of the resource. You can specify up to 20 tag keys. If you specify this parameter, you cannot enter an empty string.
+        # The tag key of the resource. You can specify up to 20 tag keys. If specified, the value cannot be an empty string.
         # 
         # A tag key can be up to 128 characters in length. It cannot start with aliyun or acs:, and cannot contain http:// or https://.
         self.key = key
-        # The tag value of the resource. You can specify up to 20 tag values. If you specify this parameter, you can enter an empty string.
+        # The tag value of the resource. You can specify up to 20 tag values. The tag value can be an empty string.
         # 
         # A tag value can be up to 128 characters in length. It must start with a letter or a Chinese character, and can contain digits, periods (.), underscores (_), and hyphens (-). It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.value = value

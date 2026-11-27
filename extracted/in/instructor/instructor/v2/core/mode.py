@@ -20,6 +20,10 @@ class Mode(enum.Enum):
     PARALLEL_TOOLS = "parallel_tool_call"
     TOOLS = "tool_call"
     TOOLS_STRICT = "tools_strict"
+    SARVAM_TOOLS = "sarvam_tools"
+    SARVAM_JSON = "sarvam_json"
+    MINIMAX_TOOLS = "minimax_tools"
+    MINIMAX_JSON = "minimax_json"
     JSON = "json_mode"
     JSON_O1 = "json_o1"
     MD_JSON = "markdown_json_mode"
@@ -75,6 +79,13 @@ class Mode(enum.Enum):
     PERPLEXITY_JSON = "perplexity_json"
     OPENROUTER_STRUCTURED_OUTPUTS = "openrouter_structured_outputs"
 
+    # Typed decisions endpoints (not chat completions)
+    DECISIONS = "decisions"
+
+    # Azure OpenAI / AI Foundry modes
+    AZURE_TOOLS = "azure_tools"
+    AZURE_JSON = "azure_json"
+
     # Classification helpers
     @classmethod
     def tool_modes(cls) -> set["Mode"]:
@@ -88,6 +99,8 @@ class Mode(enum.Enum):
             cls.ANTHROPIC_REASONING_TOOLS,
             cls.ANTHROPIC_PARALLEL_TOOLS,
             cls.MISTRAL_TOOLS,
+            cls.MINIMAX_TOOLS,
+            cls.SARVAM_TOOLS,
             cls.VERTEXAI_TOOLS,
             cls.VERTEXAI_PARALLEL_TOOLS,
             cls.GEMINI_TOOLS,
@@ -102,6 +115,7 @@ class Mode(enum.Enum):
             cls.GENAI_TOOLS,
             cls.RESPONSES_TOOLS,
             cls.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
+            cls.AZURE_TOOLS,
         }
 
     @classmethod
@@ -111,10 +125,14 @@ class Mode(enum.Enum):
             cls.JSON,
             cls.JSON_O1,
             cls.MD_JSON,
+            cls.MINIMAX_JSON,
+            cls.SARVAM_JSON,
             cls.JSON_SCHEMA,
             cls.ANTHROPIC_JSON,
             cls.VERTEXAI_JSON,
             cls.GEMINI_JSON,
+            cls.GENAI_JSON,
+            cls.GENAI_STRUCTURED_OUTPUTS,
             cls.COHERE_JSON_SCHEMA,
             cls.CEREBRAS_JSON,
             cls.FIREWORKS_JSON,
@@ -124,6 +142,7 @@ class Mode(enum.Enum):
             cls.OPENROUTER_STRUCTURED_OUTPUTS,
             cls.MISTRAL_STRUCTURED_OUTPUTS,
             cls.XAI_JSON,
+            cls.AZURE_JSON,
         }
 
     @classmethod
@@ -204,6 +223,10 @@ DEPRECATED_TO_CORE: dict[Mode, Mode] = {
     # OpenAI legacy modes
     Mode.FUNCTIONS: Mode.TOOLS,
     Mode.TOOLS_STRICT: Mode.TOOLS,
+    Mode.SARVAM_TOOLS: Mode.TOOLS,
+    Mode.SARVAM_JSON: Mode.MD_JSON,
+    Mode.MINIMAX_TOOLS: Mode.TOOLS,
+    Mode.MINIMAX_JSON: Mode.MD_JSON,
     Mode.JSON_O1: Mode.JSON_SCHEMA,
     Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS: Mode.RESPONSES_TOOLS,
     # Anthropic legacy modes
@@ -247,6 +270,9 @@ DEPRECATED_TO_CORE: dict[Mode, Mode] = {
     Mode.GEMINI_JSON: Mode.MD_JSON,
     # OpenRouter legacy modes
     Mode.OPENROUTER_STRUCTURED_OUTPUTS: Mode.JSON_SCHEMA,
+    # Azure OpenAI / AI Foundry legacy modes
+    Mode.AZURE_TOOLS: Mode.TOOLS,
+    Mode.AZURE_JSON: Mode.JSON,
 }
 
 

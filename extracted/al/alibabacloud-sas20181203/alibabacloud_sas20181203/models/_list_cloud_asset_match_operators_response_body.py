@@ -269,7 +269,7 @@ class ListCloudAssetMatchOperatorsResponseBodyMatchTypeOperatorsMatchOperators(D
         # 5. `>`: greater than 
         # 6. `>=`: greater than or equal to 
         # 7. <: less than 
-        # 8. <=: less than or equal to (Note: There seems to be a repetition here, likely meant to be \\"<=\\" for \\"less than or equal to\\")
+        # 8. <=: less than or equal to (Note: There seems to be a repetition here, likely meant to be \"<=\" for \"less than or equal to\")
         # - For INTEGER type: 
         # 1. NotIn: not in the list 
         # 2. Equals: equals 

@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 
 from pydantic import Field as FieldInfo
@@ -16,6 +16,13 @@ class CredentialUpdateResponse(BaseModel):
 
     updated_at: datetime = FieldInfo(alias="updatedAt")
     """Date and time the credential was last updated"""
+
+    additional_origins: Optional[List[str]] = FieldInfo(alias="additionalOrigins", default=None)
+    """
+    Canonical http(s) origins, besides `origin`, this credential may be filled on,
+    such as its login host or identity provider (e.g. `https://login.example.com`).
+    Only the credential's origin and these ever match a page, exactly; at most 20.
+    """
 
     label: Optional[str] = None
     """Label for the credential"""

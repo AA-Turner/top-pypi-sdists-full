@@ -198,6 +198,7 @@ from arthur_client.api_bindings.models.discovery_source_test_state import Discov
 from arthur_client.api_bindings.models.discovery_source_type_schema import DiscoverySourceTypeSchema
 from arthur_client.api_bindings.models.discovery_source_type_schema_field import DiscoverySourceTypeSchemaField
 from arthur_client.api_bindings.models.discovery_source_vendor import DiscoverySourceVendor
+from arthur_client.api_bindings.models.display_settings import DisplaySettings
 from arthur_client.api_bindings.models.endpoint_agent_creation_source import EndpointAgentCreationSource
 from arthur_client.api_bindings.models.engine_task_sync import EngineTaskSync
 from arthur_client.api_bindings.models.engine_task_sync_run import EngineTaskSyncRun
@@ -429,6 +430,7 @@ from arthur_client.api_bindings.models.put_retrieved_data import PutRetrievedDat
 from arthur_client.api_bindings.models.put_task_connection_info import PutTaskConnectionInfo
 from arthur_client.api_bindings.models.put_task_state_cache_request import PutTaskStateCacheRequest
 from arthur_client.api_bindings.models.put_workspace_discovery_project import PutWorkspaceDiscoveryProject
+from arthur_client.api_bindings.models.rate_status import RateStatus
 from arthur_client.api_bindings.models.reasoning_effort_enum import ReasoningEffortEnum
 from arthur_client.api_bindings.models.regenerate_task_validation_key_job_spec import RegenerateTaskValidationKeyJobSpec
 from arthur_client.api_bindings.models.regex_config import RegexConfig
@@ -512,6 +514,7 @@ from arthur_client.api_bindings.models.source_address import SourceAddress
 from arthur_client.api_bindings.models.source_class import SourceClass
 from arthur_client.api_bindings.models.sub_agent import SubAgent
 from arthur_client.api_bindings.models.sub_agent_response import SubAgentResponse
+from arthur_client.api_bindings.models.supported_currency import SupportedCurrency
 from arthur_client.api_bindings.models.task_connection_info import TaskConnectionInfo
 from arthur_client.api_bindings.models.task_mutation_response import TaskMutationResponse
 from arthur_client.api_bindings.models.task_read_response import TaskReadResponse

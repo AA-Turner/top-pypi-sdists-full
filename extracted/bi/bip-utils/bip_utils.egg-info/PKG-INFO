@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bip_utils
-Version: 2.13.0
+Version: 2.14.0
 Summary: Generation of mnemonics, seeds, private/public keys and addresses for different types of cryptocurrencies
 Author-email: Emanuele Bellocchia <ebellocchia@gmail.com>
 Maintainer-email: Emanuele Bellocchia <ebellocchia@gmail.com>
@@ -10,7 +10,7 @@ Project-URL: Changelog, https://github.com/ebellocchia/bip_utils/blob/master/CHA
 Project-URL: Repository, https://github.com/ebellocchia/bip_utils
 Project-URL: Download, https://github.com/ebellocchia/bip_utils/archive/v{version}.tar.gz
 Project-URL: Documentation, https://ebellocchia.github.io/bip_utils/
-Keywords: python,cryptography,ecdsa,ed25519,ed25519-blake2b,nist256p1,secp256k1,sr25519,wallet,hd-wallet,slip10,slip32,bip38,bip39,bip39-substrate,bip32,bip44,bip49,bip84,bip86,bip173,bip350,brainwallet,base58,ss58,bech32,bech32m,segwit,electrum,substrate,taproot,daedalus,byron,shelley,akash,algorand,aptos,arbitrum,atom,avalanche,avax,axelar,band protocol,binance chain,binance smart chain,bitcoin,bitcoin cash,bitcoinsv,bnb,cardano,cardano-byron,cardano-shelley,celestia,celo,certik,cosmos,dash,digibyte,dogecoin,dydx,ecash,elrond,eos,ethereum,ethereum classic,fantom opera,fetch.ai,filecoin,harmony one,huobi chain,icon,injective,iris,irisnet,kava,litecoin,matic,mavryk,metis,monero,multiversx,nano,near,near protocol,neo,neutron,nimiq,okex chain,ontology,optimism,osmosis,pi network,polygon,ripple,secret,solana,stellar,substrate,sui,terra,tezos,theta,ton,tron,vechain,verge,zcash,zilliqa,acala,bifrost,chainx,edgeware,karura,kusama,moonbeam,moonriver,phala,plasm,sora,stafi,polkadot
+Keywords: python,cryptography,ecdsa,ed25519,ed25519-blake2b,nist256p1,secp256k1,sr25519,wallet,hd-wallet,slip10,slip32,slip39,bip38,bip39,bip39-substrate,bip32,bip44,bip49,bip84,bip85,bip86,bip173,bip350,brainwallet,base58,ss58,bech32,bech32m,segwit,electrum,substrate,taproot,daedalus,byron,shelley,akash,algorand,aptos,arbitrum,atom,avalanche,avax,axelar,band protocol,binance chain,binance smart chain,bitcoin,bitcoin cash,bitcoinsv,bnb,cardano,cardano-byron,cardano-shelley,celestia,celo,certik,cosmos,cronos,dash,digibyte,dogecoin,dydx,ecash,elrond,eos,ethereum,ethereum classic,fantom opera,fetch.ai,filecoin,harmony one,huobi chain,icon,injective,iris,irisnet,kaspa,kava,litecoin,matic,mavryk,metis,monero,multiversx,nano,near,near protocol,neo,neutron,nimiq,nostr,okex chain,ontology,optimism,osmosis,pi network,polygon,ripple,secret,solana,stellar,substrate,sui,terra,tezos,theta,thorchain,ton,tron,vechain,verge,zcash,zilliqa,acala,bifrost,chainx,edgeware,karura,kusama,moonbeam,moonriver,phala,plasm,sora,stafi,polkadot
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -32,7 +32,7 @@ Requires-Dist: coincurve>=16.0.0; python_version == "3.10"
 Requires-Dist: coincurve>=18.0.0; python_version == "3.11"
 Requires-Dist: coincurve>=19.0.1; python_version >= "3.12"
 Requires-Dist: coincurve>=21.0.0; python_version >= "3.13"
-Requires-Dist: ecdsa~=0.17
+Requires-Dist: cryptography>=3.4.6
 Requires-Dist: ed25519-blake2b-fork<2.0.0,>=1.4.2
 Requires-Dist: pycryptodome<5,>=3.15
 Requires-Dist: pynacl~=1.5
@@ -65,7 +65,9 @@ Dynamic: license-file
 
 This package allows generating mnemonics, seeds, private/public keys and addresses for different types of cryptocurrencies. In particular:
 - Mnemonic and seed generation as defined by [BIP-0039](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
+- Shamir's secret sharing of the seed into mnemonic shares as defined by [SLIP-0039](https://github.com/satoshilabs/slips/blob/master/slip-0039.md)
 - Private key encryption/decryption as defined by [BIP-0038](https://github.com/bitcoin/bips/blob/master/bip-0038.mediawiki)
+- Deterministic entropy derivation (e.g. mnemonics, keys and passwords for other wallets) as defined by [BIP-0085](https://github.com/bitcoin/bips/blob/master/bip-0085.mediawiki)
 - Keys derivation as defined by:
   - [BIP-0032](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)
   - [SLIP-0010](https://github.com/satoshilabs/slips/blob/master/slip-0010.md)
@@ -92,6 +94,7 @@ Other implemented functionalities:
 - Extended key serialization as defined by [SLIP-0032](https://github.com/satoshilabs/slips/blob/master/slip-0032.md)
 - Encode/Decode addresses for all the supported coins
 - Encode/Decode [WIF](https://en.bitcoin.it/wiki/Wallet_import_format)
+- Encode/Decode Nostr keys in *npub*/*nsec* format as defined by [NIP-19](https://github.com/nostr-protocol/nips/blob/master/19.md)
 - Encode/Decode [base58](https://en.bitcoin.it/wiki/Base58Check_encoding#Background) and [base58 monero](https://monerodocs.org/cryptography/base58)
 - Encode/Decode [ss58](https://github.com/paritytech/substrate/wiki/External-Address-Format-(SS58))
 - Encode/Decode [bech32](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki) and [bech32m](https://github.com/bitcoin/bips/blob/master/bip-0350.mediawiki)
@@ -102,7 +105,7 @@ Package dependencies:
 - [cbor2](https://pypi.org/project/cbor2/) for CBOR encoding/decoding
 - [pycryptodome](https://pypi.org/project/pycryptodome/) for cryptographic functions
 - [coincurve](https://pypi.org/project/coincurve/) for secp256k1 curve
-- [ecdsa](https://pypi.org/project/ecdsa/) for nist256p1 and secp256k1 curves
+- [cryptography](https://pypi.org/project/cryptography/) for nist256p1 curve
 - [pynacl](https://pypi.org/project/PyNaCl/) for ed25519 curve
 - [py-sr25519-bindings](https://pypi.org/project/py-sr25519-bindings/) for sr25519 curve
 - [ed25519-blake2b-fork](https://github.com/ebellocchia/python-ed25519-blake2b/) for ed25519-blake2b curve (my fork to automatically build wheels)
@@ -131,6 +134,7 @@ Supported BIP coins:
 - Celo
 - Certik
 - Cosmos
+- Cronos POS (formerly Crypto.org Chain)
 - Dash (and related test net)
 - Digibyte
 - Dogecoin (and related test net)
@@ -147,6 +151,7 @@ Supported BIP coins:
 - Harmony One (Ethereum and Cosmos addresses)
 - Huobi Heco Chain
 - IRIS Network
+- Kaspa (and related test net)
 - Kava
 - Kusama (based on BIP44 and ed25519 SLIP-0010, like TrustWallet, it won't generate the same addresses as Polkadot-JS)
 - Litecoin (and related test net)
@@ -158,6 +163,7 @@ Supported BIP coins:
 - NEO (legacy and N3)
 - Neutron
 - Nimiq
+- Nostr (NIP-06)
 - OKEx Chain (Ethereum and Cosmos addresses)
 - Ontology
 - Optimism
@@ -174,6 +180,7 @@ Supported BIP coins:
 - Terra
 - Tezos
 - Theta Network
+- THORChain
 - Ton
 - Tron
 - VeChain
@@ -209,14 +216,6 @@ The package can be simply installed via *pip*:
 
 **NOTE:** if you have problems building the *ed25519_blake2b* library (it usually happens on Windows), you can try one of the prebuilt wheels [here](https://github.com/ebellocchia/bip_utils/tree/master/libs_wheels).
 
-### Alternative secp256k1 library
-
-For *secp256k1* curve, the package uses *coincurve* by default (much faster). However, it also supports *ecdsa*, which is a pure Python implementation (i.e. slower).
-
-To use *ecdsa* for *secp256k1*, edit the file *bip_utils/ecc/conf.py* and set `USE_COINCURVE` to `False`. Then install with *pip*:
-
-    pip install .
-
 ## Test and Coverage
 
 Install develop dependencies:
@@ -245,9 +244,11 @@ To run code analysis:
 - [Algorand mnemonic](https://github.com/ebellocchia/bip_utils/blob/master/readme/algorand_mnemonic.md)
 - [Electrum mnemonic](https://github.com/ebellocchia/bip_utils/blob/master/readme/electrum_mnemonic.md)
 - [Monero mnemonic](https://github.com/ebellocchia/bip_utils/blob/master/readme/monero_mnemonic.md)
+- [SLIP-0039](https://github.com/ebellocchia/bip_utils/blob/master/readme/slip39.md)
 - [BIP-0038](https://github.com/ebellocchia/bip_utils/blob/master/readme/bip38.md)
 - [BIP-0032](https://github.com/ebellocchia/bip_utils/blob/master/readme/bip32.md)
 - [BIP-0044](https://github.com/ebellocchia/bip_utils/blob/master/readme/bip44.md)
+- [BIP-0085](https://github.com/ebellocchia/bip_utils/blob/master/readme/bip85.md)
 - [Brainwallet](https://github.com/ebellocchia/bip_utils/blob/master/readme/brainwallet.md)
 - [Cardano](https://github.com/ebellocchia/bip_utils/blob/master/readme/cardano.md)
 - [Electrum](https://github.com/ebellocchia/bip_utils/blob/master/readme/electrum.md)

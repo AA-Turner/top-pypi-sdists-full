@@ -14,7 +14,10 @@ from pydantic import BaseModel
 from instructor.v2.dsl.partial import Partial, PartialBase
 from instructor.v2.core.errors import ConfigurationError
 from instructor.v2.core.multimodal import Audio, Image, PDF
-from instructor.v2.core.messages import get_message_content
+from instructor.v2.core.messages import (
+    copy_messages_for_mutation,
+    get_message_content,
+)
 
 if TYPE_CHECKING:
     from google.genai.types import Content as GenAIContent
@@ -64,10 +67,30 @@ def _get_model_name(response_model: Any) -> str:
     return getattr(response_model, "__name__", "Model")
 
 
+def is_truncated_at_max_tokens(response: Any) -> bool:
+    """Both Google SDK enums expose MAX_TOKENS by name; one stringifies to an integer."""
+    candidates = getattr(response, "candidates", None)
+    if not candidates:
+        return False
+    finish_reason = getattr(candidates[0], "finish_reason", None)
+    if finish_reason is None:
+        return False
+    name = getattr(finish_reason, "name", None)
+    if name is not None:
+        return name == "MAX_TOKENS"
+    return str(finish_reason).split(".")[-1] == "MAX_TOKENS"
+
+
 def extract_gemini_chunk_text(chunk: Any) -> str:
     try:
         return chunk.text
     except (AttributeError, ValueError):
+        # `candidates` (and a candidate's `parts`) can be empty — e.g. a
+        # safety-blocked chunk or a trailing usage-only chunk — in which
+        # case this raises IndexError. Both callers of this function
+        # already wrap the call in `except (AttributeError, IndexError)`
+        # to skip such chunks, so let it propagate rather than swallowing
+        # it here and returning an empty string.
         part_text = chunk.candidates[0].content.parts[0].text
         if part_text:
             return part_text
@@ -229,101 +252,12 @@ def map_to_genai_schema(obj: dict[str, Any]) -> genai_types.Schema:
 def update_genai_kwargs(
     kwargs: dict[str, Any], base_config: dict[str, Any]
 ) -> dict[str, Any]:
-    from google.genai.types import HarmBlockThreshold, HarmCategory
+    """Compatibility wrapper for the GenAI-owned request policy."""
+    from instructor.v2.providers.genai.request import (
+        update_genai_kwargs as update_genai_kwargs_impl,
+    )
 
-    new_kwargs = kwargs.copy()
-
-    OPENAI_TO_GEMINI_MAP = {
-        "max_tokens": "max_output_tokens",
-        "temperature": "temperature",
-        "n": "candidate_count",
-        "top_p": "top_p",
-        "stop": "stop_sequences",
-        "seed": "seed",
-        "presence_penalty": "presence_penalty",
-        "frequency_penalty": "frequency_penalty",
-    }
-
-    generation_config = new_kwargs.pop("generation_config", {})
-
-    for openai_key, gemini_key in OPENAI_TO_GEMINI_MAP.items():
-        if openai_key in generation_config:
-            val = generation_config.pop(openai_key)
-            if val is not None:
-                base_config[gemini_key] = val
-
-    safety_settings = new_kwargs.pop("safety_settings", {})
-    base_config["safety_settings"] = []
-
-    if isinstance(safety_settings, list):
-        base_config["safety_settings"] = safety_settings
-        safety_settings = None
-
-    excluded_categories = {HarmCategory.HARM_CATEGORY_UNSPECIFIED}
-    if hasattr(HarmCategory, "HARM_CATEGORY_JAILBREAK"):
-        excluded_categories.add(HarmCategory.HARM_CATEGORY_JAILBREAK)
-
-    if safety_settings is not None:
-        text_categories = [
-            c
-            for c in HarmCategory
-            if c not in excluded_categories
-            and not c.name.startswith("HARM_CATEGORY_IMAGE_")
-        ]
-
-        for category in text_categories:
-            threshold = HarmBlockThreshold.OFF
-            if isinstance(safety_settings, dict):
-                if category in safety_settings:
-                    threshold = safety_settings[category]
-
-            base_config["safety_settings"].append(
-                {
-                    "category": category,
-                    "threshold": threshold,
-                }
-            )
-
-    user_config = new_kwargs.get("config")
-    user_thinking_config = None
-    if isinstance(user_config, dict):
-        user_thinking_config = user_config.get("thinking_config")
-    elif user_config is not None and hasattr(user_config, "thinking_config"):
-        user_thinking_config = user_config.thinking_config
-
-    thinking_config = new_kwargs.pop("thinking_config", None)
-    if thinking_config is None:
-        thinking_config = user_thinking_config
-
-    if thinking_config is not None:
-        base_config["thinking_config"] = thinking_config
-
-    if user_config is not None:
-        config_fields_to_merge = [
-            "automatic_function_calling",
-            "labels",
-            "cached_content",
-        ]
-        for field in config_fields_to_merge:
-            if isinstance(user_config, dict):
-                field_value = user_config.get(field)
-            elif hasattr(user_config, field):
-                field_value = getattr(user_config, field)
-            else:
-                field_value = None
-
-            if field_value is not None and field not in base_config:
-                base_config[field] = field_value
-
-    cached_content = new_kwargs.pop("cached_content", None)
-    if cached_content is not None and "cached_content" not in base_config:
-        base_config["cached_content"] = cached_content
-    if base_config.get("cached_content") is not None:
-        # Cached resources own these fields; sending them again is invalid.
-        for field in ("system_instruction", "tools", "tool_config"):
-            base_config.pop(field, None)
-
-    return base_config
+    return update_genai_kwargs_impl(kwargs, base_config)
 
 
 def update_gemini_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -516,11 +450,10 @@ def handle_gemini_json(
         """
     )
 
-    messages = new_kwargs.get("messages") or []
+    messages = copy_messages_for_mutation(new_kwargs.get("messages") or [])
+    new_kwargs["messages"] = messages
     if not messages or messages[0].get("role") != "system":
-        new_kwargs.setdefault("messages", []).insert(
-            0, {"role": "system", "content": message}
-        )
+        messages.insert(0, {"role": "system", "content": message})
     else:
         messages[0]["content"] += f"\n\n{message}"
 

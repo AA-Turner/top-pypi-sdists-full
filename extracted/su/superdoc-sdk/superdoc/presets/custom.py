@@ -572,7 +572,7 @@ def _steps_aggregate(action: Dict[str, Any], rows: List[Dict[str, Any]], failed_
                      failed_receipt: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     if failed_at is None:
         return {'status': 'succeeded', 'action': action['name'], 'steps': rows}
-    any_landed = any(row['status'] != 'failed' for row in rows)
+    any_landed = any(row['status'] in ('ok', 'partial') for row in rows)
     return {
         'status': 'partial' if any_landed else 'failed',
         'action': action['name'],

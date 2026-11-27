@@ -4,22 +4,12 @@ The workflows collector drops names outside the `mistral_` prefix and attribute 
 `keep_keys` allowlist, so both are constrained here.
 """
 
-from enum import StrEnum
-
 from opentelemetry import metrics
 from opentelemetry.metrics import Counter
 
 _METER_NAME = "mistralai.workflows"
 
 _counters: dict[str, Counter] = {}
-
-
-class EventRouteFallbackReason(StrEnum):
-    """Why a v2-configured worker published over v1 instead."""
-
-    ROUTE_UNAVAILABLE = "route_unavailable"
-    TOKEN_SERVICE_UNAVAILABLE = "token_service_unavailable"
-    TOKEN_REQUIRED = "token_required"
 
 
 def _get_counter(name: str, description: str) -> Counter:
@@ -31,15 +21,15 @@ def _get_counter(name: str, description: str) -> Counter:
     return counter
 
 
-def record_event_route_v1_fallback(reason: EventRouteFallbackReason) -> None:
-    _get_counter(
-        "mistral_workflows_event_route_v1_fallback",
-        "Times a v2-configured worker fell back to the v1 event route.",
-    ).add(1, {"reason": reason.value})
-
-
 def record_event_publish_retry(event_count: int) -> None:
     _get_counter(
         "mistral_workflows_event_publish_retries",
         "Workflow events whose publish attempt failed transiently and will be retried.",
     ).add(event_count)
+
+
+def record_event_dropped_too_large() -> None:
+    _get_counter(
+        "mistral_workflows_events_dropped_too_large",
+        "Workflow events dropped because the events API rejected them as too large.",
+    ).add(1)

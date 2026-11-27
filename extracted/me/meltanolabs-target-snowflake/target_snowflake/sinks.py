@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import typing as t
+from datetime import datetime, timezone
 from shutil import rmtree
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -235,6 +236,8 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         full_table_name: str | FullyQualifiedName,
         files: t.Sequence[str],
         file_type: str = "JSON",
+        *,
+        json_columns: t.Mapping[str, t.Sequence[str]] | None = None,
     ) -> int:
         """Process a batch file with the given batch context.
 
@@ -244,10 +247,24 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
             file_type: The Snowflake file format type to stage/load with, e.g.
                 ``"JSON"`` or ``"PARQUET"``. The underlying file format is
                 created lazily and reused for the rest of this sink's sync.
+            json_columns: Columns that hold JSON text, to load as parsed JSON.
+                Each column maps to its JSON fields, or to no fields when the
+                whole column is JSON.
         """
         file_format = self._get_file_format_name(file_type)
         self.logger.info("Processing batch of files.")
         sync_id = f"{self.stream_name}-{uuid4()}"
+        # Batch files from a tap do not contain the metadata that the SDK adds to
+        # each RECORD message, so fill the target columns here when a row has no
+        # value. The tap built the batch, so _sdc_batched_at comes only from the file.
+        column_defaults = {}
+        if self.include_sdc_metadata_properties:
+            now = datetime.now(timezone.utc)
+            column_defaults = {
+                "_sdc_received_at": now.isoformat(),
+                "_sdc_sequence": round(now.timestamp() * 1000),
+                "_sdc_sync_started_at": self.sync_started_at,
+            }
         try:
             self.connector.put_batches_to_stage(sync_id=sync_id, files=files)
             if self.key_properties and self.config.get("load_method", "upsert") == "upsert":
@@ -258,6 +275,8 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                     sync_id=sync_id,
                     file_format=file_format,
                     key_properties=self.key_properties,
+                    json_columns=json_columns,
+                    column_defaults=column_defaults,
                 )
 
             else:
@@ -266,6 +285,8 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                     schema=self.schema,
                     sync_id=sync_id,
                     file_format=file_format,
+                    json_columns=json_columns,
+                    column_defaults=column_defaults,
                 )
 
         finally:
@@ -291,7 +312,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         """
         output_dir = tempfile.mkdtemp(prefix=f"target-snowflake-arrow-{self.stream_name}-")
         try:
-            parquet_files = convert_arrow_manifest_to_parquet(
+            parquet_files, json_columns = convert_arrow_manifest_to_parquet(
                 manifest=files,
                 output_dir=output_dir,
                 clean_up_source_files=bool(self.config.get("clean_up_batch_files")),
@@ -300,6 +321,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                 full_table_name=self.full_table_name,
                 files=parquet_files,
                 file_type="PARQUET",
+                json_columns=json_columns,
             )
         finally:
             # These Parquet files are purely internal artifacts (never part of

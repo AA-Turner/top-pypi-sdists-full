@@ -76,23 +76,15 @@ def seventy(target):
     'initialize_hessian, nsteps', [(seventy, 7), (fd_hessian, 6)]
 )
 def test_relaxation_ase4(atoms, dataset, initialize_hessian, nsteps):
-    pytest.importorskip(
-        'gpaw',
-        reason='Work-in-progress ASE-4 feature; currently requires GPAW',
-    )
-
     atoms.calc = EMT()
-
-    symmatoms = SymmetryAdaptedAtoms.from_atoms(
-        atoms, symprec=symprec, symmorphic=False
-    )
-
+    symmatoms = SymmetryAdaptedAtoms.from_atoms(atoms, symprec=symprec)
     target = SymOpt(symmatoms, fmax=fmax, smax=smax)
     hessian = initialize_hessian(target)
-
     method = BFGSMethod(hessian)
+
     opt = Optimizer(target=target, method=method)
     step = opt.run()
+
     assert step.i == nsteps
     assert step.value == pytest.approx(ref_energy)
 

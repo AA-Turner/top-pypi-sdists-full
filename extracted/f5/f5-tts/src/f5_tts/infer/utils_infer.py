@@ -28,6 +28,7 @@ from pydub import AudioSegment, silence
 from transformers import pipeline
 from vocos import Vocos
 
+from f5_tts.device_utils import get_default_device
 from f5_tts.model import CFM
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
@@ -35,15 +36,7 @@ from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 _ref_audio_cache = {}
 _ref_text_cache = {}
 
-device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "xpu"
-    if torch.xpu.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else "cpu"
-)
+device = get_default_device()
 
 tempfile_kwargs = {"delete_on_close": False} if sys.version_info >= (3, 12) else {"delete": False}
 
@@ -401,7 +394,7 @@ def infer_process(
 ):
     # Split the input text into batches
     audio, sr = torchaudio.load(ref_audio)
-    max_chars = int(len(ref_text.encode("utf-8")) / (audio.shape[-1] / sr) * (22 - audio.shape[-1] / sr) * speed)
+    max_chars = int(len(ref_text.encode("utf-8")) / (audio.shape[-1] / sr) * (30 - audio.shape[-1] / sr) * speed)
     gen_text_batches = chunk_text(gen_text, max_chars=max_chars)
     for i, gen_text_i in enumerate(gen_text_batches):
         print(f"gen_text {i}", gen_text_i)
@@ -489,7 +482,7 @@ def infer_batch_process(
     def _infer_basic(gen_text, fix_dur):
         local_speed = speed
         if len(gen_text.encode("utf-8")) < 10:
-            local_speed = 0.3
+            local_speed = speed * 0.3
 
         # Prepare the text
         text_list = [ref_text + gen_text]

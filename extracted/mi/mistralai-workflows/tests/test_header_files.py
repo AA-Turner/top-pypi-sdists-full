@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,7 +11,7 @@ from mistralai.workflows.client import _get_async_client, _get_sync_client
 from mistralai.workflows.core.auth import RunAs, StaticTokenProvider, startup_read
 from mistralai.workflows.core.auth.header_files import HeaderFiles, get_deployment_headers
 from mistralai.workflows.core.config import config_discovery
-from mistralai.workflows.core.config.config import AppConfig, config
+from mistralai.workflows.core.config.config import AppConfig, HttpConfig, WorkerConfig, config
 from mistralai.workflows.core.temporal import temporal_client
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.core.worker import run_worker
@@ -94,7 +95,7 @@ class TestHeaderFiles:
 
 class TestHttpClients:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("run_as", [None, RunAs.DEPLOYMENT])
+    @pytest.mark.parametrize("run_as", [RunAs.DEPLOYMENT, RunAs.AUTO])
     async def test_file_headers_go_with_the_static_headers(self, monkeypatch, token_file, run_as):
         seen = _recording_transport(monkeypatch)
         client = _get_async_client(server_url=_SERVER_URL, token_provider=StaticTokenProvider("key"), run_as=run_as)
@@ -108,7 +109,7 @@ class TestHttpClients:
     @pytest.mark.asyncio
     async def test_long_lived_client_sends_the_rotated_value(self, monkeypatch, token_file):
         seen = _recording_transport(monkeypatch)
-        client = _get_async_client(server_url=_SERVER_URL)
+        client = _get_async_client(server_url=_SERVER_URL, run_as=RunAs.DEPLOYMENT)
 
         async with client:
             await client.get(f"{_SERVER_URL}/v1/a")
@@ -121,7 +122,7 @@ class TestHttpClients:
     def test_sync_client(self, monkeypatch, token_file):
         seen = _recording_transport(monkeypatch)
 
-        with _get_sync_client(server_url=_SERVER_URL) as client:
+        with _get_sync_client(server_url=_SERVER_URL, run_as=RunAs.DEPLOYMENT) as client:
             client.get(f"{_SERVER_URL}/v1/a")
 
         assert seen["workflows.example"] == ("static", "token-v1")
@@ -129,7 +130,7 @@ class TestHttpClients:
     @pytest.mark.asyncio
     async def test_stripped_on_cross_origin_redirect(self, monkeypatch, token_file):
         seen = _recording_transport(monkeypatch, redirect_to="https://foreign.example/target")
-        client = _get_async_client(server_url=_SERVER_URL)
+        client = _get_async_client(server_url=_SERVER_URL, run_as=RunAs.DEPLOYMENT)
 
         async with client:
             await client.get(f"{_SERVER_URL}/v1/a")
@@ -179,6 +180,105 @@ class TestExecutorTokenExchange:
 
 @pytest.mark.usefixtures("restore_config_sections")
 class TestWorkerStartup:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("headers", [{}, None, {"X-Code": "code"}])
+    @pytest.mark.parametrize("as_dict", [False, True])
+    async def test_explicit_headers_replace_environment_on_startup_request(self, monkeypatch, headers, as_dict):
+        monkeypatch.setenv("MISTRAL_API_HEADERS", '{"X-Inherited":"inherited"}')
+        monkeypatch.setenv("MISTRAL_API_HEADER_FILES", '{"X-File":"missing-file"}')
+        monkeypatch.setenv(
+            "WORKER",
+            json.dumps(
+                {
+                    "mistral_api_headers": {"X-Parent": "parent"},
+                    "mistral_api_header_files": {"X-Parent-File": "missing"},
+                }
+            ),
+        )
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={"scheduler_url": "localhost:7233", "namespace": "test"})
+
+        values = {
+            "server_url": _SERVER_URL,
+            "deployment_name": "test",
+            "mistral_api_headers": headers,
+            "mistral_api_header_files": {},
+        }
+        cfg = AppConfig(
+            worker=values if as_dict else WorkerConfig(**values, _env_file=None),
+            http=HttpConfig(transport_factory=lambda _: httpx.MockTransport(handler)),
+        )
+
+        with patch("mistralai.workflows.core.worker._run_worker", new_callable=AsyncMock) as worker:
+            await run_worker([], config=cfg)
+
+        worker.assert_awaited_once()
+        assert len(requests) == 1
+        assert "X-Inherited" not in requests[0].headers
+        assert "X-File" not in requests[0].headers
+        assert "X-Parent" not in requests[0].headers
+        assert "X-Parent-File" not in requests[0].headers
+        assert requests[0].headers.get("X-Code") == (headers or {}).get("X-Code")
+
+    @pytest.mark.asyncio
+    async def test_explicit_header_files_replace_environment_on_startup_request(self, monkeypatch, tmp_path):
+        code_file = tmp_path / "code-header"
+        code_file.write_text("code-value")
+        inherited_file = tmp_path / "inherited-header"
+        inherited_file.write_text("inherited-value")
+        monkeypatch.setenv("MISTRAL_API_HEADER_FILES", json.dumps({"X-Inherited-File": str(inherited_file)}))
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={"scheduler_url": "localhost:7233", "namespace": "test"})
+
+        cfg = AppConfig(
+            worker={
+                "server_url": _SERVER_URL,
+                "deployment_name": "test",
+                "mistral_api_header_files": {"X-Code-File": str(code_file)},
+            },
+            http=HttpConfig(transport_factory=lambda _: httpx.MockTransport(handler)),
+        )
+
+        with patch("mistralai.workflows.core.worker._run_worker", new_callable=AsyncMock) as worker:
+            await run_worker([], config=cfg)
+
+        worker.assert_awaited_once()
+        assert len(requests) == 1
+        assert requests[0].headers["X-Code-File"] == "code-value"
+        assert "X-Inherited-File" not in requests[0].headers
+
+    @pytest.mark.asyncio
+    async def test_parent_environment_keeps_direct_headers_on_startup_request(self, monkeypatch, tmp_path):
+        path = tmp_path / "header"
+        path.write_text("file-value")
+        monkeypatch.setenv("WORKER", '{"mistral_api_headers":{},"mistral_api_header_files":{}}')
+        monkeypatch.setenv("MISTRAL_API_HEADERS", '{"X-Direct":"direct"}')
+        monkeypatch.setenv("MISTRAL_API_HEADER_FILES", json.dumps({"X-File": str(path)}))
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={"scheduler_url": "localhost:7233", "namespace": "test"})
+
+        cfg = AppConfig(
+            worker={"server_url": _SERVER_URL, "deployment_name": "test"},
+            http=HttpConfig(transport_factory=lambda _: httpx.MockTransport(handler)),
+        )
+
+        with patch("mistralai.workflows.core.worker._run_worker", new_callable=AsyncMock) as worker:
+            await run_worker([], config=cfg)
+
+        worker.assert_awaited_once()
+        assert len(requests) == 1
+        assert requests[0].headers["X-Direct"] == "direct"
+        assert requests[0].headers["X-File"] == "file-value"
+
     @pytest.mark.asyncio
     async def test_config_discovery_gets_a_header_file_empty_during_rotation(self, monkeypatch, tmp_path):
         path = tmp_path / "token"

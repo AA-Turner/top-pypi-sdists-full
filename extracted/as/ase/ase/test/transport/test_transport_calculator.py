@@ -1,5 +1,5 @@
-# flake8: noqa
 import numpy as np
+import pytest
 
 from ase.transport.calculators import TransportCalculator
 
@@ -13,6 +13,11 @@ def write(fname, xs, ys):
 
 
 def test_transport_calculator(testdir):
+    with pytest.warns(FutureWarning):
+        _runtest(testdir)
+
+
+def _runtest(testdir):
     H_lead = np.zeros([4, 4])
 
     # On-site energies are zero
@@ -56,7 +61,7 @@ def test_transport_calculator(testdir):
     pdos = tcalc.get_pdos()
 
     tcalc.set(dos=True)
-    dos = tcalc.get_dos()
+    tcalc.get_dos()
 
     write('T.dat', tcalc.energies, T)
     write('pdos0.dat', tcalc.energies, pdos[0])
@@ -65,7 +70,7 @@ def test_transport_calculator(testdir):
     # subdiagonalize
     h_rot, s_rot, eps, u = tcalc.subdiagonalize_bfs([2, 3], apply=True)
     T_rot = tcalc.get_transmission()
-    dos_rot = tcalc.get_dos()
+    tcalc.get_dos()
     pdos_rot = tcalc.get_pdos()
 
     write('T_rot.dat', tcalc.energies, T_rot)
@@ -80,7 +85,7 @@ def test_transport_calculator(testdir):
     # remove coupling
     h_cut, s_cut = tcalc.cutcoupling_bfs([2], apply=True)
     T_cut = tcalc.get_transmission()
-    dos_cut = tcalc.get_dos()
+    tcalc.get_dos()
     pdos_cut = tcalc.get_pdos()
 
     write('T_cut.dat', tcalc.energies, T_cut)

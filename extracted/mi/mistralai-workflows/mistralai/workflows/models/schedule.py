@@ -191,6 +191,7 @@ class ScheduleDefinitionOutput(_ScheduleDefinitionBase):
     )
     workflow_name: str = Field(description="Name of the workflow this schedule triggers.")
     deployment_name: str | None = Field(default=None, description="Name of the deployment this schedule targets.")
+    user_id: str | None = Field(default=None, description="ID of the user who created the schedule.")
     paused: bool = Field(description="Whether the schedule is currently paused.")
     note: str | None = Field(
         default=None, description="Human-readable note associated with the current pause or resume state."

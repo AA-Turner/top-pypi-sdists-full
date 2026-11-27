@@ -16,7 +16,26 @@ from ase.dft.bandgap import bandgap
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 from ase.io.jsonio import read_json, write_json
 from ase.parallel import paropen
-from ase.transport.tools import dagger, normalize
+
+
+def dagger(matrix):
+    return np.conj(matrix.T)
+
+
+def normalize(matrix, S=None):
+    """Normalize column vectors.
+
+    ::
+
+      <matrix[:,i]| S |matrix[:,i]> = 1
+
+    """
+    for col in matrix.T:
+        if S is None:
+            col /= np.linalg.norm(col)
+        else:
+            col /= np.sqrt(np.dot(col.conj(), np.dot(S, col)))
+
 
 dag = dagger
 

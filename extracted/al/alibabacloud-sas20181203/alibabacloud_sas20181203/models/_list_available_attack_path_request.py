@@ -9,7 +9,7 @@ class ListAvailableAttackPathRequest(DaraModel):
         self,
         lang: str = None,
     ):
-        # The language type for requests and responses. Values:
+        # The language of the request and response messages. Valid values:
         # - **zh**: Chinese
         # - **en**: English
         self.lang = lang

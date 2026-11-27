@@ -25,7 +25,7 @@ def fd_hessian(target, eps=1e-5, tol=1e-8):
 
     target.set_x(xval_orig)
 
-    symm_error = abs(hessian.T - hessian).max()
+    symm_error = abs(hessian.T - hessian).max(initial=0.0)
     assert symm_error < tol, symm_error
     symm_hessian = 0.5 * (hessian.T + hessian)
     return symm_hessian

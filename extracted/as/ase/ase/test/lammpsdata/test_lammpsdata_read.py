@@ -117,3 +117,10 @@ Velocities
 def test_atom_type_labels() -> None:
     """Test if a LAMMPS data file with Atom Type Labels can be parsed."""
     read_lammps_data(StringIO(BUF_ATOM_TYPE_LABELS))
+
+
+def test_atom_style_kk() -> None:
+    """Test if the Kokkos accelerated atom style can be parsed."""
+    assert 'Atoms # atomic' in BUF_ATOM_TYPE_LABELS
+    s = BUF_ATOM_TYPE_LABELS.replace('Atoms # atomic', 'Atoms # atomic/kk')
+    read_lammps_data(StringIO(s))

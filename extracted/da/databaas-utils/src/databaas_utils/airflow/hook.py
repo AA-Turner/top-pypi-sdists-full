@@ -50,10 +50,18 @@ class LakehouseHook(BaseHook):
 
     @staticmethod
     def get_ui_field_behaviour() -> dict[str, Any]:
-        """Field labels and hints for the connection form."""
+        """Field labels and hints for the connection form.
+
+        Airflow validates this against a schema that spells the key
+        ``hidden_fields``; the provider metadata spells it ``hidden-fields``.
+        An invalid result is dropped whole, and the form then loses its
+        relabelled standard fields.
+        """
         from databaas_utils.airflow.provider import get_provider_info
 
-        return get_provider_info()["connection-types"][0]["ui-field-behaviour"]
+        behaviour = dict(get_provider_info()["connection-types"][0]["ui-field-behaviour"])
+        behaviour["hidden_fields"] = behaviour.pop("hidden-fields")
+        return behaviour
 
     def get_settings(self, *, namespace: str | None = None) -> LakehouseSettings:
         """The connection's :class:`~databaas_utils.LakehouseSettings`."""

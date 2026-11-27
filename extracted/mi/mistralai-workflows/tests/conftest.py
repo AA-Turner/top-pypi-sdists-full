@@ -2,7 +2,14 @@ from collections.abc import Iterator
 
 import pytest
 
-from mistralai.workflows.core.config.config import config, setup_default_logging
+from mistralai.workflows.core.config.config import (
+    _lazy_config,
+    config,
+    setup_default_logging,
+)
+from mistralai.workflows.core.definition.workflow_definition import _mounted_workflows, _replay_mounted_workflows
+from mistralai.workflows.protocol.v1.events import WorkflowEventCategory
+from mistralai.workflows.testing import ALL_EVENT_CATEGORIES
 from mistralai.workflows.testing.fixtures import (
     clear_dependency_cache,  # noqa: F401
     disable_otel_export,  # noqa: F401
@@ -44,6 +51,34 @@ BNMg
 """
 
 
+@pytest.fixture(autouse=True)
+def isolate_mounted_workflows() -> Iterator[None]:
+    previous_mounts = dict(_mounted_workflows)
+    previous_replay_mounts = dict(_replay_mounted_workflows)
+    _mounted_workflows.clear()
+    _replay_mounted_workflows.clear()
+    yield
+    _mounted_workflows.clear()
+    _mounted_workflows.update(previous_mounts)
+    _replay_mounted_workflows.clear()
+    _replay_mounted_workflows.update(previous_replay_mounts)
+
+
+@pytest.fixture(
+    params=[
+        pytest.param(frozenset(config.worker.emitted_event_categories), id="default-categories"),
+        pytest.param(ALL_EVENT_CATEGORIES, id="all-categories"),
+    ]
+)
+def event_categories(request: pytest.FixtureRequest) -> frozenset[WorkflowEventCategory]:
+    """Runs an event-sequence test with the worker's default categories and with every category.
+
+    The test writes the full expected sequence and compares the captured events against
+    `emitted(expected, event_categories)`, so ACTIVITY events stay checked when they are enabled.
+    """
+    return request.param
+
+
 @pytest.fixture
 def restore_config_sections() -> Iterator[None]:
     """Put back the config sections that `run_worker` swaps for copies when it restores the config.
@@ -51,9 +86,10 @@ def restore_config_sections() -> Iterator[None]:
     Fixtures and patches restore values on the section objects they changed, so the config is only
     clean again once those objects are back in place.
     """
-    sections = dict(config.__dict__)
+    app_config = _lazy_config.get()
+    sections = dict(app_config.__dict__)
     yield
-    config.__dict__.update(sections)
+    app_config.__dict__.update(sections)
 
 
 @pytest.fixture

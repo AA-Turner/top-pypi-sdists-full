@@ -12,23 +12,20 @@ class DescribeWhiteListStrategyUuidCountRequest(DaraModel):
         strategy_id: int = None,
         type: int = None,
     ):
-        # The language of the content within the request and response. Default value: **zh**. Valid values:
-        # 
-        # *   **zh**: Chinese
-        # *   **en**: English
+        # Specifies the language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
-        # The source IP address of the request. You do not need to specify this parameter. It is automatically obtained by the system.
+        # The source IP address of the request. You do not need to specify this parameter because the system automatically retrieves the value.
         self.source_ip = source_ip
         # The ID of the policy.
-        # 
-        # >  You can call the [DescribeWhiteListStrategyStatistics](~~DescribeWhiteListStrategyStatistics~~) operation to obtain the ID.
+        # > You can call the [DescribeWhiteListStrategyStatistics](~~DescribeWhiteListStrategyStatistics~~) operation to query the value of this parameter.
         # 
         # This parameter is required.
         self.strategy_id = strategy_id
         # The type of the policy. Valid values:
-        # 
-        # *   **1**: learning policy
-        # *   **2**: application policy
+        # - **1**: learning policy
+        # - **2**: application policy
         # 
         # This parameter is required.
         self.type = type

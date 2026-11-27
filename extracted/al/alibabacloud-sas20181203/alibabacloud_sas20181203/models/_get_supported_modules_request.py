@@ -9,9 +9,9 @@ class GetSupportedModulesRequest(DaraModel):
         self,
         lang: str = None,
     ):
-        # The language type for the request and response messages. Default value: **zh**. Valid values:
+        # Specifies the language type for requests and response messages. Default value: **zh**. Valid values:
         # 
-        # - **zh**: Chinese
+        # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang
 

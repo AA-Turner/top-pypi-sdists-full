@@ -1,5 +1,8 @@
 """Linear and radial gradients."""
 
+import itertools
+import math
+
 import pytest
 from reportlab.graphics.shapes import (
     Group,
@@ -7,7 +10,7 @@ from reportlab.graphics.shapes import (
 )
 from reportlab.lib import colors
 
-from svglib.svglib import LinearGradientShape
+from svglib.svglib import LinearGradientShape, RadialGradientShape
 from tests.utils import (
     drawing_from_svg,
 )
@@ -102,6 +105,85 @@ class TestGradients:
         assert grad["stops"][0][0] == 0.0
         assert grad["stops"][1][0] == 0.5
         assert grad["stops"][2][0] == 1.0
+
+    @pytest.mark.parametrize(
+        "before_defs, in_defs, after_defs",
+        [
+            pytest.param("", "{css}", "", id="style-in-defs"),
+            pytest.param("{css}", "", "", id="style-before-defs"),
+            pytest.param("", "", "{css}", id="style-after-defs"),
+        ],
+    )
+    def test_gradient_stops_styled_by_css_rules(self, before_defs, in_defs, after_defs):
+        """The stop-color and stop-opacity of a stop can be set by a CSS rule.
+
+        Illustrator exports its gradients this way, with a class for each stop.
+        """
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        css = (
+            "<style>.a { stop-color: red } "
+            "stop.b { stop-color: #0000ff; stop-opacity: 0.5 }</style>"
+        )
+        svg_content = f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                {before_defs.format(css=css)}
+                <defs>
+                    {in_defs.format(css=css)}
+                    <linearGradient id="g1">
+                        <stop offset="0" class="a"/>
+                        <stop offset="1" class="b"/>
+                    </linearGradient>
+                </defs>
+                {after_defs.format(css=css)}
+            </svg>""".encode()
+        renderer = SvgRenderer("")
+        renderer.render(load_svg_file(BytesIO(svg_content)))
+        (_, first), (_, second) = renderer.gradient_defs["g1"]["stops"]
+        assert (first.red, first.green, first.blue, first.alpha) == (1, 0, 0, 1)
+        assert (second.red, second.green, second.blue, second.alpha) == (0, 0, 1, 0.5)
+
+    def test_style_applies_to_shapes_before_it(self):
+        """A <style> applies to the whole document, as in browsers.
+
+        A shape that comes before the <style> is styled by it too.
+        """
+        drawing = drawing_from_svg(
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <rect class="a" width="10" height="10"/>
+                <style>.a { fill: red }</style>
+                <rect class="a" width="10" height="10"/>
+            </svg>
+            """
+        )
+        before, after = drawing.contents[0].contents
+        assert before.fillColor == colors.red
+        assert after.fillColor == colors.red
+
+    def test_gradient_stop_style_attribute_beats_css_rule(self):
+        """A style attribute wins over a CSS rule, which wins over an attribute."""
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        svg_content = b"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <style>.a { stop-color: red }</style>
+                <defs>
+                    <linearGradient id="g1">
+                        <stop offset="0" class="a" stop-color="blue"/>
+                        <stop offset="1" class="a" style="stop-color: lime"/>
+                    </linearGradient>
+                </defs>
+            </svg>"""
+        renderer = SvgRenderer("")
+        renderer.render(load_svg_file(BytesIO(svg_content)))
+        (_, first), (_, second) = renderer.gradient_defs["g1"]["stops"]
+        assert (first.red, first.green, first.blue) == (1, 0, 0)
+        assert (second.red, second.green, second.blue) == (0, 1, 0)
 
     def test_gradient_href_inheritance(self):
         """A gradient that references another via href must inherit its stops."""
@@ -267,3 +349,737 @@ class TestGradients:
     def test_fill_url_enclosed_double_quotes_strip_parenthesis(self):
         """Fill url enclosed double quotes."""
         self._process_test_fill_url("""'url( "#grad)1" )'""", "grad)1")
+
+    @pytest.mark.parametrize(
+        "root, gradient, stop, expected",
+        [
+            pytest.param('color="green"', "", "", (0, 0.502, 0), id="root"),
+            pytest.param("", 'color="red"', "", (1, 0, 0), id="gradient"),
+            pytest.param('color="green"', "", 'color="lime"', (0, 1, 0), id="stop"),
+            pytest.param("", "", "", (0, 0, 0), id="initial-color-is-black"),
+            pytest.param('color="currentColor"', "", "", (0, 0, 0), id="color-itself"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "stop_color",
+        [
+            'stop-color="currentColor"',
+            'style="stop-color: CurrentColor !important"',
+        ],
+    )
+    def test_gradient_stop_current_color(
+        self, root, gradient, stop, expected, stop_color
+    ):
+        """stop-color: currentColor is the color of the stop, not an error.
+
+        It made svg2rlg() fail with AttributeError: 'str' object has no 'clone'.
+        """
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        svg_content = f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" {root}>
+                <defs>
+                    <linearGradient id="g1" {gradient}>
+                        <stop offset="0" {stop} {stop_color}/>
+                        <stop offset="1" stop-color="blue"/>
+                    </linearGradient>
+                </defs>
+            </svg>""".encode()
+        renderer = SvgRenderer("")
+        renderer.render(load_svg_file(BytesIO(svg_content)))
+        (_, first), (_, second) = renderer.gradient_defs["g1"]["stops"]
+        assert (first.red, first.green, first.blue) == pytest.approx(expected, abs=1e-3)
+        assert (second.red, second.green, second.blue) == (0, 0, 1)
+
+    @pytest.mark.parametrize(
+        "style, stop, expected",
+        [
+            pytest.param(
+                "", 'stop-color="var(--a, #ff0000)"', (1, 0, 0), id="fallback"
+            ),
+            pytest.param(
+                "", 'style="stop-color: var(--a, lime)"', (0, 1, 0), id="fallback-style"
+            ),
+            pytest.param(
+                "", 'style="--a: lime; stop-color: var(--a)"', (0, 1, 0), id="property"
+            ),
+            pytest.param(
+                "<style>#g1 { --a: lime }</style>",
+                'stop-color="var(--a)"',
+                (0, 1, 0),
+                id="property-of-gradient",
+            ),
+            pytest.param("", 'stop-color="var(--a)"', (0, 0, 0), id="no-value"),
+        ],
+    )
+    def test_gradient_stop_color_var(self, style, stop, expected):
+        """The stop-color of a stop can be a var(), as Figma writes it.
+
+        The stop was black, and a var() without a value is black as well.
+        """
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        svg_content = f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                {style}
+                <defs>
+                    <linearGradient id="g1">
+                        <stop offset="0" {stop}/>
+                        <stop offset="1" stop-color="blue"/>
+                    </linearGradient>
+                </defs>
+            </svg>""".encode()
+        renderer = SvgRenderer("")
+        renderer.render(load_svg_file(BytesIO(svg_content)))
+        (_, first), (_, second) = renderer.gradient_defs["g1"]["stops"]
+        assert (first.red, first.green, first.blue) == pytest.approx(expected, abs=1e-3)
+        assert (second.red, second.green, second.blue) == (0, 0, 1)
+
+    @pytest.mark.parametrize(
+        "stop, expected",
+        [
+            pytest.param('stop-opacity="var(--o, 0.5)"', 0.5, id="fallback"),
+            pytest.param('style="stop-opacity: var(--o, 0.25)"', 0.25, id="style"),
+            pytest.param(
+                'style="--o: 0.75; stop-opacity: var(--o)"', 0.75, id="property"
+            ),
+            pytest.param('stop-opacity="var(--o)"', 1, id="no-value"),
+        ],
+    )
+    def test_gradient_stop_opacity_var(self, stop, expected):
+        """The stop-opacity of a stop can be a var(); without a value it is 1."""
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        svg_content = f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    <linearGradient id="g1">
+                        <stop offset="0" stop-color="red" {stop}/>
+                        <stop offset="1" stop-color="blue"/>
+                    </linearGradient>
+                </defs>
+            </svg>""".encode()
+        renderer = SvgRenderer("")
+        renderer.render(load_svg_file(BytesIO(svg_content)))
+        (_, first), _ = renderer.gradient_defs["g1"]["stops"]
+        assert first.alpha == pytest.approx(expected)
+
+    @pytest.mark.parametrize(
+        "base, derived, expected",
+        [
+            pytest.param(
+                'x1="0.1" y1="0.2" x2="0.5" y2="0.6"',
+                "",
+                {"x1": 0.1, "y1": 0.2, "x2": 0.5, "y2": 0.6},
+                id="linear-geometry",
+            ),
+            pytest.param(
+                'x1="0.1" x2="0.5"',
+                'x2="25%"',
+                {"x1": 0.1, "x2": 0.25},
+                id="linear-own-attribute",
+            ),
+            pytest.param(
+                'spreadMethod="reflect" gradientUnits="userSpaceOnUse"',
+                "",
+                {"spreadMethod": "reflect", "gradientUnits": "userSpaceOnUse"},
+                id="units-and-spread",
+            ),
+            pytest.param(
+                'spreadMethod="reflect"',
+                'spreadMethod="repeat"',
+                {"spreadMethod": "repeat"},
+                id="own-spread",
+            ),
+        ],
+    )
+    def test_gradient_attributes_inherited_through_href(self, base, derived, expected):
+        """A gradient takes the attributes of its href that it does not set itself.
+
+        It used its own defaults instead, so x2 was 1 and the spread was pad.
+        """
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        svg_content = f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    <linearGradient id="base" {base}>
+                        <stop offset="0" stop-color="red"/>
+                        <stop offset="1" stop-color="blue"/>
+                    </linearGradient>
+                    <linearGradient id="g1" href="#base" {derived}/>
+                </defs>
+            </svg>""".encode()
+        renderer = SvgRenderer("")
+        renderer.render(load_svg_file(BytesIO(svg_content)))
+        resolved = renderer._resolve_gradient("g1")
+        assert resolved is not None
+        assert {key: resolved.get(key) for key in expected} == pytest.approx(expected)
+        assert len(resolved["stops"]) == 2
+
+    def test_radial_gradient_attributes_inherited_through_href(self):
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        svg_content = b"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    <radialGradient id="base" cx="0.3" cy="0.4" r="0.2">
+                        <stop offset="0" stop-color="red"/>
+                        <stop offset="1" stop-color="blue"/>
+                    </radialGradient>
+                    <radialGradient id="g1" href="#base" cx="0.7"/>
+                </defs>
+            </svg>"""
+        renderer = SvgRenderer("")
+        renderer.render(load_svg_file(BytesIO(svg_content)))
+        resolved = renderer._resolve_gradient("g1")
+        assert resolved is not None
+        assert (resolved["cx"], resolved["cy"], resolved["r"]) == pytest.approx(
+            (0.7, 0.4, 0.2)
+        )
+
+    @pytest.mark.parametrize(
+        "offsets, expected",
+        [
+            pytest.param(["0", "1"], [0, 1], id="in-range"),
+            pytest.param(["-0.5", "1"], [0, 1], id="below-0"),
+            pytest.param(["0", "150%"], [0, 1], id="above-100%"),
+            pytest.param(["0", "0.5", "2"], [0, 0.5, 1], id="above-1"),
+            pytest.param(["0.8", "0.2"], [0.8, 0.8], id="after-a-larger-one"),
+            pytest.param(
+                ["0", "0.8", "0.3", "1"], [0, 0.8, 0.8, 1], id="between-larger-ones"
+            ),
+            pytest.param(["abc", "1"], [0, 1], id="invalid"),
+            pytest.param(["0.5", "0.5"], [0.5, 0.5], id="same"),
+        ],
+    )
+    def test_gradient_stop_offsets(self, offsets, expected):
+        """The offset of a stop is from 0 to 1 and not less than the previous one.
+
+        An offset beyond the ends, or before the one of the stop before it, was
+        used as it was.
+        """
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        stops = "".join(
+            f'<stop offset="{offset}" stop-color="red"/>' for offset in offsets
+        )
+        svg_content = f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs><linearGradient id="g1">{stops}</linearGradient></defs>
+            </svg>""".encode()
+        renderer = SvgRenderer("")
+        renderer.render(load_svg_file(BytesIO(svg_content)))
+        positions = [offset for offset, _ in renderer.gradient_defs["g1"]["stops"]]
+        assert positions == pytest.approx(expected)
+
+    @staticmethod
+    def _gradient_shape(shape):
+        """Return the gradient shape in a drawing."""
+        if isinstance(shape, (LinearGradientShape, RadialGradientShape)):
+            return shape
+        for item in getattr(shape, "contents", []):
+            if found := TestGradients._gradient_shape(item):
+                return found
+        return None
+
+    @pytest.mark.parametrize(
+        "gradient, spread, axis, positions, order",
+        [
+            pytest.param(
+                '<linearGradient id="g" x2="0.4" spreadMethod="{}">',
+                "repeat",
+                (0, 0, 120, 0),
+                [0, 1 / 3, 1 / 3, 2 / 3, 2 / 3, 1],
+                "rbrbrb",
+                id="linear-repeat",
+            ),
+            pytest.param(
+                '<linearGradient id="g" x2="0.4" spreadMethod="{}">',
+                "reflect",
+                (0, 0, 120, 0),
+                [0, 1 / 3, 1 / 3, 2 / 3, 2 / 3, 1],
+                "rbbrrb",
+                id="linear-reflect",
+            ),
+            pytest.param(
+                '<linearGradient id="g" x1="0.7" x2="0.9" spreadMethod="{}">',
+                "reflect",
+                (-10, 0, 110, 0),
+                [0, 1 / 6, 1 / 6, 2 / 6, 2 / 6, 3 / 6, 3 / 6, 4 / 6, 4 / 6, 5 / 6]
+                + [5 / 6, 1],
+                "rbbrrbbrrbbr",
+                id="linear-before-start",
+            ),
+            pytest.param(
+                '<linearGradient id="g" x1="0.5" x2="0.3" spreadMethod="{}">',
+                "repeat",
+                (110, 0, -10, 0),
+                [0, 1 / 6, 1 / 6, 2 / 6, 2 / 6, 3 / 6, 3 / 6, 4 / 6, 4 / 6, 5 / 6]
+                + [5 / 6, 1],
+                "rbrbrbrbrbrb",
+                id="linear-backwards",
+            ),
+            pytest.param(
+                '<radialGradient id="g" r="0.2" spreadMethod="{}">',
+                "reflect",
+                (50, 50, 80),
+                [0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1],
+                "rbbrrbbr",
+                id="radial-reflect",
+            ),
+            pytest.param(
+                '<radialGradient id="g" r="0.2" spreadMethod="{}">',
+                "repeat",
+                (50, 50, 80),
+                [0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1],
+                "rbrbrbrb",
+                id="radial-repeat",
+            ),
+            pytest.param(
+                '<linearGradient id="g" x2="0.4" spreadMethod="{}">',
+                "pad",
+                (0, 0, 40, 0),
+                [0, 1],
+                "rb",
+                id="pad",
+            ),
+            pytest.param(
+                '<linearGradient id="g" x2="0.4" spreadMethod="{}">',
+                "unknown",
+                (0, 0, 40, 0),
+                [0, 1],
+                "rb",
+                id="unknown-is-pad",
+            ),
+        ],
+    )
+    def test_gradient_spread_method(self, gradient, spread, axis, positions, order):
+        """A gradient with spreadMethod reflect or repeat goes on past its ends.
+
+        It was painted black there, as it was not extended. Its stops are now laid
+        one period after the other over the shape: in the order of the period for
+        repeat, and every other period back to front for reflect.
+        """
+        tag = "linearGradient" if "linear" in gradient else "radialGradient"
+        drawing = drawing_from_svg(
+            f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    {gradient.format(spread)}
+                        <stop offset="0" stop-color="red"/>
+                        <stop offset="1" stop-color="blue"/>
+                    </{tag}>
+                </defs>
+                <rect width="100" height="100" fill="url(#g)"/>
+            </svg>"""
+        )
+        shape = self._gradient_shape(drawing)
+        if isinstance(shape, LinearGradientShape):
+            assert (shape._x0, shape._y0, shape._x1, shape._y1) == pytest.approx(axis)
+        else:
+            assert (shape._cx, shape._cy, shape._r) == pytest.approx(axis)
+        assert shape._positions == pytest.approx(positions)
+        names = {(1, 0, 0): "r", (0, 0, 1): "b"}
+        assert "".join(names[c.red, c.green, c.blue] for c in shape._rl_colors) == order
+
+    @pytest.mark.parametrize("spread", ["reflect", "repeat"])
+    @pytest.mark.parametrize(
+        "gradient",
+        [
+            pytest.param(
+                '<linearGradient id="g" gradientUnits="userSpaceOnUse" x2="1" '
+                'spreadMethod="{}">',
+                id="linear",
+            ),
+            pytest.param(
+                '<radialGradient id="g" gradientUnits="userSpaceOnUse" cx="50" '
+                'cy="50" r="1" spreadMethod="{}">',
+                id="radial",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "stops, repeated",
+        [
+            # the periods of a short axis, up to 10,000 stops in all of them
+            (50, True),
+            # more stops than that are painted with pad, as for too many periods
+            (200, False),
+        ],
+    )
+    def test_gradient_spread_method_limits_the_stops(
+        self, gradient, spread, stops, repeated
+    ):
+        """The stops of all the periods are limited, as every shape has its own copy.
+
+        A gradient with many stops and a short axis has the periods it needs, but
+        too many stops in all of them: it is painted with pad.
+        """
+        tag = "linearGradient" if "linear" in gradient else "radialGradient"
+        stop_elements = "".join(
+            f'<stop offset="{i / (stops - 1)}" stop-color="{color}"/>'
+            for i, color in zip(range(stops), itertools.cycle(["blue", "red"]))
+        )
+        drawing = drawing_from_svg(
+            f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    {gradient.format(spread)}{stop_elements}</{tag}>
+                </defs>
+                <rect width="100" height="100" fill="url(#g)"/>
+            </svg>"""
+        )
+        shape = self._gradient_shape(drawing)
+        assert (len(shape._positions) > stops) == repeated
+        assert len(shape._positions) <= 10_000
+        assert len(shape._positions) == len(shape._rl_colors)
+
+    @pytest.mark.parametrize(
+        "gradient",
+        [
+            pytest.param('<linearGradient id="g" x1="0.5" x2="0.5">', id="linear"),
+            pytest.param(
+                '<linearGradient id="g" gradientUnits="userSpaceOnUse" x1="30" '
+                'y1="40" x2="30" y2="40">',
+                id="linear-user-space",
+            ),
+            pytest.param('<radialGradient id="g" r="0">', id="radial"),
+            pytest.param(
+                '<radialGradient id="g" gradientUnits="userSpaceOnUse" r="0">',
+                id="radial-user-space",
+            ),
+            pytest.param('<radialGradient id="g" r="-1">', id="radial-negative"),
+        ],
+    )
+    def test_gradient_without_extent(self, gradient):
+        """A gradient with no extent paints the shape in the color of its last stop.
+
+        It was painted in the first color or in black when the two ends of a linear
+        gradient were in the same place, or when a radial gradient had no radius.
+        """
+        tag = "linearGradient" if "linear" in gradient else "radialGradient"
+        drawing = drawing_from_svg(
+            f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    {gradient}
+                        <stop offset="0" stop-color="red"/>
+                        <stop offset="0.5" stop-color="lime"/>
+                        <stop offset="1" stop-color="blue"/>
+                    </{tag}>
+                </defs>
+                <rect width="100" height="100" fill="url(#g)"/>
+            </svg>"""
+        )
+
+        def find_rect(shape):
+            if isinstance(shape, Rect):
+                return shape
+            for item in getattr(shape, "contents", []):
+                if found := find_rect(item):
+                    return found
+            return None
+
+        assert find_rect(drawing).fillColor == colors.Color(0, 0, 1, 1)
+        assert self._gradient_shape(drawing) is None
+
+    @pytest.mark.parametrize(
+        "defs, matrix, geometry",
+        [
+            pytest.param(
+                '<linearGradient id="g" gradientTransform="rotate(90 .5 .5)">{}'
+                "</linearGradient>",
+                (0, 80, -80, 0, 90, 10),
+                (0, 0, 1, 0),
+                id="rotate-in-the-bounding-box",
+            ),
+            pytest.param(
+                '<linearGradient id="g" gradientUnits="userSpaceOnUse" x1="5" x2="9"'
+                ' gradientTransform="translate(10 20) scale(2)">{}</linearGradient>',
+                (2, 0, 0, 2, 10, 20),
+                (5, 0, 9, 0),
+                id="user-space",
+            ),
+            pytest.param(
+                '<linearGradient id="g" href="#b"/><linearGradient id="b"'
+                ' gradientTransform="rotate(90 .5 .5)">{}</linearGradient>',
+                (0, 80, -80, 0, 90, 10),
+                (0, 0, 1, 0),
+                id="from-href",
+            ),
+            pytest.param(
+                '<linearGradient id="g" href="#b" gradientTransform="scale(2)"/>'
+                '<linearGradient id="b" gradientTransform="rotate(90)">{}'
+                "</linearGradient>",
+                (160, 0, 0, 160, 10, 10),
+                (0, 0, 1, 0),
+                id="own-over-href",
+            ),
+            pytest.param(
+                '<radialGradient id="g" gradientTransform="scale(0.5 1)">{}'
+                "</radialGradient>",
+                (40, 0, 0, 80, 10, 10),
+                (0.5, 0.5, 0.5),
+                id="radial",
+            ),
+            pytest.param(
+                '<linearGradient id="g">{}</linearGradient>',
+                None,
+                (10, 10, 90, 10),
+                id="none",
+            ),
+        ],
+    )
+    def test_gradient_transform(self, defs, matrix, geometry):
+        """The gradientTransform of a gradient is applied; it was ignored.
+
+        The gradient is then painted in its own space, and the matrix of the
+        transform, after the one of the bounding box, maps it to the user space.
+        """
+        stops = (
+            '<stop offset="0" stop-color="red"/><stop offset="1" stop-color="blue"/>'
+        )
+        drawing = drawing_from_svg(
+            f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>{defs.format(stops)}</defs>
+                <rect x="10" y="10" width="80" height="80" fill="url(#g)"/>
+            </svg>"""
+        )
+
+        shape = self._gradient_shape(drawing)
+        if matrix is None:
+            assert shape._transform is None
+        else:
+            assert shape._transform == pytest.approx(matrix)
+        if isinstance(shape, LinearGradientShape):
+            assert (shape._x0, shape._y0, shape._x1, shape._y1) == pytest.approx(
+                geometry
+            )
+        else:
+            assert (shape._cx, shape._cy, shape._r) == pytest.approx(geometry)
+
+    @pytest.mark.parametrize(
+        "transform",
+        ["scale(0)", "scale(0 1)", "matrix(0 0 0 0 0 0)", "matrix(1 2 2 4 0 0)"],
+    )
+    @pytest.mark.parametrize("units", ["objectBoundingBox", "userSpaceOnUse"])
+    def test_gradient_transform_not_invertible_paints_nothing(self, transform, units):
+        """A gradientTransform that cannot be inverted paints nothing, as in Chrome.
+
+        The gradient was painted as if it had no transform.
+        """
+        drawing = drawing_from_svg(
+            f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    <linearGradient id="g" gradientUnits="{units}" x2="100"
+                                    gradientTransform="{transform}">
+                        <stop offset="0" stop-color="red"/>
+                        <stop offset="1" stop-color="blue"/>
+                    </linearGradient>
+                </defs>
+                <rect width="100" height="100" fill="url(#g)"/>
+            </svg>"""
+        )
+        assert self._gradient_shape(drawing) is None
+
+    @pytest.mark.parametrize("spread", ["reflect", "repeat"])
+    @pytest.mark.parametrize(
+        "gradient",
+        [
+            pytest.param(
+                '<linearGradient id="g" x2="0.25" spreadMethod="{}" '
+                'gradientTransform="rotate(45 .5 .5)">',
+                id="linear-rotated",
+            ),
+            pytest.param(
+                '<radialGradient id="g" r="0.1" spreadMethod="{}" '
+                'gradientTransform="scale(2 1)">',
+                id="radial-scaled",
+            ),
+        ],
+    )
+    def test_gradient_transform_with_spread_method(self, gradient, spread):
+        """The periods are counted in the space of the gradient, not of the shape.
+
+        The matrix of the gradient maps the periods to the user space, so the
+        corners of the shape have to be mapped back with its inverse to count how
+        many periods cover it; the count was made in the user space.
+        """
+        tag = "linearGradient" if "linear" in gradient else "radialGradient"
+        drawing = drawing_from_svg(
+            f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    {gradient.format(spread)}
+                        <stop offset="0" stop-color="red"/>
+                        <stop offset="1" stop-color="blue"/>
+                    </{tag}>
+                </defs>
+                <rect width="100" height="100" fill="url(#g)"/>
+            </svg>"""
+        )
+        shape = self._gradient_shape(drawing)
+        a, b, c, d, e, f = shape._transform
+        det = a * d - b * c
+        corners = [
+            ((d * (x - e) - c * (y - f)) / det, (a * (y - f) - b * (x - e)) / det)
+            for x in (0, 100)
+            for y in (0, 100)
+        ]
+        # the stops of every period were laid out
+        assert len(shape._positions) > 2
+        if isinstance(shape, LinearGradientShape):
+            # the periods cover the corners of the shape along the axis, which is
+            # along x in its space
+            xs = [x for x, _ in corners]
+            assert min(shape._x0, shape._x1) <= min(xs)
+            assert max(shape._x0, shape._x1) >= max(xs)
+        else:
+            far = max(math.hypot(x - shape._cx, y - shape._cy) for x, y in corners)
+            assert shape._r >= far
+
+    @pytest.mark.parametrize(
+        "gradient, geometry",
+        [
+            pytest.param(
+                '<linearGradient id="g" gradientUnits="userSpaceOnUse" x1="10%" '
+                'y1="25%" x2="90%" y2="75%">',
+                (20, 25, 180, 75),
+                id="linear",
+            ),
+            pytest.param(
+                '<radialGradient id="g" gradientUnits="userSpaceOnUse" cx="50%" '
+                'cy="50%" r="25%">',
+                (100, 50, 0.25 * math.hypot(200, 100) / math.sqrt(2)),
+                id="radial",
+            ),
+            pytest.param(
+                '<linearGradient id="g" gradientUnits="userSpaceOnUse" x2="50%">',
+                (0, 0, 100, 0),
+                id="linear-default-y",
+            ),
+            # unchanged in the units of the bounding box, where it is a fraction of it
+            pytest.param(
+                '<linearGradient id="g" x1="10%" x2="90%">',
+                (20, 0, 180, 0),
+                id="bounding-box",
+            ),
+        ],
+    )
+    def test_gradient_user_space_percentages(self, gradient, geometry):
+        """A percentage in gradientUnits="userSpaceOnUse" is of the viewport.
+
+        It was read as a fraction of one: x2="50%" was 0.5 user units, not half
+        of the width. It is of the width for x, of the height for y, and of the
+        normalized diagonal for a radius.
+        """
+        tag = "linearGradient" if "linear" in gradient else "radialGradient"
+        drawing = drawing_from_svg(
+            f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"
+                 viewBox="0 0 200 100">
+                <defs>
+                    {gradient}
+                        <stop offset="0" stop-color="red"/>
+                        <stop offset="1" stop-color="blue"/>
+                    </{tag}>
+                </defs>
+                <rect width="200" height="100" fill="url(#g)"/>
+            </svg>"""
+        )
+        shape = self._gradient_shape(drawing)
+        if isinstance(shape, LinearGradientShape):
+            assert (shape._x0, shape._y0, shape._x1, shape._y1) == pytest.approx(
+                geometry
+            )
+        else:
+            assert (shape._cx, shape._cy, shape._r) == pytest.approx(geometry)
+
+    @pytest.mark.parametrize(
+        "gradient, size, matrix, geometry",
+        [
+            # stretched with the bounding box: an ellipse, and a skewed linear one
+            pytest.param(
+                '<radialGradient id="g">',
+                (200, 100),
+                (200, 0, 0, 100, 0, 0),
+                (0.5, 0.5, 0.5),
+                id="radial-wide",
+            ),
+            pytest.param(
+                '<linearGradient id="g" x2="1" y2="1">',
+                (100, 200),
+                (100, 0, 0, 200, 0, 0),
+                (0, 0, 1, 1),
+                id="linear-diagonal",
+            ),
+            # nothing to stretch: a square box, or an axis along x or y
+            pytest.param(
+                '<radialGradient id="g">',
+                (100, 100),
+                None,
+                (50, 50, 50),
+                id="radial-square",
+            ),
+            pytest.param(
+                '<linearGradient id="g" x2="1" y2="1">',
+                (100, 100),
+                None,
+                (0, 0, 100, 100),
+                id="linear-diagonal-square",
+            ),
+            pytest.param(
+                '<linearGradient id="g">',
+                (200, 100),
+                None,
+                (0, 0, 200, 0),
+                id="linear-horizontal",
+            ),
+        ],
+    )
+    def test_gradient_bounding_box_stretch(self, gradient, size, matrix, geometry):
+        """A gradient in the units of the bounding box is stretched with the box.
+
+        A radial gradient on a shape that is not square is an ellipse, and a
+        slanted linear gradient is skewed; both were drawn in the user space, as a
+        circle and with the lines of equal color perpendicular to the axis.
+        """
+        tag = "linearGradient" if "linear" in gradient else "radialGradient"
+        drawing = drawing_from_svg(
+            f"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+                <defs>
+                    {gradient}
+                        <stop offset="0" stop-color="red"/>
+                        <stop offset="1" stop-color="blue"/>
+                    </{tag}>
+                </defs>
+                <rect width="{size[0]}" height="{size[1]}" fill="url(#g)"/>
+            </svg>"""
+        )
+        shape = self._gradient_shape(drawing)
+        if matrix is None:
+            assert shape._transform is None
+        else:
+            assert shape._transform == pytest.approx(matrix)
+        if isinstance(shape, LinearGradientShape):
+            assert (shape._x0, shape._y0, shape._x1, shape._y1) == pytest.approx(
+                geometry
+            )
+        else:
+            assert (shape._cx, shape._cy, shape._r) == pytest.approx(geometry)

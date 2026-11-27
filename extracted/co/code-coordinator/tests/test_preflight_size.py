@@ -4,24 +4,34 @@ size-scorer that gates the (paid) size-triage agent.
 
 from __future__ import annotations
 
+import re
 import socket
 import subprocess
 from pathlib import Path
 
 import pytest
 
-from coord.config import PreflightGuardConfig, PreflightGuardRepoConfig, load
+from coord.config import (
+    AcceptanceConfig,
+    AcceptanceDriverConfig,
+    PreflightGuardConfig,
+    PreflightGuardRepoConfig,
+    grep_sealed_path_hits,
+    load,
+)
 from coord.milestone_order import parse_sub_issues
 from coord.models import SplitChunk, SplitProposal
 from coord.overlap_predict import parse_declared_files
 from coord.preflight_size import (
     DEFAULT_THRESHOLDS,
     NO_BACKEND_SPLIT_MARKER,
+    SealedAmendment,
     SizeThresholds,
     build_cross_backend_split_proposal,
     build_slice_child_body,
     detect_cross_backend_scope,
     score_issue_size,
+    sealed_amendment_numbers,
     substitute_slice_tokens,
     verify_split_proposal,
 )
@@ -556,6 +566,757 @@ class TestVerifySplitProposalRejectsProseOnlyDependency:
         )
         verification = verify_split_proposal(proposal)
         assert verification.ok is True
+
+
+class TestVerifySplitProposalRejectsUnedgedSymbolConsumption:
+    """#4175: a child whose `consumes` names a symbol an EARLIER child's
+    `introduces` already declared, with no matching `after:` edge, is
+    rejected — the same "a semantic dependency file-overlap can never see
+    must be declared" posture #4064's prose-dependency check already
+    enforces, applied to the `Removes:`/`Introduces:`/`Consumes:` wire
+    declarations instead of free-text prose."""
+
+    def test_consumed_symbol_with_no_after_edge_is_rejected(self) -> None:
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["coord/a.py"],
+                    introduces=("Foo.bar",),
+                ),
+                SplitChunk(
+                    title="b",
+                    scope="scope b",
+                    files_likely=["coord/unrelated.py"],
+                    consumes=("Foo.bar",),
+                ),
+            ]
+        )
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is False
+        assert verification.reason is not None
+        assert "child 2" in verification.reason
+        assert "Foo.bar" in verification.reason
+        assert "verification failure" in verification.reason
+
+    def test_consumed_symbol_with_matching_after_edge_is_accepted(self) -> None:
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["coord/a.py"],
+                    introduces=("Foo.bar",),
+                ),
+                SplitChunk(
+                    title="b",
+                    scope="scope b",
+                    files_likely=["coord/unrelated.py"],
+                    consumes=("Foo.bar",),
+                    after=(1,),
+                ),
+            ]
+        )
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is True
+
+    def test_consuming_a_symbol_nobody_introduces_is_not_flagged(self) -> None:
+        # No chunk declares `Introduces: Foo.bar` — nothing to chain
+        # against, so this must behave exactly as if `consumes` were empty.
+        proposal = _proposal(
+            [
+                SplitChunk(title="a", scope="scope a", files_likely=["coord/a.py"]),
+                SplitChunk(
+                    title="b",
+                    scope="scope b",
+                    files_likely=["coord/unrelated.py"],
+                    consumes=("Foo.bar",),
+                ),
+            ]
+        )
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is True
+
+    def test_introducing_and_consuming_the_same_symbol_in_one_chunk_is_not_a_false_positive(
+        self,
+    ) -> None:
+        # A chunk that both introduces and consumes the same symbol (e.g.
+        # it defines a helper and also calls it) must never be read as
+        # depending on itself.
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["coord/a.py"],
+                    introduces=("Foo.bar",),
+                    consumes=("Foo.bar",),
+                ),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is True
+
+    def test_a_later_chunks_introduces_does_not_retroactively_flag_an_earlier_consumer(
+        self,
+    ) -> None:
+        # Only an EARLIER chunk's `introduces` can trigger the check — a
+        # later chunk re-declaring the same symbol name must not be read
+        # as if child 1 depended on child 2.
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["coord/a.py"],
+                    consumes=("Foo.bar",),
+                ),
+                SplitChunk(
+                    title="b",
+                    scope="scope b",
+                    files_likely=["coord/b.py"],
+                    introduces=("Foo.bar",),
+                ),
+            ]
+        )
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is True
+
+    def test_no_symbol_declarations_behaves_exactly_as_before(self) -> None:
+        proposal = _proposal(
+            [
+                SplitChunk(title="a", scope="scope a", files_likely=["coord/a.py"]),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is True
+
+
+class TestGrepSealedPathHits:
+    """#4176: the real-filesystem grep step, tested directly against
+    `tmp_path` so the rest of the suite doesn't need a real repo checkout."""
+
+    def test_hit_is_reported_with_the_sealed_relative_path(
+        self, tmp_path: Path
+    ) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text("draw_tooltip(ctx);\n")
+        hits = grep_sealed_path_hits(
+            ["tests/acceptance/"],
+            tmp_path,
+            {"k": re.compile(r"\bdraw_tooltip\b")},
+        )
+        assert hits == {"k": ["tests/acceptance/c0_paint_smoke.rs"]}
+
+    def test_no_hit_returns_empty_mapping(self, tmp_path: Path) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text("nothing_relevant();\n")
+        hits = grep_sealed_path_hits(
+            ["tests/acceptance/"],
+            tmp_path,
+            {"k": re.compile(r"\bdraw_tooltip\b")},
+        )
+        assert hits == {}
+
+    def test_missing_repo_root_fails_open(self, tmp_path: Path) -> None:
+        hits = grep_sealed_path_hits(
+            ["tests/acceptance/"],
+            tmp_path / "does-not-exist",
+            {"k": re.compile(r"\bdraw_tooltip\b")},
+        )
+        assert hits == {}
+
+    def test_no_sealed_paths_or_patterns_fails_open(self, tmp_path: Path) -> None:
+        assert grep_sealed_path_hits([], tmp_path, {"k": re.compile(r"x")}) == {}
+        assert grep_sealed_path_hits(["tests/acceptance/"], tmp_path, {}) == {}
+
+    def test_entry_escaping_repo_root_fails_open_rather_than_raising(
+        self, tmp_path: Path
+    ) -> None:
+        """An absolute entry (or one containing a `..` segment) would put
+        `root / entry` — and the `path.relative_to(root)` below it —
+        outside *repo_root* (`Path("/repo") / "/etc/"` is `/etc/`, not
+        `/repo/etc/`), contradicting this function's own documented
+        "returns {} rather than raising" contract. `sealed_paths()`
+        entries are repo-relative in practice, but this must still fail
+        open rather than raise `ValueError` if one isn't."""
+        outside = tmp_path.parent / "outside-sealed-escape"
+        outside.mkdir(exist_ok=True)
+        (outside / "secret.rs").write_text("draw_tooltip(ctx);\n")
+        try:
+            hits = grep_sealed_path_hits(
+                [str(outside) + "/", "../outside-sealed-escape/"],
+                tmp_path,
+                {"k": re.compile(r"\bdraw_tooltip\b")},
+            )
+            assert hits == {}
+        finally:
+            (outside / "secret.rs").unlink()
+            outside.rmdir()
+
+    def test_exact_file_entry_is_resolved_too(self, tmp_path: Path) -> None:
+        (tmp_path / "tui").mkdir()
+        (tmp_path / "tui" / "tests").mkdir()
+        (tmp_path / "tui" / "tests" / "acceptance.rs").write_text(
+            "mod c0_paint_smoke; use draw_tooltip;\n"
+        )
+        hits = grep_sealed_path_hits(
+            ["tui/tests/acceptance.rs"],
+            tmp_path,
+            {"k": re.compile(r"\bdraw_tooltip\b")},
+        )
+        assert hits == {"k": ["tui/tests/acceptance.rs"]}
+
+    def test_acceptance_config_method_derives_sealed_paths_itself(
+        self, tmp_path: Path
+    ) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text("draw_tooltip(ctx);\n")
+        acceptance = AcceptanceConfig(
+            drivers={"acme/quadraui": AcceptanceDriverConfig(kind="cli-pytest", run="pytest")}
+        )
+        hits = acceptance.grep_sealed_path_hits(
+            "acme/quadraui", tmp_path, {"k": re.compile(r"\bdraw_tooltip\b")}
+        )
+        assert hits == {"k": ["tests/acceptance/c0_paint_smoke.rs"]}
+        # An unconfigured repo has no sealed set to grep against at all.
+        assert acceptance.grep_sealed_path_hits(
+            "acme/other", tmp_path, {"k": re.compile(r"\bdraw_tooltip\b")}
+        ) == {}
+
+
+class TestSealedAmendmentNumbers:
+    """#4176: `sealed_amendment_numbers` is the ONE place the synthetic
+    placeholder numbering scheme is defined — both `verify_split_proposal`
+    (building the work order) and `coord.decomposition_chat
+    .file_and_queue_split_proposal` (the sole filer, remapping it onto
+    real issue numbers) call this, so neither can drift from the other."""
+
+    def _amendment(self, position: int, symbol: str = "x") -> SealedAmendment:
+        return SealedAmendment(
+            chunk_position=position, chunk_title="t", symbol=symbol,
+            declared_as="removes", sealed_paths=("tests/acceptance/f.rs",),
+        )
+
+    def test_empty_when_no_amendments(self) -> None:
+        assert sealed_amendment_numbers(3, ()) == {}
+
+    def test_one_amendment_numbered_past_every_real_chunk(self) -> None:
+        assert sealed_amendment_numbers(2, (self._amendment(1),)) == {1: 3}
+
+    def test_multiple_positions_numbered_in_ascending_order(self) -> None:
+        assert sealed_amendment_numbers(
+            3, (self._amendment(2), self._amendment(1))
+        ) == {1: 4, 2: 5}
+
+    def test_same_position_hit_twice_dedupes_to_one_number(self) -> None:
+        assert sealed_amendment_numbers(
+            2, (self._amendment(1, "a"), self._amendment(1, "b"))
+        ) == {1: 3}
+
+
+class TestVerifySplitProposalInsertsSealedAmendmentStep:
+    """#4176 (the quadraui#2876 incident): a child that `Removes:` a symbol
+    still referenced inside the target repo's sealed acceptance paths does
+    not merge partial over the sealed literal — the gate still accepts the
+    proposal, but inserts a flagged `sealed-amendment` step immediately
+    ahead of the affected child in the computed work order, and reports the
+    hit on `SplitVerification.sealed_amendments`."""
+
+    def test_removed_symbol_still_referenced_in_sealed_path_inserts_a_step(
+        self, tmp_path: Path
+    ) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text("draw_tooltip(ctx);\n")
+
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["quadraui/src/tui/tooltip.rs"],
+                    removes=("draw_tooltip",),
+                ),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        verification = verify_split_proposal(
+            proposal,
+            sealed_paths=["tests/acceptance/"],
+            sealed_repo_root=tmp_path,
+        )
+        assert verification.ok is True
+        assert verification.work_order is not None
+        # 3 nodes: the synthetic amendment step plus the 2 real chunks.
+        nodes = verification.work_order.nodes
+        assert len(nodes) == 3
+        assert nodes[0].issue_number == 3  # the synthetic step, numbered past N
+        assert nodes[0].group == "sealed-amendment"
+        assert nodes[0].after == ()
+        # child 1 ("a", the affected child) now depends on the inserted step.
+        assert nodes[1].issue_number == 1
+        assert nodes[1].after == (3,)
+        assert nodes[2].issue_number == 2
+
+        assert len(verification.sealed_amendments) == 1
+        amendment = verification.sealed_amendments[0]
+        assert amendment.chunk_position == 1
+        assert amendment.symbol == "draw_tooltip"
+        assert amendment.declared_as == "removes"
+        assert amendment.sealed_paths == ("tests/acceptance/c0_paint_smoke.rs",)
+
+    def test_amendment_step_inherits_the_affected_childs_own_predecessors(
+        self, tmp_path: Path
+    ) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text("draw_tooltip(ctx);\n")
+
+        proposal = _proposal(
+            [
+                SplitChunk(title="a", scope="scope a", files_likely=["coord/a.py"]),
+                SplitChunk(
+                    title="b",
+                    scope="scope b",
+                    files_likely=["coord/a.py"],  # shares a/.py -> after=(1,)
+                    removes=("draw_tooltip",),
+                ),
+            ]
+        )
+        verification = verify_split_proposal(
+            proposal,
+            sealed_paths=["tests/acceptance/"],
+            sealed_repo_root=tmp_path,
+        )
+        assert verification.ok is True
+        nodes = {n.issue_number: n for n in verification.work_order.nodes}
+        # The amendment step (#3) is ahead of child 2 and keeps child 2's
+        # own original predecessor (#1), not an extra edge to child 2 itself.
+        assert nodes[3].group == "sealed-amendment"
+        assert nodes[3].after == (1,)
+        assert nodes[2].after == (1, 3)
+
+    def test_removed_symbol_absent_from_sealed_paths_is_not_flagged(
+        self, tmp_path: Path
+    ) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text("nothing_relevant();\n")
+
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["coord/a.py"],
+                    removes=("draw_tooltip",),
+                ),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        verification = verify_split_proposal(
+            proposal,
+            sealed_paths=["tests/acceptance/"],
+            sealed_repo_root=tmp_path,
+        )
+        assert verification.ok is True
+        assert verification.sealed_amendments == ()
+        assert len(verification.work_order.nodes) == 2
+
+    def test_no_sealed_paths_given_behaves_exactly_as_before(
+        self, tmp_path: Path
+    ) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text("draw_tooltip(ctx);\n")
+
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["coord/a.py"],
+                    removes=("draw_tooltip",),
+                ),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        # Caller passes no sealed_paths/sealed_repo_root at all — a
+        # perfectly ordinary call, same fail-open posture as every other
+        # "no evidence available" signal in this module.
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is True
+        assert verification.sealed_amendments == ()
+        assert len(verification.work_order.nodes) == 2
+
+    def test_newly_introduced_struct_field_against_a_sealed_struct_literal_is_flagged(
+        self, tmp_path: Path
+    ) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "structural_parity.rs").write_text(
+            "let t = Tooltip {\n    text: \"hi\".into(),\n};\n"
+        )
+
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["quadraui/src/tui/tooltip.rs"],
+                    introduces=("Tooltip.chrome",),
+                ),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        verification = verify_split_proposal(
+            proposal,
+            sealed_paths=["tests/acceptance/"],
+            sealed_repo_root=tmp_path,
+        )
+        assert verification.ok is True
+        assert len(verification.sealed_amendments) == 1
+        amendment = verification.sealed_amendments[0]
+        assert amendment.symbol == "Tooltip.chrome"
+        assert amendment.declared_as == "introduces"
+        assert amendment.sealed_paths == (
+            "tests/acceptance/structural_parity.rs",
+        )
+
+    def test_bare_introduced_symbol_with_no_dot_is_never_a_candidate(
+        self, tmp_path: Path
+    ) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "structural_parity.rs").write_text("Tooltip { text: 1 }\n")
+
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["coord/a.py"],
+                    introduces=("Tooltip",),
+                ),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        verification = verify_split_proposal(
+            proposal,
+            sealed_paths=["tests/acceptance/"],
+            sealed_repo_root=tmp_path,
+        )
+        assert verification.ok is True
+        assert verification.sealed_amendments == ()
+
+    def test_caller_supplied_epic_body_still_reports_the_hit_but_cannot_insert(
+        self, tmp_path: Path
+    ) -> None:
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text("draw_tooltip(ctx);\n")
+
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["coord/a.py"],
+                    removes=("draw_tooltip",),
+                ),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        epic_body = "## Sub-issues\n- [ ] #1\n- [ ] #2\n"
+        verification = verify_split_proposal(
+            proposal,
+            epic_body=epic_body,
+            sealed_paths=["tests/acceptance/"],
+            sealed_repo_root=tmp_path,
+        )
+        assert verification.ok is True
+        assert verification.epic_body == epic_body
+        assert len(verification.work_order.nodes) == 2
+        assert len(verification.sealed_amendments) == 1
+
+    def test_two_affected_chunks_get_two_distinct_synthetic_numbers(
+        self, tmp_path: Path
+    ) -> None:
+        """Two DIFFERENT chunks each hitting a sealed reference must each
+        get their own inserted step, numbered N+1/N+2 in increasing chunk-
+        position order — not collapsed into one, and not colliding."""
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text(
+            "draw_tooltip(ctx); draw_command_line(ctx);\n"
+        )
+
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a", scope="scope a", files_likely=["coord/a.py"],
+                    removes=("draw_tooltip",),
+                ),
+                SplitChunk(
+                    title="b", scope="scope b", files_likely=["coord/b.py"],
+                    removes=("draw_command_line",),
+                ),
+                SplitChunk(title="c", scope="scope c", files_likely=["coord/c.py"]),
+            ]
+        )
+        verification = verify_split_proposal(
+            proposal, sealed_paths=["tests/acceptance/"], sealed_repo_root=tmp_path,
+        )
+        assert verification.ok is True
+        nodes = verification.work_order.nodes
+        # 5 nodes: 3 real chunks + 2 synthetic amendment steps.
+        assert len(nodes) == 5
+        by_number = {n.issue_number: n for n in nodes}
+        assert by_number[4].group == "sealed-amendment"
+        assert by_number[5].group == "sealed-amendment"
+        assert by_number[1].after == (4,)
+        assert by_number[2].after == (5,)
+        assert len(verification.sealed_amendments) == 2
+        assert {a.chunk_position for a in verification.sealed_amendments} == {1, 2}
+
+    def test_one_chunk_hitting_two_symbols_still_yields_one_node(
+        self, tmp_path: Path
+    ) -> None:
+        """`amendment_positions` dedupes by chunk position — a chunk whose
+        `removes` names two symbols both found in sealed paths still gets
+        exactly ONE inserted step, not two."""
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text(
+            "draw_tooltip(ctx); draw_command_line(ctx);\n"
+        )
+
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a", scope="scope a", files_likely=["coord/a.py"],
+                    removes=("draw_tooltip", "draw_command_line"),
+                ),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        verification = verify_split_proposal(
+            proposal, sealed_paths=["tests/acceptance/"], sealed_repo_root=tmp_path,
+        )
+        assert verification.ok is True
+        # 3 nodes: the ONE synthetic step plus the 2 real chunks.
+        nodes = verification.work_order.nodes
+        assert len(nodes) == 3
+        amendment_nodes = [n for n in nodes if n.group == "sealed-amendment"]
+        assert len(amendment_nodes) == 1
+        # Both symbol hits are still individually reported.
+        assert len(verification.sealed_amendments) == 2
+        assert {a.symbol for a in verification.sealed_amendments} == {
+            "draw_tooltip", "draw_command_line",
+        }
+
+    def test_rendered_epic_body_carries_the_amendment_line(
+        self, tmp_path: Path
+    ) -> None:
+        """The self-computed `epic_body` — not just `work_order` — must
+        actually render the inserted step, since that text is what would
+        be filed to a real epic."""
+        sealed_dir = tmp_path / "tests" / "acceptance"
+        sealed_dir.mkdir(parents=True)
+        (sealed_dir / "c0_paint_smoke.rs").write_text("draw_tooltip(ctx);\n")
+
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a", scope="scope a", files_likely=["coord/a.py"],
+                    removes=("draw_tooltip",),
+                ),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        verification = verify_split_proposal(
+            proposal, sealed_paths=["tests/acceptance/"], sealed_repo_root=tmp_path,
+        )
+        assert verification.ok is True
+        assert "#3" in verification.epic_body
+        assert "sealed-amendment" in verification.epic_body
+
+
+class TestVerifySplitProposalLogsEveryRejection:
+    """#4175: every rejection — any check, not just the new symbol one —
+    logs at WARNING and records a durable audit event, so an operator can
+    find why a proposal was refused without re-running the gate."""
+
+    def test_rejection_logs_a_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        caplog.set_level("WARNING", logger="coord.preflight_size")
+        verification = verify_split_proposal(_proposal([]))
+        assert verification.ok is False
+        assert any(
+            "proposal has no chunks to split into" in record.message
+            for record in caplog.records
+        )
+        assert all(record.levelname == "WARNING" for record in caplog.records)
+
+    def test_rejection_records_an_audit_event(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from coord.preflight_size import AUDIT_CATEGORY, EVENT_SPLIT_REJECTED
+
+        recorded: list[dict] = []
+
+        def _fake_record_audit(**kwargs):
+            recorded.append(kwargs)
+
+        monkeypatch.setattr(
+            "coord.audit.record_audit", _fake_record_audit
+        )
+        proposal = _proposal(
+            [
+                SplitChunk(
+                    title="a",
+                    scope="scope a",
+                    files_likely=["coord/a.py"],
+                    introduces=("Foo.bar",),
+                ),
+                SplitChunk(
+                    title="b",
+                    scope="scope b",
+                    files_likely=["coord/unrelated.py"],
+                    consumes=("Foo.bar",),
+                ),
+            ]
+        )
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is False
+        assert len(recorded) == 1
+        call = recorded[0]
+        assert call["category"] == AUDIT_CATEGORY
+        assert call["event_type"] == EVENT_SPLIT_REJECTED
+        assert call["repo"] == proposal.repo_name
+        assert call["issue"] == proposal.issue_number
+        assert verification.reason in call["summary"]
+
+    def test_a_successful_verification_records_no_audit_event(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        recorded: list[dict] = []
+
+        def _fake_record_audit(**kwargs):
+            recorded.append(kwargs)
+
+        monkeypatch.setattr(
+            "coord.audit.record_audit", _fake_record_audit
+        )
+        proposal = _proposal(
+            [
+                SplitChunk(title="a", scope="scope a", files_likely=["coord/a.py"]),
+                SplitChunk(title="b", scope="scope b", files_likely=["coord/b.py"]),
+            ]
+        )
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is True
+        assert recorded == []
+
+
+class TestSizeTriageResponseParsesSymbolDeclarations:
+    """#4175: `Removes:`/`Introduces:`/`Consumes:` lines in the size-triage
+    wire format land on the parsed `SplitChunk`, the same way #4031's
+    `After:` line already does — and a consumed/introduced pair with no
+    `After:` edge is caught end-to-end by `verify_split_proposal`."""
+
+    def test_removes_introduces_consumes_are_parsed_onto_the_chunk(self) -> None:
+        from coord.decomposition_chat import parse_size_triage_response
+
+        text = """\
+SIZE_TRIAGE_VERDICT: split
+## Child 1: Add the new helper
+Adds a replacement helper.
+Removes: Old.helper
+Introduces: New.helper
+
+## Files
+- coord/a.py
+
+## Child 2: Migrate callers
+Switches every caller over.
+After: Child 1
+Consumes: New.helper
+
+## Files
+- coord/b.py
+
+END_SIZE_TRIAGE
+"""
+        proposal = parse_size_triage_response(
+            text, repo_name="acme/widgets", issue_number=7, issue_title="t"
+        )
+        assert proposal is not None
+        assert proposal.chunks[0].removes == ("Old.helper",)
+        assert proposal.chunks[0].introduces == ("New.helper",)
+        assert proposal.chunks[0].consumes == ()
+        assert proposal.chunks[1].consumes == ("New.helper",)
+        assert proposal.chunks[1].after == (1,)
+        # The declaration lines themselves must not leak into the scope
+        # prose a later briefing/body would echo back.
+        assert "Removes:" not in proposal.chunks[0].scope
+        assert "Introduces:" not in proposal.chunks[0].scope
+        assert "Consumes:" not in proposal.chunks[1].scope
+
+    def test_no_symbol_lines_defaults_to_empty_tuples(self) -> None:
+        from coord.decomposition_chat import parse_size_triage_response
+
+        text = """\
+SIZE_TRIAGE_VERDICT: split
+## Child 1: a
+scope a
+
+## Files
+- coord/a.py
+
+END_SIZE_TRIAGE
+"""
+        proposal = parse_size_triage_response(
+            text, repo_name="acme/widgets", issue_number=7, issue_title="t"
+        )
+        assert proposal is not None
+        assert proposal.chunks[0].removes == ()
+        assert proposal.chunks[0].introduces == ()
+        assert proposal.chunks[0].consumes == ()
+
+    def test_consumed_symbol_with_no_after_line_is_rejected_end_to_end(self) -> None:
+        from coord.decomposition_chat import parse_size_triage_response
+
+        text = """\
+SIZE_TRIAGE_VERDICT: split
+## Child 1: Add the new helper
+Adds a replacement helper.
+Introduces: New.helper
+
+## Files
+- coord/a.py
+
+## Child 2: Migrate callers
+Switches every caller over.
+Consumes: New.helper
+
+## Files
+- coord/b.py
+
+END_SIZE_TRIAGE
+"""
+        proposal = parse_size_triage_response(
+            text, repo_name="acme/widgets", issue_number=7, issue_title="t"
+        )
+        assert proposal is not None
+        verification = verify_split_proposal(proposal)
+        assert verification.ok is False
+        assert verification.reason is not None
+        assert "New.helper" in verification.reason
 
 
 class TestVerifySplitProposalRejectsNoChunks:

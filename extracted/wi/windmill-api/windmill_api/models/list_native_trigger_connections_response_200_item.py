@@ -15,8 +15,6 @@ class ListNativeTriggerConnectionsResponse200Item:
     Attributes:
         path (str): Path of the resource and variable holding the connection
         workspace (bool): Whether this is the workspace connection, which every member may use
-        managed (bool): Whether the integration trigger connect flow made it. Any other connection is a resource
-            connected from Resources, which triggers can use but only Resources can replace or delete.
         owner (Union[Unset, None, str]): Username of whoever connected the account, when the caller can read its
             resource
         scopes (Union[Unset, None, List[str]]): Scopes the account was connected with; absent when unknown
@@ -26,7 +24,6 @@ class ListNativeTriggerConnectionsResponse200Item:
 
     path: str
     workspace: bool
-    managed: bool
     owner: Union[Unset, None, str] = UNSET
     scopes: Union[Unset, None, List[str]] = UNSET
     missing_scopes: Union[Unset, None, List[str]] = UNSET
@@ -35,7 +32,6 @@ class ListNativeTriggerConnectionsResponse200Item:
     def to_dict(self) -> Dict[str, Any]:
         path = self.path
         workspace = self.workspace
-        managed = self.managed
         owner = self.owner
         scopes: Union[Unset, None, List[str]] = UNSET
         if not isinstance(self.scopes, Unset):
@@ -57,7 +53,6 @@ class ListNativeTriggerConnectionsResponse200Item:
             {
                 "path": path,
                 "workspace": workspace,
-                "managed": managed,
             }
         )
         if owner is not UNSET:
@@ -76,8 +71,6 @@ class ListNativeTriggerConnectionsResponse200Item:
 
         workspace = d.pop("workspace")
 
-        managed = d.pop("managed")
-
         owner = d.pop("owner", UNSET)
 
         scopes = cast(List[str], d.pop("scopes", UNSET))
@@ -87,7 +80,6 @@ class ListNativeTriggerConnectionsResponse200Item:
         list_native_trigger_connections_response_200_item = cls(
             path=path,
             workspace=workspace,
-            managed=managed,
             owner=owner,
             scopes=scopes,
             missing_scopes=missing_scopes,

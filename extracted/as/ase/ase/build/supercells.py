@@ -1,9 +1,32 @@
 """Helper functions for creating supercells."""
 
 import numpy as np
+import numpy.typing as npt
 
 from ase import Atoms
 from ase.utils import deprecated
+
+
+def _get_reference_cell(target_shape: str) -> npt.NDArray[np.floating]:
+    """Return the primitive cell vectors of the target Bravais lattice."""
+    return {
+        'sc': np.eye(3),
+        'bcc': 0.5 * (np.ones((3, 3)) - 2.0 * np.eye(3)),
+        'fcc': 0.5 * (np.ones((3, 3)) - np.eye(3)),
+    }[target_shape]
+
+
+def _get_target_metric(target_shape: str) -> npt.NDArray[np.floating]:
+    """Return the metric tensor of the target Bravais lattice."""
+    h = _get_reference_cell(target_shape)
+    g = h @ h.T
+    return g / g[0, 0]  # unit diagonal, cos(angle) off-diagonal
+
+
+def _get_length_factor(target_shape: str) -> float:
+    """Return the ratio of the 1NN distance to the cubic root of cell volume."""
+    h = _get_reference_cell(target_shape)
+    return np.linalg.norm(h[0]) / np.cbrt(abs(np.linalg.det(h)))
 
 
 class SupercellError(Exception):
@@ -15,16 +38,38 @@ def get_deviation_from_optimal_cell_shape(*args, **kwargs):
     return eval_length_deviation(*args, **kwargs)
 
 
-def eval_shape_deviation(cell, target_shape='sc'):
-    r"""
-    Calculates the deviation of the given cell from the target cell metric.
+def eval_shape_deviation(
+    cell: npt.NDArray[np.floating],
+    target_shape: str = 'sc',
+) -> npt.NDArray[np.floating]:
+    r"""Calculate the deviation of the cell metric from the target shape.
+
+    The deviation is calculated as the squared Frobenius norm of the
+    difference between the normalized cell metric tensor and the
+    target metric tensor;
+
+    .. math::
+
+        \Delta = \bigg\lVert
+            \frac{\mathbf{G}}{l_\mathrm{target}^2} - \mathbf{G}_\mathrm{target}
+        \bigg\rVert_\mathrm{F}^2
+
+    where :math:`\mathbf{G} \equiv \mathbf{h} \mathbf{h}^\top` is the metric
+    tensor of the given cell, and :math:`\mathbf{G}_\mathrm{target} \equiv
+    \mathbf{h}_\mathrm{target} \mathbf{h}_\mathrm{target}^\top` is the metric
+    tensor of the target cell shape with the lattice vector lengths normalized
+    to 1.
+    :math:`l_\mathrm{target}` is the ideal lattice vector length of
+    `target_shape` for the given cell volume.
+
+    .. versionadded:: 3.26.0 (:mr:`3616`)
 
     Parameters
     ----------
     cell : (..., 3, 3) array_like
-        Metric given as a 3x3 matrix of the input structure.
+        Lattice vectors given as a 3x3 matrix of the input structure.
         Multiple cells can also be given as a higher-dimensional array.
-    target_shape : {'sc', 'fcc'}
+    target_shape : {'sc', 'bcc', 'fcc'}
         Desired supercell shape.
 
     Returns
@@ -37,19 +82,8 @@ def eval_shape_deviation(cell, target_shape='sc'):
     cell = np.asarray(cell)
 
     eff_cubic_length = np.cbrt(np.abs(np.linalg.det(cell)))  # 'a_0'
-
-    if target_shape == 'sc':
-        target_len = eff_cubic_length
-        target_cos = 0.0  # cos(+-pi/2) = 0.0
-        target_metric = np.eye(3)
-    elif target_shape == 'fcc':
-        # FCC is characterised by 60 degree angles & lattice vectors = 2**(1/6)
-        # times the eff cubic length:
-        target_len = eff_cubic_length * 2 ** (1 / 6)
-        target_cos = 0.5  # cos(+-pi/3) = 0.5
-        target_metric = np.eye(3) + target_cos * (np.ones((3, 3)) - np.eye(3))
-    else:
-        raise ValueError(target_shape)
+    target_len = eff_cubic_length * _get_length_factor(target_shape)
+    target_metric = _get_target_metric(target_shape)
 
     # calculate cell @ cell.T for (... , 3, 3)
     # with cell  -> C_mij
@@ -64,38 +98,83 @@ def eval_shape_deviation(cell, target_shape='sc'):
     return scores
 
 
-def eval_length_deviation(cell, target_shape='sc'):
-    r"""Calculate the deviation from the target cell shape.
+def eval_length_deviation(
+    cell: npt.NDArray[np.floating],
+    target_shape: str = 'sc',
+) -> npt.NDArray[np.floating]:
+    r"""Calculate the deviation of cell vector lengths from the target shape.
 
-    Calculates the deviation of the given cell metric from the ideal
-    cell metric defining a certain shape. Specifically, the function
-    evaluates the expression `\Delta = || Q \mathbf{h} -
-    \mathbf{h}_{target}||_2`, where `\mathbf{h}` is the input
-    metric (*cell*) and `Q` is a normalization factor (*norm*)
-    while the target metric `\mathbf{h}_{target}` (via
-    *target_shape*) represent simple cubic ('sc') or face-centered
-    cubic ('fcc') cell shapes.
+    The deviation is calculated as the Euclidean norm of the relative
+    differences between the cell vector lengths and the ideal length;
 
-    Replaced with code from the `doped` defect simulation package
-    (https://doped.readthedocs.io) to be rotationally invariant,
-    boosting performance.
+    .. math::
+
+        \Delta = \sqrt{ \sum_{i=1}^{3}
+            \bigg(\frac{|\mathbf{a}_i|}{l_\mathrm{target}} - 1\bigg)^{2}}
+
+    :math:`l_\mathrm{target}` is the ideal lattice vector length of
+    `target_shape` for the given cell volume.
 
     Parameters
     ----------
     cell : (..., 3, 3) array_like
-        Metric given as a 3x3 matrix of the input structure.
+        Lattice vectors given as a 3x3 matrix of the input structure.
         Multiple cells can also be given as a higher-dimensional array.
-    target_shape : {'sc', 'fcc'}
-        Desired supercell shape. Can be 'sc' for simple cubic or
-        'fcc' for face-centered cubic.
+    target_shape : {'sc', 'bcc', 'fcc'}
+        Desired supercell shape.
 
     Returns
     -------
     float or ndarray
         Cell metric(s) (0 is perfect score)
 
+    Notes
+    -----
+    This function does not consider cell angles.
+    For this, use `eval_shape_deviation`.
+
     .. deprecated:: 3.24.0
         `norm` is unused in ASE 3.24.0 and removed in ASE 3.25.0.
+
+    .. versionchanged:: 3.24.0
+
+        Replaced with code from the `doped` defect simulation package
+        (https://doped.readthedocs.io) to be rotationally invariant,
+        boosting performance. (:mr:`3404`)
+
+        Previously, the deviation was evaluated by [1]_
+
+        .. math::
+
+            \Delta = || Q \mathbf{h} - \mathbf{h}_\mathrm{target} ||_\mathrm{F}
+
+        where
+
+        .. math::
+
+            \mathbf{h}
+            \equiv
+            \begin{pmatrix}
+            \mathbf{a}_1 \\
+            \mathbf{a}_2 \\
+            \mathbf{a}_3
+            \end{pmatrix}
+
+        was the input lattice vectors (`cell`), :math:`Q` was a normalization
+        factor (`norm`), and :math:`\mathbf{h}_\mathrm{target}` was the target
+        lattice vectors specified by `target_shape`.
+        However, this approach was not rotational invariant.
+
+    .. versionchanged:: 3.26.0
+        Renamed from `get_deviation_from_optimal_cell_shape` to
+        `eval_length_deviation`. (:mr:`3616`)
+
+    References
+    ----------
+    .. [1] P. Erhart, B. Sadigh, A. Schleife, and D. Åberg.
+        First-principles study of codoping in lanthanum bromide,
+        Phys. Rev. B, Vol **91**, 165206 (2015),
+        :doi:`10.1103/PhysRevB.91.165206`; Appendix C
 
     """
 
@@ -103,18 +182,7 @@ def eval_length_deviation(cell, target_shape='sc'):
     cell_lengths = np.sqrt(np.add.reduce(cell**2, axis=-1))
 
     eff_cubic_length = np.cbrt(np.abs(np.linalg.det(cell)))  # 'a_0'
-
-    if target_shape == 'sc':
-        target_len = eff_cubic_length
-
-    elif target_shape == 'fcc':
-        # FCC is characterised by 60 degree angles & lattice vectors = 2**(1/6)
-        # times the eff cubic length:
-        target_len = eff_cubic_length * 2 ** (1 / 6)
-
-    else:
-        raise ValueError(target_shape)
-
+    target_len = eff_cubic_length * _get_length_factor(target_shape)
     inv_target_len = 1.0 / target_len
 
     # rms difference to eff cubic/FCC length:
@@ -125,18 +193,13 @@ def eval_length_deviation(cell, target_shape='sc'):
 
 
 def _guess_initial_transformation(
-    cell, target_shape, target_size, verbose=False
-):
+    cell: npt.NDArray[np.floating],
+    target_shape: str,
+    target_size: int,
+    verbose: bool = False,
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.integer]]:
 
-    # Set up target metric
-    if target_shape == 'sc':
-        target_metric = np.eye(3)
-    elif target_shape == 'fcc':
-        target_metric = 0.5 * np.array(
-            [[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float
-        )
-    else:
-        raise ValueError(target_shape)
+    target_metric = _get_reference_cell(target_shape)
 
     if verbose:
         print('target metric (h_target):')
@@ -163,7 +226,11 @@ def _guess_initial_transformation(
     return ideal_P, starting_P
 
 
-def _build_matrix_operations(starting_P, lower_limit, upper_limit):
+def _build_matrix_operations(
+    starting_P: npt.NDArray[np.integer],
+    lower_limit: int,
+    upper_limit: int,
+) -> npt.NDArray[np.integer]:
     mat_dim = starting_P.shape[0]
 
     if not mat_dim == starting_P.shape[1]:
@@ -195,7 +262,11 @@ def _screen_supercell_size(operations, target_size):
     return operations
 
 
-def _optimal_transformation(operations, scores, ideal_P):
+def _optimal_transformation(
+    operations: npt.NDArray[np.integer],
+    scores: npt.NDArray[np.floating],
+    ideal_P: npt.NDArray[np.floating],
+) -> tuple[npt.NDArray[np.integer], np.floating]:
 
     imin = np.argmin(scores)
     best_score = scores[imin]
@@ -221,50 +292,58 @@ all_score_funcs = {
 
 
 def find_optimal_cell_shape(
-    cell,
-    target_size,
-    target_shape,
-    lower_limit=-2,
-    upper_limit=2,
-    verbose=False,
-    score_key='length',
-):
-    """Obtain the optimal transformation matrix for a supercell of target size
-    and shape.
+    cell: npt.NDArray[np.floating],
+    target_size: int,
+    target_shape: str,
+    lower_limit: int = -2,
+    upper_limit: int = 2,
+    verbose: bool = False,
+    score_key: str = 'length',
+) -> npt.NDArray[np.integer]:
+    """Obtain the optimal supercell matrix of target size and shape.
 
-    Returns the transformation matrix that produces a supercell
-    corresponding to *target_size* unit cells with metric *cell* that
-    most closely approximates the shape defined by *target_shape*.
-
-    Updated with code from the `doped` defect simulation package
-    (https://doped.readthedocs.io) to be rotationally invariant and
-    allow transformation matrices with negative determinants, boosting
-    performance.
+    This determines the transformation matrix for a supercell containing
+    `target_size` unit cells that minimizes the deviation from `target_shape`
+    according to the scoring function selected by `score_key`.
 
     Parameters
     ----------
-
-    cell: 2D array of floats
-        Metric given as a (3x3 matrix) of the input structure.
-    target_size: integer
+    cell : npt.NDArray[np.floating]
+        Lattice vectors of the input structure given as a 3x3 matrix.
+    target_size : int
         Size of desired supercell in number of unit cells.
-    target_shape: str
-        Desired supercell shape. Can be 'sc' for simple cubic or
-        'fcc' for face-centered cubic.
-    lower_limit: int
+    target_shape : {'sc', 'bcc', 'fcc'}
+        Desired supercell shape.
+
+        - 'sc': simple cubic
+        - 'bcc': body-centered cubic
+        - 'fcc': face-centered cubic
+
+        .. versionadded:: 3.30.0 (:mr:`4333`)
+            'bcc' is added.
+
+    lower_limit : int
         Lower limit of search range.
-    upper_limit: int
+    upper_limit : int
         Upper limit of search range.
-    verbose: bool
+    verbose : bool
         Set to True to obtain additional information regarding
         construction of transformation matrix.
-    score_key: str
-        key from all_score_funcs to select score function.
+    score_key : {'length', 'metric'}
+        key to select score function.
+
+        - `length`: lattice vector lengths
+          (:func:`~supercells.eval_length_deviation`)
+        - `metric`: metric tensor
+          (:func:`~supercells.eval_shape_deviation`)
+
+        .. versionadded:: 3.26.0 (:mr:`3616`)
 
     Returns
     -------
-        2D array of integers: Transformation matrix that produces the
-        optimal supercell.
+    npt.NDArray[np.integer]
+        Transformation matrix that produces the optimal supercell.
+
     """
 
     # transform to np.array

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pylxd"
-version = "2.4.2"
+version = "2.4.3"
 description = "Python library for interacting with the LXD REST API"
 readme = { file = "README.rst", content-type = "text/x-rst" }
 requires-python = ">=3.10"
@@ -69,7 +69,8 @@ warn_unused_configs = true
 [tool.check-manifest]
 ignore = [
     ".git-blame-ignore-revs",
-    ".readthedocs.yml",
+    ".readthedocs.yaml",
+    "AGENTS.md",
     "contrib_testing/**",
 ]
 
@@ -157,8 +158,18 @@ commands = [["isort", "{toxinidir}"], ["black", "{toxinidir}"]]
 
 [tool.tox.env.integration]
 pass_env = ["LXD_*"]
+# Fail on pylxd warnings (e.g. attributes LXD sends that pylxd does not declare).
+set_env = { "PYLXD_WARNINGS" = "" }
 deps = ".[testing]"
-commands = [["pytest", "integration", { replace = "posargs", extend = true }]]
+commands = [
+    [
+        "pytest",
+        "integration",
+        "-W",
+        "error::UserWarning",
+        { replace = "posargs", extend = true },
+    ],
+]
 
 [tool.tox.env.integration-in-lxd]
 allowlist_externals = ["{toxinidir}/integration/run-integration-tests-in-lxd"]

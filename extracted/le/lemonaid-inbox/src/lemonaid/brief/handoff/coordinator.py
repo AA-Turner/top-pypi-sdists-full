@@ -7,10 +7,9 @@ from pathlib import Path
 
 from ...inbox import db
 from .. import attached
-from . import codex as handoff_codex
+from . import harnesses, recovery, self_started
 from . import launch as handoff_launch
 from . import pane as handoff_tmux
-from . import recovery
 from . import report as handoff_report
 from . import state as handoff_state
 from . import transfer as handoff_transfer
@@ -46,6 +45,19 @@ def source(conn, channel: str) -> tuple[Path, str, str, str, str, str]:
     return path, session, index, window_id, pane, current_command
 
 
+def _read_typed(conn, row) -> None:
+    """Record the handoff phrases users typed into either lemon, where its harness keeps them."""
+    for channel in (row["source"], row["target"]):
+        if channel:
+            harnesses.of(channel).typed(
+                conn,
+                channel,
+                lambda message, channel=channel: handoff_state.typed_message(
+                    conn, channel, message
+                ),
+            )
+
+
 def recover_source(conn, row, reason: str) -> str:
     if row["error"]:
         return row["error"]
@@ -66,6 +78,10 @@ def recover_source(conn, row, reason: str) -> str:
             f"handoff {reason}; outgoing channel retains its brief; "
             "resume the original session if it exited, then rearm its waiters before retrying"
         )
+    elif harnesses.named(row["harness"]).start is not None and (
+        unresumed := self_started.unresumed(row, reason)
+    ):
+        error = unresumed
     elif row["target_pid"]:
         resumed = handoff_tmux.resume_source(conn, row)
         error = (
@@ -103,6 +119,15 @@ def recover_source(conn, row, reason: str) -> str:
     )
     conn.commit()
     return error
+
+
+def _launch(conn, row) -> None:
+    if row["recovery_hash"]:
+        recovery.launch(conn, row)
+    elif (start := harnesses.named(row["harness"]).start) is not None:
+        self_started.start(conn, row, start)
+    else:
+        handoff_launch.run(conn, row)
 
 
 def _advance(conn, token: str) -> dict:
@@ -149,34 +174,28 @@ def _advance(conn, token: str) -> dict:
         return {**handoff_report.build(row), "missing": ["outgoing pane changed; cutover stopped"]}
 
     if row["phase"] == "requested":
-        handoff_codex.phrases(conn, row)
+        _read_typed(conn, row)
         good, reason = handoff_state.ready(conn, row)
         if not good:
             return {**handoff_report.build(row), "missing": [reason]}
 
         handoff_state.acknowledge(conn, token, row["source"], "ready")
-        if not row["source_pane_id"]:
+        if not row["source_pane_id"] and harnesses.named(row["harness"]).start is None:
             conn.execute("UPDATE brief_handoffs SET phase = 'launched' WHERE token = ?", (token,))
             conn.commit()
             return {
                 **handoff_report.build(handoff_state.get(conn, token)),
                 "missing": ["start the target command, then accept from that harness"],
             }
-        if row["recovery_hash"]:
-            recovery.launch(conn, row)
-        else:
-            handoff_launch.run(conn, row)
+        _launch(conn, row)
         row = handoff_state.get(conn, token)
 
     if row["phase"] == "prepared":
-        if row["recovery_hash"]:
-            recovery.launch(conn, row)
-        else:
-            handoff_launch.run(conn, row)
+        _launch(conn, row)
         row = handoff_state.get(conn, token)
 
     if row["phase"] == "launched":
-        if row["source_pane_id"]:
+        if row["target_pane_id"]:
             state = handoff_tmux.pane_process(row["target_pane_id"], row["target_window_id"])
             if state is None or state[0] != row["target_pid"]:
                 return {
@@ -192,7 +211,7 @@ def _advance(conn, token: str) -> dict:
         target = row["target"]
 
         if row["source_pane_id"]:
-            handoff_codex.phrases(conn, row)
+            _read_typed(conn, row)
         row = handoff_state.get(conn, token)
 
         if not target or not row["accepted"]:

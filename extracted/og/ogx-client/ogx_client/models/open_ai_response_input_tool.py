@@ -27,13 +27,14 @@ from typing import Any, List, Optional
 from ogx_client.models.open_ai_response_input_tool_file_search import OpenAIResponseInputToolFileSearch
 from ogx_client.models.open_ai_response_input_tool_function import OpenAIResponseInputToolFunction
 from ogx_client.models.open_ai_response_input_tool_mcp import OpenAIResponseInputToolMCP
+from ogx_client.models.open_ai_response_input_tool_namespace import OpenAIResponseInputToolNamespace
 from ogx_client.models.open_ai_response_input_tool_web_search import OpenAIResponseInputToolWebSearch
 from pydantic import StrictStr, Field, model_serializer
 from typing import Any, ClassVar
 from typing_extensions import Literal, Self
 from ogx_client.lib._utils import pascal_to_snake_case
 
-OPENAIRESPONSEINPUTTOOL_ONE_OF_SCHEMAS = ["OpenAIResponseInputToolFileSearch", "OpenAIResponseInputToolFunction", "OpenAIResponseInputToolMCP", "OpenAIResponseInputToolWebSearch"]
+OPENAIRESPONSEINPUTTOOL_ONE_OF_SCHEMAS = ["OpenAIResponseInputToolFileSearch", "OpenAIResponseInputToolFunction", "OpenAIResponseInputToolMCP", "OpenAIResponseInputToolNamespace", "OpenAIResponseInputToolWebSearch"]
 
 class OpenAIResponseInputTool(BaseModel):
     """
@@ -47,8 +48,10 @@ class OpenAIResponseInputTool(BaseModel):
     oneof_schema_3_validator: Optional[OpenAIResponseInputToolFunction] = None
     # data type: OpenAIResponseInputToolMCP
     oneof_schema_4_validator: Optional[OpenAIResponseInputToolMCP] = None
-    actual_instance: OpenAIResponseInputToolFileSearch | OpenAIResponseInputToolFunction | OpenAIResponseInputToolMCP | OpenAIResponseInputToolWebSearch | None = None
-    one_of_schemas: ClassVar[set[str]] = { "OpenAIResponseInputToolFileSearch", "OpenAIResponseInputToolFunction", "OpenAIResponseInputToolMCP", "OpenAIResponseInputToolWebSearch" }
+    # data type: OpenAIResponseInputToolNamespace
+    oneof_schema_5_validator: Optional[OpenAIResponseInputToolNamespace] = None
+    actual_instance: OpenAIResponseInputToolFileSearch | OpenAIResponseInputToolFunction | OpenAIResponseInputToolMCP | OpenAIResponseInputToolNamespace | OpenAIResponseInputToolWebSearch | None = None
+    one_of_schemas: ClassVar[set[str]] = { "OpenAIResponseInputToolFileSearch", "OpenAIResponseInputToolFunction", "OpenAIResponseInputToolMCP", "OpenAIResponseInputToolNamespace", "OpenAIResponseInputToolWebSearch" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -60,6 +63,7 @@ class OpenAIResponseInputTool(BaseModel):
         'file_search': 'OpenAIResponseInputToolFileSearch',
         'function': 'OpenAIResponseInputToolFunction',
         'mcp': 'OpenAIResponseInputToolMCP',
+        'namespace': 'OpenAIResponseInputToolNamespace',
         'web_search': 'OpenAIResponseInputToolWebSearch',
         'web_search_2025_08_26': 'OpenAIResponseInputToolWebSearch',
         'web_search_preview': 'OpenAIResponseInputToolWebSearch',
@@ -312,6 +316,34 @@ class OpenAIResponseInputTool(BaseModel):
                 error_messages.append(f"Error! Input type `{type(v)}` is not `OpenAIResponseInputToolMCP`")
         else:
             match += 1
+        # validate data type: OpenAIResponseInputToolNamespace
+        # Check if we should skip this variant based on discriminator
+        _should_skip_discriminator = False
+        if isinstance(v, dict) and hasattr(cls, 'discriminator_value_class_map'):
+            _disc_value = v.get(cls.discriminator_property_name)
+            if _disc_value is None and cls.discriminator_property_name != 'type':
+                _disc_value = v.get('type')
+            if _disc_value and _disc_value in cls.discriminator_value_class_map:
+                _expected_class = cls.discriminator_value_class_map[_disc_value]
+                if _expected_class != 'OpenAIResponseInputToolNamespace':
+                    _should_skip_discriminator = True
+
+        if _should_skip_discriminator:
+            error_messages.append(f"Skipping OpenAIResponseInputToolNamespace due to discriminator mismatch")
+        elif not isinstance(v, OpenAIResponseInputToolNamespace):
+            # Try to construct from dict if it's a dict - this applies default values
+            if isinstance(v, dict):
+                try:
+                    constructed = OpenAIResponseInputToolNamespace.model_validate(v)
+                    match += 1
+                    # Return the constructed instance to use it instead of raw dict
+                    return constructed
+                except (ValidationError, ValueError) as e:
+                    error_messages.append(f"Error! Cannot construct `OpenAIResponseInputToolNamespace` from dict: {str(e)}")
+            else:
+                error_messages.append(f"Error! Input type `{type(v)}` is not `OpenAIResponseInputToolNamespace`")
+        else:
+            match += 1
         if match > 1:
             # Special case: empty lists can match multiple List[...] schemas in oneOf
             # This is common in streaming where content starts empty
@@ -319,10 +351,10 @@ class OpenAIResponseInputTool(BaseModel):
             if isinstance(v, list) and len(v) == 0:
                 return v
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in OpenAIResponseInputTool with oneOf schemas: OpenAIResponseInputToolFileSearch, OpenAIResponseInputToolFunction, OpenAIResponseInputToolMCP, OpenAIResponseInputToolWebSearch. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in OpenAIResponseInputTool with oneOf schemas: OpenAIResponseInputToolFileSearch, OpenAIResponseInputToolFunction, OpenAIResponseInputToolMCP, OpenAIResponseInputToolNamespace, OpenAIResponseInputToolWebSearch. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in OpenAIResponseInputTool with oneOf schemas: OpenAIResponseInputToolFileSearch, OpenAIResponseInputToolFunction, OpenAIResponseInputToolMCP, OpenAIResponseInputToolWebSearch. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in OpenAIResponseInputTool with oneOf schemas: OpenAIResponseInputToolFileSearch, OpenAIResponseInputToolFunction, OpenAIResponseInputToolMCP, OpenAIResponseInputToolNamespace, OpenAIResponseInputToolWebSearch. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -361,6 +393,11 @@ class OpenAIResponseInputTool(BaseModel):
         # check if data type is `OpenAIResponseInputToolMCP`
         if _data_type == "mcp":
             instance.actual_instance = OpenAIResponseInputToolMCP.from_json(json_str)
+            return instance
+
+        # check if data type is `OpenAIResponseInputToolNamespace`
+        if _data_type == "namespace":
+            instance.actual_instance = OpenAIResponseInputToolNamespace.from_json(json_str)
             return instance
 
         # check if data type is `OpenAIResponseInputToolWebSearch`
@@ -412,6 +449,12 @@ class OpenAIResponseInputTool(BaseModel):
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
+        # deserialize data into OpenAIResponseInputToolNamespace
+        try:
+            instance.actual_instance = OpenAIResponseInputToolNamespace.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
 
         if match > 1:
             # Special case: empty lists can match multiple List[...] schemas in oneOf
@@ -421,7 +464,7 @@ class OpenAIResponseInputTool(BaseModel):
             if isinstance(data, list) and len(data) == 0:
                 return instance  # First match already set in instance
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into OpenAIResponseInputTool with oneOf schemas: OpenAIResponseInputToolFileSearch, OpenAIResponseInputToolFunction, OpenAIResponseInputToolMCP, OpenAIResponseInputToolWebSearch. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into OpenAIResponseInputTool with oneOf schemas: OpenAIResponseInputToolFileSearch, OpenAIResponseInputToolFunction, OpenAIResponseInputToolMCP, OpenAIResponseInputToolNamespace, OpenAIResponseInputToolWebSearch. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match - try lenient fallback for streaming chunks
             data = json.loads(json_str)
@@ -479,13 +522,21 @@ class OpenAIResponseInputTool(BaseModel):
                 return instance
             except Exception:
                 pass
+            try:
+                cleaned_data = remove_none_values(data)
+                cleaned_data = add_streaming_defaults(cleaned_data)
+                variant = OpenAIResponseInputToolNamespace.model_validate(cleaned_data)
+                instance.actual_instance = variant
+                return instance
+            except Exception:
+                pass
 
             # All variants failed
-            raise ValueError("No match found when deserializing the JSON string into OpenAIResponseInputTool with oneOf schemas: OpenAIResponseInputToolFileSearch, OpenAIResponseInputToolFunction, OpenAIResponseInputToolMCP, OpenAIResponseInputToolWebSearch. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into OpenAIResponseInputTool with oneOf schemas: OpenAIResponseInputToolFileSearch, OpenAIResponseInputToolFunction, OpenAIResponseInputToolMCP, OpenAIResponseInputToolNamespace, OpenAIResponseInputToolWebSearch. Details: " + ", ".join(error_messages))
         else:
             return instance
 
-    def to_dict(self) -> dict[str, Any] | OpenAIResponseInputToolFileSearch | OpenAIResponseInputToolFunction | OpenAIResponseInputToolMCP | OpenAIResponseInputToolWebSearch | None:
+    def to_dict(self) -> dict[str, Any] | OpenAIResponseInputToolFileSearch | OpenAIResponseInputToolFunction | OpenAIResponseInputToolMCP | OpenAIResponseInputToolNamespace | OpenAIResponseInputToolWebSearch | None:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

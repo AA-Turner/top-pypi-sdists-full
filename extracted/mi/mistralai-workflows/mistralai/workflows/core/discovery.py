@@ -5,6 +5,7 @@ from typing import Type
 
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
+from mistralai.workflows.core.logging import extract_error_context
 
 logger = get_logger(__name__)
 
@@ -30,15 +31,15 @@ def discover_workflows_in_module(module_name: str) -> list[Type]:
                         module=module_name,
                     )
                     workflow_classes.append(obj)
-                except Exception as e:
+                except Exception as exc:
                     logger.warning(
                         "Failed to get workflow definition",
                         workflow_class=name,
                         module=module_name,
-                        error=str(e),
+                        **extract_error_context(exc),
                     )
-    except Exception as e:
-        logger.warning("Failed to import module", module=module_name, error=str(e))
+    except Exception as exc:
+        logger.warning("Failed to import module", module=module_name, **extract_error_context(exc))
 
     return workflow_classes
 
@@ -54,8 +55,8 @@ def discover_all_workflows_in_package(
     def scan_package(pkg_name: str) -> None:
         try:
             pkg = importlib.import_module(pkg_name)
-        except ImportError as e:
-            logger.error("Failed to import package", package=pkg_name, error=str(e))
+        except ImportError as exc:
+            logger.error("Failed to import package", package=pkg_name, **extract_error_context(exc))
             return
 
         if not hasattr(pkg, "__path__"):

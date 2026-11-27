@@ -52,6 +52,9 @@ class Dashboard:
                 refresh does not flip it. A client shows a loading state instead
                 of empty lists while it is false; a failed first refresh is
                 reported through forge health, not by keeping this false. It is
+                false again while there are no pull requests to show and a forge's
+                first read is still running ("slow" with no `rowsReadAt`), since
+                that is not an empty board. It is
                 also true when the server started from the snapshot saved by its
                 last run: those rows are on the page, and their forge reports
                 `reachable: false` with `staleSince` until the first refresh

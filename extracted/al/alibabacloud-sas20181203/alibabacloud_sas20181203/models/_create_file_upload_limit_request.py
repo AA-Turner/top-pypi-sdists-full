@@ -8,11 +8,14 @@ class CreateFileUploadLimitRequest(DaraModel):
     def __init__(
         self,
         limit: int = None,
+        resource_directory_account_id: int = None,
     ):
-        # The QPS limit on the files uploaded from the client. Valid values: 100 to 10000.
+        # Sets the QPS limit threshold for client file uploads. Valid values: 100 to 10000.
         # 
         # This parameter is required.
         self.limit = limit
+        # The ID of the member accounts in the resource folder (Alibaba Cloud account). You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to retrieve this parameter.
+        self.resource_directory_account_id = resource_directory_account_id
 
     def validate(self):
         pass
@@ -25,12 +28,18 @@ class CreateFileUploadLimitRequest(DaraModel):
         if self.limit is not None:
             result['Limit'] = self.limit
 
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         return result
 
     def from_map(self, m: dict = None):
         m = m or dict()
         if m.get('Limit') is not None:
             self.limit = m.get('Limit')
+
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 
         return self
 

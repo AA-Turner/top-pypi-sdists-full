@@ -1,5 +1,6 @@
 import asyncio
 import dataclasses
+import json
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import timedelta
@@ -24,30 +25,36 @@ from mistralai.workflows.core._events import event_activities, event_context
 from mistralai.workflows.core._events.event_context import (
     EVENT_PUBLISH_FAILED_ERROR_TYPE,
     EventContext,
-    V1EventRouteForbiddenError,
     _is_permanent_publish_error,
     activity_attempts_exhausted,
 )
 from mistralai.workflows.core._events.event_interceptor import _is_final_attempt
 from mistralai.workflows.core._events.event_utils import EMITTER_ACTIVITY_NAMES
+from mistralai.workflows.core._events.manual_publish import BatchEvent
+from mistralai.workflows.core.config.config import INTERNAL_ACTIVITY_PREFIX
+from mistralai.workflows.core.utils.contextvars import unwrap_contextual_result
+from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.protocol.v1.events import (
     ActivityTaskCompleted,
     ActivityTaskFailed,
     ActivityTaskStarted,
+    CustomTaskCompleted,
     CustomTaskFailed,
     CustomTaskInProgress,
     CustomTaskStarted,
     WorkflowEvent,
+    WorkflowEventCategory,
     WorkflowExecutionCanceled,
     WorkflowExecutionCompleted,
     WorkflowExecutionFailed,
     WorkflowExecutionStarted,
 )
 from mistralai.workflows.protocol.v2.worker import EVENT_ROUTE_TOKEN_EXPIRED_CODE, EVENT_ROUTE_TOKEN_INVALID_CODE
-from mistralai.workflows.testing import create_test_worker_with_events, wait_for_pending_inputs
-from mistralai.workflows.worker_client.errors import NoResponseError, SDKError
+from mistralai.workflows.testing import ALL_EVENT_CATEGORIES, create_test_worker_with_events, wait_for_pending_inputs
+from mistralai.workflows.worker_client.errors import NoResponseError
 
 from .fixtures import FailingWorkflow
+from .fixtures_event_batch import ManualEventsWorkflow, publish_manual_events_activity
 from .fixtures_interactive_workflow import SimpleApprovalWorkflow
 from .fixtures_task import (
     FailingTaskInWorkflowWorkflow,
@@ -67,13 +74,22 @@ _WORKFLOWS = [
     SimpleApprovalWorkflow,
     StatefulTaskWorkflow,
     FailingTaskNoRetryWorkflow,
+    ManualEventsWorkflow,
 ]
-_ACTIVITIES = [simple_task_activity, stateful_task_activity, failing_task_no_retry_activity]
+_ACTIVITIES = [
+    simple_task_activity,
+    stateful_task_activity,
+    failing_task_no_retry_activity,
+    publish_manual_events_activity,
+]
 
 
-def _http_error(status: HTTPStatus, code: str | None = None) -> SDKError:
-    body = {"code": code} if code else None
-    return SDKError("rejected", httpx.Response(status, json=body, request=httpx.Request("POST", "http://api/events")))
+def _http_error(status: HTTPStatus, code: ErrorCode | str | None = None) -> WorkflowsException:
+    return WorkflowsException(
+        "rejected",
+        status=status,
+        code=code if code is not None else ErrorCode.POST_EVENTS_ERROR,
+    )
 
 
 _BAD_REQUEST = _http_error(HTTPStatus.BAD_REQUEST)
@@ -89,7 +105,7 @@ class _EventsApi:
     delivered: list[WorkflowEvent] = dataclasses.field(default_factory=list)
 
     def client(self) -> AsyncMock:
-        async def send_events(*, events: list[Any], **kwargs: Any) -> None:
+        async def publish(events: list[WorkflowEvent]) -> None:
             parsed = [_event_adapter.validate_python(event) for event in events]
             rejected = next((e for e in parsed if self._rejects(e)), None)
             if rejected is not None:
@@ -101,12 +117,8 @@ class _EventsApi:
                 raise self.error
             self.delivered.extend(parsed)
 
-        async def send_event(*, event: Any, **kwargs: Any) -> None:
-            await send_events(events=[event])
-
         client = AsyncMock()
-        client.send_event_async = AsyncMock(side_effect=send_event)
-        client.send_events_batch_async = AsyncMock(side_effect=send_events)
+        client.publish = AsyncMock(side_effect=publish)
         return client
 
     def _rejects(self, event: WorkflowEvent) -> bool:
@@ -126,7 +138,7 @@ class _EventsApi:
 async def _started(
     api: _EventsApi, env: WorkflowEnvironment, workflow: type, *args: Any, workflow_id: str
 ) -> AsyncIterator[WorkflowHandle]:
-    async with EventContext(api.client()):
+    async with EventContext(api.client(), emitted_event_categories=ALL_EVENT_CATEGORIES):
         async with create_test_worker_with_events(env, workflows=_WORKFLOWS, activities=_ACTIVITIES):
             yield await env.client.start_workflow(
                 workflow,
@@ -167,16 +179,20 @@ def publish_metrics() -> Iterator[InMemoryMetricReader]:
         yield reader
 
 
-def _read_publish_retries(reader: InMemoryMetricReader) -> int:
+def _read_counter(reader: InMemoryMetricReader, name: str) -> int:
     data = reader.get_metrics_data()
     return sum(
         int(point.value)
         for resource_metric in (data.resource_metrics if data else [])
         for scope_metric in resource_metric.scope_metrics
         for metric in scope_metric.metrics
-        if metric.name == "mistral_workflows_event_publish_retries"
+        if metric.name == name
         for point in metric.data.data_points
     )
+
+
+def _read_publish_retries(reader: InMemoryMetricReader) -> int:
+    return _read_counter(reader, "mistral_workflows_event_publish_retries")
 
 
 def _user_activity_events[E: WorkflowEvent](api: _EventsApi, event_type: type[E]) -> list[E]:
@@ -226,7 +242,6 @@ class TestPublishErrorClassification:
                 (_http_error(HTTPStatus.UNAUTHORIZED, code), False)
                 for code in (EVENT_ROUTE_TOKEN_EXPIRED_CODE, EVENT_ROUTE_TOKEN_INVALID_CODE)
             ],
-            (V1EventRouteForbiddenError("v2-only"), True),
             (AttributeError("no such client method"), True),
             (httpx.ConnectError("down"), False),
             (TimeoutError(), False),
@@ -235,6 +250,195 @@ class TestPublishErrorClassification:
     )
     def test_only_errors_that_can_never_succeed_are_permanent(self, error: Exception, permanent: bool) -> None:
         assert _is_permanent_publish_error(error) is permanent
+
+
+class TestDurableBatchEvents:
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("fast_emitter_retries")
+    async def test_oversized_batch_checkpoints_each_split(
+        self, temporal_env_with_converter: WorkflowEnvironment
+    ) -> None:
+        async def publish(events: list[WorkflowEvent]) -> None:
+            manual = [event for event in events if isinstance(event, (CustomTaskStarted, CustomTaskCompleted))]
+            if len(manual) > 1:
+                raise _http_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+
+        env = temporal_env_with_converter
+        async with EventContext(AsyncMock(publish=AsyncMock(side_effect=publish))):
+            async with create_test_worker_with_events(env, workflows=[ManualEventsWorkflow]):
+                handle = await env.client.start_workflow(
+                    "manual_events", id="split-checkpoints", task_queue="test-task-queue"
+                )
+                result = await asyncio.wait_for(handle.result(), timeout=10)
+
+        assert unwrap_contextual_result(result)[1] == {"result": "done"}
+        # Each half of the split batch is its own checkpointed local activity, so the oversized batch
+        # is scheduled once and each single-event split once more.
+        batch_activity_names = [
+            str(json.loads(payload.data).get("activity_type", ""))
+            async for event in handle.fetch_history_events()
+            if event.HasField("marker_recorded_event_attributes")
+            for payload in event.marker_recorded_event_attributes.details["data"].payloads
+        ]
+        assert batch_activity_names.count(f"{INTERNAL_ACTIVITY_PREFIX}emit_events_batch") == 3
+
+    @pytest.mark.asyncio
+    async def test_unreadable_recorded_batch_fails_without_retrying(self) -> None:
+        publisher = AsyncMock()
+
+        async with EventContext(publisher):
+            with pytest.raises(ApplicationError) as raised:
+                await event_activities._emit_events_batch(
+                    [BatchEvent(serialized={"event_type": "not-an-event"}, encrypted_paths=[])]
+                )
+
+        assert raised.value.type == EVENT_PUBLISH_FAILED_ERROR_TYPE
+        assert raised.value.non_retryable
+        publisher.publish.assert_not_called()
+
+
+@pytest.mark.usefixtures("fast_emitter_retries", "fast_publish_retries")
+@pytest.mark.parametrize("in_activity", [False, True], ids=["workflow", "activity"])
+class TestDurableManualEvents:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("single", [False, True], ids=["batch", "single"])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            _http_error(HTTPStatus.SERVICE_UNAVAILABLE),
+            _http_error(HTTPStatus.REQUEST_TIMEOUT),
+            _http_error(HTTPStatus.TOO_MANY_REQUESTS),
+            _http_error(HTTPStatus.UNAUTHORIZED, EVENT_ROUTE_TOKEN_EXPIRED_CODE),
+            _http_error(HTTPStatus.UNAUTHORIZED, EVENT_ROUTE_TOKEN_INVALID_CODE),
+            httpx.ConnectError("down"),
+            TimeoutError(),
+        ],
+    )
+    async def test_transient_failure_retries_before_returning(
+        self, temporal_env: WorkflowEnvironment, in_activity: bool, single: bool, error: Exception
+    ) -> None:
+        api = _EventsApi(rejected_types=(CustomTaskCompleted,), error=error, rejections_left=2)
+
+        result = await _run(
+            api,
+            temporal_env,
+            ManualEventsWorkflow,
+            {"in_activity": in_activity, "single": single},
+            workflow_id="manual-transient",
+        )
+
+        assert result == {"result": "done"}
+        assert len(api.rejected) == 2
+        [delivered] = api.delivered_of(CustomTaskCompleted)
+        assert [e.event_id for e in api.rejected] == [delivered.event_id] * 2
+        assert delivered.attributes.payload.value == {"progress": "done"}
+        assert len(api.delivered_of(CustomTaskStarted)) == (0 if single else 1)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("single", [False, True], ids=["batch", "single"])
+    async def test_permanent_failure_fails_the_run(
+        self, temporal_env: WorkflowEnvironment, in_activity: bool, single: bool
+    ) -> None:
+        api = _EventsApi(rejected_types=(CustomTaskCompleted,), error=_BAD_REQUEST)
+
+        with pytest.raises(WorkflowFailureError) as exc_info:
+            await _run(
+                api,
+                temporal_env,
+                ManualEventsWorkflow,
+                {"in_activity": in_activity, "single": single},
+                workflow_id="manual-permanent",
+            )
+
+        cause = exc_info.value.cause
+        if in_activity:
+            assert isinstance(cause, ActivityError)
+            cause = cause.cause
+        assert isinstance(cause, ApplicationError)
+        assert cause.type == EVENT_PUBLISH_FAILED_ERROR_TYPE
+        assert cause.non_retryable
+        assert "HTTP 400" in cause.message
+        assert "CUSTOM_TASK_COMPLETED" in cause.message
+        assert len(api.rejected) == 1
+        assert not api.delivered_of(CustomTaskCompleted)
+        assert not api.delivered_of(WorkflowExecutionCompleted)
+
+    @pytest.mark.asyncio
+    async def test_encoding_failure_fails_the_run(
+        self, temporal_env: WorkflowEnvironment, in_activity: bool, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        encode = event_context.maybe_encode_event
+
+        async def fail_on_manual_event(event: WorkflowEvent, encoder: Any) -> WorkflowEvent:
+            if isinstance(event, CustomTaskCompleted):
+                raise ValueError("unencodable")
+            return await encode(event, encoder)
+
+        monkeypatch.setattr(event_context, "maybe_encode_event", fail_on_manual_event)
+        api = _EventsApi(rejected_types=(), error=_BAD_REQUEST)
+
+        with pytest.raises(WorkflowFailureError) as exc_info:
+            await _run(
+                api, temporal_env, ManualEventsWorkflow, {"in_activity": in_activity}, workflow_id="manual-unencodable"
+            )
+
+        cause = exc_info.value.cause
+        if in_activity:
+            assert isinstance(cause, ActivityError)
+            cause = cause.cause
+        assert isinstance(cause, ApplicationError)
+        assert cause.type == EVENT_PUBLISH_FAILED_ERROR_TYPE
+        assert cause.non_retryable
+        assert "unencodable" in cause.message
+        assert not api.delivered_of(CustomTaskCompleted)
+
+    @pytest.mark.asyncio
+    async def test_too_large_event_does_not_drop_the_rest_of_the_batch(
+        self,
+        temporal_env: WorkflowEnvironment,
+        in_activity: bool,
+        caplog: pytest.LogCaptureFixture,
+        publish_metrics: InMemoryMetricReader,
+    ) -> None:
+        api = _EventsApi(rejected_types=(CustomTaskCompleted,), error=_http_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE))
+
+        result = await _run(
+            api, temporal_env, ManualEventsWorkflow, {"in_activity": in_activity}, workflow_id="manual-too-large"
+        )
+
+        assert result == {"result": "done"}
+        assert len(api.delivered_of(CustomTaskStarted)) == 1
+        assert not api.delivered_of(CustomTaskCompleted)
+        assert "Dropping workflow event too large to publish" in caplog.text
+        assert _read_counter(publish_metrics, "mistral_workflows_events_dropped_too_large") == 1
+
+    @pytest.mark.asyncio
+    async def test_manual_publishes_respect_emitted_event_categories(
+        self, temporal_env: WorkflowEnvironment, in_activity: bool
+    ) -> None:
+        # ACTIVITY is off, so the run's activity events must not be delivered in either the durable
+        # workflow path or the standalone (activity) path; WORKFLOW-category events still are.
+        api = _EventsApi(rejected_types=(), error=_BAD_REQUEST)
+
+        async with EventContext(api.client(), emitted_event_categories=frozenset({WorkflowEventCategory.WORKFLOW})):
+            async with create_test_worker_with_events(temporal_env, workflows=_WORKFLOWS, activities=_ACTIVITIES):
+                handle = await temporal_env.client.start_workflow(
+                    ManualEventsWorkflow,
+                    args=[{"in_activity": in_activity}],
+                    id=f"manual-categories-{in_activity}",
+                    task_queue="test-task-queue",
+                )
+                result = await handle.result()
+
+        assert result == {"result": "done"}
+        assert not _user_activity_events(api, ActivityTaskStarted)
+        assert not _user_activity_events(api, ActivityTaskCompleted)
+        assert not api.delivered_of(CustomTaskInProgress)
+        assert len(api.delivered_of(WorkflowExecutionStarted)) == 1
+        assert len(api.delivered_of(WorkflowExecutionCompleted)) == 1
+        # CUSTOM_TASK cannot be turned off, so the manual custom task events still go out.
+        assert len(api.delivered_of(CustomTaskStarted)) == 1
+        assert len(api.delivered_of(CustomTaskCompleted)) == 1
 
 
 @pytest.mark.usefixtures("fast_emitter_retries")
@@ -487,6 +691,7 @@ class TestEventPublishMetrics:
             pytest.param(StatefulTaskWorkflow, CustomTaskInProgress, False, id="activity"),
             # Temporal cancels the emitter at its start-to-close timeout while the request still hangs.
             pytest.param(TaskInWorkflowWorkflow, CustomTaskStarted, True, id="workflow-code-hung-api"),
+            pytest.param(ManualEventsWorkflow, CustomTaskCompleted, True, id="manual-batch-hung-api"),
         ],
     )
     async def test_retries_are_counted_and_logged_with_the_stuck_run(

@@ -43,7 +43,7 @@ logger = get_logger(__name__)
 
 
 def _signal_log_field(export_config: OtelExportOptions) -> dict[str, object]:
-    # A custom destination (deprecated otel_endpoint or a per-signal override) brings its own auth,
+    # A custom destination (a per-signal endpoint override) brings its own auth,
     # so use_api_key is False; the default Mistral /telemetry ingest uses the service-account bearer.
     mode = "custom" if not export_config.use_api_key else "mistral"
     return {"mode": mode, "endpoint": export_config.endpoint, "enabled": export_config.enabled}

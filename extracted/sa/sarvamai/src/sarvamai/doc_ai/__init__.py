@@ -11,17 +11,18 @@ if typing.TYPE_CHECKING:
         DocAiExtractRequestOutputFormat,
         DocAiGetResultsResponse,
         DocAiGetResultsResponse_Classify,
+        DocAiGetResultsResponse_Digitise,
         DocAiGetResultsResponse_Extract,
-        DocAiGetResultsResponse_Parse,
         DocAiGetResultsResponse_Split,
         DocAiParseRequestContentType,
+        DocAiParseRequestOutputFormat,
         Format,
     )
     from .requests import (
         DocAiGetResultsResponseParams,
         DocAiGetResultsResponse_ClassifyParams,
+        DocAiGetResultsResponse_DigitiseParams,
         DocAiGetResultsResponse_ExtractParams,
-        DocAiGetResultsResponse_ParseParams,
         DocAiGetResultsResponse_SplitParams,
     )
 _dynamic_imports: typing.Dict[str, str] = {
@@ -31,13 +32,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocAiGetResultsResponseParams": ".requests",
     "DocAiGetResultsResponse_Classify": ".types",
     "DocAiGetResultsResponse_ClassifyParams": ".requests",
+    "DocAiGetResultsResponse_Digitise": ".types",
+    "DocAiGetResultsResponse_DigitiseParams": ".requests",
     "DocAiGetResultsResponse_Extract": ".types",
     "DocAiGetResultsResponse_ExtractParams": ".requests",
-    "DocAiGetResultsResponse_Parse": ".types",
-    "DocAiGetResultsResponse_ParseParams": ".requests",
     "DocAiGetResultsResponse_Split": ".types",
     "DocAiGetResultsResponse_SplitParams": ".requests",
     "DocAiParseRequestContentType": ".types",
+    "DocAiParseRequestOutputFormat": ".types",
     "Format": ".types",
 }
 
@@ -70,12 +72,13 @@ __all__ = [
     "DocAiGetResultsResponseParams",
     "DocAiGetResultsResponse_Classify",
     "DocAiGetResultsResponse_ClassifyParams",
+    "DocAiGetResultsResponse_Digitise",
+    "DocAiGetResultsResponse_DigitiseParams",
     "DocAiGetResultsResponse_Extract",
     "DocAiGetResultsResponse_ExtractParams",
-    "DocAiGetResultsResponse_Parse",
-    "DocAiGetResultsResponse_ParseParams",
     "DocAiGetResultsResponse_Split",
     "DocAiGetResultsResponse_SplitParams",
     "DocAiParseRequestContentType",
+    "DocAiParseRequestOutputFormat",
     "Format",
 ]

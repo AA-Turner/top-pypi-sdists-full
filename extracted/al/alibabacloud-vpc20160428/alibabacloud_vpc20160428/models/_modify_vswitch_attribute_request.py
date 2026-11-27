@@ -8,6 +8,7 @@ class ModifyVSwitchAttributeRequest(DaraModel):
     def __init__(
         self,
         description: str = None,
+        enable_dns_64: bool = None,
         enable_ipv_6: bool = None,
         ipv_6cidr_block: int = None,
         ipv_6cidr_mask: int = None,
@@ -24,6 +25,7 @@ class ModifyVSwitchAttributeRequest(DaraModel):
         # 
         # The description must be 1 to 256 characters in length and cannot start with `http://` or `https://`.
         self.description = description
+        self.enable_dns_64 = enable_dns_64
         # Specifies whether to enable IPv6 for the vSwitch. Valid values:
         # 
         # - **true**: Enables IPv6. IPv6 must be enabled for the VPC to which the vSwitch belongs. You must also specify Ipv6CidrBlock to allocate an IPv6 CIDR block to the vSwitch.
@@ -66,6 +68,9 @@ class ModifyVSwitchAttributeRequest(DaraModel):
         if self.description is not None:
             result['Description'] = self.description
 
+        if self.enable_dns_64 is not None:
+            result['EnableDns64'] = self.enable_dns_64
+
         if self.enable_ipv_6 is not None:
             result['EnableIPv6'] = self.enable_ipv_6
 
@@ -105,6 +110,9 @@ class ModifyVSwitchAttributeRequest(DaraModel):
         m = m or dict()
         if m.get('Description') is not None:
             self.description = m.get('Description')
+
+        if m.get('EnableDns64') is not None:
+            self.enable_dns_64 = m.get('EnableDns64')
 
         if m.get('EnableIPv6') is not None:
             self.enable_ipv_6 = m.get('EnableIPv6')

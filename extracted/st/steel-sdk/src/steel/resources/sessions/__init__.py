@@ -24,6 +24,14 @@ from .sessions import (
     SessionsResourceWithStreamingResponse,
     AsyncSessionsResourceWithStreamingResponse,
 )
+from .credentials import (
+    CredentialsResource,
+    AsyncCredentialsResource,
+    CredentialsResourceWithRawResponse,
+    AsyncCredentialsResourceWithRawResponse,
+    CredentialsResourceWithStreamingResponse,
+    AsyncCredentialsResourceWithStreamingResponse,
+)
 from .command_executions import (
     CommandExecutionsResource,
     AsyncCommandExecutionsResource,
@@ -46,6 +54,12 @@ __all__ = [
     "AsyncCommandExecutionsResourceWithRawResponse",
     "CommandExecutionsResourceWithStreamingResponse",
     "AsyncCommandExecutionsResourceWithStreamingResponse",
+    "CredentialsResource",
+    "AsyncCredentialsResource",
+    "CredentialsResourceWithRawResponse",
+    "AsyncCredentialsResourceWithRawResponse",
+    "CredentialsResourceWithStreamingResponse",
+    "AsyncCredentialsResourceWithStreamingResponse",
     "FilesResource",
     "AsyncFilesResource",
     "FilesResourceWithRawResponse",

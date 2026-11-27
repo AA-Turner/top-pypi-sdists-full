@@ -27541,7 +27541,7 @@ class PostInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'postInfo'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.post.PostInfo")
 
     def __init__(self,
@@ -37866,279 +37866,279 @@ avrojson.set_global_json_converter(_json_converter)
     
 
 ASPECT_CLASSES: List[Type[_Aspect]] = [
-    DataHubIngestionSourceInfoClass,
-    DataHubSecretValueClass,
-    PlatformResourceInfoClass,
-    PlatformResourceKeyClass,
-    UpstreamLineageClass,
-    DatasetProfileClass,
-    EditablePrimaryKeysClass,
-    SemanticModelPropertiesClass,
-    DatasetPropertiesClass,
-    EditableDatasetPropertiesClass,
-    DatasetDeprecationClass,
-    PartitionsSummaryClass,
-    ViewPropertiesClass,
-    IcebergCatalogInfoClass,
-    DatasetUsageStatisticsClass,
-    DatasetUpstreamLineageClass,
-    RepositoryKeyClass,
-    RepositoryLineageClass,
-    RepositoryPropertiesClass,
-    RepositorySourceClass,
-    SchemaFieldInfoClass,
-    SchemaFieldAliasesClass,
-    NotebookInfoClass,
-    NotebookContentClass,
-    EditableNotebookPropertiesClass,
-    DataHubConnectionDetailsClass,
-    LogicalParentClass,
-    FormInfoClass,
-    DynamicFormAssignmentClass,
-    SemanticFieldAnnotationClass,
-    SemanticModelInfoClass,
-    DataHubPageTemplatePropertiesClass,
-    SearchTemplatePropertiesClass,
-    DataHubFileInfoClass,
-    DataProductsClass,
-    DataProductKeyClass,
-    DataProductPropertiesClass,
-    DataHubPageModulePropertiesClass,
-    DocumentSettingsClass,
-    DocumentInfoClass,
-    DocumentUsageStatisticsClass,
-    IcebergWarehouseInfoClass,
-    DataPlatformInstancePropertiesClass,
-    EntityTypeInfoClass,
-    EntityTypeKeyClass,
-    ChartInfoClass,
-    EditableChartPropertiesClass,
-    ChartQueryClass,
-    ChartUsageStatisticsClass,
-    ApiSignatureClass,
-    ApiPropertiesClass,
-    RestApiPropertiesClass,
-    TelemetryClientIdClass,
-    DataProcessInstanceRunEventClass,
-    DataProcessInstanceInputClass,
-    DataProcessInstancePropertiesClass,
-    DataProcessInstanceRelationshipsClass,
-    DataProcessInstanceOutputClass,
-    DataProcessInfoClass,
-    DataHubPersonaInfoClass,
-    OwnershipTypeInfoClass,
-    MLFeatureTablePropertiesClass,
-    EditableMLPrimaryKeyPropertiesClass,
-    MLHyperParamClass,
-    TrainingDataClass,
-    MLModelGroupPropertiesClass,
-    EvaluationDataClass,
-    MLTrainingRunPropertiesClass,
-    EthicalConsiderationsClass,
-    MLPrimaryKeyPropertiesClass,
-    EditableMLFeaturePropertiesClass,
-    MetricsClass,
-    MLFeaturePropertiesClass,
-    EditableMLModelGroupPropertiesClass,
-    IntendedUseClass,
-    EditableMLModelPropertiesClass,
-    QuantitativeAnalysesClass,
-    MLModelPropertiesClass,
-    EditableMLFeatureTablePropertiesClass,
-    CaveatsAndRecommendationsClass,
-    SourceCodeClass,
-    MLModelDeploymentPropertiesClass,
-    MLModelFactorPromptsClass,
-    MLMetricClass,
-    TestInfoClass,
-    TestResultsClass,
+    GlossaryNodeInfoClass,
     GlossaryTermInfoClass,
     GlossaryRelatedTermsClass,
-    GlossaryNodeInfoClass,
+    OkfPropertiesClass,
+    DataHubIngestionSourceInfoClass,
+    ApplicationKeyClass,
+    ApplicationPropertiesClass,
+    ApplicationsClass,
+    ApplicationLineageClass,
+    DataHubConnectionDetailsClass,
+    ExecutionRequestResultClass,
+    ExecutionRequestSignalClass,
+    ExecutionRequestInputClass,
+    AgentSkillInfoClass,
+    FormInfoClass,
+    DynamicFormAssignmentClass,
+    DataHubRetentionConfigClass,
+    LogicalParentClass,
+    DomainsClass,
+    DomainPropertiesClass,
+    MetricRelationshipsClass,
+    MetricInfoClass,
+    MetricUpstreamsClass,
+    TestResultsClass,
+    TestInfoClass,
     DataHubPolicyInfoClass,
     DataHubRoleInfoClass,
-    IncidentExternalLinksClass,
-    IncidentInfoClass,
-    IncidentSourceClass,
-    IncidentNotesClass,
-    LifecycleStageTypeInfoClass,
-    DomainPropertiesClass,
-    DomainsClass,
+    StorageFeaturesClass,
+    UsageFeaturesClass,
+    DataHubPolicyKeyClass,
+    InviteTokenKeyClass,
+    RoleKeyClass,
+    ExecutionRequestKeyClass,
+    DataHubPersonaKeyClass,
+    DataHubIngestionSourceKeyClass,
+    DatasetKeyClass,
+    DomainKeyClass,
+    DataPlatformInstanceKeyClass,
+    CorpGroupKeyClass,
+    SchemaFieldKeyClass,
+    DataHubPageModuleKeyClass,
+    GlobalSettingsKeyClass,
+    DataHubOpenAPISchemaKeyClass,
+    CorpUserKeyClass,
+    DataHubRetentionKeyClass,
+    VersionSetKeyClass,
+    PostKeyClass,
+    ApiKeyClass,
+    MLFeatureKeyClass,
+    DataProcessInstanceKeyClass,
+    ChartKeyClass,
+    DataHubPageTemplateKeyClass,
+    GlossaryTermKeyClass,
+    DataJobKeyClass,
+    MetricKeyClass,
+    DataFlowKeyClass,
+    MLPrimaryKeyKeyClass,
+    NotebookKeyClass,
+    QueryKeyClass,
+    IncidentKeyClass,
+    GlossaryNodeKeyClass,
+    FormKeyClass,
+    DataContractKeyClass,
+    DataHubAccessTokenKeyClass,
+    MLModelKeyClass,
+    TestKeyClass,
+    DataProcessKeyClass,
+    OwnershipTypeKeyClass,
+    MLModelDeploymentKeyClass,
+    DocumentKeyClass,
+    ERModelRelationshipKeyClass,
+    AssertionKeyClass,
+    DataHubStepStateKeyClass,
+    DataPlatformKeyClass,
+    DataHubUpgradeKeyClass,
+    SearchTemplateKeyClass,
+    MLFeatureTableKeyClass,
+    LifecycleStageTypeKeyClass,
+    DataHubRoleKeyClass,
+    DataHubViewKeyClass,
+    ContainerKeyClass,
+    DataHubConnectionKeyClass,
+    TelemetryKeyClass,
+    TagKeyClass,
+    AgentSkillKeyClass,
+    AIAgentKeyClass,
+    MLModelGroupKeyClass,
+    DataHubSecretKeyClass,
+    DataHubActionKeyClass,
+    SemanticModelKeyClass,
+    DashboardKeyClass,
+    DataHubFileKeyClass,
+    EditableNotebookPropertiesClass,
+    NotebookInfoClass,
+    NotebookContentClass,
+    RepositorySourceClass,
+    RepositoryPropertiesClass,
+    RepositoryLineageClass,
+    RepositoryKeyClass,
+    DataTypeKeyClass,
+    DataTypeInfoClass,
+    DataHubFileInfoClass,
+    BusinessAttributeInfoClass,
     BusinessAttributesClass,
     BusinessAttributeKeyClass,
-    BusinessAttributeInfoClass,
-    PostInfoClass,
-    QueryPropertiesClass,
-    QuerySubjectsClass,
-    QueryUsageStatisticsClass,
-    GlobalSettingsInfoClass,
-    AssetSettingsClass,
-    EditableERModelRelationshipPropertiesClass,
-    ERModelRelationshipPropertiesClass,
-    DataHubViewInfoClass,
-    ActorsClass,
+    SchemaFieldAliasesClass,
+    SchemaFieldInfoClass,
+    DataHubStepStatePropertiesClass,
+    DataHubPageTemplatePropertiesClass,
+    MLPrimaryKeyPropertiesClass,
+    EditableMLFeaturePropertiesClass,
+    MLHyperParamClass,
+    MLModelPropertiesClass,
+    MLMetricClass,
+    IntendedUseClass,
+    TrainingDataClass,
+    CaveatsAndRecommendationsClass,
+    EditableMLModelGroupPropertiesClass,
+    MLTrainingRunPropertiesClass,
+    EditableMLPrimaryKeyPropertiesClass,
+    EditableMLFeatureTablePropertiesClass,
+    MLModelFactorPromptsClass,
+    MLFeatureTablePropertiesClass,
+    EthicalConsiderationsClass,
+    MLModelGroupPropertiesClass,
+    MLFeaturePropertiesClass,
+    EditableMLModelPropertiesClass,
+    EvaluationDataClass,
+    SourceCodeClass,
+    MLModelDeploymentPropertiesClass,
+    QuantitativeAnalysesClass,
+    MetricsClass,
     RolePropertiesClass,
+    ActorsClass,
+    CorpUserInfoClass,
+    CorpUserSettingsClass,
+    NativeGroupMembershipClass,
+    CorpUserStatusClass,
+    GroupMembershipClass,
+    InviteTokenClass,
+    CorpUserCredentialsClass,
+    RoleMembershipClass,
+    CorpGroupInfoClass,
+    CorpUserEditableInfoClass,
+    CorpGroupEditableInfoClass,
+    PartitionsSummaryClass,
+    DatasetProfileClass,
+    DatasetUsageStatisticsClass,
+    UpstreamLineageClass,
+    EditableDatasetPropertiesClass,
+    DatasetPropertiesClass,
+    IcebergCatalogInfoClass,
+    EditablePrimaryKeysClass,
+    ViewPropertiesClass,
+    DatasetDeprecationClass,
+    DatasetUpstreamLineageClass,
+    SemanticModelPropertiesClass,
+    EntityTypeKeyClass,
+    EntityTypeInfoClass,
+    DataProductKeyClass,
+    DataProductPropertiesClass,
+    DataProductsClass,
+    SearchTemplatePropertiesClass,
+    ERModelRelationshipPropertiesClass,
+    EditableERModelRelationshipPropertiesClass,
+    SystemMetadataClass,
+    VersionSetPropertiesClass,
+    DataPlatformInstanceClass,
+    OwnershipClass,
+    DisplayPropertiesClass,
+    OperationClass,
+    InputFieldsClass,
+    GlobalTagsClass,
+    BrowsePathsV2Class,
+    AliasesClass,
+    SemanticTextClass,
+    EmbedClass,
+    VersionPropertiesClass,
+    AccessClass,
+    InstitutionalMemoryClass,
+    CostClass,
+    OriginClass,
+    DocumentationClass,
+    SemanticContentClass,
+    GlossaryTermsClass,
+    FormsClass,
+    IncidentsSummaryClass,
+    SiblingsClass,
+    AiContextClass,
+    BrowsePathsClass,
+    StatusClass,
+    DeprecationClass,
+    UpstreamMetricsClass,
+    DataTransformLogicClass,
+    SubTypesClass,
+    TagPropertiesClass,
+    DataProcessInstanceRelationshipsClass,
+    DataProcessInstanceInputClass,
+    DataProcessInstancePropertiesClass,
+    DataProcessInstanceOutputClass,
+    DataProcessInstanceRunEventClass,
+    DataProcessInfoClass,
+    DataHubViewInfoClass,
+    DataHubUpgradeResultClass,
+    DataHubUpgradeRequestClass,
+    DataHubPersonaInfoClass,
+    DocumentUsageStatisticsClass,
+    DocumentSettingsClass,
+    DocumentInfoClass,
+    IncidentExternalLinksClass,
+    IncidentInfoClass,
+    IncidentNotesClass,
+    IncidentSourceClass,
+    DataPlatformInfoClass,
+    SlackUserInfoClass,
     EditableDashboardPropertiesClass,
     DashboardInfoClass,
     DashboardUsageStatisticsClass,
-    ExecutionRequestInputClass,
-    ExecutionRequestResultClass,
-    ExecutionRequestSignalClass,
-    DataHubUpgradeResultClass,
-    DataHubUpgradeRequestClass,
-    DataHubAccessTokenInfoClass,
-    DataPlatformInfoClass,
-    SlackUserInfoClass,
-    DataHubRetentionConfigClass,
-    StorageFeaturesClass,
-    UsageFeaturesClass,
-    AIAgentKeyClass,
-    TestKeyClass,
-    CorpUserKeyClass,
-    DataHubPageModuleKeyClass,
-    GlobalSettingsKeyClass,
-    DataContractKeyClass,
-    MLFeatureKeyClass,
-    TagKeyClass,
-    ERModelRelationshipKeyClass,
-    SemanticModelKeyClass,
-    DataHubStepStateKeyClass,
-    DataHubConnectionKeyClass,
-    DataHubRoleKeyClass,
-    DomainKeyClass,
-    DataHubPageTemplateKeyClass,
-    MLModelKeyClass,
-    QueryKeyClass,
-    GlossaryTermKeyClass,
-    DataHubOpenAPISchemaKeyClass,
-    InviteTokenKeyClass,
-    ChartKeyClass,
-    SchemaFieldKeyClass,
-    DataHubRetentionKeyClass,
-    DataHubSecretKeyClass,
-    LifecycleStageTypeKeyClass,
-    AssertionKeyClass,
-    GlossaryNodeKeyClass,
-    ExecutionRequestKeyClass,
-    DataHubIngestionSourceKeyClass,
-    DashboardKeyClass,
-    OwnershipTypeKeyClass,
-    MLFeatureTableKeyClass,
-    FormKeyClass,
-    NotebookKeyClass,
-    AgentSkillKeyClass,
-    DataHubPolicyKeyClass,
-    MLModelGroupKeyClass,
-    MetricKeyClass,
-    MLPrimaryKeyKeyClass,
-    DataHubUpgradeKeyClass,
-    DocumentKeyClass,
-    VersionSetKeyClass,
-    TelemetryKeyClass,
-    SearchTemplateKeyClass,
-    CorpGroupKeyClass,
-    MLModelDeploymentKeyClass,
-    ContainerKeyClass,
-    DataJobKeyClass,
-    DataHubActionKeyClass,
-    DataHubAccessTokenKeyClass,
-    DataHubPersonaKeyClass,
-    ApiKeyClass,
-    DataProcessKeyClass,
-    DataHubViewKeyClass,
-    DataHubFileKeyClass,
-    RoleKeyClass,
-    IncidentKeyClass,
-    DatasetKeyClass,
-    DataFlowKeyClass,
-    PostKeyClass,
-    DataPlatformKeyClass,
-    DataProcessInstanceKeyClass,
-    DataPlatformInstanceKeyClass,
-    DataContractPropertiesClass,
-    DataContractStatusClass,
-    ApplicationPropertiesClass,
-    ApplicationKeyClass,
-    ApplicationLineageClass,
-    ApplicationsClass,
-    StructuredPropertiesClass,
-    StructuredPropertyKeyClass,
-    StructuredPropertyDefinitionClass,
-    StructuredPropertySettingsClass,
-    MetricInfoClass,
-    MetricUpstreamsClass,
-    MetricRelationshipsClass,
-    SemanticTextClass,
-    GlobalTagsClass,
-    EmbedClass,
-    BrowsePathsClass,
-    StatusClass,
-    SiblingsClass,
-    SemanticContentClass,
-    VersionPropertiesClass,
-    OriginClass,
-    IncidentsSummaryClass,
-    OperationClass,
-    BrowsePathsV2Class,
-    OwnershipClass,
-    InstitutionalMemoryClass,
-    AccessClass,
-    CostClass,
-    AliasesClass,
-    DataPlatformInstanceClass,
-    DisplayPropertiesClass,
-    SubTypesClass,
-    DataTransformLogicClass,
-    InputFieldsClass,
-    DocumentationClass,
-    FormsClass,
-    DeprecationClass,
-    GlossaryTermsClass,
-    UpstreamMetricsClass,
-    AiContextClass,
-    DataHubStepStatePropertiesClass,
-    McpServerPropertiesClass,
-    ServiceKeyClass,
-    ServicePropertiesClass,
-    ServiceDefinitionClass,
-    DataFlowInfoClass,
-    EditableDataJobPropertiesClass,
-    VersionInfoClass,
-    EditableDataFlowPropertiesClass,
-    DataJobInfoClass,
-    DataJobInputOutputClass,
-    DatahubIngestionRunSummaryClass,
-    DatahubIngestionCheckpointClass,
-    SchemaMetadataClass,
-    EditableSchemaMetadataClass,
-    SystemMetadataClass,
-    AssertionActionsClass,
-    AssertionRunEventClass,
-    AssertionRunSummaryClass,
-    AssertionInfoClass,
-    AssertionNoteClass,
-    AgentSkillInfoClass,
-    CorpUserInfoClass,
-    CorpGroupEditableInfoClass,
-    CorpGroupInfoClass,
-    CorpUserEditableInfoClass,
-    RoleMembershipClass,
-    InviteTokenClass,
-    CorpUserStatusClass,
-    CorpUserCredentialsClass,
-    NativeGroupMembershipClass,
-    GroupMembershipClass,
-    CorpUserSettingsClass,
-    TagPropertiesClass,
-    VersionSetPropertiesClass,
-    DataTypeInfoClass,
-    DataTypeKeyClass,
+    LifecycleStageTypeInfoClass,
+    TelemetryClientIdClass,
     AIAgentDependenciesClass,
     AIAgentInfoClass,
-    OkfPropertiesClass,
-    ContainerClass,
+    AssetSettingsClass,
+    GlobalSettingsInfoClass,
+    QueryUsageStatisticsClass,
+    QueryPropertiesClass,
+    QuerySubjectsClass,
+    SchemaMetadataClass,
+    EditableSchemaMetadataClass,
+    DataHubPageModulePropertiesClass,
+    PostInfoClass,
+    AssertionRunEventClass,
+    AssertionRunSummaryClass,
+    AssertionNoteClass,
+    AssertionInfoClass,
+    AssertionActionsClass,
+    PlatformResourceKeyClass,
+    PlatformResourceInfoClass,
+    DataHubSecretValueClass,
     ContainerPropertiesClass,
-    EditableContainerPropertiesClass
+    EditableContainerPropertiesClass,
+    ContainerClass,
+    StructuredPropertySettingsClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertyKeyClass,
+    DataHubAccessTokenInfoClass,
+    ChartInfoClass,
+    ChartUsageStatisticsClass,
+    ChartQueryClass,
+    EditableChartPropertiesClass,
+    SemanticModelInfoClass,
+    SemanticFieldAnnotationClass,
+    McpServerPropertiesClass,
+    ServiceKeyClass,
+    ServiceDefinitionClass,
+    ServicePropertiesClass,
+    DataPlatformInstancePropertiesClass,
+    IcebergWarehouseInfoClass,
+    RestApiPropertiesClass,
+    ApiPropertiesClass,
+    ApiSignatureClass,
+    DataContractPropertiesClass,
+    DataContractStatusClass,
+    DataFlowInfoClass,
+    VersionInfoClass,
+    DataJobInputOutputClass,
+    DataJobInfoClass,
+    EditableDataJobPropertiesClass,
+    EditableDataFlowPropertiesClass,
+    DatahubIngestionRunSummaryClass,
+    DatahubIngestionCheckpointClass,
+    OwnershipTypeInfoClass
 ]
 
 ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {
@@ -38150,431 +38150,431 @@ from typing import Literal, Set
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
-    dataHubIngestionSourceInfo: DataHubIngestionSourceInfoClass
-    dataHubSecretValue: DataHubSecretValueClass
-    platformResourceInfo: PlatformResourceInfoClass
-    platformResourceKey: PlatformResourceKeyClass
-    upstreamLineage: UpstreamLineageClass
-    datasetProfile: DatasetProfileClass
-    editablePrimaryKeys: EditablePrimaryKeysClass
-    semanticModelProperties: SemanticModelPropertiesClass
-    datasetProperties: DatasetPropertiesClass
-    editableDatasetProperties: EditableDatasetPropertiesClass
-    datasetDeprecation: DatasetDeprecationClass
-    partitionsSummary: PartitionsSummaryClass
-    viewProperties: ViewPropertiesClass
-    icebergCatalogInfo: IcebergCatalogInfoClass
-    datasetUsageStatistics: DatasetUsageStatisticsClass
-    datasetUpstreamLineage: DatasetUpstreamLineageClass
-    repositoryKey: RepositoryKeyClass
-    repositoryLineage: RepositoryLineageClass
-    repositoryProperties: RepositoryPropertiesClass
-    repositorySource: RepositorySourceClass
-    schemafieldInfo: SchemaFieldInfoClass
-    schemaFieldAliases: SchemaFieldAliasesClass
-    notebookInfo: NotebookInfoClass
-    notebookContent: NotebookContentClass
-    editableNotebookProperties: EditableNotebookPropertiesClass
-    dataHubConnectionDetails: DataHubConnectionDetailsClass
-    logicalParent: LogicalParentClass
-    formInfo: FormInfoClass
-    dynamicFormAssignment: DynamicFormAssignmentClass
-    semanticFieldAnnotation: SemanticFieldAnnotationClass
-    semanticModelInfo: SemanticModelInfoClass
-    dataHubPageTemplateProperties: DataHubPageTemplatePropertiesClass
-    searchTemplateProperties: SearchTemplatePropertiesClass
-    dataHubFileInfo: DataHubFileInfoClass
-    dataProducts: DataProductsClass
-    dataProductKey: DataProductKeyClass
-    dataProductProperties: DataProductPropertiesClass
-    dataHubPageModuleProperties: DataHubPageModulePropertiesClass
-    documentSettings: DocumentSettingsClass
-    documentInfo: DocumentInfoClass
-    documentUsageStatistics: DocumentUsageStatisticsClass
-    icebergWarehouseInfo: IcebergWarehouseInfoClass
-    dataPlatformInstanceProperties: DataPlatformInstancePropertiesClass
-    entityTypeInfo: EntityTypeInfoClass
-    entityTypeKey: EntityTypeKeyClass
-    chartInfo: ChartInfoClass
-    editableChartProperties: EditableChartPropertiesClass
-    chartQuery: ChartQueryClass
-    chartUsageStatistics: ChartUsageStatisticsClass
-    apiSignature: ApiSignatureClass
-    apiProperties: ApiPropertiesClass
-    restApiProperties: RestApiPropertiesClass
-    telemetryClientId: TelemetryClientIdClass
-    dataProcessInstanceRunEvent: DataProcessInstanceRunEventClass
-    dataProcessInstanceInput: DataProcessInstanceInputClass
-    dataProcessInstanceProperties: DataProcessInstancePropertiesClass
-    dataProcessInstanceRelationships: DataProcessInstanceRelationshipsClass
-    dataProcessInstanceOutput: DataProcessInstanceOutputClass
-    dataProcessInfo: DataProcessInfoClass
-    dataHubPersonaInfo: DataHubPersonaInfoClass
-    ownershipTypeInfo: OwnershipTypeInfoClass
-    mlFeatureTableProperties: MLFeatureTablePropertiesClass
-    editableMlPrimaryKeyProperties: EditableMLPrimaryKeyPropertiesClass
-    mlHyperParam: MLHyperParamClass
-    mlModelTrainingData: TrainingDataClass
-    mlModelGroupProperties: MLModelGroupPropertiesClass
-    mlModelEvaluationData: EvaluationDataClass
-    mlTrainingRunProperties: MLTrainingRunPropertiesClass
-    mlModelEthicalConsiderations: EthicalConsiderationsClass
-    mlPrimaryKeyProperties: MLPrimaryKeyPropertiesClass
-    editableMlFeatureProperties: EditableMLFeaturePropertiesClass
-    mlModelMetrics: MetricsClass
-    mlFeatureProperties: MLFeaturePropertiesClass
-    editableMlModelGroupProperties: EditableMLModelGroupPropertiesClass
-    intendedUse: IntendedUseClass
-    editableMlModelProperties: EditableMLModelPropertiesClass
-    mlModelQuantitativeAnalyses: QuantitativeAnalysesClass
-    mlModelProperties: MLModelPropertiesClass
-    editableMlFeatureTableProperties: EditableMLFeatureTablePropertiesClass
-    mlModelCaveatsAndRecommendations: CaveatsAndRecommendationsClass
-    sourceCode: SourceCodeClass
-    mlModelDeploymentProperties: MLModelDeploymentPropertiesClass
-    mlModelFactorPrompts: MLModelFactorPromptsClass
-    mlMetric: MLMetricClass
-    testInfo: TestInfoClass
-    testResults: TestResultsClass
+    glossaryNodeInfo: GlossaryNodeInfoClass
     glossaryTermInfo: GlossaryTermInfoClass
     glossaryRelatedTerms: GlossaryRelatedTermsClass
-    glossaryNodeInfo: GlossaryNodeInfoClass
+    okfProperties: OkfPropertiesClass
+    dataHubIngestionSourceInfo: DataHubIngestionSourceInfoClass
+    applicationKey: ApplicationKeyClass
+    applicationProperties: ApplicationPropertiesClass
+    applications: ApplicationsClass
+    applicationLineage: ApplicationLineageClass
+    dataHubConnectionDetails: DataHubConnectionDetailsClass
+    dataHubExecutionRequestResult: ExecutionRequestResultClass
+    dataHubExecutionRequestSignal: ExecutionRequestSignalClass
+    dataHubExecutionRequestInput: ExecutionRequestInputClass
+    agentSkillInfo: AgentSkillInfoClass
+    formInfo: FormInfoClass
+    dynamicFormAssignment: DynamicFormAssignmentClass
+    dataHubRetentionConfig: DataHubRetentionConfigClass
+    logicalParent: LogicalParentClass
+    domains: DomainsClass
+    domainProperties: DomainPropertiesClass
+    metricRelationships: MetricRelationshipsClass
+    metricInfo: MetricInfoClass
+    metricUpstreams: MetricUpstreamsClass
+    testResults: TestResultsClass
+    testInfo: TestInfoClass
     dataHubPolicyInfo: DataHubPolicyInfoClass
     dataHubRoleInfo: DataHubRoleInfoClass
-    incidentExternalLinks: IncidentExternalLinksClass
-    incidentInfo: IncidentInfoClass
-    incidentSource: IncidentSourceClass
-    incidentNotes: IncidentNotesClass
-    lifecycleStageTypeInfo: LifecycleStageTypeInfoClass
-    domainProperties: DomainPropertiesClass
-    domains: DomainsClass
+    storageFeatures: StorageFeaturesClass
+    usageFeatures: UsageFeaturesClass
+    dataHubPolicyKey: DataHubPolicyKeyClass
+    inviteTokenKey: InviteTokenKeyClass
+    roleKey: RoleKeyClass
+    dataHubExecutionRequestKey: ExecutionRequestKeyClass
+    dataHubPersonaKey: DataHubPersonaKeyClass
+    dataHubIngestionSourceKey: DataHubIngestionSourceKeyClass
+    datasetKey: DatasetKeyClass
+    domainKey: DomainKeyClass
+    dataPlatformInstanceKey: DataPlatformInstanceKeyClass
+    corpGroupKey: CorpGroupKeyClass
+    schemaFieldKey: SchemaFieldKeyClass
+    dataHubPageModuleKey: DataHubPageModuleKeyClass
+    globalSettingsKey: GlobalSettingsKeyClass
+    dataHubOpenAPISchemaKey: DataHubOpenAPISchemaKeyClass
+    corpUserKey: CorpUserKeyClass
+    dataHubRetentionKey: DataHubRetentionKeyClass
+    versionSetKey: VersionSetKeyClass
+    postKey: PostKeyClass
+    apiKey: ApiKeyClass
+    mlFeatureKey: MLFeatureKeyClass
+    dataProcessInstanceKey: DataProcessInstanceKeyClass
+    chartKey: ChartKeyClass
+    dataHubPageTemplateKey: DataHubPageTemplateKeyClass
+    glossaryTermKey: GlossaryTermKeyClass
+    dataJobKey: DataJobKeyClass
+    metricKey: MetricKeyClass
+    dataFlowKey: DataFlowKeyClass
+    mlPrimaryKeyKey: MLPrimaryKeyKeyClass
+    notebookKey: NotebookKeyClass
+    queryKey: QueryKeyClass
+    incidentKey: IncidentKeyClass
+    glossaryNodeKey: GlossaryNodeKeyClass
+    formKey: FormKeyClass
+    dataContractKey: DataContractKeyClass
+    dataHubAccessTokenKey: DataHubAccessTokenKeyClass
+    mlModelKey: MLModelKeyClass
+    testKey: TestKeyClass
+    dataProcessKey: DataProcessKeyClass
+    ownershipTypeKey: OwnershipTypeKeyClass
+    mlModelDeploymentKey: MLModelDeploymentKeyClass
+    documentKey: DocumentKeyClass
+    erModelRelationshipKey: ERModelRelationshipKeyClass
+    assertionKey: AssertionKeyClass
+    dataHubStepStateKey: DataHubStepStateKeyClass
+    dataPlatformKey: DataPlatformKeyClass
+    dataHubUpgradeKey: DataHubUpgradeKeyClass
+    searchTemplateKey: SearchTemplateKeyClass
+    mlFeatureTableKey: MLFeatureTableKeyClass
+    lifecycleStageTypeKey: LifecycleStageTypeKeyClass
+    dataHubRoleKey: DataHubRoleKeyClass
+    dataHubViewKey: DataHubViewKeyClass
+    containerKey: ContainerKeyClass
+    dataHubConnectionKey: DataHubConnectionKeyClass
+    telemetryKey: TelemetryKeyClass
+    tagKey: TagKeyClass
+    agentSkillKey: AgentSkillKeyClass
+    aiAgentKey: AIAgentKeyClass
+    mlModelGroupKey: MLModelGroupKeyClass
+    dataHubSecretKey: DataHubSecretKeyClass
+    dataHubActionKey: DataHubActionKeyClass
+    semanticModelKey: SemanticModelKeyClass
+    dashboardKey: DashboardKeyClass
+    dataHubFileKey: DataHubFileKeyClass
+    editableNotebookProperties: EditableNotebookPropertiesClass
+    notebookInfo: NotebookInfoClass
+    notebookContent: NotebookContentClass
+    repositorySource: RepositorySourceClass
+    repositoryProperties: RepositoryPropertiesClass
+    repositoryLineage: RepositoryLineageClass
+    repositoryKey: RepositoryKeyClass
+    dataTypeKey: DataTypeKeyClass
+    dataTypeInfo: DataTypeInfoClass
+    dataHubFileInfo: DataHubFileInfoClass
+    businessAttributeInfo: BusinessAttributeInfoClass
     businessAttributes: BusinessAttributesClass
     businessAttributeKey: BusinessAttributeKeyClass
-    businessAttributeInfo: BusinessAttributeInfoClass
-    postInfo: PostInfoClass
-    queryProperties: QueryPropertiesClass
-    querySubjects: QuerySubjectsClass
-    queryUsageStatistics: QueryUsageStatisticsClass
-    globalSettingsInfo: GlobalSettingsInfoClass
-    assetSettings: AssetSettingsClass
-    editableERModelRelationshipProperties: EditableERModelRelationshipPropertiesClass
-    erModelRelationshipProperties: ERModelRelationshipPropertiesClass
-    dataHubViewInfo: DataHubViewInfoClass
-    actors: ActorsClass
+    schemaFieldAliases: SchemaFieldAliasesClass
+    schemafieldInfo: SchemaFieldInfoClass
+    dataHubStepStateProperties: DataHubStepStatePropertiesClass
+    dataHubPageTemplateProperties: DataHubPageTemplatePropertiesClass
+    mlPrimaryKeyProperties: MLPrimaryKeyPropertiesClass
+    editableMlFeatureProperties: EditableMLFeaturePropertiesClass
+    mlHyperParam: MLHyperParamClass
+    mlModelProperties: MLModelPropertiesClass
+    mlMetric: MLMetricClass
+    intendedUse: IntendedUseClass
+    mlModelTrainingData: TrainingDataClass
+    mlModelCaveatsAndRecommendations: CaveatsAndRecommendationsClass
+    editableMlModelGroupProperties: EditableMLModelGroupPropertiesClass
+    mlTrainingRunProperties: MLTrainingRunPropertiesClass
+    editableMlPrimaryKeyProperties: EditableMLPrimaryKeyPropertiesClass
+    editableMlFeatureTableProperties: EditableMLFeatureTablePropertiesClass
+    mlModelFactorPrompts: MLModelFactorPromptsClass
+    mlFeatureTableProperties: MLFeatureTablePropertiesClass
+    mlModelEthicalConsiderations: EthicalConsiderationsClass
+    mlModelGroupProperties: MLModelGroupPropertiesClass
+    mlFeatureProperties: MLFeaturePropertiesClass
+    editableMlModelProperties: EditableMLModelPropertiesClass
+    mlModelEvaluationData: EvaluationDataClass
+    sourceCode: SourceCodeClass
+    mlModelDeploymentProperties: MLModelDeploymentPropertiesClass
+    mlModelQuantitativeAnalyses: QuantitativeAnalysesClass
+    mlModelMetrics: MetricsClass
     roleProperties: RolePropertiesClass
+    actors: ActorsClass
+    corpUserInfo: CorpUserInfoClass
+    corpUserSettings: CorpUserSettingsClass
+    nativeGroupMembership: NativeGroupMembershipClass
+    corpUserStatus: CorpUserStatusClass
+    groupMembership: GroupMembershipClass
+    inviteToken: InviteTokenClass
+    corpUserCredentials: CorpUserCredentialsClass
+    roleMembership: RoleMembershipClass
+    corpGroupInfo: CorpGroupInfoClass
+    corpUserEditableInfo: CorpUserEditableInfoClass
+    corpGroupEditableInfo: CorpGroupEditableInfoClass
+    partitionsSummary: PartitionsSummaryClass
+    datasetProfile: DatasetProfileClass
+    datasetUsageStatistics: DatasetUsageStatisticsClass
+    upstreamLineage: UpstreamLineageClass
+    editableDatasetProperties: EditableDatasetPropertiesClass
+    datasetProperties: DatasetPropertiesClass
+    icebergCatalogInfo: IcebergCatalogInfoClass
+    editablePrimaryKeys: EditablePrimaryKeysClass
+    viewProperties: ViewPropertiesClass
+    datasetDeprecation: DatasetDeprecationClass
+    datasetUpstreamLineage: DatasetUpstreamLineageClass
+    semanticModelProperties: SemanticModelPropertiesClass
+    entityTypeKey: EntityTypeKeyClass
+    entityTypeInfo: EntityTypeInfoClass
+    dataProductKey: DataProductKeyClass
+    dataProductProperties: DataProductPropertiesClass
+    dataProducts: DataProductsClass
+    searchTemplateProperties: SearchTemplatePropertiesClass
+    erModelRelationshipProperties: ERModelRelationshipPropertiesClass
+    editableERModelRelationshipProperties: EditableERModelRelationshipPropertiesClass
+    systemMetadata: SystemMetadataClass
+    versionSetProperties: VersionSetPropertiesClass
+    dataPlatformInstance: DataPlatformInstanceClass
+    ownership: OwnershipClass
+    displayProperties: DisplayPropertiesClass
+    operation: OperationClass
+    inputFields: InputFieldsClass
+    globalTags: GlobalTagsClass
+    browsePathsV2: BrowsePathsV2Class
+    aliases: AliasesClass
+    semanticText: SemanticTextClass
+    embed: EmbedClass
+    versionProperties: VersionPropertiesClass
+    access: AccessClass
+    institutionalMemory: InstitutionalMemoryClass
+    cost: CostClass
+    origin: OriginClass
+    documentation: DocumentationClass
+    semanticContent: SemanticContentClass
+    glossaryTerms: GlossaryTermsClass
+    forms: FormsClass
+    incidentsSummary: IncidentsSummaryClass
+    siblings: SiblingsClass
+    aiContext: AiContextClass
+    browsePaths: BrowsePathsClass
+    status: StatusClass
+    deprecation: DeprecationClass
+    upstreamMetrics: UpstreamMetricsClass
+    dataTransformLogic: DataTransformLogicClass
+    subTypes: SubTypesClass
+    tagProperties: TagPropertiesClass
+    dataProcessInstanceRelationships: DataProcessInstanceRelationshipsClass
+    dataProcessInstanceInput: DataProcessInstanceInputClass
+    dataProcessInstanceProperties: DataProcessInstancePropertiesClass
+    dataProcessInstanceOutput: DataProcessInstanceOutputClass
+    dataProcessInstanceRunEvent: DataProcessInstanceRunEventClass
+    dataProcessInfo: DataProcessInfoClass
+    dataHubViewInfo: DataHubViewInfoClass
+    dataHubUpgradeResult: DataHubUpgradeResultClass
+    dataHubUpgradeRequest: DataHubUpgradeRequestClass
+    dataHubPersonaInfo: DataHubPersonaInfoClass
+    documentUsageStatistics: DocumentUsageStatisticsClass
+    documentSettings: DocumentSettingsClass
+    documentInfo: DocumentInfoClass
+    incidentExternalLinks: IncidentExternalLinksClass
+    incidentInfo: IncidentInfoClass
+    incidentNotes: IncidentNotesClass
+    incidentSource: IncidentSourceClass
+    dataPlatformInfo: DataPlatformInfoClass
+    slackUserInfo: SlackUserInfoClass
     editableDashboardProperties: EditableDashboardPropertiesClass
     dashboardInfo: DashboardInfoClass
     dashboardUsageStatistics: DashboardUsageStatisticsClass
-    dataHubExecutionRequestInput: ExecutionRequestInputClass
-    dataHubExecutionRequestResult: ExecutionRequestResultClass
-    dataHubExecutionRequestSignal: ExecutionRequestSignalClass
-    dataHubUpgradeResult: DataHubUpgradeResultClass
-    dataHubUpgradeRequest: DataHubUpgradeRequestClass
-    dataHubAccessTokenInfo: DataHubAccessTokenInfoClass
-    dataPlatformInfo: DataPlatformInfoClass
-    slackUserInfo: SlackUserInfoClass
-    dataHubRetentionConfig: DataHubRetentionConfigClass
-    storageFeatures: StorageFeaturesClass
-    usageFeatures: UsageFeaturesClass
-    aiAgentKey: AIAgentKeyClass
-    testKey: TestKeyClass
-    corpUserKey: CorpUserKeyClass
-    dataHubPageModuleKey: DataHubPageModuleKeyClass
-    globalSettingsKey: GlobalSettingsKeyClass
-    dataContractKey: DataContractKeyClass
-    mlFeatureKey: MLFeatureKeyClass
-    tagKey: TagKeyClass
-    erModelRelationshipKey: ERModelRelationshipKeyClass
-    semanticModelKey: SemanticModelKeyClass
-    dataHubStepStateKey: DataHubStepStateKeyClass
-    dataHubConnectionKey: DataHubConnectionKeyClass
-    dataHubRoleKey: DataHubRoleKeyClass
-    domainKey: DomainKeyClass
-    dataHubPageTemplateKey: DataHubPageTemplateKeyClass
-    mlModelKey: MLModelKeyClass
-    queryKey: QueryKeyClass
-    glossaryTermKey: GlossaryTermKeyClass
-    dataHubOpenAPISchemaKey: DataHubOpenAPISchemaKeyClass
-    inviteTokenKey: InviteTokenKeyClass
-    chartKey: ChartKeyClass
-    schemaFieldKey: SchemaFieldKeyClass
-    dataHubRetentionKey: DataHubRetentionKeyClass
-    dataHubSecretKey: DataHubSecretKeyClass
-    lifecycleStageTypeKey: LifecycleStageTypeKeyClass
-    assertionKey: AssertionKeyClass
-    glossaryNodeKey: GlossaryNodeKeyClass
-    dataHubExecutionRequestKey: ExecutionRequestKeyClass
-    dataHubIngestionSourceKey: DataHubIngestionSourceKeyClass
-    dashboardKey: DashboardKeyClass
-    ownershipTypeKey: OwnershipTypeKeyClass
-    mlFeatureTableKey: MLFeatureTableKeyClass
-    formKey: FormKeyClass
-    notebookKey: NotebookKeyClass
-    agentSkillKey: AgentSkillKeyClass
-    dataHubPolicyKey: DataHubPolicyKeyClass
-    mlModelGroupKey: MLModelGroupKeyClass
-    metricKey: MetricKeyClass
-    mlPrimaryKeyKey: MLPrimaryKeyKeyClass
-    dataHubUpgradeKey: DataHubUpgradeKeyClass
-    documentKey: DocumentKeyClass
-    versionSetKey: VersionSetKeyClass
-    telemetryKey: TelemetryKeyClass
-    searchTemplateKey: SearchTemplateKeyClass
-    corpGroupKey: CorpGroupKeyClass
-    mlModelDeploymentKey: MLModelDeploymentKeyClass
-    containerKey: ContainerKeyClass
-    dataJobKey: DataJobKeyClass
-    dataHubActionKey: DataHubActionKeyClass
-    dataHubAccessTokenKey: DataHubAccessTokenKeyClass
-    dataHubPersonaKey: DataHubPersonaKeyClass
-    apiKey: ApiKeyClass
-    dataProcessKey: DataProcessKeyClass
-    dataHubViewKey: DataHubViewKeyClass
-    dataHubFileKey: DataHubFileKeyClass
-    roleKey: RoleKeyClass
-    incidentKey: IncidentKeyClass
-    datasetKey: DatasetKeyClass
-    dataFlowKey: DataFlowKeyClass
-    postKey: PostKeyClass
-    dataPlatformKey: DataPlatformKeyClass
-    dataProcessInstanceKey: DataProcessInstanceKeyClass
-    dataPlatformInstanceKey: DataPlatformInstanceKeyClass
-    dataContractProperties: DataContractPropertiesClass
-    dataContractStatus: DataContractStatusClass
-    applicationProperties: ApplicationPropertiesClass
-    applicationKey: ApplicationKeyClass
-    applicationLineage: ApplicationLineageClass
-    applications: ApplicationsClass
-    structuredProperties: StructuredPropertiesClass
-    structuredPropertyKey: StructuredPropertyKeyClass
-    propertyDefinition: StructuredPropertyDefinitionClass
-    structuredPropertySettings: StructuredPropertySettingsClass
-    metricInfo: MetricInfoClass
-    metricUpstreams: MetricUpstreamsClass
-    metricRelationships: MetricRelationshipsClass
-    semanticText: SemanticTextClass
-    globalTags: GlobalTagsClass
-    embed: EmbedClass
-    browsePaths: BrowsePathsClass
-    status: StatusClass
-    siblings: SiblingsClass
-    semanticContent: SemanticContentClass
-    versionProperties: VersionPropertiesClass
-    origin: OriginClass
-    incidentsSummary: IncidentsSummaryClass
-    operation: OperationClass
-    browsePathsV2: BrowsePathsV2Class
-    ownership: OwnershipClass
-    institutionalMemory: InstitutionalMemoryClass
-    access: AccessClass
-    cost: CostClass
-    aliases: AliasesClass
-    dataPlatformInstance: DataPlatformInstanceClass
-    displayProperties: DisplayPropertiesClass
-    subTypes: SubTypesClass
-    dataTransformLogic: DataTransformLogicClass
-    inputFields: InputFieldsClass
-    documentation: DocumentationClass
-    forms: FormsClass
-    deprecation: DeprecationClass
-    glossaryTerms: GlossaryTermsClass
-    upstreamMetrics: UpstreamMetricsClass
-    aiContext: AiContextClass
-    dataHubStepStateProperties: DataHubStepStatePropertiesClass
-    mcpServerProperties: McpServerPropertiesClass
-    serviceKey: ServiceKeyClass
-    serviceProperties: ServicePropertiesClass
-    serviceDefinition: ServiceDefinitionClass
-    dataFlowInfo: DataFlowInfoClass
-    editableDataJobProperties: EditableDataJobPropertiesClass
-    versionInfo: VersionInfoClass
-    editableDataFlowProperties: EditableDataFlowPropertiesClass
-    dataJobInfo: DataJobInfoClass
-    dataJobInputOutput: DataJobInputOutputClass
-    datahubIngestionRunSummary: DatahubIngestionRunSummaryClass
-    datahubIngestionCheckpoint: DatahubIngestionCheckpointClass
-    schemaMetadata: SchemaMetadataClass
-    editableSchemaMetadata: EditableSchemaMetadataClass
-    systemMetadata: SystemMetadataClass
-    assertionActions: AssertionActionsClass
-    assertionRunEvent: AssertionRunEventClass
-    assertionRunSummary: AssertionRunSummaryClass
-    assertionInfo: AssertionInfoClass
-    assertionNote: AssertionNoteClass
-    agentSkillInfo: AgentSkillInfoClass
-    corpUserInfo: CorpUserInfoClass
-    corpGroupEditableInfo: CorpGroupEditableInfoClass
-    corpGroupInfo: CorpGroupInfoClass
-    corpUserEditableInfo: CorpUserEditableInfoClass
-    roleMembership: RoleMembershipClass
-    inviteToken: InviteTokenClass
-    corpUserStatus: CorpUserStatusClass
-    corpUserCredentials: CorpUserCredentialsClass
-    nativeGroupMembership: NativeGroupMembershipClass
-    groupMembership: GroupMembershipClass
-    corpUserSettings: CorpUserSettingsClass
-    tagProperties: TagPropertiesClass
-    versionSetProperties: VersionSetPropertiesClass
-    dataTypeInfo: DataTypeInfoClass
-    dataTypeKey: DataTypeKeyClass
+    lifecycleStageTypeInfo: LifecycleStageTypeInfoClass
+    telemetryClientId: TelemetryClientIdClass
     aiAgentDependencies: AIAgentDependenciesClass
     aiAgentInfo: AIAgentInfoClass
-    okfProperties: OkfPropertiesClass
-    container: ContainerClass
+    assetSettings: AssetSettingsClass
+    globalSettingsInfo: GlobalSettingsInfoClass
+    queryUsageStatistics: QueryUsageStatisticsClass
+    queryProperties: QueryPropertiesClass
+    querySubjects: QuerySubjectsClass
+    schemaMetadata: SchemaMetadataClass
+    editableSchemaMetadata: EditableSchemaMetadataClass
+    dataHubPageModuleProperties: DataHubPageModulePropertiesClass
+    postInfo: PostInfoClass
+    assertionRunEvent: AssertionRunEventClass
+    assertionRunSummary: AssertionRunSummaryClass
+    assertionNote: AssertionNoteClass
+    assertionInfo: AssertionInfoClass
+    assertionActions: AssertionActionsClass
+    platformResourceKey: PlatformResourceKeyClass
+    platformResourceInfo: PlatformResourceInfoClass
+    dataHubSecretValue: DataHubSecretValueClass
     containerProperties: ContainerPropertiesClass
     editableContainerProperties: EditableContainerPropertiesClass
+    container: ContainerClass
+    structuredPropertySettings: StructuredPropertySettingsClass
+    structuredProperties: StructuredPropertiesClass
+    propertyDefinition: StructuredPropertyDefinitionClass
+    structuredPropertyKey: StructuredPropertyKeyClass
+    dataHubAccessTokenInfo: DataHubAccessTokenInfoClass
+    chartInfo: ChartInfoClass
+    chartUsageStatistics: ChartUsageStatisticsClass
+    chartQuery: ChartQueryClass
+    editableChartProperties: EditableChartPropertiesClass
+    semanticModelInfo: SemanticModelInfoClass
+    semanticFieldAnnotation: SemanticFieldAnnotationClass
+    mcpServerProperties: McpServerPropertiesClass
+    serviceKey: ServiceKeyClass
+    serviceDefinition: ServiceDefinitionClass
+    serviceProperties: ServicePropertiesClass
+    dataPlatformInstanceProperties: DataPlatformInstancePropertiesClass
+    icebergWarehouseInfo: IcebergWarehouseInfoClass
+    restApiProperties: RestApiPropertiesClass
+    apiProperties: ApiPropertiesClass
+    apiSignature: ApiSignatureClass
+    dataContractProperties: DataContractPropertiesClass
+    dataContractStatus: DataContractStatusClass
+    dataFlowInfo: DataFlowInfoClass
+    versionInfo: VersionInfoClass
+    dataJobInputOutput: DataJobInputOutputClass
+    dataJobInfo: DataJobInfoClass
+    editableDataJobProperties: EditableDataJobPropertiesClass
+    editableDataFlowProperties: EditableDataFlowPropertiesClass
+    datahubIngestionRunSummary: DatahubIngestionRunSummaryClass
+    datahubIngestionCheckpoint: DatahubIngestionCheckpointClass
+    ownershipTypeInfo: OwnershipTypeInfoClass
 
 
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {
-    'platformResource': PlatformResourceKeyClass,
-    'repository': RepositoryKeyClass,
-    'dataProduct': DataProductKeyClass,
-    'entityType': EntityTypeKeyClass,
-    'businessAttribute': BusinessAttributeKeyClass,
-    'aiAgent': AIAgentKeyClass,
-    'test': TestKeyClass,
-    'corpuser': CorpUserKeyClass,
+    'application': ApplicationKeyClass,
+    'dataHubPolicy': DataHubPolicyKeyClass,
+    'inviteToken': InviteTokenKeyClass,
+    'role': RoleKeyClass,
+    'dataHubExecutionRequest': ExecutionRequestKeyClass,
+    'dataHubPersona': DataHubPersonaKeyClass,
+    'dataHubIngestionSource': DataHubIngestionSourceKeyClass,
+    'dataset': DatasetKeyClass,
+    'domain': DomainKeyClass,
+    'dataPlatformInstance': DataPlatformInstanceKeyClass,
+    'corpGroup': CorpGroupKeyClass,
+    'schemaField': SchemaFieldKeyClass,
     'dataHubPageModule': DataHubPageModuleKeyClass,
     'globalSettings': GlobalSettingsKeyClass,
-    'dataContract': DataContractKeyClass,
-    'mlFeature': MLFeatureKeyClass,
-    'tag': TagKeyClass,
-    'erModelRelationship': ERModelRelationshipKeyClass,
-    'semanticModel': SemanticModelKeyClass,
-    'dataHubStepState': DataHubStepStateKeyClass,
-    'dataHubConnection': DataHubConnectionKeyClass,
-    'dataHubRole': DataHubRoleKeyClass,
-    'domain': DomainKeyClass,
-    'dataHubPageTemplate': DataHubPageTemplateKeyClass,
-    'mlModel': MLModelKeyClass,
-    'query': QueryKeyClass,
-    'glossaryTerm': GlossaryTermKeyClass,
     'dataHubOpenAPISchema': DataHubOpenAPISchemaKeyClass,
-    'inviteToken': InviteTokenKeyClass,
-    'chart': ChartKeyClass,
-    'schemaField': SchemaFieldKeyClass,
+    'corpuser': CorpUserKeyClass,
     'dataHubRetention': DataHubRetentionKeyClass,
-    'dataHubSecret': DataHubSecretKeyClass,
-    'lifecycleStageType': LifecycleStageTypeKeyClass,
-    'assertion': AssertionKeyClass,
-    'glossaryNode': GlossaryNodeKeyClass,
-    'dataHubExecutionRequest': ExecutionRequestKeyClass,
-    'dataHubIngestionSource': DataHubIngestionSourceKeyClass,
-    'dashboard': DashboardKeyClass,
-    'ownershipType': OwnershipTypeKeyClass,
-    'mlFeatureTable': MLFeatureTableKeyClass,
-    'form': FormKeyClass,
-    'notebook': NotebookKeyClass,
-    'agentSkill': AgentSkillKeyClass,
-    'dataHubPolicy': DataHubPolicyKeyClass,
-    'mlModelGroup': MLModelGroupKeyClass,
-    'metric': MetricKeyClass,
-    'mlPrimaryKey': MLPrimaryKeyKeyClass,
-    'dataHubUpgrade': DataHubUpgradeKeyClass,
-    'document': DocumentKeyClass,
     'versionSet': VersionSetKeyClass,
-    'telemetry': TelemetryKeyClass,
-    'searchTemplate': SearchTemplateKeyClass,
-    'corpGroup': CorpGroupKeyClass,
-    'mlModelDeployment': MLModelDeploymentKeyClass,
-    'container': ContainerKeyClass,
-    'dataJob': DataJobKeyClass,
-    'dataHubAction': DataHubActionKeyClass,
-    'dataHubAccessToken': DataHubAccessTokenKeyClass,
-    'dataHubPersona': DataHubPersonaKeyClass,
-    'api': ApiKeyClass,
-    'dataProcess': DataProcessKeyClass,
-    'dataHubView': DataHubViewKeyClass,
-    'dataHubFile': DataHubFileKeyClass,
-    'role': RoleKeyClass,
-    'incident': IncidentKeyClass,
-    'dataset': DatasetKeyClass,
-    'dataFlow': DataFlowKeyClass,
     'post': PostKeyClass,
-    'dataPlatform': DataPlatformKeyClass,
+    'api': ApiKeyClass,
+    'mlFeature': MLFeatureKeyClass,
     'dataProcessInstance': DataProcessInstanceKeyClass,
-    'dataPlatformInstance': DataPlatformInstanceKeyClass,
-    'application': ApplicationKeyClass,
+    'chart': ChartKeyClass,
+    'dataHubPageTemplate': DataHubPageTemplateKeyClass,
+    'glossaryTerm': GlossaryTermKeyClass,
+    'dataJob': DataJobKeyClass,
+    'metric': MetricKeyClass,
+    'dataFlow': DataFlowKeyClass,
+    'mlPrimaryKey': MLPrimaryKeyKeyClass,
+    'notebook': NotebookKeyClass,
+    'query': QueryKeyClass,
+    'incident': IncidentKeyClass,
+    'glossaryNode': GlossaryNodeKeyClass,
+    'form': FormKeyClass,
+    'dataContract': DataContractKeyClass,
+    'dataHubAccessToken': DataHubAccessTokenKeyClass,
+    'mlModel': MLModelKeyClass,
+    'test': TestKeyClass,
+    'dataProcess': DataProcessKeyClass,
+    'ownershipType': OwnershipTypeKeyClass,
+    'mlModelDeployment': MLModelDeploymentKeyClass,
+    'document': DocumentKeyClass,
+    'erModelRelationship': ERModelRelationshipKeyClass,
+    'assertion': AssertionKeyClass,
+    'dataHubStepState': DataHubStepStateKeyClass,
+    'dataPlatform': DataPlatformKeyClass,
+    'dataHubUpgrade': DataHubUpgradeKeyClass,
+    'searchTemplate': SearchTemplateKeyClass,
+    'mlFeatureTable': MLFeatureTableKeyClass,
+    'lifecycleStageType': LifecycleStageTypeKeyClass,
+    'dataHubRole': DataHubRoleKeyClass,
+    'dataHubView': DataHubViewKeyClass,
+    'container': ContainerKeyClass,
+    'dataHubConnection': DataHubConnectionKeyClass,
+    'telemetry': TelemetryKeyClass,
+    'tag': TagKeyClass,
+    'agentSkill': AgentSkillKeyClass,
+    'aiAgent': AIAgentKeyClass,
+    'mlModelGroup': MLModelGroupKeyClass,
+    'dataHubSecret': DataHubSecretKeyClass,
+    'dataHubAction': DataHubActionKeyClass,
+    'semanticModel': SemanticModelKeyClass,
+    'dashboard': DashboardKeyClass,
+    'dataHubFile': DataHubFileKeyClass,
+    'repository': RepositoryKeyClass,
+    'dataType': DataTypeKeyClass,
+    'businessAttribute': BusinessAttributeKeyClass,
+    'entityType': EntityTypeKeyClass,
+    'dataProduct': DataProductKeyClass,
+    'platformResource': PlatformResourceKeyClass,
     'structuredProperty': StructuredPropertyKeyClass,
-    'service': ServiceKeyClass,
-    'dataType': DataTypeKeyClass
+    'service': ServiceKeyClass
 }
 
 KEY_ASPECT_NAMES: Set[str] = {cls.ASPECT_NAME for cls in KEY_ASPECTS.values()}
 
 ENTITY_TYPE_NAMES: List[str] = [
-    'platformResource',
-    'repository',
-    'dataProduct',
-    'entityType',
-    'businessAttribute',
-    'aiAgent',
-    'test',
-    'corpuser',
+    'application',
+    'dataHubPolicy',
+    'inviteToken',
+    'role',
+    'dataHubExecutionRequest',
+    'dataHubPersona',
+    'dataHubIngestionSource',
+    'dataset',
+    'domain',
+    'dataPlatformInstance',
+    'corpGroup',
+    'schemaField',
     'dataHubPageModule',
     'globalSettings',
-    'dataContract',
-    'mlFeature',
-    'tag',
-    'erModelRelationship',
-    'semanticModel',
-    'dataHubStepState',
-    'dataHubConnection',
-    'dataHubRole',
-    'domain',
-    'dataHubPageTemplate',
-    'mlModel',
-    'query',
-    'glossaryTerm',
     'dataHubOpenAPISchema',
-    'inviteToken',
-    'chart',
-    'schemaField',
+    'corpuser',
     'dataHubRetention',
-    'dataHubSecret',
-    'lifecycleStageType',
-    'assertion',
-    'glossaryNode',
-    'dataHubExecutionRequest',
-    'dataHubIngestionSource',
-    'dashboard',
-    'ownershipType',
-    'mlFeatureTable',
-    'form',
-    'notebook',
-    'agentSkill',
-    'dataHubPolicy',
-    'mlModelGroup',
-    'metric',
-    'mlPrimaryKey',
-    'dataHubUpgrade',
-    'document',
     'versionSet',
-    'telemetry',
-    'searchTemplate',
-    'corpGroup',
-    'mlModelDeployment',
-    'container',
-    'dataJob',
-    'dataHubAction',
-    'dataHubAccessToken',
-    'dataHubPersona',
-    'api',
-    'dataProcess',
-    'dataHubView',
-    'dataHubFile',
-    'role',
-    'incident',
-    'dataset',
-    'dataFlow',
     'post',
-    'dataPlatform',
+    'api',
+    'mlFeature',
     'dataProcessInstance',
-    'dataPlatformInstance',
-    'application',
+    'chart',
+    'dataHubPageTemplate',
+    'glossaryTerm',
+    'dataJob',
+    'metric',
+    'dataFlow',
+    'mlPrimaryKey',
+    'notebook',
+    'query',
+    'incident',
+    'glossaryNode',
+    'form',
+    'dataContract',
+    'dataHubAccessToken',
+    'mlModel',
+    'test',
+    'dataProcess',
+    'ownershipType',
+    'mlModelDeployment',
+    'document',
+    'erModelRelationship',
+    'assertion',
+    'dataHubStepState',
+    'dataPlatform',
+    'dataHubUpgrade',
+    'searchTemplate',
+    'mlFeatureTable',
+    'lifecycleStageType',
+    'dataHubRole',
+    'dataHubView',
+    'container',
+    'dataHubConnection',
+    'telemetry',
+    'tag',
+    'agentSkill',
+    'aiAgent',
+    'mlModelGroup',
+    'dataHubSecret',
+    'dataHubAction',
+    'semanticModel',
+    'dashboard',
+    'dataHubFile',
+    'repository',
+    'dataType',
+    'businessAttribute',
+    'entityType',
+    'dataProduct',
+    'platformResource',
     'structuredProperty',
-    'service',
-    'dataType'
+    'service'
 ]
 
 # Entity type -> full list of non-key aspect names, sourced verbatim from
@@ -38584,153 +38584,153 @@ ENTITY_TYPE_NAMES: List[str] = [
 # custom aspects not in this build) can instead fetch it at runtime via
 # DataHubGraph.get_entity_aspect_specs() rather than this codegen constant.
 ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
-    'platformResource': ['dataPlatformInstance', 'platformResourceInfo', 'status'],
-    'repository': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2', 'dataProducts'],
-    'dataProduct': ['ownership', 'glossaryTerms', 'globalTags', 'domains', 'applications', 'dataProductProperties', 'institutionalMemory', 'deprecation', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'assetSettings'],
-    'entityType': ['entityTypeInfo', 'institutionalMemory', 'status'],
-    'businessAttribute': ['businessAttributeInfo', 'status', 'ownership', 'institutionalMemory'],
-    'aiAgent': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties', 'dataProducts'],
-    'test': ['testInfo'],
-    'corpuser': ['corpUserInfo', 'corpUserEditableInfo', 'corpUserStatus', 'groupMembership', 'globalTags', 'status', 'corpUserCredentials', 'nativeGroupMembership', 'corpUserSettings', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'slackUserInfo'],
+    'application': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'dataProducts'],
+    'dataHubPolicy': ['dataHubPolicyInfo'],
+    'inviteToken': ['inviteToken'],
+    'role': ['roleProperties', 'actors', 'status'],
+    'dataHubExecutionRequest': ['dataHubExecutionRequestInput', 'dataHubExecutionRequestSignal', 'dataHubExecutionRequestResult'],
+    'dataHubPersona': ['dataHubPersonaInfo'],
+    'dataHubIngestionSource': ['dataHubIngestionSourceInfo', 'ownership'],
+    'dataset': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'dataProducts', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'upstreamMetrics', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'editablePrimaryKeys', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'],
+    'domain': ['domainProperties', 'institutionalMemory', 'ownership', 'deprecation', 'structuredProperties', 'forms', 'testResults', 'displayProperties', 'assetSettings'],
+    'dataPlatformInstance': ['dataPlatformInstanceProperties', 'ownership', 'globalTags', 'institutionalMemory', 'deprecation', 'status', 'icebergWarehouseInfo'],
+    'corpGroup': ['corpGroupInfo', 'corpGroupEditableInfo', 'globalTags', 'ownership', 'status', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
+    'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'incidentsSummary', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains'],
     'dataHubPageModule': ['dataHubPageModuleProperties'],
     'globalSettings': ['globalSettingsInfo'],
-    'dataContract': ['dataContractProperties', 'dataContractStatus', 'status', 'structuredProperties'],
-    'mlFeature': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
-    'tag': ['tagProperties', 'ownership', 'deprecation', 'status', 'testResults'],
-    'erModelRelationship': ['erModelRelationshipProperties', 'editableERModelRelationshipProperties', 'institutionalMemory', 'ownership', 'status', 'globalTags', 'glossaryTerms'],
-    'semanticModel': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
-    'dataHubStepState': ['dataHubStepStateProperties'],
-    'dataHubConnection': ['dataHubConnectionDetails', 'dataPlatformInstance'],
-    'dataHubRole': ['dataHubRoleInfo'],
-    'domain': ['domainProperties', 'institutionalMemory', 'ownership', 'deprecation', 'structuredProperties', 'forms', 'testResults', 'displayProperties', 'assetSettings'],
-    'dataHubPageTemplate': ['dataHubPageTemplateProperties'],
-    'mlModel': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'dataProducts', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'versionProperties', 'subTypes', 'container', 'documentation'],
-    'query': ['queryProperties', 'querySubjects', 'queryUsageStatistics', 'status', 'dataPlatformInstance', 'subTypes'],
-    'glossaryTerm': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'globalTags', 'versionProperties'],
     'dataHubOpenAPISchema': ['systemMetadata'],
-    'inviteToken': ['inviteToken'],
-    'chart': ['chartInfo', 'upstreamMetrics', 'editableChartProperties', 'chartQuery', 'inputFields', 'chartUsageStatistics', 'embed', 'browsePaths', 'domains', 'dataProducts', 'applications', 'container', 'deprecation', 'ownership', 'status', 'institutionalMemory', 'dataPlatformInstance', 'globalTags', 'glossaryTerms', 'browsePathsV2', 'subTypes', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation'],
-    'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'incidentsSummary', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains'],
+    'corpuser': ['corpUserInfo', 'corpUserEditableInfo', 'corpUserStatus', 'groupMembership', 'globalTags', 'status', 'corpUserCredentials', 'nativeGroupMembership', 'corpUserSettings', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'slackUserInfo'],
     'dataHubRetention': ['dataHubRetentionConfig'],
-    'dataHubSecret': ['dataHubSecretValue'],
-    'lifecycleStageType': ['lifecycleStageTypeInfo', 'status'],
-    'assertion': ['assertionInfo', 'assertionNote', 'dataPlatformInstance', 'assertionRunEvent', 'assertionRunSummary', 'assertionActions', 'status', 'globalTags', 'ownership'],
-    'glossaryNode': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains', 'applications', 'globalTags'],
-    'dataHubExecutionRequest': ['dataHubExecutionRequestInput', 'dataHubExecutionRequestSignal', 'dataHubExecutionRequestResult'],
-    'dataHubIngestionSource': ['dataHubIngestionSourceInfo', 'ownership'],
-    'dashboard': ['domains', 'dataProducts', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'upstreamMetrics', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation', 'access'],
-    'ownershipType': ['ownershipTypeInfo', 'status'],
-    'mlFeatureTable': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
-    'form': ['formInfo', 'dynamicFormAssignment', 'ownership'],
-    'notebook': ['notebookInfo', 'notebookContent', 'editableNotebookProperties', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'browsePaths', 'institutionalMemory', 'domains', 'dataProducts', 'applications', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'testResults', 'documentation'],
-    'agentSkill': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties', 'dataProducts'],
-    'dataHubPolicy': ['dataHubPolicyInfo'],
-    'mlModelGroup': ['glossaryTerms', 'editableMlModelGroupProperties', 'domains', 'dataProducts', 'applications', 'mlModelGroupProperties', 'ownership', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'container', 'institutionalMemory', 'documentation'],
-    'metric': ['metricInfo', 'metricRelationships', 'metricUpstreams', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
-    'mlPrimaryKey': ['glossaryTerms', 'editableMlPrimaryKeyProperties', 'domains', 'dataProducts', 'applications', 'mlPrimaryKeyProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
-    'dataHubUpgrade': ['dataHubUpgradeRequest', 'dataHubUpgradeResult'],
-    'document': ['documentInfo', 'okfProperties', 'documentSettings', 'status', 'ownership', 'domains', 'dataProducts', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics'],
     'versionSet': ['versionSetProperties'],
-    'telemetry': ['telemetryClientId'],
-    'searchTemplate': ['searchTemplateProperties'],
-    'corpGroup': ['corpGroupInfo', 'corpGroupEditableInfo', 'globalTags', 'ownership', 'status', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
-    'mlModelDeployment': ['mlModelDeploymentProperties', 'ownership', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'testResults', 'container'],
-    'container': ['containerProperties', 'editableContainerProperties', 'dataPlatformInstance', 'subTypes', 'ownership', 'deprecation', 'container', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'browsePaths', 'status', 'domains', 'dataProducts', 'applications', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'access', 'documentation'],
-    'dataJob': ['datahubIngestionRunSummary', 'datahubIngestionCheckpoint', 'domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataJobInfo', 'dataJobInputOutput', 'repositoryLineage', 'editableDataJobProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'forms', 'subTypes', 'incidentsSummary', 'testResults', 'dataTransformLogic', 'documentation'],
-    'dataHubAction': [],
-    'dataHubAccessToken': ['dataHubAccessTokenInfo'],
-    'dataHubPersona': ['dataHubPersonaInfo'],
-    'api': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties', 'dataProducts'],
-    'dataProcess': ['dataProcessInfo', 'ownership', 'status', 'testResults', 'subTypes'],
-    'dataHubView': ['dataHubViewInfo'],
-    'dataHubFile': ['dataHubFileInfo', 'status'],
-    'role': ['roleProperties', 'actors', 'status'],
-    'incident': ['incidentInfo', 'incidentExternalLinks', 'incidentNotes', 'globalTags'],
-    'dataset': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'dataProducts', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'upstreamMetrics', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'editablePrimaryKeys', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'],
-    'dataFlow': ['domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataFlowInfo', 'repositoryLineage', 'editableDataFlowProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'subTypes', 'testResults', 'documentation'],
     'post': ['postInfo', 'subTypes'],
-    'dataPlatform': ['dataPlatformInfo'],
+    'api': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties', 'dataProducts'],
+    'mlFeature': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
     'dataProcessInstance': ['dataProcessInstanceInput', 'dataProcessInstanceOutput', 'dataProcessInstanceProperties', 'dataProcessInstanceRelationships', 'dataProcessInstanceRunEvent', 'status', 'testResults', 'dataPlatformInstance', 'subTypes', 'container', 'mlTrainingRunProperties'],
-    'dataPlatformInstance': ['dataPlatformInstanceProperties', 'ownership', 'globalTags', 'institutionalMemory', 'deprecation', 'status', 'icebergWarehouseInfo'],
-    'application': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'dataProducts'],
+    'chart': ['chartInfo', 'upstreamMetrics', 'editableChartProperties', 'chartQuery', 'inputFields', 'chartUsageStatistics', 'embed', 'browsePaths', 'domains', 'dataProducts', 'applications', 'container', 'deprecation', 'ownership', 'status', 'institutionalMemory', 'dataPlatformInstance', 'globalTags', 'glossaryTerms', 'browsePathsV2', 'subTypes', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation'],
+    'dataHubPageTemplate': ['dataHubPageTemplateProperties'],
+    'glossaryTerm': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'globalTags', 'versionProperties'],
+    'dataJob': ['datahubIngestionRunSummary', 'datahubIngestionCheckpoint', 'domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataJobInfo', 'dataJobInputOutput', 'repositoryLineage', 'editableDataJobProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'forms', 'subTypes', 'incidentsSummary', 'testResults', 'dataTransformLogic', 'documentation'],
+    'metric': ['metricInfo', 'metricRelationships', 'metricUpstreams', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
+    'dataFlow': ['domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataFlowInfo', 'repositoryLineage', 'editableDataFlowProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'subTypes', 'testResults', 'documentation'],
+    'mlPrimaryKey': ['glossaryTerms', 'editableMlPrimaryKeyProperties', 'domains', 'dataProducts', 'applications', 'mlPrimaryKeyProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
+    'notebook': ['notebookInfo', 'notebookContent', 'editableNotebookProperties', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'browsePaths', 'institutionalMemory', 'domains', 'dataProducts', 'applications', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'testResults', 'documentation'],
+    'query': ['queryProperties', 'querySubjects', 'queryUsageStatistics', 'status', 'dataPlatformInstance', 'subTypes'],
+    'incident': ['incidentInfo', 'incidentExternalLinks', 'incidentNotes', 'globalTags'],
+    'glossaryNode': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains', 'applications', 'globalTags'],
+    'form': ['formInfo', 'dynamicFormAssignment', 'ownership'],
+    'dataContract': ['dataContractProperties', 'dataContractStatus', 'status', 'structuredProperties'],
+    'dataHubAccessToken': ['dataHubAccessTokenInfo'],
+    'mlModel': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'dataProducts', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'versionProperties', 'subTypes', 'container', 'documentation'],
+    'test': ['testInfo'],
+    'dataProcess': ['dataProcessInfo', 'ownership', 'status', 'testResults', 'subTypes'],
+    'ownershipType': ['ownershipTypeInfo', 'status'],
+    'mlModelDeployment': ['mlModelDeploymentProperties', 'ownership', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'testResults', 'container'],
+    'document': ['documentInfo', 'okfProperties', 'documentSettings', 'status', 'ownership', 'domains', 'dataProducts', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics'],
+    'erModelRelationship': ['erModelRelationshipProperties', 'editableERModelRelationshipProperties', 'institutionalMemory', 'ownership', 'status', 'globalTags', 'glossaryTerms'],
+    'assertion': ['assertionInfo', 'assertionNote', 'dataPlatformInstance', 'assertionRunEvent', 'assertionRunSummary', 'assertionActions', 'status', 'globalTags', 'ownership'],
+    'dataHubStepState': ['dataHubStepStateProperties'],
+    'dataPlatform': ['dataPlatformInfo'],
+    'dataHubUpgrade': ['dataHubUpgradeRequest', 'dataHubUpgradeResult'],
+    'searchTemplate': ['searchTemplateProperties'],
+    'mlFeatureTable': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
+    'lifecycleStageType': ['lifecycleStageTypeInfo', 'status'],
+    'dataHubRole': ['dataHubRoleInfo'],
+    'dataHubView': ['dataHubViewInfo'],
+    'container': ['containerProperties', 'editableContainerProperties', 'dataPlatformInstance', 'subTypes', 'ownership', 'deprecation', 'container', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'browsePaths', 'status', 'domains', 'dataProducts', 'applications', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'access', 'documentation'],
+    'dataHubConnection': ['dataHubConnectionDetails', 'dataPlatformInstance'],
+    'telemetry': ['telemetryClientId'],
+    'tag': ['tagProperties', 'ownership', 'deprecation', 'status', 'testResults'],
+    'agentSkill': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties', 'dataProducts'],
+    'aiAgent': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties', 'dataProducts'],
+    'mlModelGroup': ['glossaryTerms', 'editableMlModelGroupProperties', 'domains', 'dataProducts', 'applications', 'mlModelGroupProperties', 'ownership', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'container', 'institutionalMemory', 'documentation'],
+    'dataHubSecret': ['dataHubSecretValue'],
+    'dataHubAction': [],
+    'semanticModel': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
+    'dashboard': ['domains', 'dataProducts', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'upstreamMetrics', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation', 'access'],
+    'dataHubFile': ['dataHubFileInfo', 'status'],
+    'repository': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2', 'dataProducts'],
+    'dataType': ['dataTypeInfo', 'institutionalMemory', 'status'],
+    'businessAttribute': ['businessAttributeInfo', 'status', 'ownership', 'institutionalMemory'],
+    'entityType': ['entityTypeInfo', 'institutionalMemory', 'status'],
+    'dataProduct': ['ownership', 'glossaryTerms', 'globalTags', 'domains', 'applications', 'dataProductProperties', 'institutionalMemory', 'deprecation', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'assetSettings'],
+    'platformResource': ['dataPlatformInstance', 'platformResourceInfo', 'status'],
     'structuredProperty': ['propertyDefinition', 'structuredPropertySettings', 'institutionalMemory', 'status'],
-    'service': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance', 'dataProducts'],
-    'dataType': ['dataTypeInfo', 'institutionalMemory', 'status']
+    'service': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance', 'dataProducts']
 }
 
 EntityTypeName = Literal[
-    'platformResource',
-    'repository',
-    'dataProduct',
-    'entityType',
-    'businessAttribute',
-    'aiAgent',
-    'test',
-    'corpuser',
+    'application',
+    'dataHubPolicy',
+    'inviteToken',
+    'role',
+    'dataHubExecutionRequest',
+    'dataHubPersona',
+    'dataHubIngestionSource',
+    'dataset',
+    'domain',
+    'dataPlatformInstance',
+    'corpGroup',
+    'schemaField',
     'dataHubPageModule',
     'globalSettings',
-    'dataContract',
-    'mlFeature',
-    'tag',
-    'erModelRelationship',
-    'semanticModel',
-    'dataHubStepState',
-    'dataHubConnection',
-    'dataHubRole',
-    'domain',
-    'dataHubPageTemplate',
-    'mlModel',
-    'query',
-    'glossaryTerm',
     'dataHubOpenAPISchema',
-    'inviteToken',
-    'chart',
-    'schemaField',
+    'corpuser',
     'dataHubRetention',
-    'dataHubSecret',
-    'lifecycleStageType',
-    'assertion',
-    'glossaryNode',
-    'dataHubExecutionRequest',
-    'dataHubIngestionSource',
-    'dashboard',
-    'ownershipType',
-    'mlFeatureTable',
-    'form',
-    'notebook',
-    'agentSkill',
-    'dataHubPolicy',
-    'mlModelGroup',
-    'metric',
-    'mlPrimaryKey',
-    'dataHubUpgrade',
-    'document',
     'versionSet',
-    'telemetry',
-    'searchTemplate',
-    'corpGroup',
-    'mlModelDeployment',
-    'container',
-    'dataJob',
-    'dataHubAction',
-    'dataHubAccessToken',
-    'dataHubPersona',
-    'api',
-    'dataProcess',
-    'dataHubView',
-    'dataHubFile',
-    'role',
-    'incident',
-    'dataset',
-    'dataFlow',
     'post',
-    'dataPlatform',
+    'api',
+    'mlFeature',
     'dataProcessInstance',
-    'dataPlatformInstance',
-    'application',
+    'chart',
+    'dataHubPageTemplate',
+    'glossaryTerm',
+    'dataJob',
+    'metric',
+    'dataFlow',
+    'mlPrimaryKey',
+    'notebook',
+    'query',
+    'incident',
+    'glossaryNode',
+    'form',
+    'dataContract',
+    'dataHubAccessToken',
+    'mlModel',
+    'test',
+    'dataProcess',
+    'ownershipType',
+    'mlModelDeployment',
+    'document',
+    'erModelRelationship',
+    'assertion',
+    'dataHubStepState',
+    'dataPlatform',
+    'dataHubUpgrade',
+    'searchTemplate',
+    'mlFeatureTable',
+    'lifecycleStageType',
+    'dataHubRole',
+    'dataHubView',
+    'container',
+    'dataHubConnection',
+    'telemetry',
+    'tag',
+    'agentSkill',
+    'aiAgent',
+    'mlModelGroup',
+    'dataHubSecret',
+    'dataHubAction',
+    'semanticModel',
+    'dashboard',
+    'dataHubFile',
+    'repository',
+    'dataType',
+    'businessAttribute',
+    'entityType',
+    'dataProduct',
+    'platformResource',
     'structuredProperty',
-    'service',
-    'dataType'
+    'service'
 ]
 
 # fmt: on

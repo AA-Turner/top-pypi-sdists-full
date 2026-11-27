@@ -15,6 +15,8 @@ from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, TracerProvider
 from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
 from google.protobuf.json_format import MessageToDict
 
+from .models import ReplayRow
+
 CORRELATION_ATTRIBUTE = "raindrop.eval_correlation_id"
 
 
@@ -67,7 +69,7 @@ class CaptureProcessor(SpanProcessor):
 
 @contextmanager
 def capture_row(
-    correlation_id: str, row: Any, *, attributes: dict[str, Any] | None = None
+    correlation_id: str, row: ReplayRow, *, attributes: dict[str, Any] | None = None
 ) -> Iterator[Capture]:
     with _lock:
         provider = trace.get_tracer_provider()
@@ -90,7 +92,15 @@ def capture_row(
                 "traceloop.entity.name": "raindrop.replay.row",
                 "traceloop.span.kind": "task",
                 "traceloop.entity.input": json.dumps(
-                    {"args": [], "kwargs": row.wire()}, ensure_ascii=False
+                    {
+                        "args": [],
+                        "kwargs": row.model_dump(
+                            mode="json",
+                            by_alias=True,
+                            include={"id", "name", "input", "properties"},
+                        ),
+                    },
+                    ensure_ascii=False,
                 ),
             },
         ):

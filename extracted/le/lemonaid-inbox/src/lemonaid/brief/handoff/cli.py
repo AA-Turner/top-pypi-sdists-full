@@ -9,11 +9,11 @@ import sys
 import time
 
 from ...inbox import db
-from ...inbox.channel import channel_id, full_channel_id
 from .. import attached, lemon
 from . import coordinator as handoff_coordinator
+from . import harnesses, request
 from . import pane as handoff_tmux
-from . import request
+from . import report as handoff_report
 from . import shell as handoff_shell
 from . import state as handoff_state
 
@@ -95,20 +95,7 @@ def _cmd(args: argparse.Namespace) -> None:
                 if args.action == "accept":
                     handoff_coordinator.advance(conn, token)
                     row = handoff_state.get(conn, token)
-                    session_id = (
-                        os.environ.get("CODEX_THREAD_ID", "")
-                        if row["harness"] == "codex"
-                        else os.environ.get("CLAUDE_CODE_SESSION_ID", "")
-                    )
-                    real_channel = (
-                        (
-                            full_channel_id("codex", session_id)
-                            if row["harness"] == "codex"
-                            else channel_id("claude", session_id)
-                        )
-                        if session_id
-                        else ""
-                    )
+                    real_channel = harnesses.named(row["harness"]).own_channel(conn)
                     if (
                         row["phase"] != "launched"
                         or row["error"]
@@ -139,7 +126,12 @@ def _cmd(args: argparse.Namespace) -> None:
 
                 handoff_state.acknowledge(conn, token, channel, args.action)
 
-            report = handoff_coordinator.advance(conn, token)
+            row = handoff_state.get(conn, token)
+            if args.action == "ready" and harnesses.named(row["harness"]).start is not None:
+                # The sender's own command can't stop the sender, so the watcher does.
+                report = handoff_report.build(row)
+            else:
+                report = handoff_coordinator.advance(conn, token)
             if report["phase"] != "complete":
                 request.watch(token, source_job)
 

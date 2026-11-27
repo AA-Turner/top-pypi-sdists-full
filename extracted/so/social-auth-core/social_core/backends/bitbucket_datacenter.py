@@ -5,8 +5,10 @@ Bitbucket Data Center OAuth2 backend, docs at:
 """
 
 from typing import Any
+from urllib.parse import quote, unquote
 
 from social_core.backends.base import ResponseT_co
+from social_core.exceptions import AuthResponseError
 
 from .oauth import BaseOAuth2PKCE
 
@@ -74,9 +76,10 @@ class BitbucketDataCenterOAuth2(BaseOAuth2PKCE[ResponseT_co]):
         fullname = user_data["displayName"]
         first_name = None
         last_name = None
-        uid = self.get_user_id(details=None, response=response)
+        # The `user_details` pipeline copies these onto the local user, so the
+        # Bitbucket account state (`uid`, `type`, `active`) must not be listed
+        # here; EXTRA_DATA still reads `type` and `active` from `response`.
         return {
-            "uid": uid,
             "fullname": fullname,
             "first_name": first_name,
             "last_name": last_name,
@@ -84,8 +87,6 @@ class BitbucketDataCenterOAuth2(BaseOAuth2PKCE[ResponseT_co]):
             "name": user_data["name"],
             "username": user_data["slug"],
             "display_name": user_data["displayName"],
-            "type": user_data["type"],
-            "active": user_data["active"],
             "url": user_data["links"]["self"][0]["href"],
             "avatar_url": user_data["avatarUrl"],
         }
@@ -103,9 +104,9 @@ class BitbucketDataCenterOAuth2(BaseOAuth2PKCE[ResponseT_co]):
             headers=headers,
         )
         # ref: https://developer.atlassian.com/server/bitbucket/rest/v815/api-group-system-maintenance/#api-api-latest-users-userslug-get
-        username = response.headers["x-ausername"]
-        return self.get_json(
-            url=f"{self.server_base_rest_api_url}/users/{username}",
+        username = unquote(response.headers["x-ausername"])
+        user_data = self.get_json(
+            url=f"{self.server_base_rest_api_url}/users/{quote(username, safe='')}",
             headers=headers,
             params={
                 "avatarSize": self.setting(
@@ -113,3 +114,12 @@ class BitbucketDataCenterOAuth2(BaseOAuth2PKCE[ResponseT_co]):
                 )  # to force `avatarUrl` in response
             },
         )
+        # The header carries the user's name, but the endpoint is keyed by the
+        # slug and serves any user's profile, so only accept the profile whose
+        # name is the token owner's; otherwise a user whose name equals another
+        # user's slug would be authenticated as that other user.
+        if not isinstance(user_data, dict) or user_data.get("name") != username:
+            raise AuthResponseError(
+                self, code="invalid_claim", claim="name", stage="user_info"
+            )
+        return user_data

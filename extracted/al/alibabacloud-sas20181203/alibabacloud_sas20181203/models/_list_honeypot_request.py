@@ -16,9 +16,9 @@ class ListHoneypotRequest(DaraModel):
         node_name: str = None,
         page_size: int = None,
     ):
-        # The page number of the current page in a paged query.
+        # The page number of the current page when paging is used.
         self.current_page = current_page
-        # The list of honeypot IDs.
+        # The honeypot IDs.
         self.honeypot_ids = honeypot_ids
         # The name of the honeypot.
         self.honeypot_name = honeypot_name
@@ -26,7 +26,7 @@ class ListHoneypotRequest(DaraModel):
         self.node_id = node_id
         # The name of the honeypot management node.
         self.node_name = node_name
-        # The maximum number of entries to return per page in a paged query.
+        # The maximum number of entries to return on each page when paging is used.
         self.page_size = page_size
 
     def validate(self):

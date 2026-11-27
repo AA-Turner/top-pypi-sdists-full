@@ -9,6 +9,7 @@ class AddClientUserDefineRuleRequest(DaraModel):
         self,
         action_type: int = None,
         cmdline: str = None,
+        direction: str = None,
         domain: str = None,
         file_path: str = None,
         ip: str = None,
@@ -28,13 +29,15 @@ class AddClientUserDefineRuleRequest(DaraModel):
     ):
         # The action type. Valid values:
         # 
-        # - **0**: allow
-        # - **1**: block
+        # - **0**: Add to allowlist
+        # - **1**: Add to blocklist
         # 
         # This parameter is required.
         self.action_type = action_type
         # The command line.
         self.cmdline = cmdline
+        # The traffic direction for standard IP rules (when Type is set to 9). A value of in indicates inbound traffic, and a value of out indicates outbound traffic.
+        self.direction = direction
         # The domain name.
         self.domain = domain
         # The file path.
@@ -47,7 +50,7 @@ class AddClientUserDefineRuleRequest(DaraModel):
         # 
         # This parameter is required.
         self.name = name
-        # The new file path for file rename.
+        # The new file path for the renamed file.
         self.new_file_path = new_file_path
         # The parent command line.
         self.parent_cmdline = parent_cmdline
@@ -57,11 +60,11 @@ class AddClientUserDefineRuleRequest(DaraModel):
         # 
         # - **windows**: Windows
         # - **linux**: Linux
-        # - **all**: all
+        # - **all**: All
         self.platform = platform
-        # The port number. This parameter is deprecated.
+        # The port number. **[Deprecated]**
         self.port = port
-        # The port number. Valid values: **1 to 65535**.
+        # The port number. Valid values: **1** to **65535**.
         self.port_str = port_str
         # The process path.
         self.proc_path = proc_path
@@ -71,21 +74,21 @@ class AddClientUserDefineRuleRequest(DaraModel):
         self.registry_key = registry_key
         # Specifies whether machines are automatically added to the rule. Default value: add. Valid values:
         # 
-        # - **add**: Automatically added by default.
-        # - **del**: Not automatically added by default.
+        # - **add**: Added by default.
+        # - **del**: Not added by default.
         self.target_default = target_default
         # The rule type. Valid values:
         # 
-        # - **1**: process hash
-        # - **2**: command line
-        # - **3**: process network
-        # - **4**: file read/write
-        # - **5**: registry operation
-        # - **6**: dynamic-link library loading
-        # - **7**: file rename
-        # - **8**: network domain name
-        # - **9**: network IP
-        # - **10**: file path
+        # - **1**: Process hash
+        # - **2**: Command line
+        # - **3**: Process network
+        # - **4**: File read and write
+        # - **5**: Registry operation
+        # - **6**: Dynamic-link library loading
+        # - **7**: File renaming
+        # - **8**: Network domain name
+        # - **9**: Network IP address
+        # - **10**: File path
         # 
         # This parameter is required.
         self.type = type
@@ -103,6 +106,9 @@ class AddClientUserDefineRuleRequest(DaraModel):
 
         if self.cmdline is not None:
             result['Cmdline'] = self.cmdline
+
+        if self.direction is not None:
+            result['Direction'] = self.direction
 
         if self.domain is not None:
             result['Domain'] = self.domain
@@ -161,6 +167,9 @@ class AddClientUserDefineRuleRequest(DaraModel):
 
         if m.get('Cmdline') is not None:
             self.cmdline = m.get('Cmdline')
+
+        if m.get('Direction') is not None:
+            self.direction = m.get('Direction')
 
         if m.get('Domain') is not None:
             self.domain = m.get('Domain')

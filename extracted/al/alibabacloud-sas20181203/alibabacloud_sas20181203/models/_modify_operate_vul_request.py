@@ -16,46 +16,49 @@ class ModifyOperateVulRequest(DaraModel):
         resource_directory_account_id: int = None,
         type: str = None,
     ):
-        # The client token used to ensure request idempotence. Use a different token for each request. Only ASCII characters are supported. The value can be up to 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You must use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies whether to perform only a dry run for this request. Valid values: true: performs only a dry run without executing the actual operation. false: sends the request normally. Default value: false.
+        # Specifies whether to only precheck the request. Valid values:
+        # - true: Prechecks the request without performing the actual operation.
+        # - false: Performs the actual operation.
         self.dry_run = dry_run
-        # The source identifier of the request. Set this parameter to **sas**.
+        # The source identifier of the request. The value is fixed as **sas**.
         self.from_ = from_
-        # The information about the vulnerability to handle. This parameter is in JSON format and contains the following fields:
+        # The information about the vulnerabilities to be processed. This parameter is in JSON format and contains the following fields:
         # 
         # - **name**: The name of the vulnerability.
-        # - **uuid**: The UUID of the server that has the vulnerability.
-        # - **tag**: The label of the vulnerability. Valid values:
+        # - **uuid**: The UUID of the server where the vulnerability exists.
+        # - **tag**: The tag of the vulnerability. Valid values:
         #     - **oval**: Linux software vulnerability
         #     - **system**: Windows system vulnerability
         #     - **cms**: Web-CMS vulnerability
         # 
-        # > For other vulnerability types, call the [DescribeVulList](~~DescribeVulList~~) operation to obtain vulnerability information.
+        # > For other vulnerability types, you can call the [DescribeVulList](~~DescribeVulList~~) operation to obtain the vulnerability information.
         # 
-        # - **isFront**: Specifies whether the Windows patch is a prerequisite patch. Set this parameter only when handling Windows system vulnerabilities. You can ignore this parameter for other vulnerability types. Valid values:
-        #     - **0**: No.
-        #     - **1**: Yes.
+        # - **isFront**: Specifies whether the Windows patch is a prerequisite patch. This parameter is required only when you process Windows system vulnerabilities. You can ignore this parameter when you process other types of vulnerabilities. Valid values:
+        #     - **0**: no
+        #     - **1**: yes
         # 
-        # > Batch processing is supported. Separate multiple vulnerability entries with commas (,). Call the [DescribeVulList](~~DescribeVulList~~) operation to obtain vulnerability information.
+        # > You can process multiple vulnerabilities at a time. Separate multiple vulnerability information entries with commas (,). You can call the [DescribeVulList](~~DescribeVulList~~) operation to obtain the vulnerability information.
         # 
         # This parameter is required.
         self.info = info
-        # The operation to perform on the vulnerability. Valid values:
-        # - **vul_fix**: Fix the vulnerability.
-        # - **vul_verify**: Verify the vulnerability.
-        # - **vul_ignore**: Ignore the vulnerability.
-        # - **vul_undo_ignore**: Cancel ignoring the vulnerability.
-        # - **vul_delete**: Delete the vulnerability.
+        # The processing method for the vulnerability. Valid values:
+        # - **vul_fix**: Fixes the vulnerability.
+        # - **vul_verify**: Verifies the vulnerability.
+        # - **vul_ignore**: Ignores the vulnerability.
+        # - **vul_undo_ignore**: Cancels ignoring the vulnerability.
+        # - **vul_delete**: Deletes the vulnerability.
         # 
         # This parameter is required.
         self.operate_type = operate_type
-        # The reason for ignoring the vulnerability. This parameter is required only when the operation is set to **ignore** (that is, **OperateType** is set to **vul_ignore**).
+        # The reason for ignoring the vulnerability.
+        # > This parameter is required only when the processing method is **ignore** (that is, **OperateType** is set to **vul_ignore**).
         self.reason = reason
-        # The ID of the Alibaba Cloud account associated with a member account in the resource directory.
-        # >Call the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        # The ID of the Alibaba Cloud account to which the member accounts in the resource folder belong.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
-        # The type of vulnerability to handle. Valid values:
+        # The type of the vulnerability to be processed. Valid values:
         # - **cve**: Linux software vulnerability
         # - **sys**: Windows system vulnerability
         # - **cms**: Web-CMS vulnerability
@@ -63,7 +66,7 @@ class ModifyOperateVulRequest(DaraModel):
         # - **app**: Application vulnerability
         # - **sca**: Software constituency parsing vulnerability
         # 
-        # > Fix operations are not supported for emergency vulnerabilities (emg), application vulnerabilities (app), or software constituency parsing vulnerabilities (sca). These vulnerability types do not support the execute vulnerability fix operation.
+        # > You cannot execute vulnerability fix operations for emergency vulnerabilities (emg), application vulnerabilities (app), and software constituency parsing vulnerabilities (sca).
         # 
         # This parameter is required.
         self.type = type

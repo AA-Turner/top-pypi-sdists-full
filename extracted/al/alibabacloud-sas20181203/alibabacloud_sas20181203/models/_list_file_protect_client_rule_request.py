@@ -9,6 +9,7 @@ class ListFileProtectClientRuleRequest(DaraModel):
         self,
         alert_level: int = None,
         current_page: int = None,
+        file_name: str = None,
         page_size: int = None,
         platform: str = None,
         rule_action: str = None,
@@ -24,9 +25,11 @@ class ListFileProtectClientRuleRequest(DaraModel):
         # 
         # - 3: high-risk
         self.alert_level = alert_level
-        # The page number of the current page in a paged query.
+        # The page number of the current page during paging in a paged query.
         self.current_page = current_page
-        # The maximum number of entries per page for a paged query.
+        # The name of the file.
+        self.file_name = file_name
+        # The maximum number of entries to return per page during paging in a paged query.
         self.page_size = page_size
         # The operating system type. Valid values:
         # 
@@ -35,13 +38,13 @@ class ListFileProtectClientRuleRequest(DaraModel):
         self.platform = platform
         # The rule action. Valid values:
         # 
-        # - **block**: Block.
+        # - **block**: block
         # 
-        # - **monitor**: Monitor.
+        # - **monitor**: monitor
         # 
-        # - **pass**: Allow.
+        # - **pass**: allow
         self.rule_action = rule_action
-        # The rule name.
+        # The name of the rule.
         self.rule_name = rule_name
 
     def validate(self):
@@ -57,6 +60,9 @@ class ListFileProtectClientRuleRequest(DaraModel):
 
         if self.current_page is not None:
             result['CurrentPage'] = self.current_page
+
+        if self.file_name is not None:
+            result['FileName'] = self.file_name
 
         if self.page_size is not None:
             result['PageSize'] = self.page_size
@@ -79,6 +85,9 @@ class ListFileProtectClientRuleRequest(DaraModel):
 
         if m.get('CurrentPage') is not None:
             self.current_page = m.get('CurrentPage')
+
+        if m.get('FileName') is not None:
+            self.file_name = m.get('FileName')
 
         if m.get('PageSize') is not None:
             self.page_size = m.get('PageSize')

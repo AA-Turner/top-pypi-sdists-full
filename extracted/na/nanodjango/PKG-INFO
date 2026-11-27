@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nanodjango
-Version: 0.17.1
+Version: 0.18.0
 Summary: Run Django models and views from a single file, and convert it to a full project.
 Author-email: Richard Terry <code@radiac.net>
 Project-URL: Homepage, https://radiac.net/projects/nanodjango/
@@ -11,10 +11,18 @@ Project-URL: Issues, https://github.com/radiac/nanodjango/issues
 Keywords: django
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: black

@@ -18,7 +18,7 @@ from mistralai.workflows.protocol.v1.events import (
     WorkflowEvent,
     WorkflowExecutionStarted,
 )
-from mistralai.workflows.testing import create_test_worker_with_events
+from mistralai.workflows.testing import ALL_EVENT_CATEGORIES, create_test_worker_with_events
 
 from .fixtures_task import (
     EmitterInUserActivityWorkflow,
@@ -42,16 +42,17 @@ def _logical(event: WorkflowEvent) -> _LogicalEvent:
 def _events_client(captured: list[WorkflowEvent], hang_on: type | None = None, hang_times: int = 0) -> AsyncMock:
     hangs_left = hang_times
 
-    async def send_event(*, event: Any, **kwargs: Any) -> None:
+    async def publish(events: list[WorkflowEvent]) -> None:
         nonlocal hangs_left
-        parsed = _event_adapter.validate_python(event)
-        captured.append(parsed)
-        if hang_on is not None and isinstance(parsed, hang_on) and hangs_left > 0:
-            hangs_left -= 1
-            await asyncio.Event().wait()
+        for event in events:
+            parsed = _event_adapter.validate_python(event)
+            captured.append(parsed)
+            if hang_on is not None and isinstance(parsed, hang_on) and hangs_left > 0:
+                hangs_left -= 1
+                await asyncio.Event().wait()
 
     client = AsyncMock()
-    client.send_event_async = AsyncMock(side_effect=send_event)
+    client.publish = AsyncMock(side_effect=publish)
     return client
 
 
@@ -63,7 +64,7 @@ async def _run_workflow(
     workflow_id: str,
     *args: Any,
 ) -> None:
-    async with EventContext(events_client):
+    async with EventContext(events_client, emitted_event_categories=ALL_EVENT_CATEGORIES):
         async with create_test_worker_with_events(env, workflows=[workflow], activities=activities):
             await env.client.execute_workflow(workflow, *args, id=workflow_id, task_queue="test-task-queue")
 

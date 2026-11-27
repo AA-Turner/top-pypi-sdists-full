@@ -13,7 +13,6 @@ from collections.abc import (
 )
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast, get_origin
-from weakref import WeakKeyDictionary
 
 from pydantic import BaseModel, Field, TypeAdapter
 from typing import Annotated
@@ -21,25 +20,30 @@ from typing import Annotated
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from anthropic.types import Message
 
+from instructor.v2.providers.claude import requires_auto_tool_choice
 from instructor.v2.core.mode import Mode
 from instructor.v2.core.providers import Provider
 from instructor.v2.core.errors import ConfigurationError, IncompleteOutputException
 from instructor.v2.dsl.iterable import IterableBase
 from instructor.v2.dsl.parallel import (
-    ParallelBase,
-    get_types_array,
+    ParallelBase as ParallelBase,
 )
 from instructor.v2.providers.anthropic.parallel import (
+    AnthropicParallelModel,
     handle_parallel_model as handle_anthropic_parallel_model,
 )
-from instructor.v2.dsl.partial import PartialBase
-from instructor.v2.dsl.simple_type import AdapterBase
+from instructor.v2.dsl.simple_type import AdapterBase as AdapterBase
 from instructor.v2.core.multimodal import Audio, Image, PDF
 from instructor.v2.core.multimodal import convert_messages as convert_messages_v1
-from instructor.v2.core.json import extract_json_from_codeblock
+from instructor.v2.core.json import (
+    extract_json_from_codeblock,
+    extract_json_from_stream,
+    extract_json_from_stream_async,
+)
 from instructor.v2.providers.anthropic.schema import generate_anthropic_schema
 from instructor.v2.core.decorators import register_mode_handler
 from instructor.v2.core.handler import ModeHandler
+from instructor.v2.core.streaming import StreamingModelState
 
 
 class SystemMessage(TypedDict, total=False):
@@ -146,20 +150,45 @@ def serialize_message_content(content: Any) -> Any:
     return content
 
 
-def _anthropic_supports_output_format() -> bool:
-    """Detect if the installed anthropic SDK supports output_format parameter."""
+def _anthropic_messages_create_params() -> set[str]:
+    """Return the parameter names accepted by the installed SDK's Messages.create."""
 
     try:
         from anthropic.resources.messages import Messages
     except (ImportError, AttributeError):
-        return False
+        return set()
 
     try:
         signature = inspect.signature(Messages.create)
     except (ValueError, TypeError):
-        return False
+        return set()
 
-    return "output_format" in signature.parameters
+    return set(signature.parameters)
+
+
+def _anthropic_supports_output_config() -> bool:
+    """Detect if the installed anthropic SDK supports the GA output_config parameter."""
+
+    return "output_config" in _anthropic_messages_create_params()
+
+
+def _anthropic_supports_output_format() -> bool:
+    """Detect if the installed anthropic SDK supports the beta output_format parameter."""
+
+    return "output_format" in _anthropic_messages_create_params()
+
+
+def _is_anthropic_message(response: Any) -> bool:
+    """Return True for both stable ``Message`` and beta ``BetaMessage`` responses."""
+
+    from anthropic.types import Message
+
+    try:
+        from anthropic.types.beta import BetaMessage
+    except ImportError:  # pragma: no cover - older SDKs
+        return isinstance(response, Message)
+
+    return isinstance(response, (Message, BetaMessage))
 
 
 def process_messages_for_anthropic(
@@ -182,52 +211,26 @@ def process_messages_for_anthropic(
     return processed
 
 
-class AnthropicHandlerBase(ModeHandler):
+class AnthropicHandlerBase(StreamingModelState, ModeHandler):
     """Common utilities for Anthropic handlers."""
 
     mode: Mode
 
-    def __init__(self) -> None:
-        self._streaming_models: WeakKeyDictionary[type[Any], None] = WeakKeyDictionary()
-
-    def _register_streaming_from_kwargs(
-        self, response_model: type[BaseModel] | None, kwargs: dict[str, Any]
-    ) -> None:
-        if response_model is None:
-            return
-        if kwargs.get("stream"):
-            self.mark_streaming_model(response_model, True)
-
-    def mark_streaming_model(
-        self, response_model: type[BaseModel] | None, stream: bool
-    ) -> None:
-        """Record that the response model expects streaming output."""
-
-        if not stream or response_model is None:
-            return
-        if inspect.isclass(response_model) and issubclass(
-            response_model, (IterableBase, PartialBase)
-        ):
-            self._streaming_models[response_model] = None
-
-    def _consume_streaming_flag(
-        self, response_model: type[BaseModel] | ParallelBase | None
-    ) -> bool:
-        if response_model is None:
-            return False
-        if not inspect.isclass(response_model):
-            return False
-        if response_model in self._streaming_models:
-            del self._streaming_models[response_model]
-            return True
-        return False
-
     def extract_streaming_json(
-        self, completion: TypingIterable[Any]
+        self,
+        completion: TypingIterable[Any],
+        *,
+        require_complete: bool = False,
     ) -> Generator[str, None, None]:
         """Extract JSON chunks from Anthropic streaming responses."""
+        incomplete_chunk: Any = None
         for chunk in completion:
             try:
+                if (
+                    require_complete
+                    and getattr(chunk.delta, "stop_reason", None) == "max_tokens"
+                ):
+                    incomplete_chunk = chunk
                 if self.mode in {Mode.TOOLS, Mode.PARALLEL_TOOLS}:
                     yield chunk.delta.partial_json
                 elif self.mode in {Mode.JSON, Mode.JSON_SCHEMA}:
@@ -235,13 +238,24 @@ class AnthropicHandlerBase(ModeHandler):
                         yield json_chunk
             except AttributeError:
                 continue
+        if incomplete_chunk is not None:
+            raise IncompleteOutputException(last_completion=incomplete_chunk)
 
     async def extract_streaming_json_async(
-        self, completion: AsyncGenerator[Any, None]
+        self,
+        completion: AsyncGenerator[Any, None],
+        *,
+        require_complete: bool = False,
     ) -> AsyncGenerator[str, None]:
         """Extract JSON chunks from Anthropic async streams."""
+        incomplete_chunk: Any = None
         async for chunk in completion:
             try:
+                if (
+                    require_complete
+                    and getattr(chunk.delta, "stop_reason", None) == "max_tokens"
+                ):
+                    incomplete_chunk = chunk
                 if self.mode in {Mode.TOOLS, Mode.PARALLEL_TOOLS}:
                     yield chunk.delta.partial_json
                 elif self.mode in {Mode.JSON, Mode.JSON_SCHEMA}:
@@ -249,6 +263,8 @@ class AnthropicHandlerBase(ModeHandler):
                         yield json_chunk
             except AttributeError:
                 continue
+        if incomplete_chunk is not None:
+            raise IncompleteOutputException(last_completion=incomplete_chunk)
 
     def convert_messages(
         self, messages: list[dict[str, Any]], autodetect_images: bool = False
@@ -276,37 +292,41 @@ class AnthropicHandlerBase(ModeHandler):
             parse_kwargs["strict"] = strict
 
         streaming_model = cast(Any, response_model)
+        single_json = self.mode == Mode.JSON and not issubclass(
+            response_model, IterableBase
+        )
+        require_complete = issubclass(response_model, IterableBase)
         if inspect.isasyncgen(response) or isinstance(response, AsyncIterator):
             return streaming_model.from_streaming_response_async(
                 response,
-                stream_extractor=self.extract_streaming_json_async,
+                stream_extractor=(
+                    lambda events: extract_json_from_stream_async(
+                        self.extract_streaming_json_async(events), single_model=True
+                    )
+                )
+                if single_json
+                else lambda events: self.extract_streaming_json_async(
+                    events, require_complete=require_complete
+                ),
                 **parse_kwargs,
             )
 
         generator = streaming_model.from_streaming_response(
             response,
-            stream_extractor=self.extract_streaming_json,
+            stream_extractor=(
+                lambda events: extract_json_from_stream(
+                    self.extract_streaming_json(events), single_model=True
+                )
+            )
+            if single_json
+            else lambda events: self.extract_streaming_json(
+                events, require_complete=require_complete
+            ),
             **parse_kwargs,
         )
         if inspect.isclass(response_model) and issubclass(response_model, IterableBase):
             return generator
         return list(generator)
-
-    def _finalize_parsed_result(
-        self,
-        response_model: type[BaseModel] | ParallelBase,
-        response: Any,
-        parsed: Any,
-    ) -> Any:
-        if isinstance(parsed, IterableBase):
-            return [task for task in parsed.tasks]
-        if isinstance(response_model, ParallelBase):
-            return parsed
-        if isinstance(parsed, AdapterBase):
-            return parsed.content
-        if isinstance(parsed, BaseModel):
-            parsed._raw_response = response  # type: ignore[attr-defined]
-        return parsed
 
     def _parse_with_callback(
         self,
@@ -318,8 +338,9 @@ class AnthropicHandlerBase(ModeHandler):
             [Any, type[BaseModel], dict[str, Any] | None, bool | None],
             Any,
         ],
+        stream: bool | None = None,
     ) -> Any:
-        if self._consume_streaming_flag(response_model):
+        if self._should_parse_streaming(response_model, stream):
             return self._parse_streaming_response(
                 response_model,
                 response,
@@ -381,14 +402,12 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
             new_kwargs["tools"] = [tool_descriptions]
 
         if "tool_choice" not in new_kwargs:
-            thinking_enabled = (
-                "thinking" in new_kwargs
-                and isinstance(new_kwargs.get("thinking"), dict)
-                and new_kwargs.get("thinking", {}).get("type") == "enabled"
+            requires_auto = requires_auto_tool_choice(
+                new_kwargs.get("model"), new_kwargs.get("thinking")
             )
-            if thinking_enabled or is_parallel:
+            if requires_auto or is_parallel:
                 new_kwargs["tool_choice"] = {"type": "auto"}
-                if thinking_enabled:
+                if requires_auto:
                     new_kwargs["system"] = combine_system_messages(
                         new_kwargs.get("system"),
                         [
@@ -401,7 +420,9 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
             else:
                 new_kwargs["tool_choice"] = {
                     "type": "tool",
-                    "name": getattr(response_model, "__name__", "response"),
+                    # Match the declared tool name, which comes from the
+                    # schema title and may differ from the class __name__.
+                    "name": new_kwargs["tools"][0]["name"],
                     # Without this, Anthropic may still emit multiple tool_use
                     # blocks for the same forced tool, which the single-model
                     # parser then rejects even though the model's response was
@@ -484,7 +505,7 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
-        stream: bool = False,  # noqa: ARG002
+        stream: bool | None = None,
         is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         return self._parse_with_callback(
@@ -493,6 +514,7 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
             validation_context,
             strict,
             self._parse_tool_response,
+            stream,
         )
 
     def _parse_tool_response(
@@ -502,30 +524,14 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
         validation_context: dict[str, Any] | None,
         strict: bool | None,
     ) -> Any:
-        from anthropic.types import Message
-
-        if isinstance(response, Message) and response.stop_reason == "max_tokens":
+        if _is_anthropic_message(response) and response.stop_reason == "max_tokens":
             raise IncompleteOutputException(last_completion=response)
 
         origin = get_origin(response_model)
         if origin is TypingIterable:
-            the_types = get_types_array(response_model)  # type: ignore[arg-type]
-            type_registry = {t.__name__: t for t in the_types}
-
-            def parallel_generator() -> Generator[BaseModel, None, None]:
-                for content in response.content:
-                    if getattr(content, "type", None) == "tool_use":
-                        tool_name = content.name
-                        if tool_name in type_registry:
-                            model_class = type_registry[tool_name]
-                            json_str = json.dumps(content.input)
-                            yield model_class.model_validate_json(
-                                json_str,
-                                context=validation_context,
-                                strict=strict,
-                            )
-
-            return parallel_generator()
+            return AnthropicParallelModel(response_model).from_response(
+                response, self.mode, validation_context, strict
+            )
 
         tool_calls = [
             json.dumps(c.input)
@@ -593,7 +599,7 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
-        stream: bool = False,  # noqa: ARG002
+        stream: bool | None = None,
         is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         return self._parse_with_callback(
@@ -602,6 +608,7 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
             validation_context,
             strict,
             self._parse_parallel_response,
+            stream,
         )
 
     def _parse_parallel_response(
@@ -610,31 +617,11 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None,
         strict: bool | None,
-    ) -> Generator[BaseModel, None, None]:
-        """Parse parallel tool response directly without using AnthropicParallelBase."""
-        if not response or not hasattr(response, "content"):
-            return
-
-        # Extract model types from response_model (Iterable[Union[Model1, Model2, ...]])
-        the_types = get_types_array(response_model)  # type: ignore[arg-type]
-        type_registry = {
-            model.__name__ if hasattr(model, "__name__") else str(model): model
-            for model in the_types
-        }
-
-        # Parse tool_use blocks from response
-        for content in response.content:
-            if getattr(content, "type", None) == "tool_use":
-                name = content.name
-                arguments = content.input
-                if name in type_registry:
-                    model_class = type_registry[name]
-                    json_str = json.dumps(arguments)
-                    yield model_class.model_validate_json(
-                        json_str,
-                        context=validation_context,
-                        strict=strict,
-                    )
+    ) -> Any:
+        """Validate every parallel tool call before returning an iterator."""
+        return AnthropicParallelModel(response_model).from_response(
+            response, self.mode, validation_context, strict
+        )
 
 
 @register_mode_handler(Provider.ANTHROPIC, Mode.JSON)
@@ -707,7 +694,7 @@ class AnthropicJSONHandler(AnthropicHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
-        stream: bool = False,  # noqa: ARG002
+        stream: bool | None = None,
         is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         return self._parse_with_callback(
@@ -716,6 +703,7 @@ class AnthropicJSONHandler(AnthropicHandlerBase):
             validation_context,
             strict,
             self._parse_json_response,
+            stream,
         )
 
     def _parse_json_response(
@@ -725,7 +713,6 @@ class AnthropicJSONHandler(AnthropicHandlerBase):
         validation_context: dict[str, Any] | None,
         strict: bool | None,
     ) -> BaseModel:
-        from anthropic.types import Message
         from instructor.v2.core.errors import ResponseParsingError
 
         if hasattr(response, "choices"):
@@ -734,7 +721,7 @@ class AnthropicJSONHandler(AnthropicHandlerBase):
                 raise IncompleteOutputException(last_completion=completion)
             text = completion.message.content
         else:
-            if not isinstance(response, Message):
+            if not _is_anthropic_message(response):
                 raise ResponseParsingError(
                     "Response must be an Anthropic Message",
                     mode="JSON",
@@ -772,8 +759,12 @@ class AnthropicJSONHandler(AnthropicHandlerBase):
 class AnthropicStructuredOutputsHandler(AnthropicHandlerBase):
     """Handler for Anthropic structured outputs mode.
 
-    Uses Claude's native structured output enforcement via the output_format parameter.
-    Requires Anthropic SDK >=0.71.0 and the structured-outputs-2025-11-13 beta.
+    Uses Claude's native structured output enforcement. When the installed SDK's
+    ``Messages.create`` accepts ``output_config`` (GA structured outputs), the
+    schema is sent as ``output_config.format``. Older SDKs that only expose the
+    beta ``output_format`` parameter use it with the
+    structured-outputs-2025-11-13 beta. SDKs with neither fall back to JSON mode
+    instructions.
     """
 
     mode = Mode.JSON_SCHEMA
@@ -792,9 +783,10 @@ class AnthropicStructuredOutputsHandler(AnthropicHandlerBase):
                 "Mode.JSON_SCHEMA (Anthropic structured outputs) requires a `response_model`."
             )
 
-        if not _anthropic_supports_output_format():
+        supports_output_config = _anthropic_supports_output_config()
+        if not supports_output_config and not _anthropic_supports_output_format():
             warnings.warn(
-                "Anthropic client does not support `output_format`; falling back to JSON mode instructions.",
+                "Anthropic client does not support `output_config` or `output_format`; falling back to JSON mode instructions.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -826,10 +818,24 @@ class AnthropicStructuredOutputsHandler(AnthropicHandlerBase):
             def transform_schema(model: type[BaseModel]) -> dict[str, Any]:
                 return model.model_json_schema()
 
-        new_kwargs["output_format"] = {
+        output_format = {
             "type": "json_schema",
             "schema": transform_schema(response_model),
         }
+
+        # Ensure legacy tool kwargs are cleared
+        new_kwargs.pop("tools", None)
+        new_kwargs.pop("tool_choice", None)
+
+        if supports_output_config:
+            existing_config = new_kwargs.get("output_config")
+            if not isinstance(existing_config, dict):
+                # None or the SDK's Omit/NOT_GIVEN sentinels mean "not set".
+                existing_config = {}
+            new_kwargs["output_config"] = {**existing_config, "format": output_format}
+            return response_model, new_kwargs
+
+        new_kwargs["output_format"] = output_format
 
         required_beta = "structured-outputs-2025-11-13"
         betas = new_kwargs.get("betas")
@@ -843,10 +849,6 @@ class AnthropicStructuredOutputsHandler(AnthropicHandlerBase):
             if required_beta not in betas:
                 betas.append(required_beta)
             new_kwargs["betas"] = betas
-
-        # Ensure legacy tool kwargs are cleared
-        new_kwargs.pop("tools", None)
-        new_kwargs.pop("tool_choice", None)
 
         return response_model, new_kwargs
 
@@ -879,7 +881,7 @@ class AnthropicStructuredOutputsHandler(AnthropicHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
-        stream: bool = False,  # noqa: ARG002
+        stream: bool | None = None,
         is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         return self._parse_with_callback(
@@ -888,6 +890,7 @@ class AnthropicStructuredOutputsHandler(AnthropicHandlerBase):
             validation_context,
             strict,
             self._parse_structured_output_response,
+            stream,
         )
 
     def _parse_structured_output_response(
@@ -897,10 +900,9 @@ class AnthropicStructuredOutputsHandler(AnthropicHandlerBase):
         validation_context: dict[str, Any] | None,
         strict: bool | None,
     ) -> BaseModel:
-        from anthropic.types import Message
         from instructor.v2.core.errors import ResponseParsingError
 
-        if not isinstance(response, Message):
+        if not _is_anthropic_message(response):
             raise ResponseParsingError(
                 "Response must be an Anthropic Message",
                 mode="JSON_SCHEMA",

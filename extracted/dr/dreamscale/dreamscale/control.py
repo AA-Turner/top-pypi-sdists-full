@@ -340,14 +340,20 @@ class ControlPlaneClient:
         _raise_for_status(resp)
 
     async def report_latency(
-        self, session_id: str, records: list[dict[str, Any]], *, dropped: int = 0
+        self,
+        session_id: str,
+        records: list[dict[str, Any]],
+        *,
+        dropped: int = 0,
+        connect: dict[str, Any] | None = None,
     ) -> bool:
-        """Send a session's per-request latency records (latency_report.py). False when the
-        control plane has no such endpoint or the session is gone: stop reporting."""
-        resp = await self._client.post(
-            f"/v1/sessions/{session_id}/latency",
-            json={"records": records, "dropped": dropped},
-        )
+        """Send a session's per-request latency records (latency_report.py), and once its
+        request→ready stamps. False when the control plane has no such endpoint or the
+        session is gone: stop reporting."""
+        body: dict[str, Any] = {"records": records, "dropped": dropped}
+        if connect is not None:
+            body["connect"] = connect
+        resp = await self._client.post(f"/v1/sessions/{session_id}/latency", json=body)
         if resp.status_code in (404, 405):
             return False
         _raise_for_auth(resp)

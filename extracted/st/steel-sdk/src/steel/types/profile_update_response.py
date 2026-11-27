@@ -262,11 +262,11 @@ class FingerprintFingerprintNavigator(BaseModel):
 class FingerprintFingerprintPluginsDataPluginMimeType(BaseModel):
     description: Optional[str] = None
 
-    enabled_plugin: Optional[str] = FieldInfo(alias="enabledPlugin", default=None)
-
     suffixes: Optional[str] = None
 
     type: Optional[str] = None
+
+    enabled_plugin: Optional[str] = FieldInfo(alias="enabledPlugin", default=None)
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
@@ -394,7 +394,7 @@ class FingerprintFingerprintVideoCard(BaseModel):
 class FingerprintFingerprint(BaseModel):
     audio_codecs: Dict[str, Optional[str]] = FieldInfo(alias="audioCodecs")
 
-    battery: FingerprintFingerprintBattery
+    battery: Optional[FingerprintFingerprintBattery] = None
 
     fonts: List[Optional[str]]
 
@@ -500,7 +500,7 @@ class ProfileUpdateResponse(BaseModel):
     source_session_id: Optional[str] = FieldInfo(alias="sourceSessionId", default=None)
     """The last session ID associated with the profile"""
 
-    status: Literal["UPLOADING", "READY", "FAILED"]
+    status: Literal["UPLOADING", "READY", "FAILED", "DELETING", "DELETED"]
     """The status of the profile"""
 
     updated_at: datetime = FieldInfo(alias="updatedAt")

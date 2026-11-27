@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "letschatty"
 
-version = "0.6.100"
+version = "0.6.108"
 
 description = "Models and custom classes to work across the Chattyverse"
 authors = ["Axel <axel@letschatty.com>"]

@@ -47,6 +47,11 @@ inside the control, does not count. A focused text-entry control (textbox,
 searchbox, combobox, spinbutton) is never marked: keys go to the focused
 element whatever is painted over it (a code-entry widget draws its digit boxes
 over one small input), so it is still the target for typing.
+The snapshot's boxes ignore clipping, transparency and paint phases, so a
+control it flags is then asked of the browser itself (``elementFromPoint`` at
+the control's centre, see ``confirm_covered``): when the control takes the
+click there, the tag is dropped. A control the browser cannot answer for
+(off-screen, detached, call failed) keeps the snapshot's verdict.
 
 A radio or checkbox drawn over by its own native ``<label>`` (a custom
 control: the real input is invisible and the label, or its ``::before``, is
@@ -114,6 +119,25 @@ _LABEL_INTERACTIVE_TAGS = frozenset({"A", "BUTTON", "SELECT", "TEXTAREA", "INPUT
 # wrapper) is kept in one list scanned for every lookup instead.
 _HIT_CELL_PX = 256
 _HIT_MAX_CELLS = 64
+# The browser's own hit test for a flagged control, run on the element:
+# true = another element takes a click at its centre, false = the control, a
+# node inside it, an ancestor, or its own label does; null = cannot tell
+# (detached, no box, centre outside the viewport).
+_HIT_TEST_JS = """function () {
+  if (!this.isConnected) return null;
+  const r = this.getBoundingClientRect();
+  const view = this.ownerDocument.defaultView;
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  if (!(r.width > 0 && r.height > 0) || x < 0 || y < 0 || x >= view.innerWidth || y >= view.innerHeight) return null;
+  const root = this.getRootNode();
+  const hit = (root.elementFromPoint ? root : this.ownerDocument).elementFromPoint(x, y);
+  if (!hit) return null;
+  if (hit === this || this.contains(hit) || hit.contains(this)) return false;
+  const label = hit.closest('label');
+  return !(label && label.control === this);
+}"""
+_HIT_TEST_GROUP = "testmu-covered-check"
+_CONFIRM_TIMEOUT_S = 1.5
 
 # Attribute order is the hint's reading order: identity first, then labels.
 _HINT_ID_ATTRS = ("data-testid", "data-test", "data-test-id", "data-qa", "data-cy")
@@ -276,6 +300,8 @@ class ActionableStats:
     hinted: int = 0
     via_label: int = 0
     covered: int = 0
+    # Flagged by the snapshot, then dropped: the browser's hit test found the control.
+    covered_cleared: int = 0
     errors: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -288,6 +314,7 @@ class ActionableStats:
             "hinted": self.hinted,
             "via_label": self.via_label,
             "covered": self.covered,
+            "covered_cleared": self.covered_cleared,
             "errors": list(self.errors),
         }
 
@@ -522,7 +549,8 @@ def _is_covered(fact: _DomFacts, facts: dict[int, _DomFacts]) -> bool:
     return True
 
 
-def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats) -> None:
+def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats,
+                  flagged: list[Any] | None = None) -> None:
     """Set ``clickable`` / ``dom_hint`` / ``display_name`` on ``tree``'s nodes.
 
     - A promotable (generic/none/role-less) actionable node: ``clickable`` +
@@ -535,7 +563,8 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
     - An enabled radio/checkbox covered by its own native label:
       ``via_label`` = that label's AX node.
     - Any other enabled interactive-role node another element is painted
-      over at its centre: ``covered``.
+      over at its centre: ``covered`` (also appended to ``flagged``, for
+      ``confirm_covered``).
     """
 
     ax_backend_ids: set[int] = set()
@@ -621,6 +650,42 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
         if node.via_label is None and not _focused_text_entry(node) and _is_covered(fact, facts):
             node.covered = True
             stats.covered += 1
+            if flagged is not None:
+                flagged.append(node)
+
+
+async def confirm_covered(session: Any, flagged: list[Any], stats: ActionableStats) -> None:
+    """Drop ``covered`` from each ``flagged`` node the browser's own hit test
+    says takes a click at its centre. Concurrent, bounded by
+    ``_CONFIRM_TIMEOUT_S``; a node the browser cannot answer for keeps it."""
+
+    async def one(node: Any) -> None:
+        try:
+            obj = await session.send("DOM.resolveNode", {
+                "backendNodeId": node.backend_dom_node_id, "objectGroup": _HIT_TEST_GROUP,
+            })
+            res = await session.send("Runtime.callFunctionOn", {
+                "objectId": obj["object"]["objectId"],
+                "functionDeclaration": _HIT_TEST_JS,
+                "returnByValue": True,
+            })
+        except Exception as exc:  # noqa: BLE001 — keep the snapshot's verdict
+            logger.debug("covered hit test failed: %s", exc)
+            return
+        if (res.get("result") or {}).get("value") is False and node.covered:
+            node.covered = False
+            stats.covered -= 1
+            stats.covered_cleared += 1
+
+    try:
+        await asyncio.wait_for(asyncio.gather(*(one(n) for n in flagged)), timeout=_CONFIRM_TIMEOUT_S)
+    except Exception as exc:  # noqa: BLE001
+        stats.errors.append(type(exc).__name__)
+    finally:
+        try:
+            await session.send("Runtime.releaseObjectGroup", {"objectGroup": _HIT_TEST_GROUP})
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def annotate_pointer_tree(tree: Any) -> int:
@@ -714,14 +779,20 @@ async def annotate_sessions(
 
     results = await asyncio.gather(*(one(session) for session, _trees in groups))
 
-    for (_session, trees), facts in zip(groups, results):
+    confirms = []
+    for (session, trees), facts in zip(groups, results):
         if not facts:
             continue
         stats.dom_nodes += len(facts)
+        flagged: list[Any] = []
         for tree in trees:
             if tree is not None:
                 try:
-                    annotate_tree(tree, facts, stats)
+                    annotate_tree(tree, facts, stats, flagged)
                 except Exception as exc:  # noqa: BLE001
                     stats.errors.append(type(exc).__name__)
+        if flagged:
+            confirms.append(confirm_covered(session, flagged, stats))
+    if confirms:
+        await asyncio.gather(*confirms)
     return stats

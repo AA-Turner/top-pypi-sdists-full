@@ -10,16 +10,16 @@ class ModifyVpcHoneyPotRequest(DaraModel):
         honey_pot_action: str = None,
         vpc_id: str = None,
     ):
-        # Specifies whether to enable or disable the honeypot. Valid values:
+        # Specifies the action to perform on the cloud honeypot instance. Valid values:
         # 
-        # *   **disable**
-        # *   **enable**
+        # - **disable**: Suspends the instance.
+        # - **enable**: Starts the instance.
         # 
         # This parameter is required.
         self.honey_pot_action = honey_pot_action
-        # The ID of the virtual private cloud (VPC) on which the honeypot is deployed.
+        # The VPC ID of the cloud honeypot instance to take effect.
         # 
-        # >  You can call the [DescribeVpcHoneyPotList](~~DescribeVpcHoneyPotList~~) operation to query the IDs of VPCs.
+        # > You can call the [DescribeVpcHoneyPotList](~~DescribeVpcHoneyPotList~~) operation to obtain the VPC ID.
         # 
         # This parameter is required.
         self.vpc_id = vpc_id

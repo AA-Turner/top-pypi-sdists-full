@@ -9,7 +9,7 @@ class DeleteAttackPathSensitiveAssetConfigRequest(DaraModel):
         self,
         attack_path_sensitive_asset_config_id: str = None,
     ):
-        # ID of the attack path sensitive asset configuration.
+        # The ID of the attack path sensitive asset setting.
         # 
         # This parameter is required.
         self.attack_path_sensitive_asset_config_id = attack_path_sensitive_asset_config_id

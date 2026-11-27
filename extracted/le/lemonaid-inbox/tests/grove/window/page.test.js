@@ -8,6 +8,7 @@ const vm = require("node:vm");
 
 const page = fs.readFileSync(path.join(__dirname, "../../../src/lemonaid/grove/window/static/page.html"), "utf8");
 const keys = fs.readFileSync(path.join(__dirname, "../../../src/lemonaid/grove/window/static/keys.js"), "utf8");
+const {shownKey} = require("../../../src/lemonaid/grove/window/static/layout.js");
 const source = name => page.match(new RegExp(`function ${name}\\([^]*?\\n\\}`))[0];
 
 function searching() {
@@ -97,12 +98,14 @@ test("tab's keys choose a tree's first lemon, another lemon, the whole tree, or 
   assert.deepEqual(shown.map(t => [t.key, t.channel, !!t.block]), [["ant", "c:1", false], ["ant", "c:2", false], ["bee", "", false], ["", "", true]]);
 });
 
-test("a block's menu only recolors it, and a lemon's or a tree's never does", () => {
+test("a block's menu recolors it and changes its number, block 0's gives back its home group's, and a lemon's or a tree's does neither", () => {
   const context = {EDITS: null};
   vm.createContext(context);
-  vm.runInContext(`${menuJs.match(/const EDITS = [^\n]*/)[0]}\nconst editsFor = ${menuJs.match(/const editsFor = ([^\n]*)/)[1]}`, context);
+  const line = name => menuJs.match(new RegExp(`const ${name} = [^\\n]*`))[0];
+  vm.runInContext(`${line("EDITS")}\n${line("BLOCK_EDITS")}\n${line("HOME_EDITS")}\nconst editsFor = ${menuJs.match(/const editsFor = ([^\n]*)/)[1]}`, context);
 
-  assert.deepEqual(JSON.parse(vm.runInContext("JSON.stringify(editsFor({block: true}).map(e => e[0]))", context)), ["color"]);
+  assert.deepEqual(JSON.parse(vm.runInContext("JSON.stringify(editsFor({block: true}).map(e => e[0]))", context)), ["color", "earlier", "later", "home"]);
+  assert.deepEqual(JSON.parse(vm.runInContext("JSON.stringify(editsFor({block: true, home: true}).map(e => e[0]))", context)), ["home"]);
   assert.deepEqual(JSON.parse(vm.runInContext("JSON.stringify(editsFor({}).map(e => e[0]))", context)), ["rename", "snooze", "archive", "pin", "group", "graft"]);
 });
 
@@ -228,21 +231,37 @@ test("a jump that works goes back to the whole grove; one that fails stays to sa
   assert.equal(msg.textContent, "Can't jump");
 });
 
-test("each lemon's key in a tree's list takes its status's color, as the terminal grove's does", () => {
+function listing() {
   const painted = [];
   const context = {
     CW: 8, RH: 16, BG: "#0d1117", TEXT: "#e6ebf2", STATUS: {done: "#6f9fe0"}, ASKS: [], flipped: false, listMarks: [],
     ctx: {fillRect: () => {}}, listHeight: () => 52, listPad: () => 2, mix: a => a, frame: () => {}, drawTag: () => {},
-    txt: (text, _x, _y, color) => painted.push([text, color]),
+    shownKey, txt: (text, _x, _y, color) => painted.push([text, color]),
   };
   vm.createContext(context);
   vm.runInContext(source("drawList"), context);
+  return {draw: (t, w = 480) => context.drawList({color: ""}, t, 0, 0, w, {key: ` ${t.letter} `, body: ""}), painted};
+}
+
+test("each lemon's key in a tree's list takes its status's color, as the terminal grove's does", () => {
+  const {draw, painted} = listing();
   const lemons = [{status: "", age: "8m", name: "browser grove"}, {status: "done", age: "22h", name: "Review"}];
 
-  context.drawList({color: ""}, {key: "grove/richer-rendering", letter: "r", lemons}, 0, 0, 480, {key: " r ", body: ""});
+  draw({key: "grove/richer-rendering", letter: "r", lemons});
   const color = key => painted.find(([text]) => text === key)[1];
   assert.equal(color(".r1"), "#6f9fe0");
   assert.equal(color("r"), "#c9d1d9");
+});
+
+test("a list names its tree's key, unless it is its chat lemon's channel", () => {
+  const room = "openclaw:agent:main:matrix:channel:!r00mA1b2:grove.example";
+  const {draw, painted} = listing();
+
+  draw({key: "grove/richer-rendering", letter: "r", lemons: [{status: "", age: "8m", name: "browser grove"}]});
+  draw({key: room, letter: "g", lemons: [{status: "", age: "8m", name: "garden", channel: room}]}, 4000);
+  const texts = painted.map(([text]) => text.trim());
+  assert.ok(texts.includes("grove/richer-rendering"));
+  assert.ok(!texts.some(text => text.includes("openclaw:")));
 });
 
 test("esc and backspace back out of a block, then go back to the terminal rather than closing", () => {
@@ -258,4 +277,61 @@ test("esc and backspace back out of a block, then go back to the terminal rather
   assert.deepEqual(asked, []);
   context.back();
   assert.deepEqual(asked, ["terminal"]);
+});
+
+test("a lemon hanging in a crown is a tap target of its own on a touch screen only", () => {
+  const lemon = {channel: "claude:a"}, tree = {key: "t", lemons: [lemon]}, box = {fruit: [{x: 1, y: 2, w: 12, h: 12, lemon}]};
+  for (const web of [true, false]) {  // a touch screen, then a mouse
+    const context = {window: {matchMedia: () => ({matches: web})}, hits: []};
+    vm.createContext(context);
+    vm.runInContext('const touch = () => window.matchMedia?.("(pointer: coarse)").matches;\n' + source("fruitHits"), context);
+    context.fruitHits({digit: "1"}, box, () => tree);
+    assert.deepEqual(context.hits.map(h => [h.lemon, h.tree]), web ? [[lemon, tree]] : []);
+  }
+});
+
+for (const many of [12, 20]) test(`each of ${many} lemons in a tree opened on a short touch screen has its own row on the screen to tap`, () => {
+  const lemons = Array.from({length: many}, (_, i) => ({channel: `claude:${i}`, name: `lemon ${i}`, status: "merge"}));
+  const tree = {key: "t", label: "mops", letter: "t", lemons};
+  const context = {
+    W: () => 500, H: () => 269, RH: 18, CW: 9, BG: "#000", TEXT: "#fff", TAG: "#333", STATUS: {}, ASKS: ["merge"],
+    view: {treeZ: 1}, hits: [], focus: {digit: "6", key: "t"},
+    ctx: {fillRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {}},
+    focused: () => ({b: {digit: "6", group: many === 20 ? "mops" : ""}, t: tree, each: () => tree}),
+    crownExtent: () => ({left: -4, right: 4, top: -6, bottom: 0}), crownShape: () => ({}),
+    drawTree: (b, t, cx, cy) => ({groundY: cy + 18 * context.view.treeZ, fruit: []}),
+    fruitHits: () => {}, txtAt: () => {}, mix: c => c,
+  };
+  vm.createContext(context);
+  vm.runInContext(source("drawFocus"), context);
+  assert.equal(context.drawFocus(), true);
+  const rows = context.hits.filter(h => h.lemon);
+  assert.equal(rows.length, many);
+  assert.equal(context.hits.filter(h => h.blockMenu).length, many === 20 ? 1 : 0);  // a group's title opens its block's menu
+  assert.ok(rows.every(h => h.y >= 0 && h.y + h.h <= 269 && h.x >= 0 && h.x + h.w <= 500), rows.map(h => [h.x, h.y, h.y + h.h]).join(" "));
+  const overlaps = (a, b) => a.x + 0.01 < b.x + b.w && b.x + 0.01 < a.x + a.w && a.y + 0.01 < b.y + b.h && b.y + 0.01 < a.y + a.h;  // rows meet edge to edge
+  assert.ok(rows.every((a, i) => rows.every((b, j) => i === j || !overlaps(a, b))));
+});
+
+test("the browser's back button closes an open tree, then the block, and the page leaves no entry behind", () => {
+  const listeners = {}, stack = [null];
+  const history = {
+    get state() { return stack[stack.length - 1]; },
+    pushState: s => stack.push(s),
+    back: () => { stack.pop(); listeners.popstate(); },
+  };
+  const context = {history, window: {addEventListener: (n, f) => { listeners[n] = f; }}, zoomed: null, focus: null};
+  context.goTo = d => { context.zoomed = d; };
+  vm.createContext(context);
+  vm.runInContext(page.match(/let leaving = false;[^]*?\n\}\);/)[0] + "\nfunction draw() { inHistory(); }", context);
+  const at = () => [vm.runInContext("zoomed", context), Boolean(vm.runInContext("focus", context)), stack.length];
+
+  vm.runInContext('zoomed = "6"; draw(); focus = {digit: "6", key: "t"}; draw()', context);
+  assert.deepEqual(at(), ["6", true, 2]);
+  history.back();
+  assert.deepEqual(at(), ["6", false, 2]);
+  history.back();
+  assert.deepEqual(at(), [null, false, 1]);
+  vm.runInContext('zoomed = "6"; draw(); zoomed = null; draw()', context);  // a tap back out to the whole grove
+  assert.deepEqual(at(), [null, false, 1]);
 });

@@ -56,6 +56,24 @@ def test_base64_env_fallback(tmp_path, monkeypatch):
     assert load_execution_context().outputs.prev_task.uri == "kestra:///my/file.csv"
 
 
+def test_explicit_path_never_falls_back_to_base64_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("KESTRA_CONTEXT", base64.b64encode(json.dumps(CONTEXT).encode()).decode())
+
+    with pytest.raises(FileNotFoundError, match="typo.json") as error:
+        load_execution_context(str(tmp_path / "typo.json"))
+
+    assert "KESTRA_CONTEXT" not in str(error.value)
+
+
+def test_empty_file_variable_means_the_default_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".kestra-execution-context.json").write_text(json.dumps(CONTEXT))
+    monkeypatch.setenv("KESTRA_EXECUTION_CONTEXT_FILE", "")
+    monkeypatch.delenv("KESTRA_CONTEXT", raising=False)
+
+    assert load_execution_context().labels.env == "prod"
+
+
 def test_missing_context(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("KESTRA_CONTEXT", raising=False)
@@ -95,8 +113,59 @@ def test_is_a_mapping():
 def test_to_dict_returns_plain_types():
     context = ExecutionContext(CONTEXT)
 
-    assert context.to_dict() is CONTEXT
+    assert context.to_dict() == CONTEXT
     assert json.loads(json.dumps(context.to_dict())) == CONTEXT
+
+
+def test_changing_to_dict_does_not_change_the_cached_context(context_file):
+    kestra.context.to_dict()["labels"]["env"] = "changed"
+
+    assert kestra.context.labels.env == "prod"
+
+
+def test_base64_env_with_line_breaks_is_accepted(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("KESTRA_EXECUTION_CONTEXT_FILE", raising=False)
+    monkeypatch.setenv("KESTRA_CONTEXT", base64.encodebytes(json.dumps(CONTEXT).encode()).decode())
+
+    assert load_execution_context().labels.env == "prod"
+
+
+@pytest.mark.parametrize(
+    "encoded, message",
+    [
+        ("!!!", "KESTRA_CONTEXT environment variable is not valid base64"),
+        (base64.b64encode(b"{bad").decode(), "KESTRA_CONTEXT environment variable is not valid JSON"),
+        (base64.b64encode(b"[1]").decode(), "KESTRA_CONTEXT environment variable is not a JSON object"),
+    ],
+)
+def test_invalid_base64_env(tmp_path, monkeypatch, encoded, message):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("KESTRA_EXECUTION_CONTEXT_FILE", raising=False)
+    monkeypatch.setenv("KESTRA_CONTEXT", encoded)
+
+    with pytest.raises(ValueError, match=message):
+        load_execution_context()
+
+
+@pytest.mark.parametrize(
+    "content, message",
+    [("{bad", "is not valid JSON"), ("[1]", "is not a JSON object")],
+)
+def test_invalid_context_file(tmp_path, content, message):
+    path = tmp_path / "context.json"
+    path.write_text(content)
+
+    with pytest.raises(ValueError, match=message):
+        load_execution_context(str(path))
+
+
+def test_directory_path_fails_with_its_read_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("KESTRA_CONTEXT", base64.b64encode(json.dumps(CONTEXT).encode()).decode())
+    monkeypatch.setenv("KESTRA_EXECUTION_CONTEXT_FILE", str(tmp_path))
+
+    with pytest.raises(IsADirectoryError):
+        load_execution_context()
 
 
 def test_keys_shadowing_a_method_stay_reachable():

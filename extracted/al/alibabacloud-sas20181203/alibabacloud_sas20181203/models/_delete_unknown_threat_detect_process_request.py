@@ -11,7 +11,7 @@ class DeleteUnknownThreatDetectProcessRequest(DaraModel):
         self,
         process_id_list: List[str] = None,
     ):
-        # The IDs of the processes to delete.
+        # The list of process IDs.
         self.process_id_list = process_id_list
 
     def validate(self):

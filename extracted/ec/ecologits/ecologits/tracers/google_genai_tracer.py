@@ -2,12 +2,13 @@ import time
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, Callable, Optional
 
-from google.genai.models import Models
+from google.genai.models import AsyncModels, Models
 from google.genai.types import GenerateContentResponse as _GenerateContentResponse
 from wrapt import wrap_function_wrapper  # type: ignore[import-untyped]
 
 from ecologits import EcoLogits
-from ecologits.tracers.utils import ImpactsOutput, llm_impacts
+from ecologits.tracers.utils import AsyncImpactsStream, ImpactsOutput, ImpactsStream, _llm_impacts
+from ecologits.tracking import ImpactsTracker, get_active_trackers, is_tracking_enabled, record_impacts
 
 PROVIDER = "google_genai"
 
@@ -19,9 +20,20 @@ class GenerateContentResponse(_GenerateContentResponse):
     impacts: Optional[ImpactsOutput] = None
 
 
+def _endpoint(instance: Models | AsyncModels, kwargs: dict[str, Any], method: str) -> str:
+    config = kwargs.get("config")
+    options = config.get("http_options") if isinstance(config, dict) else getattr(config, "http_options", None)
+    version = options.get("api_version") if isinstance(options, dict) else getattr(options, "api_version", None)
+    if version is None:
+        version = instance._api_client.get_read_only_http_options().get("api_version")  # noqa: SLF001
+    model = kwargs["model"].removeprefix("models/")
+    prefix = f"/{version}" if version else ""
+    return f"{prefix}/models/{model}:{method}"
+
+
 def google_genai_content_wrapper(
     wrapped: Callable,
-    instance: Models,   # noqa: ARG001
+    instance: Models,
     args: Any,
     kwargs: Any
 ) -> GenerateContentResponse:
@@ -37,6 +49,9 @@ def google_genai_content_wrapper(
     Returns:
         A wrapped `GenerateContentResponse` with impacts
     """
+    if not is_tracking_enabled(PROVIDER):
+        return wrapped(*args, **kwargs)
+    trackers = get_active_trackers(PROVIDER)
     timer_start = time.perf_counter()
     response = wrapped(*args, **kwargs)
     request_latency = time.perf_counter() - timer_start
@@ -46,7 +61,7 @@ def google_genai_content_wrapper(
         response.usage_metadata.candidates_token_count
         + (response.usage_metadata.thoughts_token_count or 0)
     )
-    impacts = llm_impacts(
+    impacts = _llm_impacts(
         provider=PROVIDER,
         model_name=model_name,
         output_token_count=output_tokens,
@@ -62,17 +77,18 @@ def google_genai_content_wrapper(
                 impacts=impacts,
                 provider=PROVIDER,
                 model=model_name,
-                endpoint=f"/v1beta/models/{model_name}:generateContent"
+                endpoint=_endpoint(instance, kwargs, "generateContent")
             )
 
-        return GenerateContentResponse(**response.model_dump(), impacts=impacts)
+        record_impacts(trackers, impacts)
+        return GenerateContentResponse.model_construct(**dict(response), impacts=impacts)
     else:
         return response
 
 
 def google_genai_content_stream_wrapper(
     wrapped: Callable,
-    instance: Models,   # noqa: ARG001
+    instance: Models,
     args: Any,
     kwargs: Any
 ) -> Iterator[GenerateContentResponse]:
@@ -88,11 +104,23 @@ def google_genai_content_stream_wrapper(
     Yields:
         A wrapped `GenerateContentResponse` with impacts
     """
-    timer_start = time.perf_counter()
+    if not is_tracking_enabled(PROVIDER):
+        return wrapped(*args, **kwargs)
     stream = wrapped(*args, **kwargs)
+    return ImpactsStream(stream, _stream_generator(stream, instance, kwargs, get_active_trackers(PROVIDER)))
+
+
+def _stream_generator(
+    stream: Iterator[GenerateContentResponse],
+    instance: Models,
+    kwargs: Any,
+    trackers: tuple[ImpactsTracker, ...]
+) -> Iterator[GenerateContentResponse]:
+    # The SDK sends the request on the first iteration.
+    timer_start = time.perf_counter()
     for chunk in stream:
         if chunk.candidates[0].finish_reason is None:
-            yield GenerateContentResponse(**chunk.model_dump(), impacts=None)
+            yield GenerateContentResponse.model_construct(**dict(chunk), impacts=None)
 
         else:
             request_latency = time.perf_counter() - timer_start
@@ -102,7 +130,7 @@ def google_genai_content_stream_wrapper(
                 chunk.usage_metadata.candidates_token_count
                 + (chunk.usage_metadata.thoughts_token_count or 0)
             )
-            impacts = llm_impacts(
+            impacts = _llm_impacts(
                 provider=PROVIDER,
                 model_name=model_name,
                 output_token_count=output_tokens,
@@ -118,17 +146,18 @@ def google_genai_content_stream_wrapper(
                         impacts=impacts,
                         provider=PROVIDER,
                         model=model_name,
-                        endpoint=f"/v1beta/models/{model_name}:generateContent"
+                        endpoint=_endpoint(instance, kwargs, "streamGenerateContent")
                     )
 
-                yield GenerateContentResponse(**chunk.model_dump(), impacts=impacts)
+                record_impacts(trackers, impacts)
+                yield GenerateContentResponse.model_construct(**dict(chunk), impacts=impacts)
             else:
-                yield GenerateContentResponse(**chunk.model_dump(), impacts=None)
+                yield GenerateContentResponse.model_construct(**dict(chunk), impacts=None)
 
 
 async def google_genai_async_content_wrapper(
     wrapped: Callable,
-    instance: Models,   # noqa: ARG001
+    instance: AsyncModels,
     args: Any,
     kwargs: Any
 ) -> GenerateContentResponse:
@@ -144,6 +173,9 @@ async def google_genai_async_content_wrapper(
     Returns:
         A wrapped `GenerateContentResponse` with impacts
     """
+    if not is_tracking_enabled(PROVIDER):
+        return await wrapped(*args, **kwargs)
+    trackers = get_active_trackers(PROVIDER)
     timer_start = time.perf_counter()
     response = await wrapped(*args, **kwargs)
     request_latency = time.perf_counter() - timer_start
@@ -153,7 +185,7 @@ async def google_genai_async_content_wrapper(
         response.usage_metadata.candidates_token_count
         + (response.usage_metadata.thoughts_token_count or 0)
     )
-    impacts = llm_impacts(
+    impacts = _llm_impacts(
         provider=PROVIDER,
         model_name=model_name,
         output_token_count=output_tokens,
@@ -169,22 +201,27 @@ async def google_genai_async_content_wrapper(
                 impacts=impacts,
                 provider=PROVIDER,
                 model=model_name,
-                endpoint=f"/v1beta/models/{model_name}:generateContent"
+                endpoint=_endpoint(instance, kwargs, "generateContent")
             )
 
-        return GenerateContentResponse(**response.model_dump(), impacts=impacts)
+        record_impacts(trackers, impacts)
+        return GenerateContentResponse.model_construct(**dict(response), impacts=impacts)
     else:
         return response
 
 
 async def _generator(
     stream: AsyncIterator[GenerateContentResponse],
-    timer_start: float,
-    model_name: str
+    instance: AsyncModels,
+    kwargs: dict[str, Any],
+    trackers: tuple[ImpactsTracker, ...] = ()
 ) -> AsyncIterator[GenerateContentResponse]:
+    model_name = kwargs["model"]
+    # The SDK sends the request on the first iteration.
+    timer_start = time.perf_counter()
     async for chunk in stream:
         if chunk.candidates[0].finish_reason is None:
-            yield GenerateContentResponse(**chunk.model_dump(), impacts=None)
+            yield GenerateContentResponse.model_construct(**dict(chunk), impacts=None)
 
         else:
             request_latency = time.perf_counter() - timer_start
@@ -193,7 +230,7 @@ async def _generator(
                 chunk.usage_metadata.candidates_token_count
                 + (chunk.usage_metadata.thoughts_token_count or 0)
             )
-            impacts = llm_impacts(
+            impacts = _llm_impacts(
                 provider=PROVIDER,
                 model_name=model_name,
                 output_token_count=output_tokens,
@@ -209,17 +246,18 @@ async def _generator(
                         impacts=impacts,
                         provider=PROVIDER,
                         model=model_name,
-                        endpoint=f"/v1beta/models/{model_name}:generateContent"
+                        endpoint=_endpoint(instance, kwargs, "streamGenerateContent")
                     )
 
-                yield GenerateContentResponse(**chunk.model_dump(), impacts=impacts)
+                record_impacts(trackers, impacts)
+                yield GenerateContentResponse.model_construct(**dict(chunk), impacts=impacts)
             else:
-                yield GenerateContentResponse(**chunk.model_dump(), impacts=None)
+                yield GenerateContentResponse.model_construct(**dict(chunk), impacts=None)
 
 
 async def google_genai_async_content_stream_wrapper(
     wrapped: Callable,
-    instance: Models,   # noqa: ARG001
+    instance: AsyncModels,
     args: Any,
     kwargs: Any
 ) -> AsyncIterator[GenerateContentResponse]:
@@ -235,9 +273,10 @@ async def google_genai_async_content_stream_wrapper(
     Yields:
         A wrapped `GenerateContentResponse` with impacts
     """
-    timer_start = time.perf_counter()
+    if not is_tracking_enabled(PROVIDER):
+        return await wrapped(*args, **kwargs)
     stream = await wrapped(*args, **kwargs)
-    return _generator(stream, timer_start=timer_start, model_name=kwargs["model"])
+    return AsyncImpactsStream(stream, _generator(stream, instance, kwargs, get_active_trackers(PROVIDER)))
 
 
 class GoogleGenaiInstrumentor:

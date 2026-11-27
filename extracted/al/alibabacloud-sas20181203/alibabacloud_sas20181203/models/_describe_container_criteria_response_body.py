@@ -55,39 +55,42 @@ class DescribeContainerCriteriaResponseBody(DaraModel):
 class DescribeContainerCriteriaResponseBodyCriteriaList(DaraModel):
     def __init__(
         self,
+        multi_values: str = None,
         name: str = None,
         type: str = None,
         values: str = None,
     ):
-        # The name of the query condition.
+        # The JSON string of multi-level filter values. The region filter returns available regions grouped by cloud provider ID (vendor) and region group (regionIds). This parameter can be empty if there are no multi-level filter values.
+        self.multi_values = multi_values
+        # The name of the search criterion. Valid values:
         # 
-        # - **instanceId**: container instance ID.
-        # - **clusterId**: cluster ID.
-        # - **regionId**: container region.
-        # - **clusterName**: cluster name.
-        # - **image**: image name.
-        # - **imageRepoName**: image repository name.
-        # - **imageRepoNamespace**: image repository namespace.
-        # - **imageRepoTag**: image repository tag.
-        # - **imageDigest**: image digest.
-        # - **clusterType**: cluster type.
-        # - **hostIp**: public IP address.
-        # - **pod**: pod.
-        # - **podIp**: pod IP address.
-        # - **containerId**: container ID.
-        # - **vulStatus**: whether the container has vulnerabilities.
-        # - **alarmStatus**: whether the container has security alerts.
-        # - **riskStatus**: whether the container has risks.
-        # - **riskLevel**: container risk level.
-        # - **containerScope**: container type.
+        # - **instanceId**: Container instance ID.
+        # - **clusterId**: Cluster ID.
+        # - **regionId**: Container region.
+        # - **clusterName**: Cluster name.
+        # - **image**: Image name.
+        # - **imageRepoName**: Image repository name.
+        # - **imageRepoNamespace**: Image repository namespace.
+        # - **imageRepoTag**: Image repository tag.
+        # - **imageDigest**: Image digest.
+        # - **clusterType**: Cluster type.
+        # - **hostIp**: Public IP address.
+        # - **pod**: Pod.
+        # - **podIp**: Pod IP address.
+        # - **containerId**: Container ID.
+        # - **vulStatus**: Whether the container has vulnerabilities.
+        # - **alarmStatus**: Whether the container has security alerts.
+        # - **riskStatus**: Whether the container has risks.
+        # - **riskLevel**: Container risk level.
+        # - **containerScope**: Container type.
         self.name = name
-        # The type of the query condition. Valid values:
+        # The type of the search criterion. Valid values:
         # 
-        # - **input**: You must manually enter the query field.
-        # - **select**: You must select a subtype of the query condition from a drop-down list.
+        # - **input**: Requires manual input for the search field.
+        # - **select**: Requires selecting the subtype of the search criterion from a drop-down list.
         self.type = type
-        # The available options when **Type** (the type of the query condition) is **select**.
-        # > When **Type** (the type of the query condition) is **input**, this parameter returns an empty value.
+        # The available options when **Type** is **select**.
+        # > If **Type** is **input**, this parameter is empty.
         self.values = values
 
     def validate(self):
@@ -98,6 +101,9 @@ class DescribeContainerCriteriaResponseBodyCriteriaList(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
+        if self.multi_values is not None:
+            result['MultiValues'] = self.multi_values
+
         if self.name is not None:
             result['Name'] = self.name
 
@@ -111,6 +117,9 @@ class DescribeContainerCriteriaResponseBodyCriteriaList(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('MultiValues') is not None:
+            self.multi_values = m.get('MultiValues')
+
         if m.get('Name') is not None:
             self.name = m.get('Name')
 

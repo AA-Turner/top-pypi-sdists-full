@@ -1,5 +1,6 @@
 """Attribute converters (colors, lengths, transforms), style sheets."""
 
+import time
 from typing import Any
 
 import pytest
@@ -49,6 +50,335 @@ class TestColorAttrConverter:
         ac = svglib.Svg2RlgAttributeConverter()
         failed = check_mapping(ac.convertColor, mapping)
         assert len(failed) == 0
+
+    def test_color_keywords_ignore_case(self):
+        "Color keywords and function names are ASCII case-insensitive, as in CSS."
+
+        mapping = (
+            ("Red", colors.red),
+            ("WHITE", colors.white),
+            ("SlateGrey", colors.HexColor(0x708090)),
+            ("Transparent", colors.Color(0, 0, 0, 0)),
+            ("RGB(255, 0, 0)", colors.red),
+            ("Rgba(255, 255, 128, .5)", colors.Color(1, 1, 128 / 255, 0.5)),
+            ("currentcolor", "currentColor"),
+            ("CURRENTCOLOR", "currentColor"),
+            ("None", None),
+        )
+        ac = svglib.Svg2RlgAttributeConverter()
+        failed = check_mapping(ac.convertColor, mapping)
+        assert len(failed) == 0
+
+    def test_current_color_ignores_case(self):
+        "fill and stroke use the color property for currentColor in any case."
+
+        drawing = drawing_from_svg(
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+              <g color="red">
+                <rect width="10" height="10" fill="currentcolor"/>
+                <rect width="10" height="10" fill="CURRENTCOLOR" stroke="CurrentColor"/>
+                <rect width="10" height="10" style="fill: currentColor !important"/>
+              </g>
+            </svg>
+        """
+        )
+        rects = drawing.contents[0].contents[0].contents
+        assert [r.fillColor for r in rects] == [colors.red] * 3
+        assert rects[1].strokeColor == colors.red
+
+    @pytest.mark.parametrize(
+        "body, expected",
+        [
+            # as Figma and VS Code write colors that a theme can change
+            pytest.param(
+                '<rect width="10" height="10" fill="var(--fill-0, #ff0000)"/>',
+                colors.red,
+                id="fallback",
+            ),
+            pytest.param(
+                '<rect width="10" height="10" fill="var(--c, rgb(255, 0, 0))"/>',
+                colors.red,
+                id="fallback-function",
+            ),
+            pytest.param(
+                '<g style="--c: lime">'
+                '<rect width="10" height="10" fill="var(--c, red)"/></g>',
+                colors.lime,
+                id="custom-property-of-a-group",
+            ),
+            pytest.param(
+                '<g style="--a: var(--b, lime)">'
+                '<rect width="10" height="10" fill="var(--a)"/></g>',
+                colors.lime,
+                id="nested-custom-property",
+            ),
+            # the fallback of a var() whose property is set is not read
+            pytest.param(
+                '<g style="--t: lime"><rect width="10" height="10" '
+                'fill="var(--t, rgb(var(--missing), 0, 0))"/></g>',
+                colors.lime,
+                id="fallback-not-read",
+            ),
+            pytest.param(
+                '<g style="--a: var(--b); --b: var(--a)">'
+                '<rect width="10" height="10" fill="var(--a, red)"/></g>',
+                colors.red,
+                id="cycle",
+            ),
+            # a var() that is invalid is as if the property was not set
+            pytest.param(
+                '<g fill="blue">'
+                '<rect width="10" height="10" fill="var(--undefined)"/></g>',
+                colors.blue,
+                id="invalid-inherits",
+            ),
+            pytest.param(
+                '<g fill="blue"><rect width="10" height="10" fill="var(--c, red"/></g>',
+                colors.blue,
+                id="unclosed",
+            ),
+            pytest.param(
+                '<g fill="blue"><rect width="10" height="10" fill="var(c, red)"/></g>',
+                colors.blue,
+                id="not-a-custom-property",
+            ),
+        ],
+    )
+    def test_var_function(self, body, expected):
+        drawing = drawing_from_svg(
+            f"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+              {body}
+            </svg>
+        """
+        )
+        rect = drawing.contents[0]
+        while hasattr(rect, "contents"):
+            rect = rect.contents[0]
+        assert rect.fillColor == expected
+
+    @pytest.mark.parametrize(
+        "fill, expected",
+        [
+            # the value is invalid: the fallback, or else the inherited fill
+            ("var(--a0, red)", colors.red),
+            ("var(--a0)", colors.blue),
+        ],
+    )
+    def test_var_function_with_fan_out_is_limited(self, fill, expected):
+        "Custom properties that use the next one 4 times each would take 4**16 steps."
+
+        levels = 16
+        custom_properties = "; ".join(
+            f"--a{i}: " + " ".join([f"var(--a{i + 1})"] * 4) for i in range(levels)
+        )
+        drawing = drawing_from_svg(
+            f"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+              <g fill="blue" style="{custom_properties}; --a{levels}: lime">
+                <rect width="10" height="10" fill="{fill}"/>
+              </g>
+            </svg>
+        """
+        )
+        rect = drawing.contents[0].contents[0].contents[0]
+        assert rect.fillColor == expected
+
+    def test_var_function_with_long_result_is_limited(self):
+        "A result over the length limit is invalid, whatever the number of var()."
+
+        big = "x" * 60_000
+        drawing = drawing_from_svg(
+            f"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+              <g fill="blue" style="--big: {big}">
+                <rect width="10" height="10" fill="var(--big) var(--big)"/>
+              </g>
+            </svg>
+        """
+        )
+        rect = drawing.contents[0].contents[0].contents[0]
+        assert rect.fillColor == colors.blue
+
+    def test_var_function_with_a_long_custom_property_referenced_often(self):
+        "A custom property is resolved once, however many times it is referenced."
+
+        import time
+
+        fallback = " " * 90_000
+        references = " ".join(["var(--p)"] * 1000)
+        svg = f"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+              <g fill="blue" style="--p: var(--zz, {fallback})">
+                <rect width="10" height="10" fill="{references}"/>
+              </g>
+            </svg>
+        """
+        started = time.perf_counter()
+        drawing = drawing_from_svg(svg)
+        assert time.perf_counter() - started < 1
+        # every reference is empty, so the value is invalid and the fill is inherited
+        rect = drawing.contents[0].contents[0].contents[0]
+        assert rect.fillColor == colors.blue
+
+    def test_var_function_with_stylesheet_custom_properties(self):
+        drawing = drawing_from_svg(
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+              <style>
+                .theme { --c: lime; }
+                .a { fill: var(--c, red); stroke: var(--s, blue); }
+              </style>
+              <g class="theme"><rect class="a" width="10" height="10"/></g>
+              <rect class="a" width="10" height="10"/>
+            </svg>
+        """
+        )
+        group, rect = drawing.contents[0].contents
+        assert group.contents[0].fillColor == colors.lime
+        assert rect.fillColor == colors.red
+        assert rect.strokeColor == colors.blue
+
+    @pytest.mark.parametrize(
+        "color", ['style="color: red !important"', 'color="red !important"']
+    )
+    def test_current_color_with_important_color(self, color, caplog):
+        "A color property marked !important is still read for currentColor."
+
+        drawing = drawing_from_svg(
+            f"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+              <g {color}>
+                <rect width="10" height="10" fill="currentColor"/>
+                <rect width="10" height="10" fill="none" stroke="CurrentColor"/>
+              </g>
+            </svg>
+        """
+        )
+        rects = drawing.contents[0].contents[0].contents
+        assert rects[0].fillColor == colors.red
+        assert rects[1].strokeColor == colors.red
+        assert "Can't handle color" not in caplog.text
+
+    def test_css_named_colors_missing_in_reportlab(self):
+        "CSS named colors that ReportLab lacks or defines differently."
+
+        mapping = (
+            ("rebeccapurple", colors.HexColor(0x663399)),
+            ("lightgray", colors.HexColor(0xD3D3D3)),
+            ("LightGray", colors.HexColor(0xD3D3D3)),
+            ("darkseagreen", colors.HexColor(0x8FBC8F)),
+        )
+        ac = svglib.Svg2RlgAttributeConverter()
+        failed = check_mapping(ac.convertColor, mapping)
+        assert len(failed) == 0
+
+    def test_hsl_hue_with_angle_unit(self):
+        "The hue of hsl() may have a deg, grad, rad or turn unit, as in CSS Color 4."
+
+        mapping = (
+            ("hsl(120deg, 100%, 50%)", colors.Color(0, 1, 0, 1)),
+            ("HSL(120DEG, 100%, 50%)", colors.Color(0, 1, 0, 1)),
+            ("hsl(0.5turn, 100%, 50%)", colors.Color(0, 1, 1, 1)),
+            ("hsl(200grad, 100%, 50%)", colors.Color(0, 1, 1, 1)),
+            ("hsla(240deg, 100%, 50%, 0.5)", colors.Color(0, 0, 1, 0.5)),
+        )
+        ac = svglib.Svg2RlgAttributeConverter()
+        failed = check_mapping(ac.convertColor, mapping)
+        assert len(failed) == 0
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            # as in the social preview images of react-window
+            pytest.param("oklch(70% 0.2 50)", (0.985, 0.433, 0.0, 1), id="oklch"),
+            pytest.param("oklab(0.5 0.1 -0.1)", (0.505, 0.272, 0.602, 1), id="oklab"),
+            pytest.param("OKLCH(60% 0.2 30DEG)", (0.872, 0.242, 0.175, 1), id="case"),
+            pytest.param("oklch(60% 0.2 0.25turn)", (0.683, 0.458, 0.0, 1), id="turn"),
+            pytest.param("oklch(60% 0.2 1.2rad)", (0.788, 0.374, 0.0, 1), id="rad"),
+            pytest.param(
+                "oklch(60% 0.2 90 / 50%)", (0.683, 0.458, 0.0, 0.5), id="alpha"
+            ),
+            # L of 0 and 1 are black and white, and "none" is 0
+            pytest.param("oklch(0 0.2 50)", (0, 0, 0, 1), id="black"),
+            pytest.param("oklch(100% 0.2 50)", (1, 1, 1, 1), id="white"),
+            pytest.param("oklch(none none none)", (0, 0, 0, 1), id="none"),
+            # a lightness is clamped to 0-1, a chroma to 0 or more
+            pytest.param("oklch(150% 0.2 50)", (1, 1, 1, 1), id="clamped-lightness"),
+            pytest.param(
+                "oklch(70% -1 50)", (0.62, 0.62, 0.62, 1), id="negative-chroma"
+            ),
+        ],
+    )
+    def test_oklab_and_oklch_colors(self, value, expected):
+        color = svglib.Svg2RlgAttributeConverter().convertColor(value)
+        assert (color.red, color.green, color.blue, color.alpha) == pytest.approx(
+            expected, abs=0.01
+        )
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            # the values of Chrome's computed colors
+            pytest.param("hwb(120 20% 30%)", (0.2, 0.7, 0.2, 1), id="hwb"),
+            pytest.param("hwb(120 0% 0%)", (0, 1, 0, 1), id="pure-hue"),
+            pytest.param("HWB(120DEG 20 30)", (0.2, 0.7, 0.2, 1), id="case-numbers"),
+            pytest.param("hwb(0.5turn 10% 10%)", (0.1, 0.9, 0.9, 1), id="turn"),
+            pytest.param("hwb(200grad 25% 25%)", (0.25, 0.75, 0.75, 1), id="grad"),
+            pytest.param("hwb(-120 10% 10%)", (0.1, 0.1, 0.9, 1), id="negative-hue"),
+            pytest.param("hwb(210 15% 40% / 0.8)", (0.15, 0.38, 0.6, 0.8), id="alpha"),
+            pytest.param("hwb(120 20% 30% / 50%)", (0.2, 0.7, 0.2, 0.5), id="percent"),
+            pytest.param("hwb(none 20% 30%)", (0.7, 0.2, 0.2, 1), id="none"),
+            # W + B of 100% or more is the gray W / (W + B)
+            pytest.param("hwb(120 30% 80%)", (0.273, 0.273, 0.273, 1), id="gray"),
+            pytest.param("hwb(120 60% 60%)", (0.5, 0.5, 0.5, 1), id="gray-half"),
+            # the values are clamped
+            pytest.param("hwb(120 150% 0%)", (1, 1, 1, 1), id="clamped-whiteness"),
+            pytest.param("hwb(120 -10% 10%)", (0, 0.9, 0, 1), id="clamped-negative"),
+            pytest.param(
+                "hwb(120 20% 30% / 2)", (0.2, 0.7, 0.2, 1), id="clamped-alpha"
+            ),
+        ],
+    )
+    def test_hwb_colors(self, value, expected):
+        color = svglib.Svg2RlgAttributeConverter().convertColor(value)
+        assert (color.red, color.green, color.blue, color.alpha) == pytest.approx(
+            expected, abs=0.01
+        )
+
+    @pytest.mark.parametrize(
+        "value",
+        ["hwb(120 20%)", "hwb(abc 20% 30%)", "hwb(120,20%,30%)", "hwb(120 nan 30%)"],
+    )
+    def test_invalid_hwb_colors(self, value, caplog):
+        assert svglib.Svg2RlgAttributeConverter().convertColor(value) is None
+        assert "Can't handle color" in caplog.text
+
+    @pytest.mark.parametrize(
+        "value",
+        ["oklch(60% 0.2)", "oklab(abc 0 0)", "oklch(60% nan 30)", "oklch(60% 0.2 x)"],
+    )
+    def test_invalid_oklab_and_oklch_colors(self, value, caplog):
+        assert svglib.Svg2RlgAttributeConverter().convertColor(value) is None
+        assert "Can't handle color" in caplog.text
+
+    def test_light_dark_color(self):
+        "light-dark() is its light color, as in draw.io exports."
+
+        mapping = (
+            (
+                "light-dark(rgb(99, 222, 23), rgb(237, 237, 237))",
+                colors.HexColor(0x63DE17),
+            ),
+            ("Light-Dark(#00f, white)", colors.HexColor(0x0000FF)),
+            ("light-dark(hsl(120, 100%, 50%), red)", colors.HexColor(0x00FF00)),
+            ("light-dark(red)", colors.HexColor(0xFF0000)),
+        )
+        ac = svglib.Svg2RlgAttributeConverter()
+        failed = check_mapping(ac.convertColor, mapping)
+        assert len(failed) == 0
+        assert ac.convertColor("light-dark(currentColor, red)") == "currentColor"
 
     def test_1(self):
         "Test color attribute conversion to CMYK"
@@ -162,6 +492,42 @@ class TestTransformAttrConverter:
         assert ac.convertTransform(f"translate(10{separator}20)") == (
             ac.convertTransform("translate(10 20)")
         )
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            (
+                "scale(2) translate(10,20)",
+                [("scale", 2.0), ("translate", (10.0, 20.0))],
+            ),
+            (
+                "rotate(45 10 10)skewX(3)",
+                [("rotate", (45.0, 10.0, 10.0)), ("skewX", 3.0)],
+            ),
+            ("scale(2", []),
+            ("scale(2))", []),
+            ("", []),
+        ],
+    )
+    def test_transform_operations(self, value, expected):
+        ac = svglib.Svg2RlgAttributeConverter()
+        assert ac.convertTransform(value) == expected
+
+    def test_long_transform_takes_linear_time(self):
+        """A long transform attribute must not take time quadratic in its length.
+
+        Each pair of brackets used to rebuild the whole string: this took over a
+        minute, and 2 MB of it, which a small .svgz holds, took minutes. The limit
+        is far above the time it takes now (under a second), so a slow runner
+        does not fail it.
+        """
+        ac = svglib.Svg2RlgAttributeConverter()
+        count = 400_000
+        start = time.perf_counter()
+        result = ac.convertTransform("scale(1)" * count)
+        elapsed = time.perf_counter() - start
+        assert result == [("scale", 1.0)] * count
+        assert elapsed < 30
 
     @pytest.mark.parametrize("separator", ["&#9;", "&#13;", "&#10;"])
     def test_whitespace_character_reference(self, separator):

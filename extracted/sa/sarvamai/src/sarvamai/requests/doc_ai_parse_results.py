@@ -9,7 +9,7 @@ from .doc_ai_usage import DocAiUsageParams
 
 class DocAiParseResultsParams(typing_extensions.TypedDict):
     """
-    Job results for the `parse` pipeline.
+    Job results for a Parse job. Parse jobs report `type: digitise`.
     """
 
     job_id: str
@@ -25,5 +25,5 @@ class DocAiParseResultsParams(typing_extensions.TypedDict):
     usage: DocAiUsageParams
     documents: typing.Sequence[DocAiParseResultsDocumentsItemParams]
     """
-    One entry per input document, each holding per-page content.
+    One entry per input file.
     """

@@ -30,7 +30,7 @@ from typing import Any
 
 from filelock import FileLock, Timeout
 
-from .release_notes_format import Release, Version, parse_document, parse_version
+from .release_notes_format import Release, Version, note_object, parse_document, parse_version
 
 _log = logging.getLogger(__name__)
 
@@ -83,6 +83,9 @@ def releases() -> tuple[Release, ...] | None:
 def payload() -> dict[str, Any]:
     """`{"whats_new": {version, releases, notes_available}}`: the running version and the notes of each recent release.
 
+    Each release lists `notes`, the sentences as on every earlier version, and `items`, the same notes in the
+    same order as `{"title", "text"}`; `title` is null for a note written without one. The payload only adds
+    `items`, so a reader that knows `notes` alone keeps working.
     `releases` is empty both when the image has no notes and when it has none to give; `notes_available`
     tells the two apart, so Home never reads an unknown list as an empty one.
     """
@@ -91,7 +94,12 @@ def payload() -> dict[str, Any]:
         "whats_new": {
             "version": running_version(),
             "releases": [
-                {"version": release.version, "released_on": release.released_on, "notes": list(release.notes)}
+                {
+                    "version": release.version,
+                    "released_on": release.released_on,
+                    "notes": [note.text for note in release.notes],
+                    "items": [note_object(note) for note in release.notes],
+                }
                 for release in known or ()
             ],
             "notes_available": known is not None,
@@ -156,6 +164,11 @@ def state_path(vault_root: Path) -> Path:
     return state_paths.vault_state_dir(vault_root) / STATE_FILENAME
 
 
+def lock_path(vault_root: Path) -> Path:
+    """The lock that one app's read and write of the record share."""
+    return state_path(vault_root).with_name(f".{STATE_FILENAME}.lock")
+
+
 def _record(vault_root: Path, app_id: str, running: Version, running_text: str) -> tuple[bool, str | None]:
     """Record `running_text` as the version `app_id` was told about: `(recorded, version before)`.
 
@@ -170,7 +183,7 @@ def _record(vault_root: Path, app_id: str, running: Version, running_text: str) 
     try:
         state_paths.ensure_vault_state_dir(vault_root)
         path = state_path(vault_root)
-        with FileLock(str(path.parent / f".{STATE_FILENAME}.lock"), timeout=_LOCK_TIMEOUT_SECONDS):
+        with FileLock(str(lock_path(vault_root)), timeout=_LOCK_TIMEOUT_SECONDS):
             told = _read_told(path)
             before = told.get(app_id)
             before_parsed = parse_version(before)
@@ -234,7 +247,7 @@ def update_notice(vault_root: Path, app_id: str) -> dict[str, str] | None:
     if not recorded or before_parsed is None:
         return None
     arrived = [
-        note
+        note.text
         for release in notes
         if before_parsed < release.parsed <= running_parsed
         for note in release.notes

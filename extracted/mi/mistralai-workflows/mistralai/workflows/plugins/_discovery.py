@@ -39,16 +39,20 @@ def list_plugins() -> list[ContributionInfo]:
 
 
 def collect_plugin_interceptors(workflows: list[Type]) -> list[Interceptor]:
-    """Discover and collect worker interceptors from installed plugins.
+    """Configure installed plugins and collect their worker interceptors.
 
-    Each plugin can expose a ``get_worker_interceptors(workflows)`` callable
-    at its top-level package.  This function imports every discovered plugin
-    and, when the hook exists, calls it to obtain interceptor instances.
+    Each plugin can expose ``configure_for_worker(workflows)`` and
+    ``get_worker_interceptors(workflows)`` callables at its top-level package.
+    Configuration runs first so interceptors observe the runtime definitions.
     """
     interceptors: list[Interceptor] = []
     for plugin in list_plugins():
         module_name = f"{PLUGIN_NAMESPACE}.{plugin.name}"
         mod = importlib.import_module(module_name)
+
+        configure_hook = getattr(mod, "configure_for_worker", None)
+        if callable(configure_hook):
+            configure_hook(workflows)
 
         hook = getattr(mod, "get_worker_interceptors", None)
         if not callable(hook):

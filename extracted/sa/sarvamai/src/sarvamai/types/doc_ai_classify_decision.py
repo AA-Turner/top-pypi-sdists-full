@@ -10,12 +10,12 @@ from .doc_ai_suggested_type import DocAiSuggestedType
 
 class DocAiClassifyDecision(UniversalBaseModel):
     """
-    One Classify decision, for a whole document or a single page.
+    The Classify decision for a whole document.
     """
 
     input_page: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Page number, on per-page decisions.
+    Not set. Classify returns one decision for the whole document.
     """
 
     type: typing.Optional[str] = pydantic.Field(default=None)
@@ -47,7 +47,7 @@ class DocAiClassifyDecision(UniversalBaseModel):
     suggested_type: typing.Optional[DocAiSuggestedType] = None
     evidence: typing.Optional[typing.List[DocAiEvidence]] = pydantic.Field(default=None)
     """
-    Present on per-page decisions when `output.include_evidence` is `true`.
+    Supporting evidence for the decision (the OCR blocks and page regions it was read from). Present when the request set `output.include_evidence` to `true`.
     """
 
     classification_status: typing.Optional[str] = pydantic.Field(default=None)

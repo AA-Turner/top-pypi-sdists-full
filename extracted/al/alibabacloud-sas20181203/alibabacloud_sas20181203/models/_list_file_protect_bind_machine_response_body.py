@@ -16,7 +16,7 @@ class ListFileProtectBindMachineResponseBody(DaraModel):
     ):
         # The list of servers. The UUID of each server is returned.
         self.list = list
-        # The paging information for the paged query.
+        # The paging information for a paged query.
         self.page_info = page_info
         # Id of the request
         self.request_id = request_id
@@ -61,7 +61,7 @@ class ListFileProtectBindMachineResponseBodyPageInfo(DaraModel):
         count: int = None,
         total_count: int = None,
     ):
-        # The number of entries on the current page for a paged query.
+        # The number of entries returned on the current page during paging in a paged query.
         self.count = count
         # The total number of entries.
         self.total_count = total_count

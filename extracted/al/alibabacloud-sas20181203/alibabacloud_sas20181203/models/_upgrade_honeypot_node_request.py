@@ -11,17 +11,17 @@ class UpgradeHoneypotNodeRequest(DaraModel):
         lang: str = None,
         node_id: str = None,
     ):
-        # Specifies whether to allow the honeypot to access the Internet. Valid values:
+        # Specifies whether to allow honeypots to access the Internet. Valid values:
         # - **true**: Allowed.
         # - **false**: Not allowed.
         self.allow_honeypot_access_internet = allow_honeypot_access_internet
-        # The language of the request and response. Valid values:
+        # The language of the request and response messages. Valid values:
         # - **zh**: Chinese.
         # - **en**: English.
         self.lang = lang
         # The ID of the management node to upgrade.
         # > You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain this parameter.
-        # Note: This parameter is actually required. If it is not provided, the API returns InvalidParam (400).
+        # Note: This parameter is actually required. If it is not provided, the API returns InvalidParam(400).
         self.node_id = node_id
 
     def validate(self):

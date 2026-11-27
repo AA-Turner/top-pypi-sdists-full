@@ -29,6 +29,11 @@ class GetAuditLogResponse200:
         resource (Union[Unset, str]):
         parameters (Union[Unset, GetAuditLogResponse200Parameters]):
         span (Union[Unset, str]):
+        client_ip (Union[Unset, str]): Address of the client that made the request. Forwarding headers are believed only
+            from the proxies listed in the TRUSTED_PROXIES environment variable (loopback by default, plus the private
+            ranges on Windmill Cloud), so behind a reverse proxy this is the proxy's address until it is listed. Absent on
+            entries no request stands behind.
+        user_agent (Union[Unset, str]): User-Agent header of the request.
     """
 
     workspace_id: str
@@ -40,6 +45,8 @@ class GetAuditLogResponse200:
     resource: Union[Unset, str] = UNSET
     parameters: Union[Unset, "GetAuditLogResponse200Parameters"] = UNSET
     span: Union[Unset, str] = UNSET
+    client_ip: Union[Unset, str] = UNSET
+    user_agent: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -58,6 +65,8 @@ class GetAuditLogResponse200:
             parameters = self.parameters.to_dict()
 
         span = self.span
+        client_ip = self.client_ip
+        user_agent = self.user_agent
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -77,6 +86,10 @@ class GetAuditLogResponse200:
             field_dict["parameters"] = parameters
         if span is not UNSET:
             field_dict["span"] = span
+        if client_ip is not UNSET:
+            field_dict["client_ip"] = client_ip
+        if user_agent is not UNSET:
+            field_dict["user_agent"] = user_agent
 
         return field_dict
 
@@ -108,6 +121,10 @@ class GetAuditLogResponse200:
 
         span = d.pop("span", UNSET)
 
+        client_ip = d.pop("client_ip", UNSET)
+
+        user_agent = d.pop("user_agent", UNSET)
+
         get_audit_log_response_200 = cls(
             workspace_id=workspace_id,
             id=id,
@@ -118,6 +135,8 @@ class GetAuditLogResponse200:
             resource=resource,
             parameters=parameters,
             span=span,
+            client_ip=client_ip,
+            user_agent=user_agent,
         )
 
         get_audit_log_response_200.additional_properties = d

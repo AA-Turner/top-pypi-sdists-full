@@ -1,13 +1,16 @@
 from collections.abc import AsyncIterator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from http import HTTPStatus
-from unittest.mock import MagicMock
 
 import httpx
 import pytest
+from temporalio.exceptions import ApplicationError
 
-from mistralai.workflows.core._events.event_context import EventContext, V1EventRouteForbiddenError
+from mistralai.workflows.core._events import event_context as event_context_module
+from mistralai.workflows.core._events.event_context import EVENT_PUBLISH_FAILED_ERROR_TYPE, EventContext
+from mistralai.workflows.core._events.event_route_publisher import EventRoutePublisher
 from mistralai.workflows.protocol.v2.worker import (
+    EVENT_ROUTE_TOKEN_EXPIRED_CODE,
     EVENT_ROUTE_TOKEN_INVALID_CODE,
     EVENT_ROUTE_TOKEN_SCOPE_UNSUPPORTED_CODE,
 )
@@ -19,11 +22,7 @@ _TransportHandler = Callable[[httpx.Request], Coroutine[None, None, httpx.Respon
 
 
 def _make_event_context(worker_client: PrivateWorkerClient) -> EventContext:
-    return EventContext(
-        worker_client.events,
-        worker_client,
-        events_api_version="v2",
-    )
+    return EventContext(EventRoutePublisher(worker_client))
 
 
 @asynccontextmanager
@@ -34,7 +33,6 @@ async def _event_context_harness(capture_request: _TransportHandler) -> AsyncIte
 
 
 class TestEventContextRouteSelection:
-    @pytest.mark.asyncio
     async def test_publish_event_does_not_fall_back_to_v1_on_v2_route_error(
         self,
         caplog: pytest.LogCaptureFixture,
@@ -51,16 +49,23 @@ class TestEventContextRouteSelection:
             raise AssertionError(f"Unexpected request path: {request.url.path}")
 
         async with _event_context_harness(capture_request) as event_context:
-            await event_context.publish_event(create_test_workflow_event())
+            with pytest.raises(ApplicationError, match="HTTP 409") as exc_info:
+                await event_context.publish_event(create_test_workflow_event())
 
+        assert exc_info.value.type == EVENT_PUBLISH_FAILED_ERROR_TYPE
+        assert exc_info.value.non_retryable
         assert requests == ["/v2/workflows/workers/event-route-token"]
-        assert "Failed to send workflow event batch" in caplog.text
+        assert "Workflow event permanently failed to publish" in caplog.text
 
-    @pytest.mark.asyncio
-    async def test_publish_event_keeps_best_effort_behavior_for_hard_v2_failures(
+    @pytest.mark.parametrize(
+        "error_code", [EVENT_ROUTE_TOKEN_EXPIRED_CODE, EVENT_ROUTE_TOKEN_INVALID_CODE], ids=["expired", "invalid"]
+    )
+    async def test_publish_event_refreshes_rejected_route_tokens(
         self,
-        caplog: pytest.LogCaptureFixture,
+        error_code: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setattr(event_context_module, "_PUBLISH_RETRY_INITIAL_BACKOFF_SECONDS", 0.01)
         requests: list[str] = []
 
         async def capture_request(request: httpx.Request) -> httpx.Response:
@@ -68,53 +73,29 @@ class TestEventContextRouteSelection:
             if request.url.path == "/v2/workflows/workers/event-route-token":
                 return httpx.Response(200, json={"route_token": "route-token-1", "expires_in_seconds": 60})
             if request.url.path == "/v2/workflows/events":
+                if requests.count("/v2/workflows/events") == 2:
+                    return httpx.Response(200, json={})
+                # The API also reports a token signed with a rotated key as invalid, so both codes refresh.
                 return httpx.Response(
                     HTTPStatus.UNAUTHORIZED,
-                    json={"detail": "Invalid route token", "code": EVENT_ROUTE_TOKEN_INVALID_CODE},
+                    json={"detail": "Rejected route token", "code": error_code},
                 )
             raise AssertionError(f"Unexpected request path: {request.url.path}")
 
         async with _event_context_harness(capture_request) as event_context:
             await event_context.publish_event(create_test_workflow_event())
 
-        assert requests == [
-            "/v2/workflows/workers/event-route-token",
-            "/v2/workflows/events",
-        ]
-        assert "Failed to send workflow event batch" in caplog.text
-
-
-class TestV2OnlyEventRoute:
-    @pytest.mark.asyncio
-    async def test_raises_when_v1_would_be_used(self) -> None:
-        # No v2 publisher (no worker client) → v1 is the only route → forbidden under v2-only.
-        ctx = EventContext(MagicMock(), worker_client=None, events_api_version="v2-only")
-        async with ctx:
-            with pytest.raises(V1EventRouteForbiddenError):
-                await ctx.publish_event(create_test_workflow_event())
-
-    @pytest.mark.asyncio
-    async def test_allows_v2(self) -> None:
-        async def capture_request(request: httpx.Request) -> httpx.Response:
-            if request.url.path == "/v2/workflows/workers/event-route-token":
-                return httpx.Response(200, json={"route_token": "rt", "expires_in_seconds": 60})
-            return httpx.Response(200, json={"status": "success"})
-
-        worker_client = create_http_test_worker_client(httpx.MockTransport(capture_request))
-        # v2-only mints by run identity (no token needed), so the v2 publish happens and no v1 fallback is attempted.
-        async with (
-            worker_client,
-            EventContext(
-                worker_client.events,
-                worker_client,
-                events_api_version="v2-only",
-            ) as ctx,
-        ):
-            await ctx.publish_event(create_test_workflow_event())
+        assert (
+            requests
+            == [
+                "/v2/workflows/workers/event-route-token",
+                "/v2/workflows/events",
+            ]
+            * 2
+        )
 
 
 class TestSharedRouteTokenManager:
-    @pytest.mark.asyncio
     async def test_other_clients_reuse_the_event_route_token(self) -> None:
         requests: list[str] = []
 
@@ -126,12 +107,21 @@ class TestSharedRouteTokenManager:
                 return httpx.Response(200, json={})
             raise AssertionError(f"Unexpected request path: {request.url.path}")
 
+        worker_client = create_http_test_worker_client(httpx.MockTransport(capture_request))
+        publisher = EventRoutePublisher(worker_client)
         event = create_test_workflow_event()
-        async with _event_context_harness(capture_request) as event_context:
+        async with (
+            worker_client,
+            EventContext(
+                publisher,
+                worker_client=worker_client,
+                route_token_manager=publisher.route_token_manager,
+            ) as event_context,
+        ):
             await event_context.publish_event(event)
             manager = event_context.event_route_token_manager
-            assert manager is not None
-            assert event_context.worker_client is not None
+            assert manager is publisher.route_token_manager
+            assert event_context.worker_client is worker_client
             token = await manager.get_token(event.workflow_exec_id, event.workflow_run_id)
 
         assert token == "route-token-1"

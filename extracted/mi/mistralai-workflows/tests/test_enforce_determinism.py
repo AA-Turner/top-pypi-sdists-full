@@ -86,12 +86,13 @@ class TestEnforceDeterminism:
         self, temporal_env: WorkflowEnvironment, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Sandbox violations log a structured error with actionable guidance."""
-        with pytest.raises(RuntimeError):
+        with ExitStack() as registrations, pytest.raises(RuntimeError):
             _create_temporal_workers(
                 temporal_client=temporal_env.client,
                 workflows=[SandboxRestrictionViolationWorkflow],
                 config=app_config,
                 task_queue="test-task-queue",
+                workflow_config_registrations=registrations,
             )
 
         assert "sandbox validation failed" in caplog.text.lower()

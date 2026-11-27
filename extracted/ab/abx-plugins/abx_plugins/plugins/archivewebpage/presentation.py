@@ -182,7 +182,13 @@ def serve_replay_asset_response(rel_path: str, config, response_factory):
     response = response_factory(body, content_type=content_type)
     for key, value in headers.items():
         response.headers[key] = value
-    return _add_replay_archive_fallbacks(response)
+    response = _add_replay_archive_fallbacks(response)
+    if "text/html" not in content_type:
+        # The final worker includes local repairs absent from the installed
+        # bundle. Validate these exact bytes without downloading them again.
+        # The host may still transform HTML bootstrap documents afterward.
+        response.headers["ETag"] = f'"{hashlib.sha256(response.content).hexdigest()}"'
+    return response
 
 
 def _page_request_url(url: str) -> str:
@@ -311,10 +317,11 @@ def _replay_index(wacz_path: Path) -> dict:
             directory_size = before.st_size - archive.start_dir
             if 0 < directory_size <= limit:
                 source.seek(archive.start_dir)
+                # Reject growth below without first reading an unbounded append.
                 ranges.append(
                     [
                         archive.start_dir,
-                        base64.b64encode(source.read()).decode("ascii"),
+                        base64.b64encode(source.read(directory_size)).decode("ascii"),
                     ],
                 )
         after = wacz_path.stat()
@@ -339,9 +346,30 @@ def _hashed_replay_metadata(
     source_revision: str,
     fallback_url: str,
     source_stat: tuple[int, int, int],
+    navigation_stat: tuple[int, int, int] | None,
 ) -> tuple[str, dict]:
-    """Reuse metadata only while both its hash generation and file stat match."""
-    return _first_archived_url(source_path, fallback_url), _replay_index(source_path)
+    """Reuse metadata while the archive, navigation, and hash generation match."""
+    archived_url = _first_archived_url(source_path, fallback_url)
+    replay_index = _replay_index(source_path)
+    size, mtime_ns, ctime_ns = source_stat
+    # Page selection and ZIP inspection must describe the same file version,
+    # including a replacement between the initial stat and either ZIP read.
+    # Exceptions leave no LRU entry, so transient failures can recover even
+    # when the next viewer sees the same file identity.
+    if not replay_index or replay_index["version"] != f"{mtime_ns}-{ctime_ns}-{size}":
+        raise OSError("WACZ metadata is unavailable or changed during replay")
+    try:
+        navigation = (source_path.parent.parent / "chrome/navigation.json").stat()
+        current_navigation = (
+            navigation.st_size,
+            navigation.st_mtime_ns,
+            navigation.st_ctime_ns,
+        )
+    except OSError:
+        current_navigation = None
+    if current_navigation != navigation_stat:
+        raise OSError("Navigation metadata changed during replay")
+    return archived_url, replay_index
 
 
 def render_replay_html(
@@ -369,26 +397,37 @@ def render_replay_html(
     archived_url = ""
     replay_index = {}
     if source_path is not None and source_path.suffix.lower() == ".wacz":
-        if source_revision:
+        try:
+            current = source_path.stat()
             try:
-                current = source_path.stat()
-                archived_url, replay_index = _hashed_replay_metadata(
-                    source_path,
-                    source_revision,
-                    fallback_url,
-                    (current.st_size, current.st_mtime_ns, current.st_ctime_ns),
+                navigation = (
+                    source_path.parent.parent / "chrome/navigation.json"
+                ).stat()
+                navigation_stat = (
+                    navigation.st_size,
+                    navigation.st_mtime_ns,
+                    navigation.st_ctime_ns,
                 )
             except OSError:
-                pass
-        else:
-            archived_url = _first_archived_url(source_path, fallback_url)
-            replay_index = _replay_index(source_path)
+                navigation_stat = None
+            # The ZIP stat also versions captures without a hashes result.
+            # Warm viewers only stat these files instead of reopening a remote
+            # ZIP and scanning its page/index members on every navigation.
+            archived_url, replay_index = _hashed_replay_metadata(
+                source_path,
+                source_revision,
+                fallback_url,
+                (current.st_size, current.st_mtime_ns, current.st_ctime_ns),
+                navigation_stat,
+            )
+        except OSError:
+            pass
     if not archived_url:
         archived_url = fallback_url or ""
 
     # A completed ZIP has its own version even when the optional hashes plugin
-    # is disabled. Reuse wabac's payload cache for that version; rereading the
-    # metadata above still detects replacement on every viewer load, including
+    # is disabled. Reuse wabac's payload cache for that version; checking the
+    # stat above still detects replacement on every viewer load, including
     # manual edits which did not regenerate a completed hashes result.
     # ctime in the ZIP version also catches copies that preserve size and mtime.
     replay_revision = "-".join(

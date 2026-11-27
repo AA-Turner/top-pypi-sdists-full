@@ -12,6 +12,8 @@ from .._utils import PropertyInfo
 __all__ = [
     "SessionCreateParams",
     "Credentials",
+    "CredentialsBinding",
+    "CredentialsBindingUnionMember1",
     "DebugConfig",
     "DeviceConfig",
     "Dimensions",
@@ -35,7 +37,7 @@ __all__ = [
 
 class SessionCreateParams(TypedDict, total=False):
     block_ads: Annotated[bool, PropertyInfo(alias="blockAds")]
-    """Block ads in the browser session. Default is false."""
+    """Block ads in the browser session. Default is true."""
 
     ca_certificates: Annotated[SequenceNotStr[str], PropertyInfo(alias="caCertificates")]
     """PEM-encoded root CA certificates to trust in this session.
@@ -47,7 +49,12 @@ class SessionCreateParams(TypedDict, total=False):
     """Number of sessions to create concurrently (check your plan limit)"""
 
     credentials: Credentials
-    """Configuration for session credentials"""
+    """Configuration for session credentials.
+
+    Set enabled to false to disable credentials, including those inherited from a
+    profile. Credentials are opt-in at creation; only credentials-enabled sessions
+    can have credentials attached later (otherwise 409 `credentials_not_enabled`).
+    """
 
     debug_config: Annotated[DebugConfig, PropertyInfo(alias="debugConfig")]
     """Configuration for the debug URL and session viewer.
@@ -139,7 +146,8 @@ class SessionCreateParams(TypedDict, total=False):
     """Custom proxy URL for the browser session.
 
     Overrides useProxy, disabling Steel-provided proxies in favor of your specified
-    proxy. Format: http(s)://username:password@hostname:port
+    proxy. Format: http(s)://username:password@hostname:port or
+    socks5://username:password@hostname:port
     """
 
     recording: bool
@@ -162,7 +170,12 @@ class SessionCreateParams(TypedDict, total=False):
     """
 
     session_id: Annotated[str, PropertyInfo(alias="sessionId")]
-    """Optional custom UUID for the session"""
+    """Deprecated.
+
+    A session ID of your choice. Steel will reject it in a future release, because
+    the ID that Steel generates records where the session runs. Omit it, use the
+    `id` in the response, and put your own ID in `metadata`.
+    """
 
     solve_captcha: Annotated[bool, PropertyInfo(alias="solveCaptcha")]
     """Enable automatic captcha solving. Default is false."""
@@ -171,7 +184,11 @@ class SessionCreateParams(TypedDict, total=False):
     """Stealth configuration for the session"""
 
     api_timeout: Annotated[int, PropertyInfo(alias="timeout")]
-    """Session timeout duration in milliseconds. Default is 300000 (5 minutes)."""
+    """Session timeout duration in milliseconds.
+
+    Default is 300000 (5 minutes). On Launch and Scale, a value over the plan's
+    maximum runs at the maximum; the response's `timeout` shows the value used.
+    """
 
     use_proxy: Annotated[UseProxy, PropertyInfo(alias="useProxy")]
     """Simple boolean to enable/disable Steel proxies"""
@@ -180,12 +197,41 @@ class SessionCreateParams(TypedDict, total=False):
     """Custom user agent string for the browser session"""
 
 
+class CredentialsBindingUnionMember1(TypedDict, total=False):
+    allowed_origins: Required[Annotated[SequenceNotStr[str], PropertyInfo(alias="allowedOrigins")]]
+
+    reference: Required[str]
+
+
+CredentialsBinding: TypeAlias = Union[str, CredentialsBindingUnionMember1]
+
+
 class Credentials(TypedDict, total=False):
-    """Configuration for session credentials"""
+    """Configuration for session credentials.
+
+    Set enabled to false to disable credentials, including those inherited from a profile. Credentials are opt-in at creation; only credentials-enabled sessions can have credentials attached later (otherwise 409 `credentials_not_enabled`).
+    """
 
     auto_submit: Annotated[bool, PropertyInfo(alias="autoSubmit")]
 
+    bindings: SequenceNotStr[CredentialsBinding]
+    """At most 100 bindings.
+
+    KV references may use { reference, allowedOrigins }, with at most 20 canonical
+    HTTP(S) origins; omitted or empty origins match nothing.
+    """
+
     blur_fields: Annotated[bool, PropertyInfo(alias="blurFields")]
+
+    credential_ids: Annotated[SequenceNotStr[str], PropertyInfo(alias="credentialIds")]
+    """
+    Bind the session to these credentials (ids of Secrets of kind `credential` in
+    the session's project). A bound session only ever fills these, never others by
+    namespace and origin. Implies `lookup: "explicit"`. Change them later with
+    /v1/sessions/{id}/credentials. Errors: 400 `credential_not_bindable` (param
+    `credentials.credentialIds`), 400 `too_many_credentials`, 409 `session_id_taken`
+    (a custom sessionId that already has a session or credential bindings).
+    """
 
     credential_provider: Annotated[str, PropertyInfo(alias="credentialProvider")]
     """Credential provider to use for runtime credential resolution.
@@ -193,7 +239,29 @@ class Credentials(TypedDict, total=False):
     Defaults to "steel".
     """
 
+    dom_trigger: Annotated[bool, PropertyInfo(alias="domTrigger")]
+    """
+    Allow any script on the page, including third-party scripts, to request
+    credential form operations through DOM events. Disabled by default.
+    """
+
+    enabled: bool
+    """Set to false to disable credential injection for this session."""
+
     exact_origin: Annotated[bool, PropertyInfo(alias="exactOrigin")]
+    """
+    Deprecated and ignored: credentials only ever match their own origin or their
+    additionalOrigins.
+    """
+
+    lookup: Literal["implicit", "explicit"]
+    """
+    `implicit` (default without credentialIds or bindings): fill credentials stored
+    for the session's namespace and the page origin. `explicit` (default when
+    credentialIds or bindings is supplied): fill only direct credentials and
+    credentials in bound Vaults, including future members; with none bound, nothing
+    is filled until some are attached.
+    """
 
     origins: SequenceNotStr[str]
     """Optional allowlist of credential origins to inject into this session."""

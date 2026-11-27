@@ -42,7 +42,7 @@ class TestListOpenAIResponseObject(unittest.TestCase):
         if include_optional:
             return ListOpenAIResponseObject(
                 data = [
-                    ogx_client.models.open_ai_response_object_with_input.OpenAIResponseObjectWithInput(
+                    ogx_client.models.open_ai_response_object.OpenAIResponseObject(
                         background = True, 
                         created_at = 56, 
                         completed_at = 56, 
@@ -61,9 +61,7 @@ class TestListOpenAIResponseObject(unittest.TestCase):
                         prompt = null, 
                         status = '', 
                         temperature = 1.337, 
-                        text = ogx_client.models.open_ai_response_text.OpenAIResponseText(
-                            format = null, 
-                            verbosity = 'low', ), 
+                        text = null, 
                         top_p = 1.337, 
                         top_logprobs = 56, 
                         tools = [
@@ -80,15 +78,10 @@ class TestListOpenAIResponseObject(unittest.TestCase):
                         reasoning = null, 
                         max_output_tokens = 56, 
                         service_tier = '', 
-                        metadata = {
-                            'key' : ''
-                            }, 
+                        metadata = null, 
                         presence_penalty = 1.337, 
                         store = True, 
-                        safety_identifier = '', 
-                        input = [
-                            null
-                            ], )
+                        safety_identifier = '', )
                     ],
                 has_more = True,
                 first_id = '',
@@ -98,7 +91,7 @@ class TestListOpenAIResponseObject(unittest.TestCase):
         else:
             return ListOpenAIResponseObject(
                 data = [
-                    ogx_client.models.open_ai_response_object_with_input.OpenAIResponseObjectWithInput(
+                    ogx_client.models.open_ai_response_object.OpenAIResponseObject(
                         background = True, 
                         created_at = 56, 
                         completed_at = 56, 
@@ -117,9 +110,7 @@ class TestListOpenAIResponseObject(unittest.TestCase):
                         prompt = null, 
                         status = '', 
                         temperature = 1.337, 
-                        text = ogx_client.models.open_ai_response_text.OpenAIResponseText(
-                            format = null, 
-                            verbosity = 'low', ), 
+                        text = null, 
                         top_p = 1.337, 
                         top_logprobs = 56, 
                         tools = [
@@ -136,15 +127,10 @@ class TestListOpenAIResponseObject(unittest.TestCase):
                         reasoning = null, 
                         max_output_tokens = 56, 
                         service_tier = '', 
-                        metadata = {
-                            'key' : ''
-                            }, 
+                        metadata = null, 
                         presence_penalty = 1.337, 
                         store = True, 
-                        safety_identifier = '', 
-                        input = [
-                            null
-                            ], )
+                        safety_identifier = '', )
                     ],
                 has_more = True,
                 first_id = '',

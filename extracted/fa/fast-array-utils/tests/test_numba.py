@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import importlib
+import os
 import subprocess
-import threading
+import sys
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -40,66 +42,37 @@ def _sum_prange(values: NDArray[np.float64]) -> float:
 
 @pytest.fixture(autouse=True)
 def clear_probe_cache() -> None:
-    probe._parallel_numba_runtime_is_safe_cached.cache_clear()
-    fa_numba._threading_layer.cache_clear()
+    probe._parallel_numba_runtime_layer_cached.cache_clear()
 
 
-def test_threading_layer_uses_numba_config_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(numba.config, "THREADING_LAYER", "threadsafe")
-    monkeypatch.setattr(numba.config, "THREADING_LAYER_PRIORITY", ["omp", "tbb"])
-    calls: list[tuple[fa_numba.ThreadingLayer | fa_numba.TheadingCategory, tuple[fa_numba.ThreadingLayer, ...]]] = []
-
-    def fake_threading_layer(
-        layer_or_category: fa_numba.ThreadingLayer | fa_numba.TheadingCategory, priority: tuple[fa_numba.ThreadingLayer, ...]
-    ) -> fa_numba.ThreadingLayer:
-        calls.append((layer_or_category, priority))
-        return "omp"
-
-    monkeypatch.setattr(fa_numba, "_threading_layer", fake_threading_layer)
-
-    assert fa_numba.threading_layer() == "omp"
-    assert calls == [("threadsafe", ("omp", "tbb"))]
-
-
-def test_threading_layer_resolves_available_backend(monkeypatch: pytest.MonkeyPatch) -> None:
-    original_import_module = importlib.import_module
-    calls: list[str] = []
-
-    def import_module(name: str, package: str | None = None) -> object:
-        calls.append(name)
-        if name.endswith("tbbpool"):
-            raise ImportError
-        if name.endswith("omppool"):
-            return object()
-        return original_import_module(name, package)
-
-    monkeypatch.setattr(importlib, "import_module", import_module)
-
-    assert fa_numba.threading_layer("threadsafe", ("workqueue", "tbb", "omp")) == "omp"
-    assert calls == ["numba.np.ufunc.tbbpool", "numba.np.ufunc.omppool"]
-
-    fa_numba._threading_layer.cache_clear()
-    calls.clear()
-
-    assert fa_numba.threading_layer("default", ("workqueue", "omp")) == "workqueue"
-    assert calls == []
+def test_is_on_worker_thread() -> None:
+    with ThreadPoolExecutor(1) as pool:
+        on_worker = pool.submit(fa_numba._is_on_worker_thread).result()
+    assert on_worker is True
+    assert fa_numba._is_on_worker_thread() is False
 
 
 @pytest.mark.parametrize(
-    ("on_main", "layer", "expected"),
+    ("layer", "expected"),
     [
-        pytest.param(False, "workqueue", True, id="worker-unsafe"),
-        pytest.param(False, "omp", False, id="worker-threadsafe"),
-        pytest.param(True, "workqueue", False, id="main-thread"),
+        pytest.param(None, False, id="nothing-launched"),
+        pytest.param("workqueue", False, id="workqueue"),
+        pytest.param("omp", sys.platform == "linux", id="omp"),
+        pytest.param("tbb", False, id="tbb"),
     ],
 )
-def test_is_on_unsafe_thread(monkeypatch: pytest.MonkeyPatch, layer: fa_numba.ThreadingLayer, *, on_main: bool, expected: bool) -> None:
-    caller = threading.main_thread() if on_main else threading.Thread()
+def test_is_in_unsafe_fork(monkeypatch: pytest.MonkeyPatch, layer: fa_numba.ThreadingLayer | None, *, expected: bool) -> None:
+    def threading_layer() -> str:
+        if layer is None:
+            raise ValueError
+        return layer
 
-    monkeypatch.setattr(threading, "current_thread", lambda: caller)
-    monkeypatch.setattr(fa_numba, "threading_layer", lambda: layer)
+    monkeypatch.setattr(numba, "threading_layer", threading_layer)
+    monkeypatch.setattr(fa_numba, "_inherited_layer", None)
+    fa_numba._after_fork_in_child()
+    monkeypatch.setattr(numba, "threading_layer", lambda: "omp")  # a layer launched in the child isn’t inherited
 
-    assert fa_numba._is_on_unsafe_thread() is expected
+    assert fa_numba._is_in_unsafe_fork() is expected
 
 
 def _set_runtime(
@@ -124,9 +97,10 @@ def _set_runtime(
         monkeypatch.setattr(probe, "LAYERS", layers)
 
 
-def _install_fake_njit(monkeypatch: pytest.MonkeyPatch, calls: list[bool]) -> None:
-    def fake_njit(_fn: object, /, *, cache: bool, parallel: bool) -> Callable[..., bool]:
+def _install_fake_njit(monkeypatch: pytest.MonkeyPatch, calls: list[bool], *, expected_nogil: bool = True) -> None:
+    def fake_njit(_fn: object, /, *, cache: bool, parallel: bool, nogil: bool) -> Callable[..., bool]:
         assert cache is True
+        assert nogil is expected_nogil
 
         def compiled(*_args: object, **_kwargs: object) -> bool:
             calls.append(parallel)
@@ -177,7 +151,6 @@ def test_probe_needed(
 
 def test_probe_check_is_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_runtime(monkeypatch)
-    monkeypatch.setattr(fa_numba, "threading_layer", lambda: pytest.fail("threading_layer() should not be called"))
 
     original_import_module = importlib.import_module
 
@@ -222,12 +195,12 @@ def test_probe_result(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def run(cmd: list[str], /, **kwargs: object) -> subprocess.CompletedProcess[str]:
         calls.append((cmd, kwargs))
-        return subprocess.CompletedProcess(cmd, 0, stdout=f"{probe._PARALLEL_RUNTIME_PROBE_SENTINEL}\n", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout=f"{probe._PARALLEL_RUNTIME_PROBE_SENTINEL} tbb\n", stderr="")
 
     monkeypatch.setattr(probe.subprocess, "run", run)
 
-    assert probe._parallel_numba_runtime_is_safe() is True
-    assert probe._parallel_numba_runtime_is_safe() is True
+    assert probe._parallel_numba_runtime_layer() == "tbb"
+    assert probe._parallel_numba_runtime_layer() == "tbb"  # cached
     assert calls == [
         (
             [probe.sys.executable, "-c", probe._parallel_runtime_probe_code(("torch",))],
@@ -240,6 +213,11 @@ def test_probe_result(monkeypatch: pytest.MonkeyPatch) -> None:
             },
         )
     ]
+
+
+def test_probe_reports_launched_layer() -> None:
+    """Runs the real probe, which reports what numba launched instead of what we’d predict."""
+    assert probe._parallel_numba_runtime_layer() in fa_numba.LAYERS["default"]
 
 
 @pytest.mark.parametrize(
@@ -266,22 +244,24 @@ def test_probe_failure(
 
     monkeypatch.setattr(probe.subprocess, "run", run)
 
-    assert probe._parallel_numba_runtime_is_safe() is False
+    assert probe._parallel_numba_runtime_layer() is None
 
 
 @pytest.mark.parametrize(
-    ("unsafe_thread", "needs_probe", "probe_safe", "expected", "warning"),
+    ("unsafe_fork", "worker_thread", "needs_probe", "probe_safe", "expected", "warning"),
     [
-        pytest.param(True, None, None, False, "unsupported threading environment", id="thread-pool"),
-        pytest.param(False, True, False, False, "unsupported numba parallel runtime", id="probe-fails"),
-        pytest.param(False, True, True, True, None, id="probe-passes"),
-        pytest.param(False, False, None, True, None, id="no-probe"),
+        pytest.param(True, False, None, None, False, "fork after numba launched", id="unsafe-fork"),
+        pytest.param(False, True, None, None, False, None, id="worker-thread"),
+        pytest.param(False, False, True, False, False, "unsupported numba parallel runtime", id="probe-fails"),
+        pytest.param(False, False, True, True, True, None, id="probe-passes"),
+        pytest.param(False, False, False, None, True, None, id="no-probe"),
     ],
 )
 def test_njit_chooses_version(
     monkeypatch: pytest.MonkeyPatch,
     *,
-    unsafe_thread: bool,
+    unsafe_fork: bool,
+    worker_thread: bool,
     needs_probe: bool | None,
     probe_safe: bool | None,
     expected: bool,
@@ -290,15 +270,16 @@ def test_njit_chooses_version(
     calls: list[bool] = []
     _install_fake_njit(monkeypatch, calls)
 
-    monkeypatch.setattr(fa_numba, "_is_on_unsafe_thread", lambda: unsafe_thread)
+    monkeypatch.setattr(fa_numba, "_is_in_unsafe_fork", lambda: unsafe_fork)
+    monkeypatch.setattr(fa_numba, "_is_on_worker_thread", lambda: worker_thread)
     if needs_probe is None:
         monkeypatch.setattr(probe, "_needs_parallel_runtime_probe", lambda: pytest.fail("probe should not be consulted"))
     else:
         monkeypatch.setattr(probe, "_needs_parallel_runtime_probe", lambda: needs_probe)
     if probe_safe is None:
-        monkeypatch.setattr(probe, "_parallel_numba_runtime_is_safe", lambda: pytest.fail("probe should not run"))
+        monkeypatch.setattr(probe, "_parallel_numba_runtime_layer", lambda: pytest.fail("probe should not run"))
     else:
-        monkeypatch.setattr(probe, "_parallel_numba_runtime_is_safe", lambda: probe_safe)
+        monkeypatch.setattr(probe, "_parallel_numba_runtime_layer", lambda: "tbb" if probe_safe else None)
 
     wrapped = fa_numba.njit(_return_true)
 
@@ -315,12 +296,43 @@ def test_njit_chooses_version(
 
 def test_serial_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     values = np.arange(10, dtype=np.float64)
-    monkeypatch.setattr(fa_numba, "_is_on_unsafe_thread", lambda: False)
+    monkeypatch.setattr(fa_numba, "_is_on_worker_thread", lambda: False)
     monkeypatch.setattr(probe, "_needs_parallel_runtime_probe", lambda: True)
-    monkeypatch.setattr(probe, "_parallel_numba_runtime_is_safe", lambda: False)
+    monkeypatch.setattr(probe, "_parallel_numba_runtime_layer", lambda: None)
     wrapped = fa_numba.njit(_sum_prange)
 
     with pytest.warns(UserWarning, match="unsupported numba parallel runtime"):
         result = wrapped(values)
 
     assert result == pytest.approx(np.sum(values))
+
+
+def test_njit_nogil(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_fake_njit(monkeypatch, [], expected_nogil=False)
+    fa_numba.njit(nogil=False)(_return_true)
+
+
+_FORK_SCRIPT = """
+import os
+import numpy as np
+import scipy.sparse as sp
+from fast_array_utils.conv import to_dense
+
+x = sp.random(100, 100, density=0.1, format="csr")
+to_dense(x)  # launches the threading layer
+if (pid := os.fork()) == 0:
+    os._exit(0 if np.array_equal(to_dense(x), x.toarray()) else 1)
+os._exit(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]))
+"""
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="GNU OpenMP only terminates forked children on Linux")
+def test_fork_after_omp() -> None:
+    pytest.importorskip("scipy")
+    importlib.import_module("numba.np.ufunc.omppool")  # fail instead of skipping if the omp layer is missing
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", _FORK_SCRIPT], env={**os.environ, "NUMBA_THREADING_LAYER": "omp"}, capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+    assert "fork after numba launched the omp threading layer" in result.stderr
+    assert "NUMBA_THREADING_LAYER=forksafe" in result.stderr

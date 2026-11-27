@@ -15,8 +15,7 @@ class DeleteHoneypotNodeRequest(DaraModel):
         # - zh: Chinese
         # - en: English
         self.lang = lang
-        # The ID of the management node.
-        # > You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain this parameter.
+        # The ID of the management node. You can call the [ListHoneypotNode](~~ListHoneypotNode~~) operation to obtain the ID.
         # 
         # This parameter is required.
         self.node_id = node_id

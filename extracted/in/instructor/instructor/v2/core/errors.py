@@ -1,8 +1,22 @@
 from __future__ import annotations
 
 from textwrap import dedent
+from logging import Logger
 from typing import Any, NamedTuple
+from typing_extensions import Self
 from jinja2 import Template
+
+
+def log_provider_initialization_error(
+    logger: Logger, provider: str, error: Exception, provider_info: dict[str, Any]
+) -> None:
+    logger.error(
+        "Error initializing %s client (%s)",
+        provider,
+        type(error).__name__,
+        extra={**provider_info, "status": "error"},
+        stacklevel=2,
+    )
 
 
 class InstructorError(Exception):
@@ -46,7 +60,7 @@ class InstructorError(Exception):
     @classmethod
     def from_exception(
         cls, exception: Exception, failed_attempts: list[FailedAttempt] | None = None
-    ):
+    ) -> Self:
         """Create an InstructorError from another exception.
 
         Args:
@@ -54,8 +68,7 @@ class InstructorError(Exception):
             failed_attempts: Optional list of failed retry attempts
 
         Returns:
-            A new instance of this exception class with the message from
-            the original exception
+            An instance of this exception class with the original message.
         """
         return cls(str(exception), failed_attempts=failed_attempts)
 
@@ -67,6 +80,11 @@ class InstructorError(Exception):
     ):
         self.failed_attempts = failed_attempts
         super().__init__(*args, **kwargs)
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        # Subclasses take required keyword-only arguments, so the default
+        # ``cls(*self.args)`` reconstruction used by pickle would fail.
+        return _restore_instructor_error, (type(self), self.args, self.__dict__)
 
     def __str__(self) -> str:
         # If no failed attempts, use the standard exception string representation
@@ -98,6 +116,15 @@ class InstructorError(Exception):
         return template.render(
             last_exception=super().__str__(), failed_attempts=self.failed_attempts
         )
+
+
+def _restore_instructor_error(
+    cls: type[InstructorError], args: tuple[Any, ...], state: dict[str, Any]
+) -> InstructorError:
+    error = cls.__new__(cls, *args)
+    error.args = args
+    error.__dict__.update(state)
+    return error
 
 
 class FailedAttempt(NamedTuple):
@@ -389,7 +416,7 @@ class ConfigurationError(InstructorError):
         ```python
         try:
             # Missing provider SDK
-            client = instructor.from_provider("anthropic/claude-3")
+            client = instructor.from_provider("anthropic/claude-haiku-5-5")
         except ConfigurationError as e:
             print(f"Configuration issue: {e}")
             # e.g., "The anthropic package is required..."

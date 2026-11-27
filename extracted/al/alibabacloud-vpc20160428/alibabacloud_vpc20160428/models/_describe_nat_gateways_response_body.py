@@ -23,7 +23,7 @@ class DescribeNatGatewaysResponseBody(DaraModel):
         self.page_size = page_size
         # The request ID.
         self.request_id = request_id
-        # The total number of NAT gateways queried.
+        # The total number of NAT gateways returned.
         self.total_count = total_count
 
     def validate(self):
@@ -128,6 +128,7 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(DaraModel):
         internet_charge_type: str = None,
         ip_lists: main_models.DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpLists = None,
         ip_prefix_list: main_models.DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixList = None,
+        ipv_6config: main_models.DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpv6Config = None,
         name: str = None,
         nat_gateway_id: str = None,
         nat_gateway_private_info: main_models.DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayNatGatewayPrivateInfo = None,
@@ -162,6 +163,7 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(DaraModel):
         self.internet_charge_type = internet_charge_type
         self.ip_lists = ip_lists
         self.ip_prefix_list = ip_prefix_list
+        self.ipv_6config = ipv_6config
         self.name = name
         self.nat_gateway_id = nat_gateway_id
         self.nat_gateway_private_info = nat_gateway_private_info
@@ -189,6 +191,8 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(DaraModel):
             self.ip_lists.validate()
         if self.ip_prefix_list:
             self.ip_prefix_list.validate()
+        if self.ipv_6config:
+            self.ipv_6config.validate()
         if self.nat_gateway_private_info:
             self.nat_gateway_private_info.validate()
         if self.snat_table_ids:
@@ -254,6 +258,9 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(DaraModel):
 
         if self.ip_prefix_list is not None:
             result['IpPrefixList'] = self.ip_prefix_list.to_map()
+
+        if self.ipv_6config is not None:
+            result['Ipv6Config'] = self.ipv_6config.to_map()
 
         if self.name is not None:
             result['Name'] = self.name
@@ -362,6 +369,10 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGateway(DaraModel):
         if m.get('IpPrefixList') is not None:
             temp_model = main_models.DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpPrefixList()
             self.ip_prefix_list = temp_model.from_map(m.get('IpPrefixList'))
+
+        if m.get('Ipv6Config') is not None:
+            temp_model = main_models.DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpv6Config()
+            self.ipv_6config = temp_model.from_map(m.get('Ipv6Config'))
 
         if m.get('Name') is not None:
             self.name = m.get('Name')
@@ -520,6 +531,7 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayNatGatewayPrivateInfo(
         max_session_establish_rate: int = None,
         max_session_quota: int = None,
         private_ip_address: str = None,
+        private_ipv_6address: str = None,
         vswitch_id: str = None,
     ):
         self.eni_instance_id = eni_instance_id
@@ -529,6 +541,7 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayNatGatewayPrivateInfo(
         self.max_session_establish_rate = max_session_establish_rate
         self.max_session_quota = max_session_quota
         self.private_ip_address = private_ip_address
+        self.private_ipv_6address = private_ipv_6address
         self.vswitch_id = vswitch_id
 
     def validate(self):
@@ -560,6 +573,9 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayNatGatewayPrivateInfo(
         if self.private_ip_address is not None:
             result['PrivateIpAddress'] = self.private_ip_address
 
+        if self.private_ipv_6address is not None:
+            result['PrivateIpv6Address'] = self.private_ipv_6address
+
         if self.vswitch_id is not None:
             result['VswitchId'] = self.vswitch_id
 
@@ -588,8 +604,38 @@ class DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayNatGatewayPrivateInfo(
         if m.get('PrivateIpAddress') is not None:
             self.private_ip_address = m.get('PrivateIpAddress')
 
+        if m.get('PrivateIpv6Address') is not None:
+            self.private_ipv_6address = m.get('PrivateIpv6Address')
+
         if m.get('VswitchId') is not None:
             self.vswitch_id = m.get('VswitchId')
+
+        return self
+
+class DescribeNatGatewaysResponseBodyNatGatewaysNatGatewayIpv6Config(DaraModel):
+    def __init__(
+        self,
+        ipv_6enabled: bool = None,
+    ):
+        self.ipv_6enabled = ipv_6enabled
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        result = dict()
+        _map = super().to_map()
+        if _map is not None:
+            result = _map
+        if self.ipv_6enabled is not None:
+            result['Ipv6Enabled'] = self.ipv_6enabled
+
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('Ipv6Enabled') is not None:
+            self.ipv_6enabled = m.get('Ipv6Enabled')
 
         return self
 

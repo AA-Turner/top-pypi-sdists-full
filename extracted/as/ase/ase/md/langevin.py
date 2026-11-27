@@ -43,6 +43,7 @@ class Langevin(MolecularDynamics):
 
         friction: float
             A friction coefficient in inverse ASE time units.
+            A typical range is 0.001–0.1 fs\\ :sup:`−1` (1–100 ps\\ :sup:`−1`).
             For example, set ``0.01 / ase.units.fs`` to provide
             0.01 fs\\ :sup:`−1` (10 ps\\ :sup:`−1`).
 
@@ -73,6 +74,10 @@ class Langevin(MolecularDynamics):
         -----
         The temperature and friction are normally scalars, but in principle one
         quantity per atom could be specified by giving an array.
+        This is mostly useful for the friction, where one can choose
+        a rather high friction near the boundaries, and set it to
+        zero in the part of the system where the phenomenon being
+        studied is located.
 
         RATTLE constraints can be used with these propagators, see:
         E. V.-Eijnden, and G. Ciccotti, Chem. Phys. Lett. 429, 310 (2006)
@@ -81,6 +86,50 @@ class Langevin(MolecularDynamics):
         of the above reference.  That reference also contains another
         propagator in Eq. 21/34; but that propagator is not quasi-symplectic
         and gives a systematic offset in the temperature at large time steps.
+
+        Physical background and limitations
+        -----------------------------------
+
+        The Langevin class implements Langevin dynamics, where a (small)
+        friction term and a fluctuating force are added to Newton's second law
+        which is then integrated numerically.  The temperature of the heat
+        bath and magnitude of the friction are specified by the user, the
+        amplitude of the fluctuating force is then calculated to give that
+        temperature.  This procedure has some physical justification: in a
+        real metal the atoms are (weakly) coupled to the electron gas, and the
+        electron gas therefore acts like a heat bath for the atoms.  If heat
+        is produced locally, the atoms locally get a temperature that is
+        higher than the temperature of the electrons, heat is transferred to
+        the electrons and then rapidly transported away by them.  A Langevin
+        equation is probably a reasonable model for this process.
+
+        A disadvantage of using Langevin dynamics is that if significant heat
+        is produced in the simulation, then the temperature will stabilize at
+        a value higher than the specified temperature of the heat bath, since
+        a temperature difference between the system and the heat bath is
+        necessary to get a finite heat flow.  Another disadvantage is that the
+        fluctuating force is stochastic in nature, so repeating the simulation
+        will not give exactly the same trajectory.
+
+        Example
+        -------
+        >>> from ase import units
+        >>> from ase.build import bulk
+        >>> from ase.calculators.emt import EMT
+        >>> from ase.constraints import FixCom
+        >>> from ase.md.langevin import Langevin
+        >>> atoms = bulk('Cu', cubic=True)
+        >>> atoms.calc = EMT()
+        >>> atoms.set_constraint(FixCom())
+        >>> dyn = Langevin(
+        ...     atoms,
+        ...     timestep=5.0 * units.fs,
+        ...     temperature_K=300,
+        ...     friction=0.01 / units.fs,
+        ...     fixcm=False,
+        ... )
+        >>> dyn.run(10)
+        True
         """
         if friction is None:
             raise TypeError("Missing 'friction' argument.")

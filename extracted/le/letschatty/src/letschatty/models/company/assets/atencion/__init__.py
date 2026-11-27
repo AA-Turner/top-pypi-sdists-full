@@ -19,8 +19,12 @@ from .acciones_basicas import (
     AccionNada,
     AccionPersonalizada,
     AccionRespuestaRapida,
+    CUANDO_RESPONDE,
+    ENSEGUIDA,
     CambiarMotivo,
+    CuandoEntra,
     cambiar_motivo_activo,
+    espera_respuesta,
 )
 from .al_responder import AlResponder, Asignacion, IaAlResponder, ModoAsignacion
 from .capacidad import Capacidad, CapacidadPreview, EjecutorDeCapacidad
@@ -42,7 +46,7 @@ from .entrega_externa import (
     proximo_intento_en,
     tipo_de_entrega,
 )
-from .pregunta_frecuente import SalidaPreguntaFrecuente
+from .pregunta_frecuente import QuienAtiende, SalidaPreguntaFrecuente
 from .precalificacion import AccionPrecalificar, DatoAPedir, ObjetivoPrecalificacion, Precalificacion, Rama
 from .recetas import (
     CLAVES_DEL_MOTIVO,

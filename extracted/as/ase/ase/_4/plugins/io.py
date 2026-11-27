@@ -1,19 +1,17 @@
 import importlib
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Iterator, Sequence
 from functools import cached_property
 from importlib.metadata import EntryPoint
 from types import ModuleType
 from typing import (
     Any,
     BinaryIO,
-    Callable,
-    Iterator,
+    Concatenate,
     Literal,
+    Self,
     TextIO,
 )
-
-from typing_extensions import Concatenate, Self
 
 from ase.atoms import Atoms
 from ase.io.formats import IOFormat

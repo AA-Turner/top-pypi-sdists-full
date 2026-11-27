@@ -83,6 +83,22 @@ class TestTextNode:
         last = drawing.contents[0].contents[1].contents[0]
         assert (last.fontName, last.fontSize) == ("Courier-Bold", 8)
 
+    def test_font_size_keywords(self):
+        """CSS font-size keywords are sizes, in the attribute and the shorthand."""
+        drawing = drawing_from_svg(
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+              <text font-size="medium">x</text>
+              <text font-size="large">x</text>
+              <text style="font-size: xx-small">x</text>
+              <text style="font: bold x-large serif">x</text>
+              <text font-size="larger">x</text>
+            </svg>
+        """
+        )
+        sizes = [text.contents[0].fontSize for text in drawing.contents[0].contents]
+        assert sizes == [16, 18, 9, 24, 16 * 1.2]
+
     def test_invalid_font_shorthand_is_ignored(self):
         drawing = drawing_from_svg(
             """
@@ -93,6 +109,41 @@ class TestTextNode:
         )
         string = drawing.contents[0].contents[0].contents[0]
         assert (string.fontName, string.fontSize) == ("Helvetica", 20)
+
+    def test_relative_font_size_uses_parent_font_size(self):
+        """Percent and em font sizes are relative to the parent's font size."""
+        drawing = drawing_from_svg(
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
+              <g font-size="20">
+                <text x="10" y="50">a<tspan style="font-size:70%">b</tspan><tspan
+                      font-size="2em">c<tspan font-size="50%">d</tspan></tspan></text>
+                <text x="10" y="80" font-size="150%">e</text>
+              </g>
+            </svg>
+        """
+        )
+        texts = drawing.contents[0].contents[0].contents
+        sizes = {s.text: s.fontSize for text in texts for s in text.contents}
+        assert sizes == {"a": 20, "b": 14, "c": 40, "d": 20, "e": 30}
+
+    def test_relative_font_size_keywords_use_parent_font_size(self):
+        """``larger`` and ``smaller`` scale the parent's font size."""
+        drawing = drawing_from_svg(
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
+              <g font-size="20">
+                <text x="10" y="50">a<tspan font-size="larger">b</tspan><tspan
+                      font-size="smaller">c</tspan></text>
+              </g>
+            </svg>
+        """
+        )
+        texts = drawing.contents[0].contents[0].contents
+        sizes = {s.text: s.fontSize for text in texts for s in text.contents}
+        assert sizes["a"] == 20
+        assert abs(sizes["b"] - 24) < 1e-9
+        assert abs(sizes["c"] - 20 / 1.2) < 1e-9
 
     def test_baseline_shift_sources_and_units(self):
         drawing = drawing_from_svg(

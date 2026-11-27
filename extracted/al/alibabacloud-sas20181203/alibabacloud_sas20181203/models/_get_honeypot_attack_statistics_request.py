@@ -18,16 +18,16 @@ class GetHoneypotAttackStatisticsRequest(DaraModel):
         start_time_stamp: int = None,
         statistics_type: str = None,
     ):
-        # The page number of the returned page. Pages start from page **1**. Default value: **1**.
+        # The number of the page to return. Pages start from page **1**. Default value: **1**.
         self.current_page = current_page
         # The end time in the timestamp format.
         self.end_time_stamp = end_time_stamp
-        # The language of the request and response. Default value: **zh**. Valid values:
+        # The language of the request and response messages. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
         # - **en**: English
         self.lang = lang
-        # The maximum number of entries to return on each page in a paging query. Default value: 20. If this parameter is left empty, 20 entries are returned by default. Do not leave this parameter empty.
+        # The maximum number of entries to return on each page in a paged query. Default value: 20. If this parameter is left empty, 20 entries are returned by default. Do not leave the paging parameter empty.
         self.page_size = page_size
         # The list of risk levels.
         self.risk_level_list = risk_level_list
@@ -37,12 +37,12 @@ class GetHoneypotAttackStatisticsRequest(DaraModel):
         self.src_ip = src_ip
         # The start time in the timestamp format.
         self.start_time_stamp = start_time_stamp
-        # The type of statistics for the attack source. Valid values:
+        # The type of statistics information for the attack source. Valid values:
         # 
-        # - **TOP_ATTACKED_AGENT**: The top 5 probes that are attacked most frequently.
-        # - **TOP_ATTACKED_IP**: The top 5 IP addresses that are attacked most frequently.
+        # - **TOP_ATTACKED_AGENT**: The top 5 most attacked probes.
+        # - **TOP_ATTACKED_IP**: The top 5 most attacked IP addresses.
         # - **ATTACK_EVENT_TYPE**: The intrusion event type.
-        # - **ATTACK_HONEYPOT_TYPE**: The type of the attacked honeypot.
+        # - **ATTACK_HONEYPOT_TYPE**: The type of the compromised honeypot.
         # 
         # This parameter is required.
         self.statistics_type = statistics_type

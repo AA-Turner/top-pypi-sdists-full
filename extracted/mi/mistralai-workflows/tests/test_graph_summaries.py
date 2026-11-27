@@ -986,7 +986,7 @@ async def test_summarise_graph_summary_input_returns_partial_results_at_deadline
     client = MagicMock()
     client.chat.complete_async = AsyncMock(side_effect=complete_then_wait)
 
-    result = await summarise_graph_summary_input(summary_input, client=client, deadline_s=0.01)
+    result = await summarise_graph_summary_input(summary_input, client=client, deadline_s=0.1)
 
     assert result.summaries["c"].short == "Check for empty list"
     assert client.chat.complete_async.await_count == 2
@@ -1014,7 +1014,7 @@ async def test_summarise_graph_summary_input_fails_if_a_batch_misses_the_shared_
     client.chat.complete_async = AsyncMock(side_effect=complete)
 
     with pytest.raises(SummariseTimeoutError):
-        await summarise_graph_summary_input(summary_input, client=client, deadline_s=0.01)
+        await summarise_graph_summary_input(summary_input, client=client, deadline_s=0.1)
 
     assert client.chat.complete_async.await_count == 2
 

@@ -18,17 +18,17 @@ class UpdateHoneypotProbeRequest(DaraModel):
     ):
         # The ARP check type.
         self.arp = arp
-        # The probe name.
+        # The name of the probe.
         self.display_name = display_name
         # The language of the request and response. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
         # The ping detection type.
         self.ping = ping
-        # The probe ID.
-        # >You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to obtain this parameter.
+        # The ID of the probe.
+        # > You can call the [ListHoneypotProbe](~~ListHoneypotProbe~~) operation to obtain the value.
         # 
         # This parameter is required.
         self.probe_id = probe_id

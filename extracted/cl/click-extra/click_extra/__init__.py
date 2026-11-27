@@ -358,6 +358,7 @@ from .theme import (
     BUILTIN_THEMES,
     KO_GLYPH,
     OK_GLYPH,
+    SKIP_GLYPH,
     HelpTheme,
     ThemeOption,
     get_current_theme,
@@ -404,6 +405,7 @@ __all__ = [
     "OK_GLYPH",
     "PREPEND_SUBCOMMANDS_KEY",
     "SERIALIZATION_FORMATS",
+    "SKIP_GLYPH",
     "SPINNERS",
     "STDOUT_SENTINEL",
     "STRING",
@@ -723,13 +725,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "10.3.1"
+__version__ = "10.4.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "c98418afac492ce88ea0b43c29c3786f84a3fa22"
+__git_tag_sha__ = "7d59d2042a589707fcdd965f298bd9189a1bec96"
 
 
 _LAZY_TEST_TOOLING = {

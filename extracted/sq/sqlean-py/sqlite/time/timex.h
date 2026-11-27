@@ -51,6 +51,13 @@ typedef struct {
 #define TIMEX_BLOB_SIZE 13
 #define TIMEX_UTC 0
 
+// TIMEX_FMT_BUF_SIZE is the buffer size that is always sufficient for the
+// time_fmt_x functions: the layouts take at most 46 characters (11-char
+// year for INT32_MIN, 9-digit fraction, sign plus 6-digit offset hours,
+// the latter reachable through a full-range int offset such as INT_MIN
+// seconds).
+#define TIMEX_FMT_BUF_SIZE 48
+
 // Duration represents the elapsed time between two instants
 // as an int64 nanosecond count. The representation limits the
 // largest representable duration to approximately 290 years.
@@ -67,7 +74,7 @@ Time time_now(void);
 // yyyy-mm-dd hh:mm:ss + nsec nanoseconds
 // with the given timezone offset in seconds.
 Time time_date(int year,
-               enum Month month,
+               int month,
                int day,
                int hour,
                int min,
@@ -213,13 +220,15 @@ size_t time_fmt_date(char* buf, size_t size, Time t, int offset_sec);
 // time_fmt_time returns a time string for the given time value.
 size_t time_fmt_time(char* buf, size_t size, Time t, int offset_sec);
 
-// time_parse parses a formatted string and returns the time value it represents.
-Time time_parse(const char* value);
+// time_parse parses a formatted string into the time value it represents.
+// Returns false for NULL or invalid syntax.
+bool time_parse(const char* value, Time* out);
 
 // Marshaling.
 
-// time_blob returns the time instant represented by the binary data.
-Time time_blob(const uint8_t* buf);
+// time_blob decodes the time instant represented by the binary data.
+// Returns false if the data is not a valid time blob.
+bool time_blob(const uint8_t* buf, Time* out);
 
 // time_to_blob returns the binary representation of the time instant t.
 void time_to_blob(Time t, uint8_t* buf);

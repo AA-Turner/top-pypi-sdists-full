@@ -11,12 +11,14 @@ and behavior.
 """
 
 import sys
+from collections.abc import Callable
 from io import BytesIO
-from typing import TextIO, cast
+from typing import Any, NamedTuple, Optional, TextIO, cast
 
 from pypdf import PdfWriter
 from pypdf.generic import (
     ArrayObject,
+    ByteStringObject,
     DictionaryObject,
     FloatObject,
     NameObject,
@@ -29,14 +31,14 @@ from .constants import (
     AA,
     COMB,
     DA,
-    FONT_COLOR_IDENTIFIER,
-    FONT_SIZE_IDENTIFIER,
+    DEFAULT_APPEARANCE_HOOKS,
     HIDDEN,
     JS,
     MULTILINE,
     READ_ONLY,
     REQUIRED,
     TU,
+    AcroForm,
     Action,
     Annots,
     Bl,
@@ -48,7 +50,6 @@ from .constants import (
     JavaScript,
     MaxLen,
     Opt,
-    Parent,
     Q,
     Rect,
     S,
@@ -56,8 +57,40 @@ from .constants import (
     U,
     X,
 )
+from .default_appearance import (
+    change_font,
+    change_font_color,
+    change_font_size,
+    read_default_appearance,
+)
 from .middleware.dropdown import DropdownOption
-from .patterns import get_widget_key
+from .patterns import (
+    check_field_flag,
+    get_field_tooltip,
+    get_widget_field,
+    get_widget_key,
+    parse_alignment,
+    parse_field_flags,
+    parse_max_length,
+    resolve_inherited_entry,
+)
+from .utils import get_dictionary, get_entry
+
+
+class FontChange(NamedTuple):
+    """
+    A font assigned to a text field or dropdown, as the wrapper passes it to
+    `update_text_field_font`.
+
+    Attributes:
+        name (str): The font as assigned, such as `Courier` or `/F1`.
+        resource (Optional[str]): The resource name of the registered font or
+            the font of the PDF with that name, such as `/F1`, or None when no
+            font has it.
+    """
+
+    name: str
+    resource: Optional[str]
 
 
 def trigger_widget_hooks(
@@ -72,8 +105,10 @@ def trigger_widget_hooks(
     if a widget is associated with an annotation and has hooks to trigger,
     it executes those hooks. Hooks are functions defined in this module that
     modify the annotation dictionary, allowing for dynamic changes to the form field's
-    appearance or behavior. After writing the modified PDF, all widget hook queues are
-    cleared so the same changes are not applied repeatedly.
+    appearance or behavior. Hooks that change the default appearance also get
+    the AcroForm dictionary, for its default. Widget hook queues are left
+    unchanged, so the caller can clear them once the modified PDF is returned,
+    or revert them if a hook or writing the PDF raises.
 
     Args:
         pdf (bytes): The PDF file data as bytes.
@@ -87,6 +122,7 @@ def trigger_widget_hooks(
         bytes: The modified PDF data as bytes, with the widget hooks applied.
     """
     output = PdfWriter(BytesIO(pdf))
+    acroform = get_dictionary(output.root_object, AcroForm) or DictionaryObject()
 
     for page in output.pages:
         for annot in page.get(Annots, []):
@@ -97,11 +133,12 @@ def trigger_widget_hooks(
             if widget is None or not widget.hooks_to_trigger:
                 continue
 
-            for hook in widget.hooks_to_trigger:
-                getattr(sys.modules[__name__], hook[0])(annot, hook[1])
-
-    for widget in widgets.values():
-        widget.hooks_to_trigger = []
+            for hook, value in widget.hooks_to_trigger:
+                function = getattr(sys.modules[__name__], hook)
+                if hook in DEFAULT_APPEARANCE_HOOKS:
+                    function(annot, value, acroform)
+                else:
+                    function(annot, value)
 
     with BytesIO() as f:
         output.write(f)
@@ -113,226 +150,365 @@ def _update_field_flag(annot: DictionaryObject, flag: int, should_set: bool) -> 
     """
     Sets or unsets a bit flag for a form field annotation.
 
-    This internal helper function modifies the 'Ff' (field flags) entry in the
-    annotation dictionary or, for child annotations whose field flags live on the
-    parent, the parent dictionary. It preserves all other bits while setting or
-    unsetting the requested flag.
+    The field flags (`/Ff`) are resolved from the widget and the fields along
+    its `/Parent` chain, so a widget's own flags take precedence. The changed
+    flags replace the widget's own, and are otherwise written to the field the
+    widget belongs to, as `get_widget_field` describes, with the bits it
+    inherited, so fields above it, which other fields can share, are not
+    changed. All other bits are preserved. Hooks change a PDF writer that is
+    written only when every hook succeeds, so an error leaves the PDF
+    unchanged.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the form field.
         flag (int): The bit flag to set or unset.
         should_set (bool): True to set the flag, False to unset it.
+
+    Raises:
+        ValueError: If the `/Parent` chain has a cycle before any flags are
+            found, or the flags found aren't a number.
     """
-    # Ff in annot[Parent] only in hooks.py, or when editing instead of retrieving
-    if Parent in annot and (Ff in annot[Parent] or Ff not in annot):
-        annot[NameObject(Parent)][NameObject(Ff)] = NumberObject(
-            (
-                int(annot[NameObject(Parent)].get(NameObject(Ff), 0)) | flag
-                if should_set
-                else int(annot[NameObject(Parent)].get(NameObject(Ff), 0)) & ~flag
-            )
-        )
-    else:
-        annot[NameObject(Ff)] = NumberObject(
-            (
-                int(annot.get(NameObject(Ff), 0)) | flag
-                if should_set
-                else int(annot.get(NameObject(Ff), 0)) & ~flag
-            )
-        )
+    entry = resolve_inherited_entry(annot, Ff, None)
+    flags = parse_field_flags(entry.value)
+    entry.target[NameObject(Ff)] = NumberObject(
+        flags | flag if should_set else flags & ~flag
+    )
 
 
-def update_text_field_font(annot: DictionaryObject, val: str) -> None:
+def _set_field_entry(annot: DictionaryObject, key: str, value: NumberObject) -> None:
+    """
+    Sets an inheritable field entry, such as `/Q`, for a widget.
+
+    The entry is resolved from the widget and the fields along its `/Parent`
+    chain, as `resolve_inherited_entry` describes, without an AcroForm
+    default. The new value replaces the widget's own, and is otherwise
+    written to the field the widget belongs to, as `get_widget_field`
+    describes, so fields above it, which other fields can share, are not
+    changed. Hooks
+    change a PDF writer that is written only when every hook succeeds, so an
+    error leaves the PDF unchanged.
+
+    Args:
+        annot (DictionaryObject): The widget annotation dictionary.
+        key (str): The entry to set, such as `/MaxLen` or `/Q`.
+        value (NumberObject): The new value.
+
+    Raises:
+        ValueError: If the `/Parent` chain has a cycle before the entry is
+            found.
+    """
+    resolve_inherited_entry(annot, key, None).target[NameObject(key)] = value
+
+
+def _read_alignment(annot: DictionaryObject) -> int | None:
+    """
+    Reads the alignment of a widget's field, as `get_text_field_alignment`
+    does, except that a `/Parent` cycle raises.
+
+    Args:
+        annot (DictionaryObject): The widget annotation dictionary.
+
+    Returns:
+        int | None: The alignment, or None if the field has none.
+
+    Raises:
+        ValueError: If the `/Parent` chain has a cycle before `/Q` is found.
+    """
+    return parse_alignment(resolve_inherited_entry(annot, Q, None).value)
+
+
+def _read_max_length(annot: DictionaryObject) -> int | None:
+    """
+    Reads the maximum length of a widget's field, as
+    `get_text_field_max_length` does, except that a `/Parent` cycle raises.
+
+    Args:
+        annot (DictionaryObject): The widget annotation dictionary.
+
+    Returns:
+        int | None: The maximum length, or None if the field has none.
+
+    Raises:
+        ValueError: If the `/Parent` chain has a cycle before `/MaxLen` is
+            found.
+    """
+    return parse_max_length(resolve_inherited_entry(annot, MaxLen, None).value)
+
+
+def _remove_field_entry(
+    annot: DictionaryObject, key: str, read: Callable[[DictionaryObject], Any]
+) -> None:
+    """
+    Removes a field entry from a widget and its own field.
+
+    The widget's own field is the field it belongs to, as `get_widget_field`
+    describes. The entry is removed from the widget and that field, so the
+    field no longer has it, even when it was stored on the parent of a widget.
+    Fields above the widget's own field can be shared with other fields, so
+    they are never changed. If the field still has a value afterwards, one of
+    them supplies it, and an error is raised. Hooks change a PDF writer that
+    is written only when every hook succeeds, so raising discards the removal.
+
+    Args:
+        annot (DictionaryObject): The widget annotation dictionary.
+        key (str): The entry to remove, such as `/MaxLen`, `/Q`, or `/TU`.
+        read (Callable[[DictionaryObject], Any]): Reads the field's value from
+            the widget as its property does, such as `_read_alignment`, None
+            when it has none, raising `ValueError` for a `/Parent` cycle.
+
+    Raises:
+        ValueError: If a field above the widget's own field supplies a value,
+            or the `/Parent` chain has a cycle before one is found.
+    """
+    for each in (annot, get_widget_field(annot)):
+        each.pop(NameObject(key), None)
+
+    try:
+        value = read(annot)
+    except ValueError as error:
+        msg = f"Cannot remove {key}: the /Parent chain of the field has a cycle."
+        raise ValueError(msg) from error
+    if value is not None:
+        msg = f"Cannot remove {key}: a parent field shared with other fields sets it."
+        raise ValueError(msg)
+
+
+def _update_default_appearance(
+    annot: DictionaryObject,
+    acroform: DictionaryObject,
+    change: Callable[[object], str | bytes],
+) -> None:
+    """
+    Changes the default appearance (`/DA`) of a widget.
+
+    The `/DA` is resolved from the widget, the fields along its `/Parent`
+    chain, and then the AcroForm default, so a widget's own `/DA` takes
+    precedence. The changed `/DA` replaces the widget's own, and is otherwise
+    written to the field the widget belongs to, as `get_widget_field`
+    describes, so fields above it, which other fields can share, and the
+    AcroForm default are not changed. The change is computed before anything is
+    written, and hooks change a PDF writer that is written only when every
+    hook succeeds, so an error leaves the PDF unchanged.
+
+    Args:
+        annot (DictionaryObject): The widget annotation dictionary.
+        acroform (DictionaryObject): The AcroForm dictionary, for its default.
+        change (Callable[[object], str | bytes]): Returns the changed `/DA`
+            for the resolved `/DA` value, such as `change_font_size`, as bytes
+            when it was a byte string.
+
+    Raises:
+        ValueError: If no `/DA` is set, the `/Parent` chain has a cycle, or
+            the `/DA` can't be changed, such as one without a `Tf` operator.
+    """
+    entry = resolve_inherited_entry(annot, DA, acroform)
+    if entry.value is None:
+        msg = "Cannot change /DA: neither the field nor the form sets one."
+        raise ValueError(msg)
+
+    result = change(entry.value)
+    entry.target[NameObject(DA)] = (
+        ByteStringObject(result)
+        if isinstance(result, bytes)
+        else TextStringObject(result)
+    )
+
+
+def update_text_field_font(
+    annot: DictionaryObject, val: str | FontChange, acroform: DictionaryObject
+) -> None:
     """
     Updates the font of a text field annotation.
 
-    This function modifies the appearance string (DA) in the annotation dictionary
-    to change the font used for the text field. It ensures that the provided font
-    name is a proper PDF font by checking if it starts with a slash "/".
-    The function then correctly identifies and updates the font in the appearance
-    stream by locating the existing font identifier (which also starts with a slash).
+    This function changes the font of the field's default appearance (`/DA`),
+    as `_update_default_appearance` describes. A name without a slash that is
+    the font this annotation's `/DA` already uses, such as `Courier` in
+    `Courier 12 Tf`, leaves the `/DA` unchanged, even when a registered font
+    has that name. Otherwise, the font is the resource name of the registered
+    font or font of the PDF with that name, which the wrapper looks up, or the
+    name itself, which must then be a resource name starting with a slash "/".
+    Each annotation is decided by its own `/DA`, as it is when the hook runs,
+    so the widgets of a field, or an earlier change of the same font, can
+    give different results.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the text field.
-        val (str): The new font name to use for the text field. Must start with "/".
+        val (str | FontChange): The new font, with the resource name the
+            wrapper found for it, or a resource name starting with "/".
+        acroform (DictionaryObject): The AcroForm dictionary, for its default.
+
+    Raises:
+        ValueError: If the font is neither the one this annotation uses, the
+            name of a font with a resource name, nor a resource name starting
+            with "/", or the `/DA` can't be resolved or has no `Tf` operator
+            with a font and a numeric size.
     """
-    if not val.startswith("/"):
+    change = val if isinstance(val, FontChange) else FontChange(val, None)
+    if (
+        not change.name.startswith("/")
+        and read_default_appearance(
+            resolve_inherited_entry(annot, DA, acroform).value
+        ).font
+        == change.name
+    ):
         return
-    if Parent in annot and DA not in annot:
-        text_appearance = annot[Parent][DA]
-    else:
-        text_appearance = annot[DA]
 
-    text_appearance = text_appearance.split(" ")
-
-    index_to_update = 0
-    for i, each in enumerate(text_appearance):
-        if each.startswith("/"):
-            index_to_update = i
-            break
-
-    text_appearance[index_to_update] = val
-    new_text_appearance = " ".join(text_appearance)
-
-    if Parent in annot and DA not in annot:
-        annot[NameObject(Parent)][NameObject(DA)] = TextStringObject(
-            new_text_appearance
+    font = change.resource if change.resource is not None else change.name
+    if not font.startswith("/"):
+        msg = (
+            f"Cannot change the font: {font!r} is not a registered font, a font "
+            "of the PDF, or a font resource name starting with '/'."
         )
-    else:
-        annot[NameObject(DA)] = TextStringObject(new_text_appearance)
+        raise ValueError(msg)
+    _update_default_appearance(annot, acroform, lambda da: change_font(da, font))
 
 
-def update_text_field_font_size(annot: DictionaryObject, val: float) -> None:
+def update_text_field_font_size(
+    annot: DictionaryObject, val: float, acroform: DictionaryObject
+) -> None:
     """
     Updates the font size of a text field annotation.
 
-    This function modifies the appearance string (DA) in the annotation dictionary
-    to change the font size used for the text field.
+    This function changes the font size of the field's default appearance
+    (`/DA`), as `_update_default_appearance` describes.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the text field.
         val (float): The new font size to use for the text field.
+        acroform (DictionaryObject): The AcroForm dictionary, for its default.
+
+    Raises:
+        ValueError: If the `/DA` can't be resolved or has no `Tf` operator
+            with a font and a numeric size.
     """
-    if Parent in annot and DA not in annot:
-        text_appearance = annot[Parent][DA]
-    else:
-        text_appearance = annot[DA]
-
-    text_appearance = text_appearance.split(" ")
-    font_size_index = 0
-    for i, value in enumerate(text_appearance):
-        if value.startswith(FONT_SIZE_IDENTIFIER):
-            font_size_index = i - 1
-            break
-
-    text_appearance[font_size_index] = str(val)
-    new_text_appearance = " ".join(text_appearance)
-
-    if Parent in annot and DA not in annot:
-        annot[NameObject(Parent)][NameObject(DA)] = TextStringObject(
-            new_text_appearance
-        )
-    else:
-        annot[NameObject(DA)] = TextStringObject(new_text_appearance)
+    _update_default_appearance(annot, acroform, lambda da: change_font_size(da, val))
 
 
-def update_text_field_font_color(annot: DictionaryObject, val: tuple) -> None:
+def update_text_field_font_color(
+    annot: DictionaryObject, val: tuple, acroform: DictionaryObject
+) -> None:
     """
     Updates the font color of a text field annotation.
 
-    This function modifies the appearance string (DA) in the annotation dictionary
-    to change the font color used for the text field.
+    This function changes the fill color of the field's default appearance
+    (`/DA`) to an RGB color, as `_update_default_appearance` describes.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the text field.
         val (tuple): The new font color as an RGB tuple (e.g., (1, 0, 0) for red).
+        acroform (DictionaryObject): The AcroForm dictionary, for its default.
+
+    Raises:
+        ValueError: If the `/DA` can't be resolved, or has a fill color
+            operator without the numeric operands it takes.
     """
-    if Parent in annot and DA not in annot:
-        text_appearance = annot[Parent][DA]
-    else:
-        text_appearance = annot[DA]
-
-    text_appearance = text_appearance.split(" ")
-    font_size_identifier_index = 0
-    for i, value in enumerate(text_appearance):
-        if value == FONT_SIZE_IDENTIFIER:
-            font_size_identifier_index = i
-            break
-
-    new_text_appearance = (
-        text_appearance[:font_size_identifier_index]
-        + [FONT_SIZE_IDENTIFIER]
-        + [str(each) for each in val]
-    )
-    new_text_appearance = " ".join(new_text_appearance) + FONT_COLOR_IDENTIFIER
-
-    if Parent in annot and DA not in annot:
-        annot[NameObject(Parent)][NameObject(DA)] = TextStringObject(
-            new_text_appearance
-        )
-    else:
-        annot[NameObject(DA)] = TextStringObject(new_text_appearance)
+    _update_default_appearance(annot, acroform, lambda da: change_font_color(da, val))
 
 
 def update_text_field_alignment(annot: DictionaryObject, val: int) -> None:
     """
     Updates the text alignment of a text field annotation.
 
-    This function modifies the Q entry in the annotation dictionary to change
-    the text alignment of the text field.
+    This function modifies the Q entry of the field, as `_set_field_entry`
+    does, to change the text alignment of the text field. None removes the
+    entry from the annotation and its own field, since the field's alignment
+    is inheritable.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the text field.
-        val (int): The new alignment value (0=Left, 1=Center, 2=Right).
+        val (int | None): The new alignment value (0=Left, 1=Center, 2=Right),
+            or None to remove it.
+
+    Raises:
+        ValueError: If None is given and a parent field shared with other
+            fields sets the alignment, or the `/Parent` chain has a cycle.
     """
-    annot[NameObject(Q)] = NumberObject(val)
+    if val is None:
+        _remove_field_entry(annot, Q, _read_alignment)
+    else:
+        _set_field_entry(annot, Q, NumberObject(val))
 
 
 def update_text_field_multiline(annot: DictionaryObject, val: bool) -> None:
     """
     Updates the multiline property of a text field annotation.
 
-    This function modifies the Ff (flags) entry in the annotation dictionary to
-    enable the multiline property of the text field. A false value is ignored and
-    does not unset an existing multiline flag.
+    This function modifies the Ff (flags) entry of the field, as
+    `_update_field_flag` does, to enable or disable the multiline property of
+    the text field. Disabling a field that is not multiline leaves the
+    annotation unchanged.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the text field.
         val (bool): True to enable multiline, False to disable.
+
+    Raises:
+        ValueError: If the flags are changed and the `/Parent` chain has a
+            cycle before any flags are found.
     """
-    if val:
-        _update_field_flag(annot, MULTILINE, True)
+    if val or check_field_flag(annot, MULTILINE):
+        _update_field_flag(annot, MULTILINE, bool(val))
 
 
 def update_text_field_comb(annot: DictionaryObject, val: bool) -> None:
     """
     Updates the comb property of a text field annotation.
 
-    This function modifies the Ff (flags) entry in the annotation dictionary to
-    enable the comb property of the text field, which displays fixed character
-    positions for fields with a maximum length. A false value is ignored and does
-    not unset an existing comb flag.
+    This function modifies the Ff (flags) entry of the field, as
+    `_update_field_flag` does, to enable or disable the comb property of the
+    text field, which displays fixed character positions for fields with a
+    maximum length. Disabling a field that is not a comb field leaves the
+    annotation unchanged.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the text field.
         val (bool): True to enable comb, False to disable.
+
+    Raises:
+        ValueError: If the flags are changed and the `/Parent` chain has a
+            cycle before any flags are found.
     """
-    if val:
-        _update_field_flag(annot, COMB, True)
+    if val or check_field_flag(annot, COMB):
+        _update_field_flag(annot, COMB, bool(val))
 
 
 def update_text_field_max_length(annot: DictionaryObject, val: int) -> None:
     """
     Updates the maximum length of a text field annotation.
 
-    This function sets the 'MaxLen' entry in the annotation dictionary, which
-    specifies the maximum number of characters that can be entered into the text field.
+    This function sets the MaxLen entry of the field, as `_set_field_entry`
+    does, which specifies the maximum number of characters that can be
+    entered into the text field. None removes the entry from the annotation
+    and its own field, since the field's maximum length is inheritable.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the text field.
-        val (int): The maximum number of characters allowed in the text field.
+        val (int | None): The maximum number of characters allowed in the text
+            field, or None to remove the limit.
+
+    Raises:
+        ValueError: If None is given and a parent field shared with other
+            fields sets the maximum length, or the `/Parent` chain has a cycle.
     """
-    annot[NameObject(MaxLen)] = NumberObject(val)
+    if val is None:
+        _remove_field_entry(annot, MaxLen, _read_max_length)
+    else:
+        _set_field_entry(annot, MaxLen, NumberObject(val))
 
 
 def _normalize_geometry_value(val: int | float) -> float:
     """
     Normalizes scalar geometry to a float before modifying an annotation.
 
+    Values are validated when they are assigned to the widget, by
+    `Widget.validate_geometry_value`.
+
     Args:
         val (int | float): The coordinate or dimension to normalize.
 
     Returns:
         float: The normalized geometry value.
-
-    Raises:
-        TypeError: If the value is not an integer or float, or is a boolean.
     """
-    # bool subclasses int, so the numeric type check alone would accept booleans.
-    if isinstance(val, bool) or not isinstance(val, (int, float)):
-        # TODO: Refactor this raise into a centralized exception raiser when one is introduced.
-        msg = "Geometry values must be integers or floats; booleans are invalid."
-        raise TypeError(msg)
     return float(val)
 
 
@@ -348,9 +524,6 @@ def update_check_radio_size(annot: DictionaryObject, val: int | float) -> None:
         annot (DictionaryObject): The annotation dictionary for the check box or
             radio button.
         val (int | float): The new size (width and height) for the check box or radio button.
-
-    Raises:
-        TypeError: If the size is not an integer or float, or is a boolean.
     """
     val = _normalize_geometry_value(val)
     rect = annot[Rect]
@@ -368,16 +541,26 @@ def update_dropdown_choices(annot: DictionaryObject, val: list) -> None:
     """
     Updates the choices in a dropdown field annotation.
 
-    This function modifies the Opt entry in the annotation dictionary to change
-    the available choices in the dropdown field. String choices use the same
-    export and display value. Two-item sequences are written as `[export, display]`
-    PDF option arrays from the user-facing `(display, export)` order.
+    This function modifies the Opt entry of the field to change the available
+    choices in the dropdown field. The options are resolved from the widget and
+    the fields along its `/Parent` chain, as `get_dropdown_choices` reads them,
+    and the new options replace the widget's own, and are otherwise written to
+    the field the widget belongs to, as `resolve_inherited_entry` describes,
+    so every widget of the field gets them and fields above it, which other
+    fields can share, are not changed. String choices
+    use the same export and display value. Two-item sequences are written as
+    `[export, display]` PDF option arrays from the user-facing
+    `(display, export)` order.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the dropdown field.
         val (list): A list of strings or tuples representing the new choices for the dropdown.
+
+    Raises:
+        ValueError: If the `/Parent` chain has a cycle before any options are
+            found.
     """
-    annot[NameObject(Opt)] = ArrayObject(
+    resolve_inherited_entry(annot, Opt, None).target[NameObject(Opt)] = ArrayObject(
         [DropdownOption.from_choice(each).to_pdf() for each in val]
     )
 
@@ -387,13 +570,17 @@ def update_field_readonly(annot: DictionaryObject, val: bool) -> None:
     Sets or unsets the ReadOnly flag on a form field annotation,
     making it read-only or editable based on the `val` parameter.
 
-    This function modifies the Ff (flags) entry in the annotation dictionary to
-    set or unset the ReadOnly flag, preventing or allowing the user from
-    interacting with the form field.
+    This function modifies the Ff (flags) entry of the field, as
+    `_update_field_flag` does, to set or unset the ReadOnly flag, preventing or
+    allowing the user from interacting with the form field.
 
     Args:
         annot (DictionaryObject): The annotation dictionary.
         val (bool): True to make the field read-only, False to make it editable.
+
+    Raises:
+        ValueError: If the `/Parent` chain has a cycle before any flags are
+            found.
     """
     _update_field_flag(annot, READ_ONLY, val)
 
@@ -410,9 +597,6 @@ def update_field_x(annot: DictionaryObject, val: int | float) -> None:
     Args:
         annot (DictionaryObject): The annotation dictionary for the form field.
         val (int | float): The new X-coordinate for the left edge of the field.
-
-    Raises:
-        TypeError: If the coordinate is not an integer or float, or is a boolean.
     """
     val = _normalize_geometry_value(val)
     diff = val - annot[Rect][0]
@@ -432,9 +616,6 @@ def update_field_y(annot: DictionaryObject, val: int | float) -> None:
     Args:
         annot (DictionaryObject): The annotation dictionary for the form field.
         val (int | float): The new Y-coordinate for the bottom edge of the field.
-
-    Raises:
-        TypeError: If the coordinate is not an integer or float, or is a boolean.
     """
     val = _normalize_geometry_value(val)
     diff = val - annot[Rect][1]
@@ -454,9 +635,6 @@ def update_field_width(annot: DictionaryObject, val: int | float) -> None:
     Args:
         annot (DictionaryObject): The annotation dictionary for the form field.
         val (int | float): The new width of the field.
-
-    Raises:
-        TypeError: If the width is not an integer or float, or is a boolean.
     """
     val = _normalize_geometry_value(val)
     annot[NameObject(Rect)][2] = FloatObject(annot[Rect][0] + val)
@@ -474,9 +652,6 @@ def update_field_height(annot: DictionaryObject, val: int | float) -> None:
     Args:
         annot (DictionaryObject): The annotation dictionary for the form field.
         val (int | float): The new height of the field.
-
-    Raises:
-        TypeError: If the height is not an integer or float, or is a boolean.
     """
     val = _normalize_geometry_value(val)
     annot[NameObject(Rect)][3] = FloatObject(annot[Rect][1] + val)
@@ -486,29 +661,40 @@ def update_field_tooltip(annot: DictionaryObject, val: str) -> None:
     """
     Updates the tooltip (alternate field name) of a form field annotation.
 
-    This function sets the 'TU' entry in the annotation dictionary, which
-    provides a text string that can be used as a tooltip for the field. Falsey
-    values are ignored, so this helper does not clear an existing tooltip.
+    This function sets the 'TU' entry, which provides a text string that can be
+    used as a tooltip for the field, on the widget when it has a tooltip of its
+    own, which `get_field_tooltip` reads first, and otherwise on the field it
+    belongs to, as `get_widget_field` describes. None or an empty string
+    removes the tooltip from the annotation and its own field. A tooltip isn't inherited, as `get_field_tooltip` describes, so
+    fields above the widget's own field are neither read nor changed.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the form field.
-        val (str): The new tooltip string for the field.
+        val (str | None): The new tooltip string for the field, or None to
+            remove it.
     """
     if val:
-        annot[NameObject(TU)] = TextStringObject(val)
+        target = annot if get_entry(annot, TU) else get_widget_field(annot)
+        target[NameObject(TU)] = TextStringObject(val)
+    else:
+        _remove_field_entry(annot, TU, get_field_tooltip)
 
 
 def update_field_required(annot: DictionaryObject, val: bool) -> None:
     """
     Updates the 'Required' flag of a form field annotation.
 
-    This function modifies the Ff (flags) entry in the annotation dictionary
-    (or its parent if applicable) to set or unset the 'Required' flag,
-    making the field mandatory or optional.
+    This function modifies the Ff (flags) entry of the field, as
+    `_update_field_flag` does, to set or unset the 'Required' flag, making the
+    field mandatory or optional.
 
     Args:
         annot (DictionaryObject): The annotation dictionary for the form field.
         val (bool): True to set the field as required, False to make it optional.
+
+    Raises:
+        ValueError: If the `/Parent` chain has a cycle before any flags are
+            found.
     """
     _update_field_flag(annot, REQUIRED, val)
 

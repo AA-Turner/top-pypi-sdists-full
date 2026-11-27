@@ -168,11 +168,25 @@ class TestReadMagneticMoments:
         'tot          0.026   0.014   0.659  13.755  14.454\n',
     ]
 
+    # non-collinear magnetic moments
+    # using lines_spd for Fe from above in all three directions
+    lines_spd_3d_mag = lines_spd.copy()
+    lines_spd_3d_mag += ['\n', '\n', '\n']
+
+    lines_y = lines_spd.copy()
+    lines_y[0] = ' magnetization (y)\n'
+    lines_spd_3d_mag += lines_y + ['\n', '\n', '\n']
+
+    lines_z = lines_spd.copy()
+    lines_z[0] = ' magnetization (z)\n'
+    lines_spd_3d_mag += lines_z
+
     @pytest.mark.parametrize(
         'lines, magmoms_ref',
         (
             (lines_spd, (2.315, 2.315)),
             (lines_spdf, (7.227, 7.227)),
+            (lines_spd_3d_mag, ((2.315, 2.315, 2.315), (2.315, 2.315, 2.315))),
         ),
     )
     def test(self, lines, magmoms_ref):
@@ -260,3 +274,37 @@ def test_as_dict():
     inputs = dct['inputs']
     assert inputs['lreal'] is False
     assert inputs['xc'] == 'pbe'
+
+
+@pytest.mark.parametrize('value', [None, 520, 520.0, np.int64(520)])
+def test_encut_property(value):
+    calc = Vasp(encut=value)
+    assert calc.encut == value
+    calc.encut = 400
+    assert calc.encut == 400
+    calc.encut = None
+    assert calc.encut is None
+
+
+def test_default_encut():
+    assert Vasp().encut is None
+
+
+@pytest.mark.parametrize('value', ['520', '520.0'])
+def test_read_encut_property(value, tmp_path):
+    path = tmp_path / 'INCAR'
+    path.write_text(f'ENCUT = {value}\n')
+    calc = Vasp()
+    calc.read_incar(path)
+    assert calc.encut == 520
+
+
+def test_read_ldau(tmp_path):
+    path = tmp_path / 'INCAR'
+    path.write_text('LDAUL = -1\nLDAUU = 4\nLDAUJ = 0\n')
+    calc = Vasp()
+    calc.read_incar(path)
+    inputs = calc.asdict()['inputs']
+    assert inputs['ldaul'] == [-1]
+    assert inputs['ldauu'] == [4.0]
+    assert inputs['ldauj'] == [0.0]

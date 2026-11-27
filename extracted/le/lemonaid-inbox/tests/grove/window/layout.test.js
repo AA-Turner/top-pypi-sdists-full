@@ -13,7 +13,7 @@ function grove() {
       trees: [tree("a", "ant", [10, 6]), tree("b", "bee", [30, 6]), tree("c", "cat", [44, 4]), tree("d", "elk", [57, 10], "close to the edge")]},
     {digit: "2", group: "crowded", plot: {x: 66, y: 2, w: 30, h: 14},
       trees: [tree("a", "dog", [8, 6], "a much longer label than fits"), tree("b", "eel", [11, 6], "another long label here"), tree("c", "fox", [20, 6])]},
-    {digit: "3", group: "", plot: {x: 2, y: 20, w: 20, h: 6}, trees: [{...tree("a", "gnu", [0, 0]), bay: 0}]},
+    {digit: "3", group: "", plot: {x: 2, y: 20, w: 20, h: 6, texture: "house"}, trees: [{...tree("a", "gnu", [0, 0]), bay: 0}]},
   ];
 }
 
@@ -70,6 +70,17 @@ test("a block's view hangs a list under each of its trees and labels no other bl
     assert.ok(l.y >= l.groundY - 1e-6, `${l.id} sits above its tree's ground`);
     assert.ok(l.x >= l.block.x && l.x + l.w <= l.block.x + l.block.w, `${l.id} spills off its block`);
   }
+});
+
+test("a chat lemon's tree, keyed by its long channel, gets a list no wider than a short-keyed one's", () => {
+  const room = "openclaw:agent:main:matrix:channel:!r00mA1b2c3d4e5f6g7h8:grove.example";
+  const width = key => {
+    const blocks = grove();
+    blocks[0].trees[0] = {...tree("a", key, [10, 6], "garden"), lemons: [{...lemon("", "garden"), channel: room}]};
+    return placed(blocks, "1", 0.88).find(l => l.id === `1/${key}`).w;
+  };
+
+  assert.equal(width(room), width("ant"));
 });
 
 test("a smaller label size gives smaller tags", () => {

@@ -12,6 +12,7 @@ from pydantic.fields import FieldInfo
 
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.config.config import PayloadOffloadingConfig
+from mistralai.workflows.core.logging import extract_error_context
 
 logger = get_logger(__name__)
 OffloadableSingleType = BaseModel | int | str | bytes
@@ -159,7 +160,7 @@ class FieldsOffloader:
             task_results = await asyncio.gather(*tasks, return_exceptions=True)
             for task_result in task_results:
                 if isinstance(task_result, Exception):
-                    logger.error("An error occurred while uploading blob", exception=str(task_result))
+                    logger.error("An error occurred while uploading blob", **extract_error_context(task_result))
                     raise FieldsOffloaderException("An error occurred while uploading blob") from task_result
 
         return obj
@@ -191,7 +192,10 @@ class FieldsOffloader:
 
         for (field_name, field_info, _), task_result in zip(tasks, task_results):
             if isinstance(task_result, Exception):
-                logger.error("An error occurred while trying to restore blob", exception=str(task_result))
+                logger.error(
+                    "An error occurred while trying to restore blob",
+                    **extract_error_context(task_result),
+                )
                 raise FieldsOffloaderException("An error occurred while trying to restore blob") from task_result
 
             inner_type = bytes

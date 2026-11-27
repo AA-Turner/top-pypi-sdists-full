@@ -82,18 +82,18 @@ class DescribeOnceTaskResponseBodyTaskManageResponseList(DaraModel):
     ):
         # The task execution details. This parameter is in JSON format.
         # 
-        # - **causeCode**: The return code for the troubleshooting cause.
-        # - **causeMsg**: The return message for the troubleshooting cause.
-        # - **resCode**: The troubleshooting return code.
-        # - **resMsg**: The troubleshooting return message.
-        # - **problemType**: The problem type.
-        # - **dispatchType**: The task dispatch method.
-        # - **uuid**: The server UUID.
-        # - **instanceId**: The server instance ID.
-        # - **internetIp**: The public IP address of the server.
-        # - **intranetIp**: The private IP address of the server.
-        # - **instanceName**: The server instance name.
-        # - **url**: The download link for the troubleshooting log.
+        # - **causeCode**: return code for the troubleshooting cause
+        # - **causeMsg**: return message for the troubleshooting cause
+        # - **resCode**: troubleshooting return code
+        # - **resMsg**: troubleshooting return message
+        # - **problemType**: problem type
+        # - **dispatchType**: task delivery method
+        # - **uuid**: server UUID
+        # - **instanceId**: server instance ID
+        # - **internetIp**: public IP address of the server
+        # - **intranetIp**: private IP address of the server
+        # - **instanceName**: server instance name
+        # - **url**: download link for the troubleshooting log
         self.detail_data = detail_data
         # The number of failed tasks.
         self.fail_count = fail_count
@@ -103,27 +103,27 @@ class DescribeOnceTaskResponseBodyTaskManageResponseList(DaraModel):
         self.result_info = result_info
         # The number of successfully executed tasks.
         self.success_count = success_count
-        # The timestamp when the task actually ends. Unit: milliseconds.
+        # The timestamp when the task actually ended. Unit: milliseconds.
         self.task_end_time = task_end_time
         # The task ID.
         self.task_id = task_id
         # The task name.
         self.task_name = task_name
-        # The timestamp when the task actually starts. Unit: milliseconds.
+        # The timestamp when the task actually started. Unit: milliseconds.
         self.task_start_time = task_start_time
         # The task status. Valid values:
-        # - **1**: Started.
-        # - **2**: Completed.
-        # - **3**: Failed.
-        # - **4**: Timed out.
+        # - **1**: started
+        # - **2**: completed
+        # - **3**: failed
+        # - **4**: timed out
         self.task_status = task_status
         # The text object of the task status. Valid values:
-        # - **INIT**: Pending.
-        # - **START**: Started.
-        # - **DISPATCH**: Self-check command issued.
-        # - **SUCCESS**: Self-check completed.
-        # - **FAIL**: Execution failed.
-        # - **TIMEOUT**: Timed out.
+        # - **INIT**: pending
+        # - **START**: started
+        # - **DISPATCH**: self-check command delivered
+        # - **SUCCESS**: self-check completed
+        # - **FAIL**: execution failed
+        # - **TIMEOUT**: timed out
         self.task_status_text = task_status_text
         # The task type. Valid values:
         # - **CLIENT_PROBLEM_CHECK**: client task
@@ -225,11 +225,11 @@ class DescribeOnceTaskResponseBodyPageInfo(DaraModel):
         page_size: int = None,
         total_count: int = None,
     ):
-        # The number of client tasks displayed on the current page for paging.
+        # The number of client tasks displayed on the current page in a paged query.
         self.count = count
-        # The page number of the current page for paging.
+        # The current page number in a paged query.
         self.current_page = current_page
-        # The number of client tasks per page for paging. Default value: **20**, which indicates that each page contains 20 client tasks.
+        # The number of client tasks per page in a paged query. Default value: **20**.
         self.page_size = page_size
         # The total number of client tasks returned.
         self.total_count = total_count

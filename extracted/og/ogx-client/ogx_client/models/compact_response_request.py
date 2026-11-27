@@ -28,7 +28,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from ogx_client.models.compact_response_request_input import CompactResponseRequestInput
 from ogx_client.models.compact_response_request_model import CompactResponseRequestModel
-from ogx_client.models.open_ai_response_input_tool_web_search4_variants1 import OpenAIResponseInputToolWebSearch4Variants1
+from ogx_client.models.open_ai_response_input_tool_web_search5_variants import OpenAIResponseInputToolWebSearch5Variants
 from ogx_client.models.open_ai_response_reasoning import OpenAIResponseReasoning
 from ogx_client.models.open_ai_response_text import OpenAIResponseText
 from typing import Any, ClassVar
@@ -43,7 +43,7 @@ class CompactResponseRequest(BaseModel):
     instructions: Optional[StrictStr] = None
     previous_response_id: Optional[StrictStr] = None
     prompt_cache_key: Optional[Annotated[str, Field(strict=True, max_length=64)]] = None
-    tools: Optional[List[OpenAIResponseInputToolWebSearch4Variants1]] = None
+    tools: Optional[List[OpenAIResponseInputToolWebSearch5Variants]] = None
     parallel_tool_calls: Optional[StrictBool] = None
     reasoning: Optional[OpenAIResponseReasoning] = None
     text: Optional[OpenAIResponseText] = None
@@ -244,7 +244,7 @@ class CompactResponseRequest(BaseModel):
             "instructions": obj.get("instructions"),
             "previous_response_id": obj.get("previous_response_id"),
             "prompt_cache_key": obj.get("prompt_cache_key"),
-            "tools": [OpenAIResponseInputToolWebSearch4Variants1.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
+            "tools": [OpenAIResponseInputToolWebSearch5Variants.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
             "parallel_tool_calls": obj.get("parallel_tool_calls"),
             "reasoning": OpenAIResponseReasoning.from_dict(obj["reasoning"]) if obj.get("reasoning") is not None else None,
             "text": OpenAIResponseText.from_dict(obj["text"]) if obj.get("text") is not None else None,

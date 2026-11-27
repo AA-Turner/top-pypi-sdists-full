@@ -9,12 +9,14 @@ from darabonba.model import DaraModel
 class ModifyClientConfStrategyRequest(DaraModel):
     def __init__(
         self,
+        resource_directory_account_id: int = None,
         tag: str = None,
         tag_ext: str = None,
         tag_value: str = None,
         uuid: str = None,
         uuids: List[str] = None,
     ):
+        self.resource_directory_account_id = resource_directory_account_id
         # The client configuration tag.
         # 
         # This parameter is required.
@@ -28,9 +30,9 @@ class ModifyClientConfStrategyRequest(DaraModel):
         # 
         # This parameter is required.
         self.tag_value = tag_value
-        # The UUID of the asset to query. You must specify at least one of the Uuid and Uuids parameters. Otherwise, the API returns a 400 error. The Uuid parameter specifies a single asset.
+        # The UUID of the asset to query. You must specify either the Uuid parameter for a single asset or the Uuids parameter for multiple assets. Otherwise, the API returns a 400 error.
         self.uuid = uuid
-        # The UUIDs of asset instances. A maximum of 500 UUIDs can be specified at a time. You must specify at least one of the Uuids and Uuid parameters. Otherwise, the API returns a 400 error. The Uuids parameter specifies multiple assets in a batch.
+        # The UUIDs of the asset instances. You can specify up to 500 UUIDs at a time. You must specify either the Uuids parameter for multiple assets or the Uuid parameter for a single asset. Otherwise, the API returns a 400 error.
         self.uuids = uuids
 
     def validate(self):
@@ -41,6 +43,9 @@ class ModifyClientConfStrategyRequest(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
+        if self.resource_directory_account_id is not None:
+            result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
+
         if self.tag is not None:
             result['Tag'] = self.tag
 
@@ -60,6 +65,9 @@ class ModifyClientConfStrategyRequest(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('ResourceDirectoryAccountId') is not None:
+            self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
+
         if m.get('Tag') is not None:
             self.tag = m.get('Tag')
 

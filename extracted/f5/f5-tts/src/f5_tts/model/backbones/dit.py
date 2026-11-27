@@ -15,13 +15,13 @@ import threading
 import torch
 import torch.nn.functional as F
 from torch import nn
-from x_transformers.x_transformers import RotaryEmbedding
 
 from f5_tts.model.modules import (
     AdaLayerNorm_Final,
     ConvNeXtV2Block,
     ConvPositionEmbedding,
     DiTBlock,
+    RotaryEmbedding,
     TimestepEmbedding,
     precompute_freqs_cis,
 )
@@ -115,6 +115,9 @@ class TextEmbedding(nn.Module):
         if self.extra_modeling:
             # sinus pos emb; for variable seq lengths, only add positions within each sample's valid range.
             freqs = self.freqs_cis[:max_seq_len, :]
+            if max_seq_len > freqs.size(0):
+                extra_freqs = precompute_freqs_cis(text.size(-1), max_seq_len, start=freqs.size(0), device=freqs.device)
+                freqs = torch.cat((freqs, extra_freqs.to(freqs.dtype)), dim=0)
             if valid_pos_mask is not None:
                 freqs = freqs.unsqueeze(0) * valid_pos_mask.unsqueeze(-1).to(freqs.dtype)
             text = text + freqs

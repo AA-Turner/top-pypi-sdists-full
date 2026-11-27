@@ -7,6 +7,7 @@ from ..types.input_audio_codec import InputAudioCodec
 from ..types.mode import Mode
 from ..types.speech_to_text_batch_model import SpeechToTextBatchModel
 from ..types.speech_to_text_language import SpeechToTextLanguage
+from ..types.timestamp_granularity import TimestampGranularity
 
 
 class SpeechToTextJobParametersParams(typing_extensions.TypedDict):
@@ -77,6 +78,11 @@ class SpeechToTextJobParametersParams(typing_extensions.TypedDict):
     with_timestamps: typing_extensions.NotRequired[bool]
     """
     Whether to include timestamps in the response
+    """
+
+    timestamp_granularity: typing_extensions.NotRequired[TimestampGranularity]
+    """
+    Returns timed entries as a list of objects. `segment` adds `segments`, one entry per stretch of speech. `word` adds `words`, one entry per word, and is supported only by `saaras:v4` in the transcribe, codemix, verbatim, and translit modes. Independent of `with_timestamps`.
     """
 
     with_diarization: typing_extensions.NotRequired[bool]

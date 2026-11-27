@@ -65,6 +65,7 @@ class TestConversationItem(unittest.TestCase):
                 call_id = '',
                 name = '',
                 arguments = '',
+                namespace = '',
                 output = '',
                 server_label = '',
                 approval_request_id = '',

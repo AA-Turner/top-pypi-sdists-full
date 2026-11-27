@@ -49,6 +49,27 @@ class RFO(BFGS):
 
         **kwargs
             Keyword arguments passed to :class:`~ase.optimize.BFGS`.
+
+        Examples
+        --------
+
+        >>> from ase import Atoms
+        >>> from ase.optimize import RFO
+        >>> from ase.calculators.emt import EMT
+        ...
+        >>> system = Atoms(
+        ... 'N2',
+        ... positions = [(0.0, 0.0, 0.0), (0.0, 0.0, 1.1)],
+        ... calculator=EMT()
+        ... )
+        >>> dyn = RFO(system)
+        >>> dyn.run(fmax=0.05) # doctest:+ELLIPSIS
+             Step     Time          Energy          fmax
+        RFO:    0 ...        0.440344        3.251800
+        RFO:    1 ...        0.264502        0.362456
+        RFO:    2 ...        0.262867        0.084092
+        RFO:    3 ...        0.262777        0.001583
+        ...
         """
         if damping is None:
             self.damping = self.defaults['damping']

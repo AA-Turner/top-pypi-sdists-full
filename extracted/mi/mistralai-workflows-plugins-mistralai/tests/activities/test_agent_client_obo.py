@@ -71,6 +71,46 @@ class TestAgentClientHonorsOnBehalfOf:
             await client.sdk_configuration.async_client.aclose()
             client.sdk_configuration.client.close()
 
+    @pytest.mark.parametrize(
+        "client_server_url",
+        ["https://gateway.example", "https://workflows.example"],
+        ids=["client-url-on-gateway", "client-url-defaults-to-server-url"],
+    )
+    async def test_exchanges_executor_tokens_with_the_workflows_api(self, monkeypatch, client_server_url):
+        payload = base64.urlsafe_b64encode(json.dumps({"exp": 4102444800}).encode()).rstrip(b"=").decode()
+        executor_jwt = f"header.{payload}.signature"
+        requests: list[Any] = []
+
+        def handle(request: Any, http: Any) -> Any:
+            requests.append(request)
+            if request.url.path.endswith("/executor-identity-token"):
+                return http.Response(200, json={"token": executor_jwt})
+            return http.Response(200, json={"data": [], "object": "list"})
+
+        def transport(client_cls: type) -> Any:
+            http = MISTRAL_HTTP if client_cls in (MISTRAL_HTTP.Client, MISTRAL_HTTP.AsyncClient) else httpx
+            return http.MockTransport(lambda request: handle(request, http))
+
+        monkeypatch.setattr(config.http, "transport_factory", transport)
+        monkeypatch.setattr(config.worker, "server_url", "https://workflows.example")
+        monkeypatch.setattr(config.worker.agent, "mistral_client_api_key", SecretStr("worker-key"))
+        monkeypatch.setattr(config.worker.agent, "mistral_client_server_url", client_server_url)
+        client = utils.get_mistral_client()
+        context = WorkflowContext(
+            namespace="ns", execution_id="exec", execution_token="execution-token", on_behalf_of=True
+        )
+        try:
+            with define_context(context):
+                await client.models.list_async()
+        finally:
+            await client.sdk_configuration.async_client.aclose()
+            client.sdk_configuration.client.close()
+
+        exchange, api_call = requests
+        assert str(exchange.url) == "https://workflows.example/v1/workflows/workers/executor-identity-token"
+        assert str(api_call.url) == f"{client_server_url}/v1/models"
+        assert api_call.headers["Authorization"] == f"Bearer {executor_jwt}"
+
 
 class TestAgentClientRunAs:
     @pytest.mark.parametrize("on_behalf_of", [True, False, None])

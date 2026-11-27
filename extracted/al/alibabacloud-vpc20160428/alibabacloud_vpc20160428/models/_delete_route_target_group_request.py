@@ -11,6 +11,7 @@ class DeleteRouteTargetGroupRequest(DaraModel):
     def __init__(
         self,
         client_token: str = None,
+        dry_run: bool = None,
         force_delete: bool = None,
         region_id: str = None,
         route_target_group_id: str = None,
@@ -22,6 +23,7 @@ class DeleteRouteTargetGroupRequest(DaraModel):
         # 
         # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may vary for each API request.
         self.client_token = client_token
+        self.dry_run = dry_run
         self.force_delete = force_delete
         # The ID of the region where the resource group resides.
         # 
@@ -50,6 +52,9 @@ class DeleteRouteTargetGroupRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.dry_run is not None:
+            result['DryRun'] = self.dry_run
+
         if self.force_delete is not None:
             result['ForceDelete'] = self.force_delete
 
@@ -70,6 +75,9 @@ class DeleteRouteTargetGroupRequest(DaraModel):
         m = m or dict()
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
+
+        if m.get('DryRun') is not None:
+            self.dry_run = m.get('DryRun')
 
         if m.get('ForceDelete') is not None:
             self.force_delete = m.get('ForceDelete')

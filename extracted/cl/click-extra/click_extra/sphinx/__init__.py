@@ -50,10 +50,13 @@ from . import (
     crosshair,
     doctrees,
     fail_on_warnings,
+    internal_links,
     linkcheck,
     manpages,
     matrix,
     mermaid,
+    opengraph,
+    parallel,
     tables,
     tabs,
     todos,
@@ -157,6 +160,10 @@ def setup(app: Sphinx) -> ExtensionMetadata:
       can list. Inert on a project that does not enable `sphinx.ext.todo`, and
       silenced through `suppress_warnings`. See
       {mod}`click_extra.sphinx.todos`.
+    - The `todolist` entries in the order of their pages, which a parallel
+      read otherwise shuffles, and with links that reach their targets after a
+      serial read. Inert on a project that does not enable `sphinx.ext.todo`.
+      See {mod}`click_extra.sphinx.todos`.
     - A one-line first column for every table whose top-left cell names both
       axes, like the `matrix` tables: a narrow screen scrolls the table
       instead of wrapping its labels. See {mod}`click_extra.sphinx.tables`.
@@ -176,8 +183,28 @@ def setup(app: Sphinx) -> ExtensionMetadata:
       `GITHUB_TOKEN`, release downloads excepted. Inert until the variable is
       set. See {mod}`click_extra.sphinx.linkcheck`.
     - No `sphinx.ext.viewcode` page for a module that no documented object
-      links to, so a parallel read publishes the pages of a serial one. Inert
+      links to, so a parallel read publishes the pages of a serial one, and no
+      index link to a module whose source viewcode could not read. Inert
       without `sphinx.ext.viewcode`. See {mod}`click_extra.sphinx.viewcode`.
+    - Each `[docs]` link of a `sphinx.ext.viewcode` page pointed at the anchor
+      of its object, where a documented instance can lend the page the module
+      path of another module. Inert without `sphinx.ext.viewcode`. See
+      {mod}`click_extra.sphinx.viewcode`.
+    - The Python objects of a parallel read indexed as a serial read indexes
+      them: the alias of an object that a re-exporting page declares never
+      replaces its definition. Inert in a serial read. See
+      {mod}`click_extra.sphinx.parallel`.
+    - The same autodoc members on a page, whatever the pages read before it:
+      the names that only the source of a module annotates, in an
+      `if TYPE_CHECKING:` block or as `self.x: T` in a method. Inert without
+      `sphinx.ext.autodoc`. See {mod}`click_extra.sphinx.parallel`.
+    - A {data}`click_extra.sphinx.internal_links.DEAD_LINK_WARNING` warning for
+      each internal link of the built HTML that leads to no page, or to no
+      anchor of its page, once per page. Inert with a builder that writes no
+      HTML, and silenced through `suppress_warnings`. See
+      {mod}`click_extra.sphinx.internal_links`.
+    - An `og:title` without the space a leading title icon leaves. Inert
+      without sphinxext-opengraph. See {mod}`click_extra.sphinx.opengraph`.
     - Every node of a page pointed at the page's own document before Sphinx
       pickles it, which keeps the build environment out of the doctree of a
       page with an ``{eval-rst}`` block. See {mod}`click_extra.sphinx.doctrees`.
@@ -240,9 +267,10 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     # user-supplied Python, so it needs no exec opt-in.
     matrix.setup(app)
 
-    # Collapse the duplicate `todolist` entries autodoc's repeated docstring
-    # renderings produce, and warn about the docstring todos no page renders
-    # (see todos.py). Inert unless the project enables `sphinx.ext.todo`.
+    # Sort the `todolist` entries by page, keep their nodes apart from the
+    # doctrees a serial read writes, collapse the duplicates autodoc's repeated
+    # docstring renderings produce, and warn about the docstring todos no page
+    # renders (see todos.py). Inert unless the project enables `sphinx.ext.todo`.
     todos.setup(app)
 
     # Keep the first column of a corner-labeled table on one line (see
@@ -266,9 +294,19 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     # linkcheck.py). Inert until the variable is set.
     linkcheck.setup(app)
 
-    # Drop the viewcode pages that no documented object links to (see
-    # viewcode.py). Inert without `sphinx.ext.viewcode`.
+    # Keep each Python definition over an alias of it in a parallel read, and
+    # list the members that only the source annotates whatever autodoc read
+    # before (see parallel.py).
+    parallel.setup(app)
+
+    # Drop the viewcode pages that no documented object links to and the modules
+    # viewcode could not read, and point the `[docs]` links of the other pages
+    # at their objects (see viewcode.py). Inert without `sphinx.ext.viewcode`.
     viewcode.setup(app)
+
+    # Drop the space a leading title icon leaves in `og:title` (see
+    # opengraph.py). Inert without sphinxext-opengraph.
+    opengraph.setup(app)
 
     # Point the nodes an `{eval-rst}` block moves into a page at that page, so
     # its pickled doctree leaves out the build environment (see doctrees.py).
@@ -277,6 +315,10 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     # Anchor each changelog release on its version (see changelog.py). Inert
     # until `click_extra_release_anchors` is set.
     changelog.setup(app)
+
+    # Warn about each internal link of the built HTML that leads nowhere (see
+    # internal_links.py). Inert with a builder that writes no HTML.
+    internal_links.setup(app)
 
     # Fail the build on the warning types a project lists (see
     # fail_on_warnings.py). Inert until `click_extra_fail_on_warnings` names one.

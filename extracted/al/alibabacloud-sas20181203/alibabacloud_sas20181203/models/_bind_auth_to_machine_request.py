@@ -24,62 +24,63 @@ class BindAuthToMachineRequest(DaraModel):
         resource_directory_account_id: int = None,
         un_bind: List[str] = None,
     ):
-        # The authorization version of the asset. Valid values:
-        # - **6**: Anti-virus Edition
-        # - **5**: Advanced Edition
-        # - **3**: Enterprise Edition
-        # - **7**: Ultimate Edition
-        # - **10**: Value-added Service Edition
+        # Specifies the authorization version of the asset. Valid values:
+        # - **6**: Anti-virus Edition.
+        # - **5**: Premium Edition.
+        # - **3**: Enterprise Edition.
+        # - **7**: Ultimate Edition.
+        # - **10**: Value-added Service Edition.
         self.auth_version = auth_version
         # Specifies whether to enable automatic binding. Valid values:
         # 
-        # - **0**: Disabled
-        # - **1**: Enabled
+        # - **0**: Disabled.
+        # - **1**: Enabled.
         self.auto_bind = auto_bind
-        # The set of UUIDs to be bound.
+        # The collection of UUIDs to be bound.
         # 
-        # > **Bind** and **UnBind** cannot be empty at the same time.
+        # > **Bind** and **UnBind** cannot be left empty at the same time.
         self.bind = bind
         # Specifies whether to bind all assets. Default value: **false**. Valid values:
         # 
-        # - **true**: Yes
-        # - **false**: No
+        # - **true**: Yes.
+        # - **false**: No.
         self.bind_all = bind_all
         # The client token that is used to ensure the idempotence of the request. You must use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Sets the conditions for searching assets. This parameter is in JSON format. Pay attention to the case sensitivity when you specify this parameter.
+        # Specifies the conditions for searching assets. This parameter is in JSON format and is case-sensitive.
         # > You can search for assets by using conditions such as the instance ID, instance name, VPC ID, region, and public IP address of the asset. You can call the [DescribeCriteria](~~DescribeCriteria~~) operation to query the supported search conditions.
         self.criteria = criteria
-        # Specifies whether to only precheck the request. true: only prechecks the request and does not perform the actual operation. false: performs the request normally. Default value: false.
+        # Specifies whether to perform a dry run on the request. A value of true indicates that only the request is checked and the actual operation is not performed. A value of false indicates that the request is normally executed. Default value: false.
         self.dry_run = dry_run
         # Specifies whether the operation is a pre-binding operation. Valid values:
         # 
-        # - **0**: No
-        # - **1**: Yes
+        # - **0**: No.
+        # - **1**: Yes.
         # 
         # 
-        # > After pre-binding is enabled, the system automatically binds the corresponding number of licenses of the specified version to the specified servers after the purchase is completed.
+        # > After you enable pre-binding, the system automatically binds the corresponding version of authorization licenses to the specified servers after the purchase is completed.
         self.is_pre_bind = is_pre_bind
         # Specifies the logical relationship among multiple search conditions. Default value: **OR**. Valid values:
-        # - **OR**: Specifies the **OR** logical relationship among multiple conditions.
-        # - **AND**: Specifies the **AND** logical relationship among multiple conditions.
+        # - **OR**: The conditions have an **OR** logical relationship.
+        # - **AND**: The conditions have an **AND** logical relationship.
         self.logical_exp = logical_exp
-        # The version of the order associated with the pre-binding operation. Valid values:
+        # Specifies the order version associated with the pre-binding operation. Valid values:
         # 
-        # - **level7**: Anti-virus Edition
-        # - **level3**: Advanced Edition
-        # - **level2**: Enterprise Edition
-        # - **level8**: Ultimate Edition
-        # - **level10**: Value-added services only
+        # - **level7**: Anti-virus Edition.
+        # - **level3**: Premium Edition.
+        # - **level2**: Enterprise Edition.
+        # - **level8**: Ultimate Edition.
+        # - **level10**: Value-added services only.
         self.ntm_version = ntm_version
-        # The ID of the order associated with the pre-binding operation.
+        # The order ID associated with the pre-binding operation.
         self.pre_bind_order_id = pre_bind_order_id
+        # The product code, which specifies the product for which the authorization is bound. For example, EDR indicates that the EDR authorization is bound.
         self.product_code = product_code
-        # The ID of the member accounts in the resource folder. The ID is an Alibaba Cloud account ID.
+        # The ID of the member accounts in the resource folder (Alibaba Cloud account).
         # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
-        # The set of UUIDs to be unbound.
-        # > **Bind** and **UnBind** cannot be empty at the same time.
+        # The collection of UUIDs to be unbound.
+        # > **Bind** and **UnBind** cannot be left empty at the same time.
         self.un_bind = un_bind
 
     def validate(self):

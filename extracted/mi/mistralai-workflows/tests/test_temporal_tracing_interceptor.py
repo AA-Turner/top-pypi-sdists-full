@@ -12,12 +12,14 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import BaseModel
+from structlog.testing import capture_logs
 from temporalio.converter import PayloadConverter
 
 from mistralai.workflows import get_workflow_definition, workflow
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.tracing._temporal_tracing_interceptor import (
     UNSERIALIZABLE_TRACE_DATA,
+    MistralTemporalTracingInterceptor,
     MistralWorkflowTracingInterceptor,
     TraceDataSerializer,
     _apply_sample_rate,
@@ -30,7 +32,7 @@ from mistralai.workflows.core.tracing._temporal_tracing_interceptor import (
     get_temporal_tracing_interceptors,
     get_trace_context_interceptors,
 )
-from mistralai.workflows.core.tracing.utils import USER_TRACEPARENT_HEADER
+from mistralai.workflows.core.tracing.utils import GEN_AI_WORKFLOW_NAME_ATTRIBUTE, USER_TRACEPARENT_HEADER
 from mistralai.workflows.models import EventAttributes, SearchAttributes
 
 from .utils import create_test_worker
@@ -131,7 +133,7 @@ def test_traceparent_is_sampled_reads_the_sampled_bit(traceparent: str, expected
 def _emit_root_span(traceparent: str) -> Mock:
     interceptor = _make_inbound_interceptor()
     completed_span = Mock()
-    interceptor._completed_span = completed_span  # type: ignore[attr-defined]
+    interceptor._completed_span = completed_span  # type: ignore[method-assign]
     info = SimpleNamespace(
         parent=None,
         run_id="run-1",
@@ -387,6 +389,44 @@ async def test_activity_span_records_schedule_to_start_and_execution_ms(
     assert isinstance(execution_ms, int) and execution_ms >= 0
 
 
+@pytest.mark.asyncio
+async def test_workflow_spans_carry_the_workflow_name(temporal_env: Any) -> None:
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    tracer = provider.get_tracer("test-workflow-name")
+
+    async with create_test_worker(
+        temporal_env,
+        workflows=[TracingProbeWorkflow],
+        activities=[tracing_probe_activity],
+        interceptors=[
+            MistralTemporalTracingInterceptor(tracer=tracer, always_create_workflow_spans=True),
+            MistralWorkflowTracingInterceptor(tracer=tracer),
+        ],
+    ):
+        workflow_def = get_workflow_definition(TracingProbeWorkflow)
+        assert workflow_def is not None
+        handle = await temporal_env.client.start_workflow(
+            workflow_def.name,
+            id="test-workflow-name-attribute",
+            task_queue="test-task-queue",
+        )
+        await handle.result()
+
+    spans_by_prefix = {span.name.split(":")[0]: span for span in exporter.get_finished_spans()}
+    for prefix in (
+        "StartWorkflow",
+        "RunWorkflow",
+        "WorkflowInit",
+        "WorkflowReport",
+        "StartActivity",
+        "ExecuteActivity",
+    ):
+        attributes = spans_by_prefix[prefix].attributes or {}
+        assert attributes.get(GEN_AI_WORKFLOW_NAME_ATTRIBUTE) == workflow_def.name, prefix
+
+
 class _NeverBuilt(BaseModel):
     """Forward reference that is never resolved, so Pydantic leaves the serializer mocked.
 
@@ -409,3 +449,21 @@ class TestTraceDataSerializer:
 
     def test_serializable_values_are_unaffected(self) -> None:
         assert "unserializable" not in TraceDataSerializer().serialize({"a": 1})
+
+    def test_serialization_failure_does_not_log_exception_message(self) -> None:
+        secret = "SYNTHETIC_SECRET"
+
+        with (
+            patch.object(TraceDataSerializer._converter, "to_payload", side_effect=ValueError(secret)),
+            capture_logs() as logs,
+        ):
+            assert TraceDataSerializer().serialize({"value": secret}) == UNSERIALIZABLE_TRACE_DATA
+
+        assert secret not in str(logs)
+        assert logs == [
+            {
+                "event": "Failed to serialize trace data",
+                "error_type": "ValueError",
+                "log_level": "warning",
+            }
+        ]

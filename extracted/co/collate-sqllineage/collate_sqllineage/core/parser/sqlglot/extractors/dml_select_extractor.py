@@ -244,8 +244,7 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
         for func in expression.find_all(exp.Anonymous):
             # Vertica's swap_partitions_between_tables(source, min, max, target)
             if (
-                func.this
-                and func.this.upper() == "SWAP_PARTITIONS_BETWEEN_TABLES"
+                func.name.upper() == "SWAP_PARTITIONS_BETWEEN_TABLES"
                 and len(func.expressions) >= 4
             ):
                 source_arg = func.expressions[0]

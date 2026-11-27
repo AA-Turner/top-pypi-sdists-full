@@ -12,10 +12,12 @@ from uuid import uuid4
 from instructor.v2.validation.async_validators import reject_async_validators
 from collections.abc import Awaitable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, get_args, overload
 
 from pydantic import BaseModel
+from pydantic_core import PydanticUndefined, PydanticUndefinedType
 
+from instructor.v2.core.budget import _validate_token_budget
 from instructor.v2.core.mode import Mode
 from instructor.v2.core.providers import Provider
 from instructor.v2.core.hooks import Hooks
@@ -25,11 +27,7 @@ from instructor.v2.core.exceptions import RegistryValidationMixin
 from instructor.v2.core.registry import mode_registry
 from instructor.v2.core.messages import isolate_retry_kwargs
 from instructor.v2.core.response_model import prepare_response_model
-from instructor.v2.core.retry import (
-    _validate_token_budget,
-    retry_async_v2,
-    retry_sync_v2,
-)
+from instructor.v2.core.retry import retry_async_v2, retry_sync_v2
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -38,6 +36,45 @@ if TYPE_CHECKING:
     from tenacity import AsyncRetrying, Retrying
 
 logger = logging.getLogger("instructor.v2")
+
+
+def _apply_openai_model_defaults(
+    provider: Provider, mode: Mode, kwargs: dict[str, Any]
+) -> None:
+    if (
+        provider is Provider.OPENAI
+        and mode is not Mode.RESPONSES_TOOLS
+        and kwargs.get("model") == "gpt-6-luna"
+        and (kwargs.get("tools") or "temperature" in kwargs or "top_p" in kwargs)
+    ):
+        # Chat Completions requires no reasoning for function calling and
+        # sampling options on Luna. Preserve an explicit caller setting.
+        kwargs.setdefault("reasoning_effort", "none")
+
+
+def _store_cached_result(
+    cache: Any, key: str, result: Any, requested_model: Any, ttl: int | None
+) -> None:
+    if isinstance(result, BaseModel):
+        from instructor.v2.core.cache_response import store_cached_response
+
+        try:
+            store_cached_response(cache, key, result, ttl=ttl)
+        except ModuleNotFoundError:
+            pass
+        return
+
+    name = getattr(requested_model, "__name__", type(requested_model).__name__)
+    args = get_args(requested_model)
+    if args and all(isinstance(arg, type) for arg in args):
+        name += "[" + ", ".join(arg.__name__ for arg in args) + "]"
+    logger.warning(
+        "Caching is not supported for this response model: %s returned a %s. "
+        "The next request will call the provider again.",
+        name,
+        type(result).__name__,
+    )
+
 
 T_Model = TypeVar("T_Model", bound=BaseModel)
 T_Retval = TypeVar("T_Retval")
@@ -110,9 +147,10 @@ def patch_v2(
 
     func_is_async = is_async(func)
 
-    if func_is_async:
-        return _create_async_wrapper(func, provider, mode, default_model)
-    return _create_sync_wrapper(func, provider, mode, default_model)
+    factory = _create_async_wrapper if func_is_async else _create_sync_wrapper
+    create = factory(func, provider, mode, default_model)
+    cast(Any, create)._instructor_patched_create = True
+    return create
 
 
 @overload
@@ -133,15 +171,17 @@ def patch(
 
 @overload
 def patch(
-    create: Callable[..., T_Retval],
+    *,
+    create: Callable[..., Awaitable[Any]],
     mode: Mode = Mode.TOOLS,
     provider: Provider = Provider.OPENAI,
-) -> InstructorChatCompletionCreate: ...
+) -> AsyncInstructorChatCompletionCreate: ...
 
 
 @overload
 def patch(
-    create: Awaitable[T_Retval],
+    *,
+    create: Callable[..., T_Retval],
     mode: Mode = Mode.TOOLS,
     provider: Provider = Provider.OPENAI,
 ) -> InstructorChatCompletionCreate: ...
@@ -149,11 +189,17 @@ def patch(
 
 def patch(
     client: OpenAI | AsyncOpenAI | None = None,
-    create: Callable[..., T_Retval] | None = None,
+    create: Callable[..., Any] | None = None,
     mode: Mode = Mode.TOOLS,
     provider: Provider = Provider.OPENAI,
-) -> OpenAI | AsyncOpenAI | InstructorChatCompletionCreate:
+) -> (
+    OpenAI
+    | AsyncOpenAI
+    | InstructorChatCompletionCreate
+    | AsyncInstructorChatCompletionCreate
+):
     """Patch chat-completion create methods with v2 registry handlers."""
+
     logger.debug(f"Patching `client.chat.completions.create` with {mode=}")
 
     if create is not None:
@@ -199,14 +245,13 @@ def _create_sync_wrapper(
         response_model: type[T_Model] | None = None,
         context: dict[str, Any] | None = None,
         max_retries: int | Retrying = 1,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         hooks: Hooks | None = None,
         token_budget: int | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> T_Model:
         """Patched synchronous create function."""
-        reject_async_validators(response_model)
         _validate_token_budget(
             token_budget,
             response_model=response_model,
@@ -226,9 +271,20 @@ def _create_sync_wrapper(
 
         # Get handlers from registry
         handlers = mode_registry.get_handlers(provider, mode)
+        if (
+            isinstance(strict, bool)
+            and response_model is not None
+            and handlers.supports_schema_strict
+        ):
+            kwargs["strict"] = strict
+        if not isinstance(strict, bool):
+            strict = True
 
+        requested_model = response_model
         if response_model is not None and mode not in Mode.parallel_modes():
             response_model = prepare_response_model(response_model)
+        else:
+            reject_async_validators(response_model)
 
         # Prepare request kwargs using registry handler
         prepared_model, new_kwargs = handlers.request_handler(
@@ -236,6 +292,7 @@ def _create_sync_wrapper(
         )
         if mode not in Mode.parallel_modes():
             response_model = prepared_model
+        _apply_openai_model_defaults(provider, mode, new_kwargs)
         new_kwargs.pop("autodetect_images", None)
         if handlers.message_converter and "messages" in new_kwargs:
             new_kwargs["messages"] = handlers.message_converter(
@@ -258,8 +315,8 @@ def _create_sync_wrapper(
                 BaseCache,
                 make_request_cache_key,
                 client_cache_identity,
-                load_cached_response,
             )
+            from instructor.v2.core.cache_response import load_cached_response
 
             if isinstance(cache, BaseCache):
                 key = make_request_cache_key(
@@ -296,13 +353,8 @@ def _create_sync_wrapper(
             token_budget=token_budget,
         )
 
-        if key is not None and isinstance(response, BaseModel):
-            from instructor.cache import store_cached_response
-
-            try:
-                store_cached_response(cache, key, response, ttl=cache_ttl)
-            except ModuleNotFoundError:
-                pass
+        if key is not None:
+            _store_cached_result(cache, key, response, requested_model, cache_ttl)
 
         return response  # type: ignore[return-value]
 
@@ -323,14 +375,13 @@ def _create_async_wrapper(
         response_model: type[T_Model] | None = None,
         context: dict[str, Any] | None = None,
         max_retries: int | AsyncRetrying = 1,
-        strict: bool = True,
+        strict: bool | PydanticUndefinedType = PydanticUndefined,
         hooks: Hooks | None = None,
         token_budget: int | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> T_Model:
         """Patched asynchronous create function."""
-        reject_async_validators(response_model)
         _validate_token_budget(
             token_budget,
             response_model=response_model,
@@ -350,9 +401,20 @@ def _create_async_wrapper(
 
         # Get handlers from registry
         handlers = mode_registry.get_handlers(provider, mode)
+        if (
+            isinstance(strict, bool)
+            and response_model is not None
+            and handlers.supports_schema_strict
+        ):
+            kwargs["strict"] = strict
+        if not isinstance(strict, bool):
+            strict = True
 
+        requested_model = response_model
         if response_model is not None and mode not in Mode.parallel_modes():
             response_model = prepare_response_model(response_model)
+        else:
+            reject_async_validators(response_model)
 
         # Prepare request kwargs using registry handler
         prepared_model, new_kwargs = handlers.request_handler(
@@ -360,6 +422,7 @@ def _create_async_wrapper(
         )
         if mode not in Mode.parallel_modes():
             response_model = prepared_model
+        _apply_openai_model_defaults(provider, mode, new_kwargs)
         new_kwargs.pop("autodetect_images", None)
         if handlers.message_converter and "messages" in new_kwargs:
             new_kwargs["messages"] = handlers.message_converter(
@@ -382,8 +445,8 @@ def _create_async_wrapper(
                 BaseCache,
                 make_request_cache_key,
                 client_cache_identity,
-                load_cached_response,
             )
+            from instructor.v2.core.cache_response import load_cached_response
 
             if isinstance(cache, BaseCache):
                 key = make_request_cache_key(
@@ -420,13 +483,8 @@ def _create_async_wrapper(
             token_budget=token_budget,
         )
 
-        if key is not None and isinstance(response, BaseModel):
-            from instructor.cache import store_cached_response
-
-            try:
-                store_cached_response(cache, key, response, ttl=cache_ttl)
-            except ModuleNotFoundError:
-                pass
+        if key is not None:
+            _store_cached_result(cache, key, response, requested_model, cache_ttl)
 
         return response  # type: ignore[return-value]
 

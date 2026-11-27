@@ -16304,6 +16304,320 @@ mod a_meet_holding_complements {
             Relation::Holds
         );
     }
+
+    /// A pool reading each operand as its own index and ordering two bounds by
+    /// it, so the set representation reads what a bound names.
+    struct Indexed;
+    impl crate::descr::lower::Constants for Indexed {
+        fn operand(&self, index: OperandIx) -> Option<Operand> {
+            i64::try_from(index.get()).ok().map(Operand::Integer)
+        }
+    }
+    impl LeafRelations for Indexed {
+        fn leaf_subtype(&self, _: &Schema, _: &Schema) -> Option<bool> {
+            None
+        }
+        fn compare(&self, a: OperandIx, b: OperandIx) -> Option<core::cmp::Ordering> {
+            Some(a.get().cmp(&b.get()))
+        }
+    }
+
+    fn bounded(base: Schema, low: usize, high: usize) -> Schema {
+        Schema::refine(
+            base,
+            vec![
+                Constraint::Ge(OperandIx::new(low)),
+                Constraint::Le(OperandIx::new(high)),
+            ],
+        )
+    }
+
+    /// `{"type": "integer", "minimum": low, "maximum": high}`, as a translation
+    /// from JSON Schema writes it: a bounded `float` or `int`, met with
+    /// `int | float & MultipleOf(1)` and the complement of `bool`.
+    fn number(low: usize, high: usize) -> Schema {
+        Schema::meet([
+            Schema::union([
+                bounded(Schema::Float, low, high),
+                bounded(Schema::Int, low, high),
+            ]),
+            Schema::union([
+                Schema::Int,
+                Schema::refine(
+                    Schema::Float,
+                    vec![Constraint::MultipleOf(OperandIx::new(1))],
+                ),
+            ]),
+            Schema::Bool.complement(),
+        ])
+    }
+
+    /// `number(500, 1000)` met with the complements of `n` ranges ending below
+    /// 1000, so 1000 is a value of it; `covered`, two of them cover
+    /// `[450, 1001]`, and the meet is empty.
+    fn cell(n: usize, covered: bool) -> Schema {
+        let mut members = vec![number(500, 1000)];
+        for i in 0..n {
+            let (low, high) = match (covered, i) {
+                (true, 0) => (450, 800),
+                (true, 1) => (780, 1001),
+                _ => (37 * i % 400, 37 * i % 400 + 200 + 53 * i % 399),
+            };
+            members.push(number(low, high).complement());
+        }
+        met(members)
+    }
+
+    /// A meet holding a union and no complement is not asked of the sets: the
+    /// readings after the rules are dear only for a complement, read a complement
+    /// at a time and again in each meet the further asking distributes a union
+    /// into, so a meet holding none is left to them. A predicate leaves each meet
+    /// here undecided by the rules, so each reaches those readings.
+    #[test]
+    fn a_meet_holding_a_union_and_no_complement_is_not_asked_of_the_sets() {
+        let passing = |base| Schema::refine(base, vec![Constraint::Predicate(PredIx::new(0))]);
+        let ints_or_words = || Schema::union([Schema::Int, Schema::Str]);
+        for meet in [
+            met(vec![ints_or_words(), passing(Schema::Int)]),
+            met(vec![
+                ints_or_words(),
+                bounded(Schema::Int, 3, 3),
+                passing(Schema::Int),
+            ]),
+        ] {
+            assert_eq!(meet.verdict(), Verdict::Unknown, "{meet:?}");
+            let before = goal_tests::goals::pairs_read_by_the_sets();
+            assert!(!meet.is_empty_with(&Indexed, &[]), "{meet:?}");
+            assert_eq!(
+                goal_tests::goals::pairs_read_by_the_sets(),
+                before,
+                "{meet:?}"
+            );
+        }
+    }
+
+    // THEORY: emptiness-and-the-relation-below-nothing-are-two-procedures
+    /// A meet the set representation finds a value in is inhabited before it is
+    /// read a complement at a time: one holding three complements or more, and
+    /// one holding a complement beside a union, which the further asking reads
+    /// again. The relation below `nothing` refutes each by the same reading, and
+    /// covered, the meet is still read empty.
+    #[test]
+    fn a_meet_the_sets_find_a_value_in_is_not_read_a_complement_at_a_time() {
+        let beside_a_union = met(vec![
+            Schema::union([Schema::Int, Schema::Str]),
+            bounded(Schema::Int, 3, 3).complement(),
+        ]);
+        // The bound, and the three it is, so a bound moved either way fails.
+        let at_the_bound = cell(super::emptiness::COMPLEMENTS_READ_DEARLY, false);
+        for meet in [at_the_bound, cell(3, false), cell(8, false), beside_a_union] {
+            let before = goal_tests::goals::complements_read();
+            assert!(!meet.is_empty_with(&Indexed, &[]), "{meet:?}");
+            assert_eq!(goal_tests::goals::complements_read(), before, "{meet:?}");
+            assert_eq!(
+                meet.subtype_relation_under(&Schema::Nothing, &Indexed, &[]),
+                Relation::Fails,
+                "{meet:?}"
+            );
+        }
+        assert!(cell(8, true).is_empty_with(&Indexed, &[]));
+    }
+
+    /// A bound over a number as a translation from JSON Schema writes one when it
+    /// spells each kind apart: `int` and `float` each under `op`.
+    fn per_kind(op: Constraint) -> Schema {
+        Schema::union([
+            Schema::refine(Schema::Int, vec![op.clone()]),
+            Schema::refine(Schema::Float, vec![op]),
+        ])
+    }
+
+    /// The integers between `lows`' greatest and `highs`' least, every bound a
+    /// member of its own, as the cells of a model checker's abstraction write
+    /// them: `int | float & MultipleOf(1)` met with a bound per kind and the
+    /// complement of `bool`.
+    fn integers_within(lows: &[usize], highs: &[usize]) -> Vec<Schema> {
+        let mut members = vec![Schema::union([
+            Schema::Int,
+            Schema::refine(
+                Schema::Float,
+                vec![Constraint::MultipleOf(OperandIx::new(1))],
+            ),
+        ])];
+        members.extend(
+            lows.iter()
+                .map(|&low| per_kind(Constraint::Ge(OperandIx::new(low)))),
+        );
+        members.extend(
+            highs
+                .iter()
+                .map(|&high| per_kind(Constraint::Le(OperandIx::new(high)))),
+        );
+        members.push(Schema::Bool.complement());
+        members
+    }
+
+    // THEORY: emptiness-and-the-relation-below-nothing-are-two-procedures
+    /// A meet of sixty complements past the nodes one lowering reads is read
+    /// empty by the one complement whose inner set holds its bounds, the fourth.
+    /// The sets do not lower it, so no reading of the whole meet settles it, and
+    /// the complements around that one read as its rest: a reading that passed
+    /// over a meet of more complements than a count names would leave it
+    /// undecided.
+    #[test]
+    fn a_meet_past_the_node_budget_is_read_empty_by_one_complement() {
+        let mut members = integers_within(
+            &[500, 497, 494, 491, 488, 485, 482],
+            &[1000, 1003, 1006, 1009, 1012, 1015, 1018],
+        );
+        for i in 0..59 {
+            let (low, high) = if i == 2 {
+                (450, 1001)
+            } else {
+                (37 * i % 400, 37 * i % 400 + 200 + 53 * i % 399)
+            };
+            members.push(met(integers_within(&[low], &[high])).complement());
+        }
+        let meet = met(members);
+        assert!(crate::descr::lower::lower(&meet, &Indexed).is_none());
+        let before = goal_tests::goals::complements_read();
+        assert!(meet.is_empty_with(&Indexed, &[]));
+        assert!(goal_tests::goals::complements_read() > before);
+    }
+
+    // THEORY: emptiness-and-the-relation-below-nothing-are-two-procedures
+    /// A meet of a hundred and fifty complements past the nodes one lowering
+    /// reads, and past twice them, with a value outside every complement, is
+    /// refuted by the set reading of the whole meet under the nodes a complement
+    /// that reading gives it, before any complement is read, and the relation
+    /// below `nothing` refutes it by the same reading.
+    #[test]
+    fn a_meet_past_the_node_budget_is_lowered_under_it_a_complement() {
+        let mut members = integers_within(
+            &[500, 497, 494, 491, 488, 485, 482],
+            &[1000, 1003, 1006, 1009, 1012, 1015, 1018],
+        );
+        for i in 0..149 {
+            let low = 37 * i % 400;
+            members.push(met(integers_within(&[low], &[low + 200 + 53 * i % 399])).complement());
+        }
+        let meet = met(members);
+        let nodes = crate::descr::lower::Bounds {
+            nodes: 2 * crate::descr::lower::BUDGET,
+            ..crate::descr::lower::Bounds::DEFAULT
+        };
+        assert!(crate::descr::lower::lower_within(nodes, &meet, &Indexed).is_none());
+        let before = goal_tests::goals::complements_read();
+        assert!(!meet.is_empty_with(&Indexed, &[]));
+        assert_eq!(goal_tests::goals::complements_read(), before);
+        assert_eq!(
+            meet.subtype_relation_under(&Schema::Nothing, &Indexed, &[]),
+            Relation::Fails
+        );
+        assert_eq!(goal_tests::goals::complements_read(), before);
+    }
+
+    /// The same meet covered, with a predicate beside it, is proved below
+    /// `nothing` by the set reading the predicate leaves: the whole meet's
+    /// lowering refuses at the predicate, and the members read whole, past twice
+    /// the nodes one lowering reads, are lowered under the nodes a complement
+    /// and read empty, before any complement is read. A reading of fewer members
+    /// holds more values, so its emptiness proves the meet's.
+    #[test]
+    fn a_meet_past_the_node_budget_beside_a_predicate_is_read_without_it() {
+        let mut members = integers_within(
+            &[500, 497, 494, 491, 488, 485, 482],
+            &[1000, 1003, 1006, 1009, 1012, 1015, 1018],
+        );
+        for i in 0..149 {
+            let (low, high) = if i == 2 {
+                (450, 1001)
+            } else {
+                let low = 37 * i % 400;
+                (low, low + 200 + 53 * i % 399)
+            };
+            members.push(met(integers_within(&[low], &[high])).complement());
+        }
+        members.push(Schema::refine(
+            Schema::Int,
+            vec![Constraint::Predicate(PredIx::new(0))],
+        ));
+        let meet = met(members);
+        let before = goal_tests::goals::complements_read();
+        assert_eq!(
+            meet.subtype_relation_under(&Schema::Nothing, &Indexed, &[]),
+            Relation::Holds
+        );
+        assert_eq!(goal_tests::goals::complements_read(), before);
+        assert!(meet.is_empty_with(&Indexed, &[]));
+    }
+
+    // THEORY: emptiness-and-the-relation-below-nothing-are-two-procedures, a-pair-is-split-on-one-set
+    /// `list[J] & ~((~C & J) | C)` is empty: `list[J]` is below the union, as
+    /// the relation proves by splitting it on `C`, and `is_empty` reads the
+    /// same pair through the split among a complement's readings. The split
+    /// proves it for a one-element `list[int]`, a `list[bool]` and a `list[int]`
+    /// alike, the fixpoint `J` beside each.
+    #[test]
+    fn a_meet_below_an_excluded_middle_is_read_empty_by_its_split() {
+        let (json, defs) = json();
+        let one = Schema::refine(
+            list_of(Schema::Int),
+            vec![Constraint::MinLen(1), Constraint::MaxLen(1)],
+        );
+        for split_on in [one, list_of(Schema::Bool), list_of(Schema::Int)] {
+            let whole = Schema::union([
+                met(vec![split_on.clone().complement(), json.clone()]),
+                split_on.clone(),
+            ]);
+            assert_eq!(
+                list_of(json.clone()).subtype_relation_under(&whole, &NoLeafRelations, &defs),
+                Relation::Holds,
+                "{split_on:?}"
+            );
+            let meet = met(vec![list_of(json.clone()), whole.complement()]);
+            assert!(meet.is_empty_with(&NoLeafRelations, &defs), "{split_on:?}");
+        }
+    }
+
+    // THEORY: emptiness-and-the-relation-below-nothing-are-two-procedures
+    /// Below the bound a meet is read a complement at a time with no lowering
+    /// asked first: `list[J] & ~list[int] & ~J` is proved empty by the rest below
+    /// `J`, a fixpoint's relation the set representation does not settle, and
+    /// `int & ~bool & ~[3, 3]` declines, each read through its complements. From
+    /// the bound up, a meet the sets find no value in is read so too.
+    #[test]
+    fn a_meet_of_two_complements_is_read_a_complement_at_a_time() {
+        let (json, defs) = json();
+        let below_the_fixpoint = met(vec![
+            list_of(json.clone()),
+            list_of(Schema::Int).complement(),
+            json.clone().complement(),
+        ]);
+        let before = goal_tests::goals::complements_read();
+        assert!(below_the_fixpoint.is_empty_with(&Indexed, &defs));
+        assert!(goal_tests::goals::complements_read() > before);
+        let two = met(vec![
+            Schema::Int,
+            Schema::Bool.complement(),
+            bounded(Schema::Int, 3, 3).complement(),
+        ]);
+        let before = goal_tests::goals::complements_read();
+        assert!(!two.is_empty_with(&Indexed, &[]));
+        assert!(goal_tests::goals::complements_read() > before);
+        // From the bound up, a meet the sets find no value in is read a
+        // complement at a time as before: three complements, the set
+        // representation unable to settle the fixpoint, empty below `J`.
+        let three = met(vec![
+            list_of(json.clone()),
+            list_of(Schema::Int).complement(),
+            json.clone().complement(),
+            Schema::Str.complement(),
+        ]);
+        let before = goal_tests::goals::complements_read();
+        assert!(three.is_empty_with(&Indexed, &defs));
+        assert!(goal_tests::goals::complements_read() > before);
+    }
 }
 
 // THEORY: a-refinement-narrows-its-base, a-record-splits-across-a-union
@@ -17286,8 +17600,11 @@ fn a_set_inside_c_that_holds_a_value_is_refuted_below_the_complement_of_c() {
     );
 }
 
+// THEORY: a-pair-is-split-on-one-set
 /// A pair every decider declines is split on a set its supertype negates: `U ⊆ T`
-/// is `U ∧ C ⊆ T` and `U ∧ ¬C ⊆ T` [FCB08, §6.9].
+/// is `U ∧ C ⊆ T` and `U ∧ ¬C ⊆ T`, `U` being the union of its halves
+/// [LN26, §3.1, Def. 3.3] and a union below `T` where each member is
+/// [FCB08, Def. 4.1].
 ///
 /// `J ⊆ 1 ∪ (J ∧ ¬1)` is the excluded middle a translation from JSON Schema
 /// writes for `anyOf [Y, not Y]`, `J` the JSON values, and holds for every `J`;
@@ -18282,4 +18599,54 @@ fn a_subject_naming_no_definition_is_asked_no_deeper_reading() {
         assert_eq!(alone, Relation::Unknown);
         assert_eq!(reads(&[Schema::Int]), (alone, read_alone));
     }
+}
+
+// THEORY: the-decision-is-fuel
+/// The complements a meet's reading takes share the asking's respelling
+/// allowance a complement, never more than the question has left, and a meet of
+/// more complements than a step count names is held to what is left.
+#[test]
+fn the_complements_of_a_meet_share_a_respelling_allowance_each() {
+    use super::emptiness::complements_allowance;
+    assert_eq!(
+        complements_allowance(1_000_000, 3, RESPELLING),
+        3 * RESPELLING
+    );
+    assert_eq!(
+        complements_allowance(3 * RESPELLING, 3, RESPELLING),
+        3 * RESPELLING
+    );
+    assert_eq!(complements_allowance(10_000, 3, RESPELLING), 10_000);
+    assert_eq!(
+        complements_allowance(1_000_000, 1, RESPELLING_AGAIN),
+        RESPELLING_AGAIN
+    );
+    assert_eq!(complements_allowance(1_000_000, 0, RESPELLING), 0);
+    assert_eq!(
+        complements_allowance(u32::MAX, usize::MAX, RESPELLING),
+        u32::MAX
+    );
+}
+
+// THEORY: emptiness-and-the-relation-below-nothing-are-two-procedures
+/// A union holding a scalar atom is inhabited at its fold's first step: the
+/// members beside the atom are read for their regions alone, so a member whose
+/// emptiness takes many steps costs none, as the relation below `nothing` reads
+/// the atom and refutes. The region is the one `region_set` reads.
+#[test]
+fn a_union_holding_a_scalar_atom_reads_its_other_members_for_their_regions_alone() {
+    // A pair is empty where a component is, so its fold reads every level.
+    let mut deep = Schema::Int;
+    for _ in 0..32 {
+        deep = Schema::tuple(SeqShape::fixed([deep, Schema::Int]));
+    }
+    assert!(deep.empty_steps() > 32);
+    let union = Schema::union([deep, Schema::Str]);
+    assert_eq!(union.empty_steps(), 1);
+    assert_eq!(union.verdict(), Verdict::Inhabited);
+    assert!(!union.is_empty());
+    assert_eq!(
+        union.subtype_relation_under(&Schema::Nothing, &NoLeafRelations, &[]),
+        Relation::Fails
+    );
 }

@@ -1,21 +1,34 @@
-// Adapted from https://sqlite.org/src/file/ext/misc/sha1.c
-// Public domain
+// Copyright 2009 The Go Authors, BSD 3-Clause License
+// https://github.com/golang/go/blob/master/LICENSE
 
-#ifndef __SHA1_H__
-#define __SHA1_H__
+// Ported to C by Anton Zhiyanov, MIT License
+// https://github.com/nalgeon/sqlean
+
+// SHA-1 hash algorithm (RFC 3174).
+
+#ifndef CRYPTO_SHA1_H
+#define CRYPTO_SHA1_H
 
 #include <stddef.h>
+#include <stdint.h>
 
-#define SHA1_BLOCK_SIZE 20
+#define SHA1_DIGEST_SIZE 20
+#define SHA1_BLOCK_SIZE 64
 
-typedef struct SHA1Context {
-    unsigned int state[5];
-    unsigned int count[2];
-    unsigned char buffer[64];
-} SHA1Context;
+typedef struct {
+    uint32_t h[5];               // state
+    uint8_t x[SHA1_BLOCK_SIZE];  // buffered input, not yet hashed
+    size_t nx;                   // number of bytes in x
+    uint64_t len;                // total number of bytes hashed
+} sha1_ctx;
 
-void* sha1_init();
-void sha1_update(SHA1Context* ctx, const unsigned char data[], size_t len);
-int sha1_final(SHA1Context* ctx, unsigned char hash[]);
+// Incremental hashing: init, then update any number of times, then final.
+// The context is owned by the caller. The data may be NULL if len is 0.
+void sha1_init(sha1_ctx* ctx);
+void sha1_update(sha1_ctx* ctx, const uint8_t* data, size_t len);
+void sha1_final(sha1_ctx* ctx, uint8_t hash[SHA1_DIGEST_SIZE]);
 
-#endif
+// One-shot hashing of len bytes. The data may be NULL if len is 0.
+void sha1_hash(const uint8_t* data, size_t len, uint8_t hash[SHA1_DIGEST_SIZE]);
+
+#endif  // CRYPTO_SHA1_H

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "crawlee"
-version = "1.11.3"
+version = "1.11.4"
 description = "Crawlee for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -114,6 +114,7 @@ sql_sqlite = [
 sql_mysql = [
     "sqlalchemy[asyncio]>=2.0.0",
     "aiomysql>=0.3.2",
+    "pymysql<1.2.1",
     "cryptography>=46.0.5",
 ]
 redis = ["redis[hiredis] >= 7.0.0"]

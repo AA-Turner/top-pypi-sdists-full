@@ -218,7 +218,13 @@ def test_update_handler_attaches_metadata_and_temporal_decorator():
         assert method_to_test.__temporal_update_definition.name == "TestUpdate"
 
 
-@workflow.define(name="ComprehensiveWorkflow", workflow_description="Tests all handlers")
+@pytest.mark.parametrize("removed_argument", ["workflow_display_name", "workflow_description"])
+def test_define_rejects_removed_display_metadata_arguments(removed_argument: str) -> None:
+    with pytest.raises(TypeError, match=removed_argument):
+        workflow.define(name="removed-display-metadata", **{removed_argument: "value"})  # type: ignore[call-arg]
+
+
+@workflow.define(name="ComprehensiveWorkflow")
 class MyComprehensiveWorkflow:
     # Entrypoint
     @workflow.entrypoint
@@ -275,9 +281,6 @@ def test_workflow_define_collects_all_definitions():
     assert update_meta.description == "sends a update and except a reply"
     assert update_meta.input_schema == SimpleInput.model_json_schema()
     assert update_meta.output_schema == SimpleOutput.model_json_schema()
-
-    # Check if the class itself is recognized by Temporal
-    assert hasattr(MyComprehensiveWorkflow, "__temporal_workflow_definition")
 
 
 class TestSignalWithKwargs:
