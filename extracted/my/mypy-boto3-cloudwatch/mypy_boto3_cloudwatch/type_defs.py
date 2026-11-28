@@ -1085,6 +1085,7 @@ class GetOTelEnrichmentOutputTypeDef(TypedDict):
     ExcludeFilters: list[OTelEnrichmentMetricSelectorOutputTypeDef]
     CreatedAt: datetime
     UpdatedAt: datetime
+    EnableTagEnrichment: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1093,6 +1094,7 @@ class StartOTelEnrichmentOutputTypeDef(TypedDict):
     ExcludeFilters: list[OTelEnrichmentMetricSelectorOutputTypeDef]
     CreatedAt: datetime
     UpdatedAt: datetime
+    EnableTagEnrichment: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1101,6 +1103,7 @@ class UpdateOTelEnrichmentOutputTypeDef(TypedDict):
     ExcludeFilters: list[OTelEnrichmentMetricSelectorOutputTypeDef]
     CreatedAt: datetime
     UpdatedAt: datetime
+    EnableTagEnrichment: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1362,11 +1365,13 @@ MetricStreamStatisticsConfigurationUnionTypeDef = Union[
 class StartOTelEnrichmentInputTypeDef(TypedDict):
     IncludeFilters: NotRequired[Sequence[OTelEnrichmentMetricSelectorUnionTypeDef]]
     ExcludeFilters: NotRequired[Sequence[OTelEnrichmentMetricSelectorUnionTypeDef]]
+    EnableTagEnrichment: NotRequired[bool]
 
 
 class UpdateOTelEnrichmentInputTypeDef(TypedDict):
     IncludeFilters: NotRequired[Sequence[OTelEnrichmentMetricSelectorUnionTypeDef]]
     ExcludeFilters: NotRequired[Sequence[OTelEnrichmentMetricSelectorUnionTypeDef]]
+    EnableTagEnrichment: NotRequired[bool]
 
 
 class CreateResourceMetricsConfigurationOutputTypeDef(TypedDict):

@@ -62,6 +62,8 @@ from coord.models import (
     Proposal,
     SplitChunk,
     SplitProposal,
+    TrancheChild,
+    TrancheRow,
     test_mode_from_labels,
 )
 from coord.platform_paths import default_coord_dir
@@ -669,6 +671,170 @@ def clear_split_proposals() -> None:
         sql.execute(conn, "DELETE FROM split_proposals")
 
 
+# ── Native tranche rows (#4129/#4199) ─────────────────────────────────────────
+#
+# Persistence only -- nothing here dispatches, merges, tests or reviews
+# anything. See `coord.models.TrancheRow`'s docstring for the row shape the
+# sibling slices (#4200/#4201/#4202) will build against.
+
+
+def save_tranche_row(row: TrancheRow) -> int:
+    """Insert or update a native tranche row and return its id.
+
+    ``row.id is None`` inserts a new row; any other value updates the
+    existing row at that id in place. Either way, ``row.children`` is
+    written wholesale -- existing children for this row are deleted and
+    reinserted, the same delete-all/reinsert posture
+    :func:`save_split_proposals` already uses for ``split_chunks`` -- since
+    there is no stable per-child identity yet for a partial update to key
+    on.
+
+    Wrapped in :func:`coord.db.retry_on_locked` like every other write in
+    this module: a transient SQLite lock from a concurrent writer resolves
+    instead of raising.
+    """
+
+    def _write() -> int:
+        conn = get_connection()
+        with conn:
+            if row.id is None:
+                row_id = int(
+                    sql.insert_returning_id(
+                        conn,
+                        "INSERT INTO tranche_rows "
+                        "(repo_name, issue_number, issue_title, base_sha, state, "
+                        " created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                        (
+                            row.repo_name,
+                            row.issue_number,
+                            row.issue_title,
+                            row.base_sha,
+                            row.state,
+                            row.created_at if row.created_at is not None else time.time(),
+                        ),
+                        pk_column="id",
+                    )
+                )
+            else:
+                row_id = int(row.id)
+                sql.execute(conn,
+                    "UPDATE tranche_rows SET repo_name = ?, issue_number = ?, "
+                    "issue_title = ?, base_sha = ?, state = ?, created_at = ? "
+                    "WHERE id = ?",
+                    (
+                        row.repo_name,
+                        row.issue_number,
+                        row.issue_title,
+                        row.base_sha,
+                        row.state,
+                        row.created_at,
+                        row_id,
+                    ),
+                )
+            sql.execute(
+                conn, "DELETE FROM tranche_children WHERE tranche_row_id = ?", (row_id,)
+            )
+            for child in row.children:
+                sql.execute(conn,
+                    "INSERT INTO tranche_children "
+                    "(tranche_row_id, issue_number, repo_name, title, state, result) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        row_id,
+                        child.issue_number,
+                        child.repo_name,
+                        child.title,
+                        child.state,
+                        json.dumps(child.result) if child.result is not None else None,
+                    ),
+                )
+        return row_id
+
+    return retry_on_locked(_write)
+
+
+def _tranche_row_from_sql_row(conn: Any, sql_row: Any) -> TrancheRow:
+    """Build a :class:`TrancheRow` (with its children) from one
+    ``tranche_rows`` row -- shared by every load function below so there is
+    exactly one place that maps the SQL shape onto the dataclass."""
+    child_rows = sql.execute(conn,
+        "SELECT * FROM tranche_children WHERE tranche_row_id = ? ORDER BY id",
+        (sql_row["id"],),
+    ).fetchall()
+    return TrancheRow(
+        id=sql_row["id"],
+        repo_name=sql_row["repo_name"],
+        issue_number=sql_row["issue_number"],
+        issue_title=sql_row["issue_title"] or "",
+        base_sha=sql_row["base_sha"] or "",
+        state=sql_row["state"] or "pending",
+        created_at=sql_row["created_at"],
+        children=[
+            TrancheChild(
+                issue_number=c["issue_number"],
+                repo_name=c["repo_name"],
+                title=c["title"] or "",
+                state=c["state"] or "pending",
+                result=_json_loads(c["result"]),
+            )
+            for c in child_rows
+        ],
+    )
+
+
+def load_tranche_row(row_id: int) -> TrancheRow | None:
+    """Return the tranche row with id *row_id*, or ``None`` if it doesn't
+    exist."""
+    conn = get_connection()
+    sql_row = sql.execute(
+        conn, "SELECT * FROM tranche_rows WHERE id = ?", (row_id,)
+    ).fetchone()
+    if sql_row is None:
+        return None
+    return _tranche_row_from_sql_row(conn, sql_row)
+
+
+def load_tranche_rows_for_issue(repo_name: str, issue_number: int) -> list[TrancheRow]:
+    """Return every tranche row filed for one parent issue, oldest first."""
+    conn = get_connection()
+    rows = sql.execute(conn,
+        "SELECT * FROM tranche_rows WHERE repo_name = ? AND issue_number = ? "
+        "ORDER BY id",
+        (repo_name, issue_number),
+    ).fetchall()
+    return [_tranche_row_from_sql_row(conn, r) for r in rows]
+
+
+def load_tranche_rows_in_states(states: Sequence[str]) -> list[TrancheRow]:
+    """Return every tranche row whose ``state`` is one of *states*, oldest
+    id first.
+
+    The read a periodic tick needs: "which rows still have a step left to
+    take" (see :func:`coord.drive_queue.tranche_rows_ready_to_advance` for
+    which states those are). Returns ``[]`` for an empty *states* rather
+    than every row -- an empty filter means "nothing selected", never
+    "select all".
+    """
+    if not states:
+        return []
+    conn = get_connection()
+    placeholders = ", ".join("?" for _ in states)
+    rows = sql.execute(conn,
+        f"SELECT * FROM tranche_rows WHERE state IN ({placeholders}) ORDER BY id",
+        tuple(states),
+    ).fetchall()
+    return [_tranche_row_from_sql_row(conn, r) for r in rows]
+
+
+def delete_tranche_row(row_id: int) -> None:
+    """Delete a tranche row and its children. A no-op if *row_id* doesn't
+    exist."""
+    conn = get_connection()
+    with conn:
+        sql.execute(conn, "DELETE FROM tranche_children WHERE tranche_row_id = ?", (row_id,))
+        sql.execute(conn, "DELETE FROM tranche_rows WHERE id = ?", (row_id,))
+
+
 # ── Dispatched-assignment ledger ──────────────────────────────────────────────
 
 def load_dispatched() -> list[dict]:
@@ -1091,13 +1257,16 @@ def _record_dispatched_local(
         f"issue-{proposal.issue_number}-{_slugify(proposal.issue_title)}"
     )
 
-    # #3681/#3722: "workflow" only for a `type="work"` dispatch whose issue
-    # carries the opt-in `coord:workflow` label, or `ultracode` (which
-    # implies it) — `is_workflow_leg` is the single source of truth for this
-    # question, also called by `coord.dispatch`'s wire-payload `workflow`
-    # flag, so the two surfaces cannot drift apart. Every other proposal
-    # type (test, review, fix, ...) and every unlabeled work issue records
-    # "single". See `coord.agent.AssignmentSpec.workflow`.
+    # #3681/#3722/#4128: "workflow" only for a `type="work"` dispatch whose
+    # issue carries the opt-in `coord:workflow` label, `ultracode`, or
+    # `coord:tranche` (both of which imply it) — `is_workflow_leg` is the
+    # single source of truth for this question, also called by
+    # `coord.dispatch`'s wire-payload `workflow` flag, so the two surfaces
+    # cannot drift apart. Every other proposal type (test, review, fix,
+    # ...) and every unlabeled work issue records "single". A tranche leg
+    # still records "workflow" here — not a third value — since this
+    # column answers "single vs multi-agent", not "which template"; see
+    # `coord.agent.AssignmentSpec.tranche` for that separate question.
     mode = "workflow" if is_workflow_leg(proposal.type, proposal.issue_labels) else "single"
 
     conn = get_connection()
@@ -11250,7 +11419,8 @@ _DRIVE_QUEUE_COLUMNS = (
     "enqueued_at, hold_after, hold_reason, resume_when, hold_state, "
     "hold_probes, launch_host, hold_scope, resumes, retry_backoff_at, "
     "max_fix_rounds, no_acceptance, plan_destructive, apply_verdict, "
-    "apply_verdict_reason, apply_verdict_at, legs_at_enqueue"
+    "apply_verdict_reason, apply_verdict_at, legs_at_enqueue, "
+    "intervention_json"
 )
 
 # Fields `update_drive_queue_entry` may write. Deliberately excludes the
@@ -11298,18 +11468,31 @@ _DRIVE_QUEUE_UPDATABLE = frozenset(
         # `legs_at_enqueue`). `position`/`machine` stay enqueue/move-only;
         # only the edge list itself is updatable here.
         "after_json",
+        # #4216: operator/agent-declared — written by `coord drive-queue
+        # note`/`coord.state.set_drive_queue_intervention`/
+        # `clear_drive_queue_intervention`, never by a tick. Updatable
+        # (rather than enqueue/move-only like `after_json` just above)
+        # because it must be settable mid-queue-life, against a row the
+        # operator never re-`add`s.
+        "intervention_json",
     }
 )
 
 
 def _decode_drive_queue_row(row) -> dict:
-    """One ``drive_queue`` row as a dict with ``after_json`` decoded to a list.
+    """One ``drive_queue`` row as a dict with ``after_json``/``intervention_
+    json`` decoded to their wire types.
 
     Mirrors ``coord.board_schema.BoardDriveQueueEntry``'s ``after_json:
     list[str]`` field so the ``/drive-queue`` and ``/board`` payloads agree:
     ``after_json`` is a real JSON array on the wire,
     never a string. A row written by hand with unparseable JSON degrades to
     ``[]`` rather than blowing up the whole list read.
+
+    #4216: ``intervention_json`` decodes the same way, to a ``dict`` (or
+    ``None`` for the common "nothing recorded" case — the empty-string
+    column default) rather than ``[]``, matching
+    ``BoardDriveQueueEntry.intervention_json``'s ``dict | None`` annotation.
     """
     entry = dict(row)
     raw = entry.get("after_json")
@@ -11321,6 +11504,19 @@ def _decode_drive_queue_row(row) -> dict:
         entry["after_json"] = decoded if isinstance(decoded, list) else []
     elif raw is None:
         entry["after_json"] = []
+    raw_intervention = entry.get("intervention_json")
+    if isinstance(raw_intervention, str):
+        decoded_intervention = None
+        if raw_intervention:
+            try:
+                decoded_intervention = json.loads(raw_intervention)
+            except (TypeError, ValueError):
+                decoded_intervention = None
+        entry["intervention_json"] = (
+            decoded_intervention if isinstance(decoded_intervention, dict) else None
+        )
+    elif not isinstance(raw_intervention, dict):
+        entry["intervention_json"] = None
     return entry
 
 
@@ -11888,6 +12084,25 @@ def _update_drive_queue_entry_local(
         # daemon's `/drive-queue` update handler call this same function),
         # so no caller can set one without the other.
         fields = {**fields, "reason_at": time.time()}
+    if fields.get("state") == "done" and "intervention_json" not in fields:
+        # #4216: a row reaching `done` ("done" literal mirrors
+        # `coord.drive_queue.STATE_DONE` — this module cannot import that
+        # name without a circular import, see `coord.drive_queue`'s own
+        # module docstring) clears any intervention record automatically —
+        # the rescue it described, if any, is moot once the row is finished,
+        # and leaving it would show a stale "held: ..." reason on a row that
+        # is actually done. Skipped when the SAME call already supplies its
+        # own `intervention_json` (none does today), so a future caller
+        # that wants to set `state="done"` and a fresh record in one write
+        # is never silently overridden.
+        fields = {**fields, "intervention_json": ""}
+    if fields.get("state") == "done":
+        # #4217: a row reaching `done` also drops its rescue watermark (see
+        # `clear_rescue_watch` below) — a future `coord drive-queue add` for
+        # the same repo#issue starts the #4217 sweep fresh rather than
+        # comparing its very first live SHA read against a watermark this
+        # row's earlier run left behind.
+        clear_rescue_watch(repo_name, issue_number)
 
     # #2846: wrapped in retry_on_locked like every other write in this
     # module (UPDATE-by-natural-key is idempotent, so extending the retry
@@ -11905,6 +12120,185 @@ def _update_drive_queue_entry_local(
         return cur.rowcount > 0
 
     return retry_on_locked(_write)
+
+
+def set_drive_queue_intervention(
+    repo_name: str,
+    issue_number: int,
+    *,
+    by: str,
+    did: str,
+    next_step: str,
+    sha: str | None = None,
+    stale_after_seconds: float | None = None,
+    now: float | None = None,
+) -> bool:
+    """Record a #4216 out-of-band-rescue note on REPO#ISSUE's drive-queue row.
+
+    Written by ``coord drive-queue note`` whenever an operator or agent
+    rescues a row outside the queue's own commands (a hand push, a fix to a
+    red base, a CI rerun) — something the tick itself has no way to observe.
+    The record is a plain JSON object (``by``/``did``/``next``/``sha``/
+    ``at``/``stale_after``); :func:`coord.drive_queue.
+    format_intervention_reason` is what turns it into the row's displayed
+    reason (``coord drive-queue list``, the board API, the dashboard) —
+    this function only stores it.
+
+    *stale_after_seconds* is ``None`` unless the caller overrides it — a
+    `None` reads as "use :data:`coord.drive_queue.
+    INTERVENTION_DEFAULT_STALE_SECONDS`" at DISPLAY time (never baked in
+    here), so a later change to that default also applies to every
+    already-recorded row, not just new ones. *now* mirrors every other
+    ``now=`` parameter in this tree (DQ-2's "no ambient state" rule) —
+    ``None`` reads the wall clock.
+
+    Routes to the daemon the same way :func:`update_drive_queue_entry`
+    already does (this is a thin wrapper around it); returns whether a row
+    was actually updated.
+    """
+    record: dict[str, Any] = {
+        "by": by,
+        "did": did,
+        "next": next_step,
+        "sha": sha,
+        "at": time.time() if now is None else now,
+        "stale_after": (
+            stale_after_seconds if stale_after_seconds and stale_after_seconds > 0
+            else None
+        ),
+    }
+    return update_drive_queue_entry(
+        repo_name, issue_number, intervention_json=json.dumps(record)
+    )
+
+
+def clear_drive_queue_intervention(repo_name: str, issue_number: int) -> bool:
+    """Remove REPO#ISSUE's #4216 intervention record, if any.
+
+    Also happens automatically the moment a row reconciles to `done` (see
+    ``_update_drive_queue_entry_local``'s own state="done" clear) — this is
+    the explicit ``coord drive-queue note --clear`` path for every other
+    case: the rescue turned out to be unnecessary, or was recorded against
+    the wrong row.
+    """
+    return update_drive_queue_entry(repo_name, issue_number, intervention_json="")
+
+
+# ── #4217 out-of-band rescue watermark (board truth 2/3) ────────────────────
+#
+# A `blocked` drive-queue row carries no branch/head column of its own
+# (`coord.drive_queue.QueueEntry` is keyed on repo+issue alone) — detecting
+# "did someone push to this row's branch since the sweep last looked" needs
+# a durable watermark `coord.reconcile.reconcile_rescued_blocked_rows` can
+# compare each tick's live branch SHA against. `intervention_json` (#4216)
+# is NOT that watermark: an operator's own `--clear`, a fresh `coord
+# drive-queue note`, or the row reaching `done` can all rewrite/clear it at
+# any time, and none of those events should make an UNCHANGED branch look
+# "newly pushed" on the very next tick. This is its own `board_meta` row
+# instead — same single-JSON-blob-per-key, trimmed-from-the-front shape as
+# `_PR_MERGE_CI_RERUN_META_KEY` above — keyed by `repo#issue`, holding
+# ``{"baseline": <SHA the sweep last confirmed this row sitting on>,
+# "resumed_sha": <SHA the sweep already reset Test/Review for, or None>}``.
+_RESCUE_WATCH_META_KEY = "drive_queue_rescue_watch"
+
+#: Cap on the number of (repo, issue) watermarks tracked at once — same
+#: "never allowed to grow the `board_meta` row without bound" rationale as
+#: :data:`PR_MERGE_CI_RERUN_LIMIT`.
+RESCUE_WATCH_LIMIT = 1000
+
+
+def _rescue_watch_key(repo_name: str, issue_number: int) -> str:
+    return f"{repo_name}#{issue_number}"
+
+
+def _load_rescue_watch_raw(conn) -> dict[str, dict]:
+    row = sql.execute(
+        conn, "SELECT value FROM board_meta WHERE key = ?",
+        (_RESCUE_WATCH_META_KEY,),
+    ).fetchone()
+    if row is None or not row["value"]:
+        return {}
+    try:
+        data = json.loads(row["value"])
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def get_rescue_watch(repo_name: str, issue_number: int) -> dict | None:
+    """The #4217 rescue watermark for *repo_name*#*issue_number*, or
+    ``None`` when this row has never been observed by the sweep.
+
+    **Local-DB read only**, same ``_thin_client_local_board_guard`` limitation
+    as :func:`pr_merge_ci_rerun_already_attempted`: this lives in
+    ``board_meta`` on the canonical board (the daemon host). The sweep that
+    owns this (:func:`coord.reconcile.reconcile_rescued_blocked_rows`) only
+    ever runs daemon-side (see that function's own docstring for why), so a
+    thin-client call is never a concern in practice — the guard is here
+    anyway so a misuse fails loudly rather than silently reading/writing an
+    empty local copy.
+    """
+    _thin_client_local_board_guard("get_rescue_watch")
+    data = _load_rescue_watch_raw(get_connection())
+    found = data.get(_rescue_watch_key(repo_name, issue_number))
+    return found if isinstance(found, dict) else None
+
+
+def set_rescue_watch(
+    repo_name: str, issue_number: int, *, baseline: str, resumed_sha: str | None
+) -> None:
+    """Persist *repo_name*#*issue_number*'s #4217 rescue watermark.
+
+    Local-DB write only, same scope caveat as :func:`get_rescue_watch`.
+    """
+    _thin_client_local_board_guard("set_rescue_watch")
+    conn = get_connection()
+
+    def _write() -> None:
+        data = _load_rescue_watch_raw(conn)
+        data[_rescue_watch_key(repo_name, issue_number)] = {
+            "baseline": baseline, "resumed_sha": resumed_sha,
+        }
+        if len(data) > RESCUE_WATCH_LIMIT:
+            data = dict(list(data.items())[-RESCUE_WATCH_LIMIT:])
+        sql.upsert(
+            conn, "board_meta", ["key", "value"],
+            (_RESCUE_WATCH_META_KEY, json.dumps(data)),
+            conflict_columns=["key"],
+        )
+        conn.commit()
+
+    retry_on_locked(_write)
+
+
+def clear_rescue_watch(repo_name: str, issue_number: int) -> None:
+    """Drop *repo_name*#*issue_number*'s #4217 rescue watermark.
+
+    Called automatically once the row reconciles to ``done`` (see
+    ``_update_drive_queue_entry_local``'s own state="done" clear, mirroring
+    how that same write clears ``intervention_json``) so a future re-add of
+    the same repo#issue starts the sweep fresh rather than comparing its
+    first live SHA read against a watermark an earlier run of this row
+    left behind. Local-DB write only, same scope caveat as
+    :func:`get_rescue_watch`.
+    """
+    _thin_client_local_board_guard("clear_rescue_watch")
+    conn = get_connection()
+
+    def _write() -> None:
+        data = _load_rescue_watch_raw(conn)
+        key = _rescue_watch_key(repo_name, issue_number)
+        if key not in data:
+            return
+        del data[key]
+        sql.upsert(
+            conn, "board_meta", ["key", "value"],
+            (_RESCUE_WATCH_META_KEY, json.dumps(data)),
+            conflict_columns=["key"],
+        )
+        conn.commit()
+
+    retry_on_locked(_write)
 
 
 def move_drive_queue_entry(

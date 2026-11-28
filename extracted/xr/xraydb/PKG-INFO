@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xraydb
-Version: 4.6.1
+Version: 4.6.2
 Summary: calculations with XrayDB: reference data for X-ray interactions with matter
 Author-email: Matthew Newville <matt.newville@gmail.com>
 License-Expression: MIT
@@ -24,6 +24,7 @@ Requires-Dist: numpy>=2
 Requires-Dist: scipy>=1.13
 Requires-Dist: sqlalchemy>=2.0.1
 Requires-Dist: platformdirs
+Requires-Dist: pyshortcuts>=1.9.10
 Provides-Extra: dev
 Requires-Dist: build; extra == "dev"
 Requires-Dist: twine; extra == "dev"

@@ -16,11 +16,6 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
     """Orchestrate the reusable deployment workflows."""
 
     @override
-    def concurrency_cancel_in_progress(self) -> bool:
-        """Return `False`; a deploy run must not be cancelled mid-publish."""
-        return False
-
-    @override
     def jobs(self) -> tuple[Callable[[], dict[str, Any]], ...]:
         """Return the repository and documentation workflow calls."""
         return (self.job_repository, self.job_documentation)
@@ -38,13 +33,11 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
     def job_documentation(self) -> dict[str, Any]:
         """Return the reusable documentation deployment job."""
         return self.job_workflow_call(
-            self.job_documentation,
             workflow=DocumentationWorkflowConfigFile,
         )
 
     def job_repository(self) -> dict[str, Any]:
         """Return the reusable repository-configuration job."""
         return self.job_workflow_call(
-            self.job_repository,
             workflow=RepositoryWorkflowConfigFile,
         )

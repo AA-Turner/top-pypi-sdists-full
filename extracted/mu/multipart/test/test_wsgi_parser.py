@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from .utils import BaseParserTest
+import urllib.parse
 
 import multipart
 
@@ -60,8 +61,8 @@ class TestFormParser(BaseParserTest):
     def test_urlencoded_latin1(self):
         for ctype in ('application/x-www-form-urlencoded', 'application/x-url-encoded'):
             self.reset().write(b'a=\xe0\xe1&e=%E8%E9')
-            self.environ['CONTENT_TYPE'] = ctype
-            forms, files = self.parse_form_data(charset='iso-8859-1')
+            self.environ['CONTENT_TYPE'] = ctype + "; charset=iso-8859-1"
+            forms, files = self.parse_form_data()
             self.assertEqual(forms['a'], 'àá')
             self.assertEqual(forms['e'], 'èé')
 
@@ -72,6 +73,34 @@ class TestFormParser(BaseParserTest):
             forms, files = self.parse_form_data()
             self.assertEqual(forms['a'], 'ƀ♭')
             self.assertEqual(forms['e'], 'ḟ♮')
+
+    def test_urlencoded_uncommon_charsets(self):
+        # Allow in non-strict mode
+        for uncommon, char in (('latin8','Æ'), ('cp855','Я')):
+            d = {char: char}
+            self.reset().write(urllib.parse.urlencode(d, encoding=uncommon).encode(uncommon))
+            self.environ['CONTENT_TYPE'] = f'application/x-www-form-urlencoded; charset={uncommon}'
+            forms, files = self.parse_form_data()
+            self.assertEqual(forms, d)
+
+        # Deny in strict mode
+        for uncommon, char in (('latin8','Æ'), ('cp855','Я')):
+            d = {char: char}
+            self.reset().write(urllib.parse.urlencode(d, encoding=uncommon).encode(uncommon))
+            self.environ['CONTENT_TYPE'] = f'application/x-www-form-urlencoded; charset={uncommon}'
+            with self.assertRaises(multipart.StrictParserError):
+                forms, files = self.parse_form_data(strict=True)
+
+    def test_urlencoded_bad_charsets(self):
+        for bad in ('rot13', 'base64', 'punycode'):
+            self.reset().write(b"a=b")
+            self.environ['CONTENT_TYPE'] = f'application/x-www-form-urlencoded; charset={bad}'
+            with self.assertRaises(multipart.ParserError):
+                forms, files = self.parse_form_data(strict=True)
+            with self.assertRaises(multipart.ParserError):
+                forms, files = self.parse_form_data(strict=False, ignore_errors=False)
+            forms, files = self.parse_form_data()
+            self.assertEqual(forms, {})
 
     def test_urlencoded_empty_name_value(self):
         " Enpty names are skipped, empty values are just empty"

@@ -84,7 +84,7 @@ def test_default_creation_uses_one_http_request_and_freezes_retry(monkeypatch, g
         metadata["owner"] = "changed"
         vm.create()
         assert json.dumps(direct.json.call_args.kwargs["json"], sort_keys=True) == body
-        assert direct.workspace_id == "self"
+        assert direct.url("/api/v1/vm/{ws}") == "https://vm.example/api/v1/vm/self"
         assert all(
             call.args[:2] == ("POST", "/api/v1/vm/{ws}") for call in direct.json.call_args_list
         )
@@ -197,7 +197,12 @@ def test_vm_image_bundle_matches_guest_files():
             assert archive.extractfile(name).read() == path.read_bytes(), (
                 f"Stale VM bundle: run python bin/generate_vm_assets.py after updating {name}"
             )
-            mode = 0o644 if path.suffix in (".service", ".desktop", ".svg", ".xml", ".rc", ".override", ".rules") else 0o755
+            mode = (
+                0o644
+                if path.suffix
+                in (".service", ".desktop", ".svg", ".xml", ".rc", ".override", ".rules")
+                else 0o755
+            )
             assert archive.getmember(name).mode == mode
 
 
@@ -402,11 +407,17 @@ def test_verified_launch_does_not_repeat_wait_or_touch_idle_lease(monkeypatch, a
     selected = service()
     vm = VM("dev", template="base", _service=selected)
     monkeypatch.setattr(vm, "prepare", lambda: vm)
-    api = MagicMock(return_value={
-        "id": "vm-id", "name": "dev", "status": "running",
-        "container_id": "runtime", "stub_id": "stub",
-        "spec": {"idle_timeout": 900}, "exec_ready": True,
-    })
+    api = MagicMock(
+        return_value={
+            "id": "vm-id",
+            "name": "dev",
+            "status": "running",
+            "container_id": "runtime",
+            "stub_id": "stub",
+            "spec": {"idle_timeout": 900},
+            "exec_ready": True,
+        }
+    )
     monkeypatch.setattr(vm, "_api", api)
     assert getattr(vm, action)() is vm
     assert api.call_count == 1
@@ -418,10 +429,19 @@ def test_verified_launch_does_not_repeat_wait_or_touch_idle_lease(monkeypatch, a
 def test_launch_without_server_readiness_keeps_client_wait(monkeypatch, action):
     vm = VM("dev", template="base", _service=service())
     monkeypatch.setattr(vm, "prepare", lambda: vm)
-    monkeypatch.setattr(vm, "_api", MagicMock(return_value={
-        "id": "vm-id", "name": "dev", "status": "starting",
-        "container_id": "runtime", "spec": {"idle_timeout": 900},
-    }))
+    monkeypatch.setattr(
+        vm,
+        "_api",
+        MagicMock(
+            return_value={
+                "id": "vm-id",
+                "name": "dev",
+                "status": "starting",
+                "container_id": "runtime",
+                "spec": {"idle_timeout": 900},
+            }
+        ),
+    )
     wait = MagicMock(return_value=vm)
     monkeypatch.setattr(vm, "wait", wait)
     assert getattr(vm, action)() is vm
@@ -1912,6 +1932,102 @@ def test_cli_logs_rejects_conflicting_sources_before_acquiring_vm(
     acquire.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "info,expected_container",
+    [
+        (
+            {
+                "id": "vm-1",
+                "name": "dev",
+                "stub_id": "stub-1",
+                "status": "stopped",
+                "desired_state": "stopped",
+                "container_id": "",
+                "last_container_id": "vm-stub-1-deadbeef",
+            },
+            "vm-stub-1-deadbeef",
+        ),
+        (
+            {
+                "id": "vm-2",
+                "name": "dev",
+                "stub_id": "stub-2",
+                "status": "error",
+                "desired_state": "running",
+                "container_id": "vm-stub-2-cafebabe",
+            },
+            "vm-stub-2-cafebabe",
+        ),
+        (
+            {
+                "id": "vm-3",
+                "name": "dev",
+                "stub_id": "stub-3",
+                "status": "paused",
+                "desired_state": "paused",
+                "last_container_id": "vm-stub-3-11223344",
+            },
+            "vm-stub-3-11223344",
+        ),
+    ],
+)
+def test_cli_logs_falls_back_to_container_logs_when_vm_not_running(
+    cli_service, monkeypatch, info, expected_container
+):
+    vm = SimpleNamespace(info=info)
+    monkeypatch.setattr(vm_cli, "_vm", lambda *_: vm)
+    cli_service.http.json.return_value = {
+        "logs": [
+            {"message": "Kernel panic - not syncing\n"},
+            {"message": "exitcode=0x00000009"},
+        ]
+    }
+    exec_mock = MagicMock()
+    monkeypatch.setattr(
+        vm_cli, "exec_vm", SimpleNamespace(callback=SimpleNamespace(__wrapped__=exec_mock))
+    )
+
+    result = CliRunner().invoke(vm_cli.management, ["logs", "dev"])
+    assert result.exit_code == 0, result.output
+    assert "Kernel panic - not syncing\nexitcode=0x00000009\n" == result.output
+    exec_mock.assert_not_called()
+    cli_service.http.json.assert_called_once_with(
+        "GET",
+        "/api/v1/logs/{ws}",
+        params={
+            "object_type": "BETA9_CONTAINER",
+            "object_id": expected_container,
+            "limit": 200,
+            "stub_id": info["stub_id"],
+        },
+    )
+
+
+def test_cli_logs_falls_back_when_running_vm_exec_connection_fails(cli_service, monkeypatch):
+    vm = SimpleNamespace(
+        info={
+            "id": "vm-1",
+            "name": "dev",
+            "stub_id": "stub-1",
+            "status": "running",
+            "desired_state": "running",
+            "container_id": "vm-stub-1-live",
+        }
+    )
+    monkeypatch.setattr(vm_cli, "_vm", lambda *_: vm)
+    cli_service.http.json.return_value = {"logs": [{"message": "hypervisor exited unexpectedly\n"}]}
+    exec_mock = MagicMock(side_effect=SandboxConnectionError("sandbox gone"))
+    monkeypatch.setattr(
+        vm_cli, "exec_vm", SimpleNamespace(callback=SimpleNamespace(__wrapped__=exec_mock))
+    )
+
+    result = CliRunner().invoke(vm_cli.management, ["logs", "dev"])
+    assert result.exit_code == 0, result.output
+    assert "hypervisor exited unexpectedly\n" == result.output
+    exec_mock.assert_called_once()
+    cli_service.http.json.assert_called_once()
+
+
 @pytest.mark.parametrize("mode", ["command", "global", "env"])
 def test_cli_ps_uses_pid_indexed_processes(cli_service, monkeypatch, mode):
     vm = MagicMock()
@@ -3181,7 +3297,8 @@ def test_setup_vm_from_template_prices_it_and_keeps_its_settings(
     assert lookup.call_args.args[1] == "n8n"
     assert price.call_args.kwargs == {"cpu": Decimal(2), "memory_gib": Decimal(4)}
     assert (
-        "Start a VM from template n8n (2 vCPU, 4 GiB RAM, 50 GiB disk, $0.0171/hour" in result.output
+        "Start a VM from template n8n (2 vCPU, 4 GiB RAM, 50 GiB disk, $0.0171/hour"
+        in result.output
     )
     assert prepare.call_args.args[2] == "n8n"
     assert prepare.call_args.kwargs == {"desktop": desktop, "template": template_id}
@@ -3230,7 +3347,11 @@ def test_template_vm_keeps_template_settings_and_its_own_state(tmp_path, monkeyp
 
     onboarding.prepare_vm(selected, tmp_path, "n8n", desktop=None, template="tpl-id")
     kwargs = factory.call_args.kwargs
-    assert (kwargs["template"], kwargs["desktop"], kwargs["docker_enabled"]) == ("tpl-id", None, None)
+    assert (kwargs["template"], kwargs["desktop"], kwargs["docker_enabled"]) == (
+        "tpl-id",
+        None,
+        None,
+    )
     assert kwargs["ssh"] is True
 
     vm._creation_body = None
@@ -3608,7 +3729,9 @@ def test_guest_processes_share_the_display_but_not_the_bootstrap_config(desktop,
     guest = guest_module("kiosk")
     monkeypatch.setenv("BEAM_VM_DESKTOP_TRANSPORT", "webrtc")
     session = guest.Session(
-        None if desktop else {
+        None
+        if desktop
+        else {
             "command": ["editor"],
             "transport": "webrtc",
             "env": {"DISPLAY": ":99", "APP_SETTING": "custom"},
@@ -3625,9 +3748,14 @@ def test_guest_processes_share_the_display_but_not_the_bootstrap_config(desktop,
     assert session.retry_allowed("mcp")
 
 
-@pytest.mark.parametrize("code,response,ready", [
-    (0, "(true,)\n", True), (0, "(false,)\n", False), (1, "", False),
-])
+@pytest.mark.parametrize(
+    "code,response,ready",
+    [
+        (0, "(true,)\n", True),
+        (0, "(false,)\n", False),
+        (1, "", False),
+    ],
+)
 def test_full_desktop_readiness_uses_the_native_session_manager(monkeypatch, code, response, ready):
     guest = guest_module("kiosk")
     monkeypatch.setattr(
@@ -4497,9 +4625,7 @@ def test_image_build_cannot_upload_home_or_escape_context(tmp_path):
     tools.start_command.assert_not_called()
 
 
-def test_full_desktop_supervision_does_not_depend_on_application_windows(
-    tmp_path, monkeypatch
-):
+def test_full_desktop_supervision_does_not_depend_on_application_windows(tmp_path, monkeypatch):
     guest = guest_module("kiosk")
     monkeypatch.setattr(guest, "RUNTIME", tmp_path)
     session = guest.Session()
@@ -4540,12 +4666,10 @@ def test_public_template_cli_uses_explicit_publication(cli_service, monkeypatch)
     )
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["public"] is True
-    vm.create_template.assert_called_once_with("app-desktop", "", public=True)
+    vm.create_template.assert_called_once_with("app-desktop", "", public=True, memory=False)
 
 
-def test_streaming_desktop_resize_uses_the_shared_display_contract(
-    sandbox_vm, monkeypatch
-):
+def test_streaming_desktop_resize_uses_the_shared_display_contract(sandbox_vm, monkeypatch):
     vm, _ = sandbox_vm
     vm.info["spec"].update(desktop=True, desktop_transport="webrtc")
     desktop = vm.desktop
@@ -4565,9 +4689,7 @@ def test_streaming_desktop_launch_uses_its_session_user(sandbox_vm):
 
 
 @pytest.mark.parametrize("config", [None, {"command": ["editor"]}])
-def test_graphical_stream_failure_returns_to_systemd_for_recovery(
-    tmp_path, monkeypatch, config
-):
+def test_graphical_stream_failure_returns_to_systemd_for_recovery(tmp_path, monkeypatch, config):
     guest = guest_module("kiosk")
     monkeypatch.setattr(guest, "RUNTIME", tmp_path)
     monkeypatch.setattr(
@@ -4592,9 +4714,7 @@ def test_invalid_kiosk_command_keeps_the_session_available_for_restart(tmp_path,
         guest, "POLICY", guest.replace(guest.POLICY, mcp_config=str(tmp_path / "mcp.json"))
     )
     session = guest.Session({"command": ["missing-application", "private-argument"]})
-    monkeypatch.setattr(
-        session, "spawn", MagicMock(side_effect=FileNotFoundError("private"))
-    )
+    monkeypatch.setattr(session, "spawn", MagicMock(side_effect=FileNotFoundError("private")))
     session.launch()
     assert session.status()["state"] == "error"
     assert session.status()["application"] == "error"
@@ -4605,9 +4725,7 @@ def test_invalid_kiosk_command_keeps_the_session_available_for_restart(tmp_path,
 
 
 @pytest.mark.parametrize("config", [None, {"command": ["editor"]}])
-def test_graphical_restart_invalidates_readiness_before_acknowledging(
-    config, monkeypatch
-):
+def test_graphical_restart_invalidates_readiness_before_acknowledging(config, monkeypatch):
     from urllib.error import HTTPError
     from urllib.request import Request, urlopen
 
@@ -4622,9 +4740,7 @@ def test_graphical_restart_invalidates_readiness_before_acknowledging(
             urlopen(Request(url, data=b"", method="POST"), timeout=2)
         assert error.value.code == 403
         assert session.status()["state"] == "ready"
-        request = Request(
-            url, data=b"", method="POST", headers={"X-Beam-Kiosk-Action": "restart"}
-        )
+        request = Request(url, data=b"", method="POST", headers={"X-Beam-Kiosk-Action": "restart"})
         with urlopen(request, timeout=2) as response:
             assert response.status == 202
         assert session.restart.is_set()
@@ -4633,3 +4749,167 @@ def test_graphical_restart_invalidates_readiness_before_acknowledging(
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_sandbox_refresh_updates_connected_at_and_throttles_touch(monkeypatch):
+    selected = service()
+    clock = [10.0]
+    monkeypatch.setattr(vm_module.time, "monotonic", lambda: clock[0])
+    vm = VM(_service=selected)._set(
+        {
+            "id": "vm-id",
+            "name": "dev",
+            "status": "running",
+            "container_id": "runtime",
+            "stub_id": "stub",
+            "spec": {"idle_timeout": 300},
+            "exec_ready": True,
+        }
+    )
+    # Within refresh lease & touch throttle: zero HTTP calls.
+    assert vm._sandbox() is vm._connected
+    selected.http.json.assert_not_called()
+
+    # After 1.1s: GET /vm returns running (without exec_ready). Must refresh
+    # _connected_at so subsequent calls within the next second skip GET /vm!
+    selected.http.json.return_value = {
+        "id": "vm-id",
+        "name": "dev",
+        "status": "running",
+        "container_id": "runtime",
+        "stub_id": "stub",
+        "spec": {"idle_timeout": 300},
+    }
+    clock[0] += 1.1
+    assert vm._sandbox() is vm._connected
+    assert selected.http.json.call_count == 1
+    assert selected.http.json.call_args.args[0] == "GET"
+
+    # Rapid subsequent calls within 1s must hit neither GET /vm nor POST /touch.
+    for _ in range(5):
+        clock[0] += 0.1
+        assert vm._sandbox() is vm._connected
+    assert selected.http.json.call_count == 1
+
+    # Once the touch interval (min(30, 300/4) = 30s) elapses, _touch runs once.
+    clock[0] += 30.0
+    assert vm._sandbox() is vm._connected
+    methods = [call.args[0] for call in selected.http.json.call_args_list]
+    assert methods == ["GET", "GET", "POST"]
+
+
+def test_kiosk_uses_bounded_xvfb_screen_and_adaptive_framerate(tmp_path, monkeypatch):
+    module = guest_module("kiosk")
+    monkeypatch.setattr(module, "RUNTIME", tmp_path / "runtime")
+    monkeypatch.setattr(
+        module, "run_command", MagicMock(return_value=SimpleNamespace(returncode=0))
+    )
+    session = module.Session(None)
+    session.env["HOME"] = str(tmp_path)
+    session.spawn = MagicMock()
+    session.wait_for = lambda ready, *_: ready()
+    session.start_display()
+    display_cmd = session.spawn.call_args_list[0].args[0]
+    assert display_cmd[0] == "Xvfb"
+    assert "3840x2160x24" in display_cmd
+    assert "8192x8192x24" not in display_cmd
+
+    session.spawn.reset_mock()
+    session.start_stream()
+    stream_cmd = session.spawn.call_args_list[0].args[0]
+    assert stream_cmd[0] == "selkies"
+    assert "--framerate=15-60" in stream_cmd
+    assert module.POLICY.idle_poll_interval >= 1.0
+
+
+def test_vm_memory_snapshot_template_and_fork_sdk_payloads(monkeypatch):
+    calls = []
+
+    class FakeHTTP:
+        def json(self, method, path, **kwargs):
+            calls.append((method, path, kwargs.get("json")))
+            if path.endswith("/fork"):
+                return {
+                    "id": "vm-child",
+                    "name": "child",
+                    "status": "running",
+                    "container_id": "c-child",
+                    "stub_id": "s-child",
+                    "exec_ready": True,
+                }
+            return {"id": "art-1", "memory_checkpoint_id": "ckpt-1"}
+
+    service = MagicMock()
+    service.http = FakeHTTP()
+    monkeypatch.setattr(vm_module, "public_key", lambda: "ssh-ed25519 AAAA test")
+
+    vm = VM("parent", _service=service)
+    vm.info = {"id": "vm-parent", "name": "parent"}
+
+    # Default memory=False omits "memory" for backwards compatibility with older gateways.
+    vm.snapshot("disk-snap")
+    assert calls[-1] == ("POST", "/api/v1/vm/{ws}/vm-parent/snapshot", {"name": "disk-snap"})
+
+    vm.snapshot("mem-snap", memory=True)
+    assert calls[-1] == (
+        "POST",
+        "/api/v1/vm/{ws}/vm-parent/snapshot",
+        {"name": "mem-snap", "memory": True},
+    )
+
+    vm.create_template("disk-tmpl", "desc")
+    assert calls[-1] == (
+        "POST",
+        "/api/v1/vm/{ws}/vm-parent/template",
+        {"name": "disk-tmpl", "description": "desc", "public": False},
+    )
+
+    vm.create_template("mem-tmpl", "desc", memory=True)
+    assert calls[-1] == (
+        "POST",
+        "/api/v1/vm/{ws}/vm-parent/template",
+        {"name": "mem-tmpl", "description": "desc", "public": False, "memory": True},
+    )
+
+    vm.fork("disk-fork", wait=False)
+    assert calls[-1] == (
+        "POST",
+        "/api/v1/vm/{ws}/vm-parent/fork",
+        {"name": "disk-fork", "ssh_public_key": "ssh-ed25519 AAAA test"},
+    )
+
+    child = vm.fork("mem-fork", wait=False, memory=True)
+    assert child.info["id"] == "vm-child"
+    assert calls[-1] == (
+        "POST",
+        "/api/v1/vm/{ws}/vm-parent/fork",
+        {"name": "mem-fork", "ssh_public_key": "ssh-ed25519 AAAA test", "memory": True},
+    )
+
+
+def test_vm_cli_memory_flags_for_snapshot_template_and_fork(cli_service, monkeypatch):
+    vm = MagicMock()
+    vm.snapshot.return_value = {"id": "snap-mem", "memory_checkpoint_id": "ckpt-1"}
+    vm.create_template.return_value = {"id": "tmpl-mem", "memory_checkpoint_id": "ckpt-2"}
+    forked = MagicMock()
+    forked.info = {"id": "vm-forked", "name": "forked", "status": "running"}
+    vm.fork.return_value = forked
+    monkeypatch.setattr(vm_cli, "_vm", lambda *_: vm)
+    monkeypatch.setattr(vm_cli, "_ready", lambda *_: None)
+    cli_service.http.json.return_value = []
+
+    res = CliRunner().invoke(
+        vm_cli.management, ["snapshot", "create", "src", "--name", "s1", "--memory", "--json"]
+    )
+    assert res.exit_code == 0, res.output
+    vm.snapshot.assert_called_once_with("s1", memory=True)
+
+    res = CliRunner().invoke(
+        vm_cli.management, ["template", "create", "src", "t1", "--memory", "--json"]
+    )
+    assert res.exit_code == 0, res.output
+    vm.create_template.assert_called_once_with("t1", "", public=False, memory=True)
+
+    res = CliRunner().invoke(vm_cli.management, ["fork", "src", "forked", "--memory", "--json"])
+    assert res.exit_code == 0, res.output
+    vm.fork.assert_called_once_with("forked", cpu_tier=None, memory=True)

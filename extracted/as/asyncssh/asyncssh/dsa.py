@@ -26,12 +26,13 @@ from .asn1 import ASN1DecodeError, ObjectIdentifier, der_encode, der_decode
 from .crypto import DSAPrivateKey, DSAPublicKey
 from .misc import all_ints
 from .packet import MPInt, String, SSHPacket
-from .public_key import SSHKey, SSHOpenSSHCertificateV01, KeyExportError
+from .public_key import SSHKey, SSHOpenSSHCertificateV01
+from .public_key import KeyImportError, KeyExportError
 from .public_key import register_public_key_alg, register_certificate_alg
 from .public_key import register_x509_certificate_alg
 
 
-_PrivateKeyArgs = Tuple[int, int, int, int, int]
+_PrivateKeyArgs = Tuple[int, int, int, Optional[int], int]
 _PublicKeyArgs = Tuple[int, int, int, int]
 
 
@@ -49,9 +50,6 @@ class _DSAKey(SSHKey):
     all_sig_algorithms = set(sig_algorithms)
 
     def __eq__(self, other: object) -> bool:
-        # This isn't protected access - both objects are _DSAKey instances
-        # pylint: disable=protected-access
-
         return (isinstance(other, type(self)) and
                 self._key.p == other._key.p and
                 self._key.q == other._key.q and
@@ -67,7 +65,7 @@ class _DSAKey(SSHKey):
     def generate(cls, algorithm: bytes) -> '_DSAKey': # type: ignore
         """Generate a new DSA private key"""
 
-        # pylint: disable=arguments-differ,unused-argument
+        # pylint: disable=arguments-differ
 
         return cls(DSAPrivateKey.generate(key_size=1024))
 
@@ -77,7 +75,10 @@ class _DSAKey(SSHKey):
 
         p, q, g, y, x = cast(_PrivateKeyArgs, key_params)
 
-        return cls(DSAPrivateKey.construct(p, q, g, y, x))
+        try:
+            return cls(DSAPrivateKey.construct(p, q, g, y, x))
+        except ValueError:
+            raise KeyImportError('Invalid DSA private key') from None
 
     @classmethod
     def make_public(cls, key_params: object) -> SSHKey:
@@ -85,7 +86,10 @@ class _DSAKey(SSHKey):
 
         p, q, g, y = cast(_PublicKeyArgs, key_params)
 
-        return cls(DSAPublicKey.construct(p, q, g, y))
+        try:
+            return cls(DSAPublicKey.construct(p, q, g, y))
+        except ValueError:
+            raise KeyImportError('Invalid DSA public key') from None
 
     @classmethod
     def decode_pkcs1_private(cls, key_data: object) -> \
@@ -117,14 +121,13 @@ class _DSAKey(SSHKey):
 
         try:
             x = der_decode(data)
-        except ASN1DecodeError:
+        except (ASN1DecodeError, UnicodeDecodeError):
             return None
 
         if (isinstance(alg_params, tuple) and len(alg_params) == 3 and
                 all_ints(alg_params) and isinstance(x, int)):
             p, q, g = alg_params
-            y: int = pow(g, x, p)
-            return p, q, g, y, x
+            return p, q, g, None, x
         else:
             return None
 
@@ -135,7 +138,7 @@ class _DSAKey(SSHKey):
 
         try:
             y = der_decode(data)
-        except ASN1DecodeError:
+        except (ASN1DecodeError, UnicodeDecodeError):
             return None
 
         if (isinstance(alg_params, tuple) and len(alg_params) == 3 and
@@ -222,8 +225,6 @@ class _DSAKey(SSHKey):
     def sign_ssh(self, data: bytes, sig_algorithm: bytes) -> bytes:
         """Compute an SSH-encoded signature of the specified data"""
 
-        # pylint: disable=unused-argument
-
         if not self._key.x:
             raise ValueError('Private key needed for signing')
 
@@ -234,8 +235,6 @@ class _DSAKey(SSHKey):
     def verify_ssh(self, data: bytes, sig_algorithm: bytes,
                    packet: SSHPacket) -> bool:
         """Verify an SSH-encoded signature of the specified data"""
-
-        # pylint: disable=unused-argument
 
         sig = packet.get_string()
         packet.check_end()

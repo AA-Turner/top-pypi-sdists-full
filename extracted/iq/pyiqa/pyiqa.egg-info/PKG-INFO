@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyiqa
-Version: 0.1.16
+Version: 0.1.17
 Summary: PyTorch Toolbox for Image Quality Assessment
 Author-email: Chaofeng Chen <chaofenghust@gmail.com>
 License-Expression: PolyForm-Noncommercial-1.0.0
@@ -11,32 +11,34 @@ Keywords: image quality assessment,pytorch
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Image Processing
-Requires-Python: >=3.6
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE-S-Lab
+License-File: LICENSE-OpenAI-CLIP
+License-File: THIRD_PARTY_NOTICES.md
 Requires-Dist: accelerate
 Requires-Dist: addict
 Requires-Dist: datasets
 Requires-Dist: bitsandbytes; sys_platform != "darwin"
 Requires-Dist: einops
 Requires-Dist: facexlib
+Requires-Dist: ftfy
 Requires-Dist: future
 Requires-Dist: numpy
-Requires-Dist: openai-clip
 Requires-Dist: opencv-python-headless
 Requires-Dist: pandas
 Requires-Dist: Pillow
-Requires-Dist: pre-commit
-Requires-Dist: pytest
 Requires-Dist: pyyaml
+Requires-Dist: regex
 Requires-Dist: requests
-Requires-Dist: ruff
 Requires-Dist: scikit-image
 Requires-Dist: scipy
 Requires-Dist: sentencepiece
@@ -46,7 +48,11 @@ Requires-Dist: torch>=1.13
 Requires-Dist: torchvision>=0.13
 Requires-Dist: tqdm
 Requires-Dist: transformers>=5.0
-Requires-Dist: yapf
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: yapf; extra == "dev"
 Dynamic: license-file
 
 <div align="center">
@@ -88,6 +94,8 @@ This is a comprehensive image quality assessment (IQA) toolbox built with **pure
 ---
 
 ### :triangular_flag_on_post: Updates/Changelog
+- ⚡**Nov, 2026**. CPU runtime reduced by 47% for [MAD](https://github.com/chaofengc/IQA-PyTorch/pull/314), 49% for [NRQM](https://github.com/chaofengc/IQA-PyTorch/pull/315), 20% for [FSIM](https://github.com/chaofengc/IQA-PyTorch/pull/316), 21% for [VSI](https://github.com/chaofengc/IQA-PyTorch/pull/317), and 52% for [VIF](https://github.com/chaofengc/IQA-PyTorch/pull/321). Thanks to [dexhunter](https://github.com/dexhunter)!
+- 🆕**Oct, 2026**. Add FR metrics `jld` and `jld_fast` proposed in [JLD: Perceptual Distance Through A Jacobian Lens](https://arxiv.org/abs/2610.05967). Both are lower-is-better distances on frozen DINOv2-S/14 features, differentiable for use as losses. See the [official repo](https://github.com/shreshthsaini/jld).
 - 🆕**Jun, 2026**. Add `qrealign` (Q-ReAlign), a modern Q-Align visual scorer on a Qwen3.5-VL backbone, with three sizes `qrealign-mini` (0.8B) / `qrealign-lite` (4B) / `qrealign-pro` (9B). Requires `transformers>=5.0`. See [Q-ReAlign](https://github.com/Q-Future/Q-ReAlign).
 - 🆕**May, 2026**. Add `fgresq` metric from [FGResQ](https://github.com/sxfly99/FGResQ). Thanks to their great work 🤗, and see the [paper](https://arxiv.org/abs/2508.14475) for details.
 - 👉**Dec, 2025**.Add FR-IQA method `dmm` proposed in [paper](https://ieeexplore.ieee.org/abstract/document/10886996), with SVD-based debiased mapping to mitigate perception bias. Thanks to [baoliang](https://github.com/Baoliang93) for their great work 🤗, refer to DMM for more details.
@@ -118,7 +126,7 @@ pip install git+https://github.com/chaofengc/IQA-PyTorch.git
 # Install with git clone
 git clone https://github.com/chaofengc/IQA-PyTorch.git
 cd IQA-PyTorch
-pip install -e .
+pip install -e .          # or: pip install -e ".[dev]" to also get pytest/ruff/pre-commit
 ```
 
 ### Basic Usage 
@@ -196,6 +204,50 @@ python inference_iqa.py -m LPIPS[or lpips] -t ./ResultsCalibra/dist_dir[dist_img
 # example for NR metric with single image
 python inference_iqa.py -m brisque -t ./ResultsCalibra/dist_dir/I03.bmp
 ```
+
+#### Candidate-pool gMAD-style testing
+
+`pyiqa-gmad` is a standalone candidate-pool helper that uses two non-reference
+metrics to find pairs where one metric gives similar scores while the other
+metric differs. See the [gMAD documentation](docs/gmad.rst) for input formats,
+score direction, output interpretation, and limitations. It is not a
+replacement for the official gMAD evaluation protocol.
+
+```bash
+pyiqa-gmad ./candidate_images \
+  --metric-a musiq \
+  --metric-b brisque \
+  --tie-tolerance 0.1 \
+  --device cuda \
+  --output gmad_results.json
+```
+
+The directory is searched recursively. Scores are standardized within the
+candidate pool, with `lower_better` metrics sign-corrected before comparison.
+The tie tolerance is measured in standardized-score units. Results contain one
+most-differentiating pair for each direction, or `null` if no pair meets the
+tie constraint. Install pyiqa with `pip install -e .` to register the command.
+
+To reuse precomputed scores, provide a CSV with an `image` column and one
+column for each metric. Relative image paths are resolved from the CSV's
+directory by default; use `--image-root` to choose a different root.
+
+```csv
+image,musiq,brisque
+images/sample1.png,62.4,28.1
+images/sample2.png,48.7,39.5
+```
+
+```bash
+pyiqa-gmad --scores-csv scores.csv \
+  --metric-a musiq \
+  --metric-b brisque \
+  --tie-tolerance 0.1
+```
+
+For metric names not known to pyiqa, specify score direction with
+`--direction-a lower|higher` and `--direction-b lower|higher`. Known pyiqa
+metric directions are inferred automatically.
 
 #### Easy load of popular datasets
 

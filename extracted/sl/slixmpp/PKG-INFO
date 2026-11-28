@@ -1,24 +1,21 @@
 Metadata-Version: 2.4
 Name: slixmpp
-Version: 1.17.0
+Version: 1.18.0
 Summary: Slixmpp is an elegant Python library for XMPP (aka Jabber).
-Author-email: Florent Le Coz <louiz@louiz.org>, "Mathieu Pasquet (mathieui)" <mathieui@mathieui.net>, "Emmanuel Gil Peyrot (Link Mauve)" <linkmauve@linkmauve.fr>, Maxime “pep” Buquet <pep@bouah.org>
-Maintainer-email: "Mathieu Pasquet (mathieui)" <mathieui@mathieui.net>, "Emmanuel Gil Peyrot (Link Mauve)" <linkmauve@linkmauve.fr>, Maxime “pep” Buquet <pep@bouah.org>
+Author-email: Florent Le Coz <louiz@louiz.org>, "Mathieu Pasquet (mathieui)" <mathieui@mathieui.net>, "Emmanuel Gil Peyrot (Link Mauve)" <linkmauve@linkmauve.fr>, Maxime “pep” Buquet <pep@bouah.net>
+Maintainer-email: "Mathieu Pasquet (mathieui)" <mathieui@mathieui.net>, "Emmanuel Gil Peyrot (Link Mauve)" <linkmauve@linkmauve.fr>, Maxime “pep” Buquet <pep@bouah.net>
 License-Expression: MIT
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: XMPP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.11
+Requires-Python: >=3.13
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aiodns>=3.2.0
-Requires-Dist: pyasn1>=0.6.1
-Requires-Dist: pyasn1-modules>=0.4.1
 Provides-Extra: xep-0363
 Requires-Dist: aiohttp; extra == "xep-0363"
 Provides-Extra: xep-0444-compliance

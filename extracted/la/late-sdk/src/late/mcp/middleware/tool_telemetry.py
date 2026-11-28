@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import Callable
 from contextvars import ContextVar
@@ -23,11 +24,24 @@ from late.mcp.telemetry import (
     TOOL_TRANSACTION_OP,
     argument_errors_without_input,
     is_expected_failure,
+    is_synthetic_tool_refusal,
     tool_call_logger,
 )
 from late.mcp.user_agent import calling_client, calling_user_agent
 
 _REJECTED_RESULT_PREFIX = "❌"
+
+# The API's error envelope carries a stable `code`, the rejected `param` and,
+# for platform errors, the `platform`. Only short identifier-like strings are
+# logged: a value with spaces or other characters is message text, which may
+# hold user data.
+_ERROR_DETAIL_FIELDS = {
+    "code": "error_code",
+    "param": "error_param",
+    "platform": "error_platform",
+}
+_MACHINE_CODE = re.compile(r"[A-Za-z0-9_.:-]+")
+_MAX_ERROR_CODE_CHARS = 64
 
 _SENTRY_STATUS_BY_OUTCOME = {
     "ok": "ok",
@@ -105,6 +119,16 @@ def _invalid_arguments_fields(exc: InvalidArgumentsError) -> dict[str, Any]:
     return fields
 
 
+def _api_error_detail_fields(exc: LateAPIError) -> dict[str, Any]:
+    details = exc.details if isinstance(exc.details, dict) else {}
+    fields: dict[str, Any] = {}
+    for key, field in _ERROR_DETAIL_FIELDS.items():
+        value = details.get(key)
+        if isinstance(value, str) and _MACHINE_CODE.fullmatch(value):
+            fields[field] = value[:_MAX_ERROR_CODE_CHARS]
+    return fields
+
+
 def _error_fields(exc: Exception) -> dict[str, Any]:
     if isinstance(exc, InvalidArgumentsError):
         return _invalid_arguments_fields(exc)
@@ -115,9 +139,18 @@ def _error_fields(exc: Exception) -> dict[str, Any]:
     fields: dict[str, Any] = {"error_type": type(cause).__name__}
     if isinstance(cause, LateAPIError):
         fields["status_code"] = cause.status_code
+        fields.update(_api_error_detail_fields(cause))
     if isinstance(cause, LateRateLimitError) and cause.retry_after is not None:
         fields["retry_after_s"] = cause.retry_after
     return fields
+
+
+def _misuse_fields(arguments: dict[str, Any] | None, exc: Exception) -> dict[str, Any]:
+    # Counts agents wrapping call_tool in itself, which FastMCP refuses.
+    if not is_synthetic_tool_refusal(exc):
+        return {}
+    requested = (arguments or {}).get("name")
+    return {"misuse": "nested_call_tool" if requested == _CALL_TOOL else "proxied_search_tool"}
 
 
 class ToolTelemetryMiddleware(Middleware):
@@ -199,8 +232,14 @@ class ToolTelemetryMiddleware(Middleware):
                 fields = {"outcome": "cancelled"}
                 raise
             except Exception as exc:
-                fields = {"outcome": "error", **_error_fields(exc)}
+                fields = {
+                    "outcome": "error",
+                    **_error_fields(exc),
+                    **_misuse_fields(context.message.arguments, exc),
+                }
                 transaction.set_tag("mcp.error_type", fields["error_type"])
+                if "misuse" in fields:
+                    transaction.set_tag("mcp.misuse", fields["misuse"])
                 if "invalid_arguments" in fields:
                     transaction.set_tag(
                         "mcp.invalid_arguments", fields["invalid_arguments"]

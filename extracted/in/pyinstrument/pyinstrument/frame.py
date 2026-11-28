@@ -43,6 +43,26 @@ SYNTHETIC_LEAF_IDENTIFIERS = frozenset(
 )
 
 
+def _path_is_inside(path: str, directory: str) -> bool:
+    """
+    Return True if ``path`` is ``directory`` itself or a file within it.
+
+    The comparison is purely lexical (no filesystem access), but uses path
+    component boundaries rather than a plain prefix match, so a sibling
+    directory such as ``/tmp/env-project`` is not treated as inside
+    ``/tmp/env``. Both ``/`` and ``\\`` are accepted as separators so that
+    profiles saved on one platform can be rendered on another.
+    """
+    if not path.startswith(directory):
+        return False
+    if len(path) == len(directory):
+        return True
+    if directory.endswith("/") or directory.endswith("\\"):
+        return True
+    next_char = path[len(directory)]
+    return next_char == "/" or next_char == "\\"
+
+
 class FrameContext(typing.Protocol):
     def shorten_path(self, path: str) -> str: ...
     @property
@@ -109,6 +129,17 @@ class Frame:
         if self.parent:
             self.parent._children.remove(self)
             self.parent = None
+
+    def remove_children(self, frames: Sequence[Frame]):
+        """
+        Removes several child frames in one pass, nulling their parent links.
+        Faster than calling remove_from_parent on each when there are many.
+        """
+        assert all(frame.parent is self for frame in frames)
+        removing = set(frames)
+        self._children = [c for c in self._children if c not in removing]
+        for frame in frames:
+            frame.parent = None
 
     @property
     def context(self):
@@ -187,7 +218,7 @@ class Frame:
         if not file_path:
             return False
 
-        if any(file_path.startswith(p) for p in self.context.sys_prefixes):
+        if any(_path_is_inside(file_path, p) for p in self.context.sys_prefixes):
             # lives in python install dir or virtualenv
             return False
 
@@ -323,9 +354,9 @@ class Frame:
             return
 
         calculated_time = sum(child.time for child in self.children) + self.absorbed_time
-        assert math.isclose(
-            calculated_time, self.time
-        ), f"Frame time mismatch, should be {calculated_time}, was {self.time}, {self.children}"
+        assert math.isclose(calculated_time, self.time), (
+            f"Frame time mismatch, should be {calculated_time}, was {self.time}, {self.children}"
+        )
 
         if recursive:
             for child in self.children:

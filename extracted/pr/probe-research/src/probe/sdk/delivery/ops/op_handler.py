@@ -105,7 +105,7 @@ def _execute(
     if op.get("kind") == "create_run":
         # An OFFLINE run's create (plan 2.12). Only `probe sync` drains the queues that
         # carry this kind (`<outbox>/offline/<key>/`); no older worker meets it.
-        return op_handler("create_run")(journal, client, op)
+        return op_handler("create_run")(journal, client, op, op_path)
     if str(op.get("run_ref") or "").startswith("local:"):
         # ...and every later op of that run: `local:<key>` becomes the create's id.
         # Raises OfflineRunNotCreated while it has none.

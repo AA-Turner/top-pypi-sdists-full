@@ -2,6 +2,7 @@
 import unittest
 from slixmpp.test import SlixTest
 from slixmpp import JID, InvalidJID
+from slixmpp.jid import escape_node, unescape_node
 
 
 class TestJIDClass(SlixTest):
@@ -311,6 +312,10 @@ class TestJIDClass(SlixTest):
         jid = JID('toto@example.com')
         self.assertFalse(jid == "@@@@")
         self.assertFalse(jid in ["abc", "def", "@@@@"])
+
+    def test_escaping(self) -> None:
+        self.assertEqual(escape_node("bla@bla"), r"bla\40bla")
+        self.assertEqual(unescape_node(r"bla\40bla"), "bla@bla")
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestJIDClass)

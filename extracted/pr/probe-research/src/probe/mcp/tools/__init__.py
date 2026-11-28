@@ -41,6 +41,7 @@ _PIECES = (
     "probe.mcp.tools.views.lineage",
     "probe.mcp.tools.views.notes",
     "probe.mcp.tools.views.overview",
+    "probe.mcp.tools.views.plan",
     "probe.mcp.tools.views.runs",
     "probe.mcp.tools.views.sessions",
     "probe.mcp.tools.tools",

@@ -208,6 +208,48 @@ def _get_url_and_payload(
     return url, payload
 
 
+def _date_windows(
+    start: Optional[DateInput], end: Optional[DateInput], last: int
+) -> List[Tuple[Optional[DateInput], Optional[DateInput]]]:
+    """Split [start, end] into windows of at most 10 years.
+
+    The SGS API rejects daily series queries longer than 10 years. The
+    frequency is unknown before the query, so long ranges are always split.
+    """
+    if last or start is None:
+        return [(start, end)]
+    win_start = pd.Timestamp(Date(start).date)
+    final = pd.Timestamp(Date(end if end else "today").date)
+    windows: List[Tuple[Optional[DateInput], Optional[DateInput]]] = []
+    while True:
+        # 10 years minus 1 day, so we do not depend on how the API counts.
+        win_end = win_start + pd.DateOffset(years=10) - pd.Timedelta(days=1)
+        if win_end >= final:
+            windows.append((win_start.date(), final.date()))
+            return windows
+        windows.append((win_start.date(), win_end.date()))
+        win_start = win_end + pd.Timedelta(days=1)
+
+
+def _merge_json(texts: List[str]) -> str:
+    """Join the JSON lists of several windows, dropping repeated rows.
+
+    Period series (TR, TBF) can have several rows with the same start date
+    and different end dates, so the key is (data, dataFim).
+    """
+    if len(texts) == 1:
+        return texts[0]
+    seen = set()
+    rows = []
+    for text in texts:
+        for row in json.loads(text):
+            key = (row["data"], row.get("dataFim"))
+            if key not in seen:
+                seen.add(key)
+                rows.append(row)
+    return json.dumps(rows)
+
+
 def _raise_sgs_response_error(res: httpx.Response, code: int) -> None:
     if res.status_code == 429:
         raise_for_status(res, context=f"SGS time series code={code}")
@@ -247,32 +289,44 @@ async def _async_get_sgs_response(
 
 
 def _format_df(df: pd.DataFrame, code: SGSCode, freq: Optional[str]) -> pd.DataFrame:
-    cns = {"data": "Date", "valor": code.name, "datafim": "enddate"}
+    # Series like TR (226) send a period: "data" (start) and "dataFim" (end).
+    # A start date can repeat with different end dates, so both form the index.
+    cns = {"data": "Date", "valor": code.name, "dataFim": "enddate"}
     df = df.rename(columns=cns)
-    if "Date" in df:
-        df["Date"] = pd.to_datetime(df["Date"], format="%d/%m/%Y")
-    if "enddate" in df:
-        df["enddate"] = pd.to_datetime(df["enddate"], format="%d/%m/%Y")
-    df = df.set_index("Date")
-    if freq:
-        df.index = df.index.to_period(freq)
-    return df
+    keys = [k for k in ("Date", "enddate") if k in df]
+    for k in keys:
+        df[k] = pd.to_datetime(df[k], format="%d/%m/%Y")
+        if freq:
+            df[k] = df[k].dt.to_period(freq)
+    return df.set_index(keys if len(keys) > 1 else "Date")
 
 
-def _tidy_df(df: pd.DataFrame) -> pd.DataFrame:
-    frames = []
-    for position, series_name in enumerate(df.columns):
-        frames.append(
-            pd.DataFrame(
-                {
-                    "Date": df.index,
-                    "series": series_name,
-                    "value": df.iloc[:, position].to_numpy(),
-                }
-            )
+def _is_period(df: pd.DataFrame) -> bool:
+    return bool(df.index.nlevels == 2)
+
+
+def _wide_df(dfs: List[pd.DataFrame], codes: List[SGSCode]) -> pd.DataFrame:
+    periods = [c.name for df, c in zip(dfs, codes, strict=True) if _is_period(df)]
+    if periods and len(periods) != len(dfs):
+        raise ValueError(
+            f"Series with an end date ({', '.join(periods)}) cannot be aligned "
+            "with series without one; use tidy=True or multi=False"
         )
-    if not frames:
-        return pd.DataFrame(columns=["Date", "series", "value"])
+    return pd.concat(dfs, axis=1)
+
+
+def _tidy_df(dfs: List[pd.DataFrame], codes: List[SGSCode]) -> pd.DataFrame:
+    has_enddate = any(_is_period(df) for df in dfs)
+    frames = []
+    for df, code in zip(dfs, codes, strict=True):
+        frame = {"Date": df.index.get_level_values("Date")}
+        if has_enddate:
+            frame["enddate"] = (
+                df.index.get_level_values("enddate") if _is_period(df) else pd.NaT
+            )
+        frame["series"] = code.name
+        frame["value"] = df[code.name].to_numpy()
+        frames.append(pd.DataFrame(frame))
     return pd.concat(frames, ignore_index=True)
 
 
@@ -402,12 +456,12 @@ def get(
         dfs.append(df)
 
     if tidy:
-        return _tidy_df(pd.concat(dfs, axis=1))
+        return _tidy_df(dfs, code_list)
     if len(dfs) == 1:
         return dfs[0]
     else:
         if multi:
-            return pd.concat(dfs, axis=1)
+            return _wide_df(dfs, code_list)
         else:
             return dfs
 
@@ -450,21 +504,35 @@ def get_json(
     """
     code_obj = SGSCode.from_code(code)
     _validate_sgs_code(code_obj)
-    url, payload = _get_url_and_payload(code_obj.value, start, end, last)
-    logger.debug(
-        f"Fetching SGS time series code={code_obj.value} from {url.split('/dados')[0]}"
-    )
-    try:
-        res = _get_sgs_response(url, payload, timeout)
-    except httpx.HTTPError as ex:
-        raise_for_request_error(
-            ex, context=f"SGS time series code={code_obj.value}", error_cls=SGSError
+    windows = _date_windows(start, end, last)
+    texts: List[str] = []
+    not_found: List[httpx.Response] = []
+    for win_start, win_end in windows:
+        url, payload = _get_url_and_payload(code_obj.value, win_start, win_end, last)
+        logger.debug(
+            f"Fetching SGS time series code={code_obj.value} "
+            f"from {url.split('/dados')[0]}"
         )
-    logger.debug(f"SGS response: status={res.status_code}, length={len(res.text)}")
+        try:
+            res = _get_sgs_response(url, payload, timeout)
+        except httpx.HTTPError as ex:
+            raise_for_request_error(
+                ex,
+                context=f"SGS time series code={code_obj.value}",
+                error_cls=SGSError,
+            )
+        logger.debug(f"SGS response: status={res.status_code}, length={len(res.text)}")
 
-    if res.status_code != 200:
-        _raise_sgs_response_error(res, code_obj.value)
-    return str(res.text)
+        if res.status_code == 404 and len(windows) > 1:
+            # BCB sends 404 for a window with no data (e.g. before the series starts)
+            not_found.append(res)
+            continue
+        if res.status_code != 200:
+            _raise_sgs_response_error(res, code_obj.value)
+        texts.append(str(res.text))
+    if not texts:
+        _raise_sgs_response_error(not_found[-1], code_obj.value)
+    return _merge_json(texts)
 
 
 async def async_get_json(
@@ -508,24 +576,39 @@ async def async_get_json(
     """
     code_obj = SGSCode.from_code(code)
     _validate_sgs_code(code_obj)
-    url, payload = _get_url_and_payload(code_obj.value, start, end, last)
-    logger.debug(
-        f"Fetching SGS time series (async) code={code_obj.value} "
-        f"from {url.split('/dados')[0]}"
-    )
-    try:
-        res = await _async_get_sgs_response(url, payload, timeout)
-    except httpx.HTTPError as ex:
-        raise_for_request_error(
-            ex, context=f"SGS time series code={code_obj.value}", error_cls=SGSError
+    windows = _date_windows(start, end, last)
+    texts: List[str] = []
+    not_found: List[httpx.Response] = []
+    # shortcut: windows are fetched one by one (gentler on the rate limit);
+    # gather them if long async queries turn out to be slow.
+    for win_start, win_end in windows:
+        url, payload = _get_url_and_payload(code_obj.value, win_start, win_end, last)
+        logger.debug(
+            f"Fetching SGS time series (async) code={code_obj.value} "
+            f"from {url.split('/dados')[0]}"
         )
-    logger.debug(
-        f"SGS (async) response: status={res.status_code}, length={len(res.text)}"
-    )
+        try:
+            res = await _async_get_sgs_response(url, payload, timeout)
+        except httpx.HTTPError as ex:
+            raise_for_request_error(
+                ex,
+                context=f"SGS time series code={code_obj.value}",
+                error_cls=SGSError,
+            )
+        logger.debug(
+            f"SGS (async) response: status={res.status_code}, length={len(res.text)}"
+        )
 
-    if res.status_code != 200:
-        _raise_sgs_response_error(res, code_obj.value)
-    return str(res.text)
+        if res.status_code == 404 and len(windows) > 1:
+            # BCB sends 404 for a window with no data (e.g. before the series starts)
+            not_found.append(res)
+            continue
+        if res.status_code != 200:
+            _raise_sgs_response_error(res, code_obj.value)
+        texts.append(str(res.text))
+    if not texts:
+        _raise_sgs_response_error(not_found[-1], code_obj.value)
+    return _merge_json(texts)
 
 
 async def async_get(
@@ -599,11 +682,11 @@ async def async_get(
         for c, t in zip(code_list, texts, strict=True)
     ]
     if tidy:
-        return _tidy_df(pd.concat(dfs, axis=1))
+        return _tidy_df(dfs, code_list)
     if len(dfs) == 1:
         return dfs[0]
     else:
         if multi:
-            return pd.concat(dfs, axis=1)
+            return _wide_df(dfs, code_list)
         else:
             return dfs

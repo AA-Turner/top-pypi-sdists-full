@@ -16,7 +16,7 @@ class RemoveKnowledgeUploadUserRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id
-        # The file ID.
+        # The ID of the file.
         self.file_id = file_id
         # The address of the knowledge base document.
         self.file_location = file_location

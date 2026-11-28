@@ -5,6 +5,8 @@ What is on, and what is not, between this machine and a policy server: run it on
 
     python -m sequence_ai.check http://<gpu>:8000
     python -m sequence_ai.check http://<gpu>:8000 --token "$TOKEN" --observation observation.npz
+    python -m sequence_ai.check my_policy_user --observation observation.npz      # a deployment on GS's platform
+    seq check http://<gpu>:8000                                                    # the same, on `seq`
 
 It reaches the server as a robot does - sequence_ai.connect(url, token=...), then wait_until_ready() - and each line is
 one thing that changes how long the robot waits for its answers, marked `ok` (on), `no` (off: the line says how to turn
@@ -36,6 +38,11 @@ observation handed over (policy.observe), then the act (policy.act). They need a
 of msgpack as msgpack_io.pack writes it, a .npz of arrays, or .json), else the one the server hands out at GET /example
 (serve(example=...) does) - and a server that takes the robot's stream. Without either they say so.
 
+A deployment on GS's platform is checked by its name, as connect("my_policy_user") reaches it - sequence-cloud's, with
+the platform's key (--api-key, else $SEQUENCES_API_KEY) - on the worker the platform seats the robot on. That worker's
+address is never said: the lines name the deployment, and an act's time is said as its worker's own alone, the network's
+part of it in no number. Its acts' observation is --observation's: a deployment's worker hands out none.
+
 Exit status: 0 when no line is `no`, 1 when one is, 2 when the server cannot be reached, is not ready within --wait, or
 refuses this machine.
 """
@@ -54,7 +61,7 @@ from urllib.parse import urlsplit
 
 from .network import msgpack_io, wifi_power, window
 
-__all__ = ["Row", "main", "run"]
+__all__ = ["DESCRIPTION", "Row", "add_arguments", "main", "report", "run"]
 
 
 
@@ -173,17 +180,20 @@ def _wifi_row() -> Row:
 
 
 def _pings_in_inference(url: str, headers: dict, ping_path: str, act: Any, idle_s: float,
-                        acts: int = 3, every_s: float = 0.01) -> "tuple[Row, list]":
+                        acts: int = 3, every_s: float = 0.01, verify: Any = True,
+                        totals_said: bool = True) -> "tuple[Row, list]":
     """Pings on a connection of their own while acts run on the robot's. A server that answers none while its model runs
     holds one of them for most of the inference: an act whose slowest ping took half of what the act took past the idle
     round trip (and 20 ms more than that round trip) had its pings held, and the server holds them when most acts did.
     A ping answered before the act's request reached the server says nothing either way, so the median would not do.
     `act()` returns the time its server says it took (None where it says none); one ping each `every_s` at most, so a
-    server on this machine is not kept busy answering them. Returns the row and each act's (time, server's time)."""
+    server on this machine is not kept busy answering them. Returns the row and each act's (time, server's time).
+    `verify`: how the server's certificate is checked (a deployment's worker: the fingerprint the platform pinned);
+    `totals_said`: False for a deployment, whose act's whole time holds the network's and is said in no number."""
     import httpx
 
     slowest, held, during, totals = [], 0, [], []
-    with httpx.Client(base_url=url, headers=headers, timeout=30.0) as probe:
+    with httpx.Client(base_url=url, headers=headers, timeout=30.0, verify=verify) as probe:
         probe.get(ping_path)
         for _ in range(acts):
             finished, box = threading.Event(), {}
@@ -218,8 +228,8 @@ def _pings_in_inference(url: str, headers: dict, ping_path: str, act: Any, idle_
                 slowest.append(max(these))
                 held += max(these) >= max(idle_s + 0.02, 0.5 * (total - idle_s))
     if not slowest:
-        return Row("--", "pings in inference", f"each act took {_ms(statistics.median(t for t, _ in totals))}, too "
-                                               "short to tell"), totals
+        took = f"took {_ms(statistics.median(t for t, _ in totals))}, too" if totals_said else "was too"
+        return Row("--", "pings in inference", f"each act {took} short to tell"), totals
     if 2 * held <= len(slowest):
         return Row("ok", "pings in inference", f"answered while the model ran ({len(during)} pings in "
                                                f"{len(slowest)} acts)"), totals
@@ -249,37 +259,85 @@ def _not_ready(url: str, wait_s: float, status: int | None, token: str | None) -
                                + (f"its ping's answer is {status}" if status is not None else "nothing answered"))
 
 
-def run(url: str, *, token: Optional[str] = None, observation: Any = None, pings: int = 10,
-        wait_s: float = 60.0) -> "tuple[List[Row], int]":
-    """Check the server at `url` (the module's docstring): its rows, and the exit status they give. The server is
-    reached as a robot reaches it - connect(url, token=...), wait_until_ready(), each act an observe() and the act()
-    after it on the robot's stream - so what is measured is what the robot's own loop meets."""
+def _worker_of(policy: Any) -> "tuple[Optional[str], Any]":
+    """Where the robot's connection reaches its worker once wait_until_ready() opened it: the worker's address and how
+    its certificate is checked (the fingerprint the platform pinned) - (None, True) while it holds none. Never said: a
+    deployment's worker is named by its deployment alone."""
+    worker = getattr(getattr(policy, "_t", None), "_worker", None)
+    return getattr(worker, "_base", None), (getattr(worker, "_verify", None) or True)
+
+
+def _unsaid(text: str, url: Optional[str]) -> str:
+    """`text` with a deployment's worker's address taken out of it, "its worker" in its place."""
+    if not url:
+        return text
+    parts = urlsplit(url)
+    for said in (url, parts.netloc, parts.hostname):
+        if said:
+            text = text.replace(said, "its worker")
+    return text
+
+
+def run(target: str, *, token: Optional[str] = None, api_key: Optional[str] = None, observation: Any = None,
+        pings: int = 10, wait_s: float = 60.0) -> "tuple[List[Row], int]":
+    """Check the server at `target` - its address, or a deployment's name on GS's platform (the module's docstring):
+    its rows, and the exit status they give. The server is reached as a robot reaches it - connect(), then
+    wait_until_ready(), each act an observe() and the act() after it on the robot's stream - so what is measured is
+    what the robot's own loop meets."""
     import httpx
 
-    from . import connect
+    from . import _SCHEMELESS, connect
     from ._core.worker_stream import FORMAT as STREAM_FORMAT
     from ._core.worker_transport import FORMATS_HEADER
     from .errors import AuthError, InvalidRequest, PermissionDenied, SequencesError, Unavailable
 
-    if "://" not in url:
+    name = None if "://" in target else target
+    if name is not None and _SCHEMELESS.fullmatch(name.strip()):
 
-        return [Row("no", "server", f"{url} is not an address: give it as http://<host>:<port>")], 2
+        return [Row("no", "server", f"{target} is not an address: give it as http://<host>:<port>")], 2
+    if name is not None and token:
+        return [Row("no", "server", "--token is a server of your own's: a deployment on GS's platform is reached by "
+                                    "its name with the platform's key, --api-key")], 2
+    if name is None and api_key:
+        return [Row("no", "server", f"--api-key is the platform's, and {target} is a server of your own: it is reached "
+                                    "with its --token")], 2
+    url: Optional[str] = target if name is None else None
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     rows: List[Row] = []
-    policy = connect(url, token=token)
+    if name is None:
+        policy = connect(target, token=token)
+    else:
+        try:
+            policy = connect(name, api_key=api_key)
+        except SequencesError as e:
+            return [Row("no", "server", str(e))], 2
     try:
         try:
             policy.wait_until_ready(timeout_s=wait_s)
-        except (AuthError, PermissionDenied) as e:
-            return [_not_ready(url, wait_s, e.status, token)], 2
-        except InvalidRequest as e:
-            return [Row("no", "server", str(e))], 2
-        except Unavailable:
+        except SequencesError as e:
+            if name is not None:
 
-            return [_not_ready(url, wait_s, _ping_status(url, headers), token)], 2
+                said = f"{name} was not ready in {wait_s:g} s: {e}" if isinstance(e, Unavailable) else str(e)
+                return [Row("no", "server", said)], 2
+            if isinstance(e, (AuthError, PermissionDenied)):
+                return [_not_ready(url, wait_s, e.status, token)], 2
+            if isinstance(e, InvalidRequest):
+                return [Row("no", "server", str(e))], 2
+            if isinstance(e, Unavailable):
+
+                return [_not_ready(url, wait_s, _ping_status(url, headers), token)], 2
+            raise
+        verify: Any = True
+        if name is not None:
+
+
+            url, verify = _worker_of(policy)
+            if url is None:
+                return [Row("no", "server", f"{name} is ready, and its connection holds no worker")], 2
 
         with httpx.Client(base_url=url, headers=headers, timeout=10.0,
-                          transport=httpx.HTTPTransport(socket_options=window.socket_options())) as client:
+                          transport=httpx.HTTPTransport(verify=verify,
+                                                        socket_options=window.socket_options())) as client:
             answered = []
             for _ in range(max(1, pings)):
                 began = time.perf_counter()
@@ -293,7 +351,11 @@ def run(url: str, *, token: Optional[str] = None, observation: Any = None, pings
         stream = (f"takes the robot's stream ({STREAM_FORMAT})" if streams else
                   f"does not take the robot's stream (no {STREAM_FORMAT} in {FORMATS_HEADER}), which connect() sends "
                   "observations and acts on: serve() takes it where sequence-base is installed (Python 3.10 or later)")
-        if identity:
+        if name is not None:
+            rows.append(Row("ok" if status == 200 and streams else "no", "server",
+                            f"{name}, a deployment on GS's platform: its worker answers {PING} with {status} and "
+                            f"{stream}"))
+        elif identity:
             rows.append(Row("ok" if status == 200 and streams else "no", "server",
                             f"{identity}; it answers {PING} with {status} and {stream}"))
         else:
@@ -313,8 +375,9 @@ def run(url: str, *, token: Optional[str] = None, observation: Any = None, pings
                     Row("no", "pings when idle", f"the server answers {PING} with {status}, not 200: serve() answers "
                                                  "200 while its policy is ready"))
 
+
         source = "--observation"
-        if observation is None:
+        if observation is None and name is None:
             try:
                 with httpx.Client(base_url=url, headers=headers, timeout=10.0) as client:
                     response = client.get("/example")
@@ -324,65 +387,99 @@ def run(url: str, *, token: Optional[str] = None, observation: Any = None, pings
                 observation = None
 
         if observation is None or not streams:
-            why = ("needs an observation: --observation FILE, or a server that hands one out at GET /example"
-                   if observation is None else "needs a server that takes the robot's stream")
+            needs = ("--observation FILE (a deployment's worker hands out none)" if name is not None else
+                     "--observation FILE, or a server that hands one out at GET /example")
+            why = (f"needs an observation: {needs}" if observation is None else
+                   "needs a server that takes the robot's stream")
             rows += [Row("--", "pings in inference", why), Row("--", "server time", why), Row("--", "first act", why)]
         else:
             def act() -> float | None:
-                """One act, and the seconds its server says it took - handler_ms of the answer's perf, from the act's
-                last byte to its answer, which the robot's client keeps as the last act's - or None where it says
-                none."""
+                """One act, and the seconds its worker says it took - stats()'s worker_us: its answer's handler_ms, from
+                the act's last byte to its answer - or None where it says none."""
+                before = policy.stats()["latency_us"]["worker_us"]["total"]
                 policy.observe(observation)
                 policy.act()
-                said = policy._last_perf.get("handler_ms")
-                return said / 1000.0 if isinstance(said, (int, float)) else None
+                worker = policy.stats()["latency_us"]["worker_us"]
+                return worker["last"] / 1e6 if worker["total"] > before else None
 
             try:
                 began = time.perf_counter()
-                act()
+                first_server = act()
                 first = time.perf_counter() - began
-                row, totals = _pings_in_inference(url, headers, PING, act, idle)
+                row, totals = _pings_in_inference(url, headers, PING, act, idle, verify=verify,
+                                                  totals_said=name is None)
             except SequencesError as e:
 
-                rows.append(Row("no", "act", f"an act on the observation from {source} failed: {e}"))
+                said = f"an act on the observation from {source} failed: {e}"
+                rows.append(Row("no", "act", _unsaid(said, url if name is not None else None)))
                 return rows, 1
             rows.append(row)
             took = statistics.median(t for t, _ in totals)
             said = sorted((t, server) for t, server in totals if server is not None)
-            if said:
+            if not said:
+                rows.append(Row("no", "server time", "the server does not say how long it took (no handler_ms in "
+                                                     "its answers' perf): the robot cannot tell its time from the "
+                                                     "network's"))
+            elif name is None:
                 t, server = said[len(said) // 2]
                 rows.append(Row("ok", "server time", f"the server says it took {_ms(server)} of a {_ms(t)} act; "
                                                      "the rest was outside it, on the network and in this machine"))
             else:
-                rows.append(Row("no", "server time", "the server does not say how long it took (no handler_ms in "
-                                                     "its answers' perf): the robot cannot tell its time from the "
-                                                     "network's"))
-            rows.append(Row("ok", "first act", f"{_ms(first)}, the next ones {_ms(took)} (observation from {source})"))
+
+                server = said[len(said) // 2][1]
+                rows.append(Row("ok", "server time", f"its worker says it took {_ms(server)} of an act; the rest was "
+                                                     "outside it, on the network and in this machine"))
+            if name is None:
+                rows.append(Row("ok", "first act", f"{_ms(first)}, the next ones {_ms(took)} (observation from "
+                                                   f"{source})"))
+            elif first_server is not None and said:
+                rows.append(Row("ok", "first act", f"its worker took {_ms(first_server)} on the first act, "
+                                                   f"{_ms(statistics.median(s for _, s in said))} on the next ones "
+                                                   f"(observation from {source})"))
+            else:
+                rows.append(Row("--", "first act", "its worker says nothing of its time, and an act's whole time "
+                                                   "holds the network's"))
     except httpx.HTTPError as e:
-        rows.append(Row("no", "server", f"{type(e).__name__}: {e}"))
+        rows.append(Row("no", "server", _unsaid(f"{type(e).__name__}: {e}", url if name is not None else None)))
         return rows, 2
     finally:
         policy.close()
     return rows, (1 if any(row.status == "no" for row in rows) else 0)
 
 
-def main(argv: Optional[List[str]] = None) -> None:
-    """`python -m sequence_ai.check URL [--token TOKEN] [--observation FILE]`: the module's docstring."""
-    parser = argparse.ArgumentParser(prog="python -m sequence_ai.check",
-                                     description="What is on, and what is not, between this machine and a policy "
-                                                 "server.")
-    parser.add_argument("url", help="the server, e.g. http://<gpu>:8000")
+
+DESCRIPTION = ("What is on, and what is not, between this machine and a policy server - or a deployment on GS's "
+               "platform, by its name.")
+
+
+def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """The check's arguments on `parser`: the same on `seq check` as on `python -m sequence_ai.check`."""
+    parser.add_argument("target", metavar="URL|NAME",
+                        help="the server, e.g. http://<gpu>:8000, or a deployment's name on GS's platform")
     parser.add_argument("--token", help="the server's token: sent to the address given, and nowhere else")
+    parser.add_argument("--api-key", help="the platform's key, for a deployment by its name (else $SEQUENCES_API_KEY)")
     parser.add_argument("--observation", help="an observation to send: msgpack, .npz or .json")
     parser.add_argument("--wait", type=float, default=60.0, help="seconds to wait for the server to be ready")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def report(args: argparse.Namespace) -> int:
+    """The check of `args` (add_arguments'), its lines printed: the exit status - what `seq check` and `python -m
+    sequence_ai.check` both end with."""
     observation = _observation_from(args.observation) if args.observation else None
-    rows, status = run(args.url, token=args.token, observation=observation, wait_s=args.wait)
+    rows, status = run(args.target, token=args.token, api_key=args.api_key, observation=observation, wait_s=args.wait)
     width = max(len(row.name) for row in rows)
-    print(f"sequence-ai check: {args.url}\n")
+    print(f"sequence-ai check: {args.target}\n")
     for row in rows:
         print(f"  {row.status:<3} {row.name:<{width}}  {row.detail}")
-    raise SystemExit(status)
+    return status
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    """`python -m sequence_ai.check URL|NAME [--token TOKEN | --api-key KEY] [--observation FILE]`, which `seq check`
+    is too: the module's docstring."""
+    parser = add_arguments(argparse.ArgumentParser(prog="python -m sequence_ai.check", description=DESCRIPTION))
+    raise SystemExit(report(parser.parse_args(argv)))
 
 
 if __name__ == "__main__":

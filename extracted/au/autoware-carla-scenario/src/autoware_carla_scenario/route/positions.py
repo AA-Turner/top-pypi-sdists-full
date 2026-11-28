@@ -14,7 +14,13 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Optional, Union
 
+# autoware_lanelet2_extension_python must be imported before lanelet2.
+from autoware_lanelet2_extension_python.projection import MGRSProjector as _MGRS  # noqa: F401
+import lanelet2.core
+import lanelet2.geometry
+
 from ..coordinate.poses import Lanelet2Pose
+from ..kinematics.angle import normalize_angle_rad
 from ..trajectory.model import (
     MapPose,
     RouteCrossingPose,
@@ -32,7 +38,7 @@ from ..trajectory.relative_lane import (
     shift_lanes,
 )
 from .frame import RouteFrame
-from .geometry import paths_from_left
+from .geometry import BESIDE_MAX_TURN_DEG, _segment_intersection, paths_from_left
 
 if TYPE_CHECKING:
     from lanelet2.core import ConstLanelet
@@ -157,11 +163,13 @@ def _outward(
 ) -> Optional[ConstLanelet]:
     """*lanelet*'s same-direction neighbour farther from ``(x, y)``, or ``None``.
 
-    The neighbour's lanelet abreast of the point, as *lanelet* is.
+    The neighbour's lanelet abreast of the point, as *lanelet* is: its
+    routing-graph neighbour, else the lane found beside it by where it is
+    (:meth:`~.geometry.MapFeatures.beside`).
     """
     best: Optional[tuple[float, ConstLanelet]] = None
     for side in ("left", "right"):
-        neighbour = frame.features.neighbour(lanelet, side)
+        neighbour = frame.features.beside(lanelet, side, x, y)
         if neighbour is None:
             continue
         beside = frame.features.abreast(neighbour, x, y)
@@ -307,7 +315,9 @@ def _roadside(
     points = _centreline(lanelet)
     x, y = _point_at(points, along)
     heading = _heading_at(points, along)
-    edge = frame.features.abreast(frame.features.outermost(lanelet, pose.side), x, y)
+    edge = frame.features.abreast(
+        frame.features.outermost(lanelet, pose.side, x, y), x, y
+    )
     opposite = frame.features.opposite_abreast(lanelet, x, y)
     if opposite is not None and opposite[1] == pose.side:
         # The opposite road is on this side: its outermost lane is the edge.
@@ -317,26 +327,116 @@ def _roadside(
             if outward is None:
                 break
             edge = outward
-    # The edge lanelet's bound on that side, the farther one from the route.
-    hx, hy = math.cos(heading), math.sin(heading)
     sign = 1.0 if pose.side == "left" else -1.0
-    best: Optional[tuple[float, tuple[float, float]]] = None
-    for bound in (edge.leftBound, edge.rightBound):
-        bx, by = frame.features.nearest_on(bound, x, y)
-        if sign * (hx * (by - y) - hy * (bx - x)) <= 1e-6:
-            continue
-        gap = math.hypot(bx - x, by - y)
-        if best is None or gap > best[0]:
-            best = (gap, (bx, by))
+    best = _outer_bound(frame, edge, x, y, heading, sign)
     if best is None:
         raise ValueError(
             f"no road edge found on the {pose.side} abreast of route s={s:.1f} m"
         )
     gap, (kx, ky) = best
     nx, ny = (kx - x) / gap, (ky - y) / gap
+    # Still on a road lanelet just past that bound -- one the walks did not
+    # reach, or the edge lanelet itself where it is not abreast of the point
+    # -- the kerb is where the line out of the route point leaves it, until
+    # it is on none.  Only a lanelet running along the road there is stepped
+    # past: one running across it (a crossing road at a junction's mouth)
+    # would carry the kerb along that road, far from the route.
+    seen: set[int] = set()
+    for _hop in range(_MAX_KERB_HOPS):
+        px, py = kx + nx * _KERB_PROBE_M, ky + ny * _KERB_PROBE_M
+        on = _road_at(frame, px, py, seen)
+        if on is None:
+            break
+        road: ConstLanelet = on
+        seen.add(int(road.id))
+        road_s, _t = _arc(road, px, py)
+        across = abs(math.sin(_heading_at(_centreline(road), road_s) - heading))
+        if across > math.sin(math.radians(BESIDE_MAX_TURN_DEG)):
+            break
+        out = _exit_along(road, kx, ky, nx, ny)
+        kx, ky = kx + nx * out, ky + ny * out
     distance = float(pose.kerb_distance)
     return MapPose(
         kx + nx * distance,
         ky + ny * distance,
         None if pose.yaw is None else heading + float(pose.yaw),
     )
+
+
+#: How far (m) past the kerb a roadside pose looks for a road lanelet it is
+#: still on.
+_KERB_PROBE_M = 0.05
+#: The most road lanelets a roadside pose's kerb steps past so.
+_MAX_KERB_HOPS = 12
+#: How far (m) out from the kerb a road lanelet's outline is looked for.
+_KERB_REACH_M = 50.0
+
+
+def _outer_bound(
+    frame: RouteFrame,
+    lanelet: ConstLanelet,
+    x: float,
+    y: float,
+    heading: float,
+    sign: float,
+) -> Optional[tuple[float, tuple[float, float]]]:
+    """``(gap, point)`` of *lanelet*'s outer bound on the side *sign* picks
+    (1 left, -1 right) of *heading* at ``(x, y)``: its point nearest
+    ``(x, y)``, or ``None`` when neither bound is on that side.
+
+    The outer bound is the one on that side of a lanelet running the route's
+    way, the other of one running against it; where that one's nearest point
+    is not on the side (a lanelet not abreast of the point), the bound
+    farther from the point.
+    """
+    hx, hy = math.cos(heading), math.sin(heading)
+    along, _t = _arc(lanelet, x, y)
+    own = _heading_at(_centreline(lanelet), along)
+    same = abs(normalize_angle_rad(own - heading)) < math.pi / 2.0
+    outer = lanelet.leftBound if (sign > 0.0) == same else lanelet.rightBound
+    ox, oy = frame.features.nearest_on(outer, x, y)
+    if sign * (hx * (oy - y) - hy * (ox - x)) > 1e-6:
+        return math.hypot(ox - x, oy - y), (ox, oy)
+    best: Optional[tuple[float, tuple[float, float]]] = None
+    for bound in (lanelet.leftBound, lanelet.rightBound):
+        bx, by = frame.features.nearest_on(bound, x, y)
+        if sign * (hx * (by - y) - hy * (bx - x)) <= 1e-6:
+            continue
+        gap = math.hypot(bx - x, by - y)
+        if best is None or gap > best[0]:
+            best = (gap, (bx, by))
+    return best
+
+
+def _road_at(
+    frame: RouteFrame, x: float, y: float, seen: set[int]
+) -> Optional[ConstLanelet]:
+    """A road lanelet not in *seen* that ``(x, y)`` is on, or ``None``."""
+    for distance, near in lanelet2.geometry.findNearest(
+        frame.map.laneletLayer, lanelet2.core.BasicPoint2d(x, y), 4
+    ):
+        lanelet: ConstLanelet = near
+        if float(distance) > 0.0:
+            break
+        if int(lanelet.id) not in seen and frame.features.is_road(lanelet):
+            return lanelet
+    return None
+
+
+def _exit_along(
+    lanelet: ConstLanelet, x: float, y: float, nx: float, ny: float
+) -> float:
+    """How far (m) from ``(x, y)`` along ``(nx, ny)`` the line leaves
+    *lanelet*: its farthest crossing of the lanelet's outline (its bounds and
+    ends), at least :data:`_KERB_PROBE_M`."""
+    outline = [(float(p.x), float(p.y)) for p in lanelet.leftBound]
+    outline += [(float(p.x), float(p.y)) for p in lanelet.rightBound][::-1]
+    outline.append(outline[0])
+    far = (x + nx * _KERB_REACH_M, y + ny * _KERB_REACH_M)
+    out = _KERB_PROBE_M
+    for a, b in zip(outline, outline[1:]):
+        crossing = _segment_intersection((x, y), far, a, b)
+        if crossing is not None:
+            fractions: tuple[float, float] = crossing
+            out = max(out, fractions[0] * _KERB_REACH_M)
+    return out

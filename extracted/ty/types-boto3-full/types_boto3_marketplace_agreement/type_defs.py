@@ -198,6 +198,7 @@ __all__ = (
     "PurchaseOrderTypeDef",
     "RateCardItemTypeDef",
     "RecurringPaymentTermTypeDef",
+    "RegionalPriceTypeDef",
     "RejectAgreementApprovalInputTypeDef",
     "RejectAgreementCancellationRequestInputTypeDef",
     "RejectAgreementCancellationRequestOutputTypeDef",
@@ -519,11 +520,6 @@ class ConstraintsTypeDef(TypedDict):
     quantityConfiguration: NotRequired[str]
 
 
-class RateCardItemTypeDef(TypedDict):
-    dimensionKey: NotRequired[str]
-    price: NotRequired[str]
-
-
 SelectorTypeDef = TypedDict(
     "SelectorTypeDef",
     {
@@ -721,6 +717,11 @@ class PercentageRangeTypeDef(TypedDict):
     minValue: NotRequired[str]
     maxValue: NotRequired[str]
     defaultValue: NotRequired[str]
+
+
+class RegionalPriceTypeDef(TypedDict):
+    region: str
+    price: str
 
 
 class RejectAgreementCancellationRequestInputTypeDef(TypedDict):
@@ -1059,16 +1060,6 @@ class ConfigurableUpfrontPricingTermConfigurationTypeDef(TypedDict):
     dimensions: Sequence[DimensionTypeDef]
 
 
-class UsageBasedRateCardItemTypeDef(TypedDict):
-    rateCard: NotRequired[list[RateCardItemTypeDef]]
-
-
-class ConfigurableUpfrontRateCardItemTypeDef(TypedDict):
-    selector: NotRequired[SelectorTypeDef]
-    constraints: NotRequired[ConstraintsTypeDef]
-    rateCard: NotRequired[list[RateCardItemTypeDef]]
-
-
 LegalTermTypeDef = TypedDict(
     "LegalTermTypeDef",
     {
@@ -1245,6 +1236,12 @@ class PriceIncreaseTypeDef(TypedDict):
     percentageRange: NotRequired[PercentageRangeTypeDef]
 
 
+class RateCardItemTypeDef(TypedDict):
+    dimensionKey: NotRequired[str]
+    price: NotRequired[str]
+    regionalPrices: NotRequired[list[RegionalPriceTypeDef]]
+
+
 VariablePaymentTermTypeDef = TypedDict(
     "VariablePaymentTermTypeDef",
     {
@@ -1336,25 +1333,6 @@ ConfigurableUpfrontPricingTermConfigurationUnionTypeDef = Union[
     ConfigurableUpfrontPricingTermConfigurationTypeDef,
     ConfigurableUpfrontPricingTermConfigurationOutputTypeDef,
 ]
-UsageBasedPricingTermTypeDef = TypedDict(
-    "UsageBasedPricingTermTypeDef",
-    {
-        "type": NotRequired[str],
-        "id": NotRequired[str],
-        "currencyCode": NotRequired[str],
-        "rateCards": NotRequired[list[UsageBasedRateCardItemTypeDef]],
-    },
-)
-ConfigurableUpfrontPricingTermTypeDef = TypedDict(
-    "ConfigurableUpfrontPricingTermTypeDef",
-    {
-        "type": NotRequired[str],
-        "id": NotRequired[str],
-        "currencyCode": NotRequired[str],
-        "rateCards": NotRequired[list[ConfigurableUpfrontRateCardItemTypeDef]],
-        "configuration": NotRequired[ConfigurableUpfrontPricingTermConfigurationOutputTypeDef],
-    },
-)
 
 
 class DescribeAgreementOutputTypeDef(TypedDict):
@@ -1390,6 +1368,16 @@ ExpectedChargeTypeDef = TypedDict(
 
 class TermTemplateTypeDef(TypedDict):
     paymentScheduleTermTemplate: NotRequired[PaymentScheduleTermTemplateTypeDef]
+
+
+class ConfigurableUpfrontRateCardItemTypeDef(TypedDict):
+    selector: NotRequired[SelectorTypeDef]
+    constraints: NotRequired[ConstraintsTypeDef]
+    rateCard: NotRequired[list[RateCardItemTypeDef]]
+
+
+class UsageBasedRateCardItemTypeDef(TypedDict):
+    rateCard: NotRequired[list[RateCardItemTypeDef]]
 
 
 class ListAgreementRequestsOutputTypeDef(TypedDict):
@@ -1443,6 +1431,25 @@ RenewalTermTypeDef = TypedDict(
         "adjustmentDeadline": NotRequired[str],
         "priceIncrease": NotRequired[PriceIncreaseTypeDef],
         "termTemplates": NotRequired[list[TermTemplateTypeDef]],
+    },
+)
+ConfigurableUpfrontPricingTermTypeDef = TypedDict(
+    "ConfigurableUpfrontPricingTermTypeDef",
+    {
+        "type": NotRequired[str],
+        "id": NotRequired[str],
+        "currencyCode": NotRequired[str],
+        "rateCards": NotRequired[list[ConfigurableUpfrontRateCardItemTypeDef]],
+        "configuration": NotRequired[ConfigurableUpfrontPricingTermConfigurationOutputTypeDef],
+    },
+)
+UsageBasedPricingTermTypeDef = TypedDict(
+    "UsageBasedPricingTermTypeDef",
+    {
+        "type": NotRequired[str],
+        "id": NotRequired[str],
+        "currencyCode": NotRequired[str],
+        "rateCards": NotRequired[list[UsageBasedRateCardItemTypeDef]],
     },
 )
 

@@ -59,6 +59,12 @@ def pick(benchmark: str, task_id: str) -> Pick:
         if name in TASK_ATTRIBUTES:
             return Pick(name, "", name)
         raise _unknown(benchmark, value)
+    if benchmark == "robotwin":
+        from .robotwin_catalog import STEP_LIMITS
+
+        if value in STEP_LIMITS:
+            return Pick(value, "", value)
+        raise _unknown(benchmark, value)
     if benchmark == "abc":
         from .abc_catalog import TASKS
 
@@ -108,6 +114,8 @@ def select(benchmark: str, *, every: bool = False, suite: str | None = None,
         return [pick(benchmark, rng.choice(task_list.all_tasks(benchmark)).id)]
     if benchmark == "abc":  # no suites: --all is every task
         return [Pick(task.id, task.id, 0) for task in task_list.all_tasks(benchmark)]
+    if benchmark == "robotwin":  # no suites: --all is every task, sent by id
+        return [Pick(task.id, "", task.id) for task in task_list.all_tasks(benchmark)]
     picks: dict[str, Pick] = {}
     for name in ([suite] if suite is not None else _suite_ids(benchmark)):
         for task in task_list.tasks(benchmark, name):

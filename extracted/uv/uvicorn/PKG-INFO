@@ -1,8 +1,8 @@
 Metadata-Version: 2.5
 Name: uvicorn
-Version: 0.54.0
+Version: 0.55.0
 Summary: The lightning-fast ASGI server.
-Project-URL: Changelog, https://uvicorn.dev/release-notes
+Project-URL: Changelog, https://github.com/Kludex/uvicorn/releases
 Project-URL: Funding, https://github.com/sponsors/Kludex
 Project-URL: Homepage, https://uvicorn.dev/
 Project-URL: Source, https://github.com/Kludex/uvicorn
@@ -15,18 +15,17 @@ Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: click>=7.0
 Requires-Dist: h11>=0.8
-Requires-Dist: typing-extensions>=4.0; python_version < '3.11'
 Provides-Extra: standard
 Requires-Dist: httptools>=0.8.0; extra == 'standard'
 Requires-Dist: python-dotenv>=0.13; extra == 'standard'
@@ -37,7 +36,7 @@ Requires-Dist: websockets>=13.0; extra == 'standard'
 Description-Content-Type: text/markdown
 
 <p align="center">
-  <img width="320" height="320" src="https://raw.githubusercontent.com/tomchristie/uvicorn/main/docs/uvicorn.png" alt='uvicorn'>
+  <img width="320" height="320" src="https://raw.githubusercontent.com/Kludex/uvicorn/main/docs/uvicorn.png" alt='uvicorn'>
 </p>
 
 <p align="center">
@@ -66,6 +65,12 @@ async frameworks. The [ASGI specification][asgi] fills this gap, and means we're
 start building a common set of tooling usable across all async frameworks.
 
 Uvicorn currently supports HTTP/1.1, HTTP/2 and WebSockets.
+
+## Sponsors
+
+Help us keep Uvicorn maintained and sustainable by [becoming a sponsor](https://marcelotryle.com/sponsors/).
+
+[![Sponsors](https://marcelotryle.com/sponsors/logos.svg)](https://marcelotryle.com/sponsors/)
 
 ## Quickstart
 

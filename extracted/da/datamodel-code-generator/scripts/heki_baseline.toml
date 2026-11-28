@@ -3634,14 +3634,6 @@ count = 1
 heuristic = 1
 
 [[entries]]
-path = "src/datamodel_code_generator/_project_config.py"
-qualname = "load_pyproject_config"
-rule_code = "MUT205"
-target = "use_annotated"
-count = 1
-heuristic = 1
-
-[[entries]]
 path = "src/datamodel_code_generator/_publication.py"
 qualname = "publication_anchor"
 rule_code = "EFF201"
@@ -6595,22 +6587,6 @@ heuristic = 1
 
 [[entries]]
 path = "src/datamodel_code_generator/parser/_all_of_values.py"
-qualname = "merge_all_of_root_value_nodes"
-rule_code = "MUT205"
-target = "_all_of_root_value_ref_stack"
-count = 1
-heuristic = 1
-
-[[entries]]
-path = "src/datamodel_code_generator/parser/_all_of_values.py"
-qualname = "merge_all_of_root_value_nodes"
-rule_code = "MUT206"
-target = "_all_of_root_value_ref_stack"
-count = 1
-heuristic = 1
-
-[[entries]]
-path = "src/datamodel_code_generator/parser/_all_of_values.py"
 qualname = "raise_unsatisfiable_schema"
 rule_code = "MUT204"
 target = "datamodel_code_generator.parser._schema_object._named_path"
@@ -7350,14 +7326,6 @@ path = "src/datamodel_code_generator/parser/_passes/_keys.py"
 qualname = "site_constraints"
 rule_code = "MUT206"
 target = "_site_constraints"
-count = 1
-heuristic = 1
-
-[[entries]]
-path = "src/datamodel_code_generator/parser/_passes/_keys.py"
-qualname = "with_inlined_site"
-rule_code = "MUT205"
-target = "_inlined_site"
 count = 1
 heuristic = 1
 
@@ -8468,6 +8436,14 @@ heuristic = 2
 [[entries]]
 path = "src/datamodel_code_generator/parser/_passes/modules.py"
 qualname = "collapse_root_models_in_scope"
+rule_code = "MUT201"
+target = "datamodel_code_generator.reference._BaseModel._[!_]*"
+count = 1
+heuristic = 1
+
+[[entries]]
+path = "src/datamodel_code_generator/parser/_passes/modules.py"
+qualname = "collapse_root_models_in_scope"
 rule_code = "MUT203"
 target = "datamodel_code_generator.model.base.DataModelFieldBase._[!_]*"
 count = 1
@@ -8588,8 +8564,8 @@ heuristic = 1
 [[entries]]
 path = "src/datamodel_code_generator/parser/_passes/modules.py"
 qualname = "set_default_enum_member"
-rule_code = "MUT205"
-target = "alias"
+rule_code = "MUT201"
+target = "Member.alias"
 count = 1
 heuristic = 1
 
@@ -10428,8 +10404,8 @@ heuristic = 1
 [[entries]]
 path = "src/datamodel_code_generator/parser/jsonschema.py"
 qualname = "JsonSchemaParser._parse_all_of_root_value"
-rule_code = "MUT205"
-target = "data_types"
+rule_code = "MUT201"
+target = "DataType.data_types"
 count = 1
 heuristic = 1
 
@@ -10718,14 +10694,6 @@ path = "src/datamodel_code_generator/parser/jsonschema.py"
 qualname = "JsonSchemaParser.parse_object"
 rule_code = "MUT204"
 target = "datamodel_code_generator._user_keys.class_key"
-count = 1
-heuristic = 1
-
-[[entries]]
-path = "src/datamodel_code_generator/parser/jsonschema.py"
-qualname = "JsonSchemaParser.resolve_ref"
-rule_code = "MUT201"
-target = "Reference.loaded"
 count = 1
 heuristic = 1
 

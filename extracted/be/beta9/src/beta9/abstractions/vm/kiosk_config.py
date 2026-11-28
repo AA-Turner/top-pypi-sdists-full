@@ -70,8 +70,10 @@ class DesktopRuntime:
     base_dpi: int = 96
     xsettings_unit: int = 1024
     logical_size: Tuple[int, int] = (1920, 1080)
+    xvfb_screen_size: Tuple[int, int] = (3840, 2160)
     max_dimension: int = 8192
     min_size: Tuple[int, int] = (320, 200)
+    min_framerate: int = 15
     framerate: int = 60
     full_color: bool = False
     crf: int = 18
@@ -95,7 +97,8 @@ class DesktopRuntime:
     retry_window: float = 60
     max_retries: int = 3
     poll_interval: float = 0.25
-    geometry_interval: float = 1
+    idle_poll_interval: float = 1.0
+    geometry_interval: float = 5
     desktop_user: str = "beam"
     desktop_launcher: str = "/opt/beam-vm/desktop"
     session_path: str = "/opt/beam-vm/kiosk"

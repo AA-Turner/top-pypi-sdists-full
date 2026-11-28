@@ -3,23 +3,22 @@
 import re
 from abc import abstractmethod
 from collections.abc import Callable, Iterable
+from functools import partial, update_wrapper
 from pathlib import Path
-from types import MethodType, ModuleType
+from types import ModuleType
 from typing import Any, cast, override
 
 from pyrig_runtime.core.strings import snake_to_kebab_case
 from ruamel.yaml.comments import CommentedMap
 
-from pyrig.core.iterate import deep_sorted_dict, traverse_structure
-from pyrig.core.resources import resource_content
-from pyrig.core.strings import (
-    reformat_name,
-)
+from pyrig.core.iterate import deep_sorted_dict, dict_insert, traverse_structure
+from pyrig.core.resources import resource_content, resource_name_from_func
+from pyrig.core.strings import normalize_func_name, reformat_name
 from pyrig.core.subprocesses import Args
 from pyrig.rig import resources
 from pyrig.rig.configs.base.yaml import YMLDictConfigFile, commented_map
 from pyrig.rig.configs.pyproject import PyprojectConfigFile
-from pyrig.rig.tools.formatting.shell import ShellFormatter
+from pyrig.rig.tools.linting.shell import ShellLinter
 from pyrig.rig.tools.linting.yaml import YAMLLinter
 from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.version_control.controller import VersionController
@@ -35,7 +34,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         UBUNTU_LATEST: Runner label for Ubuntu (`"ubuntu-latest"`).
         WINDOWS_LATEST: Runner label for Windows (`"windows-latest"`).
         MACOS_LATEST: Runner label for macOS (`"macos-latest"`).
-        JOB_ID_KEY: Internal key storing a job's ID before workflow assembly.
         SECRET_EXPRESSION_PATTERN: Regex pattern to match GitHub Actions secret
             expressions.
         TIMEOUT_MINUTES_DEFAULT: Default timeout for jobs in minutes (`360`).
@@ -45,10 +43,9 @@ class WorkflowConfigFile(YMLDictConfigFile):
     WINDOWS_LATEST = "windows-latest"
     MACOS_LATEST = "macos-latest"
 
-    JOB_ID_KEY = "job_id"
     SECRET_EXPRESSION_PATTERN = re.compile(r"secrets\.([A-Za-z0-9_]+)")
     TIMEOUT_MINUTES_DEFAULT = 360
-    SHELL_DEFAULT = ShellFormatter.I.dialect()
+    SHELL_DEFAULT = ShellLinter.I.dialect()
 
     @abstractmethod
     def workflow_triggers(self) -> dict[str, Any]:
@@ -146,7 +143,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
 
     def job_workflow_call(
         self,
-        method: MethodType,
         *,
         workflow: type["WorkflowConfigFile"],
         **kwargs: Any,  # noqa: ANN401
@@ -154,8 +150,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """Build a job that calls another workflow and forwards its requirements.
 
         Args:
-            method: Method representing this job; its name is used to derive
-                the job ID.
             workflow: Workflow configuration class to call.
             **kwargs: Additional arguments forwarded to `job()`.
 
@@ -165,7 +159,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         workflow_instance = workflow.I
         return self.job(
-            method,
             uses=workflow_instance.workflow_call_reference(),
             secrets=workflow_instance.secrets_used_mapping() or None,
             permissions=workflow_instance.permissions_used() or None,
@@ -291,7 +284,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
 
     def step_download_artifact(
         self,
-        method: MethodType,
         *,
         path: Path,
         name: str | None = None,
@@ -301,7 +293,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """Build a step that downloads workflow artifacts.
 
         Args:
-            method: Method representing this step; used to derive its ID and name.
             path: Destination directory, rendered as a POSIX path.
             name: Artifact name. When omitted, download all matching artifacts.
             pattern: Glob pattern for artifact names. Ignored when `name` is set.
@@ -311,7 +302,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
         Returns:
             Step using `actions/download-artifact`.
         """
-        with_ = {}
+        with_: dict[str, Any] = {}
         if name is not None:
             with_["name"] = name
         if pattern is not None:
@@ -320,14 +311,12 @@ class WorkflowConfigFile(YMLDictConfigFile):
         if merge_multiple is not None:
             with_["merge-multiple"] = "true" if merge_multiple else "false"
         return self.step(
-            method,
             uses=self.action_download_artifact(),
             with_=with_,
         )
 
     def step_upload_artifact(
         self,
-        method: MethodType,
         *,
         name: str,
         path: Path,
@@ -336,7 +325,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """Build a step that uploads a file or directory as a workflow artifact.
 
         Args:
-            method: Method representing this step; used to derive its ID and name.
             name: Artifact name.
             path: File or directory to upload, rendered as a POSIX path.
             if_no_files_found: Action behavior when no files match: `"error"`
@@ -346,7 +334,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
             Step using `actions/upload-artifact`.
         """
         return self.step(
-            method,
             uses=self.action_upload_artifact(),
             with_={
                 "name": name,
@@ -360,7 +347,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
         *,
         python_version: str | None = None,
         update_dependencies: bool = False,
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[Callable[[], dict[str, Any]], ...]:
         """Build setup steps that include dependency installation.
 
         Produces steps for repository checkout, Python environment setup,
@@ -373,15 +360,15 @@ class WorkflowConfigFile(YMLDictConfigFile):
                 dependencies to their latest allowed versions before installing.
 
         Returns:
-            Ordered list of step configuration dicts.
+            Ordered tuple of step builders.
         """
-        return [
+        return (
             *self.steps_core_setup(
                 python_version=python_version,
             ),
-            *((self.step_update_dependencies(),) if update_dependencies else ()),
-            self.step_install_dependencies(),
-        ]
+            *((self.step_update_dependencies,) if update_dependencies else ()),
+            self.step_install_dependencies,
+        )
 
     def strategy_matrix_os(
         self,
@@ -477,7 +464,11 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return self.secrets_var("GITHUB_TOKEN")
 
-    def insert_output_var(self, step: MethodType, name: str) -> str:
+    def insert_output_var(
+        self,
+        step: Callable[[], dict[str, Any]],
+        name: str,
+    ) -> str:
         """Return the expression that resolves to the output variable of a step.
 
         Args:
@@ -490,94 +481,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         return self.insert_expression(
             f"steps.{self.step_id_from_method(step)}.outputs.{name.lower()}",
         )
-
-    def job(  # noqa: PLR0913
-        self,
-        method: MethodType,
-        *,
-        needs: Iterable[MethodType] | None = None,
-        strategy: dict[str, Any] | None = None,
-        permissions: dict[str, Any] | None = None,
-        if_condition: str | None = None,
-        runs_on: str = UBUNTU_LATEST,
-        environment: str | None = None,
-        steps: list[dict[str, Any]] | None = None,
-        uses: str | None = None,
-        secrets: dict[str, Any] | None = None,
-        timeout_minutes: int = TIMEOUT_MINUTES_DEFAULT,
-    ) -> dict[str, Any]:
-        """Build a job configuration dict.
-
-        Args:
-            method: Method representing this job; its name is used to derive
-                the job ID.
-            needs: Job methods that must complete before this job starts.
-                Each method is converted to a kebab-case job ID.
-            strategy: Matrix or other strategy configuration. Valid together
-                with `uses` (e.g. a matrix-driven reusable-workflow call).
-            permissions: Job-level permissions override. When `uses` is set,
-                this is the ceiling on what the called workflow's own jobs
-                may request.
-            runs_on: Runner label. Defaults to `ubuntu-latest`. Not applied
-                when `uses` is set, since GitHub disallows combining the two.
-            if_condition: GitHub Actions conditional expression controlling
-                whether the job runs.
-            environment: GitHub Actions deployment environment associated with
-                the job. Omitted when `None`.
-            steps: Ordered list of step configurations. Not valid together
-                with `uses`; passing both is the caller's mistake to avoid.
-            uses: Reference to a reusable workflow to call instead of
-                running steps directly, e.g. one built by
-                `workflow_call_reference()`. When set, `runs_on` is not
-                applied.
-            secrets: Named secrets to forward to the called workflow, e.g.
-                built by `secrets_used_mapping()`. Only meaningful together
-                with `uses`.
-            timeout_minutes: Maximum time in minutes that the job can run. Only
-                effective when `uses` is not set. Defaults to `TIMEOUT_MINUTES_DEFAULT`.
-
-        Returns:
-            A single job configuration containing its derived ID under `JOB_ID_KEY`.
-        """
-        job_id = self.job_id_from_method(method)
-        job = {
-            self.JOB_ID_KEY: job_id,
-            "name": self.name_from_id(job_id),
-        }
-        if environment is not None:
-            job["environment"] = environment
-        if permissions is not None:
-            job["permissions"] = self.documented_permissions(
-                deep_sorted_dict(permissions),
-            )
-        if uses is not None and secrets is not None:
-            job["secrets"] = deep_sorted_dict(secrets)
-        if needs is not None:
-            job["needs"] = [self.job_id_from_method(m) for m in needs]
-        if if_condition is not None:
-            job["if"] = if_condition
-        if uses is not None:
-            job["uses"] = uses
-        else:
-            job["runs-on"] = runs_on
-            job["timeout-minutes"] = timeout_minutes
-        if strategy is not None:
-            job["strategy"] = strategy
-        if steps is not None:
-            job["steps"] = steps
-        return job
-
-    def job_id_from_method(self, method: MethodType) -> str:
-        """Generate a job identifier from a `job_*` method name.
-
-        Args:
-            method: The job method whose name provides the source text.
-
-        Returns:
-            Identifier string in kebab-case, e.g. `"do-something"` from
-            `job_do_something`.
-        """
-        return self.id_from_method(method, prefix=self.job.__name__)
 
     def matrix_os(
         self,
@@ -684,7 +587,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         variable in the GITHUB_OUTPUT.
         """
         return self.step(
-            self.step_extract_version,
             run=self.assign_command_substitution_output_var(
                 self.version_var(),
                 PackageManager.I.version_short_args(),
@@ -700,7 +602,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
             Step that runs `uv sync`.
         """
         return self.step(
-            self.step_install_dependencies,
             run=str(PackageManager.I.install_dependencies_args()),
         )
 
@@ -714,14 +615,13 @@ class WorkflowConfigFile(YMLDictConfigFile):
             Step that runs `uv lock --upgrade`.
         """
         return self.step(
-            self.step_update_dependencies,
             run=str(PackageManager.I.update_dependencies_args()),
         )
 
     def steps_core_setup(
         self,
         python_version: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[Callable[[], dict[str, Any]], ...]:
         """Build the base checkout and environment setup steps.
 
         Checks out the repository and installs the package manager (`uv`) with
@@ -733,12 +633,15 @@ class WorkflowConfigFile(YMLDictConfigFile):
                 Defaults to the latest minor version supported by the project.
 
         Returns:
-            Ordered list of step configuration dicts.
+            Ordered tuple of step builders.
         """
-        return [
-            self.step_checkout_repository(),
-            self.step_setup_package_manager(python_version=python_version),
-        ]
+        return (
+            self.step_checkout_repository,
+            update_wrapper(
+                partial(self.step_setup_package_manager, python_version=python_version),
+                self.step_setup_package_manager,
+            ),
+        )
 
     def strategy_matrix(
         self,
@@ -777,38 +680,14 @@ class WorkflowConfigFile(YMLDictConfigFile):
     def concurrency_cancel_in_progress(self) -> bool:
         """Return whether superseded runs of this workflow should be cancelled.
 
-        Override to `False` for workflows that mutate external state (e.g.
-        publishing a release or package) and therefore shouldn't be interrupted
-        mid-run. By default, a newer run cancels an active run in the same
-        concurrency group; GitHub also replaces an existing pending run when a
-        newer run is queued in that group.
+        Override to `True` only when an active run can safely be interrupted
+        by a newer run in the same concurrency group. GitHub replaces an
+        existing pending run when a newer run is queued in that group.
 
         Returns:
-            `True` by default.
+            `False` by default.
         """
-        return True
-
-    def documented_permissions(self, permissions: dict[str, str]) -> CommentedMap:
-        """Return `permissions` as a documented `CommentedMap`.
-
-        zizmor's `undocumented-permissions` audit requires an explanatory
-        comment on any permission entry other than `contents: read`.
-
-        Args:
-            permissions: Mapping of permission name to `"read"` or `"write"`.
-
-        Returns:
-            Equivalent `CommentedMap`; every entry except `contents: read`
-            carries an inline comment.
-        """
-        return commented_map(
-            permissions,
-            comments={
-                k: self.permission_comment()
-                for k in permissions
-                if (k, permissions[k]) != ("contents", "read")
-            },
-        )
+        return False
 
     def insert_github_ref(self) -> str:
         """Return the expression that resolves to the triggering ref.
@@ -833,12 +712,12 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """Assemble the workflow's jobs from the callables returned by `jobs()`.
 
         Returns:
-            Job configurations keyed by ID, without the internal `JOB_ID_KEY` field.
+            Job configurations keyed by their derived IDs.
         """
         return {
             job_id: job_dict
             for job in self.jobs()
-            for job_id, job_dict in self.job_by_id(job).items()
+            for job_id, job_dict in self.job_as_dict(job).items()
         }
 
     def matrix(self, matrix: dict[str, list[Any]]) -> dict[str, Any]:
@@ -881,7 +760,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
             Step using `actions/checkout@<ref>`.
         """
         return self.step(
-            self.step_checkout_repository,
             uses=self.action_checkout(),
             with_={"persist-credentials": False},
         )
@@ -890,6 +768,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
         self,
         *,
         python_version: str | None = None,
+        enable_cache: bool | None = None,
     ) -> dict[str, Any]:
         """Build a step that installs uv and pins the Python version.
 
@@ -901,6 +780,8 @@ class WorkflowConfigFile(YMLDictConfigFile):
         Args:
             python_version: Python version string to pin, e.g. `"3.13"`.
                 Defaults to the latest minor version supported by the project.
+            enable_cache: Whether to enable caching for the package manager.
+                Omitted by default, falls back to default behavior of the action.
 
         Returns:
             Step using `astral-sh/setup-uv@<ref>`.
@@ -909,10 +790,12 @@ class WorkflowConfigFile(YMLDictConfigFile):
             python_version = str(
                 PyprojectConfigFile.I.latest_possible_python_version(level="minor"),
             )
+        with_ = {"python-version": python_version}
+        if enable_cache is not None:
+            with_["enable-cache"] = "true" if enable_cache else "false"
         return self.step(
-            self.step_setup_package_manager,
             uses=self.action_setup_uv(),
-            with_={"python-version": python_version},
+            with_=with_,
         )
 
     def strategy(
@@ -1009,21 +892,163 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return f"${{{{ {var} }}}}"
 
-    def job_by_id(
+    def job_as_dict(
         self,
         job: Callable[[], dict[str, Any]],
     ) -> dict[str, dict[str, Any]]:
-        """Call a job builder and move its internal ID to the mapping key.
+        """Call a job builder and derive its ID and display name.
 
         Args:
-            job: Callable returning a job configuration containing `JOB_ID_KEY`.
-                The key is removed from the returned dictionary in place.
+            job: Callable returning a job configuration.
 
         Returns:
             A single-entry mapping from the job ID to its configuration.
         """
         dict_ = job()
-        return {dict_.pop(self.JOB_ID_KEY): dict_}
+        id_ = self.job_id_from_method(job)
+        dict_insert(dict_, index=0, key="name", value=self.name_from_id(id_))
+        return {id_: dict_}
+
+    def action_from_resource(
+        self,
+        method: Callable[[], tuple[str, str, str]],
+        package: ModuleType,
+    ) -> tuple[str, str, str]:
+        """Read action name, pinned ref, and release tag from a resource.
+
+        The resource name is derived from the method name, converted to
+        lowercase, and the first three lines provide the action metadata.
+
+        Args:
+            method: Action method whose name identifies the resource.
+            package: Package module containing the resource.
+
+        Returns:
+            Tuple of action name, pinned commit SHA, and release tag.
+        """
+        action, ref, tag, *_ = resource_content(
+            resource_name_from_func(method),
+            package,
+        ).splitlines()
+        return action, ref, tag
+
+    def insert_parameter_expansion(self, parameter: str) -> str:
+        """Wrap a shell parameter in parameter expansion syntax `"${...}"`."""
+        return self.insert_expansion(f"{{{parameter}}}")
+
+    def job(  # noqa: PLR0913
+        self,
+        *,
+        needs: Iterable[Callable[[], dict[str, Any]]] | None = None,
+        strategy: dict[str, Any] | None = None,
+        permissions: dict[str, Any] | None = None,
+        if_condition: str | None = None,
+        runs_on: str = UBUNTU_LATEST,
+        environment: str | None = None,
+        steps: tuple[Callable[[], dict[str, Any]], ...] | None = None,
+        uses: str | None = None,
+        secrets: dict[str, Any] | None = None,
+        timeout_minutes: int = TIMEOUT_MINUTES_DEFAULT,
+    ) -> dict[str, Any]:
+        """Build a job configuration dict.
+
+        Args:
+            needs: Job methods that must complete before this job starts.
+                Each method is converted to a kebab-case job ID.
+            strategy: Matrix or other strategy configuration. Valid together
+                with `uses` (e.g. a matrix-driven reusable-workflow call).
+            permissions: Job-level permissions override. When `uses` is set,
+                this is the ceiling on what the called workflow's own jobs
+                may request.
+            runs_on: Runner label. Defaults to `ubuntu-latest`. Not applied
+                when `uses` is set, since GitHub disallows combining the two.
+            if_condition: GitHub Actions conditional expression controlling
+                whether the job runs.
+            environment: GitHub Actions deployment environment associated with
+                the job. Omitted when `None`.
+            steps: Ordered tuple of step builders. Not valid together
+                with `uses`; passing both is the caller's mistake to avoid.
+            uses: Reference to a reusable workflow to call instead of
+                running steps directly, e.g. one built by
+                `workflow_call_reference()`. When set, `runs_on` is not
+                applied.
+            secrets: Named secrets to forward to the called workflow, e.g.
+                built by `secrets_used_mapping()`. Only meaningful together
+                with `uses`.
+            timeout_minutes: Maximum time in minutes that the job can run. Only
+                effective when `uses` is not set. Defaults to `TIMEOUT_MINUTES_DEFAULT`.
+
+        Returns:
+            A job configuration; its ID and name are added during assembly.
+        """
+        job: dict[str, Any] = {}
+        if environment is not None:
+            job["environment"] = environment
+        if permissions is not None:
+            job["permissions"] = self.documented_permissions(
+                deep_sorted_dict(permissions),
+            )
+        if uses is not None and secrets is not None:
+            job["secrets"] = deep_sorted_dict(secrets)
+        if needs is not None:
+            job["needs"] = sorted(self.job_id_from_method(m) for m in needs)
+        if if_condition is not None:
+            job["if"] = if_condition
+        if uses is not None:
+            job["uses"] = uses
+        else:
+            job["runs-on"] = runs_on
+            job["timeout-minutes"] = timeout_minutes
+        if strategy is not None:
+            job["strategy"] = strategy
+        if steps is not None:
+            job["steps"] = self.steps_configs(steps)
+        return job
+
+    def job_id_from_method(self, method: Callable[[], dict[str, Any]]) -> str:
+        """Generate a job identifier from a `job_*` method name.
+
+        Args:
+            method: The job method whose name provides the source text.
+
+        Returns:
+            Identifier string in kebab-case, e.g. `"do-something"` from
+            `job_do_something`.
+        """
+        return self.id_from_method(method, prefix=self.job.__name__)
+
+    def documented_permissions(self, permissions: dict[str, str]) -> CommentedMap:
+        """Return `permissions` as a documented `CommentedMap`.
+
+        zizmor's `undocumented-permissions` audit requires an explanatory
+        comment on any permission entry other than `contents: read`.
+
+        Args:
+            permissions: Mapping of permission name to `"read"` or `"write"`.
+
+        Returns:
+            Equivalent `CommentedMap`; every entry except `contents: read`
+            carries an inline comment.
+        """
+        return commented_map(
+            permissions,
+            comments={
+                k: self.permission_comment()
+                for k in permissions
+                if (k, permissions[k]) != ("contents", "read")
+            },
+        )
+
+    def insert_expansion(self, expansion: str) -> str:
+        """Wrap an expansion in basic shell expansion syntax `"$..."`."""
+        return f'"${expansion}"'
+
+    def steps_configs(
+        self,
+        steps: tuple[Callable[[], dict[str, Any]], ...],
+    ) -> list[dict[str, Any]]:
+        """Assemble step configurations in order, deriving their IDs and names."""
+        return [self.step_as_dict(step) for step in steps]
 
     def permission_comment(self) -> str:
         """Return the comment attached to every documented permission entry.
@@ -1033,9 +1058,65 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return "required"
 
+    def step_as_dict(self, step: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+        """Call a step builder and add its derived ID and display name."""
+        dict_ = step()
+        id_ = self.step_id_from_method(step)
+        dict_insert(dict_, index=0, key="name", value=self.name_from_id(id_))
+        dict_insert(dict_, index=1, key="id", value=id_)
+        return dict_
+
+    def name_from_id(self, id_: str) -> str:
+        """Generate a human-readable display name from a kebab-case identifier.
+
+        Splits the identifier on hyphens and capitalizes each word.
+
+        Args:
+            id_: The kebab-case identifier to convert, e.g. one produced by
+                `job_id_from_method()` or `step_id_from_method()`.
+
+        Returns:
+            Display name, e.g. `"Do Something"` from `"do-something"`.
+        """
+        return reformat_name(
+            id_,
+            split_on="-",
+            join_on=" ",
+            capitalize=True,
+        )
+
+    def step_id_from_method(self, method: Callable[[], dict[str, Any]]) -> str:
+        """Generate a step identifier from a `step_*` method name.
+
+        Args:
+            method: The step method whose name provides the source text.
+
+        Returns:
+            Identifier string in kebab-case, e.g. `"do-something"` from
+            `step_do_something`.
+        """
+        return self.id_from_method(method, prefix=self.step.__name__)
+
+    def id_from_method(self, method: Callable[..., object], prefix: str) -> str:
+        """Generate a compact identifier from a method name.
+
+        Strips the given prefix (plus the underscore joining it to the rest
+        of the name) and returns the rest in kebab-case.
+
+        Args:
+            method: The method whose name provides the source text.
+            prefix: The leading segment to strip, e.g. `"job"` or `"step"`.
+
+        Returns:
+            Identifier string in kebab-case, e.g. `"do-something"` from
+            `job_do_something` with `prefix="job"`.
+        """
+        return snake_to_kebab_case(
+            normalize_func_name(method).removeprefix(f"{prefix}_"),
+        )
+
     def step(  # noqa: PLR0913
         self,
-        method: MethodType,
         *,
         run: str | None = None,
         if_condition: str | None = None,
@@ -1051,8 +1132,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         `line-length` rule for that line.
 
         Args:
-            method: Method representing this step; its name is used to
-                derive the step `name` and `id` fields.
             run: Shell command to execute.
             if_condition: GitHub Actions conditional expression controlling
                 whether the step runs.
@@ -1064,7 +1143,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
                 Omitted from the step when `run` is not set.
 
         Returns:
-            Step configuration dict with at least `name` and `id` set.
+            Step configuration dict; its ID and name are added during assembly.
 
         Note:
             The returned dictionary is a `CommentedMap` which preserves comments
@@ -1073,12 +1152,8 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         comments: dict[str, str] = {}
         comments_before: dict[str, str] = {}
+        step: dict[str, Any] = {}
 
-        id_ = self.step_id_from_method(method)
-        step = {
-            "name": self.name_from_id(id_),
-            "id": id_,
-        }
         if if_condition is not None:
             step["if"] = if_condition
         if run is not None:
@@ -1098,80 +1173,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
             step,
             comments=comments,
             comments_before=comments_before,
-        )
-
-    def step_id_from_method(self, method: MethodType) -> str:
-        """Generate a step identifier from a `step_*` method name.
-
-        Args:
-            method: The step method whose name provides the source text.
-
-        Returns:
-            Identifier string in kebab-case, e.g. `"do-something"` from
-            `step_do_something`.
-        """
-        return self.id_from_method(method, prefix=self.step.__name__)
-
-    def action_from_resource(
-        self,
-        method: MethodType,
-        package: ModuleType,
-    ) -> tuple[str, str, str]:
-        """Read action name, pinned ref, and release tag from a resource.
-
-        The resource name is derived from the method name, converted to
-        uppercase, and the first three lines provide the action metadata.
-
-        Args:
-            method: Action method whose name identifies the resource.
-            package: Package module containing the resource.
-
-        Returns:
-            Tuple of action name, pinned commit SHA, and release tag.
-        """
-        action, ref, tag, *_ = resource_content(
-            method.__name__.upper(),
-            package,
-        ).splitlines()
-        return action, ref, tag
-
-    def id_from_method(self, method: MethodType, prefix: str) -> str:
-        """Generate a compact identifier from a method name.
-
-        Strips the given prefix (plus the underscore joining it to the rest
-        of the name) and returns the rest in kebab-case.
-
-        Args:
-            method: The method whose name provides the source text.
-            prefix: The leading segment to strip, e.g. `"job"` or `"step"`.
-
-        Returns:
-            Identifier string in kebab-case, e.g. `"do-something"` from
-            `job_do_something` with `prefix="job"`.
-        """
-        return snake_to_kebab_case(method.__name__.removeprefix(f"{prefix}_"))
-
-    def insert_parameter_expansion(self, parameter: str) -> str:
-        """Wrap a shell parameter in parameter expansion syntax `"${...}"`."""
-        return self.insert_expansion(f"{{{parameter}}}")
-
-    def name_from_id(self, id_: str) -> str:
-        """Generate a human-readable display name from a kebab-case identifier.
-
-        Splits the identifier on hyphens and capitalizes each word.
-
-        Args:
-            id_: The kebab-case identifier to convert, e.g. one produced by
-                `job_id_from_method()` or `step_id_from_method()`.
-
-        Returns:
-            Display name, e.g. `"Do Something"` from `"do-something"`.
-        """
-        return reformat_name(
-            id_,
-            split_on="-",
-            join_on=" ",
-            capitalize=True,
         )
 
     def uses(self, action: str, ref: str) -> str:
@@ -1213,7 +1214,3 @@ class WorkflowConfigFile(YMLDictConfigFile):
             {"uses": f"{prefix}{default}"},
         )
         return cast("str", step["uses"]).removeprefix(prefix)
-
-    def insert_expansion(self, expansion: str) -> str:
-        """Wrap an expansion in basic shell expansion syntax `"$..."`."""
-        return f'"${expansion}"'

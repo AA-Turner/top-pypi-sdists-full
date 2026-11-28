@@ -1,0 +1,1319 @@
+use anyhow::{Context, Result};
+use memmap2::MmapOptions;
+use rayon::prelude::*;
+use regex_syntax::{
+    hir::{
+        literal::{ExtractKind, Extractor},
+        Hir, HirKind,
+    },
+    parse as parse_regex_hir,
+};
+use serde::{Deserialize, Serialize};
+mod bounded_json;
+pub(crate) mod query;
+use bounded_json::DecodeBudget;
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::{self, Read as _};
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+
+pub(crate) const TRIGRAM_LEN: usize = 3;
+// 1 GiB keeps about 73% headroom over the measured ~621 MB legacy JSON index for this repo.
+// The bounded reader keeps this raw-input buffer separate from the decoded-allocation budget.
+const MAX_INDEX_INPUT_BYTES: u64 = 1024 * 1024 * 1024;
+// Includes parser scratch plus decoded vectors, maps, paths, and derived posting lists.
+const MAX_INDEX_DECODED_ALLOCATION_BYTES: usize = 2 * 1024 * 1024 * 1024;
+const MAX_REGEX_CLASS_LITERALS: usize = 10;
+const MAX_REGEX_PREFILTER_LITERALS: usize = 64;
+/// M17 F1 (gate round 2): how many DIRECT children of the canonical root the tree
+/// fingerprint samples. Deliberately bounded in FILE COUNT (32); each sampled file is
+/// FULLY content-hashed (the old 4 KiB byte cap let a same-size/same-mtime edit past
+/// byte 4096 evade the fingerprint -- closed; see `compute_tree_fingerprint`). The honest
+/// remaining boundary is the files NOT sampled (33rd+ top-level files, and non-top-level
+/// files, whose per-file loop sees only mtime/size) -- tracked as follow-up M17-FU1.
+const TREE_FINGERPRINT_TOP_LEVEL_CAP: usize = 32;
+
+type FileTrigramHits = Vec<([u8; 3], u32)>;
+pub(crate) type MmapIndexParts<'a> = (
+    &'a Path,
+    u64,
+    bool,
+    &'a [FileEntry],
+    &'a HashMap<[u8; 3], Vec<PostingEntry>>,
+);
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct IncrementalUpdateStats {
+    pub added_files: usize,
+    pub modified_files: usize,
+    pub deleted_files: usize,
+    pub reused_files: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct IncrementalUpdateResult {
+    pub index: TrigramIndex,
+    pub stats: IncrementalUpdateStats,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RegexLiteralPlan {
+    pub(crate) literals: Vec<Vec<u8>>,
+}
+
+impl RegexLiteralPlan {
+    fn from_raw(literals: Vec<Vec<u8>>, ignore_case: bool) -> Option<Self> {
+        if literals.is_empty() || literals.len() > MAX_REGEX_PREFILTER_LITERALS {
+            return None;
+        }
+
+        let mut normalized = Vec::with_capacity(literals.len());
+        for literal in literals {
+            let literal = normalize_prefilter_literal(&literal, ignore_case)?;
+            if literal.len() < TRIGRAM_LEN {
+                return None;
+            }
+            normalized.push(literal);
+        }
+
+        normalized.sort();
+        normalized.dedup();
+        (!normalized.is_empty()).then_some(Self {
+            literals: normalized,
+        })
+    }
+
+    fn min_len(&self) -> usize {
+        self.literals.iter().map(Vec::len).min().unwrap_or(0)
+    }
+
+    fn total_len(&self) -> usize {
+        self.literals.iter().map(Vec::len).sum()
+    }
+}
+
+enum RegexCandidateSelection {
+    Indexed(Vec<(PathBuf, usize)>),
+    FullScan,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct FileEntry {
+    /// Canonical-root-RELATIVE path (audit M17 F2). Never a raw spelling: the build walks
+    /// the canonical root and strips it, so re-joining with `canonical_root` is the only
+    /// way an entry is ever dereferenced -- a relative spelling stored verbatim would
+    /// resolve against the QUERY process's cwd and read a different tree's files while
+    /// the canonical-root check passes. UTF-8-validated at build (M17 F5).
+    pub(crate) path: PathBuf,
+    pub(crate) mtime_ns: u128,
+    pub(crate) size: u64,
+    #[serde(default)]
+    pub(crate) deleted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct PostingEntry {
+    pub(crate) file_id: u32,
+    pub(crate) line: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct TrigramIndex {
+    /// The spelling of the tree this index was built from. Since audit M17 F2 this is the
+    /// CANONICALIZED root (the raw caller spelling is never kept): the build walks the
+    /// canonical root, entries are stored canonical-root-relative, and every on-disk
+    /// dereference goes through [`Self::canonical_root`]. For loaded indices this equals
+    /// `canonical_root` (the wire carries only the canonical form). Display/context only.
+    root: PathBuf,
+    /// The canonicalized (symlink-resolved, absolute) form of the tree this index was built
+    /// from, persisted so a REUSE only serves when the QUERY root canonicalizes to the same
+    /// tree (audit M17): a `.tg_index` copied across trees, renamed along with its tree, or
+    /// reached through a symlink whose target is elsewhere must never serve the wrong tree's
+    /// entries. This is the SOLE dereference base for every stored file entry (M17 F2) and the
+    /// only reader is `root_servability_reason` / the deref helper.
+    canonical_root: PathBuf,
+    /// Fingerprint of sampled root files, catching content swaps that preserve metadata.
+    tree_fingerprint: u64,
+    files: Vec<FileEntry>,
+    file_trigrams: Vec<FileTrigramHits>,
+    postings: HashMap<[u8; 3], Vec<PostingEntry>>,
+    /// Whether this index was built with `--no-ignore` (gitignored files included).
+    /// Persisted so a query whose --no-ignore mode differs from the build mode is
+    /// detected as stale (audit H1d) instead of silently serving the wrong file set --
+    /// either leaking gitignored content into a default query, or missing gitignored
+    /// files a --no-ignore query asked for.
+    no_ignore: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SerializableIndex {
+    files: Vec<FileEntry>,
+    postings: HashMap<String, Vec<PostingEntry>>,
+    no_ignore: bool,
+}
+
+impl TrigramIndex {
+    fn to_serializable(&self) -> SerializableIndex {
+        let postings = self
+            .postings
+            .iter()
+            .map(|(k, v)| {
+                let key = format!("{:02x}{:02x}{:02x}", k[0], k[1], k[2]);
+                (key, v.clone())
+            })
+            .collect();
+        SerializableIndex {
+            files: self.files.clone(),
+            postings,
+            no_ignore: self.no_ignore,
+        }
+    }
+}
+
+const INDEX_MAGIC: &[u8; 4] = b"TGI\x00";
+// Bumped 5 -> 6 (audit M17 gate): the wire no longer carries the build-spelling `root` (loaded
+// indices carry only the canonical root -- M17 F2), it adds the `tree_fingerprint` u64 (F1),
+// and the canonical root is strict UTF-8 in both directions (F5). Any index written by an older
+// binary fails the version gate in bincode_deserialize and is rebuilt from scratch by every
+// caller of TrigramIndex::load (main.rs's detect_warm_index_state and handle_index_search both
+// already treat a load error as "stale, rebuild"), so the bump is safe. Previous bump 4 -> 5
+// (audit M17) added the canonical root itself; 3 -> 4 (audit H1d) added the no_ignore byte.
+// pub so the wire-format tests (tests/test_index.rs) pin the CURRENT version, not a stale
+// hardcoded literal that silently goes wrong on the next bump (A27-twin / provenance rules).
+pub const INDEX_FORMAT_VERSION: u8 = 6;
+
+mod codec;
+use codec::*;
+
+#[derive(Debug)]
+pub struct IndexQueryResult {
+    pub file: PathBuf,
+    pub line: usize,
+    pub text: String,
+}
+
+/// Canonicalization of an index root (audit M17). `Path::canonicalize` resolves symlinks and
+/// produces an absolute form, giving every alias of the SAME tree one identity; that identity
+/// is what the reuse decision compares.
+///
+/// M17 F3: this FAILS CLOSED -- a root that cannot be canonicalized is an error, never a raw
+/// fallback. The query side (`root_servability_reason`) refuses on the same condition, so an
+/// uncanonicalizable path can never match "by raw spelling coincidence".
+///
+/// M17 F5: the canonical identity must be valid UTF-8 -- the index serializes it losslessly
+/// (strict on both read and write), so a non-UTF-8 root is rejected here at BUILD time instead
+/// of colliding with a different non-UTF-8 root after a lossy round trip.
+pub(crate) fn canonical_root_of(root: &Path) -> Result<PathBuf> {
+    let canonical = root.canonicalize().with_context(|| {
+        format!(
+            "index root cannot be canonicalized (fail closed): {}",
+            root.display()
+        )
+    })?;
+    if canonical.to_str().is_none() {
+        anyhow::bail!(
+            "index root is not valid UTF-8 (fail closed): {}",
+            canonical.display()
+        );
+    }
+    Ok(canonical)
+}
+
+/// M17 F2 (audit-m17 gate): converts a walked entry path to the canonical-root-RELATIVE form
+/// the index persists. Builds walk the canonical root, so every walked path is
+/// `canonical_root`-joined by construction and the strip always succeeds; failing closed on an
+/// entry that somehow lacks the prefix keeps a bad root from storing an out-of-tree path that
+/// a later deref would mis-root. Rel paths are validated UTF-8 here (M17 F5): the lossy
+/// serializer would otherwise collapse distinct non-UTF-8 names into one identity -- either
+/// aliasing two files or dereferencing a mangled name -- so such trees refuse to be indexed
+/// (plain text search is unaffected).
+pub(crate) fn relativize_entry(walked: &Path, canonical_root: &Path) -> Result<PathBuf> {
+    let rel = walked.strip_prefix(canonical_root).with_context(|| {
+        format!(
+            "index walk produced a path outside the canonical root: {} (root {})",
+            walked.display(),
+            canonical_root.display()
+        )
+    })?;
+    let rel = rel.to_path_buf();
+    if rel.to_str().is_none() {
+        anyhow::bail!(
+            "index entry is not valid UTF-8 (fail closed): {}",
+            walked.display()
+        );
+    }
+    Ok(rel)
+}
+
+/// M17 F2 (gate round 2): a loaded entry path must be STRICTLY RELATIVE and confined --
+/// `canonical_root.join(rel)` is only provably inside the verified root when `rel` has no
+/// absolute/root/prefix component and no `..` escape. A crafted or corrupt index carrying an
+/// absolute or escaping entry must be REJECTED (fail closed), never dereferenced outside the
+/// root. An empty path is allowed (a file-rooted index stores its single entry as the empty
+/// relative path; join("") is the root itself).
+pub(crate) fn validate_entry_rel_path(rel: &Path) -> Result<()> {
+    use std::path::Component;
+    if !rel.is_relative() {
+        anyhow::bail!(
+            "index entry path is not relative (fail closed): {}",
+            rel.display()
+        );
+    }
+    for component in rel.components() {
+        match component {
+            Component::ParentDir => {
+                anyhow::bail!(
+                    "index entry path escapes the canonical root (fail closed): {}",
+                    rel.display()
+                );
+            }
+            Component::RootDir | Component::Prefix(_) => {
+                anyhow::bail!(
+                    "index entry path contains an absolute component (fail closed): {}",
+                    rel.display()
+                );
+            }
+            Component::CurDir | Component::Normal(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn is_tg_index_owned_entry(name: &std::ffi::OsStr) -> bool {
+    name == std::ffi::OsStr::new(".tg_index") || name.to_string_lossy().starts_with("..tg_index.")
+}
+
+pub(crate) fn index_walker(root: &Path, no_ignore: bool) -> ignore::WalkBuilder {
+    let mut builder = ignore::WalkBuilder::new(root);
+    builder.hidden(true).git_ignore(!no_ignore);
+    if no_ignore {
+        builder
+            .ignore(false)
+            .git_ignore(false)
+            .git_global(false)
+            .git_exclude(false)
+            .parents(false);
+    } else {
+        for name in [".ignore", ".gitignore", ".rgignore"] {
+            let path = root.join(name);
+            if path.is_file() {
+                builder.add_ignore(path);
+            }
+        }
+    }
+    builder
+}
+
+fn file_paths_from_walk<E>(
+    root: &Path,
+    entries: impl Iterator<Item = std::result::Result<ignore::DirEntry, E>>,
+) -> Result<Vec<PathBuf>>
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    let mut paths = Vec::new();
+    for walked in entries {
+        let entry =
+            walked.with_context(|| format!("failed to traverse index root {}", root.display()))?;
+        let file_type = entry.file_type().ok_or_else(|| {
+            anyhow::anyhow!("failed to inspect index entry {}", entry.path().display())
+        })?;
+        if file_type.is_file() {
+            paths.push(entry.into_path());
+        }
+    }
+    Ok(paths)
+}
+
+pub(crate) fn metadata_mtime_ns(meta: &fs::Metadata, path: &Path) -> Result<u128> {
+    Ok(meta
+        .modified()
+        .with_context(|| format!("failed to read modification time for {}", path.display()))?
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .with_context(|| {
+            format!(
+                "modification time predates UNIX epoch for {}",
+                path.display()
+            )
+        })?
+        .as_nanos())
+}
+
+pub(crate) fn compute_tree_fingerprint(canonical_root: &Path, no_ignore: bool) -> Result<u64> {
+    let mut hasher = Sha256::new();
+    let mut builder = index_walker(canonical_root, no_ignore);
+    builder.max_depth(Some(1));
+    let mut names: Vec<PathBuf> = file_paths_from_walk(canonical_root, builder.build())?
+        .into_iter()
+        .filter(|path| path.parent() == Some(canonical_root))
+        .collect();
+    names.sort();
+    for entry in names
+        .into_iter()
+        .filter(|path| !path.file_name().is_some_and(is_tg_index_owned_entry))
+        .take(TREE_FINGERPRINT_TOP_LEVEL_CAP)
+    {
+        if let Some(name) = entry.file_name() {
+            hasher.update(name.to_string_lossy().as_bytes());
+        }
+        let meta = fs::metadata(&entry).with_context(|| {
+            format!(
+                "failed to read fingerprint metadata for {}",
+                entry.display()
+            )
+        })?;
+        if !meta.is_file() {
+            anyhow::bail!("fingerprinted entry changed type: {}", entry.display());
+        }
+        hasher.update(meta.len().to_le_bytes());
+        hasher.update(metadata_mtime_ns(&meta, &entry)?.to_le_bytes());
+        // Content hashing detects sampled edits that preserve size and mtime.
+        let mut file = File::open(&entry)
+            .with_context(|| format!("failed to open fingerprint file {}", entry.display()))?;
+        let mut chunk = [0u8; 64 * 1024];
+        loop {
+            match file.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => hasher.update(&chunk[..n]),
+                Err(error) => {
+                    return Err(error).with_context(|| {
+                        format!("failed to read fingerprint file {}", entry.display())
+                    });
+                }
+            }
+        }
+    }
+    let digest = hasher.finalize();
+    Ok(u64::from_le_bytes(
+        digest[..8]
+            .try_into()
+            .expect("SHA-256 digest has >= 8 bytes"),
+    ))
+}
+
+impl TrigramIndex {
+    pub fn build(root: &Path) -> Result<Self> {
+        Self::build_with_options(root, false)
+    }
+
+    pub fn build_with_options(root: &Path, no_ignore: bool) -> Result<Self> {
+        Self::build_with_operations(root, no_ignore, collect_file_entries, extract_file_trigrams)
+    }
+
+    fn build_with_operations(
+        root: &Path,
+        no_ignore: bool,
+        collect: impl Fn(&Path, bool) -> Result<Vec<FileEntry>>,
+        extract: impl Fn(&Path) -> Result<FileTrigramHits> + Sync,
+    ) -> Result<Self> {
+        let canonical_root = canonical_root_of(root)?;
+        let file_entries = collect(&canonical_root, no_ignore)?;
+
+        let file_entries: Vec<FileEntry> = file_entries
+            .iter()
+            .map(|entry| {
+                Ok(FileEntry {
+                    path: relativize_entry(&entry.path, &canonical_root)?,
+                    mtime_ns: entry.mtime_ns,
+                    size: entry.size,
+                    deleted: false,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let per_file: Vec<(u32, FileTrigramHits)> = file_entries
+            .par_iter()
+            .enumerate()
+            .map(|(file_id, entry)| {
+                let path = canonical_root.join(&entry.path);
+                Ok((
+                    file_id as u32,
+                    extract(&path).with_context(|| {
+                        format!("failed to extract index trigrams from {}", path.display())
+                    })?,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let mut file_trigrams = vec![Vec::new(); file_entries.len()];
+        let mut postings: HashMap<[u8; 3], Vec<PostingEntry>> = HashMap::new();
+        for (file_id, hits) in per_file {
+            for (trigram, line) in &hits {
+                postings.entry(*trigram).or_default().push(PostingEntry {
+                    file_id,
+                    line: *line,
+                });
+            }
+            file_trigrams[file_id as usize] = hits;
+        }
+        normalize_postings(&mut postings);
+
+        let tree_fingerprint = compute_tree_fingerprint(&canonical_root, no_ignore)?;
+
+        Ok(Self {
+            root: canonical_root.clone(),
+            canonical_root,
+            tree_fingerprint,
+            files: file_entries,
+            file_trigrams,
+            postings,
+            no_ignore,
+        })
+    }
+
+    pub fn rebuild_incremental_with_options(
+        self,
+        root: &Path,
+        no_ignore: bool,
+    ) -> Result<IncrementalUpdateResult> {
+        self.rebuild_incremental_with_operations(
+            root,
+            no_ignore,
+            collect_file_entries,
+            extract_file_trigrams,
+        )
+    }
+
+    fn rebuild_incremental_with_operations(
+        mut self,
+        root: &Path,
+        no_ignore: bool,
+        collect: impl Fn(&Path, bool) -> Result<Vec<FileEntry>>,
+        extract: impl Fn(&Path) -> Result<FileTrigramHits> + Sync,
+    ) -> Result<IncrementalUpdateResult> {
+        let canonical_root = canonical_root_of(root)?;
+        let current_entries = collect(&canonical_root, no_ignore)?;
+        let current_entries: Vec<FileEntry> = current_entries
+            .iter()
+            .map(|entry| {
+                Ok(FileEntry {
+                    path: relativize_entry(&entry.path, &canonical_root)?,
+                    mtime_ns: entry.mtime_ns,
+                    size: entry.size,
+                    deleted: false,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let current_paths: HashMap<&Path, &FileEntry> = current_entries
+            .iter()
+            .map(|entry| (entry.path.as_path(), entry))
+            .collect();
+        let active_files: HashMap<&Path, usize> = self
+            .files
+            .iter()
+            .enumerate()
+            .filter(|(_, entry)| !entry.deleted)
+            .map(|(file_id, entry)| (entry.path.as_path(), file_id))
+            .collect();
+
+        let mut stats = IncrementalUpdateStats::default();
+        let mut modified_entries = Vec::new();
+        let mut added_entries = Vec::new();
+
+        for entry in &current_entries {
+            match active_files.get(entry.path.as_path()) {
+                Some(&file_id) => {
+                    let existing = &self.files[file_id];
+                    if existing.mtime_ns == entry.mtime_ns && existing.size == entry.size {
+                        stats.reused_files += 1;
+                    } else {
+                        stats.modified_files += 1;
+                        modified_entries.push((file_id, entry.clone()));
+                    }
+                }
+                None => {
+                    stats.added_files += 1;
+                    added_entries.push(entry.clone());
+                }
+            }
+        }
+
+        let deleted_file_ids: Vec<usize> = self
+            .files
+            .iter()
+            .enumerate()
+            .filter(|(_, entry)| !entry.deleted)
+            .filter_map(|(file_id, entry)| {
+                (!current_paths.contains_key(entry.path.as_path())).then_some(file_id)
+            })
+            .collect();
+        stats.deleted_files = deleted_file_ids.len();
+
+        let mut affected_trigrams = std::collections::HashSet::new();
+
+        for file_id in deleted_file_ids {
+            remove_file_postings(
+                &mut self.postings,
+                file_id as u32,
+                &self.file_trigrams[file_id],
+                &mut affected_trigrams,
+            );
+            self.file_trigrams[file_id].clear();
+            self.files[file_id].deleted = true;
+        }
+
+        let changed_postings: Vec<(usize, FileEntry, FileTrigramHits)> = modified_entries
+            .par_iter()
+            .map(|(file_id, entry)| {
+                let path = canonical_root.join(&entry.path);
+                Ok((
+                    *file_id,
+                    entry.clone(),
+                    extract(&path).with_context(|| {
+                        format!("failed to extract index trigrams from {}", path.display())
+                    })?,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        for (file_id, entry, hits) in changed_postings {
+            remove_file_postings(
+                &mut self.postings,
+                file_id as u32,
+                &self.file_trigrams[file_id],
+                &mut affected_trigrams,
+            );
+            add_file_postings(
+                &mut self.postings,
+                file_id as u32,
+                &hits,
+                &mut affected_trigrams,
+            );
+            self.files[file_id] = entry;
+            self.file_trigrams[file_id] = hits;
+        }
+
+        let new_postings: Vec<(FileEntry, FileTrigramHits)> = added_entries
+            .par_iter()
+            .map(|entry| {
+                let path = canonical_root.join(&entry.path);
+                Ok((
+                    entry.clone(),
+                    extract(&path).with_context(|| {
+                        format!("failed to extract index trigrams from {}", path.display())
+                    })?,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        for (entry, hits) in new_postings {
+            let file_id = self.files.len() as u32;
+            add_file_postings(&mut self.postings, file_id, &hits, &mut affected_trigrams);
+            self.files.push(entry);
+            self.file_trigrams.push(hits);
+        }
+
+        normalize_affected_postings(&mut self.postings, &affected_trigrams);
+        self.root = canonical_root.clone();
+        self.canonical_root = canonical_root;
+        self.tree_fingerprint = compute_tree_fingerprint(&self.canonical_root, no_ignore)?;
+        self.no_ignore = no_ignore;
+
+        Ok(IncrementalUpdateResult { index: self, stats })
+    }
+
+    /// CHECKED candidate selection (M17 F4): fails closed with an error when the index has
+    /// no verified canonical root (legacy JSON / crafted load) and dereferences every
+    /// candidate through the verified canonical root.
+    pub fn query_candidates_fixed_checked(
+        &self,
+        pattern: &str,
+        ignore_case: bool,
+    ) -> Result<Vec<(PathBuf, usize)>> {
+        self.ensure_searchable()?;
+        let pat = if ignore_case {
+            pattern.to_lowercase()
+        } else {
+            pattern.to_string()
+        };
+        Ok(self.query_with_trigrams(&extract_trigrams(pat.as_bytes())))
+    }
+
+    /// CHECKED candidate selection (M17 F4) -- see `query_candidates_fixed_checked`.
+    pub fn query_candidates_checked(
+        &self,
+        pattern: &str,
+        ignore_case: bool,
+    ) -> Result<Vec<(PathBuf, usize)>> {
+        self.ensure_searchable()?;
+        Ok(
+            match self.regex_candidate_selection(pattern, ignore_case)? {
+                RegexCandidateSelection::Indexed(candidates) => candidates,
+                RegexCandidateSelection::FullScan => Vec::new(),
+            },
+        )
+    }
+
+    /// Legacy compatibility wrapper (law A40 disposition, M17 F4): preserves the pre-M17
+    /// `Vec` return shape so downstream rlib consumers outside this repository's census
+    /// keep compiling while the checked variants own the fail-closed behavior.
+    ///
+    /// DELIBERATE API-SHAPE DECISION (A49-style record): `query_candidates*_checked` are
+    /// the future of this surface -- an unverified index must be reported, not silently
+    /// emptied. This wrapper exists ONLY for the transition; for an unverified index it
+    /// returns an empty candidate set (the old code could not express the failure either,
+    /// and no candidate set is the honest closest-to-old behavior: nothing is served).
+    /// Migration: new consumers should call `query_candidates*_checked` and handle the
+    /// error; delete this wrapper in a future breaking release.
+    pub fn query_candidates_fixed(
+        &self,
+        pattern: &str,
+        ignore_case: bool,
+    ) -> Vec<(PathBuf, usize)> {
+        self.query_candidates_fixed_checked(pattern, ignore_case)
+            .unwrap_or_default()
+    }
+
+    /// Legacy compatibility wrapper -- see `query_candidates_fixed` (law A40 disposition).
+    pub fn query_candidates(&self, pattern: &str, ignore_case: bool) -> Vec<(PathBuf, usize)> {
+        self.query_candidates_checked(pattern, ignore_case)
+            .unwrap_or_default()
+    }
+
+    fn query_with_trigrams(&self, trigrams: &[[u8; 3]]) -> Vec<(PathBuf, usize)> {
+        if trigrams.is_empty() {
+            return Vec::new();
+        }
+
+        let mut candidate_sets: Vec<&Vec<PostingEntry>> = Vec::new();
+        for trigram in trigrams {
+            if let Some(postings) = self.postings.get(trigram) {
+                candidate_sets.push(postings);
+            } else {
+                return Vec::new();
+            }
+        }
+
+        candidate_sets.sort_by_key(|s| s.len());
+
+        let first = candidate_sets[0];
+        let mut candidates: Vec<(u32, u32)> = first.iter().map(|p| (p.file_id, p.line)).collect();
+
+        for posting_list in &candidate_sets[1..] {
+            let set: std::collections::HashSet<(u32, u32)> =
+                posting_list.iter().map(|p| (p.file_id, p.line)).collect();
+            candidates.retain(|c| set.contains(c));
+            if candidates.is_empty() {
+                break;
+            }
+        }
+
+        candidates.sort();
+        candidates.dedup();
+        candidates
+            .into_iter()
+            .filter_map(|(file_id, line)| {
+                let entry = self.files.get(file_id as usize)?;
+                // M17 F2: candidates are DEREFERENCED through the verified canonical root --
+                // never returned in their stored relative form, which a consumer would
+                // resolve against its own cwd.
+                (!entry.deleted).then_some((self.deref_path(&entry.path), line as usize))
+            })
+            .collect()
+    }
+
+    /// Candidate selection for `--fixed-strings` queries. Falls back to a full scan
+    /// (never a silently-empty `Indexed([])`) in the two cases the trigram prefilter
+    /// cannot answer correctly:
+    ///
+    /// - H1b: a pattern shorter than TRIGRAM_LEN has no trigrams to index on, so
+    ///   `query_candidates_fixed` returns zero candidates -- `search()` would read that
+    ///   as "definitely no match" instead of "the index can't accelerate this".
+    /// - H1c: build-time trigrams are lowercased with `to_ascii_lowercase` (a no-op on
+    ///   multi-byte UTF-8, see `extract_file_trigrams`), but `query_candidates_fixed`'s
+    ///   ignore_case path lowercases with Unicode-aware `str::to_lowercase` -- a
+    ///   non-ASCII ignore-case pattern's trigrams can never line up with the index's,
+    ///   again reading as a false "no match". Same precedent as
+    ///   `normalize_prefilter_literal`'s regex-path guard just below.
+    fn fixed_string_candidate_selection(
+        &self,
+        pattern: &str,
+        ignore_case: bool,
+    ) -> Result<RegexCandidateSelection> {
+        if ignore_case && !pattern.is_ascii() {
+            return Ok(RegexCandidateSelection::FullScan);
+        }
+
+        let normalized_len = if ignore_case {
+            pattern.to_lowercase().len()
+        } else {
+            pattern.len()
+        };
+        if normalized_len < TRIGRAM_LEN {
+            return Ok(RegexCandidateSelection::FullScan);
+        }
+
+        Ok(RegexCandidateSelection::Indexed(
+            self.query_candidates_fixed_checked(pattern, ignore_case)?,
+        ))
+    }
+
+    fn regex_candidate_selection(
+        &self,
+        pattern: &str,
+        ignore_case: bool,
+    ) -> Result<RegexCandidateSelection> {
+        let Some(plan) = select_regex_prefilter_literals(pattern, ignore_case) else {
+            return Ok(RegexCandidateSelection::FullScan);
+        };
+
+        let mut candidates = Vec::new();
+        for literal in &plan.literals {
+            candidates.extend(self.query_with_trigrams(&extract_trigrams(literal)));
+        }
+
+        candidates.sort();
+        candidates.dedup();
+        Ok(RegexCandidateSelection::Indexed(candidates))
+    }
+
+    pub fn is_stale(&self, no_ignore: bool) -> bool {
+        self.staleness_reason(no_ignore).is_some()
+    }
+
+    /// `no_ignore` is the current query's mode.
+    pub fn staleness_reason(&self, no_ignore: bool) -> Option<String> {
+        if self.no_ignore != no_ignore {
+            return Some(format!(
+                "no_ignore mode changed: index built with no_ignore={}, query requested no_ignore={}",
+                self.no_ignore, no_ignore
+            ));
+        }
+
+        let indexed_paths: std::collections::HashSet<&Path> = self
+            .files
+            .iter()
+            .filter(|entry| !entry.deleted)
+            .map(|e| e.path.as_path())
+            .collect();
+
+        for entry in self.files.iter().filter(|entry| !entry.deleted) {
+            let absolute = self.deref_path(&entry.path);
+            let meta = match absolute.metadata() {
+                Ok(meta) => meta,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    return Some(format!("file deleted: {}", absolute.display()))
+                }
+                Err(error) => {
+                    return Some(format!(
+                        "failed to read indexed file metadata for {}: {error}",
+                        absolute.display()
+                    ))
+                }
+            };
+            let current_mtime = match metadata_mtime_ns(&meta, &absolute) {
+                Ok(mtime) => mtime,
+                Err(error) => return Some(format!("{error:#}")),
+            };
+            if current_mtime != entry.mtime_ns {
+                return Some(format!("file modified: {}", absolute.display()));
+            }
+            if meta.len() != entry.size {
+                return Some(format!("file size changed: {}", absolute.display()));
+            }
+        }
+
+        if self.canonical_root.is_dir() {
+            let files = match file_paths_from_walk(
+                &self.canonical_root,
+                index_walker(&self.canonical_root, self.no_ignore).build(),
+            ) {
+                Ok(files) => files,
+                Err(error) => return Some(format!("index traversal failed: {error:#}")),
+            };
+            for file in files {
+                let rel = match relativize_entry(&file, &self.canonical_root) {
+                    Ok(rel) => rel,
+                    Err(error) => return Some(format!("index entry path invalid: {error:#}")),
+                };
+                if !indexed_paths.contains(rel.as_path()) {
+                    return Some(format!("new file: {}", file.display()));
+                }
+            }
+        }
+
+        match compute_tree_fingerprint(&self.canonical_root, self.no_ignore) {
+            Ok(fingerprint) if self.tree_fingerprint != fingerprint => {
+                return Some(
+                    "tree fingerprint changed (representative top-level identity mismatch)"
+                        .to_string(),
+                )
+            }
+            Err(error) => return Some(format!("tree fingerprint failed: {error:#}")),
+            _ => {}
+        }
+
+        None
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn canonical_root(&self) -> &Path {
+        &self.canonical_root
+    }
+
+    /// M17 F2 (audit-m17 gate): the ONLY way a stored file entry is turned into an on-disk
+    /// path. `canonical_root` has been verified to be the queried tree (or is being rebuilt
+    /// from it), so joining keeps every read cwd-independent; results carry canonical
+    /// absolute paths.
+    fn deref_path(&self, rel: &Path) -> PathBuf {
+        self.canonical_root.join(rel)
+    }
+
+    /// M17 F3 (gate round 2): DISPLAY projection. `search` dereferences canonically (see
+    /// `deref_path`), which is sound but changes the path SPELLING a user sees: a query
+    /// typed as `tree/` used to emit `tree/a.txt` and now emits the canonical absolute
+    /// path. This re-projects a canonical result path back through the QUERY's original
+    /// (non-canonical) spelling for EMISSION ONLY -- `query_spelling.join(rel)` -- so a
+    /// relative or differently-spelled query sees its own path space while every READ
+    /// stays confined to the verified canonical root. A path that does not project (e.g.
+    /// the file-rooted empty-relative case) is emitted as canonical. Dereference and
+    /// display are deliberately separate contracts: `deref_path` for I/O, this for output.
+    pub fn display_path(&self, query_spelling: &Path, canonical_file: &Path) -> PathBuf {
+        match canonical_file.strip_prefix(&self.canonical_root) {
+            Ok(rel) if !rel.as_os_str().is_empty() => query_spelling.join(rel),
+            _ => canonical_file.to_path_buf(),
+        }
+    }
+
+    /// M17 F4 (audit-m17 gate): an index without a verified canonical root must not be
+    /// searchable. `load_json` (legacy form) and a crafted load produce one with an empty
+    /// canonical root; refusing here closes the library-consumer bypass of
+    /// `root_servability_reason` -- consumers cannot search an unverified index directly.
+    /// The CLI already routes every serve through `root_servability_reason` and rebuilds on
+    /// mismatch, so this never fires on any in-tree path.
+    fn ensure_searchable(&self) -> Result<()> {
+        if self.canonical_root.as_os_str().is_empty() {
+            anyhow::bail!(
+                "index has no verified root (legacy or unverifiable form); refusing to serve \
+                 -- rebuild or verify root_servability first"
+            );
+        }
+        Ok(())
+    }
+
+    /// M17 (audit-m17): can this LOADED index serve a query rooted at `query_root`?
+    ///
+    /// `None` means serving is safe; `Some(reason)` means it must NOT serve -- the caller
+    /// rebuilds from the current `query_root` tree instead. The comparison is canonicalize-
+    /// vs-canonicalize: `canonical_root` records what `build_with_options` /
+    /// `rebuild_incremental_with_options` actually walked (in canonical form), and the query
+    /// root is canonicalized the same way, so every alias of the SAME tree still matches
+    /// while a `.tg_index` reached from a DIFFERENT tree -- copied in, renamed with its
+    /// tree, or resolved through a symlink whose target is elsewhere -- never serves.
+    ///
+    /// This check must run BEFORE `staleness_reason` / any incremental update: the per-file
+    /// identity walk asks the STORED root for its health, i.e. on a mismatched tree it asks
+    /// the WRONG tree and can pass against an index that must not be served.
+    ///
+    /// Fail-closed (M17 F3): an index without a stored canonical root (legacy JSON form) and
+    /// a query root that CANNOT BE CANONICALIZED both resolve to a refusal -- there is no
+    /// raw-spelling fallback comparison on either side, so nothing can ever pass "by spelling
+    /// coincidence" without a verified identity.
+    pub fn root_servability_reason(&self, query_root: &Path) -> Option<String> {
+        if self.canonical_root.as_os_str().is_empty() {
+            return Some(format!(
+                "index has no stored canonical root (legacy format); refusing to serve query root {}",
+                query_root.display()
+            ));
+        }
+        let query_canonical = match query_root.canonicalize() {
+            Ok(canonical) => canonical,
+            Err(_) => {
+                return Some(format!(
+                    "query root cannot be canonicalized: {}; refusing to serve",
+                    query_root.display()
+                ));
+            }
+        };
+        if query_canonical != self.canonical_root {
+            return Some(format!(
+                "index root mismatch: index was built for {}, but query root {} resolves to {}",
+                self.canonical_root.display(),
+                query_root.display(),
+                query_canonical.display()
+            ));
+        }
+        None
+    }
+
+    /// Persists the bincode-serialized index atomically through an already-anchored directory
+    /// handle so no path re-walk can follow a swapped symlink or junction.
+    pub fn save_anchored(
+        &self,
+        dir: &crate::safe_write::AnchoredDirectory,
+        file_name: &std::ffi::OsStr,
+    ) -> Result<()> {
+        let data = bincode_serialize(self)?;
+        dir.target(file_name)?
+            .publish_atomic(&data)
+            .map_err(|failure| failure.error)
+    }
+
+    /// Persists the bincode-serialized index atomically -- see [`atomic_write_bytes`]. Audit
+    /// #138 item #1: the previous `std::fs::write(path, ...)` here wrote the destination
+    /// in-place, so a crash mid-write left a truncated/corrupt `.tg_index` behind.
+    pub fn save(&self, path: &Path) -> Result<()> {
+        let data = bincode_serialize(self)?;
+        atomic_write_bytes(path, &data)
+    }
+
+    pub fn load(path: &Path) -> Result<Self> {
+        let data = bounded_json::read_bounded_index_input(path)?;
+        bincode_deserialize(&data)
+    }
+
+    /// Persists the legacy JSON index representation atomically -- see [`atomic_write_bytes`].
+    /// Same audit #138 item #1 rationale as [`Self::save`].
+    pub fn save_json(&self, path: &Path) -> Result<()> {
+        let data =
+            serde_json::to_vec(&self.to_serializable()).context("failed to serialize index")?;
+        atomic_write_bytes(path, &data)
+    }
+
+    pub fn load_json(path: &Path) -> Result<Self> {
+        let data = bounded_json::read_bounded_index_input(path)?;
+        let mut budget = DecodeBudget::default();
+        let serializable = bounded_json::deserialize_index_json(&data, &mut budget)?;
+        bounded_json::from_serializable(serializable, &mut budget)
+    }
+
+    pub fn file_count(&self) -> usize {
+        self.files.iter().filter(|entry| !entry.deleted).count()
+    }
+
+    pub fn trigram_count(&self) -> usize {
+        self.postings.len()
+    }
+
+    pub fn total_postings(&self) -> usize {
+        self.postings.values().map(|v| v.len()).sum()
+    }
+
+    pub(crate) fn mmap_parts(&self) -> MmapIndexParts<'_> {
+        (
+            &self.canonical_root,
+            self.tree_fingerprint,
+            self.no_ignore,
+            &self.files,
+            &self.postings,
+        )
+    }
+}
+
+/// Writes `data` to `path` via write-temp-then-atomic-rename, mirroring
+/// `checkpoint_store.py::_write_json_atomic`: the temp file lives in the SAME directory as
+/// `path` (so the rename is same-filesystem and therefore atomic), is fsync'd before the rename
+/// so a crash between the write and the rename can never publish a truncated file (the rename
+/// simply never happens -- `path` itself is untouched until it atomically becomes the new
+/// complete content in one indivisible step), and the rename is retried via
+/// `index_lock::replace_with_retry` to absorb the transient Windows "destination momentarily
+/// held open by a reader/AV scanner" case. On `cfg(unix)` the parent directory is ALSO fsync'd
+/// after the rename, best-effort, for durability of the directory entry itself (skipped on
+/// Windows, where a directory handle cannot be fsync'd this way). Audit #138 item #1.
+fn atomic_write_bytes(path: &Path, data: &[u8]) -> Result<()> {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    let parent = absolute
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("{} has no parent directory", path.display()))?;
+    let file_name = absolute
+        .file_name()
+        .ok_or_else(|| anyhow::anyhow!("{} has no file name", path.display()))?;
+    let dir = crate::index_cache::ensure_dir_anchored(parent)
+        .with_context(|| format!("failed to create parent dir for {}", path.display()))?;
+    dir.target(file_name)?
+        .publish_atomic(data)
+        .map_err(|failure| failure.error)
+}
+
+fn collect_file_entries(root: &Path, no_ignore: bool) -> Result<Vec<FileEntry>> {
+    let builder = index_walker(root, no_ignore);
+    collect_file_entries_from(root, builder.build())
+}
+
+fn collect_file_entries_from<E>(
+    root: &Path,
+    entries: impl Iterator<Item = std::result::Result<ignore::DirEntry, E>>,
+) -> Result<Vec<FileEntry>>
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    let mut files = Vec::new();
+    for walked in entries {
+        let entry =
+            walked.with_context(|| format!("failed to traverse index root {}", root.display()))?;
+        let file_type = entry.file_type().ok_or_else(|| {
+            anyhow::anyhow!("failed to inspect index entry {}", entry.path().display())
+        })?;
+        if !file_type.is_file() {
+            continue;
+        }
+        let path = entry.into_path();
+        let meta = path.metadata().with_context(|| {
+            format!("failed to read index file metadata for {}", path.display())
+        })?;
+        files.push(FileEntry {
+            path: path.clone(),
+            mtime_ns: metadata_mtime_ns(&meta, &path)?,
+            size: meta.len(),
+            deleted: false,
+        });
+    }
+    Ok(files)
+}
+
+fn rebuild_file_trigrams(
+    file_count: usize,
+    postings: &HashMap<[u8; 3], Vec<PostingEntry>>,
+    budget: &mut DecodeBudget,
+) -> Result<Vec<FileTrigramHits>> {
+    let mut file_trigrams = Vec::new();
+    budget.reserve_vec(
+        &mut file_trigrams,
+        file_count,
+        "derived per-file posting lists",
+    )?;
+    file_trigrams.resize_with(file_count, Vec::new);
+    for (trigram, entries) in postings {
+        for entry in entries {
+            let Some(file_hits) = file_trigrams.get_mut(entry.file_id as usize) else {
+                anyhow::bail!("index postings reference missing file id {}", entry.file_id);
+            };
+            budget.grow_vec(file_hits, "derived per-file postings")?;
+            file_hits.push((*trigram, entry.line));
+        }
+    }
+
+    for hits in &mut file_trigrams {
+        hits.sort_unstable_by_key(|(trigram, line)| (*trigram, *line));
+        hits.dedup();
+    }
+
+    Ok(file_trigrams)
+}
+
+fn add_file_postings(
+    postings: &mut HashMap<[u8; 3], Vec<PostingEntry>>,
+    file_id: u32,
+    hits: &FileTrigramHits,
+    affected_trigrams: &mut std::collections::HashSet<[u8; 3]>,
+) {
+    for (trigram, line) in hits {
+        postings.entry(*trigram).or_default().push(PostingEntry {
+            file_id,
+            line: *line,
+        });
+        affected_trigrams.insert(*trigram);
+    }
+}
+
+fn remove_file_postings(
+    postings: &mut HashMap<[u8; 3], Vec<PostingEntry>>,
+    file_id: u32,
+    hits: &FileTrigramHits,
+    affected_trigrams: &mut std::collections::HashSet<[u8; 3]>,
+) {
+    let mut lines_by_trigram: HashMap<[u8; 3], Vec<u32>> = HashMap::new();
+    for (trigram, line) in hits {
+        lines_by_trigram.entry(*trigram).or_default().push(*line);
+    }
+
+    for (trigram, mut lines) in lines_by_trigram {
+        affected_trigrams.insert(trigram);
+        let Some(entries) = postings.get_mut(&trigram) else {
+            continue;
+        };
+
+        lines.sort_unstable();
+        lines.dedup();
+        entries
+            .retain(|entry| entry.file_id != file_id || lines.binary_search(&entry.line).is_err());
+    }
+}
+
+fn normalize_affected_postings(
+    postings: &mut HashMap<[u8; 3], Vec<PostingEntry>>,
+    affected_trigrams: &std::collections::HashSet<[u8; 3]>,
+) {
+    for trigram in affected_trigrams {
+        let remove = if let Some(entries) = postings.get_mut(trigram) {
+            entries.sort_unstable_by_key(|entry| (entry.file_id, entry.line));
+            entries.dedup_by_key(|entry| (entry.file_id, entry.line));
+            entries.is_empty()
+        } else {
+            false
+        };
+
+        if remove {
+            postings.remove(trigram);
+        }
+    }
+}
+
+/// TG-006: files above this size carry no postings, so `search` scans them directly.
+pub(crate) const MAX_INDEXED_FILE_BYTES: u64 = 10 * 1024 * 1024;
+
+fn extract_file_trigrams(path: &Path) -> Result<Vec<([u8; 3], u32)>> {
+    extract_file_trigrams_with(
+        path,
+        |file| file.metadata(),
+        |file| unsafe { MmapOptions::new().map(file) },
+    )
+}
+
+fn extract_file_trigrams_with(
+    path: &Path,
+    metadata: impl FnOnce(&File) -> io::Result<fs::Metadata>,
+    map: impl FnOnce(&File) -> io::Result<memmap2::Mmap>,
+) -> Result<Vec<([u8; 3], u32)>> {
+    let file = File::open(path)
+        .with_context(|| format!("failed to open index file {}", path.display()))?;
+    let meta = metadata(&file)
+        .with_context(|| format!("failed to read index file metadata for {}", path.display()))?;
+    if meta.len() == 0 || meta.len() > MAX_INDEXED_FILE_BYTES {
+        return Ok(Vec::new());
+    }
+
+    let mmap =
+        map(&file).with_context(|| format!("failed to map index file {}", path.display()))?;
+    let mut trigrams = Vec::new();
+
+    for (line_num, line_bytes) in (1_u32..).zip(mmap.split(|&b| b == b'\n')) {
+        let line = if line_bytes.last() == Some(&b'\r') {
+            &line_bytes[..line_bytes.len() - 1]
+        } else {
+            line_bytes
+        };
+
+        if line.len() >= TRIGRAM_LEN {
+            let lower: Vec<u8> = line.iter().map(|b| b.to_ascii_lowercase()).collect();
+            let mut seen = std::collections::HashSet::new();
+            for window in lower.windows(TRIGRAM_LEN) {
+                let tri: [u8; 3] = [window[0], window[1], window[2]];
+                if seen.insert(tri) {
+                    trigrams.push((tri, line_num));
+                }
+            }
+        }
+    }
+
+    Ok(trigrams)
+}
+
+/// Safe regex acceleration is intentionally conservative.
+///
+/// We only use the trigram index when the regex parser can prove a finite set
+/// of literals that every match must contain. This covers literal alternations
+/// like `(foo|bar)`, small character-class expansions such as `de[ab]f` or
+/// `[abc]def`, and case-sensitive UTF-8 literals. Patterns with large or
+/// unbounded classes that do not leave behind another provable literal,
+/// empty/optional branches, or non-ASCII ignore-case literals fall back to a
+/// full scan so the index never introduces false negatives.
+pub(crate) fn select_regex_prefilter_literals(
+    pattern: &str,
+    ignore_case: bool,
+) -> Option<RegexLiteralPlan> {
+    let hir = parse_regex_hir(pattern).ok()?;
+
+    [
+        extract_edge_literal_plan(&hir, ExtractKind::Prefix, ignore_case),
+        extract_edge_literal_plan(&hir, ExtractKind::Suffix, ignore_case),
+        extract_inner_literal_plan(&hir, ignore_case),
+    ]
+    .into_iter()
+    .flatten()
+    .max_by(compare_regex_literal_plans)
+}
+
+fn extract_edge_literal_plan(
+    hir: &Hir,
+    kind: ExtractKind,
+    ignore_case: bool,
+) -> Option<RegexLiteralPlan> {
+    let mut extractor = Extractor::new();
+    extractor
+        .kind(kind)
+        .limit_class(MAX_REGEX_CLASS_LITERALS)
+        .limit_total(MAX_REGEX_PREFILTER_LITERALS);
+
+    let literals = extractor
+        .extract(hir)
+        .literals()?
+        .iter()
+        .map(|literal| literal.as_bytes().to_vec())
+        .collect();
+
+    RegexLiteralPlan::from_raw(literals, ignore_case)
+}
+
+fn extract_inner_literal_plan(hir: &Hir, ignore_case: bool) -> Option<RegexLiteralPlan> {
+    match hir.kind() {
+        HirKind::Empty | HirKind::Class(_) | HirKind::Look(_) => None,
+        HirKind::Literal(literal) => {
+            RegexLiteralPlan::from_raw(vec![literal.0.to_vec()], ignore_case)
+        }
+        HirKind::Capture(capture) => extract_inner_literal_plan(&capture.sub, ignore_case),
+        HirKind::Repetition(repetition) => (repetition.min > 0)
+            .then(|| extract_inner_literal_plan(&repetition.sub, ignore_case))
+            .flatten(),
+        HirKind::Concat(parts) => parts
+            .iter()
+            .filter_map(|part| extract_inner_literal_plan(part, ignore_case))
+            .max_by(compare_regex_literal_plans),
+        HirKind::Alternation(parts) => {
+            let mut combined = Vec::new();
+            for part in parts {
+                let plan = extract_inner_literal_plan(part, ignore_case)?;
+                combined.extend(plan.literals);
+                if combined.len() > MAX_REGEX_PREFILTER_LITERALS {
+                    return None;
+                }
+            }
+            RegexLiteralPlan::from_raw(combined, false)
+        }
+    }
+}
+
+fn normalize_prefilter_literal(literal: &[u8], ignore_case: bool) -> Option<Vec<u8>> {
+    if !ignore_case {
+        return Some(literal.to_vec());
+    }
+    literal
+        .is_ascii()
+        .then(|| literal.iter().map(u8::to_ascii_lowercase).collect())
+}
+
+fn compare_regex_literal_plans(a: &RegexLiteralPlan, b: &RegexLiteralPlan) -> std::cmp::Ordering {
+    a.min_len()
+        .cmp(&b.min_len())
+        .then_with(|| a.total_len().cmp(&b.total_len()))
+        .then_with(|| b.literals.len().cmp(&a.literals.len()))
+}
+
+pub(crate) fn extract_trigrams(pattern: &[u8]) -> Vec<[u8; 3]> {
+    if pattern.len() < TRIGRAM_LEN {
+        return Vec::new();
+    }
+    let lower: Vec<u8> = pattern.iter().map(|b| b.to_ascii_lowercase()).collect();
+    let mut trigrams = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for window in lower.windows(TRIGRAM_LEN) {
+        let tri: [u8; 3] = [window[0], window[1], window[2]];
+        if seen.insert(tri) {
+            trigrams.push(tri);
+        }
+    }
+    trigrams
+}
+
+#[cfg(test)]
+#[path = "../index_tests.rs"]
+mod tests;

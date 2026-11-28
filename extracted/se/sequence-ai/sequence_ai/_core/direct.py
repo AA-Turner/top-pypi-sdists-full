@@ -337,7 +337,14 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
 
 
 
-        deadline = (time.monotonic() + timeout_s) if timeout_s is not None else None
+
+
+
+
+
+        own_bound_s = self._own_timeout_s if getattr(self._gateway, "own", False) else None
+        bound_s = timeout_s if timeout_s is not None else own_bound_s
+        deadline = (time.monotonic() + bound_s) if bound_s is not None else None
 
         act_s = timeout_s if timeout_s is not None else self._act_timeout_s()
 
@@ -1417,6 +1424,10 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         elif allowed is not None:
             hint = (f"its deployment allows an act {allowed:g} s and its worker answers 504 then - the platform's limit, "
                     f"ten times the slowest p95 its version's check measured, never under 300 s nor over an hour")
+        elif self._own_timeout_s is not None:
+
+            hint = (f"connect(timeout_s={self._own_timeout_s:g}) bounds each act: a larger timeout_s waits longer, none "
+                    f"waits {DEFAULT_TIMEOUT_S:g} s")
         else:
             hint = (f"its deployment says no request timeout, so an act waits {DEFAULT_TIMEOUT_S:g} s: connect(timeout_s="
                     f"...) waits longer")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastcore
-Version: 2.2.49
+Version: 2.3.3
 Summary: Python supercharged for fastai development
 Author-email: Jeremy Howard and Sylvain Gugger <infos@fast.ai>
 License-Expression: Apache-2.0
@@ -12,19 +12,17 @@ Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev
 Requires-Dist: numpy; extra == "dev"
-Requires-Dist: nbdev>=3.3.2; extra == "dev"
+Requires-Dist: nbdev[exec]>=3.3.32; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
 Requires-Dist: pillow; extra == "dev"
 Requires-Dist: torch; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: nbclassic; extra == "dev"
-Requires-Dist: pysym2md>=0.0.6; extra == "dev"
-Requires-Dist: llms-txt; extra == "dev"
 Requires-Dist: plum-dispatch; extra == "dev"
 Requires-Dist: remold; extra == "dev"
 Dynamic: license-file
@@ -73,7 +71,6 @@ test_eq(x.unique(), [1,2,3,4,5])
 
 - [Quick tour](https://fastcore.fast.ai/tour.html.md): A quick tour of a few highlights from fastcore.
 - [fastcore: an underrated Python library](https://gist.githubusercontent.com/hamelsmu/ea9e0519d9a94a4203bcc36043eb01c5/raw/6c0c96a2823d67aecc103206d6ab21c05dcd520a/fastcore:_an_underrated_python_library.md): A tour of some of the features of fastcore.
-- [API list](https://fastcore.fast.ai/apilist.txt): A succinct list of all functions and methods in fastcore.
 
 ## Getting started
 

@@ -25,7 +25,7 @@ from sequence_ai._core.plugins import first, needs_cloud
 from sequence_ai.errors import InvalidRequest, NotFound, SequencesError
 
 
-_OWN = ("init", "serve", "weights", "teleop", "data")
+_OWN = ("init", "serve", "weights", "teleop", "data", "check")
 
 
 _OPEN_FLAGS = {"unauthenticated": "set SEQUENCES_API_KEY"}
@@ -181,6 +181,10 @@ def _dispatch(args: argparse.Namespace) -> int:
 
         dataset.export(args.recordings, args.out, fmt=args.format, fps=args.fps)
         return 0
+    if args.cmd == "check":
+        from sequence_ai import check
+
+        return check.report(args)
     return _cmd_weights(args)
 
 
@@ -234,11 +238,15 @@ def _served(given: str, base_url: str | None) -> str:
 
 
 
+
 def _print_templates(base_url: str | None) -> None:
     """Every template `seq init` can write, by kind, with the version each channel points at."""
     from seq import template_fetch
 
     rows = template_fetch.list_remote(base_url)
+
+
+    rows = [r for r in rows if r.get("kind") != "benchmark"]
 
 
     if _plugin() is None:
@@ -275,8 +283,8 @@ def _cmd_init(template: str | None, dest: str | None, list_only: bool, base_url:
 
 def _init_official(spec: str, target: str | None, base_url: str | None, *, no_source: bool = False) -> int | None:
     """Fetch the template's one version, or the one named, from the platform and unpack it; None when the platform has
-    no template by that name. With sequence-cloud installed, a version this sequence-ai cannot deploy is said
-    (_say_undeployable)."""
+    no template by that name. With sequence-cloud installed, a policy's or an adapter's version this sequence-ai cannot
+    deploy is said (_say_undeployable)."""
     from seq import template_fetch
 
     name, ref = template_fetch.split_ref(spec)
@@ -291,30 +299,37 @@ def _init_official(spec: str, target: str | None, base_url: str | None, *, no_so
 
 
 
-    cloud = _plugin() is not None
-    if cloud:
-        _say_undeployable(name, archive, version)
+    if template_fetch.entry_in(archive) == template_fetch.ENTRIES["benchmark"]:
+        raise template_fetch.benchmark_refused(name)
 
 
 
     deploy_name = dest.name
     template_fetch.unpack(archive, dest, template=name, deploy_name=deploy_name)
+    entry = template_fetch.entry_of(dest)
+
+
+
+
+    cloud = _plugin() is not None
+    if cloud and entry in ("policy.py", "adapter.py"):
+        _say_undeployable(name, archive, version)
     print(f"wrote {dest}/ ({name} {version})")
     _init_sources(dest, name, version, base_url, no_source=no_source)
-    entry = template_fetch.entry_of(dest)
     readme = f"{dest}/README.md" if (dest / "README.md").exists() else None
-
-    pick = template_fetch.entry_name(dest, entry) if entry else None
-    deploy = f"seq deploy {dest}" + (f" --name {pick}" if pick else "")
-    if entry and entry != "policy.py" and not cloud:
-        print(f"next: {needs_cloud('registering it on the platform')}" + (f"; see {readme}" if readme else ""))
-        return 0
     if entry == "adapter.py":
 
 
-        print(f"next: `{deploy}` registers it; name it in an eval with --adapter {name}"
-              + (f" (see {readme})" if readme else ""))
-    elif entry == "policy.py":
+
+        if not cloud:
+            print(f"next: {needs_cloud('registering it on the platform')}" + (f"; see {readme}" if readme else ""))
+            return 0
+
+        pick = template_fetch.entry_name(dest, entry)
+        print(f"next: `seq deploy {dest}{f' --name {pick}' if pick else ''}` registers it; name it in an eval with "
+              f"--adapter {name}" + (f" (see {readme})" if readme else ""))
+        return 0
+    if entry == "policy.py":
 
 
 
@@ -328,10 +343,11 @@ def _init_official(spec: str, target: str | None, base_url: str | None, *, no_so
             print("its weights download with a General Sequences key: seq serve reads it from "
                   + ("`seq login` or " if cloud else "") + "SEQUENCES_API_KEY")
         if cloud:
+
+            pick = template_fetch.entry_name(dest, entry)
             flags = template_fetch.deploy_flags(template_fetch.deploy_items(dest)) or ["--gpu", "CARD"]
-            print(f"on the General Sequences platform: `{deploy} {' '.join(flags)}`")
-    elif entry:
-        print(f"next: `{deploy}`" + (f"; see {readme}" if readme else ""))
+            print(f"on the General Sequences platform: `seq deploy {dest}{f' --name {pick}' if pick else ''} "
+                  f"{' '.join(flags)}`")
     return 0
 
 

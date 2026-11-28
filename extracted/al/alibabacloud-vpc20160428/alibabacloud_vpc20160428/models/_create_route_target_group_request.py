@@ -22,25 +22,28 @@ class CreateRouteTargetGroupRequest(DaraModel):
         tag: List[main_models.CreateRouteTargetGroupRequestTag] = None,
         vpc_id: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters. If you do not specify this parameter, the system automatically uses the RequestId value as the ClientToken value. The RequestId value is different for each API request.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must ensure that it is unique among different requests. The client token can only contain ASCII characters. Note: If you do not specify this parameter, the system automatically uses the RequestId of the API request as the client token. The RequestId of each API request is different.
         self.client_token = client_token
         # The configuration mode of the route target group. Valid values:
         # 
-        # - **Active-Standby**: active/standby mode.
+        # - **Active-Standby**: Active/standby mode.
         # 
         # This parameter is required.
         self.config_mode = config_mode
+        # Specifies whether to perform a dry run without executing the operation.
         self.dry_run = dry_run
+        # The IP version.
         self.ip_version = ip_version
-        # The region ID of the route target group. You can call the DescribeRegions operation to query the most recent region list.
+        # The region ID of the route target group. You can call the DescribeRegions operation to obtain the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The resource group ID.
+        # The ID of the resource group.
         # 
         # For more information about resource groups, see [What is a resource group?](https://help.aliyun.com/document_detail/2381067.html).
         self.resource_group_id = resource_group_id
-        # The description of the route target group. The description must be 1 to 256 characters in length and cannot start with http:// or https://.
+        # The description of the route target group.
+        # The description must be 1 to 256 characters in length and cannot start with http:// or https://.
         self.route_target_group_description = route_target_group_description
         # The name of the route target group.
         # 
@@ -48,10 +51,10 @@ class CreateRouteTargetGroupRequest(DaraModel):
         self.route_target_group_name = route_target_group_name
         # The list of members in the route target group.
         # 
-        # In active/standby mode, the following limits apply to route target group members:
+        # In active/standby mode, the following limits apply to the members of the route target group:
         # 
-        # 1. The number of route target group members must be 2.
-        # 2. The route target group members must be in different zones.
+        # 1. The number of members in the route target group must be 2.
+        # 2. The members of the route target group must belong to different zones.
         # 
         # This parameter is required.
         self.route_target_member_list = route_target_member_list
@@ -165,13 +168,13 @@ class CreateRouteTargetGroupRequestTag(DaraModel):
         key: str = None,
         value: str = None,
     ):
-        # The tag key of the resource. You can specify up to 20 tag keys. The tag key cannot be an empty string.
+        # The tag key of the resource. You can specify up to 20 tag keys. If you specify this parameter, you cannot enter an empty string.
         # 
-        # The tag key can be up to 128 characters in length and cannot start with `aliyun` or `acs:`. It cannot contain `http://` or `https://`.
+        # A tag key can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.key = key
-        # The tag value of the resource. You can specify up to 20 tag values. The tag value can be an empty string.
+        # The tag value of the resource. You can specify up to 20 tag values. If you specify this parameter, you can enter an empty string.
         # 
-        # The tag value can be up to 128 characters in length and cannot start with `aliyun` or `acs:`. It cannot contain `http://` or `https://`.
+        # A tag value can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.value = value
 
     def validate(self):
@@ -207,13 +210,13 @@ class CreateRouteTargetGroupRequestRouteTargetMemberList(DaraModel):
         member_type: str = None,
         weight: int = None,
     ):
-        # The instance ID of the route target group member.
+        # The instance ID of the member in the routing target group.
         # 
         # This parameter is required.
         self.member_id = member_id
-        # The type of the route target group member.
+        # The type of the member in the route target group.
         # 
-        # Supported type:
+        # Supported types:
         # 
         # - **GatewayLoadBalancerEndpoint**
         # 
@@ -221,7 +224,7 @@ class CreateRouteTargetGroupRequestRouteTargetMemberList(DaraModel):
         # 
         # This parameter is required.
         self.member_type = member_type
-        # The weight of the route target group member. Valid values:
+        # The weight of the member in the route target group. Valid values:
         # 
         # - **100**: The member is the primary instance.
         # - **0**: The member is the secondary instance.

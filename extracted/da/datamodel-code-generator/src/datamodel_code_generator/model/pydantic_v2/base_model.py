@@ -14,7 +14,7 @@ from dataclasses import replace
 from itertools import chain
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Optional, TypeVar, cast
 from warnings import warn
 
 from pydantic import Field, ValidationError, field_validator, model_validator
@@ -82,6 +82,7 @@ from datamodel_code_generator.model.base import (
     _find_base_classes,
     _get_template_with_custom_dir,
     _has_opaque_custom_base,
+    _library_base_class,
     _model_written,
     _ModelKeys,
     _uses_original_template_loader,
@@ -131,6 +132,7 @@ from datamodel_code_generator.model.pydantic_v2.types import (
     DataTypeManager,
     EncodedTextDataType,
     PydanticV2DataType,
+    _AnnotatedMemberConstraintDataType,
     constrained_base,
 )
 from datamodel_code_generator.model.pydantic_v2.version import _includes_dict_key_reference_classes, model_target_meets
@@ -465,6 +467,21 @@ def _config_dict_items(config: Any) -> list[tuple[str, Any]]:
     return list(as_mapping(values).items())
 
 
+_ConfigValueT = TypeVar("_ConfigValueT")
+
+
+def _merged_config_items(
+    taken: Iterable[tuple[str, _ConfigValueT]], own: Iterable[tuple[str, _ConfigValueT]]
+) -> dict[str, _ConfigValueT]:
+    """Return the items of ``taken`` that ``own`` does not set, then those of ``own`` in their order: own wins.
+
+    A config a model takes from a base gives its items first, as Pydantic merges the config of a base before the
+    model's own; a key both set stays where the model's own config writes it.
+    """
+    own_items = dict(own)
+    return {**{key: value for key, value in taken if key not in own_items}, **own_items}
+
+
 def _decode_legacy_quoted_config_string(value: str) -> str:
     """Decode the simple quoted strings emitted by older template-data files.
 
@@ -519,19 +536,6 @@ def _config_constructs(config_items: Iterable[tuple[str, str]]) -> Iterator[tupl
     for key, _ in config_items:
         if (row := CONFIG_KEY_REQUIREMENTS.get(key)) is not None:
             yield cast("PydanticConstruct", row.construct), None
-
-
-def _import_rendered_alias_generator(model: DataModel, config_items: Iterable[tuple[str, str]]) -> None:
-    """Import the known alias generator that the model's rendered config items name.
-
-    A BaseModel, RootModels included, also keeps importing the run's ``--alias-generator`` where it does not render
-    it (``legacy-run-alias-generator-import``): class naming avoids every imported name of a module, so dropping that
-    import would rename classes, until the module import ledger binds names without writing imports.
-    """
-    if (generator := _alias_generator_name(dict(config_items).get(_ALIAS_GENERATOR_TEMPLATE_DATA_KEY))) is None:
-        return
-    if (import_ := _ALIAS_GENERATOR_IMPORTS[generator]) not in (additional_imports := model._additional_imports):  # noqa: SLF001
-        additional_imports.append(import_)
 
 
 _PYDANTIC_V2_DEFAULT_FIELD_KEYS: frozenset[str] = frozenset({
@@ -705,6 +709,18 @@ def _type_without_pattern(data_type: DataType) -> DataType:
     return written
 
 
+def _constrained_type(data_type: DataType, keywords: Mapping[str, object]) -> DataType:
+    """Return a new type that writes ``data_type`` with the constraint arguments ``keywords`` as ``Annotated``.
+
+    The ``Field()`` it writes sorts them by name, as the call of a field does.
+    """
+    written = _AnnotatedMemberConstraintDataType.model_construct(
+        None, data_types=[data_type], kwargs=dict(sorted(keywords.items())), constrained_base=data_type.type or ""
+    )
+    keep_node_records(written, data_type)
+    return written
+
+
 def _writes_no_call_without_plan(field: DataModelFieldBase) -> bool:
     """Return whether ``field`` has nothing a ``Field()`` call could write and needs no null default, so no call.
 
@@ -797,6 +813,7 @@ class DataModelField(_PydanticBaseDataModelField):
     PREPARE_PYTHON_PATTERNS = staticmethod(_prepare_python_patterns)
     PREPARE_TYPE_ALIAS_FIELD = staticmethod(_prepare_type_alias_field)
     _TYPE_WITHOUT_PATTERN = staticmethod(_type_without_pattern)
+    _CONSTRAINED_TYPE = staticmethod(_constrained_type)
     NEEDS_MODEL_REGEX_ENGINE = staticmethod(_needs_model_regex_engine)
     WRITES_NO_CALL_WITHOUT_PLAN = staticmethod(_writes_no_call_without_plan)
     PATTERN_NEEDS_HOLDER_ENGINE = staticmethod(_pattern_needs_holder_engine)
@@ -1819,7 +1836,7 @@ def _select_surrogate_regex_engines(models: list[DataModel], alias_users: type[D
     The default engine reads a lone surrogate as U+FFFD, so a model wants Python's engine for one in a pattern of its
     fields (``_surrogate_pattern_scopes``) or of a type alias it reaches as ``finalize_type_alias_users`` reads it,
     and the patterns of the config decide (``selects_python_engine``): those it builds (``_config_pattern_engines``)
-    and those of every model that takes the config (``_takes_config_of``). Where one of them runs on the default
+    and those of every model the engine reaches (``_takes_engine_of``). Where one of them runs on the default
     engine as written, switching would change how Python reads it or refuse it at import, so the model keeps the
     default engine and warns.
     """
@@ -1838,7 +1855,7 @@ def _select_surrogate_regex_engines(models: list[DataModel], alias_users: type[D
     takers: defaultdict[int, list[_PydanticV2Model]] = defaultdict(list)
     for model in holders:
         for base in _find_base_classes(model):
-            if model._takes_config_of(base):  # noqa: SLF001
+            if model._takes_engine_of(base):  # noqa: SLF001
                 takers[id(base)].append(model)
     for model in holders:
         through_alias = isinstance(model, alias_users) and _uses_reached_alias(model, reached)
@@ -1965,7 +1982,8 @@ class _PydanticV2Model(DataModel):
         marked once (``PYTHON_ENGINE_BUILDS_KEY``), so its fields leave out a pattern Python's ``re`` rejects (#6593).
         A config that selects the engine only for the patterns of its bases marks the models that apply it alone: they
         redeclare each inherited field whose pattern the engine cannot build (``_redeclare_rejected_patterns``), and the
-        bases keep their output (#7452).
+        bases keep their output (#7452). Last, once no config changes any more, a config gets the items it applies from
+        a base (``_store_inherited_configs``).
         """
         for model in models:
             if isinstance(model, BaseModel) and model._own_patterns_select_python():  # noqa: SLF001
@@ -1989,6 +2007,14 @@ class _PydanticV2Model(DataModel):
             for field in current.fields:
                 field.invalidate_semantic_caches()
         cls._redeclare_rejected_patterns(models, for_bases, built)
+        cls._store_inherited_configs(models)
+
+    @classmethod
+    def _store_inherited_configs(cls, models: list[DataModel]) -> None:
+        """Write into each config the items it applies from a base, once every config is final.
+
+        None does: a model merges the config of every base itself.
+        """
 
     @classmethod
     def _select_engines_for_bases(cls, models: list[DataModel], selected: set[int]) -> None:
@@ -2050,6 +2076,10 @@ class _PydanticV2Model(DataModel):
         """Return whether the model applies the config of a base it names: a model merges the config of every base."""
         return True
 
+    def _takes_engine_of(self, base: DataModel) -> bool:
+        """Return whether the engine a base selects reaches the model: it applies the config of the base."""
+        return self._takes_config_of(base)
+
     def _bases_without_inherited_config(self) -> Sequence[BaseClassDataType]:  # noqa: PLR6301
         """Return the bases whose config the model does not take: none, as a model takes the config of every base."""
         return ()
@@ -2057,19 +2087,21 @@ class _PydanticV2Model(DataModel):
     def _keep_string_pattern_aliases_out_of_bases(self) -> None:
         """Keep the bases free of types Pydantic builds before the config applies; a model names none there."""
 
-    def _select_python_regex_engine(self, applied_config: object = None) -> None:
+    def _select_python_regex_engine(self, *, taken_config: object = None) -> None:
         """Set ``regex_engine`` in the config the model renders, unless the config already names an engine.
 
         Row ``legacy-dataclass-overwrites-engine`` (``_OVERWRITES_REGEX_ENGINE``): a dataclass replaces an engine its
         config names (#5637). The model gets a config of its own: the one in the template data may be shared with
         every model of the same name (``--extra-template-data``). It reads the items of that config, so a config that
-        is no mapping adds none. A config the model took from a base (``applied_config``) gives its items first, as
-        Pydantic stops applying it once the model has a config of its own.
+        is no mapping adds none. A config the model takes from a base (``taken_config``, a dataclass's
+        ``_taken_config``) gives its items first, as Pydantic stops applying it once the model has a config of its
+        own (``_merged_config_items``), and the model imports the alias generator they name. Row
+        ``legacy-dataclass-own-config-drops-taken-config``: without ``--keep-inherited-dataclass-config`` only the
+        engine the patterns of the bases select (the caller passes ``taken_config``) keeps them (#7497).
         """
-        config_parameters = {
-            **dict(_config_dict_items(applied_config)),
-            **dict(_config_dict_items(self.extra_template_data.get("config"))),
-        }
+        config_parameters = _merged_config_items(
+            _config_dict_items(taken_config), _config_dict_items(self.extra_template_data.get("config"))
+        )
         if "regex_engine" in config_parameters and not self._OVERWRITES_REGEX_ENGINE:
             return
         config_parameters["regex_engine"] = '"python-re"'
@@ -2077,10 +2109,14 @@ class _PydanticV2Model(DataModel):
         self.invalidate_render_caches()
 
     def _store_config(self, config_parameters: dict[str, Any]) -> None:
-        """Store the config the model renders with the items the template writes, and import ``ConfigDict``.
+        """Store the config the model renders with the items the template writes, and import what they name.
 
         A model validates it as a ``ConfigDict``; a dataclass keeps the mapping (``_CONFIG_AS_CONFIG_DICT``), so the
-        keys ``ConfigDict`` leaves out stay.
+        keys ``ConfigDict`` leaves out stay. The model imports ``ConfigDict`` and the known alias generator the items
+        name. A BaseModel, RootModels included, also keeps importing the run's ``--alias-generator`` where it does not
+        render it (``legacy-run-alias-generator-import``): class naming avoids every imported name of a module, so
+        dropping that import would rename classes, until the module import ledger binds names without writing
+        imports.
         """
         from datamodel_code_generator.model.pydantic_v2 import ConfigDict  # noqa: PLC0415
 
@@ -2095,9 +2131,10 @@ class _PydanticV2Model(DataModel):
         self.extra_template_data["config"] = (
             ConfigDict.model_validate(config_parameters) if validates else config_parameters
         )
-        self._set_internal_template_data(self._CONFIG_ITEMS_KEY, self._config_items())
-        if IMPORT_CONFIG_DICT not in self._additional_imports:
-            self._additional_imports.append(IMPORT_CONFIG_DICT)
+        self._set_internal_template_data(self._CONFIG_ITEMS_KEY, items := self._config_items())
+        generator = _alias_generator_name(dict(items).get(_ALIAS_GENERATOR_TEMPLATE_DATA_KEY))
+        named = (IMPORT_CONFIG_DICT, *(() if generator is None else (_ALIAS_GENERATOR_IMPORTS[generator],)))
+        self._additional_imports.extend(import_ for import_ in named if import_ not in self._additional_imports)
 
     def _config_items(self) -> list[tuple[str, str]]:
         """Return the ``ConfigDict`` items of the model's config, which the built-in templates write for the target."""
@@ -2345,22 +2382,31 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
         return module_plan
 
     @classmethod
+    def _is_generated_generic_base_class(cls, model: DataModel) -> bool:
+        """Return whether ``model`` is the generic base class, named ``BaseModel``, whatever its base is spelled.
+
+        The class is told by the import of its first base, the library's ``BaseModel``, and its name; a generic base
+        class renamed beside a kept class of its name (``BaseModelModel``) is not, so helpers keep inheriting the kept
+        class.
+        """
+        return (
+            model.class_name == cls.BASE_CLASS_NAME
+            and bool(model.base_classes)
+            and (base_import := model.base_classes[0].import_) is not None
+            and (base_import.from_, base_import.import_) == (IMPORT_BASE_MODEL.from_, IMPORT_BASE_MODEL.import_)
+        )
+
+    @classmethod
     def _has_local_generated_generic_base_class(cls, models: list[DataModel]) -> bool:
         """Return whether this module renders its configured ``BaseModel`` before helpers."""
-        if not models or models[0].class_name != cls.BASE_CLASS_NAME:
-            return False
-        return models[0].base_class == cls.BASE_CLASS_ALIAS
+        return bool(models) and cls._is_generated_generic_base_class(models[0])
 
     @classmethod
     def _has_generated_generic_base_class(cls, models: list[DataModel]) -> bool:
         """Return whether local helpers can inherit a generated generic ``BaseModel``."""
         if cls._has_local_generated_generic_base_class(models):
             return True
-        return any(
-            base.class_name == cls.BASE_CLASS_NAME and base.base_class == cls.BASE_CLASS_ALIAS
-            for model in models
-            for base in _find_base_classes(model)
-        )
+        return any(cls._is_generated_generic_base_class(base) for model in models for base in _find_base_classes(model))
 
     @classmethod
     @override
@@ -2814,7 +2860,6 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
 
         if config_parameters:
             self._store_config(config_parameters)
-            _import_rendered_alias_generator(self, self._rendered_config_items())
         else:
             self.extra_template_data.pop("config", None)
             self._pop_internal_template_data(_CONFIG_ITEMS_TEMPLATE_DATA_KEY)
@@ -3043,15 +3088,14 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
             treat_dot_as_module=treat_dot_as_module,
         )
 
-        base_model.base_classes = [BaseClassDataType(type=cls.BASE_CLASS_ALIAS)]
+        base, base_import = _library_base_class(IMPORT_BASE_MODEL, cls.BASE_CLASS_ALIAS)
+        base_model.base_classes = [base]
         base_model._additional_imports = [
             imp
             for imp in base_model._additional_imports
             if not (imp.from_ == IMPORT_BASE_MODEL.from_ and imp.import_ == IMPORT_BASE_MODEL.import_)
         ]
-        base_model._additional_imports.append(
-            Import(from_=IMPORT_BASE_MODEL.from_, import_=IMPORT_BASE_MODEL.import_, alias=cls.BASE_CLASS_ALIAS)
-        )
+        base_model._additional_imports.append(base_import)
 
         return base_model
 

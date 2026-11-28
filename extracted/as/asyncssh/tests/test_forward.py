@@ -17,19 +17,23 @@
 #
 # Contributors:
 #     Ron Frederick - initial implementation, API, and documentation
+#     Sean Li - regression test for disconnects during forwarding setup
 
 """Unit tests for AsyncSSH forwarding API"""
 
 import asyncio
 import codecs
+import errno
 import os
 import socket
 import sys
 import unittest
 
-from unittest.mock import patch
+from unittest.mock import DEFAULT, Mock, patch
 
 import asyncssh
+from asyncssh.forward import SSHLocalForwarder
+from asyncssh.listener import _bind_tcp_local_listeners
 from asyncssh.misc import maybe_wait_closed, write_file
 from asyncssh.packet import String, UInt32
 from asyncssh.public_key import CERT_TYPE_USER
@@ -300,10 +304,7 @@ class _CheckForwarding(ServerTestCase):
     async def _check_local_unix_connection(self, listen_path):
         """Open a local connection and test if an input line is echoed back"""
 
-        # pylint doesn't think open_unix_connection exists
-        # pylint: disable=no-member
         reader, writer = await asyncio.open_unix_connection(listen_path)
-        # pylint: enable=no-member
 
         await self._check_echo_line(reader, writer)
 
@@ -665,6 +666,72 @@ class _TestTCPForwarding(_CheckForwarding):
                                                    delay=0.1)
 
     @asynctest
+    async def test_forward_local_port_dynamic_retry(self):
+        """Test retrying when a dynamic port is only partially available"""
+
+        error = OSError(errno.EADDRINUSE, 'Address already in use')
+
+        async with self.connect() as conn:
+            with patch('asyncssh.listener._bind_tcp_local_listeners',
+                       side_effect=[error, DEFAULT],
+                       wraps=_bind_tcp_local_listeners) as mock_bind:
+                async with conn.forward_local_port('', 0, '', 7) as listener:
+                    await self._check_local_connection(listener.get_port())
+
+        self.assertEqual([call.args[-1] for call in mock_bind.call_args_list],
+                         [0, 0])
+
+    @asynctest
+    async def test_forward_local_port_dynamic_retry_exhausted(self):
+        """Test giving up after repeated dynamic port collisions"""
+
+        async def _bind(*_args):
+            raise OSError(errno.EADDRINUSE, 'Address already in use')
+
+        async with self.connect() as conn:
+            with patch('asyncssh.listener._bind_tcp_local_listeners', _bind):
+                with self.assertRaises(OSError):
+                    await conn.forward_local_port('', 0, '', 7)
+
+    @asynctest
+    async def test_forward_local_disconnect_while_opening(self):
+        """Test closing a peer opened after its local transport closes"""
+
+        started = asyncio.Event()
+        finish_open = asyncio.Event()
+
+        async def open_channel(session_factory):
+            started.set()
+            await finish_open.wait()
+
+            peer = session_factory()
+            self.assertIsNotNone(peer)
+
+        conn = Mock()
+
+        def start_task(coro):
+            conn.task = asyncio.create_task(coro)
+            return conn.task
+
+        conn.create_task.side_effect = start_task
+
+        forwarder = SSHLocalForwarder(conn, open_channel)
+
+        transport = Mock()
+        transport.get_extra_info.return_value = None
+
+        forwarder.connection_made(transport)
+        forwarder.forward()
+
+        await started.wait()
+
+        forwarder.connection_lost(None)
+        finish_open.set()
+
+        await conn.task
+        forwarder.close()
+
+    @asynctest
     async def test_forward_local_port_accept_handler(self):
         """Test forwarding of a local port with an accept handler"""
 
@@ -757,8 +824,6 @@ class _TestTCPForwarding(_CheckForwarding):
                 writer.close()
                 await maybe_wait_closed(writer)
 
-    @unittest.skipIf(sys.platform == 'win32',
-                     'skip dual-stack tests on Windows')
     @asynctest
     async def test_forward_bind_error_ipv4(self):
         """Test error binding a local forwarding port"""
@@ -769,8 +834,6 @@ class _TestTCPForwarding(_CheckForwarding):
                     await conn.forward_local_port('', listener.get_port(),
                                                   '', 7)
 
-    @unittest.skipIf(sys.platform == 'win32',
-                     'skip dual-stack tests on Windows')
     @asynctest
     async def test_forward_bind_error_ipv6(self):
         """Test error binding a local forwarding port"""
@@ -780,6 +843,27 @@ class _TestTCPForwarding(_CheckForwarding):
                 with self.assertRaises(OSError):
                     await conn.forward_local_port('', listener.get_port(),
                                                   '', 7)
+
+    @asynctest
+    async def test_forward_bind_error_specific_port(self):
+        """Test error binding a specific local forwarding port twice"""
+
+        sock = socket.socket()
+        sock.bind(('', 0))
+        listen_port = sock.getsockname()[1]
+        sock.close()
+
+        async with self.connect() as conn:
+            async with conn.forward_local_port('', listen_port, '', 7):
+                try:
+                    listener = await conn.forward_local_port(
+                        '', listen_port, '', 7)
+                except OSError:
+                    pass
+                else: # pragma: no cover
+                    listener.close()
+                    await listener.wait_closed()
+                    self.fail('Second bind of specific port succeeded')
 
     @unittest.skipIf(sys.platform == 'win32',
                      'skip UNIX domain socket tests on Windows')
@@ -1211,10 +1295,7 @@ class _TestUNIXForwarding(_CheckForwarding):
     async def test_forward_remote_path(self):
         """Test forwarding of a remote UNIX domain path"""
 
-        # pylint doesn't think start_unix_server exists
-        # pylint: disable=no-member
         server = await asyncio.start_unix_server(echo, 'local')
-        # pylint: enable=no-member
 
         path = os.path.abspath('echo')
 
@@ -1472,8 +1553,6 @@ class _TestSOCKSForwarding(_CheckForwarding):
             async with conn.forward_socks('', listen_port):
                 pass
 
-    @unittest.skipIf(sys.platform == 'win32',
-                     'Avoid issue with SO_REUSEADDR on Windows')
     @asynctest
     async def test_forward_bind_error_socks(self):
         """Test error binding a local dynamic forwarding port"""

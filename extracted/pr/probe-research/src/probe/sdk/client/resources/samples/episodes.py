@@ -15,16 +15,24 @@ class EpisodesMixin:
     """Part of Client: its methods run with `self` the Client; compose() folds them into Client."""
 
     def list_episodes(self, run_id: str, *, step: int | None = None, split: str | None = None,
-                      group_by: str | None = None, cursor: str | None = None, limit: int | None = None) -> dict:  # fmt: skip
+                      group_by: str | None = None, cursor: str | None = None, limit: int | None = None,
+                      evidence_snapshot: str | None = None) -> dict:  # fmt: skip
         """`GET /v1/runs/{id}/episodes`: one step's episodes (the latest when no ``step``) and the run's steps
         (`EpisodeList`). ``group_by``: episode, environment or recent_rollouts; pass back `next_cursor`."""
-        values = (("step", step), ("split", split), ("group_by", group_by), ("cursor", cursor), ("limit", limit))
+        values = (("step", step), ("split", split), ("group_by", group_by), ("cursor", cursor), ("limit", limit),
+                  ("evidence_snapshot", evidence_snapshot))
         query = {name: value for name, value in values if value is not None}
         return self.transport.get(f"/v1/runs/{_quote(run_id)}/episodes", params=query or None)
 
-    def get_episode(self, run_id: str, episode_key: str) -> dict:
+    def get_episode_rewards(self, run_id: str, *, split: str | None = None, evidence_snapshot: str | None = None) -> dict:
+        """Recorded mean episode reward per step and how many episodes were graded."""
+        query = {k: v for k, v in (("split", split), ("evidence_snapshot", evidence_snapshot)) if v is not None}
+        return self.transport.get(f"/v1/runs/{_quote(run_id)}/episode-rewards", params=query or None)
+
+    def get_episode(self, run_id: str, episode_key: str, *, evidence_snapshot: str | None = None) -> dict:
         """`GET /v1/runs/{id}/episodes/{key}`: one episode whole, its rollouts, branches and turns (`EpisodeDetail`)."""
-        return self.transport.get(f"/v1/runs/{_quote(run_id)}/episodes/{_quote(episode_key)}")
+        return self.transport.get(f"/v1/runs/{_quote(run_id)}/episodes/{_quote(episode_key)}",
+                                  params={"evidence_snapshot": evidence_snapshot} if evidence_snapshot else None)
 
     def find_episode(self, run_id: str, *, sample_id: str | None = None, key: str | None = None,
                      span_id: str | None = None) -> dict:  # fmt: skip

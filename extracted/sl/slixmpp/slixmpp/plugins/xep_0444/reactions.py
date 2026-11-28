@@ -7,6 +7,7 @@ from typing import Iterable
 from slixmpp import JID
 from slixmpp.plugins import BasePlugin
 from slixmpp.stanza import Message
+from slixmpp.types import MessageTypes
 from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.xmlstream.handler import Callback
@@ -48,16 +49,20 @@ class XEP_0444(BasePlugin):
     def _handle_reactions(self, message: Message):
         self.xmpp.event('reactions', message)
 
-    def send_reactions(self, to: JID, to_id: str, reactions: Iterable[str], *, store=True):
+    def send_reactions(self, to: JID, to_id: str, reactions: Iterable[str], *,
+                       store: bool = True, mtype: MessageTypes | None = None,
+                       mfrom: JID | None = None):
         """
         Send reactions related to a message.
 
         :param to: JID to which the reactions will be sent.
         :param to_id: ID of the message being reacted to.
         :param reactions: Iterable object containing all reactions to set.
+        :param mtype: Message type (e.g. ``groupchat``).
+        :param mfrom: JID the reaction is sent from (for components).
         :param store: If the store hint should be set on the message.
         """
-        msg = self.xmpp.make_message(mto=to)
+        msg = self.xmpp.make_message(mto=to, mfrom=mfrom, mtype=mtype)
         self.set_reactions(msg, to_id, reactions)
         if store:
             msg.enable('store')

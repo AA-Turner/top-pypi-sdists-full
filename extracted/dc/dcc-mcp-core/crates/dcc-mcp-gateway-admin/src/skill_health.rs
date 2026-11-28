@@ -100,7 +100,9 @@ struct SkillAdoptionMetrics {
 struct SkillHealthSummary {
     discovered_skill_roots: usize,
     loaded_skills: usize,
+    partial_skills: usize,
     unloaded_skills: usize,
+    catalog_only_skills: usize,
     action_count: usize,
     searched_skills: usize,
     used_skills: usize,
@@ -108,6 +110,24 @@ struct SkillHealthSummary {
     load_error_count: usize,
     missing_path_count: usize,
     path_redaction: &'static str,
+}
+
+const CATALOG_INSTANCE_ID: &str = "00000000-0000-0000-0000-000000000000";
+
+#[derive(Debug, Default)]
+struct DccSkillState {
+    loaded_instances: usize,
+    unloaded_instances: usize,
+    catalog_available: bool,
+}
+
+fn skill_load_state(loaded: usize, unloaded: usize) -> &'static str {
+    match (loaded, unloaded) {
+        (0, 0) => "catalog_only",
+        (0, _) => "unloaded",
+        (_, 0) => "loaded",
+        _ => "partial",
+    }
 }
 
 /// Build the public admin skill inventory from backend-neutral projection inputs.
@@ -121,19 +141,20 @@ pub fn skill_inventory_payload(
     missing_path_count: usize,
 ) -> Value {
     let adoption = build_adoption_metrics(&records, searches, audits, traces);
-    let mut grouped: BTreeMap<(String, String, bool), Vec<SkillCapabilityInput>> = BTreeMap::new();
+    // A skill is a logical inventory item. DCC types and instances are
+    // capabilities of that item, so they must not create duplicate rows.
+    let mut grouped: BTreeMap<String, Vec<SkillCapabilityInput>> = BTreeMap::new();
     for record in records {
         let skill_name = record
             .skill_name
             .clone()
             .unwrap_or_else(|| record.backend_tool.clone());
-        grouped
-            .entry((record.dcc_type.clone(), skill_name, record.loaded))
-            .or_default()
-            .push(record);
+        grouped.entry(skill_name).or_default().push(record);
     }
 
     let mut loaded = 0usize;
+    let mut partial = 0usize;
+    let mut unloaded = 0usize;
     let mut action_count = 0usize;
     let mut searched_skills = 0usize;
     let mut used_skills = 0usize;
@@ -142,40 +163,92 @@ pub fn skill_inventory_payload(
 
     let skills: Vec<Value> = grouped
         .into_iter()
-        .map(|((dcc_type, name, is_loaded), records)| {
-            if is_loaded {
-                loaded += 1;
-            }
-            action_count += records.len();
-            let mut instance_details = BTreeMap::new();
+        .map(|(name, records)| {
+            let mut instance_states: BTreeMap<String, (bool, String)> = BTreeMap::new();
+            let mut dcc_states: BTreeMap<String, DccSkillState> = BTreeMap::new();
             for record in &records {
-                let id = record.instance_id.clone();
-                instance_details.entry(id.clone()).or_insert_with(|| {
-                    json!({
-                        "id": id,
-                        "instance_id": record.instance_id,
-                        "prefix": instance_short(&record.instance_id),
-                        "instance_short": instance_short(&record.instance_id),
-                        "dcc_type": record.dcc_type,
-                    })
-                });
+                let dcc = dcc_states.entry(record.dcc_type.clone()).or_default();
+                if is_catalog_record(&record.instance_id) {
+                    dcc.catalog_available = true;
+                } else {
+                    instance_states
+                        .entry(record.instance_id.clone())
+                        .and_modify(|state| state.0 |= record.loaded)
+                        .or_insert((record.loaded, record.dcc_type.clone()));
+                }
             }
-            let instances: BTreeSet<String> = instance_details
+            let loaded_instance_count = instance_states
                 .values()
-                .filter_map(|value| value.get("instance_short").and_then(Value::as_str))
-                .map(str::to_owned)
-                .collect();
-            let instance_ids: Vec<String> = instance_details.keys().cloned().collect();
-            let instance_details: Vec<Value> = instance_details.into_values().collect();
-            let tools: Vec<String> = records
+                .filter(|(is_loaded, _)| *is_loaded)
+                .count();
+            let unloaded_instance_count =
+                instance_states.len().saturating_sub(loaded_instance_count);
+            for (is_loaded, dcc_type) in instance_states.values() {
+                let dcc = dcc_states.entry(dcc_type.clone()).or_default();
+                if *is_loaded {
+                    dcc.loaded_instances += 1;
+                } else {
+                    dcc.unloaded_instances += 1;
+                }
+            }
+            let load_state = skill_load_state(loaded_instance_count, unloaded_instance_count);
+            match load_state {
+                "loaded" => loaded += 1,
+                "partial" => partial += 1,
+                "unloaded" => unloaded += 1,
+                _ => {}
+            }
+
+            let tools: BTreeSet<String> = records
                 .iter()
                 .map(|record| record.backend_tool.clone())
                 .collect();
+            action_count += tools.len();
+            let instance_details: Vec<Value> = instance_states
+                .iter()
+                .map(|(id, (is_loaded, dcc_type))| {
+                    json!({
+                        "id": id,
+                        "instance_id": id,
+                        "prefix": instance_short(id),
+                        "instance_short": instance_short(id),
+                        "dcc_type": dcc_type,
+                        "loaded": is_loaded,
+                    })
+                })
+                .collect();
+            let instances: Vec<String> = instance_states
+                .keys()
+                .map(|id| instance_short(id))
+                .collect();
+            let instance_ids: Vec<String> = instance_states.keys().cloned().collect();
+            let dcc_types: Vec<String> = dcc_states.keys().cloned().collect();
+            let catalog_dcc_types: Vec<String> = dcc_states
+                .iter()
+                .filter_map(|(dcc_type, state)| state.catalog_available.then_some(dcc_type.clone()))
+                .collect();
+            let dcc_states: Vec<Value> = dcc_states
+                .into_iter()
+                .map(|(dcc_type, state)| {
+                    json!({
+                        "dcc_type": dcc_type,
+                        "load_state": skill_load_state(state.loaded_instances, state.unloaded_instances),
+                        "loaded_instance_count": state.loaded_instances,
+                        "unloaded_instance_count": state.unloaded_instances,
+                        "catalog_available": state.catalog_available,
+                    })
+                })
+                .collect();
+            let dcc_type = if dcc_types.len() == 1 {
+                dcc_types[0].clone()
+            } else {
+                String::new()
+            };
             let summary = records
                 .iter()
                 .find_map(|record| (!record.summary.is_empty()).then(|| record.summary.clone()))
                 .unwrap_or_default();
-            let metrics = adoption.metrics_for(&SkillKey::new(&dcc_type, &name), is_loaded);
+            let metrics = adoption.metrics_for_group(&name, &dcc_types, loaded_instance_count > 0);
             searched_skills += usize::from(metrics.searched);
             used_skills += usize::from(metrics.used);
             low_adoption_skills += usize::from(metrics.low_adoption);
@@ -184,13 +257,20 @@ pub fn skill_inventory_payload(
             json!({
                 "name": name,
                 "dcc_type": dcc_type,
-                "loaded": is_loaded,
-                "action_count": records.len(),
+                "dcc_types": dcc_types,
+                "load_state": load_state,
+                "loaded": load_state == "loaded",
+                "loaded_instance_count": loaded_instance_count,
+                "unloaded_instance_count": unloaded_instance_count,
+                "catalog_only": instance_states.is_empty() && !catalog_dcc_types.is_empty(),
+                "catalog_dcc_types": catalog_dcc_types,
+                "dcc_states": dcc_states,
+                "action_count": tools.len(),
                 "instance_count": instances.len(),
-                "instances": instances.into_iter().collect::<Vec<_>>(),
+                "instances": instances,
                 "instance_ids": instance_ids,
                 "instance_details": instance_details,
-                "tools": tools,
+                "tools": tools.into_iter().collect::<Vec<_>>(),
                 "summary": summary,
                 "adoption": metrics,
                 "package": Value::Null,
@@ -202,7 +282,9 @@ pub fn skill_inventory_payload(
     let health = SkillHealthSummary {
         discovered_skill_roots,
         loaded_skills: loaded,
-        unloaded_skills: skills.len().saturating_sub(loaded),
+        partial_skills: partial,
+        unloaded_skills: unloaded,
+        catalog_only_skills: skills.len() - (loaded + partial + unloaded),
         action_count,
         searched_skills,
         used_skills,
@@ -214,7 +296,9 @@ pub fn skill_inventory_payload(
     json!({
         "total": skills.len(),
         "loaded": loaded,
-        "unloaded": skills.len().saturating_sub(loaded),
+        "partial": partial,
+        "unloaded": unloaded,
+        "catalog_only": health.catalog_only_skills,
         "action_count": action_count,
         "adoption_scope": "gateway_routed",
         "health": health,
@@ -269,8 +353,41 @@ impl AdoptionIndex {
         }
     }
 
-    fn metrics_for(&self, key: &SkillKey, loaded: bool) -> SkillAdoptionMetrics {
-        let builder = self.builders.get(key);
+    fn metrics_for_group(
+        &self,
+        name: &str,
+        dcc_types: &[String],
+        loaded: bool,
+    ) -> SkillAdoptionMetrics {
+        let mut aggregate = SkillAdoptionBuilder::default();
+        for dcc_type in dcc_types {
+            let Some(builder) = self.builders.get(&SkillKey::new(dcc_type, name)) else {
+                continue;
+            };
+            aggregate.search_hits += builder.search_hits;
+            aggregate.rank_sum += builder.rank_sum;
+            aggregate.best_rank = match (aggregate.best_rank, builder.best_rank) {
+                (Some(current), Some(candidate)) => Some(current.min(candidate)),
+                (None, candidate) => candidate,
+                (current, None) => current,
+            };
+            aggregate.selected_count += builder.selected_count;
+            aggregate.call_count += builder.call_count;
+            aggregate.failure_count += builder.failure_count;
+            aggregate.load_error_count += builder.load_error_count;
+            aggregate.fallback_displaced_by_scripting += builder.fallback_displaced_by_scripting;
+            aggregate.last_searched_ms =
+                max_ms(aggregate.last_searched_ms, builder.last_searched_ms);
+            aggregate.last_used_ms = max_ms(aggregate.last_used_ms, builder.last_used_ms);
+        }
+        self.metrics_from_builder(Some(&aggregate), loaded)
+    }
+
+    fn metrics_from_builder(
+        &self,
+        builder: Option<&SkillAdoptionBuilder>,
+        loaded: bool,
+    ) -> SkillAdoptionMetrics {
         let search_hits = builder.map_or(0, |item| item.search_hits);
         let selected_count = builder.map_or(0, |item| item.selected_count);
         let call_count = builder.map_or(0, |item| item.call_count);
@@ -503,6 +620,10 @@ fn instance_short(id: &str) -> String {
     id.chars().take(8).collect()
 }
 
+fn is_catalog_record(instance_id: &str) -> bool {
+    instance_id.eq_ignore_ascii_case(CATALOG_INSTANCE_ID)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -582,5 +703,84 @@ mod tests {
             backend_action_name("maya_render__capture_viewport"),
             "maya_render__capture_viewport"
         );
+    }
+
+    #[test]
+    fn projects_shared_skill_once_with_cross_dcc_partial_state() {
+        let mut maya = capability("dcc-mcp", "discover_tools");
+        maya.loaded = true;
+        let mut blender = capability("dcc-mcp", "discover_tools");
+        blender.dcc_type = "blender".to_string();
+        blender.instance_id = "blender-0000-0000-0000-000000000000".to_string();
+        blender.loaded = false;
+
+        let payload = skill_inventory_payload(vec![maya, blender], &[], &[], &[], 2, 0);
+        assert_eq!(payload["total"], 1);
+        assert_eq!(payload["loaded"], 0);
+        assert_eq!(payload["partial"], 1);
+        assert_eq!(payload["unloaded"], 0);
+        let skill = &payload["skills"][0];
+        assert_eq!(skill["load_state"], "partial");
+        assert_eq!(skill["loaded_instance_count"], 1);
+        assert_eq!(skill["unloaded_instance_count"], 1);
+        assert_eq!(skill["dcc_types"], json!(["blender", "maya"]));
+        assert_eq!(skill["instance_details"][0]["loaded"], false);
+        assert_eq!(skill["instance_details"][1]["loaded"], true);
+    }
+
+    #[test]
+    fn catalog_placeholder_does_not_turn_a_loaded_skill_into_partial() {
+        let mut catalog = capability("dcc-mcp", "discover_tools");
+        catalog.instance_id = CATALOG_INSTANCE_ID.to_string();
+        catalog.loaded = false;
+        let mut loaded = capability("dcc-mcp", "discover_tools");
+        loaded.instance_id = "maya-0000-0000-0000-000000000000".to_string();
+
+        let payload = skill_inventory_payload(vec![catalog, loaded], &[], &[], &[], 1, 0);
+        let skill = &payload["skills"][0];
+        assert_eq!(skill["load_state"], "loaded");
+        assert_eq!(skill["loaded_instance_count"], 1);
+        assert_eq!(skill["unloaded_instance_count"], 0);
+        assert_eq!(skill["instance_count"], 1);
+        assert_eq!(skill["catalog_only"], false);
+        assert_eq!(skill["catalog_dcc_types"], json!(["maya"]));
+        assert_eq!(skill["dcc_states"][0]["catalog_available"], true);
+    }
+
+    #[test]
+    fn counts_live_instances_by_full_id_across_tool_records() {
+        let loaded = capability("shared", "inspect");
+        let mut hidden_tool = capability("shared", "configure");
+        hidden_tool.loaded = false;
+        let mut unloaded = hidden_tool.clone();
+        unloaded.instance_id = "deadbeef-1111-0000-0000-000000000000".into();
+        let payload =
+            skill_inventory_payload(vec![hidden_tool, loaded, unloaded], &[], &[], &[], 0, 0);
+        let row = &payload["skills"][0];
+        assert_eq!(row["instance_count"], 2);
+        assert_eq!(row["instances"].as_array().unwrap().len(), 2);
+        assert_eq!(row["dcc_states"][0]["loaded_instance_count"], 1);
+        assert_eq!(row["dcc_states"][0]["unloaded_instance_count"], 1);
+        assert_eq!(row["dcc_states"][0]["load_state"], "partial");
+    }
+
+    #[test]
+    fn catalog_only_skill_has_no_fake_instance() {
+        let mut maya = capability("dcc-mcp", "discover_tools");
+        maya.instance_id = CATALOG_INSTANCE_ID.to_string();
+        maya.loaded = false;
+        let mut blender = maya.clone();
+        blender.dcc_type = "blender".to_string();
+
+        let payload = skill_inventory_payload(vec![maya, blender], &[], &[], &[], 2, 0);
+        let skill = &payload["skills"][0];
+        assert_eq!(skill["load_state"], "catalog_only");
+        assert_eq!(skill["dcc_states"][0]["load_state"], "catalog_only");
+        assert_eq!(payload["unloaded"], 0);
+        assert_eq!(payload["catalog_only"], 1);
+        assert_eq!(skill["instance_count"], 0);
+        assert_eq!(skill["instances"], json!([]));
+        assert_eq!(skill["catalog_only"], true);
+        assert_eq!(skill["catalog_dcc_types"], json!(["blender", "maya"]));
     }
 }

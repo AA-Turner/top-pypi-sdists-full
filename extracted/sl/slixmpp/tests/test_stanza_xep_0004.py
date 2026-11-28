@@ -1,8 +1,7 @@
+import slixmpp.plugins.xep_0004 as xep_0004
 import unittest
 from slixmpp import Message
 from slixmpp.test import SlixTest
-
-import slixmpp.plugins.xep_0004 as xep_0004
 from slixmpp.xmlstream import register_stanza_plugin
 
 
@@ -68,7 +67,6 @@ class TestDataForms(SlixTest):
                                     {'label': 'Urgh!',
                                      'value': 'urgh'}]}
         form.set_fields(fields)
-
 
         self.check(msg, """
           <message>
@@ -159,9 +157,9 @@ class TestDataForms(SlixTest):
 
         form['type'] = 'submit'
         form.set_values({'f1': 'username',
-                          'f2': 'hunter2',
-                          'f3': 'A long\nmultiline\nmessage',
-                          'f4': 'cool'})
+                         'f2': 'hunter2',
+                         'f3': 'A long\nmultiline\nmessage',
+                         'f4': 'cool'})
 
         self.check(form, """
           <x xmlns="jabber:x:data" type="submit">
@@ -240,11 +238,18 @@ class TestDataForms(SlixTest):
         form = msg['form']
         form['type'] = 'result'
 
-        reported = {'f1': {
-            'var': 'f1',
-            'type': 'text-single',
-            'label': 'Username'
-        }}
+        reported = {
+            'f1': {
+                'var': 'f1',
+                'type': 'text-single',
+                'label': 'Username'
+            },
+            'f2': {
+                'var': 'f2',
+                'type': 'text-single',
+                'label': 'Field 2'
+            }
+        }
 
         form.set_reported(reported)
 
@@ -253,6 +258,7 @@ class TestDataForms(SlixTest):
             <x xmlns="jabber:x:data" type="result">
               <reported>
                 <field var="f1" type="text-single" label="Username" />
+                <field var="f2" type="text-single" label="Field 2" />
               </reported>
             </x>
           </message>

@@ -208,8 +208,10 @@ def _read_github_author(row: dict) -> str | None:
 
 def _semantic_result(row: dict, *, keyword: bool = False, api_base_url: str | None = None) -> dict:
     """A semantic-channel document hit (engine) in the tool's result shape. A hit
-    resolved to a run, experiment or project carries its dashboard page as `url`
-    (as the exact channel's does); a document or paper hit has no page and none.
+    resolved to a run, experiment, project or saved paper carries its dashboard
+    page as `url` (as the exact channel's does); a document hit has no page and none.
+    A paper hit (ref kind `paper`) carries `id`, so `entity(refs=["paper:<id>"])`
+    opens it; it has no `research://` resource.
 
     `keyword` labels a hit the backend's keyword search found (BM25, no model):
     same card, `why_matched` says `keyword` so it is never read as a meaning match.

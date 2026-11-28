@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from sequence_ai._core.plugins import INSTALL, loaded, needs_cloud
+from sequence_ai._core.plugins import loaded, needs_cloud
 from sequence_ai.engine.compiled import tensorrt_install as _tensorrt_install
 
 
@@ -40,8 +40,10 @@ _ELSEWHERE: dict = {}
 _SAME = {"delete": "rm", "remove": "rm", "list": "ls"}
 
 
-_CLOUD_COMMANDS = frozenset(("deploy eval policy robot record key benchmark adapter volume secret login logout profile "
-                             "audit models gpus gpu account billing storage usage port").split())
+
+
+_CLOUD_COMMANDS = frozenset(("deploy eval policy robot key benchmark adapter volume secret login logout profile "
+                             "audit models gpus gpu account billing storage usage").split())
 
 
 def _meant(prog: str, value: str, choices: list[str]) -> list[str]:
@@ -111,11 +113,11 @@ connect("http://<this machine>:8000").
   serve [folder]            serve the folder's @seq.policy from this machine's GPU, a template's weights downloaded
                             with your key
   weights get <template>    download one version of a template's weights, with your key
+  check <url|name>          what is on, and what is not, between this machine and a policy server, or a deployment
+                            on GS's platform by its name
   teleop serve              pair a robot and the consoles that drive it, from this machine
   data export <recording>   a robot's recordings as a LeRobot v3.0 dataset, or JSON lines
 
-Deploying to the platform, evals, GPUs and your account are sequence-cloud's, GS's client for its platform:
-""" + "  " + INSTALL + """
 `seq <command> --help` tells more.
 """
 
@@ -148,14 +150,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 
-    p = sub.add_parser("init", description="Start from a template: a policy, a benchmark or an adapter, from the "
-                                           "platform.")
+
+
+
+
+    p = sub.add_parser("init", description="Start from a template: a policy or an adapter, from the platform. The "
+                                           "benchmarks are ours: an eval runs any of their tasks as they are, `seq "
+                                           "eval run <policy> --task <id> ...` - nothing to start from or build.")
     p.add_argument("template", nargs="?",
                    help="a template, its version the one `seq init --list` shows (pi05-droid), or an exact version "
                         "(pi05-droid@v12)")
     p.add_argument("dest", nargs="?", default=None,
-                   help="the directory to create (default: the template's name): a policy deploys under it; a "
-                        "benchmark or an adapter keeps the name its file gives, which the next step names")
+                   help="the directory to create (default: the template's name): a policy deploys under it; an "
+                        "adapter keeps the name its file gives, which the next step names")
     p.add_argument("--list", action="store_true", dest="list_only", help="list the templates, by kind")
     p.add_argument("--no-source", action="store_true", dest="no_source",
                    help="do not download a template's large upstream sources (third_party/SOURCES.json) - the image "
@@ -278,6 +285,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--fps", type=float, default=None,
                    help="the dataset's frame rate (default: the pace its robots observed at)")
 
+
+
+
+    from sequence_ai import check as _check
+
+    _check.add_arguments(sub.add_parser("check", description=_check.DESCRIPTION))
 
     for plugin in loaded("seq.commands"):
         plugin.register(ap, sub)

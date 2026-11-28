@@ -1015,7 +1015,7 @@ class RedditNamespace:
         The cheapest Reddit user lookup; use reddit.profile for bio, trophies, and
         post and comment counts.
 
-        Price: $0.00036 per request.
+        Price: $0.00037 per request.
 
         Example:
             res = client.reddit.avatar(username="spez")
@@ -1033,7 +1033,7 @@ class RedditNamespace:
         Fetch a single Reddit post by URL, including its full body text, score,
         comment count, upvote ratio, and subreddit, as normalized JSON.
 
-        Price: $0.00048 per request.
+        Price: $0.0005 per request.
 
         Example:
             res = client.reddit.post(url="https://www.reddit.com/r/IAmA/comments/z1c9z/i_am_barack_obama_president_of_the_united_states/")
@@ -1054,7 +1054,7 @@ class RedditNamespace:
         List the comments on a Reddit post by URL (author, body, score, timestamp,
         parent comment). Replies carry the parentId of the comment they answer.
 
-        Price: $0.00058 per request.
+        Price: $0.00059 per request.
 
         Example:
             res = client.reddit.post_comments(url="https://www.reddit.com/r/IAmA/comments/z1c9z/i_am_barack_obama_president_of_the_united_states/")
@@ -1202,7 +1202,7 @@ class RedditNamespace:
 
         Fetch posts from a subreddit listing (hot, new, or top).
 
-        Price: $0.00036 per request.
+        Price: $0.00037 per request.
 
         Example:
             res = client.reddit.subreddit_posts(subreddit="programming")
@@ -1410,7 +1410,7 @@ class AsyncRedditNamespace:
         The cheapest Reddit user lookup; use reddit.profile for bio, trophies, and
         post and comment counts.
 
-        Price: $0.00036 per request.
+        Price: $0.00037 per request.
 
         Example:
             res = client.reddit.avatar(username="spez")
@@ -1428,7 +1428,7 @@ class AsyncRedditNamespace:
         Fetch a single Reddit post by URL, including its full body text, score,
         comment count, upvote ratio, and subreddit, as normalized JSON.
 
-        Price: $0.00048 per request.
+        Price: $0.0005 per request.
 
         Example:
             res = client.reddit.post(url="https://www.reddit.com/r/IAmA/comments/z1c9z/i_am_barack_obama_president_of_the_united_states/")
@@ -1449,7 +1449,7 @@ class AsyncRedditNamespace:
         List the comments on a Reddit post by URL (author, body, score, timestamp,
         parent comment). Replies carry the parentId of the comment they answer.
 
-        Price: $0.00058 per request.
+        Price: $0.00059 per request.
 
         Example:
             res = client.reddit.post_comments(url="https://www.reddit.com/r/IAmA/comments/z1c9z/i_am_barack_obama_president_of_the_united_states/")
@@ -1597,7 +1597,7 @@ class AsyncRedditNamespace:
 
         Fetch posts from a subreddit listing (hot, new, or top).
 
-        Price: $0.00036 per request.
+        Price: $0.00037 per request.
 
         Example:
             res = client.reddit.subreddit_posts(subreddit="programming")

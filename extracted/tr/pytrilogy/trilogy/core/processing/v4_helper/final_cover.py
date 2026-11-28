@@ -303,7 +303,7 @@ def _where_atoms(attrs: dict[str, GroupAttrs], groups: Collection[str]) -> list:
         if _scope_and_phase(attrs[gid].label)[1] == "condition":
             continue
         for atom in attrs[gid].condition_atoms:
-            if atom not in seen and args_holding_on_absent(atom):
+            if atom not in seen:
                 seen.append(atom)
     return seen
 
@@ -486,8 +486,18 @@ def _keys_off_one_tuple(
     `species` pair every city with every species of a form, tuples no row
     holds (`SelectGrain.keys_off_two_groups_pair_unheld`). A set holds only
     the rows its own condition kept, so it is no holder."""
+    selected = {c.address for c in mandatory_list}
     keys = [
-        c for c in mandatory_list if c.purpose == Purpose.KEY and not c.is_aggregate
+        c
+        for c in mandatory_list
+        if not c.is_aggregate
+        and (
+            c.purpose == Purpose.KEY
+            # a row column shown without its key is a key of the select's rows
+            or c.derivation == Derivation.ROOT
+            and c.purpose == Purpose.PROPERTY
+            and not (c.keys or set()) & selected
+        )
     ]
     addrs = frozenset(c.address for c in keys)
     winners = {

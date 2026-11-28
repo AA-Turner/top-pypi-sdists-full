@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.2135
+Version: 1.4.2147
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -248,6 +248,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `posts.pin_post()` | Pin post |
 | `posts.retry_post()` | Retry failed post |
 | `posts.review_post()` | Approve or reject a post |
+| `posts.set_post_comments_enabled()` | Turn comments on or off |
 | `posts.unpin_post()` | Unpin post |
 | `posts.unpublish_post()` | Unpublish post |
 
@@ -274,6 +275,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.get_linked_in_mentions()` | Resolve LinkedIn mention |
 | `accounts.get_salesforce_settings()` | Get Salesforce account settings |
 | `accounts.get_slack_settings()` | Get Slack account settings |
+| `accounts.get_store_settings()` | Get Shopify or WooCommerce store settings |
 | `accounts.get_stripe_settings()` | Get Stripe account settings |
 | `accounts.get_tik_tok_creator_info()` | Get TikTok creator info |
 | `accounts.update_account()` | Update account |
@@ -282,6 +284,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.update_hub_spot_settings()` | Update HubSpot account settings |
 | `accounts.update_salesforce_settings()` | Update Salesforce account settings |
 | `accounts.update_slack_settings()` | Update Slack account settings |
+| `accounts.update_store_settings()` | Update Shopify or WooCommerce store settings |
 | `accounts.update_stripe_settings()` | Update Stripe account settings |
 | `accounts.delete_account()` | Disconnect account |
 | `accounts.delete_google_business_review_reply()` | Delete a review reply |
@@ -559,6 +562,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Account Settings
 | Method | Description |
 |--------|-------------|
+| `account_settings.list_facebook_blocked_users()` | List the people blocked on a Facebook Page |
 | `account_settings.get_facebook_page_info()` | Get a Facebook Page's public info |
 | `account_settings.get_instagram_ice_breakers()` | Get IG ice breakers |
 | `account_settings.get_messenger_get_started()` | Get FB Get Started button |
@@ -574,12 +578,14 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `account_settings.delete_messenger_ice_breakers()` | Delete FB ice breakers |
 | `account_settings.delete_messenger_menu()` | Delete persistent menu |
 | `account_settings.delete_telegram_commands()` | Delete TG bot commands |
+| `account_settings.block_facebook_user()` | Block a person on a Facebook Page |
 | `account_settings.set_instagram_ice_breakers()` | Set IG ice breakers |
 | `account_settings.set_messenger_get_started()` | Set FB Get Started button |
 | `account_settings.set_messenger_greeting()` | Set FB greeting text |
 | `account_settings.set_messenger_ice_breakers()` | Set FB ice breakers |
 | `account_settings.set_messenger_menu()` | Set persistent menu |
 | `account_settings.set_telegram_commands()` | Set TG bot commands |
+| `account_settings.unblock_facebook_user()` | Unblock a person on a Facebook Page |
 
 ### Ad Accounts
 | Method | Description |
@@ -661,8 +667,10 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | Method | Description |
 |--------|-------------|
 | `ad_audiences.list_ad_audiences()` | List custom audiences |
+| `ad_audiences.list_meta_saved_audiences()` | List Meta saved audiences |
 | `ad_audiences.create_ad_audience()` | Create custom audience |
 | `ad_audiences.get_ad_audience()` | Get audience details |
+| `ad_audiences.get_meta_saved_audience()` | Read a Meta saved audience |
 | `ad_audiences.update_ad_audience()` | Update an audience |
 | `ad_audiences.delete_ad_audience()` | Delete custom audience |
 | `ad_audiences.add_users_to_ad_audience()` | Add users to audience |
@@ -1502,6 +1510,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `instagram.get_instagram_publishing_limit()` | Get Instagram publishing limit |
 | `instagram.get_instagram_story_insights()` | Get Instagram story insights |
 | `instagram.search_instagram_audio()` | Search Instagram audio |
+| `instagram.search_instagram_hashtag()` | Search public Instagram media by hashtag |
 
 ### Lead Gen
 | Method | Description |
@@ -1542,6 +1551,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `messages.get_inbox_conversation_messages()` | List messages |
 | `messages.get_inbox_unread_count()` | Count unread conversations |
 | `messages.get_message_attachment()` | Resolve message attachment |
+| `messages.get_messenger_contact()` | Get a Messenger contact's language, time zone and gender |
 | `messages.update_inbox_conversation()` | Update conversation status |
 | `messages.delete_inbox_conversation()` | Delete conversation |
 | `messages.delete_inbox_label()` | Delete a conversation label |

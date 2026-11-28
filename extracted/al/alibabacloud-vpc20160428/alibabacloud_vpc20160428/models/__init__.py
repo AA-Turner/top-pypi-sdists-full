@@ -208,6 +208,9 @@ from ._create_nat_ip_response import CreateNatIpResponse
 from ._create_nat_ip_cidr_request import CreateNatIpCidrRequest
 from ._create_nat_ip_cidr_response_body import CreateNatIpCidrResponseBody
 from ._create_nat_ip_cidr_response import CreateNatIpCidrResponse
+from ._create_nat_rate_limit_rule_request import CreateNatRateLimitRuleRequest
+from ._create_nat_rate_limit_rule_response_body import CreateNatRateLimitRuleResponseBody
+from ._create_nat_rate_limit_rule_response import CreateNatRateLimitRuleResponse
 from ._create_network_acl_request import CreateNetworkAclRequest
 from ._create_network_acl_response_body import CreateNetworkAclResponseBody
 from ._create_network_acl_response import CreateNetworkAclResponse
@@ -835,6 +838,9 @@ from ._list_nat_ip_cidrs_response import ListNatIpCidrsResponse
 from ._list_nat_ips_request import ListNatIpsRequest
 from ._list_nat_ips_response_body import ListNatIpsResponseBody
 from ._list_nat_ips_response import ListNatIpsResponse
+from ._list_nat_rate_limit_rules_request import ListNatRateLimitRulesRequest
+from ._list_nat_rate_limit_rules_response_body import ListNatRateLimitRulesResponseBody
+from ._list_nat_rate_limit_rules_response import ListNatRateLimitRulesResponse
 from ._list_physical_connection_features_request import ListPhysicalConnectionFeaturesRequest
 from ._list_physical_connection_features_response_body import ListPhysicalConnectionFeaturesResponseBody
 from ._list_physical_connection_features_response import ListPhysicalConnectionFeaturesResponse
@@ -1674,6 +1680,7 @@ from ._list_ipv_4gateways_response_body import ListIpv4GatewaysResponseBodyIpv4G
 from ._list_ipv_4gateways_response_body import ListIpv4GatewaysResponseBodyIpv4GatewayModels
 from ._list_nat_ip_cidrs_response_body import ListNatIpCidrsResponseBodyNatIpCidrs
 from ._list_nat_ips_response_body import ListNatIpsResponseBodyNatIps
+from ._list_nat_rate_limit_rules_response_body import ListNatRateLimitRulesResponseBodyRuleInfos
 from ._list_physical_connection_features_response_body import ListPhysicalConnectionFeaturesResponseBodyPhysicalConnectionFeatures
 from ._list_prefix_lists_request import ListPrefixListsRequestTags
 from ._list_prefix_lists_response_body import ListPrefixListsResponseBodyPrefixListsTags
@@ -1976,6 +1983,9 @@ __all__ = [
     CreateNatIpCidrRequest,
     CreateNatIpCidrResponseBody,
     CreateNatIpCidrResponse,
+    CreateNatRateLimitRuleRequest,
+    CreateNatRateLimitRuleResponseBody,
+    CreateNatRateLimitRuleResponse,
     CreateNetworkAclRequest,
     CreateNetworkAclResponseBody,
     CreateNetworkAclResponse,
@@ -2603,6 +2613,9 @@ __all__ = [
     ListNatIpsRequest,
     ListNatIpsResponseBody,
     ListNatIpsResponse,
+    ListNatRateLimitRulesRequest,
+    ListNatRateLimitRulesResponseBody,
+    ListNatRateLimitRulesResponse,
     ListPhysicalConnectionFeaturesRequest,
     ListPhysicalConnectionFeaturesResponseBody,
     ListPhysicalConnectionFeaturesResponse,
@@ -3442,6 +3455,7 @@ __all__ = [
     ListIpv4GatewaysResponseBodyIpv4GatewayModels,
     ListNatIpCidrsResponseBodyNatIpCidrs,
     ListNatIpsResponseBodyNatIps,
+    ListNatRateLimitRulesResponseBodyRuleInfos,
     ListPhysicalConnectionFeaturesResponseBodyPhysicalConnectionFeatures,
     ListPrefixListsRequestTags,
     ListPrefixListsResponseBodyPrefixListsTags,

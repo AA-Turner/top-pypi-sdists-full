@@ -1,6 +1,15 @@
+"""Response admission and compression ownership across ASGI send messages."""
+
 from __future__ import annotations
 
+from dataclasses import dataclass
+from enum import Enum, auto
+from typing import assert_never
+
 from starlette_compress._utils import (
+    DEFAULT_CONTENT_TYPES,
+    DEFAULT_STREAMING_CONTENT_TYPES,
+    StartVerdict,
     classify_start_message,
     mutable_response_headers,
 )
@@ -20,6 +29,27 @@ if TYPE_CHECKING:
     EncoderFactory = Callable[[int], StreamEncoder]
 
 
+class ResponsePhase(Enum):
+    AWAITING_START = auto()
+    FORWARDING = auto()
+
+
+@dataclass(frozen=True, slots=True)
+class PendingStart:
+    """Original response start retained until its body selects an encoding."""
+
+    message: Message
+    streaming: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _Encoding:
+    """Live stream compressor with its response flush policy."""
+
+    encoder: StreamEncoder
+    streaming: bool
+
+
 def _content_length_from_raw(headers: Iterable[tuple[bytes, bytes]]) -> int:
     """Read Content-Length without mutating the header list."""
     for name, value in headers:
@@ -36,10 +66,12 @@ class CompressionResponder:
 
     __slots__ = (
         'app',
+        'content_types',
         'create_encoder',
         'encoding',
         'minimum_size',
         'oneshot',
+        'streaming_content_types',
     )
 
     def __init__(
@@ -49,18 +81,19 @@ class CompressionResponder:
         encoding: str,
         oneshot: OneshotCompress,
         create_encoder: EncoderFactory,
+        content_types: frozenset[str] = DEFAULT_CONTENT_TYPES,
+        streaming_content_types: frozenset[str] = DEFAULT_STREAMING_CONTENT_TYPES,
     ) -> None:
         self.app = app
         self.minimum_size = minimum_size
         self.encoding = encoding
         self.oneshot = oneshot
         self.create_encoder = create_encoder
+        self.content_types = content_types
+        self.streaming_content_types = streaming_content_types
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        started = False
-        start_message: Message | None = None
-        encoder: StreamEncoder | None = None
-        streaming = False
+        state: ResponsePhase | PendingStart | _Encoding = ResponsePhase.AWAITING_START
         extensions: dict[str, object] = scope.get('extensions', {})
         pathsend_capable = 'http.response.pathsend' in extensions
 
@@ -73,41 +106,44 @@ class CompressionResponder:
             scope = {**scope, 'extensions': extensions}
 
         async def wrapper(message: Message) -> None:
-            nonlocal started, start_message, encoder, streaming
+            nonlocal state
 
             message_type: str = message['type']
 
             if message_type == 'http.response.start':
-                if started:
+                if state is not ResponsePhase.AWAITING_START:
                     raise RuntimeError('http.response.start has already been received')
 
-                verdict = classify_start_message(message)
-                if verdict == 'skip':
-                    started = True
+                verdict = classify_start_message(
+                    message, self.content_types, self.streaming_content_types
+                )
+                if verdict is StartVerdict.SKIP:
+                    state = ResponsePhase.FORWARDING
                     await send(message)
                     return
 
-                streaming = verdict == 'streaming'
+                streaming = verdict is StartVerdict.STREAMING
 
                 # Streaming types without pathsend: commit at start so clients
                 # (e.g. EventSource) see headers before the first body event.
                 if streaming and not pathsend_capable:
                     # Streaming: never pledge Content-Length to the encoder
                     # (SSE body size may not match the header).
-                    encoder = self.create_encoder(-1)
+                    active = _Encoding(self.create_encoder(-1), streaming)
                     headers = mutable_response_headers(message)
                     headers['Content-Encoding'] = self.encoding
                     headers.add_vary_header('Accept-Encoding')
                     del headers['Content-Length']
-                    started = True
+                    state = active
                     await send(message)
                     return
 
-                start_message = message
-                started = True
+                state = PendingStart(message, streaming)
                 return
 
-            if encoder is not None:
+            current = state
+            if isinstance(current, _Encoding):
+                active = current
                 if message_type != 'http.response.body':
                     # Trailers / extensions after start — do not re-send start
                     await send(message)
@@ -116,11 +152,13 @@ class CompressionResponder:
                 body: bytes = message.get('body', b'')
                 more_body: bool = message.get('more_body', False)
 
-            elif start_message is not None:
+            elif isinstance(current, PendingStart):
+                start_message = current.message
+                streaming = current.streaming
                 if message_type != 'http.response.body':
                     # pathsend / trailers / unknown: forward original start raw
                     pending = start_message
-                    start_message = None
+                    state = ResponsePhase.FORWARDING
                     await send(pending)
                     await send(message)
                     return
@@ -130,7 +168,7 @@ class CompressionResponder:
 
                 if not streaming and not more_body and len(body) < self.minimum_size:
                     pending = start_message
-                    start_message = None
+                    state = ResponsePhase.FORWARDING
                     await send(pending)
                     await send(message)
                     return
@@ -146,7 +184,7 @@ class CompressionResponder:
                     message['body'] = compressed_body
                     del body
                     pending = start_message
-                    start_message = None
+                    state = ResponsePhase.FORWARDING
                     await send(pending)
                     await send(message)
                     return
@@ -158,21 +196,26 @@ class CompressionResponder:
                     content_length = -1
                 else:
                     content_length = _content_length_from_raw(start_message['headers'])
-                encoder = self.create_encoder(content_length)
+                active = _Encoding(self.create_encoder(content_length), streaming)
+                state = active
                 headers = mutable_response_headers(start_message)
                 headers['Content-Encoding'] = self.encoding
                 headers.add_vary_header('Accept-Encoding')
                 del headers['Content-Length']
                 pending = start_message
-                start_message = None
                 await send(pending)
 
             else:
                 # Passthrough, finished, or a pre-start extension message.
-                await send(message)
-                return
+                match current:
+                    case ResponsePhase.AWAITING_START | ResponsePhase.FORWARDING:
+                        await send(message)
+                        return
+                    case _:
+                        assert_never(current)
 
-            assert encoder is not None
+            encoder = active.encoder
+            streaming = active.streaming
 
             if more_body:
                 if not body:
@@ -206,6 +249,6 @@ class CompressionResponder:
                         })
                     final_chunk = chunk
             await send({'type': 'http.response.body', 'body': final_chunk})
-            encoder = None
+            state = ResponsePhase.FORWARDING
 
         await self.app(scope, receive, wrapper)

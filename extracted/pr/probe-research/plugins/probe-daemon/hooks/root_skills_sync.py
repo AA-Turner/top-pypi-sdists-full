@@ -44,8 +44,9 @@ invoked (verified with codex-cli 0.163.0: after `codex plugin add` replaced
 
 A gated skill (`gated-skills/`, A24) is copied only while the answer the CLI keeps on disk allows it, and
 pruned otherwise; this hook never asks Probe (`_root_skills_core.py`). No manifest names that folder, so
-under Codex this hook copies the allowed gated skills, and only those, into Codex's own `skills/`
-(`CAPABILITY_GATED_SKILLS`); everything else Codex reads from the plugin. Codex's hooks all run from the
+under Codex, Kimi Code or Cursor this hook copies the allowed gated skills, and only those, into that agent's
+own `skills/` (`CAPABILITY_GATED_SKILLS`); everything else it reads from the plugin. (pi runs no Python hook:
+the CLI's copy, `gated_skills.apply_gated_copies`, is pi's only one, as it is every agent's first.) Codex's hooks all run from the
 Probe service's copy of the CLI release's plugin folders (the probe-hooks shim), which carries
 `gated-skills/` and no `agent-skills/`, so that copy is the source there.
 
@@ -99,7 +100,8 @@ def _harness():
 
 def _gated_root() -> Path | None:
     """Where a harness that reads the plugin's other skills by manifest keeps its own skills (Codex's
-    `$CODEX_HOME/skills`), for the gated copies alone; None where root skills cover them, or it has none."""
+    `$CODEX_HOME/skills`, Kimi Code's, Cursor's), for the gated copies alone; None where root skills cover
+    them, or it has none."""
     harness = _harness()
     if harness.can(_harness_registry.CAPABILITY_ROOT_SKILLS) or not harness.can(
             _harness_registry.CAPABILITY_GATED_SKILLS):

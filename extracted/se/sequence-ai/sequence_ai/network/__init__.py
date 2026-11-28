@@ -8,8 +8,7 @@ robot's stream, to a policy server of yours (serve(), seq serve) as to a deploye
 Client side (the robot):
     window          keeps the connection's send window through the robot's pauses: BBR, TCP keepalive, a ping when idle
                     (where the server answers it)
-    frames          resizes a camera frame to the size its policy takes, and encodes it as JPEG: openpi's image_tools
-                    on the robot (openpi)
+    frames          resizes a camera frame to the size its policy takes, and encodes it as JPEG
     wifi_power      detects Wi-Fi power saving and reports how to disable it
     bind            a connection that leaves by one network interface, whatever the default route: each of a robot's
                     lines (connect(url, lines=["eth0", "wwan0"]))
@@ -22,19 +21,11 @@ Server side (the GPU), for a uvicorn server:
     tcp_link        reads each client's link from the kernel: RTT, retransmitted segments, congestion window
     ping            a server-side ping, so the robot's connection is not left idle while the server's event loop
                     is free: the options to pass, or websockets' own server with them (ping.serve)
-    frames.decode   a picture sent as JPEG, back into the array its policy reads (openpi)
+    frames.decode   a picture sent as JPEG, back into the array its policy reads
 
 Both sides:
     msgpack_io      observations and responses as msgpack, numpy arrays as their raw data; reads openpi's layout too
     latency_stats   counters, gauges and latencies with their p50, p95 and p99, read as one snapshot
-    lerobot         LeRobot's remote inference kept from going idle: a Zenoh configuration both ends take, which sends
-                    a frame every 100 ms on an idle link (keep_alive_file)
-
-Adapters:
-    openpi          openpi's own client and server with the components on them: its client made once the server answers
-                    (connect), the connection it holds kept warm, pictures sent as JPEG (image_tools), and its server
-                    pinging each robot and decoding them (patch, or python -m sequence_ai.network.openpi with openpi's
-                    scripts/serve_policy.py)
 
 `python -m sequence_ai.check http://<gpu>:8000` says what is on between your robot and your server, and bench/ (beside
 this package) measures your own link.
@@ -44,8 +35,8 @@ from .loop import play
 __all__ = ["play"]
 
 # Each component, imported as first used: sequence_ai.network.frames without importing it first.
-_COMPONENTS = ("bind", "frames", "latency_stats", "lerobot", "msgpack_io", "one_write", "openpi", "ping", "record",
-               "tcp_link", "websocket", "wifi_power", "window")
+_COMPONENTS = ("bind", "frames", "latency_stats", "msgpack_io", "one_write", "ping", "record", "tcp_link",
+               "websocket", "wifi_power", "window")
 
 
 def __getattr__(name: str) -> object:

@@ -1,7 +1,8 @@
 """
 Loading what a command names — a file, file.py:Class, pkg.module:Class, or -m pkg.module[:Class] — and what the class
-it finds is: a @seq.policy, a @seq.benchmark or a @seq.adapter. `seq deploy` (its --dry-run too), `seq adapter check`,
-`seq port export` and `seq eval run --adapter ./file.py:Class` all load through here.
+it finds is: a @seq.policy, a @seq.benchmark or a @seq.adapter. `seq deploy` (its --dry-run too), `seq adapter check`
+and `seq eval run --adapter ./file.py:Class` all load through here.
+
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from seq._partial import refusals_kept
-from seq.errors import SeqAuthoringError
+from seq.errors import BENCHMARK_IS_LOCAL, SeqAuthoringError
 
 
 
@@ -43,16 +44,16 @@ def load_deployable(ref: str) -> tuple[str, type]:
             raise SeqAuthoringError(f"{ref}: no attribute {cls_name!r} in {target}")
         kind = kind_of(cls)
         if kind is None:
-            raise SeqAuthoringError(f"{ref}: {cls_name} is not a @seq.policy, @seq.benchmark or @seq.adapter "
-                                    "class")
+            raise SeqAuthoringError(f"{ref}: {cls_name} is not a @seq.policy or @seq.adapter class "
+                                    f"({BENCHMARK_IS_LOCAL})")
         return kind, cls
     found = {id(obj): obj for obj in vars(module).values() if kind_of(obj)}
     if any(kind_of(c) != "adapter" for c in found.values()):
 
         found = {k: c for k, c in found.items() if kind_of(c) != "adapter"}
     if not found:
-        raise SeqAuthoringError(f"{target} defines no @seq.policy, @seq.benchmark or @seq.adapter class; "
-                                f"decorate one, or name it with '{target}:ClassName'")
+        raise SeqAuthoringError(f"{target} defines no @seq.policy or @seq.adapter class; decorate one, or name it with "
+                                f"'{target}:ClassName' ({BENCHMARK_IS_LOCAL})")
     if len(found) > 1:
         names = ", ".join(sorted(c.__name__ for c in found.values()))
         raise SeqAuthoringError(f"{target} defines {len(found)} policies, benchmarks and adapters ({names}); name one "

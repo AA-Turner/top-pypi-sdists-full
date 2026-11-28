@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pyvips-binary"
 # Must be kept in sync with scripts/download-vips.py
-version = "8.18.7"
+version = "8.18.8"
 authors = [
     {name = "Kleis Auke Wolthuizen", email = "info@kleisauke.nl"},
 ]
@@ -39,6 +39,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [

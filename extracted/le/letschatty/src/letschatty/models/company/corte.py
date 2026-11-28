@@ -34,6 +34,8 @@ class MotivoDeCorte(StrEnum):
     GRACIA_VENCIDA = "gracia_vencida"
     ACUERDO = "acuerdo"
     PAGO = "pago"
+    #: Terminó la prueba gratis de una empresa que se registró sola y no pagó (billing, `corte.py`).
+    PRUEBA_TERMINADA = "prueba_terminada"
 
 
 class AccionCortable(StrEnum):

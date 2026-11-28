@@ -16,13 +16,14 @@ import math
 import random
 import time
 import urllib.parse
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from json.decoder import JSONDecodeError
 from types import NoneType
 from typing import Any, ClassVar, Literal
 
 import backoff
-from aiohttp import ClientConnectionError, ClientResponse
+from aiohttp import ClientConnectionError, ClientResponse, ClientTimeout
 from yarl import URL
 
 from .alexalogin import AlexaLogin
@@ -34,6 +35,8 @@ from .const import (
     GQL_SET_ENDPOINT_FRIENDLY_NAME,
     GQL_SMARTHOME_QUERY,
     GQL_SMARTHOME_QUERY_LEGACY,
+    LIST_MARKETPLACE_IDS,
+    LOCALE_KEY,
     LOGIN_APP_VERSION,
     SKILLS_STORE_ACCEPT,
 )
@@ -2665,16 +2668,19 @@ class AlexaAPI:
         login (AlexaLogin): Successfully logged in AlexaLogin
 
         Returns:
-            Endpoint dictionaries containing id, model, dmsIdentifier and
-            legacyAppliance, or None when the response has no endpoint list. The
-            id is the endpoint ID that the smart-home mutations such as
-            set_endpoint_friendly_name take. Model and identifier
+            Endpoint dictionaries containing id, friendlyName, model,
+            dmsIdentifier and legacyAppliance, or None when the response has no
+            endpoint list. The id is the endpoint ID that the smart-home mutations
+            such as set_endpoint_friendly_name take. friendlyName is the name the
+            Alexa app shows; legacyAppliance.friendlyName can differ from it, for
+            example after the device was renamed in the app. Model and identifier
             metadata may be null. Only PLAIN model values are readable descriptions;
             a model description does not necessarily include a hardware generation.
             Match dmsIdentifier.deviceType and dsn to the REST deviceType and
             serialNumber rather than matching by a customer-assigned device name.
             If Amazon rejects the expanded query, the original legacy-only query is
-            used instead and the id, model and dmsIdentifier keys are absent.
+            used instead and the id, friendlyName, model and dmsIdentifier keys
+            are absent.
 
         """
         email = login.email
@@ -3146,6 +3152,640 @@ class AlexaAPI:
         #               response.json(content_type=None))
         response_json, *_ = await get_json_value(response, None, dict)
         return response_json
+
+    @staticmethod
+    def _list_domain(domain: str) -> str:
+        """Resolve a supported retail domain, including the legacy Mexico alias."""
+        domain = "amazon.com.mx" if domain == "amazon.mx" else domain
+        if domain not in LIST_MARKETPLACE_IDS:
+            raise ValueError("Unsupported Amazon marketplace")
+        return domain
+
+    @staticmethod
+    def _list_locale(domain: str) -> str:
+        """Resolve the locale of a validated retail domain."""
+        return LOCALE_KEY[
+            ".mx" if domain == "amazon.com.mx" else domain.removeprefix("amazon")
+        ]
+
+    @staticmethod
+    async def _list_retail_domain(login: AlexaLogin) -> str:
+        """Discover the account's retail host using the existing session transport."""
+        fallback = AlexaAPI._list_domain(login.url)
+        domain = getattr(login, "_alexa_lists_retail_domain", None)
+        if domain and not (login.expires_in and login.expires_in <= time.time()):
+            return AlexaAPI._list_domain(domain)
+
+        response = await AlexaAPI._static_request("get", login, "/api/endpoints")
+        endpoints, valid = await get_json_value(response, None, dict)
+        if not valid:
+            return fallback
+        retail_url = endpoints.get("retailUrl")
+        retail_domain = endpoints.get("retailDomain")
+        if retail_url is not None:
+            if not isinstance(retail_url, str):
+                raise ValueError("Invalid Amazon retail URL")
+            url = URL(retail_url)
+            if (
+                url.scheme != "https"
+                or not url.host
+                or url.user is not None
+                or url.password is not None
+                or url.port != 443
+                or url.path not in ("", "/")
+                or url.query_string
+                or url.fragment
+                or not url.host.startswith("www.")
+            ):
+                raise ValueError("Invalid Amazon retail URL")
+            domain = AlexaAPI._list_domain(url.host.removeprefix("www."))
+            if retail_domain is not None and (
+                not isinstance(retail_domain, str)
+                or AlexaAPI._list_domain(retail_domain) != domain
+            ):
+                raise ValueError("Inconsistent Amazon retail endpoints")
+        elif isinstance(retail_domain, str):
+            domain = AlexaAPI._list_domain(retail_domain)
+        elif retail_domain is not None:
+            raise ValueError("Invalid Amazon retail domain")
+        else:
+            return fallback
+        login._alexa_lists_retail_domain = domain
+        return domain
+
+    @staticmethod
+    async def _lists_request(
+        method: str,
+        login: AlexaLogin,
+        path: str = "",
+        data: dict[str, Any] | Callable[[str], dict[str, Any]] | None = None,
+        query: dict[str, str | int] | None = None,
+    ) -> ClientResponse | None:
+        """Send a Syrup v2 request using OAuth; cookies alone are insufficient.
+
+        Mutations are not automatically replayed.
+        """
+        if login.close_requested:
+            raise AlexapyLoginCloseRequested()
+        if login.status and not login.status.get("login_successful"):
+            raise AlexapyLoginError("Login unsuccessful")
+        if login.session is None or login.session.closed:
+            raise AlexapyLoginError("List API requires an active OAuth session")
+        domain = await AlexaAPI._list_retail_domain(login)
+        locale = AlexaAPI._list_locale(domain)
+        metadata = {
+            "requestType": "ALEXA_APP",
+            "applicationName": "AlexaApp",
+            "localeInfo": {
+                "marketplaceId": locale.split("_")[1],
+                "localeId": locale,
+                "marketplaceObfuscatedId": LIST_MARKETPLACE_IDS[domain],
+            },
+        }
+        url = URL(
+            f"https://www.{domain}/alexashoppinglists/api/v2/lists{path}",
+            encoded=True,
+        ).update_query(query)
+        if callable(data):
+            data = data(domain)
+        # Discovery uses the shared OAuth refresh flow. Coordinate with other
+        # requests so the token/session cannot change while sending this request.
+        async with login._oauth_lock:
+            if login.close_requested:
+                raise AlexapyLoginCloseRequested()
+            if login.status and not login.status.get("login_successful"):
+                raise AlexapyLoginError("Login unsuccessful")
+            session = login.session
+            if (
+                session is None
+                or session.closed
+                or not login.access_token
+                or (login.expires_in and login.expires_in <= time.time())
+            ):
+                raise AlexapyLoginError("List API requires an active OAuth session")
+            try:
+                response = await send_request(
+                    session,
+                    method,
+                    url,
+                    login,
+                    RequestProfile.SYRUP_LISTS,
+                    data=data,
+                    overrides={"x-amzn-as-metadata": json.dumps(metadata)},
+                    timeout=ClientTimeout(total=30),
+                )
+                # Consume the body even for successful deletes or rejected writes.
+                try:
+                    await response.read()
+                except BaseException:
+                    response.close()
+                    raise
+                if method == "delete" or response.status >= 300:
+                    response.release()
+            except TimeoutError as exc:
+                raise AlexapyConnectionError from exc
+        if 300 <= response.status < 400:
+            return None
+        return await AlexaAPI._process_response(response, login)
+
+    @staticmethod
+    def _list_aggregates(
+        domain: str, *, discovery: bool = False
+    ) -> list[dict[str, Any]]:
+        """Build list metadata projections used by the mobile client."""
+        marketplace = LIST_MARKETPLACE_IDS[domain]
+        shareable = {
+            "type": "shareableInfo",
+            "marketplaceId": marketplace,
+            "clientId": "AlexaApp",
+        }
+        if discovery:
+            return [
+                {"type": "listCategories"},
+                {"type": "categoryOverride"},
+                shareable,
+                {"type": "sharedListOwnerInfo"},
+                {"type": "collaboratorInfo"},
+                {"type": "totalActiveItemsCount"},
+            ]
+        return [
+            {"type": "listCategories"},
+            shareable,
+            {
+                "type": "keywordRecommendations",
+                "clientId": "AlexaApp",
+                "marketplaceId": marketplace,
+                "locale": AlexaAPI._list_locale(domain),
+            },
+            {"type": "totalActiveItemsCount"},
+        ]
+
+    @staticmethod
+    def _list_id(identifier: str) -> str:
+        """Encode an opaque list or item ID as one path segment."""
+        if not isinstance(identifier, str) or not identifier.strip():
+            raise ValueError("List and item IDs must be nonempty strings")
+        if identifier in {".", ".."}:
+            raise ValueError("Invalid list or item ID")
+        return urllib.parse.quote(identifier, safe="")
+
+    @staticmethod
+    def _list_version(version: str | int) -> dict[str, str | int]:
+        """Require the previously fetched version for mutations."""
+        if (
+            isinstance(version, bool)
+            or not isinstance(version, (str, int))
+            or (isinstance(version, str) and not version.strip())
+        ):
+            raise ValueError("A list or item version is required")
+        return {"version": version}
+
+    @staticmethod
+    def _list_name(name: str) -> str:
+        """Validate a list or item name without changing its contents."""
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Name must be a nonempty string")
+        return name
+
+    @staticmethod
+    async def _list_json(
+        response: ClientResponse | None,
+        key: str | None = None,
+        expected: type = dict,
+    ) -> Any:
+        """Return a validated successful list API response."""
+        if response is None or not 200 <= response.status < 300:
+            return None
+        value, valid = await get_json_value(response, key, expected)
+        return value if valid else None
+
+    @staticmethod
+    def _valid_list_record(record: Any, id_key: str) -> bool:
+        """Check the identity of a server record without discarding metadata."""
+        return (
+            isinstance(record, dict)
+            and isinstance(record.get(id_key), str)
+            and bool(record[id_key].strip())
+        )
+
+    @staticmethod
+    async def _list_record_response(
+        response: ClientResponse | None,
+        key: str,
+        id_key: str,
+        identifier: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Validate a singular record envelope returned by the service."""
+        result = await AlexaAPI._list_json(response)
+        if result is None:
+            return None
+        record = result.get(key)
+        if not AlexaAPI._valid_list_record(record, id_key):
+            return None
+        if identifier is not None and record[id_key] != identifier:
+            return None
+        return result
+
+    @staticmethod
+    def _list_item_projection(domain: str) -> dict[str, Any]:
+        """Return the item attributes requested by the Alexa app."""
+        return {
+            "itemAttributesToProject": [
+                "quantity",
+                "speakerId",
+                "asinInfo",
+                "note",
+                "dealInfo",
+            ],
+            "itemAttributesToAggregate": [
+                {"type": "categorization"},
+                {
+                    "type": "speakerInfo",
+                    "marketplaceId": LIST_MARKETPLACE_IDS[domain],
+                },
+            ],
+        }
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_lists(
+        login: AlexaLogin, *, include_shared: bool = True
+    ) -> list[dict[str, Any]] | None:
+        """Get shopping, to-do and custom lists with their server metadata.
+
+        Requires an authenticated OAuth access token, not cookies alone.
+        With include_shared=False, use the service's default ownership filter.
+        """
+        if not isinstance(include_shared, bool):
+            raise ValueError("include_shared must be a boolean")
+        response = await AlexaAPI._lists_request(
+            "post",
+            login,
+            "/fetch",
+            data=lambda domain: {
+                "listAttributesToAggregate": AlexaAPI._list_aggregates(
+                    domain, discovery=True
+                ),
+                "listOwnershipType": "OWNED_AND_SHARED_LISTS"
+                if include_shared
+                else None,
+            },
+        )
+        records = await AlexaAPI._list_json(response, "listInfoList", list)
+        if records is None or not all(
+            AlexaAPI._valid_list_record(record, "listId") for record in records
+        ):
+            return None
+        return records
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_list(login: AlexaLogin, list_id: str) -> dict[str, Any] | None:
+        """Fetch a response envelope containing listInfo and its current version."""
+        response = await AlexaAPI._lists_request(
+            "post",
+            login,
+            f"/{AlexaAPI._list_id(list_id)}/fetch",
+            data={"listAttributesToAggregate": [{"type": "totalActiveItemsCount"}]},
+        )
+        return await AlexaAPI._list_record_response(
+            response, "listInfo", "listId", list_id
+        )
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def create_list(login: AlexaLogin, name: str) -> dict[str, Any] | None:
+        """Create a custom list and return the service response."""
+        response = await AlexaAPI._lists_request(
+            "post",
+            login,
+            data={
+                "listName": AlexaAPI._list_name(name),
+                "listAttributesToAggregate": [{"type": "totalActiveItemsCount"}],
+            },
+        )
+        return await AlexaAPI._list_record_response(response, "listInfo", "listId")
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def update_list(
+        login: AlexaLogin,
+        list_id: str,
+        version: str | int,
+        *,
+        name: str | None = None,
+        archived: bool | None = None,
+    ) -> dict[str, Any] | None:
+        """Rename, archive or restore a list using its last fetched version."""
+        attributes: list[dict[str, Any]] = []
+        if name is not None:
+            attributes.append({"type": "listName", "value": AlexaAPI._list_name(name)})
+        if archived is not None:
+            if not isinstance(archived, bool):
+                raise ValueError("archived must be a boolean")
+            attributes.append(
+                {"type": "listStatus", "value": "ARCHIVED" if archived else "ACTIVE"}
+            )
+        if not attributes:
+            raise ValueError("At least one list attribute must be updated")
+        response = await AlexaAPI._lists_request(
+            "put",
+            login,
+            f"/{AlexaAPI._list_id(list_id)}",
+            data={"listAttributesToUpdate": attributes},
+            query=AlexaAPI._list_version(version),
+        )
+        return await AlexaAPI._list_json(response)
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def delete_list(login: AlexaLogin, list_id: str, version: str | int) -> bool:
+        """Delete a list using its last fetched version."""
+        response = await AlexaAPI._lists_request(
+            "delete",
+            login,
+            f"/{AlexaAPI._list_id(list_id)}",
+            query=AlexaAPI._list_version(version),
+        )
+        return response is not None and 200 <= response.status < 300
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_list_items_page(
+        login: AlexaLogin,
+        list_id: str,
+        *,
+        limit: int = 100,
+        next_token: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Fetch a page of 1-100 items with its original continuation token."""
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer between 1 and 100")
+        if next_token is not None and (
+            not isinstance(next_token, str) or not next_token
+        ):
+            raise ValueError("next_token must be a nonempty string")
+
+        def data(domain: str) -> dict[str, Any]:
+            payload = AlexaAPI._list_item_projection(domain)
+            payload["listAttributesToAggregate"] = AlexaAPI._list_aggregates(domain)
+            if next_token is not None:
+                payload["nextToken"] = next_token
+            return payload
+
+        response = await AlexaAPI._lists_request(
+            "post",
+            login,
+            f"/{AlexaAPI._list_id(list_id)}/items/fetch",
+            data=data,
+            query={"limit": limit},
+        )
+        return await AlexaAPI._list_json(response)
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_list_items(
+        login: AlexaLogin,
+        list_id: str,
+        *,
+        limit: int = 100,
+        max_pages: int | None = None,
+    ) -> list[dict[str, Any]] | None:
+        """Fetch all pages, returning None if the list is incomplete.
+
+        ``limit`` is the page size (1-100), not the maximum total item count.
+        By default pagination continues until the server stops returning a
+        continuation token. Callers may optionally specify a page budget.
+        """
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("limit must be an integer between 1 and 100")
+        if max_pages is not None and (type(max_pages) is not int or max_pages <= 0):
+            raise ValueError("max_pages must be a positive integer or None")
+        items: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        token = None
+        pages = 0
+        while max_pages is None or pages < max_pages:
+            page = await AlexaAPI.get_list_items_page(
+                login, list_id, limit=limit, next_token=token
+            )
+            pages += 1
+            if page is None:
+                return None
+            records = page.get("itemInfoList")
+            if not isinstance(records, list) or not all(
+                AlexaAPI._valid_list_record(record, "itemId") for record in records
+            ):
+                return None
+            items.extend(records)
+            token = page.get("nextToken")
+            if token is None or token == "":
+                return items
+            if not isinstance(token, str) or token in seen:
+                return None
+            seen.add(token)
+        return None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_list_item(
+        login: AlexaLogin, list_id: str, item_id: str
+    ) -> dict[str, Any] | None:
+        """Fetch a response envelope containing itemInfo and its current version."""
+        response = await AlexaAPI._lists_request(
+            "post",
+            login,
+            f"/{AlexaAPI._list_id(list_id)}/items/{AlexaAPI._list_id(item_id)}/fetch",
+            data=AlexaAPI._list_item_projection,
+        )
+        return await AlexaAPI._list_record_response(
+            response, "itemInfo", "itemId", item_id
+        )
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def create_list_items(
+        login: AlexaLogin, list_id: str, names: list[str]
+    ) -> dict[str, Any] | None:
+        """Create keyword items in bulk; preserve per-item failures in the response."""
+        if not isinstance(names, list) or not names:
+            raise ValueError("At least one item name is required")
+        names = [AlexaAPI._list_name(name) for name in names]
+
+        def data(domain: str) -> dict[str, Any]:
+            return {
+                "items": [
+                    {
+                        "itemType": "KEYWORD",
+                        "itemName": name,
+                        "itemAttributesToCreate": [{"type": "speakerId"}],
+                        "itemAttributesToAggregate": AlexaAPI._list_item_projection(
+                            domain
+                        )["itemAttributesToAggregate"],
+                    }
+                    for name in names
+                ]
+            }
+
+        response = await AlexaAPI._lists_request(
+            "post",
+            login,
+            f"/{AlexaAPI._list_id(list_id)}/items",
+            data=data,
+        )
+        result = await AlexaAPI._list_json(response)
+        if result is None:
+            return None
+        records = result.get("itemInfoList", [])
+        failures = result.get("failures", [])
+        if "itemInfoList" not in result and "failures" not in result:
+            return None
+        if not isinstance(records, list) or not all(
+            AlexaAPI._valid_list_record(record, "itemId") for record in records
+        ):
+            return None
+        if not isinstance(failures, list):
+            return None
+        return result
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def add_list_item(
+        login: AlexaLogin, list_id: str, name: str
+    ) -> dict[str, Any] | None:
+        """Add one keyword item, returning the bulk API's response envelope."""
+        return await AlexaAPI.create_list_items(login, list_id, [name])
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def update_list_item(
+        login: AlexaLogin,
+        list_id: str,
+        item_id: str,
+        version: str | int,
+        *,
+        name: str | None = None,
+        completed: bool | None = None,
+        note: str | None = None,
+        quantity: str | int | float | None = None,
+    ) -> dict[str, Any] | None:
+        """Update an item; empty note or quantity removes that optional attribute."""
+        attributes: list[dict[str, Any]] = []
+        remove: list[str] = []
+        if name is not None:
+            attributes.append({"type": "itemName", "value": AlexaAPI._list_name(name)})
+        if completed is not None:
+            if not isinstance(completed, bool):
+                raise ValueError("completed must be a boolean")
+            attributes.append(
+                {"type": "itemStatus", "value": "COMPLETE" if completed else "ACTIVE"}
+            )
+        if note is not None and not isinstance(note, str):
+            raise ValueError("note must be a string")
+        if quantity is not None and quantity != "":
+            if isinstance(quantity, bool) or not isinstance(
+                quantity, (str, int, float)
+            ):
+                raise ValueError("quantity must be a finite number or numeric string")
+            try:
+                numeric_quantity = float(quantity)
+            except (ValueError, OverflowError) as exc:
+                raise ValueError(
+                    "quantity must be a finite number or numeric string"
+                ) from exc
+            if not math.isfinite(numeric_quantity):
+                raise ValueError("quantity must be a finite number or numeric string")
+        for key, value in (("note", note), ("quantity", quantity)):
+            if value == "":
+                remove.append(key)
+            elif value is not None:
+                attributes.append({"type": key, "value": value})
+        if not attributes and not remove:
+            raise ValueError("At least one item attribute must be updated")
+        response = await AlexaAPI._lists_request(
+            "put",
+            login,
+            f"/{AlexaAPI._list_id(list_id)}/items/{AlexaAPI._list_id(item_id)}",
+            data={
+                "itemAttributesToUpdate": attributes,
+                "itemAttributesToRemove": remove,
+            },
+            query=AlexaAPI._list_version(version),
+        )
+        return await AlexaAPI._list_json(response)
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def delete_list_item(
+        login: AlexaLogin, list_id: str, item_id: str, version: str | int
+    ) -> bool:
+        """Delete an item using its last fetched version."""
+        response = await AlexaAPI._lists_request(
+            "delete",
+            login,
+            f"/{AlexaAPI._list_id(list_id)}/items/{AlexaAPI._list_id(item_id)}",
+            query=AlexaAPI._list_version(version),
+        )
+        return response is not None and 200 <= response.status < 300
+
+    @staticmethod
+    def parse_list_change(message: dict[str, Any]) -> dict[str, Any] | None:
+        """Extract a list invalidation event from an Alexa push message.
+
+        The event identifies the affected list/item and its version, not its
+        updated contents. Consumers should refetch the affected records.
+        """
+        if not isinstance(message, dict):
+            return None
+        command = message.get("command")
+        if command not in ("PUSH_LIST_CHANGE", "PUSH_LIST_ITEM_CHANGE"):
+            return None
+        payload = message.get("payload")
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except JSONDecodeError:
+                return None
+        if not isinstance(payload, dict):
+            return None
+        required = ["listId", "eventName"]
+        if command == "PUSH_LIST_ITEM_CHANGE":
+            required.append("listItemId")
+        if not all(isinstance(payload.get(k), str) and payload[k] for k in required):
+            return None
+        return {**payload, "command": command}
+
+    @staticmethod
+    def parse_list_changes(message: dict[str, Any]) -> list[dict[str, Any]]:
+        """Decode all list events in a raw Alexa HTTP/2 directive or one command.
+
+        Invalid entries are skipped independently. The caller still owns the
+        connection and should reconcile periodically in case events are missed.
+        """
+        single = AlexaAPI.parse_list_change(message)
+        if single is not None:
+            return [single]
+        if not isinstance(message, dict):
+            return []
+        directive = message.get("directive")
+        payload = directive.get("payload") if isinstance(directive, dict) else None
+        updates = payload.get("renderingUpdates") if isinstance(payload, dict) else None
+        if not isinstance(updates, list):
+            return []
+        events = []
+        for update in updates:
+            if not isinstance(update, dict):
+                continue
+            metadata = update.get("resourceMetadata")
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except JSONDecodeError:
+                    continue
+            event = AlexaAPI.parse_list_change(metadata)
+            if event is not None:
+                events.append(event)
+        return events
 
     @staticmethod
     async def _alarm_request(

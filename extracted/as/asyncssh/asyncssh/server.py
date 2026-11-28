@@ -97,7 +97,7 @@ class SSHServer:
 
     """
 
-    # pylint: disable=no-self-use,unused-argument
+    # pylint: disable=unused-argument
 
     def connection_made(self, conn: 'SSHServerConnection') -> None:
         """Called when a connection is made
@@ -152,6 +152,10 @@ class SSHServer:
            return `False` to cause the authentication to immediately
            succeed. Otherwise, it should return `True` to indicate that
            authentication should proceed.
+
+           Any false value is treated as `False`, including the `None`
+           returned when this method doesn't explicitly return a value,
+           so be sure to return `True` when authentication is required.
 
            If blocking operations need to be performed to prepare the
            state needed to complete the authentication, this method may
@@ -354,7 +358,11 @@ class SSHServer:
            :param username:
                The user being authenticated
            :param client_host:
-               The hostname of the client host making the request
+               The hostname of the client host making the request. If
+               `trust_client_host` is set, this is the hostname provided
+               by the client. Otherwise, it is the verified hostname of
+               the client's IP address if `rdns_lookup` is set and such
+               a hostname is available, or the client's IP address.
            :param client_username:
                The username of the user on the client host
            :type username: `str`
@@ -841,6 +849,10 @@ class SSHServer:
 
            By default, this method rejects all server requests.
 
+           Each listener uses a file descriptor while open, so servers
+           accepting requests from untrusted clients may want to limit
+           how many they allow, returning `False` once a limit is reached.
+
            :param listen_host:
                The address the server should listen on
            :param listen_port:
@@ -954,6 +966,10 @@ class SSHServer:
            To reject this request, this method should return `False`.
 
            By default, this method rejects all server requests.
+
+           Each listener uses a file descriptor while open, so servers
+           accepting requests from untrusted clients may want to limit
+           how many they allow, returning `False` once a limit is reached.
 
            :param listen_path:
                The path the server should listen on

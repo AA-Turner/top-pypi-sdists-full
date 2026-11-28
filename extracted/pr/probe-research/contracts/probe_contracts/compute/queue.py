@@ -20,6 +20,8 @@ MAX_LISTED_MACHINES = 10_000
 MACHINES_PER_PAGE = 100
 MAX_MACHINE_PAGES = MAX_LISTED_MACHINES // MACHINES_PER_PAGE
 MACHINE_LIST_INTERVAL_SECONDS = 600
+#: `QueuedJob.assigned_to` is at most this long (a Kubernetes node name's limit).
+MAX_ASSIGNED_TO_CHARS = 253
 
 
 class SchedulerKind(StrEnum):
@@ -43,6 +45,9 @@ class QueuedJob(BaseModel):
     submitted_at: datetime | None = None
     #: The job's launch environment, allowlisted keys only: `PROBE_RUN_ID` names its run.
     env: dict[str, str] = Field(default_factory=dict)
+    #: The machine the scheduler says a still-waiting job is bound to, in its own words (Kubernetes
+    #: `spec.nodeName`, a Slurm hostlist like `gpu[01-04]`); the reader cuts longer ones. None: it named none.
+    assigned_to: str | None = Field(default=None, max_length=MAX_ASSIGNED_TO_CHARS)
 
     @field_validator("env")
     @classmethod
@@ -102,6 +107,15 @@ class QueueReportIn(BaseModel):
     sent_at: datetime
     jobs: list[QueuedJob] = Field(default_factory=list, max_length=MAX_QUEUED_JOBS)
     machine_list: MachineList | None = None
+    #: The daemon left jobs out (the MAX_QUEUED_JOBS cap, or to fit MAX_REPORT_BYTES): this read is incomplete.
+    truncated: bool = False
+
+    @model_validator(mode="after")
+    def check_page_has_no_jobs(self) -> QueueReportIn:
+        # probe-node sends a machine-list page with `"jobs": []` only; jobs beside one would read as a queue read.
+        if self.machine_list is not None and self.jobs:
+            raise ValueError("a machine_list page carries no jobs")
+        return self
 
 
 class SubmittedJobIn(BaseModel):

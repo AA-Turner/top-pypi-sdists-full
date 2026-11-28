@@ -97,11 +97,6 @@ class _TestKnownHosts(TempDirTestCase):
                     as_callable=False, as_tuple=False):
         """Check a known_hosts file built from the specified patterns"""
 
-        def call_match(host, addr, port):
-            """Test passing callable as known_hosts"""
-
-            return asyncssh.match_known_hosts(_known_hosts, host, addr, port)
-
         prefixes = ('', '@cert-authority ', '@revoked ',
                     '', '@revoked ', '', '@revoked ')
         known_hosts = '# Comment line\n   # Comment line with whitespace\n\n'
@@ -119,6 +114,13 @@ class _TestKnownHosts(TempDirTestCase):
             known_hosts = known_hosts.encode()
         elif as_callable:
             _known_hosts = asyncssh.import_known_hosts(known_hosts)
+
+            def call_match(host, addr, port):
+                """Test passing callable as known_hosts"""
+
+                return asyncssh.match_known_hosts(_known_hosts, host,
+                                                  addr, port)
+
             known_hosts = call_match
         elif as_tuple:
             known_hosts = asyncssh.import_known_hosts(known_hosts)
@@ -197,6 +199,41 @@ class _TestKnownHosts(TempDirTestCase):
                          ([0], [], [], [], [], [], []), port=None)
         self.check_hosts((['[host]:22'], [], [], [], [], [], []),
                          ([], [], [], [], [], [], []), port=None)
+
+    def test_port_revoked(self):
+        """Test revocations specific to a non-default port"""
+
+        matches = (
+            ('Port revoked, host trusted',
+             (['host'], [], ['[host]:2222'], [], [], [], []),
+             ([0], [], [0], [], [], [], [])),
+            ('Port revoked, host CA trusted',
+             ([], ['host'], ['[host]:2222'], [], [], [], []),
+             ([], [0], [0], [], [], [], [])),
+            ('Port revoked only',
+             ([], [], ['[host]:2222'], [], [], [], []),
+             ([], [], [0], [], [], [], [])),
+            ('Port and host revoked',
+             (['host'], [], ['[host]:2222', 'host'], [], [], [], []),
+             ([0], [], [0, 1], [], [], [], [])),
+            ('Host revoked, port trusted',
+             (['[host]:2222'], [], ['host'], [], [], [], []),
+             ([0], [], [], [], [], [], []))
+        )
+
+        if x509_available: # pragma: no branch
+            matches += (
+                ('Port X.509 revoked, host trusted',
+                 ([], [], [], ['host'], ['[host]:2222'], [], []),
+                 ([], [], [], [0], [0], [], [])),
+                ('Port subject revoked, host trusted',
+                 ([], [], [], [], [], ['host'], ['[host]:2222']),
+                 ([], [], [], [], [], [0], [0])),
+            )
+
+        for testname, patlists, result in matches:
+            with self.subTest(testname):
+                self.check_hosts(patlists, result, port=2222)
 
     def test_no_match(self):
         """Test for cases where no match is found"""

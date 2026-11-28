@@ -10,6 +10,8 @@ read and save holds a lock, and a save merges its own entries into what is saved
 temporary file of its own, so none fails on another's file or drops the entries another saved.
 A blob's parts sent are in a file of its own, so saving a part never reads the files' hashes.
 The state is a cache: where the disk refuses it, uploads go on without it (a warning says so).
+Files hash on every core, and parts stream from disk eight at a time through the throttle a
+dataset's upload uses (halved when the network drops one, back up as parts land).
 A link storage refuses (it expired, or another upload of the same blob finished it first:
 uploads in one organization resume each other's open ones) is renewed by registering the upload
 again, which keeps the parts already sent.
@@ -17,11 +19,10 @@ again, which keeps the parts already sent.
 A blob may also be a slice of a larger file (``Slice``): an ABC-VLA ``.pt`` checkpoint sends
 only the stored members its build reads, each as its own blob, never its optimizer state.
 
-A dataset's upload (``upload_dataset``) goes faster: files hash on every core and each is sent as
-soon as it's hashed, the manifest going up in batches; a blob of one part takes one signed PUT;
-parts stream from disk, eight at a time; a refused link (expired, or its blob stored meanwhile by
-another upload) is renewed by asking again; and the server lists the parts already sent, so a
-resume works from any machine.
+A dataset's upload (``upload_dataset``) goes further: each file is sent as soon as it's hashed,
+the manifest going up in batches; a blob of one part takes one signed PUT; a refused link
+(expired, or its blob stored meanwhile by another upload) is renewed by asking again; and the
+server lists the parts already sent, so a resume works from any machine.
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
@@ -58,8 +60,9 @@ try:  # Windows
 except ImportError:
     msvcrt = None
 
-CONCURRENCY = 4
 DATASET_CONCURRENCY = 8
+CONCURRENCY = DATASET_CONCURRENCY  # upload()'s parts at once, as many as a dataset's
+HASHERS = max(os.cpu_count() or 2, 2)  # files hashed at once: one per core
 DOWNLOAD_CONCURRENCY = 8
 DOWNLOAD_RANGE = 64 << 20
 BATCH_FILES = 1000
@@ -333,25 +336,34 @@ def _sha256(path: Path, advance: Callable[[int], None], offset: int = 0,
     return digest.hexdigest()
 
 
+class _Stopped(Exception):
+    """A file stopped hashing because another one failed, or its caller stopped."""
+
+
 def manifest(
     root: Path, files: Sequence[tuple[str, int]], *, progress: Progress | None = None,
     slices: Mapping[str, Slice] | None = None,
 ) -> list[dict[str, Any]]:
     """``[{path, size, sha256}]`` for ``files`` under ``root`` (or, for a path in ``slices``,
-    its slice of a file); unchanged files reuse their saved hash."""
+    its slice of a file); unchanged files reuse their saved hash, the others hash on every core
+    as a dataset's upload hashes them."""
     slices = slices or {}
     cache = _read_hashes()
-    hashed: dict[str, dict[str, Any]] = {}
     total, done = sum(size for _, size in files), 0
+    counting = threading.Lock()
+    stopping = threading.Event()
+    failures: list[BaseException] = []
 
     def advance(count: int) -> None:
         nonlocal done
-        done += count
-        if progress is not None:
-            progress(done, total)
+        if stopping.is_set():
+            raise _Stopped
+        with counting:  # files hash on several threads
+            done += count
+            if progress is not None:
+                progress(done, total)
 
-    out = []
-    for rel, _ in files:
+    def entry(rel: str) -> tuple[dict[str, Any], str, dict[str, Any] | None]:
         part = slices.get(rel)
         path = part.file if part is not None else root / rel
         stat = path.stat()
@@ -363,15 +375,35 @@ def manifest(
             key, offset, size = f"{key}#{part.offset}+{part.length}", part.offset, part.length
         hit = cache.get(key)
         if hit and hit.get("size") == stat.st_size and hit.get("mtime_ns") == stat.st_mtime_ns:
-            sha = hit["sha256"]
             advance(size)
-        else:
-            sha = _sha256(path, advance, offset, size if part is not None else None)
-            cache[key] = hashed[key] = {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns,
-                                        "sha256": sha}
-        out.append({"path": rel, "size": size, "sha256": sha})
+            return {"path": rel, "size": size, "sha256": hit["sha256"]}, key, None
+        sha = _sha256(path, advance, offset, size if part is not None else None)
+        return ({"path": rel, "size": size, "sha256": sha}, key,
+                {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns, "sha256": sha})
+
+    def guarded(rel: str) -> tuple[dict[str, Any], str, dict[str, Any] | None]:
+        if stopping.is_set():
+            raise _Stopped
+        try:
+            return entry(rel)
+        except _Stopped:
+            raise
+        except BaseException as error:
+            failures.append(error)
+            stopping.set()
+            raise
+
+    pool = ThreadPoolExecutor(HASHERS)
+    try:
+        results = list(pool.map(guarded, [rel for rel, _ in files]))
+    except _Stopped:  # stopped because another file failed: that file's error says why
+        raise failures[0] from None
+    finally:  # a failed file or Ctrl-C stops the files still hashing at their next chunk
+        stopping.set()
+        pool.shutdown(cancel_futures=True)
+    hashed = {key: record for _, key, record in results if record is not None}
     _save_hashes(hashed)
-    return out
+    return [listed for listed, _, _ in results]
 
 
 def _upload_failed(path: Path, cause: str) -> errors.DreamscaleError:
@@ -401,37 +433,6 @@ class _Expired(Exception):
 
 
 _REFUSED = frozenset({403, 404})
-
-
-async def _put(http: httpx.AsyncClient, url: str, data: bytes, path: Path) -> str:
-    for attempt in range(PART_ATTEMPTS):
-        try:
-            resp = await http.put(url, content=data)
-        except httpx.TransportError as error:
-            cause = f"the network failed ({type(error).__name__})"
-        except ssl.SSLCertVerificationError as error:  # retrying can't make it trusted
-            raise _upload_failed(
-                path, f"storage's certificate couldn't be verified ({error.verify_message})"
-            ) from None
-        except ssl.SSLError as error:
-            cause = _tls_failed(error)
-        else:
-            if resp.status_code < 300 and resp.headers.get("etag"):
-                return resp.headers["etag"]
-            cause = f"storage answered HTTP {resp.status_code}"
-            if resp.status_code in _REFUSED:  # retrying the same URL can't help; a fresh one can
-                raise _Expired(cause)
-            if resp.status_code < 300 or resp.status_code not in _RETRY_STATUS:
-                raise _upload_failed(path, cause)
-        if attempt + 1 < PART_ATTEMPTS:
-            await asyncio.sleep(RETRY_BACKOFF_S[min(attempt, len(RETRY_BACKOFF_S) - 1)])
-    raise _upload_failed(path, cause)
-
-
-def _read(path: Path, offset: int, length: int) -> bytes:
-    with path.open("rb") as handle:
-        handle.seek(offset)
-        return handle.read(length)
 
 
 async def upload(
@@ -499,36 +500,42 @@ async def upload(
                     jobs.append((sha, number, part["url"], offset, length))
         if progress is not None:
             progress(done, total)
+        # Parts are picked CONCURRENCY at a time, so that after a refused link the parts not
+        # picked yet wait for the next round's links; the throttle decides how many go at once.
         limit = asyncio.Semaphore(CONCURRENCY)
+
+        def advance(count: int) -> None:
+            nonlocal done
+            done += count
+            if progress is not None:
+                progress(done, total)
 
         async def send(http: httpx.AsyncClient, sha: str, number: int, url: str, offset: int,
                        length: int) -> None:
-            nonlocal done, sent, landed, refused
+            nonlocal sent, landed, refused
             path, start = paths[sha]
             async with limit:
                 if refused is not None:  # its link is likely refused too: renewed next round
                     return
-                data = await asyncio.to_thread(_read, path, start + offset, length)
                 try:
-                    etag = await _put(http, url, data, path)
+                    etag = await _put_stream(http, url, path, start + offset, length, advance,
+                                             throttle)
                 except _Expired as error:
                     refused = refused or (path, str(error))
                     return
+            if not etag:
+                raise _upload_failed(path, "storage answered without an ETag")
             saved = sent_parts[sha]
             saved["etags"][str(number)] = etag
             # Its own file only, off the loop (a copy: other parts land meanwhile).
             await asyncio.to_thread(_save_parts, {sha: {"upload_id": saved["upload_id"],
                                                         "etags": dict(saved["etags"])}})
-            done += length
             sent += length
             landed += 1
-            if progress is not None:
-                progress(done, total)
 
         try:
             async with (
-                httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0),
-                                  transport=transport) as http,
+                _transfer_client(CONCURRENCY, transport) as http,
                 asyncio.TaskGroup() as group,
             ):
                 for job in jobs:
@@ -537,6 +544,7 @@ async def upload(
             raise failed.exceptions[0] from None
         return created, missing, refused, landed
 
+    throttle = _Throttle(CONCURRENCY)
     quiet = 0  # rounds in a row that were refused with nothing landing
     while True:
         created, missing, refused, landed = await send_round()
@@ -620,6 +628,21 @@ class _Throttle:
         if self.landed >= self.limit * 2 and self.limit < self.most:
             self.limit, self.landed = self.limit + 1, 0
             self._sync()
+
+
+def _transfer_client(
+    concurrency: int, transport: httpx.AsyncBaseTransport | None,
+) -> httpx.AsyncClient:
+    """The client parts stream through: a socket that goes quiet fails within a minute and its
+    part is retried, and a part the throttle let go never times out waiting for a connection."""
+    return httpx.AsyncClient(
+        timeout=httpx.Timeout(60.0, connect=10.0, pool=None),
+        limits=httpx.Limits(
+            max_connections=max(concurrency * 2, 20),
+            max_keepalive_connections=max(concurrency, 20),
+        ),
+        transport=transport,
+    )
 
 
 async def _put_stream(
@@ -707,7 +730,7 @@ async def upload_dataset(
     seen: set[str] = set()
     flushed_at = time.monotonic()
     flushing = asyncio.Lock()
-    hashing = asyncio.Semaphore(max(os.cpu_count() or 2, 2))
+    hashing = asyncio.Semaphore(HASHERS)
     throttle = _Throttle(concurrency)
 
     def report() -> None:
@@ -813,14 +836,7 @@ async def upload_dataset(
 
     try:
         async with (
-            httpx.AsyncClient(
-                timeout=httpx.Timeout(60.0, connect=10.0, pool=None),
-                limits=httpx.Limits(
-                    max_connections=max(concurrency * 2, 20),
-                    max_keepalive_connections=max(concurrency, 20),
-                ),
-                transport=transport,
-            ) as http,
+            _transfer_client(concurrency, transport) as http,
             asyncio.TaskGroup() as group,
         ):
             await asyncio.gather(*(hash_one(group, rel, size) for rel, size in files))

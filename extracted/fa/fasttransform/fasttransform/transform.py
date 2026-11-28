@@ -16,7 +16,7 @@ from fastcore.imports import *
 from fastcore.foundation import *
 from fastcore.utils import *
 
-from plum import dispatch, Function, NotFoundLookupError
+from plum import dispatch, Function, NotFoundLookupError, Signature
 
 from .cast import *
 
@@ -39,12 +39,20 @@ def _has_self_arg(f) -> bool:
     except (AttributeError, IndexError): return False
 
 # %% ../nbs/01_transform.ipynb #4d3d57e2-bd3c-431e-bfbb-b3043d4a8a7c
+def _reg(fn, f, precedence=0):
+    "Register `f` on plum `Function` `fn`, mapping `Any` params to `object` for beartype>=0.23."
+    s = Signature.from_callable(f, precedence=precedence)
+    s.types = tuple(object if t is Any else t for t in s.types)
+    if s.varargs is Any: s.varargs = object
+    fn.register(f, s)
+    return fn
+
 def _merge_funcs(*fs):
     "Merge multiple plum Functions by combining their methods"
     fs = fs[::-1]  # overwrite old implementations with new ones
     res = Function(fs[-1].methods[0].implementation)
-    for f in fs: 
-        for m in f.methods: res.dispatch(m.implementation)
+    for f in fs:
+        for m in f.methods: _reg(res, m.implementation, m.signature.precedence)
     return res
 
 # %% ../nbs/01_transform.ipynb #ea6f80d3
@@ -52,7 +60,7 @@ class _TfmDict(dict):
     def __setitem__(self, k, v):
         if not _is_tfm_method(k, v): return super().__setitem__(k,v)
         if k not in self: super().__setitem__(k, Function(v))
-        self[k].dispatch(v)
+        _reg(self[k], v)
 
 # %% ../nbs/01_transform.ipynb #3c9b4601
 class _TfmMeta(type):
@@ -63,8 +71,8 @@ class _TfmMeta(type):
         if issubclass(cls,Transform) and len(args)==1 and _has_self_arg(args[0]) and len(kwargs)==0: 
             f, nm = args[0], args[0].__name__
             if nm not in _tfm_methods: raise RuntimeError(f"{nm} not in {_tfm_methods}")
-            if not hasattr(cls, nm): setattr(cls, nm, Function(f).dispatch(f))
-            else: getattr(cls,nm).dispatch(f)
+            if not hasattr(cls, nm): setattr(cls, nm, _reg(Function(f), f))
+            else: _reg(getattr(cls, nm), f)
             return cls
         obj = super().__call__(*args, **kwargs)
         # _TfmMeta.__new__ replaces cls.__signature__ which breaks the signature of a callable
@@ -103,9 +111,9 @@ class Transform(metaclass=_TfmMeta):
                     wrapped_enc.__name__ = self._name
                     enc[0] = wrapped_enc
                 self.encodes = Function(enc[0])
-        for e in enc: self.encodes.dispatch(e)
+        for e in enc: _reg(self.encodes, e)
         if dec:=L(dec): self.decodes = Function(dec[0])
-        for d in dec: self.decodes.dispatch(d)
+        for d in dec: _reg(self.decodes, d)
 
     @property
     def name(self): return getattr(self, '_name', _get_name(self))
@@ -136,6 +144,18 @@ class Transform(metaclass=_TfmMeta):
         try: method, ret_type = f._resolve_method_with_cache(f_args)
         except NotFoundLookupError: return x
         return retain_type(method(*f_args,**kwargs), x, ret_type)
+
+    def __getstate__(self):
+        return {k: (list(dict.fromkeys((m.implementation, m.signature.precedence) for m in v.methods))
+                    if k in _tfm_methods and isinstance(v, Function) else v) for k, v in self.__dict__.items()}
+
+    def __setstate__(self, state):
+        for k, v in state.items():
+            if k in _tfm_methods and isinstance(v, list) and v:
+                fn = Function(v[0][0])
+                for f, prec in v: _reg(fn, f, prec)
+                v = fn
+            setattr(self, k, v)
 
 add_docs(Transform, decode="Delegate to decodes to undo transform", setup="Delegate to setups to set up transform")
 

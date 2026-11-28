@@ -30,6 +30,11 @@ Public entry points:
   pushes its branch, rather than waiting for `dispatch_review` to do it once
   the Test/smoke leg finishes — lets the `pull_request` CI run overlap smoke
   and review instead of being serialised after both.
+- `reuse_check_focus_lines(...)`, `count_reuse_findings(...)` — #4174: opt-out
+  per-repo rule (`reviews.reuse_check`, default on) instructing the reviewer
+  to flag new code that duplicates an existing helper/module, and a prose
+  scan that counts how many findings used the instructed "duplicates X at
+  file:line" phrasing, for the `reuse=` count in the review verdict marker.
 
 Why a separate module: the work-dispatch path (`coord/dispatch.py`) is shaped
 around `Proposal` objects from the brain. Reviews are triggered by completion
@@ -42,14 +47,18 @@ from __future__ import annotations
 import difflib
 import hashlib
 import logging
+import os
 import re
 import time
 import uuid
-from typing import Iterable, Iterator
+from typing import TYPE_CHECKING, Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
+
+if TYPE_CHECKING:
+    from coord.models import TrancheRow
 
 from coord import github_ops
 from coord.claim import review_covers
@@ -535,11 +544,18 @@ def format_review_header(
     blocking: int | None = None,
     nonblocking: int | None = None,
     nits: int | None = None,
+    reuse: int | None = None,
 ) -> str:
     """Build the HTML-comment header that machines parse.
 
     `verdict` is required; everything else is optional and only emitted
     when provided.  Returns a single line (no trailing newline).
+
+    `reuse` (#4174) is the `count_reuse_findings` count for this review's
+    body — how many of its findings were reuse-check findings, regardless
+    of which section they landed in — so `coord fleet stats` can track the
+    rate over time. Optional and additive: omitting it changes nothing for
+    an existing caller.
     """
     parts = [f"verdict={verdict}"]
     if blocking is not None:
@@ -548,6 +564,8 @@ def format_review_header(
         parts.append(f"nonblocking={nonblocking}")
     if nits is not None:
         parts.append(f"nits={nits}")
+    if reuse is not None:
+        parts.append(f"reuse={reuse}")
     if reviewer_machine:
         parts.append(f"reviewer={reviewer_machine}")
     if assignment_id:
@@ -558,9 +576,9 @@ def format_review_header(
 def parse_review_header(body: str) -> dict[str, str | int] | None:
     """Extract the coord:review header from *body*, or ``None`` when missing.
 
-    Numeric tokens (``blocking``, ``nonblocking``, ``nits``) are returned as
-    ``int``; everything else stays a ``str``.  Tolerates extra whitespace
-    and unknown tokens.
+    Numeric tokens (``blocking``, ``nonblocking``, ``nits``, ``reuse``) are
+    returned as ``int``; everything else stays a ``str``.  Tolerates extra
+    whitespace and unknown tokens.
     """
     m = _REVIEW_HEADER_RE.search(body)
     if not m:
@@ -571,7 +589,7 @@ def parse_review_header(body: str) -> dict[str, str | int] | None:
             continue
         key, value = token.split("=", 1)
         key = key.lower()
-        if key in ("blocking", "nonblocking", "nits"):
+        if key in ("blocking", "nonblocking", "nits", "reuse"):
             try:
                 out[key] = int(value)
             except ValueError:
@@ -718,7 +736,7 @@ def _parse_trusted_self_reported_marker(
             continue
         key, value = token.split("=", 1)
         key = key.lower()
-        if key in ("blocking", "nonblocking", "nits"):
+        if key in ("blocking", "nonblocking", "nits", "reuse"):
             try:
                 header[key] = int(value)
             except ValueError:
@@ -2866,6 +2884,102 @@ def shared_scenario_focus_lines(
     return lines
 
 
+# #4174: the "duplicates X at file:line; reuse or extend it" phrasing the
+# reuse-check instructions (`reuse_check_focus_lines`) ask the reviewer to
+# use for every reuse finding, regardless of which section (blocking or
+# nits — severity depends on whether the duplicate is a shared module) it
+# lands in. Deliberately loose: it only anchors on "duplicates" + "at
+# <path>:<line>" so it matches the instructed shape without caring about
+# exact wording around it, since reviewers paraphrase.
+_REUSE_FINDING_RE = re.compile(
+    r"\bduplicates\b.{0,200}?\bat\b\s+\S+:\d+",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def count_reuse_findings(body: str) -> int:
+    """Count reuse-check findings (#4174) in a reviewer's body text.
+
+    Looks for the "duplicates X at file:line" phrasing
+    `reuse_check_focus_lines` instructs the reviewer to use, one line at a
+    time, regardless of which section (`## Blocking findings` or `## Nits`)
+    it appears under — severity is already captured by that section, this
+    just tags how many of a review's findings are reuse findings so
+    `coord fleet stats` can track the rate over time.
+
+    Returns ``0``, never ``None``, for a body with no such findings — unlike
+    `estimate_review_counts`'s "could not determine" heuristic, there is no
+    ambiguous case here: this only matches an explicit, instructed phrase,
+    so its absence is a real zero, not a parse failure.
+
+    This is a rate estimate, not an exact count, on both sides: matching is
+    per-line, so a "duplicates ..." / "at path:line" pair that a reviewer
+    wraps across two lines is missed; and a negative statement such as "no
+    duplicates of this helper exist at path:line" matches too. Good enough
+    for tracking the rate over time, not for auditing a single review.
+    """
+    return sum(1 for line in body.splitlines() if _REUSE_FINDING_RE.search(line))
+
+
+# #4174: reuse-check instructions, appended to the briefing for a `type="work"`
+# review (which also covers a fix round — dispatched with the same
+# `assignment_type="work"`, just a higher `review_iteration`) unless the repo
+# opts out with `reviews.reuse_check: false`. Models are weak at keeping
+# duplication down in a large codebase: a worker solves its issue locally — a
+# new helper, a new navigation loop, a new painter — even when the repo
+# already has a shared one, and the adversarial review never asked whether
+# this code already exists somewhere. Bounded (at most 8 searches, skip
+# diffs under 30 added lines) so this stays a cheap pass over "substantial
+# new code", not a full-diff audit on every review.
+_REUSE_CHECK_LINES: tuple[str, ...] = (
+    "",
+    "## Reuse check (`reviews.reuse_check`, #4174)",
+    "",
+    "Skip this check entirely if the diff adds fewer than 30 lines. "
+    "Otherwise, for every NEW function, type, impl block, or match arm "
+    "larger than ~15 lines in the diff, search the repo for an existing "
+    "equivalent — a graphify query (e.g. \"where is X handled\") and a grep "
+    "for distinctive identifiers from the new code. Cap yourself at 8 "
+    "searches total for this review.",
+    "",
+    "If a search turns up a substantial existing equivalent, raise a "
+    "finding citing BOTH locations in this exact shape: \"duplicates X at "
+    "file:line; reuse or extend it\". Severity: a duplicate of an existing "
+    "SHARED module (e.g. a `behaviour::*`, `row_stack`, or `*_paint` style "
+    "helper meant to be reused across call sites) is a "
+    "`## Blocking findings` entry; a near-duplicate between two leaf "
+    "modules with no shared helper yet is a `## Nits` entry, plus a "
+    "suggestion to extract the shared code.",
+)
+
+
+def reuse_check_focus_lines(
+    reviews_cfg: ReviewsConfig, *, assignment_type: str = "work",
+) -> list[str]:
+    """Return the ``## Reuse check`` briefing section (#4174), or ``[]``.
+
+    Empty when the repo opted out (``reviews.reuse_check: false`` — the
+    field defaults to ``True``, unlike ``require_shared_scenario``'s
+    opt-in-by-default-absent shape, since this only adds reviewer
+    instructions rather than a mechanical mandatory-request-changes gate) or
+    when *assignment_type* isn't ``"work"`` — the only
+    :data:`coord.models.WORK_LIKE_TYPES` member that writes new application
+    code to solve an issue from scratch (a fix round is dispatched with the
+    same ``assignment_type="work"``, just a higher ``review_iteration``, so
+    this covers both without a separate check). ``test-author``/
+    ``mock-author``/``epic-decompose`` diffs aren't the "wrote a new helper
+    the repo already had" shape this rule exists for.
+
+    Mirrors `shared_scenario_focus_lines`'s "inert unless configured" shape
+    (#3112) so a caller can simply ``lines.extend(...)``.
+    """
+    if not reviews_cfg.reuse_check:
+        return []
+    if assignment_type != "work":
+        return []
+    return list(_REUSE_CHECK_LINES)
+
+
 def repo_focus_lines(reviews_cfg: ReviewsConfig, repo_name: str) -> list[str]:
     """Return the ``### Repo-specific focus`` block for *repo_name*, or ``[]``
     if the repo has no ``reviews.repo_overrides`` configured (#3112).
@@ -3219,6 +3333,9 @@ def build_review_briefing(
             diff_text=diff_text,
             completion_summary=completion_summary,
         )
+    )
+    lines.extend(
+        reuse_check_focus_lines(reviews_cfg, assignment_type=assignment_type)
     )
 
     if reviews_cfg.reviewer_prompt.strip():
@@ -4520,6 +4637,458 @@ def needs_redesign_escalation(
             work.repo_name, work.issue_number, exc,
         )
     return reason
+
+
+# ── #4190: bounded model decision at the max_review_iterations ceiling ──────
+#
+# Three independent call sites hit the SAME "the review -> fix loop has
+# spent its whole iteration budget without an approval" question —
+# `coord.auto_loop._dispatch_fix_for_review` (about to dispatch another fix
+# round), `coord.auto_loop.run_for_fix_transition` (about to dispatch
+# another review), and this module's own `dispatch_pending_reviews` #1612
+# defense-in-depth duplicate guard. All three used to answer it the same
+# blind way: stop and post a notice (`_post_max_iterations_notice`). This
+# section gives them one shared, bounded `claude -p` call to consult first
+# — mirroring `coord.board_doctor_policy.decide_with_model_investigator`
+# (#4126) — so a ceiling that is actually one small fix away from green, or
+# one whose remaining findings name scope that was never built, does not
+# have to wait for a human to notice the GitHub comment.
+
+#: The closed vocabulary the #4190 model may choose from. ``continue`` and
+#: ``escalate`` need no extra payload; ``rescope``/``split`` carry the
+#: model's own description of the remaining scope in ``remainder`` (see
+#: :class:`CeilingModelDecision`).
+CEILING_MODEL_ACTIONS: frozenset[str] = frozenset({"continue", "rescope", "split", "escalate"})
+
+#: A ceiling hit may be granted a "continue" override (one extra fix round
+#: past the configured ceiling) at most this many times per issue, ever —
+#: counted off the audit trail this module writes (see
+#: :func:`_ceiling_continue_override_count`), the same "count audited
+#: events, not an in-memory counter that resets on daemon restart" shape
+#: `coord.board_doctor_policy._model_decision_window_count` already uses.
+#: Without this cap a model that keeps reading "just one more round" as
+#: plausible could extend the loop indefinitely at metered-worker cost.
+CEILING_MODEL_MAX_CONTINUE_OVERRIDES = 1
+
+#: Every #4190 decision that actually consulted the model — granted or
+#: declined, parsed or not — is audited under this event type, with
+#: ``actor="auto_loop_ceiling_model"``. Mirrors
+#: `coord.board_doctor_policy.MODEL_DECISION_EVENT_TYPE`'s own shape/reason
+#: for existing (one event type for both `score_model_investigator_decisions`-
+#: style trails AND :func:`_ceiling_continue_grant_count` to read from).
+CEILING_MODEL_DECISION_EVENT_TYPE = "ceiling_model_decision"
+
+#: A granted "continue" override only actually buys a round once one of the
+#: three ceiling-hit call sites dispatches off it (a fix round or a review),
+#: not at the moment the model grants it — granting and dispatching can be
+#: two different passes (the #1612 test-gate deferral between `run_for_
+#: fix_transition` and `dispatch_pending_reviews` is the common case).
+#: Written by :func:`record_ceiling_continue_override_consumed` once a
+#: dispatch actually happens; :func:`_ceiling_continue_override_count` (the
+#: cap gate in :func:`decide_ceiling_action`) counts THESE entries, not
+#: every granted decision, so a grant that is still waiting to be used does
+#: not spend the budget out from under itself.
+CEILING_MODEL_OVERRIDE_CONSUMED_EVENT_TYPE = "ceiling_model_override_consumed"
+
+#: Opt-in switch for the whole #4190 ceiling-model path (default off,
+#: mirroring `coord.board_doctor_policy.MODEL_INVESTIGATOR_ENV_VAR`/
+#: `_model_investigator_enabled`): when unset, every ceiling-hit call site
+#: keeps the ORIGINAL blind-stop behavior (``_post_max_iterations_notice``)
+#: unchanged, and :func:`decide_ceiling_action` is never called.
+CEILING_MODEL_ENV_VAR = "COORD_AUTO_LOOP_CEILING_MODEL"
+
+
+def ceiling_model_decision_enabled() -> bool:
+    """Whether the #4190 bounded ceiling-model decision path is armed for
+    this process."""
+    return bool(os.environ.get(CEILING_MODEL_ENV_VAR))
+
+
+@dataclass(frozen=True)
+class CeilingModelDecision:
+    """One #4190 bounded-model decision at the ``max_review_iterations``
+    ceiling — the unit :func:`decide_ceiling_action` returns and
+    `coord.auto_loop`'s three call sites act on.
+
+    ``fell_back`` is True whenever *action* is ``"escalate"`` NOT because
+    the model chose it, but because the model call/parse failed, or chose
+    ``continue``/``rescope``/``split`` without satisfying that action's own
+    precondition (continue-override cap spent; rescope/split named no
+    remainder) — the same "a gate that cannot fail is not a gate" (#2096)
+    posture `coord.board_doctor_policy.ModelInvestigatorDecision` applies by
+    always defaulting an unparseable/refused call to ``action=None``. This
+    module has no silent "none" — a ceiling hit must always resolve to one
+    of the four actions, so the safe default is ``escalate`` (the ORIGINAL
+    blind-stop behavior), never a guess.
+    """
+
+    repo_name: str
+    issue_number: int
+    assignment_id: str
+    action: str
+    confidence: float
+    reasoning: str
+    remainder: str
+    model_used: str
+    fell_back: bool
+
+
+_CEILING_MODEL_SYSTEM_PROMPT = """\
+You are deciding what happens when an automated review -> fix loop in a \
+Claude Code fleet coordinator has reached its configured iteration ceiling \
+without the branch receiving an approval. Choose exactly ONE action from \
+this closed list: continue, rescope, split, escalate.
+
+- continue: the remaining blocking finding(s) read as narrow and one more \
+fix round is likely to resolve them. This grants one extra iteration past \
+the ceiling and is capped fleet-wide per issue — if the evidence says the \
+override has already been used for this issue, do not choose it again.
+- rescope: the branch has already delivered real, mergeable value, but a \
+blocking finding names scope that was never really part of a tight fix for \
+this issue. Choose this to file that remainder as a follow-up issue —
+describe exactly what remains in "remainder" (it will be filed verbatim as \
+a new issue's body) and let a human decide whether to merge the delivered \
+part as-is.
+- split: the issue itself reads as too large or tangled from the start, and \
+several rounds of churn have not converged. Describe the split you would \
+make in "remainder" (it will not be filed automatically — a human decides \
+how to divide it) rather than recommending another bounce.
+- escalate: none of the above clearly fits the evidence — defer to a \
+human rather than guess. Prefer escalate over a wrong guess.
+
+Respond with ONLY a single JSON object, no prose, no code fences:
+{"action": "<one of the four names above>", "confidence": <float 0.0-1.0>, \
+"reasoning": "<one sentence>", "remainder": "<only for rescope/split, else \
+empty string>"}
+"""
+
+
+def _render_ceiling_evidence(
+    *,
+    repo_name: str,
+    issue_number: int,
+    branch: str | None,
+    completed_rounds: int,
+    max_iter: int,
+    findings_body: str,
+    continue_overrides_used: int,
+) -> str:
+    """The evidence bundle handed to the #4190 ceiling model call."""
+    body = (findings_body or "").strip()
+    return "\n".join([
+        f"repo: {repo_name}",
+        f"issue: {issue_number}",
+        f"branch: {branch or 'unknown'}",
+        f"completed_fix_rounds: {completed_rounds}",
+        f"max_review_iterations: {max_iter}",
+        f"continue_overrides_already_used_for_this_issue: "
+        f"{continue_overrides_used} (cap {CEILING_MODEL_MAX_CONTINUE_OVERRIDES})",
+        "latest_blocking_review_findings:",
+        body if body else "(none recorded for this evidence bundle)",
+    ])
+
+
+def _invoke_ceiling_model(
+    system_prompt: str, user_prompt: str, *, model: str, timeout: float = 60.0,
+) -> str:
+    """One bounded ``claude -p`` call with an explicit ``--model`` (#4190).
+
+    Mirrors `coord.board_doctor_policy._invoke_investigator_model`'s own
+    oneshot shape rather than going through `coord.brain.call_claude` /
+    `coord.providers.claude.ClaudeProvider.oneshot_command` — that method's
+    own docstring says it never threads ``self._model`` through a oneshot
+    call (#1706), and this is the second caller (after #4126) that genuinely
+    needs per-call model selection.
+    """
+    import json as _json  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+
+    from coord.agent import DEFAULT_WORKER_BINARY  # noqa: PLC0415
+
+    cmd = [
+        DEFAULT_WORKER_BINARY, "-p", "--system-prompt", system_prompt,
+        "--model", model, "--output-format", "json",
+    ]
+    result = subprocess.run(
+        cmd, input=user_prompt, capture_output=True, text=True, timeout=timeout,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"ceiling model decision call failed (exit "
+            f"{result.returncode}): {result.stderr.strip()}"
+        )
+    try:
+        outer = _json.loads(result.stdout)
+        if isinstance(outer, dict) and "result" in outer:
+            return outer["result"]
+    except (_json.JSONDecodeError, ValueError):
+        pass
+    return result.stdout
+
+
+def _parse_ceiling_model_response(text: str) -> tuple[str | None, float, str, str]:
+    """Parse the #4190 model's JSON reply into ``(action, confidence,
+    reasoning, remainder)``.
+
+    Never raises on malformed input — unparseable JSON, a non-dict, an
+    ``action`` outside :data:`CEILING_MODEL_ACTIONS`, or a ``confidence``
+    outside ``[0, 1]`` all read as ``(None, 0.0, "<why>", "")``: a refusal
+    to act, never a guessed action (#2096 — the gate that follows must be
+    able to fail).
+    """
+    import json as _json  # noqa: PLC0415
+    import re as _re  # noqa: PLC0415
+
+    cleaned = text.strip()
+    fence = _re.match(r"^```(?:json)?\s*\n(.*?)```\s*$", cleaned, _re.DOTALL)
+    if fence:
+        cleaned = fence.group(1).strip()
+    try:
+        data = _json.loads(cleaned)
+    except (_json.JSONDecodeError, ValueError) as exc:
+        return None, 0.0, f"unparseable model response: {exc}", ""
+    if not isinstance(data, dict):
+        return None, 0.0, "model response was not a JSON object", ""
+
+    action = data.get("action")
+    if action not in CEILING_MODEL_ACTIONS:
+        return None, 0.0, f"model returned unrecognized action {action!r}", ""
+
+    confidence = data.get("confidence")
+    if not isinstance(confidence, (int, float)) or not (0.0 <= float(confidence) <= 1.0):
+        return None, 0.0, f"model returned invalid confidence {confidence!r}", ""
+
+    reasoning = data.get("reasoning")
+    reasoning = str(reasoning) if reasoning is not None else ""
+    remainder = data.get("remainder")
+    remainder = str(remainder) if remainder is not None else ""
+    return action, float(confidence), reasoning, remainder
+
+
+def _ceiling_continue_grant_count(repo_name: str, issue_number: int) -> int:
+    """How many times :func:`decide_ceiling_action` has ever granted
+    *repo_name*#*issue_number* a ``"continue"`` override — regardless of
+    whether that grant has gone on to actually buy a round yet. Feeds
+    :func:`ceiling_continue_override_pending`, never the cap gate itself
+    (see :func:`_ceiling_continue_override_count` for that). Fails open to
+    0 on an unreadable audit log, same posture as
+    `coord.board_doctor_policy._model_decision_window_count`.
+    """
+    from coord.audit import query_audit_log  # noqa: PLC0415
+
+    try:
+        result = query_audit_log(
+            event_type=CEILING_MODEL_DECISION_EVENT_TYPE,
+            repo=repo_name, issue=issue_number, limit=500,
+        )
+    except Exception:  # noqa: BLE001 — fails open, see docstring
+        log.warning(
+            "auto_loop ceiling: could not read %s audit log for %s#%s — "
+            "pending-grant check fails open to 0",
+            CEILING_MODEL_DECISION_EVENT_TYPE, repo_name, issue_number,
+            exc_info=True,
+        )
+        return 0
+    entries = result.get("entries") or []
+    return sum(
+        1
+        for e in entries
+        if (e.get("details") or {}).get("action") == "continue"
+        and not (e.get("details") or {}).get("fell_back")
+    )
+
+
+def _ceiling_continue_override_count(repo_name: str, issue_number: int) -> int:
+    """How many #4190 ``"continue"`` overrides *repo_name*#*issue_number*
+    has actually SPENT, ever — the cap counter for
+    :data:`CEILING_MODEL_MAX_CONTINUE_OVERRIDES`, read by
+    :func:`decide_ceiling_action`.
+
+    Counts :func:`record_ceiling_continue_override_consumed` entries, not
+    every granted decision (:func:`_ceiling_continue_grant_count` reads
+    those): a grant is only "spent" once it has actually bought a round —
+    a fix dispatch or a review dispatch — not at the moment the model
+    grants it. Counting at grant time let the same override be discarded
+    by a later call site re-asking the model (the #1612 test-gate deferral
+    between `run_for_fix_transition` and `dispatch_pending_reviews` is the
+    common hop) without ever having bought anything. Fails open to 0 on an
+    unreadable audit log (same posture as
+    `coord.board_doctor_policy._model_decision_window_count`): a cap that
+    can never be read is worse than a cap occasionally under-counted by a
+    transient DB error.
+    """
+    from coord.audit import query_audit_log  # noqa: PLC0415
+
+    try:
+        result = query_audit_log(
+            event_type=CEILING_MODEL_OVERRIDE_CONSUMED_EVENT_TYPE,
+            repo=repo_name, issue=issue_number, limit=500,
+        )
+    except Exception:  # noqa: BLE001 — fails open, see docstring
+        log.warning(
+            "auto_loop ceiling: could not read %s audit log for %s#%s — "
+            "continue-override cap check fails open to 0",
+            CEILING_MODEL_OVERRIDE_CONSUMED_EVENT_TYPE, repo_name, issue_number,
+            exc_info=True,
+        )
+        return 0
+    entries = result.get("entries") or []
+    return len(entries)
+
+
+def ceiling_continue_override_pending(repo_name: str, issue_number: int) -> bool:
+    """Does *repo_name*#*issue_number* already have a #4190 ``"continue"``
+    grant outstanding — granted but not yet actually used to dispatch a
+    round?
+
+    Every one of the three ceiling-hit call sites must check this BEFORE
+    calling :func:`decide_ceiling_action` and, when it is True, skip the
+    model call entirely and dispatch directly off the existing grant
+    instead: the question has already been answered for this issue, and
+    re-asking only risks the model answering differently (or the cap
+    gate inside :func:`decide_ceiling_action` denying a SECOND "continue"
+    outright, discarding the first grant for nothing — the exact bug this
+    function exists to close).
+    """
+    granted = _ceiling_continue_grant_count(repo_name, issue_number)
+    if granted == 0:
+        return False
+    return _ceiling_continue_override_count(repo_name, issue_number) < granted
+
+
+def record_ceiling_continue_override_consumed(
+    repo_name: str, issue_number: int, *, assignment_id: str | None,
+) -> None:
+    """Mark a previously-granted #4190 ``"continue"`` override as actually
+    spent — called by a ceiling-hit call site immediately AFTER it
+    successfully dispatches the round the grant bought (a fix round or a
+    review), never before: a dispatch that fails must leave the grant
+    outstanding for the next pass to retry, not burn it on nothing.
+
+    This is what :func:`_ceiling_continue_override_count` (the cap gate)
+    actually counts — see its docstring for why counting at grant time
+    instead was the #4190 review bug.
+    """
+    from coord.audit import record_audit  # noqa: PLC0415
+
+    record_audit(
+        tier="business",
+        category="auto_loop_ceiling",
+        event_type=CEILING_MODEL_OVERRIDE_CONSUMED_EVENT_TYPE,
+        actor="auto_loop_ceiling_model",
+        summary=(
+            f"ceiling continue override consumed for {repo_name}#{issue_number} "
+            f"(assignment={assignment_id})"
+        ),
+        repo=repo_name,
+        issue=issue_number,
+        assignment_id=assignment_id,
+        details={},
+    )
+
+
+def decide_ceiling_action(
+    *,
+    repo_name: str,
+    issue_number: int,
+    assignment_id: str,
+    branch: str | None,
+    completed_rounds: int,
+    max_iter: int,
+    findings_body: str,
+    config: Config,
+    invoke_model: Callable[..., str] | None = None,
+) -> CeilingModelDecision:
+    """The #4190 entry point: one bounded sonnet call deciding what to do
+    about a ``max_review_iterations`` ceiling hit, in place of a blind
+    stop.
+
+    *invoke_model* defaults to :func:`_invoke_ceiling_model`; tests inject a
+    stub so this never shells out to a real ``claude -p``.
+
+    Never raises: every failure mode (an unparseable reply, a subprocess
+    timeout, a spent continue-override cap, a rescope/split with no named
+    remainder) resolves to ``action="escalate", fell_back=True`` — the same
+    direction the ORIGINAL blind stop already pointed, so a model outage
+    degrades to today's behavior rather than to a stuck loop.
+    """
+    call = invoke_model if invoke_model is not None else _invoke_ceiling_model
+
+    def _audit(decision: CeilingModelDecision) -> CeilingModelDecision:
+        from coord.audit import record_audit  # noqa: PLC0415
+
+        record_audit(
+            tier="business",
+            category="auto_loop_ceiling",
+            event_type=CEILING_MODEL_DECISION_EVENT_TYPE,
+            actor="auto_loop_ceiling_model",
+            summary=(
+                f"ceiling model decided {decision.action} for "
+                f"{repo_name}#{issue_number} (confidence={decision.confidence:.2f}, "
+                f"model={decision.model_used}, fell_back={decision.fell_back})"
+            ),
+            repo=repo_name,
+            issue=issue_number,
+            assignment_id=assignment_id,
+            details={
+                "action": decision.action,
+                "confidence": decision.confidence,
+                "reasoning": decision.reasoning,
+                "remainder": decision.remainder,
+                "model_used": decision.model_used,
+                "fell_back": decision.fell_back,
+            },
+        )
+        return decision
+
+    def _escalate(reasoning: str, *, model_used: str = "") -> CeilingModelDecision:
+        return _audit(CeilingModelDecision(
+            repo_name=repo_name, issue_number=issue_number,
+            assignment_id=assignment_id, action="escalate", confidence=0.0,
+            reasoning=reasoning, remainder="", model_used=model_used,
+            fell_back=True,
+        ))
+
+    continue_overrides_used = _ceiling_continue_override_count(repo_name, issue_number)
+    evidence = _render_ceiling_evidence(
+        repo_name=repo_name, issue_number=issue_number, branch=branch,
+        completed_rounds=completed_rounds, max_iter=max_iter,
+        findings_body=findings_body, continue_overrides_used=continue_overrides_used,
+    )
+
+    sonnet_model = config.models.resolve("sonnet")
+    assert sonnet_model is not None  # resolve("sonnet") never returns None
+
+    try:
+        raw = call(_CEILING_MODEL_SYSTEM_PROMPT, evidence, model=sonnet_model, timeout=60.0)
+    except Exception as exc:  # noqa: BLE001 — a model-call failure is a refusal, not a crash
+        return _escalate(f"model call failed: {exc}", model_used=sonnet_model)
+
+    action, confidence, reasoning, remainder = _parse_ceiling_model_response(raw)
+    if action is None:
+        return _escalate(reasoning, model_used=sonnet_model)
+
+    if action == "continue" and continue_overrides_used >= CEILING_MODEL_MAX_CONTINUE_OVERRIDES:
+        return _escalate(
+            f"model chose 'continue' but {repo_name}#{issue_number} already "
+            f"spent its {CEILING_MODEL_MAX_CONTINUE_OVERRIDES} continue-"
+            "override budget — escalating instead",
+            model_used=sonnet_model,
+        )
+
+    if action in ("rescope", "split") and not remainder.strip():
+        return _escalate(
+            f"model chose {action!r} without naming the remainder scope — "
+            "escalating instead",
+            model_used=sonnet_model,
+        )
+
+    return _audit(CeilingModelDecision(
+        repo_name=repo_name, issue_number=issue_number,
+        assignment_id=assignment_id, action=action, confidence=confidence,
+        reasoning=reasoning, remainder=remainder, model_used=sonnet_model,
+        fell_back=False,
+    ))
 
 
 def claim_review_item_dispatch_gate(
@@ -6486,6 +7055,14 @@ def dispatch_pending_reviews(board, config, *, test_gate_active: bool = False, n
     # path, a manual edit) would silently bypass the fix-loop cap instead of
     # stopping it here the same way the other bulk-path guards are duplicated
     # (claude-pty, terminal-work).
+    # #4190 review follow-up: assignment ids whose eligibility below rests on
+    # a continue override that is still outstanding (granted either in this
+    # loop or by one of the two sibling call sites in `coord.auto_loop`) —
+    # the dispatch loop further down consumes the grant only once it has
+    # actually dispatched a review for one of these, never here at decision
+    # time (see `coord.review.record_ceiling_continue_override_consumed`'s
+    # docstring for why counting any earlier discards the grant for free).
+    _ceiling_override_pending_ids: set[str] = set()
     _max_review_iter = config.pipeline.max_review_iterations
     for c in board.completed:
         if (
@@ -6494,16 +7071,75 @@ def dispatch_pending_reviews(board, config, *, test_gate_active: bool = False, n
             and c.status == "done"
             and (c.review_iteration or 0) >= _max_review_iter
         ):
+            if not ceiling_model_decision_enabled():
+                from coord.auto_loop import _post_max_iterations_notice  # noqa: PLC0415
+
+                logger.warning(
+                    "dispatch_pending_reviews cap guard (#1612): %s (%s #%s) "
+                    "has review_iteration=%d >= max_review_iterations=%d — "
+                    "not dispatching another review.",
+                    c.assignment_id, c.repo_name, c.issue_number,
+                    c.review_iteration or 0, _max_review_iter,
+                )
+                _post_max_iterations_notice(c, config)
+                c.review_state = "cap_hit"
+                continue
+
+            from coord.auto_loop import (  # noqa: PLC0415
+                _latest_blocking_findings_body,
+                _post_ceiling_decision_notice,
+            )
+
+            # A "continue" grant for this issue may already be outstanding
+            # from an earlier call to one of #4190's three ceiling-hit call
+            # sites but not yet used to dispatch anything — reuse it rather
+            # than re-consulting the model, which would either answer
+            # differently or have the cap gate inside `decide_ceiling_action`
+            # deny a second "continue" outright, discarding the still-unused
+            # first grant for nothing. See `ceiling_continue_override_pending`.
+            if ceiling_continue_override_pending(c.repo_name, c.issue_number):
+                logger.info(
+                    "dispatch_pending_reviews cap guard (#1612): %s (%s #%s) "
+                    "has review_iteration=%d >= max_review_iterations=%d, but "
+                    "issue #%s already has an outstanding #4190 continue "
+                    "grant — reusing it rather than consulting the model "
+                    "again",
+                    c.assignment_id, c.repo_name, c.issue_number,
+                    c.review_iteration or 0, _max_review_iter, c.issue_number,
+                )
+                _ceiling_override_pending_ids.add(c.assignment_id)
+                continue
+
+            decision = decide_ceiling_action(
+                repo_name=c.repo_name, issue_number=c.issue_number,
+                assignment_id=c.assignment_id, branch=c.branch,
+                completed_rounds=c.review_iteration or 0, max_iter=_max_review_iter,
+                findings_body=_latest_blocking_findings_body(
+                    c.review_of_assignment_id or c.assignment_id, board, config,
+                    repo_name=c.repo_name,
+                ),
+                config=config,
+            )
             logger.warning(
                 "dispatch_pending_reviews cap guard (#1612): %s (%s #%s) has "
-                "review_iteration=%d >= max_review_iterations=%d — not "
-                "dispatching another review.",
+                "review_iteration=%d >= max_review_iterations=%d — #4190 "
+                "bounded model decided action=%s (confidence=%.2f, "
+                "model=%s, fell_back=%s): %s",
                 c.assignment_id, c.repo_name, c.issue_number,
-                c.review_iteration or 0, _max_review_iter,
+                c.review_iteration or 0, _max_review_iter, decision.action,
+                decision.confidence, decision.model_used, decision.fell_back,
+                decision.reasoning,
             )
-            from coord.auto_loop import _post_max_iterations_notice
-
-            _post_max_iterations_notice(c, config)
+            if decision.action == "continue":
+                # The model granted a one-time override (capped per issue) —
+                # leave `review_state` as-is so this row stays eligible below.
+                # Spending it is deferred to the dispatch loop, in case this
+                # row still fails to dispatch this pass too.
+                _ceiling_override_pending_ids.add(c.assignment_id)
+                continue
+            _post_ceiling_decision_notice(
+                c, config, decision, completed_rounds=c.review_iteration or 0,
+            )
             c.review_state = "cap_hit"
 
     # #3668: the predicate lives in `bulk_review_eligibility_blockers` so
@@ -6594,6 +7230,13 @@ def dispatch_pending_reviews(board, config, *, test_gate_active: bool = False, n
             # now running" case reaches "dispatched".
             if review.status != "done":
                 completed.review_state = "dispatched"
+            if completed.assignment_id in _ceiling_override_pending_ids:
+                # The review the grant was for just dispatched successfully
+                # — spend the override now, not back when it was granted.
+                record_ceiling_continue_override_consumed(
+                    completed.repo_name, completed.issue_number,
+                    assignment_id=completed.assignment_id,
+                )
             dispatched.append(review)
         # On failure leave review_state as "pending" so the next pass retries.
         # Terminal rows are marked review_state="done" inside dispatch_review
@@ -8793,3 +9436,508 @@ def dispatch_headless_fix(
         work, briefing, board, config, next_iteration,
         model=model, http_client=http_client,
     )
+
+
+# ── Native tranche rows: three-way bound review (#4129 Phase 1, this slice
+# #4202) ───────────────────────────────────────────────────────────────────
+#
+# Once `coord.merge_queue.merge_tranche_children` has pushed a clean
+# integrated tree (`row.state == "done"`), #4129 names THREE independent
+# review legs instead of the ordinary single review:
+#
+#   - "recipe"    — did the merge/integration faithfully apply what each
+#                    child actually did (the coordinator's own mechanical
+#                    merge, or the LLM integrator fallback, might have
+#                    silently dropped or mangled a child's change);
+#   - "behaviour" — does the INTEGRATED tree behave correctly end to end —
+#                    the cross-child seams no single child's own
+#                    structured result (#4200) ever saw, since children
+#                    never reviewed each other;
+#   - "gates"     — does the integrated diff still pass this repo's own
+#                    CLAUDE.md/sealed-path/policy rules, the same checks
+#                    an ordinary single review already runs.
+#
+# All three review the SAME diff (`row.base_sha` -> the integrated sha)
+# through the SAME `REVIEWER_SYSTEM_PROMPT`/`REVIEW_VERDICT`/`END_REVIEW`
+# contract every other review leg already uses — grading reuses the
+# existing `Assignment.review_verdict`/`review_patch_id` machinery
+# `coord.notify` already populates for ANY `type="review"` row, nothing
+# new to parse. Dispatched as standalone raw `/assign` POSTs, mirroring
+# `coord.gate_b.dispatch_gate_b_review`'s posture (reusing `type="review"`
+# + `REVIEWER_SYSTEM_PROMPT` verbatim rather than inventing a new
+# assignment type) for the same reason that function states: there is no
+# PR yet for this diff (the PR opens LAST, once review approves — see
+# `coord.merge_queue.open_tranche_closing_pr`), so `dispatch_review`'s own
+# PR-centric machinery doesn't apply.
+#
+# Approval requires EVERY leg to come back `"approve"` AGAINST THE SAME
+# integrated patch-id (`tranche_review_verdict`) — a leg whose own
+# `review_patch_id` doesn't match the row's CURRENT integrated patch-id
+# reads exactly like "never reviewed", never like a stale approval that
+# still counts. That is what makes a scoped re-review of any fix delta
+# MANDATORY: a fix lands, the integrated patch-id moves, and every leg
+# bound to the old one stops counting until it (or a fresh dispatch of
+# it) is re-run against the new one — `dispatch_tranche_review_legs`'s own
+# *prior_verdict* briefing note is how a caller tells a leg's re-dispatch
+# it's scoped to just that delta.
+
+#: The three review legs #4129 requires for a tranche row's integrated
+#: tree — see this section's own module comment for what each checks.
+#: Order is deliberate (recipe before behaviour before gates) and is also
+#: the round-robin order `dispatch_tranche_review_legs` assigns machines
+#: in; it carries no other significance.
+TRANCHE_REVIEW_FOCUSES: tuple[str, ...] = ("recipe", "behaviour", "gates")
+
+_TRANCHE_REVIEW_FOCUS_INSTRUCTIONS: dict[str, str] = {
+    "recipe": (
+        "Does the integrated tree faithfully carry EVERY done child's own "
+        "change through? Diff each child's own branch against the "
+        "integrated tree and confirm nothing was silently dropped, "
+        "reverted, or mangled by the coordinator's mechanical merge (or, "
+        "if one ran, the LLM integrator fallback leg). A child's change "
+        "going missing or being altered in the merge is ALWAYS blocking, "
+        "even if the integrated tree otherwise looks fine."
+    ),
+    "behaviour": (
+        "Does the INTEGRATED tree behave correctly end to end — "
+        "specifically the seams BETWEEN children's changes, which no "
+        "single child's own work ever exercised (children ran in "
+        "parallel off the same base, with no visibility into each "
+        "other). Look for a function one child added that another child "
+        "needed but called differently than defined, a shared file two "
+        "children both touched where the merge's resolution doesn't "
+        "actually work, or a regenerated integration-surface artifact "
+        "that is stale relative to what the children's sources now say."
+    ),
+    "gates": (
+        "Does the integrated diff still pass this repo's own CLAUDE.md "
+        "rules — sealed paths, coordinator-owned docs, and every other "
+        "policy check an ordinary single-PR review already runs. Review "
+        "this exactly as you would any other PR's diff against CLAUDE.md; "
+        "nothing about this being a tranche integration changes what "
+        "counts as a policy violation."
+    ),
+}
+
+
+def tranche_review_target_for(row_id: int, focus: str) -> str:
+    """The `review_target` sentinel one tranche review leg's `Assignment`
+    carries (#4202) — mirrors `coord.gate_b.review_target_for`'s own
+    non-numeric-sentinel shape: there is no PR to post a review to (the PR
+    opens LAST — see `coord.merge_queue.open_tranche_closing_pr`), so
+    `coord.notify`'s existing `int(review_target)` PR-post attempt fails
+    and it falls back to posting a plain issue comment instead, same as
+    Gate B's own reviews.
+
+    Deterministic from `(row_id, focus)` alone, never stored anywhere new
+    — `tranche_review_leg_assignments` below re-derives it to scan the
+    board for the SAME leg, the single-source-of-truth shape every other
+    `tranche_*_name` helper in this feature already uses.
+    """
+    return f"tranche-{row_id}-review-{focus}"
+
+
+def build_tranche_review_briefing(
+    row: "TrancheRow",
+    focus: str,
+    integrated_sha: str,
+    *,
+    prior_verdict: str | None = None,
+) -> str:
+    """Briefing text for ONE of the three bound review legs (#4202).
+
+    Tells the reviewer this is one of three independent legs covering the
+    same integrated tree, names its own narrow focus
+    (`_TRANCHE_REVIEW_FOCUS_INSTRUCTIONS`), and lists every integrated
+    child so the reviewer has the same "what actually merged" context
+    `build_tranche_integrator_briefing` gives its own leg.
+
+    *prior_verdict* (#4202's mandatory scoped re-review) is the PRIOR
+    dispatch's own verdict for this exact focus — when it was
+    `"request-changes"`, the briefing narrows to "did the fix actually
+    resolve this leg's own prior findings" instead of a from-scratch
+    review, same spirit as `coord.review.build_scoped_review_briefing`'s
+    delta framing elsewhere. `None` (the default) is an ordinary
+    from-scratch review — the common case, and every first dispatch.
+    """
+    if focus not in TRANCHE_REVIEW_FOCUSES:
+        raise ValueError(
+            f"build_tranche_review_briefing: focus {focus!r} is not one of "
+            f"{TRANCHE_REVIEW_FOCUSES}"
+        )
+    done_children = sorted(
+        (c for c in row.children if c.state == "done"), key=lambda c: c.issue_number,
+    )
+    children_lines = "\n".join(
+        f"- #{c.issue_number} ({c.title or 'untitled'})" for c in done_children
+    ) or "(none)"
+    rereview_note = ""
+    if prior_verdict == "request-changes":
+        rereview_note = (
+            "\n\nSCOPED RE-REVIEW (#4129/#4202): a PRIOR run of this exact "
+            f"`{focus}` leg requested changes on this same tranche row. A "
+            "fix has since landed on the integrated tree — check ONLY "
+            "whether it actually resolves what you (or the prior session "
+            "covering this leg) flagged before; do not re-litigate "
+            "anything already approved."
+        )
+    return (
+        f"Three-way bound review — `{focus}` leg (#4129/#4202) for tranche "
+        f"row {row.id}, {row.repo_name}#{row.issue_number} "
+        f"({row.issue_title}).\n\n"
+        f"This PR integrates {len(done_children)} child issue(s) onto one "
+        f"tree with no per-child PR or review of their own. This review, "
+        f"together with its two sibling legs (the other two of "
+        f"`recipe`/`behaviour`/`gates`), is the ONLY review this "
+        f"integration gets. Approval requires ALL THREE legs to approve; "
+        f"a `request-changes` from any one blocks the merge.\n\n"
+        f"Children integrated:\n{children_lines}\n\n"
+        f"Base commit: `{row.base_sha}`  \n"
+        f"Integrated tree sha (already checked out): `{integrated_sha}`\n\n"
+        f"Your focus for THIS leg — {focus}:\n"
+        f"{_TRANCHE_REVIEW_FOCUS_INSTRUCTIONS[focus]}"
+        f"{rereview_note}\n\n"
+        f"Diff the base against your checkout (`git diff {row.base_sha}`) "
+        f"to see exactly what this integration changed."
+    )
+
+
+def dispatch_tranche_review_legs(
+    row: "TrancheRow",
+    integrated_sha: str,
+    config: Config,
+    machine_names: Sequence[str],
+    board: Board,
+    *,
+    http_client: httpx.Client | None = None,
+    now: float | None = None,
+    prior_verdicts: "Mapping[str, str] | None" = None,
+    integrated_patch_id: str | None = None,
+    focuses: "Sequence[str] | None" = None,
+    diff_fetcher=None,
+    patch_id_computer=None,
+) -> dict:
+    """Dispatch the bound review legs for *row*'s integrated tree
+    (#4129/#4202) — only ever called once `row.state == "done"`.
+
+    One leg per requested focus, round-robined across *machine_names* by
+    each focus's own index in `TRANCHE_REVIEW_FOCUSES` — so a focus always
+    lands on the same machine whether it is dispatched with its siblings
+    or on its own.
+
+    *focuses* narrows the dispatch to a subset of
+    `TRANCHE_REVIEW_FOCUSES`; `None` (the default) dispatches all three.
+    The scoped re-review of a fix delta needs this: once a fix moves the
+    integrated patch-id, `tranche_review_verdict` reports the focuses
+    whose binding went stale, and only those get re-dispatched — a focus
+    whose own leg is still in flight against the CURRENT patch-id must
+    not be dispatched a second time. `ok` then reports only the requested
+    focuses, so an unrequested one never reads as a failure.
+
+    Each leg is a standalone raw `/assign` POST
+    (mirrors `coord.gate_b.dispatch_gate_b_review`'s posture — see this
+    section's own module comment for why `dispatch_review`'s PR-centric
+    machinery doesn't apply here), appending a `type="review"` `Assignment`
+    to `board.active` and recording it via
+    `coord.state.record_dispatched_assignment` on success.
+
+    *prior_verdicts* (#4202's mandatory scoped re-review) is an optional
+    `{focus: verdict}` map — the caller's own record of each focus's most
+    recent verdict (e.g. from `tranche_review_verdict`'s own `blocking`
+    list) — threaded into `build_tranche_review_briefing`'s *prior_verdict*
+    so a leg being RE-dispatched after a fix gets the scoped framing
+    instead of a from-scratch review. Absent entirely for a row's first
+    dispatch.
+
+    *integrated_patch_id* is what makes the "bound to the integrated
+    patch-id" requirement reachable: every leg's `Assignment` gets
+    `review_head_sha=integrated_sha` and `review_patch_id=
+    integrated_patch_id` stamped on it at dispatch time, so a later
+    `tranche_review_verdict(..., integrated_patch_id=...)` call can
+    actually compare a leg's own patch-id against the row's CURRENT one.
+    When not given explicitly, this computes it itself via
+    `tranche_integrated_patch_id(row, integrated_sha, config,
+    diff_fetcher=diff_fetcher, patch_id_computer=patch_id_computer)` —
+    *diff_fetcher*/*patch_id_computer* are forwarded to that call only,
+    and ignored once *integrated_patch_id* is given directly.
+
+    Never raises on a single leg's dispatch failure — each focus fails
+    independently, mirroring `dispatch_tranche_row_children`'s per-child
+    posture, so one agent rejecting a POST doesn't strand the other two
+    legs undispatched. Returns ``{"ok": bool, "legs": {focus: {...}}}``:
+    ``ok`` is `True` only when EVERY REQUESTED focus's own leg dispatched
+    successfully; each `legs[focus]` is ``{"ok": True, "assignment_id":
+    ..., "machine_name": ...}`` or ``{"ok": False, "error": ...}``.
+
+    Raises ValueError if *machine_names* is empty, if *row.id* is None, or
+    if *focuses* names anything outside `TRANCHE_REVIEW_FOCUSES` or is
+    given as an empty sequence — there is nowhere to route the legs to, no
+    stable sentinel (`tranche_review_target_for`) to dispatch them under,
+    or no focus to review. An empty *focuses* must never read as "all
+    three dispatched fine": `ok` over an empty `legs` map would be
+    vacuously `True`.
+    """
+    if not machine_names:
+        raise ValueError("dispatch_tranche_review_legs: machine_names is empty")
+    if row.id is None:
+        raise ValueError(
+            "dispatch_tranche_review_legs: row.id is None — save the row "
+            "(coord.state.save_tranche_row) before dispatching its review legs"
+        )
+    if focuses is None:
+        requested = list(TRANCHE_REVIEW_FOCUSES)
+    else:
+        requested = list(focuses)
+        if not requested:
+            raise ValueError(
+                "dispatch_tranche_review_legs: focuses is empty — pass None "
+                "for all of TRANCHE_REVIEW_FOCUSES, never an empty sequence"
+            )
+        unknown = [f for f in requested if f not in TRANCHE_REVIEW_FOCUSES]
+        if unknown:
+            raise ValueError(
+                f"dispatch_tranche_review_legs: unknown focus(es) {unknown!r} "
+                f"— must be among {list(TRANCHE_REVIEW_FOCUSES)!r}"
+            )
+    if integrated_patch_id is None:
+        integrated_patch_id = tranche_integrated_patch_id(
+            row, integrated_sha, config,
+            diff_fetcher=diff_fetcher, patch_id_computer=patch_id_computer,
+        )
+    repo_cfg = config.repo(row.repo_name)
+    if repo_cfg is None:
+        raise ValueError(
+            f"dispatch_tranche_review_legs: repo {row.repo_name!r} is not configured"
+        )
+
+    from coord.agent import FAILED as AGENT_ASSIGNMENT_FAILED  # noqa: PLC0415
+    from coord.merge_queue import tranche_integration_branch_name  # noqa: PLC0415
+
+    target_branch = tranche_integration_branch_name(row)
+    client = http_client or httpx
+    legs: dict[str, dict] = {}
+
+    for focus in requested:
+        machine_name = machine_names[
+            TRANCHE_REVIEW_FOCUSES.index(focus) % len(machine_names)
+        ]
+        machine = next((m for m in config.machines if m.name == machine_name), None)
+        if machine is None:
+            legs[focus] = {"ok": False, "error": f"unknown machine {machine_name!r}"}
+            continue
+        repo_path = machine.repo_path(row.repo_name)
+        if repo_path is None:
+            legs[focus] = {
+                "ok": False,
+                "error": (
+                    f"machine {machine_name!r} has no repo_path for "
+                    f"{row.repo_name!r}"
+                ),
+            }
+            continue
+
+        review_target = tranche_review_target_for(row.id, focus)
+        prior_verdict = (prior_verdicts or {}).get(focus)
+        briefing = build_tranche_review_briefing(
+            row, focus, integrated_sha, prior_verdict=prior_verdict,
+        )
+        payload = {
+            "repo_name": row.repo_name,
+            "repo_path": repo_path,
+            "issue_number": row.issue_number,
+            "issue_title": f"[review:{focus}] {row.issue_title}",
+            "briefing": briefing,
+            "files_allowed": [],
+            "files_forbidden": [],
+            "pull_repos": [],
+            "type": "review",
+            "model": config.models.default,
+            "system_prompt": REVIEWER_SYSTEM_PROMPT,
+            "review_target": review_target,
+            "branch": target_branch,
+        }
+        url = f"http://{machine.host}:{AGENT_PORT}/assign"
+        try:
+            resp = client.post(url, json=payload, timeout=ASSIGN_POST_TIMEOUT_SECS)
+            resp.raise_for_status()
+            agent_response = resp.json()
+        except (httpx.HTTPError, httpx.TimeoutException) as exc:
+            legs[focus] = {
+                "ok": False,
+                "error": f"agent {machine_name!r} rejected dispatch: {exc}",
+            }
+            continue
+
+        if not isinstance(agent_response, dict) or not agent_response.get("id"):
+            legs[focus] = {
+                "ok": False,
+                "error": f"dispatch response carried no assignment id: {agent_response!r}",
+            }
+            continue
+        if agent_response.get("status") == AGENT_ASSIGNMENT_FAILED:
+            legs[focus] = {
+                "ok": False,
+                "error": (
+                    "agent reported dispatch failure: "
+                    f"{agent_response.get('error') or 'unknown error'}"
+                ),
+            }
+            continue
+
+        assignment_id = agent_response["id"]
+        assignment = Assignment(
+            machine_name=machine_name,
+            repo_name=row.repo_name,
+            issue_number=row.issue_number,
+            issue_title=f"[review:{focus}] {row.issue_title}",
+            files_allowed=[],
+            files_forbidden=[],
+            briefing=briefing,
+            assignment_id=assignment_id,
+            status="running",
+            branch=target_branch,
+            dispatched_at=now if now is not None else time.time(),
+            type="review",
+            review_target=review_target,
+            model=config.models.default,
+            review_head_sha=integrated_sha,
+            review_patch_id=integrated_patch_id,
+        )
+        board.active.append(assignment)
+
+        from coord.state import record_dispatched_assignment  # noqa: PLC0415
+
+        record_dispatched_assignment(assignment=assignment, repo_github=repo_cfg.github)
+
+        legs[focus] = {
+            "ok": True, "assignment_id": assignment_id, "machine_name": machine_name,
+        }
+
+    return {"ok": all(leg.get("ok") for leg in legs.values()), "legs": legs}
+
+
+def tranche_review_leg_assignments(
+    board: Board, row: "TrancheRow",
+) -> dict[str, Assignment | None]:
+    """The most recently dispatched review `Assignment` for each of
+    `TRANCHE_REVIEW_FOCUSES` on *row*, scanned off *board* (#4202).
+
+    Mirrors `coord.gate_b.latest_gate_b_verdict`'s "scan both completed and
+    active, pick the most recently DISPATCHED one" shape — a re-dispatch
+    after a request-changes reuses the SAME `tranche_review_target_for`
+    sentinel, so the newest one is always the authoritative leg. `None`
+    for a focus never dispatched.
+    """
+    pool = list(board.completed) + list(board.active)
+    result: dict[str, Assignment | None] = {}
+    for focus in TRANCHE_REVIEW_FOCUSES:
+        target = tranche_review_target_for(row.id, focus) if row.id is not None else None
+        matches = [
+            a for a in pool
+            if a.type == "review" and a.repo_name == row.repo_name
+            and target is not None and a.review_target == target
+        ]
+        matches.sort(key=lambda a: a.dispatched_at or 0.0)
+        result[focus] = matches[-1] if matches else None
+    return result
+
+
+def tranche_review_verdict(
+    legs: "Mapping[str, Assignment | None]",
+    *,
+    integrated_patch_id: str | None = None,
+) -> dict:
+    """Aggregate the three bound review legs into ONE tranche-level
+    approval decision (#4129/#4202).
+
+    `approved` is `True` only when EVERY name in `TRANCHE_REVIEW_FOCUSES`
+    has a leg in *legs* with a non-`None` `review_verdict` of `"approve"`
+    — a focus missing entirely, or whose leg hasn't finished yet, reads
+    exactly like one that explicitly requested changes, never as
+    vacuously approved (#2096, "a gate must be able to fail": a tranche
+    row that never got a `"gates"` leg dispatched at all must never look
+    indistinguishable from one all three legs actually approved).
+
+    *integrated_patch_id*, when given, enforces the "bound to the
+    integrated patch-id" requirement directly: a leg whose own
+    `review_patch_id` does not match it — INCLUDING a leg whose
+    `review_patch_id` is `None` (a leg dispatched before a caller started
+    stamping it, or one whose own patch-id computation failed) — is
+    treated as `pending`, needing a fresh (or scoped) dispatch,
+    REGARDLESS of what verdict it already carries. A missing
+    `review_patch_id` is never read as "binding satisfied" — that would
+    make this check unreachable for every leg a real dispatch failed to
+    stamp. This is what makes a scoped re-review of a fix delta mandatory
+    rather than advisory: an `"approve"` against a patch-id the row has
+    since moved past, or against no recorded patch-id at all, simply does
+    not count. `None` (the default) skips this check entirely — the
+    caller's own job when it has no reliable integrated-sha diff to
+    fingerprint yet.
+
+    Returns `{"approved": bool, "pending": (...), "blocking": (...)}` —
+    `pending` names focuses with no (current) verdict yet; `blocking`
+    names focuses whose CURRENT verdict is a `"request-changes"`. Both
+    are empty tuples iff `approved` is `True`.
+    """
+    pending: list[str] = []
+    blocking: list[str] = []
+    for focus in TRANCHE_REVIEW_FOCUSES:
+        leg = legs.get(focus)
+        if leg is None or leg.review_verdict is None:
+            pending.append(focus)
+            continue
+        if integrated_patch_id is not None and leg.review_patch_id != integrated_patch_id:
+            pending.append(focus)
+            continue
+        if leg.review_verdict != "approve":
+            blocking.append(focus)
+    return {
+        "approved": not pending and not blocking,
+        "pending": tuple(pending),
+        "blocking": tuple(blocking),
+    }
+
+
+def tranche_integrated_patch_id(
+    row: "TrancheRow",
+    integrated_sha: str,
+    config: Config,
+    *,
+    diff_fetcher=None,
+    patch_id_computer=None,
+) -> str | None:
+    """Fingerprint the diff `row.base_sha` -> *integrated_sha* (#4202) —
+    the patch-id `tranche_review_verdict`'s *integrated_patch_id* binds
+    every review leg's own approval to.
+
+    Reuses the exact same two primitives `dispatch_review` already uses
+    for its own no-PR-yet branch (#1475/#1484): *diff_fetcher* defaults to
+    `coord.github_ops.get_compare_diff` (a real `gh api .../compare` call;
+    inject a stub in tests), *patch_id_computer* to
+    `coord.github_ops.compute_patch_id` (a pure, no-network `git patch-id
+    --stable`). There is no PR for a tranche integration branch at review
+    time — the PR opens LAST, see `coord.merge_queue.
+    open_tranche_closing_pr` — so this always takes that branch rather
+    than `dispatch_review`'s PR-diff one.
+
+    Returns `None` (fail-safe, never raises) when either the diff fetch or
+    the fingerprint computation fails — `tranche_review_verdict` already
+    treats a `None` *integrated_patch_id* as "skip the binding check
+    entirely", the same fail-open posture `dispatch_review` itself applies
+    to a missing `review_patch_id`.
+    """
+    _diff_fetcher = diff_fetcher or github_ops.get_compare_diff
+    _patch_id_computer = patch_id_computer or github_ops.compute_patch_id
+    repo_cfg = config.repo(row.repo_name)
+    if repo_cfg is None:
+        return None
+    try:
+        diff_text = _diff_fetcher(repo_cfg.github, row.base_sha, integrated_sha)
+    except Exception:  # noqa: BLE001 — fail-safe: missing diff is not blocking
+        return None
+    if not diff_text:
+        return None
+    try:
+        return _patch_id_computer(diff_text)
+    except Exception:  # noqa: BLE001 — fail-safe: missing patch-id is not blocking
+        return None

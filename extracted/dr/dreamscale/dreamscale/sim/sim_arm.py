@@ -808,7 +808,7 @@ async def _create_session_async(*, config, client_factory, on_line,
         )
         if verbose:
             on_line(f"[cloud] session: {created.session_id}")
-        on_line("[cloud] session created; GPU worker boots in the background")
+        on_line("[cloud] session created; its server starts in the background")
         returned = True
         return client, created
     finally:

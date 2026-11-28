@@ -80,14 +80,7 @@ path = "starlette_compress/__init__.py"
 include = ["starlette_compress", "tests"]
 pythonPlatform = "All"
 pythonVersion = "3.11"
-strict = [
-  "starlette_compress/__init__.py",
-  "starlette_compress/_gzip.py",
-  "starlette_compress/_identity.py",
-  "starlette_compress/_responder.py",
-  "starlette_compress/_utils.py",
-]
-typeCheckingMode = "standard"
+strict = ["starlette_compress"]
 
 [tool.ruff]
 extend = "../ruff.toml"

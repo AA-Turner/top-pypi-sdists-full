@@ -36,6 +36,8 @@ class DeliveryContext:
     #: fits its page EXACTLY keeps this many free, or a full page overflows the
     #: wrapper and goes out as text fragments.
     reserve: int = 0
+    #: One ref of a multi-ref `entity` read: a card skips its extra per-entity reads.
+    is_batch: bool = False
 
 
 _current: ContextVar[DeliveryContext | None] = ContextVar("mcp_delivery", default=None)
@@ -51,7 +53,7 @@ def source_changed(reason: str = "requested content changed") -> errors.Validati
 
 @contextmanager
 def delivery_context(
-    snapshot: dict | None = None, request: Any = None, reserve: int = 0
+    snapshot: dict | None = None, request: Any = None, reserve: int = 0, is_batch: bool = False
 ) -> Iterator[DeliveryContext]:
     """Pass a decoded hint in; carry the yielded ``snapshot`` into every cursor.
 
@@ -78,7 +80,7 @@ def delivery_context(
                 "Invalid document continuation; restart the read.", status=422
             )
         snapshot = dict(snapshot)
-    state = DeliveryContext(snapshot, request, reserve)
+    state = DeliveryContext(snapshot, request, reserve, is_batch)
     token = _current.set(state)
     try:
         yield state

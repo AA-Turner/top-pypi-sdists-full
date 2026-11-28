@@ -7,7 +7,7 @@ name = "fastcore"
 dynamic = ["version"]
 description = "Python supercharged for fastai development"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [{name = "Jeremy Howard and Sylvain Gugger", email = "infos@fast.ai"}]
 keywords = ['python']
@@ -22,10 +22,11 @@ Documentation = "https://fastcore.fast.ai/"
 fastcore = "fastcore._modidx:d"
 
 [project.entry-points.pyskills]
+"fastcore" = "fastcore.skill"
 "fastcore.editskill" = "fastcore.editskill"
 
 [project.optional-dependencies]
-dev = ['numpy', 'nbdev>=3.3.2', 'matplotlib', 'pillow', 'torch', 'pandas', 'nbclassic', 'pysym2md>=0.0.6', 'llms-txt', 'plum-dispatch', 'remold']
+dev = ['numpy', 'nbdev[exec]>=3.3.32', 'matplotlib', 'pillow', 'torch', 'pandas', 'nbclassic', 'plum-dispatch', 'remold']
 
 
 [project.scripts]
@@ -39,6 +40,7 @@ version = {attr = "fastcore.__version__"}
 include = ["fastcore"]
 
 [tool.nbdev]
+to_meta = ["export"]
 allowed_metadata_keys = ['solveit']
 tst_flags = ''
 custom_sidebar = false
@@ -46,3 +48,16 @@ allowed_cell_metadata_keys = ['solveit_ai']
 
 [tool.chkstyle]
 skip_paths = ["_modidx.py"]
+
+[tool.docs]
+Docs = [
+  "06_script.ipynb",
+  "02_foundation.ipynb",
+  "03c_aio.ipynb",
+  "fastcore.editskill",
+  "000_tour.ipynb",
+]
+API = "."
+Resources = [
+  ["fastcore: an underrated Python library", "https://gist.githubusercontent.com/hamelsmu/ea9e0519d9a94a4203bcc36043eb01c5/raw/6c0c96a2823d67aecc103206d6ab21c5dcd520a/fastcore:_an_underrated_python_library.md", "External tour of fastcore features"],
+]

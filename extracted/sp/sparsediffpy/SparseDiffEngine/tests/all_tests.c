@@ -85,6 +85,7 @@
 #include "wsum_hess/bivariate_restricted_dom/test_rel_entr_scalar_vector.h"
 #include "wsum_hess/bivariate_restricted_dom/test_rel_entr_vector_scalar.h"
 #include "wsum_hess/composite/test_chain_rule_wsum_hess.h"
+#include "wsum_hess/composite/test_shared_dag.h"
 #include "wsum_hess/elementwise_full_dom/test_exp.h"
 #include "wsum_hess/elementwise_full_dom/test_hyperbolic.h"
 #include "wsum_hess/elementwise_full_dom/test_logistic.h"
@@ -290,6 +291,7 @@ int main(void)
     mu_run_test(test_wsum_hess_entr, tests_run);
     mu_run_test(test_wsum_hess_logistic, tests_run);
     mu_run_test(test_wsum_hess_power, tests_run);
+    mu_run_test(test_power_special_exponents, tests_run);
     mu_run_test(test_wsum_hess_xexp, tests_run);
     mu_run_test(test_wsum_hess_sin, tests_run);
     mu_run_test(test_wsum_hess_cos, tests_run);
@@ -389,6 +391,10 @@ int main(void)
     mu_run_test(test_wsum_hess_add_shared_subexpr, tests_run);
     mu_run_test(test_wsum_hess_multiply_shared_subexpr, tests_run);
     mu_run_test(test_wsum_hess_matmul_shared_subexpr, tests_run);
+    mu_run_test(test_shared_dag_chain, tests_run);
+    mu_run_test(test_shared_dag_scaling_atoms, tests_run);
+    mu_run_test(test_shared_dag_quad_form, tests_run);
+    mu_run_test(test_shared_dag_root_inside_other_root, tests_run);
     mu_run_test(test_wsum_hess_matmul_exp_exp, tests_run);
     mu_run_test(test_wsum_hess_matmul_sin_cos, tests_run);
     mu_run_test(test_wsum_hess_matmul_Ax_By, tests_run);

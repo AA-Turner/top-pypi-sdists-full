@@ -12,11 +12,11 @@ class CancelSqlPatternCompareReportResponseBody(DaraModel):
         report_id: int = None,
         request_id: str = None,
     ):
-        # The time when the report was first canceled. The time is in UTC in the yyyy-MM-ddTHH:mmZ format.
+        # The time of the first cancellation. The time is displayed in UTC in the yyyy-MM-ddTHH:mmZ format.
         self.cancel_time = cancel_time
-        # Indicates whether the report is canceled. The value true is returned when the report is successfully canceled or canceled again.
+        # Indicates whether the report is canceled. true is returned if the cancellation is successful or if the report is repeatedly canceled.
         self.canceled = canceled
-        # The SQL Pattern comparison report ID.
+        # The ID of the SQL pattern comparison report.
         self.report_id = report_id
         # The request ID.
         self.request_id = request_id

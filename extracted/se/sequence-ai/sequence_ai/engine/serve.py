@@ -120,6 +120,7 @@ import socket
 import sys
 import threading
 import time
+import urllib.parse
 from typing import Any, Callable, Iterable, Optional
 
 from .._core.outside import HEADER as OUTSIDE_HEADER
@@ -424,10 +425,23 @@ class _Kept:
         kept = self._answers.get(sender)
         return None if kept is None else kept[1]
 
+    def answered(self, rid: str) -> bool:
+        """Whether an act sent under request id `rid` was answered, its answer still kept."""
+        self._expire()
+        return any(sender[0] == rid for sender in self._answers)
+
     def _expire(self) -> None:
         now = self._clock()
         while self._answers and next(iter(self._answers.values()))[0] <= now:
             self._bytes -= len(self._answers.popitem(last=False)[1][1][1])
+
+
+def _act_asked(scope) -> Optional[str]:
+    """The request id a /ping asks after (/ping?act=<id>, worker_transport.act_running): None where it asks after none,
+    or names one longer than SESSION_MAX."""
+    asked = urllib.parse.parse_qs((scope.get("query_string") or b"").decode("latin-1")).get("act")
+    rid = asked[0].strip() if asked else ""
+    return rid if 0 < len(rid) <= SESSION_MAX else None
 
 
 def _robot(scope) -> Optional[str]:
@@ -493,6 +507,18 @@ class App:
                              "times on the example: pass example=, an observation as a robot sends it")
         # the robots it schedules by their answers' slack: with hz (and action_chunk_valid_len or _replan_at), else None
         self._fleet = None if played is None else _Fleet(*played, sizes=list(self._sizes or (1,)))
+        # how its robots play an answer, said on /ping where it seats none by it: what its copy's policy declares (seq
+        # serve of a policy with no @seq.sample to time its batches on), which its robots' Policy reads its hz and
+        # chunk from - the declarations as serve() takes them, or none where they say no playback
+        self._play_said: Optional[dict] = None
+        if self._fleet is None and copy is not None:
+            declared = getattr(copy, "plays", None) or {}
+            try:
+                given = _plays(declared.get("hz"), declared.get("action_chunk_valid_len"),
+                               declared.get("action_chunk_replan_at"), declared.get("max_wait_for_batch"))
+            except ValueError:
+                given = None
+            self._play_said = given[1] if given else None
         # which of the two said how many steps of an answer a robot plays, for the warm-up's check of the answer
         self._steps_named = "action_chunk_valid_len" if action_chunk_valid_len is not None else "action_chunk_replan_at"
         hold = first = None
@@ -535,6 +561,7 @@ class App:
         self._robots: "collections.OrderedDict[str, str]" = collections.OrderedDict()   # episode -> its robot's session
         # each act running by who sent it (_sender), and the answers acts were given (_Kept): an act runs once
         self._running: dict = {}
+        self._running_began: dict = {}           # when each began, for a robot that asks after it (/ping?act=)
         self._kept = _Kept()
         self._formats = f"{STREAM_FORMAT}, {LATEST_FORMAT}".encode()
         self._intake = StreamIntake(self._http, headers=self._stream_headers, authorized=self._may_open,
@@ -797,7 +824,7 @@ class App:
                 await self._respond(send, 405, b"POST /act", extra=[(b"allow", b"POST")])
         elif path == "/ping":
             if method in ("GET", "HEAD"):
-                await self._ping(send)
+                await self._ping(scope, send)
             else:
                 await self._respond(send, 405, b"GET /ping", extra=[(b"allow", b"GET, HEAD")])
         elif path == "/observe":
@@ -836,7 +863,7 @@ class App:
         scheme, _, credential = _header(scope, b"authorization").partition(b" ")
         return scheme.lower() == b"bearer" and hmac.compare_digest(credential.strip(), self._token or b"")
 
-    async def _ping(self, send) -> None:
+    async def _ping(self, scope, send) -> None:
         if self._group is not None and self._group.halted is not None and self._state == "ready":
             await self._respond(send, 500, f"this server's ranks serve no more: {self._group.halted}".encode())
         elif self._state == "ready":
@@ -852,6 +879,13 @@ class App:
                 said.update(play=fleet.plays, robots=len(fleet.seats), seats=fleet.capacity,
                             batch_ms={str(n): round(ms, 1) for n in fleet.sizes
                                       if (ms := fleet.served.post_ms(n, fleet.table)) is not None})
+            elif self._play_said:
+                # how its robots play an answer where it seats none by it: its policy's declarations, which a robot's
+                # Policy reads its hz and chunk from and holds its answers to (late.py)
+                said["play"] = dict(self._play_said)
+            asked = _act_asked(scope)
+            if asked is not None:
+                said["act"] = self._act_said(asked)
             await self._respond(send, 200, json.dumps(said).encode(), content_type=b"application/json")
         elif self._state == "failed":
             await self._respond(send, 500, f"the policy failed on the example: {_said(self.failure)}".encode())
@@ -926,14 +960,25 @@ class App:
             # request's client goes before it ends
             run = asyncio.ensure_future(self._act_answer(scope, body, began, said))
             self._running[sender] = run
+            self._running_began[sender] = time.monotonic()
             run.add_done_callback(lambda done: self._ran(sender, done))
         await self._send_answer(send, await asyncio.shield(run))
+
+    def _act_said(self, rid: str) -> dict:
+        """What /ping?act=<rid> says of the act sent under that request id (X-Seq-Request-Id), as a platform worker
+        says it: running, and for how long; else not running, and whether it was answered - so a robot whose act
+        outlived its bound is told it still runs here, rather than sending it again (worker_transport.act_running)."""
+        began = [at for sender, at in list(self._running_began.items()) if sender[0] == rid]
+        if began:
+            return {"running": True, "for_s": round(time.monotonic() - min(began), 1)}
+        return {"running": False, "answered": self._kept.answered(rid)}
 
     def _ran(self, sender: tuple, run: "asyncio.Future") -> None:
         """An act's run ended: no longer running, and its answer kept for the same act sent again where the policy gave
         it (_policy_gave)."""
         if self._running.get(sender) is run:
             del self._running[sender]
+            self._running_began.pop(sender, None)
         if not run.cancelled() and run.exception() is None and _policy_gave(run.result()):
             self._kept.keep(sender, run.result())
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import logging
-import sys
 from collections.abc import Callable, Generator
 from typing import Any, ClassVar, Literal
 from urllib.parse import unquote
@@ -191,6 +190,9 @@ class ZttpH2Protocol(asyncio.Protocol):
             # the new credit released.
 
     def handle_request(self, event: zttp.Request) -> None:
+        if not event.target.isascii():
+            self.conn.stream(event.stream_id).reset(0x1)  # PROTOCOL_ERROR, RFC 9113 §8.1.1
+            return
         headers = (
             event.headers.to_list(lowercase_names=True)
             if isinstance(event.headers, zttp.HeaderBlock)
@@ -244,12 +246,12 @@ class ZttpH2Protocol(asyncio.Protocol):
             resume_reading=self.resume_reading_if_idle,
         )
         self.cycles[event.stream_id] = cycle
+        if event.end_stream:
+            cycle.more_body = False
+            cycle.message_event.set()
 
         if self.config.reset_contextvars:
-            if sys.version_info >= (3, 11):  # pragma: py-lt-311
-                task = self.loop.create_task(cycle.run_asgi(app), context=contextvars.Context())
-            else:  # pragma: py-gte-311
-                task = contextvars.Context().run(self.loop.create_task, cycle.run_asgi(app))
+            task = self.loop.create_task(cycle.run_asgi(app), context=contextvars.Context())
         else:
             task = self.loop.create_task(cycle.run_asgi(app))
         task.add_done_callback(self.tasks.discard)

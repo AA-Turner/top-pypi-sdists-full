@@ -49,14 +49,25 @@ EXPORTED = ExportedBase(
     # One vector of tool poses: a helper's joint-only state isn't it.
     state="refuse",
 )
-# The rig `dreamscale run` drives the YAM preset on (dreamscale.embodiments.YAM).
+# The rig `dreamscale run` drives the YAM preset on (dreamscale.embodiments.YAM), and the frame
+# it computes the preset's poses in (dreamscale.hardware.verne_v05_yam.POSE_FRAME).
 _YAM = "yam"
+_YAM_POSE_FRAME = "yam_grasp_site_left_base_v1"
 
 
 def runner(embodiment, checkpoint_id, row, model):
     """The model `dreamscale run <robot> --deployment` runs: the base on `dreamscale run yam`
-    for the YAM preset; a clear error, naming how to run it, otherwise."""
+    for the YAM preset, its poses in YAM's frame; a clear error, naming how to run it,
+    otherwise."""
     spec = row.get("embodiment") or {}
+    if spec.get("preset") == C.PRESET and spec.get("ee_frame") not in (None, _YAM_POSE_FRAME):
+        raise cmd._invalid(
+            f"{checkpoint_id} is a {C.VERNE_V05_PUBLIC_NAME} deployment whose poses are in frame "
+            f"{spec['ee_frame']!r}, which `dreamscale run` doesn't drive",
+            f'drive it from Python: dreamscale.connect("{NAME}", deployment="{checkpoint_id}"), '
+            "then policy.next_action(...) with your robot's tool poses",
+            cause=f"`dreamscale run {_YAM}` computes poses in {_YAM_POSE_FRAME!r}",
+        )
     if spec.get("preset") == C.PRESET and embodiment.name == _YAM:
         return NAME
     if spec.get("preset") == C.PRESET:
@@ -77,8 +88,10 @@ def runner(embodiment, checkpoint_id, row, model):
 
 
 def run_command(deployment: dict) -> str:
-    """How to run a deployment: `dreamscale run yam` for the YAM preset, else Python."""
-    if (deployment.get("embodiment") or {}).get("preset") == C.PRESET:
+    """How to run a deployment: `dreamscale run yam` for the YAM preset, its poses in YAM's
+    frame, else Python."""
+    spec = deployment.get("embodiment") or {}
+    if spec.get("preset") == C.PRESET and spec.get("ee_frame") in (None, _YAM_POSE_FRAME):
         return f"dreamscale run {_YAM} --deployment {deployment['id']}"
     return f'dreamscale.connect("{NAME}", deployment="{deployment["id"]}")'
 

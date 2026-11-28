@@ -1649,7 +1649,7 @@ class TwitterNamespace:
         text, and engagement. An empty result is valid and does not assert whether
         the target post exists.
 
-        Price: $0.00036 per request.
+        Price: $0.00034 per request.
 
         Example:
             res = client.twitter.replies(url="https://x.com/jack/status/20")
@@ -1961,7 +1961,7 @@ class TwitterNamespace:
         engagement, views, language, and cursor pagination. Every call returns one
         full native page of about 20 tweets; follow nextCursor for more.
 
-        Price: $0.00035 per request.
+        Price: $0.00033 per request.
 
         Example:
             res = client.twitter.user_tweets(handle="levelsio")
@@ -2187,7 +2187,7 @@ class AsyncTwitterNamespace:
         text, and engagement. An empty result is valid and does not assert whether
         the target post exists.
 
-        Price: $0.00036 per request.
+        Price: $0.00034 per request.
 
         Example:
             res = client.twitter.replies(url="https://x.com/jack/status/20")
@@ -2501,7 +2501,7 @@ class AsyncTwitterNamespace:
         engagement, views, language, and cursor pagination. Every call returns one
         full native page of about 20 tweets; follow nextCursor for more.
 
-        Price: $0.00035 per request.
+        Price: $0.00033 per request.
 
         Example:
             res = client.twitter.user_tweets(handle="levelsio")

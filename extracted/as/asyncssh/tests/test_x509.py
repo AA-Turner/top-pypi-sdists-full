@@ -20,10 +20,15 @@
 
 """Unit tests for X.509 certificate handling"""
 
+from datetime import datetime, timedelta, timezone
 import time
 import unittest
 
 from cryptography import x509
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import Encoding
+
+from asyncssh.asn1 import der_encode
 
 from .util import get_test_key, x509_available
 
@@ -33,6 +38,7 @@ if x509_available: # pragma: no branch
     from asyncssh.crypto import import_x509_certificate
 
 _purpose_secureShellClient = x509.ObjectIdentifier('1.3.6.1.5.5.7.3.21')
+_nscomment_oid = x509.ObjectIdentifier('2.16.840.1.113730.1.13')
 
 
 @unittest.skipUnless(x509_available, 'X.509 not available')
@@ -52,6 +58,8 @@ class _TestX509(unittest.TestCase):
                              user_principals=(), host_principals=(),
                              hash_alg='sha256', comment=None):
         """Generate and check an X.509 certificate"""
+
+        # pylint: disable=possibly-used-before-assignment
 
         cert = generate_x509_certificate(self._privkey.pyca_key,
                                          self._pubkey.pyca_key,
@@ -119,6 +127,28 @@ class _TestX509(unittest.TestCase):
         self.generate_certificate(comment=b'comment')
         self.generate_certificate(comment='comment')
 
+    def test_invalid_comment(self):
+        """Test importing an X.509 certificate with an invalid comment"""
+
+        name = x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, 'x')])
+        now = datetime.now(timezone.utc)
+
+        for comment_der in (der_encode(0), b'\x16'):
+            with self.subTest(comment_der=comment_der):
+                cert = x509.CertificateBuilder(
+                    subject_name=name, issuer_name=name,
+                    public_key=self._pubkey.pyca_key, serial_number=1,
+                    not_valid_before=now,
+                    not_valid_after=now + timedelta(days=1),
+                    extensions=[x509.Extension(
+                        _nscomment_oid, False,
+                        x509.UnrecognizedExtension(_nscomment_oid,
+                                                   comment_der))]
+                ).sign(self._privkey.pyca_key, hashes.SHA256())
+
+                with self.assertRaises(ValueError):
+                    import_x509_certificate(cert.public_bytes(Encoding.DER))
+
     def test_unknown_hash(self):
         """Test X.509 certificate generation with unknown hash"""
 
@@ -129,7 +159,7 @@ class _TestX509(unittest.TestCase):
         """Test validation of X.509 self-signed certificate"""
 
         cert = self.generate_certificate()
-        self.assertIsNone(cert.validate([cert], None, None, None))
+        self.assertIsNone(cert.validate([], [cert], None, None, None))
 
     def test_untrusted_self(self):
         """Test failed validation of untrusted X.509 self-signed certificate"""
@@ -138,7 +168,7 @@ class _TestX509(unittest.TestCase):
         cert2 = self.generate_certificate()
 
         with self.assertRaises(ValueError):
-            cert1.validate([cert2], None, None, None)
+            cert1.validate([], [cert2], None, None, None)
 
     def test_valid_chain(self):
         """Test validation of X.509 certificate chain"""
@@ -150,7 +180,7 @@ class _TestX509(unittest.TestCase):
 
         cert = self.generate_certificate('OU=user', 'OU=int')
 
-        self.assertIsNone(cert.validate([int_ca, root_ca], None, None, None))
+        self.assertIsNone(cert.validate([int_ca], [root_ca], None, None, None))
 
     def test_incomplete_chain(self):
         """Test failed validation of incomplete X.509 certificate chain"""
@@ -163,7 +193,7 @@ class _TestX509(unittest.TestCase):
         cert = self.generate_certificate('OU=user', 'OU=int2')
 
         with self.assertRaises(ValueError):
-            cert.validate([int_ca, root_ca], None, None, None)
+            cert.validate([int_ca], [root_ca], None, None, None)
 
     def test_not_yet_valid_self(self):
         """Test failed validation of not-yet-valid X.509 certificate"""
@@ -171,7 +201,7 @@ class _TestX509(unittest.TestCase):
         cert = self.generate_certificate(valid_after=time.time() + 60)
 
         with self.assertRaises(ValueError):
-            cert.validate([cert], None, None, None)
+            cert.validate([], [cert], None, None, None)
 
     def test_expired_self(self):
         """Test failed validation of expired X.509 certificate"""
@@ -179,7 +209,7 @@ class _TestX509(unittest.TestCase):
         cert = self.generate_certificate(valid_before=time.time() - 60)
 
         with self.assertRaises(ValueError):
-            cert.validate([cert], None, None, None)
+            cert.validate([], [cert], None, None, None)
 
     def test_expired_intermediate(self):
         """Test failed validation of expired X.509 intermediate CA"""
@@ -193,7 +223,7 @@ class _TestX509(unittest.TestCase):
         cert = self.generate_certificate('OU=user', 'OU=int')
 
         with self.assertRaises(ValueError):
-            cert.validate([int_ca, root_ca], None, None, None)
+            cert.validate([int_ca], [root_ca], None, None, None)
 
     def test_purpose_mismatch(self):
         """Test failed validation due to purpose mismatch"""
@@ -201,14 +231,14 @@ class _TestX509(unittest.TestCase):
         cert = self.generate_certificate(purposes='secureShellClient')
 
         with self.assertRaises(ValueError):
-            cert.validate([cert], 'secureShellServer', None, None)
+            cert.validate([], [cert], 'secureShellServer', None, None)
 
     def test_user_principal_match(self):
         """Test validation of user principal"""
 
         cert = self.generate_certificate(user_principals='user')
 
-        self.assertIsNone(cert.validate([cert], None, 'user', None))
+        self.assertIsNone(cert.validate([], [cert], None, 'user', None))
 
     def test_user_principal_mismatch(self):
         """Test failed validation due to user principal mismatch"""
@@ -216,14 +246,14 @@ class _TestX509(unittest.TestCase):
         cert = self.generate_certificate(user_principals='user1,user2')
 
         with self.assertRaises(ValueError):
-            cert.validate([cert], None, 'user3', None)
+            cert.validate([], [cert], None, 'user3', None)
 
     def test_host_principal_match(self):
         """Test validation of host principal"""
 
         cert = self.generate_certificate(host_principals='host')
 
-        self.assertIsNone(cert.validate([cert], None, None, 'host'))
+        self.assertIsNone(cert.validate([], [cert], None, None, 'host'))
 
     def test_host_principal_mismatch(self):
         """Test failed validation due to host principal mismatch"""
@@ -231,7 +261,7 @@ class _TestX509(unittest.TestCase):
         cert = self.generate_certificate(host_principals='host1,host2')
 
         with self.assertRaises(ValueError):
-            cert.validate([cert], None, None, 'host3')
+            cert.validate([], [cert], None, None, 'host3')
 
     def test_name(self):
         """Test X.509 distinguished name generation"""
@@ -270,6 +300,7 @@ class _TestX509(unittest.TestCase):
     def test_exact_name_pattern(self):
         """Test X.509 distinguished name exact match"""
 
+        # pylint: disable-next=possibly-used-before-assignment
         pattern1 = X509NamePattern('O=Org,OU=Unit')
         pattern2 = X509NamePattern('O=Org, OU=Unit')
         self.assertEqual(pattern1, pattern2)

@@ -1,6 +1,8 @@
 import unittest
 
 from slixmpp.test import SlixTest
+from slixmpp.xmlstream.handler import CoroutineCallback
+from slixmpp.xmlstream.matcher import StanzaPath
 
 
 class TestStreamInvalidJID(SlixTest):
@@ -92,6 +94,26 @@ class TestStreamInvalidJID(SlixTest):
                 type="result">
             </iq>
             """,
+        )
+
+    def test_xpath(self) -> None:
+        async def handler(*a: object) -> None:
+            pass
+
+        self.stream_start(mode="component", jid="matridge.h.redacted.eu")
+
+        self.xmpp.register_handler(
+            CoroutineCallback("test_handler", StanzaPath("iq@to=x.com"), handler)
+        )
+        self.recv(
+            """
+            <iq from="redacted@h.redacted.eu/Monal-iOS"
+                id="some-id"
+                type="get"
+                to="xxx@matridge.h.redacted.eu/xmpp:redacted@redacted.eu 🏳🌈♾">
+              <ping xmlns="urn:xmpp:ping" />
+            </iq>
+            """
         )
 
 

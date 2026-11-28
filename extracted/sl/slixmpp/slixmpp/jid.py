@@ -357,3 +357,13 @@ class JID:
     def __hash__(self):
         """Hash a JID based on the string version of its full JID."""
         return hash(self._full)
+
+
+_ESCAPE_TABLE = "".maketrans({v: k for k, v in JID_UNESCAPE_TRANSFORMATIONS.items()})
+
+
+def escape_node(s: str) -> str:
+    return s.translate(_ESCAPE_TABLE)
+
+
+__all__ = "JID", "InvalidJID", "escape_node", "unescape_node"

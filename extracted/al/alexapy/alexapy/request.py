@@ -3,7 +3,7 @@
 import logging
 from enum import Enum, auto
 
-from aiohttp import ClientResponse, ClientSession
+from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from multidict import CIMultiDict
 from yarl import URL
 
@@ -31,6 +31,7 @@ class RequestProfile(Enum):
     DISCOVERY = auto()
     NOTIFICATIONS_PITANGUI = auto()
     ALARMS = auto()
+    SYRUP_LISTS = auto()
 
 
 def build_headers(
@@ -48,6 +49,21 @@ def build_headers(
                 "User-Agent": PITANGUI_API_USER_AGENT,
             }
         )
+
+    if profile is RequestProfile.SYRUP_LISTS:
+        # Preserve the existing list identity: the Android Syrup bytecode
+        # establishes token and metadata headers, not a PitanguiBridge UA.
+        headers = CIMultiDict(
+            {
+                "x-amz-access-token": login.access_token,
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": LOGIN_WEBVIEW_USER_AGENT,
+            }
+        )
+        for name, value in (overrides or {}).items():
+            headers[name] = value
+        return headers
 
     base = CIMultiDict(getattr(login, "_headers", {}) or {})
     if profile is RequestProfile.NOTIFICATIONS_PITANGUI:
@@ -90,10 +106,23 @@ async def send_request(
     *,
     data: dict | None = None,
     overrides: dict[str, str] | None = None,
+    allow_redirects: bool = True,
+    timeout: ClientTimeout | None = None,
 ) -> ClientResponse:
     """Send one request and log the identity recorded by aiohttp."""
+    if profile is RequestProfile.SYRUP_LISTS:
+        allow_redirects = False
+    options = {}
+    if not allow_redirects:
+        options["allow_redirects"] = False
+    if timeout is not None:
+        options["timeout"] = timeout
     response = await getattr(session, method)(
-        url, json=data, headers=build_headers(login, profile, overrides), ssl=login._ssl
+        url,
+        json=data,
+        headers=build_headers(login, profile, overrides),
+        ssl=login._ssl,
+        **options,
     )
     if _LOGGER.isEnabledFor(logging.DEBUG) and isinstance(response, ClientResponse):
         for hop in (*response.history, response):

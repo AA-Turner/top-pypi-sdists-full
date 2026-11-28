@@ -21,6 +21,7 @@
 """SSH connection handlers"""
 
 import asyncio
+import copy
 import functools
 import getpass
 import inspect
@@ -116,8 +117,9 @@ from .misc import PasswordChangeRequired, PermissionDenied, ProtocolError
 from .misc import ProtocolNotSupported, ServiceNotAvailable
 from .misc import TermModesArg, TermSizeArg
 from .misc import async_context_manager, construct_disc_error, encode_env
-from .misc import get_symbol_names, ip_address, lookup_env, map_handler_name
-from .misc import parse_byte_count, parse_time_interval, split_args
+from .misc import encode_env_patterns, get_symbol_names, ip_address
+from .misc import lookup_env, map_handler_name, parse_byte_count
+from .misc import parse_time_interval, split_args
 
 from .packet import Boolean, Byte, NameList, String, UInt32, PacketDecodeError
 from .packet import SSHPacket, SSHPacketHandler, SSHPacketLogger
@@ -176,7 +178,6 @@ from .x11 import SSHX11ClientListener, SSHX11ServerListener
 from .x11 import create_x11_client_listener, create_x11_server_listener
 
 if TYPE_CHECKING:
-    # pylint: disable=unused-import
     from .crypto import X509NamePattern
 
 
@@ -276,6 +277,7 @@ _DEFAULT_KEEPALIVE_COUNT_MAX = 3
 # Default channel parameters
 _DEFAULT_WINDOW = 2*1024*1024       # 2 MiB
 _DEFAULT_MAX_PKTSIZE = 32768        # 32 kiB
+_MIN_ACCEPTED_MAX_PKTSIZE = 1024    # 1 kiB
 
 # Default line editor parameters
 _DEFAULT_LINE_HISTORY = 1000        # 1000 lines
@@ -382,15 +384,11 @@ async def _open_proxy(
         def pipe_data_received(self, fd: int, data: bytes) -> None:
             """Handle data received from this tunnel"""
 
-            # pylint: disable=unused-argument
-
             self._conn.data_received(data)
 
         def pipe_connection_lost(self, fd: int,
                                  exc: Optional[Exception]) -> None:
             """Handle when this tunnel is closed"""
-
-            # pylint: disable=unused-argument
 
             self._conn.connection_lost(exc)
 
@@ -506,7 +504,6 @@ async def _connect(options: _Options, config: DefTuple[ConfigPaths],
         elif new_tunnel:
             new_tunnel.logger.info('%s %s via %s', msg, (host, port), tunnel)
 
-            # pylint: disable=broad-except
             try:
                 _, tunnel_session = await new_tunnel.create_connection(
                     cast(SSHTCPSessionFactory[bytes], conn_factory),
@@ -583,7 +580,6 @@ async def _listen(options: _Options, config: DefTuple[ConfigPaths],
     elif new_tunnel:
         new_tunnel.logger.info('%s %s via %s', msg, (host, port), tunnel)
 
-        # pylint: disable=broad-except
         try:
             tunnel_server = await new_tunnel.create_server(
                 tunnel_factory, host, port)
@@ -906,6 +902,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         self._inpbuf = b''
         self._packet = b''
         self._pktlen = 0
+        self._discard_len = 0
+        self._discard_mac_len = 0
         self._banner_lines = 0
 
         self._version = options.version
@@ -942,6 +940,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         self._revoked_host_keys: Set[SSHKey] = set()
 
         self._x509_trusted_certs = options.x509_trusted_certs
+        self._x509_known_host_certs: List[SSHX509Certificate] = []
         self._x509_trusted_cert_paths = options.x509_trusted_cert_paths
         self._x509_revoked_certs: Set[SSHX509Certificate] = set()
         self._x509_trusted_subjects: Sequence['X509NamePattern'] = []
@@ -963,6 +962,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         self._kexinit_sent = False
         self._kex_complete = False
         self._ignore_first_kex = False
+        self._preferred_kex_alg: List[bytes] = []
+        self._preferred_host_key_alg: List[bytes] = []
         self._strict_kex = False
 
         self._gss: Optional[GSSBase] = None
@@ -1115,7 +1116,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
             self._wait = None
 
         if self._owner: # pragma: no branch
-            # pylint: disable=broad-except
+            # pylint: disable=broad-exception-caught
             try:
                 self._owner.connection_lost(exc)
             except Exception:
@@ -1210,7 +1211,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         self._tasks.discard(task)
 
-        # pylint: disable=broad-except
+        # pylint: disable=broad-exception-caught
         try:
             task.result()
         except asyncio.CancelledError:
@@ -1280,11 +1281,12 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
             trusted_x509_subjects, revoked_x509_subjects = \
                 match_known_hosts(known_hosts, host, addr, port)
 
-        assert self._trusted_host_keys is not None
+        # Replace the results of any earlier match, so that trust from
+        # one host-based auth attempt doesn't carry over to the next
+        self._trusted_host_keys = set(trusted_host_keys)
+        self._trusted_host_key_algs = []
 
         for key in trusted_host_keys:
-            self._trusted_host_keys.add(key)
-
             if key.algorithm not in self._trusted_host_key_algs:
                 self._trusted_host_key_algs.extend(key.sig_algorithms)
 
@@ -1292,8 +1294,9 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         self._revoked_host_keys = set(revoked_host_keys)
 
         if self._x509_trusted_certs is not None:
-            self._x509_trusted_certs = list(self._x509_trusted_certs)
-            self._x509_trusted_certs.extend(trusted_x509_certs)
+            # Keep these separate from x509_trusted_certs, so they're
+            # only trusted when validating host certificates
+            self._x509_known_host_certs = list(trusted_x509_certs)
             self._x509_revoked_certs = set(revoked_x509_certs)
 
             self._x509_trusted_subjects = trusted_x509_subjects
@@ -1345,7 +1348,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         assert self._x509_trusted_certs is not None
 
-        cert.validate_chain(self._x509_trusted_certs,
+        cert.validate_chain([*self._x509_trusted_certs,
+                             *self._x509_known_host_certs],
                             self._x509_trusted_cert_paths,
                             self._x509_revoked_certs,
                             self._x509_purposes,
@@ -1416,7 +1420,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         self._owner = self._protocol_factory()
 
-        # pylint: disable=broad-except
+        # pylint: disable=broad-exception-caught
         try:
             self._connection_made()
             self._owner.connection_made(self) # type: ignore
@@ -1448,7 +1452,6 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
     def session_started(self) -> None:
         """Handle session start when opening tunneled SSH connection"""
 
-    # pylint: disable=arguments-differ
     def data_received(self, data: bytes, datatype: DataType = None) -> None:
         """Handle incoming data on the connection"""
 
@@ -1457,7 +1460,6 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         self._inpbuf += data
 
         self._recv_data()
-    # pylint: enable=arguments-differ
 
     def eof_received(self) -> None:
         """Handle an incoming end of file on the connection"""
@@ -1567,7 +1569,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         self._reset_keepalive_timer()
 
-        # pylint: disable=broad-except
+        # pylint: disable=broad-exception-caught
         try:
             while self._inpbuf and self._recv_handler():
                 pass
@@ -1642,11 +1644,57 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         self._pktlen = int.from_bytes(pktlen, 'big')
 
-        if self._pktlen > self._max_recv_pktlen:
+        if self._recv_encryption and \
+                self._recv_encryption.length_unauthenticated:
+            if self._pktlen < 5 or self._pktlen > self._max_recv_pktlen or \
+                    (4 + self._pktlen) % self._recv_blocksize:
+                self._packet = b''
+                return self._start_discard(0, 0)
+        elif self._pktlen > self._max_recv_pktlen:
             raise ProtocolError('Max packet size exceeded')
 
         self._recv_handler = self._recv_packet
         return True
+
+    def _start_discard(self, consumed: int, mac_already: int) -> bool:
+        """Start discarding input after receiving a corrupt packet
+
+           When the packet length is decrypted before it can be
+           authenticated, reporting an error as soon as a bad length
+           or MAC is detected can reveal information about the
+           decrypted length. To avoid this, a fixed amount of data is
+           consumed after the first block of a corrupt packet and a
+           MAC is computed over a fixed amount of data before a MAC
+           error is reported, regardless of where the corruption was
+           detected. This parallels the countermeasure in OpenSSH.
+
+        """
+
+        max_pktlen = 4 + self._max_recv_pktlen
+
+        self._discard_len = \
+            max_pktlen + self._recv_macsize - self._recv_blocksize - consumed
+        self._discard_mac_len = max_pktlen - mac_already
+
+        self._recv_handler = self._recv_discard
+        return self._recv_discard()
+
+    def _recv_discard(self) -> bool:
+        """Discard input after receiving a corrupt packet"""
+
+        discard_len = min(len(self._inpbuf), self._discard_len)
+
+        self._inpbuf = self._inpbuf[discard_len:]
+        self._discard_len -= discard_len
+
+        if self._discard_len:
+            return False
+
+        assert self._recv_encryption is not None
+        self._recv_encryption.compute_discard_mac(self._recv_seq,
+                                                  self._discard_mac_len)
+
+        raise MACError('MAC verification failed')
 
     def _recv_packet(self) -> bool:
         """Receive the remainder of an SSH packet and process it"""
@@ -1664,6 +1712,11 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
                 seq, self._packet, rest, 4, mac)
 
             if not packet_data:
+                if self._recv_encryption.length_unauthenticated:
+                    self._inpbuf = self._inpbuf[rem:]
+                    self._packet = b''
+                    return self._start_discard(rem, 4 + self._pktlen)
+
                 raise MACError('MAC verification failed')
         else:
             packet_data = self._packet[4:] + rest
@@ -1675,7 +1728,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         if self._decompressor and (self._auth_complete or
                                    not self._decompress_after_auth):
-            payload = self._decompressor.decompress(orig_payload)
+            payload = self._decompressor.decompress(orig_payload,
+                                                    self._max_recv_pktlen)
 
             if payload is None:
                 raise CompressionError('Decompression failed')
@@ -1690,7 +1744,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         if MSG_KEX_FIRST <= pkttype <= MSG_KEX_LAST:
             if self._kex:
-                if self._ignore_first_kex: # pragma: no cover
+                if self._ignore_first_kex:
                     skip_reason = 'ignored first kex'
                     self._ignore_first_kex = False
                 else:
@@ -1888,6 +1942,10 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
                    self._get_extra_kex_algs()
 
         host_key_algs = self._server_host_key_algs or [b'null']
+
+        # Remember our preferred algorithms to check a peer's KEX guess
+        self._preferred_kex_alg = kex_algs[:1]
+        self._preferred_host_key_alg = list(host_key_algs[:1])
 
         self.logger.debug1('Requesting key exchange')
         self.logger.debug2('  Key exchange algs: %s', kex_algs)
@@ -2091,7 +2149,6 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
                 getattr(key, 'sign_async', None)
 
             if sign_async:
-                # pylint: disable=not-callable
                 sig = await sign_async(data)
             elif getattr(key, 'use_executor', False):
                 sig = await self._loop.run_in_executor(None, key.sign, data)
@@ -2261,8 +2318,6 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
     def _process_unimplemented(self, _pkttype: int, _pktid: int,
                                packet: SSHPacket) -> None:
         """Process an unimplemented message response"""
-
-        # pylint: disable=no-self-use
 
         _ = packet.get_uint32()     # seq
         packet.check_end()
@@ -2450,8 +2505,12 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         kex_alg = self._choose_alg('key exchange', kex_algs, peer_kex_algs)
         self._kex = get_kex(self, kex_alg)
+
+        # Per RFC 4253, section 7, the peer's guess is only correct if
+        # the first kex and host key algorithms on both sides match
         self._ignore_first_kex = (first_kex_follows and
-                                  self._kex.algorithm != peer_kex_algs[0])
+            (self._preferred_kex_alg != peer_kex_algs[:1] or
+             self._preferred_host_key_alg != peer_host_key_algs[:1]))
 
         if self.is_server():
             # This method is only in SSHServerConnection
@@ -2512,6 +2571,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
                                   packet: SSHPacket) -> MaybeAwait[None]:
         """Process a user authentication request"""
 
+        # pylint: disable=attribute-defined-outside-init,protected-access
+
         username_bytes = packet.get_string()
         service = packet.get_string()
         method = packet.get_string()
@@ -2548,8 +2609,6 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
             else:
                 begin_auth = False
 
-            # pylint: disable=attribute-defined-outside-init
-            # pylint: disable=protected-access
             conn = cast(SSHServerConnection, self)
             conn._key_options = {}
             conn._cert_options = None
@@ -2760,7 +2819,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         if b'dropbear' in self._client_version and self._compressor:
             send_pktsize -= 1
 
-        if send_pktsize <= 0:
+        if send_pktsize < _MIN_ACCEPTED_MAX_PKTSIZE:
             raise ProtocolError('Invalid maximum packet size')
 
         try:
@@ -2800,7 +2859,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         if b'dropbear' in self._server_version and self._compressor:
             send_pktsize -= 1
 
-        if send_pktsize <= 0:
+        if send_pktsize < _MIN_ACCEPTED_MAX_PKTSIZE:
             raise ProtocolError('Invalid maximum packet size')
 
         chan = self._channels.get(recv_chan)
@@ -3586,7 +3645,8 @@ class SSHClientConnection(SSHConnection):
                 get_default_certificate_algs() + get_default_public_key_algs()
 
         if self._x509_trusted_certs is not None:
-            if self._x509_trusted_certs or self._x509_trusted_cert_paths:
+            if self._x509_trusted_certs or self._x509_known_host_certs or \
+                    self._x509_trusted_cert_paths:
                 default_host_key_algs = \
                     get_default_x509_certificate_algs() + default_host_key_algs
 
@@ -3749,7 +3809,7 @@ class SSHClientConnection(SSHConnection):
                 self._saved_rsa_key = None
             else:
                 try:
-                    key = self._client_host_keys.pop(0)
+                    key = copy.copy(self._client_host_keys.pop(0))
                 except IndexError:
                     key = None
                     break
@@ -3843,7 +3903,7 @@ class SSHClientConnection(SSHConnection):
                 key.algorithm = key.sig_algorithm + b'-cert-v01@openssh.com'
                 self._saved_rsa_key = None
             else:
-                key = self._client_keys.pop(0)
+                key = copy.copy(self._client_keys.pop(0))
 
             if self._choose_signature_alg(key):
                 if key.algorithm == b'ssh-rsa-cert-v01@openssh.com' and \
@@ -3966,8 +4026,6 @@ class SSHClientConnection(SSHConnection):
 
         """
 
-        # pylint: disable=no-self-use
-
         raise ChannelOpenError(OPEN_ADMINISTRATIVELY_PROHIBITED,
                                'Session open forbidden on client')
 
@@ -3978,8 +4036,6 @@ class SSHClientConnection(SSHConnection):
            These requests are disallowed on an SSH client.
 
         """
-
-        # pylint: disable=no-self-use
 
         raise ChannelOpenError(OPEN_ADMINISTRATIVELY_PROHIBITED,
                                'Direct TCP/IP open forbidden on client')
@@ -4046,8 +4102,6 @@ class SSHClientConnection(SSHConnection):
 
         """
 
-        # pylint: disable=no-self-use
-
         raise ChannelOpenError(OPEN_ADMINISTRATIVELY_PROHIBITED,
                                'Direct UNIX domain socket open '
                                'forbidden on client')
@@ -4060,8 +4114,6 @@ class SSHClientConnection(SSHConnection):
            These requests are disallowed on an SSH client.
 
         """
-
-        # pylint: disable=no-self-use
 
         raise ChannelOpenError(OPEN_ADMINISTRATIVELY_PROHIBITED,
                                'TUN/TAP request forbidden on client')
@@ -5889,11 +5941,14 @@ class SSHServerConnection(SSHConnection):
         self._trust_client_host = options.trust_client_host
         self._authorized_client_keys = options.authorized_client_keys
         self._allow_pty = options.allow_pty
+        self._accept_env = options.accept_env
+        self._set_env = options.env
         self._line_editor = options.line_editor
         self._line_echo = options.line_echo
         self._line_history = options.line_history
         self._max_line_length = options.max_line_length
         self._rdns_lookup = options.rdns_lookup
+        self._verified_peer_host: Optional[str] = None
         self._x11_forwarding = options.x11_forwarding
         self._x11_auth_path = options.x11_auth_path
         self._agent_forwarding = options.agent_forwarding
@@ -5947,12 +6002,76 @@ class SSHServerConnection(SSHConnection):
             self.logger.info('  Peer address: %s',
                              (self._peer_addr, self._peer_port))
 
+    async def _resolve_peer_host(self) -> str:
+        """Return a forward-confirmed host name for the peer
+
+           This method performs a reverse DNS lookup on the peer's
+           address and then confirms that the resulting name maps
+           back to that same address. If the lookup fails, the name
+           looks like an IP address, or the name doesn't map back to
+           the peer's address, an empty string is returned, causing
+           the peer to be matched by address only. The result is
+           cached, since the peer address doesn't change.
+
+        """
+
+        if self._verified_peer_host is not None:
+            return self._verified_peer_host
+
+        host = ''
+
+        try:
+            peer_ip = ip_address(self._peer_addr)
+        except ValueError:
+            pass
+        else:
+            if isinstance(peer_ip, ipaddress.IPv6Address) and \
+                    peer_ip.ipv4_mapped:
+                peer_ip = peer_ip.ipv4_mapped
+                sockaddr: SockAddr = (str(peer_ip), self._peer_port)
+            else:
+                sockaddr = cast(SockAddr, self.get_extra_info('peername'))
+
+            family = socket.AF_INET if peer_ip.version == 4 else \
+                socket.AF_INET6
+
+            try:
+                name, _ = await self._loop.getnameinfo(
+                    sockaddr, socket.NI_NUMERICSERV | socket.NI_NAMEREQD)
+
+                try:
+                    ip_address(name)
+                except ValueError:
+                    pass
+                else:
+                    self.logger.info('Ignoring numeric PTR record %s '
+                                     'for address %s', name,
+                                     self._peer_addr)
+                    name = ''
+
+                if name:
+                    addrinfo = await self._loop.getaddrinfo(
+                        name, None, family=family, type=socket.SOCK_STREAM)
+
+                    for _, _, _, _, addr in addrinfo:
+                        if ip_address(cast(str, addr[0])) == peer_ip:
+                            host = name.lower()
+                            break
+                    else:
+                        self.logger.info('Address %s maps to %s, but this '
+                                         'does not map back to the address',
+                                         self._peer_addr, name)
+            except (OSError, UnicodeError, ValueError):
+                pass
+
+        self._verified_peer_host = host
+        return host
+
     async def reload_config(self) -> None:
         """Re-evaluate config with updated match options"""
 
         if self._rdns_lookup:
-            self._peer_host, _ = await self._loop.getnameinfo(
-                (self._peer_addr, self._peer_port), socket.NI_NUMERICSERV)
+            self._peer_host = await self._resolve_peer_host()
 
         options = await SSHServerConnectionOptions.construct(
             options=self._options, reload=True, accept_addr=self._local_addr,
@@ -5968,6 +6087,8 @@ class SSHServerConnection(SSHConnection):
 
         self._authorized_client_keys = options.authorized_client_keys
         self._allow_pty = options.allow_pty
+        self._accept_env = options.accept_env
+        self._set_env = options.env
         self._x11_forwarding = options.x11_forwarding
         self._agent_forwarding = options.agent_forwarding
 
@@ -5991,6 +6112,9 @@ class SSHServerConnection(SSHConnection):
             keypair = self._server_host_keys.get(alg)
             if keypair:
                 if alg != keypair.algorithm:
+                    # Server host keys are shared by all connections on
+                    # a listener, so set the algorithm on a copy
+                    keypair = copy.copy(keypair)
                     keypair.set_sig_algorithm(alg)
 
                 self._server_host_key = keypair
@@ -6070,13 +6194,13 @@ class SSHServerConnection(SSHConnection):
         if self._trust_client_host:
             resolved_host = client_host
         else:
-            peername = cast(SockAddr, self.get_extra_info('peername'))
+            if self._rdns_lookup:
+                resolved_host = await self._resolve_peer_host()
+            else:
+                resolved_host = ''
 
-            try:
-                resolved_host, _ = await self._loop.getnameinfo(
-                    peername, socket.NI_NUMERICSERV)
-            except socket.gaierror:
-                resolved_host = peername[0]
+            if not resolved_host:
+                resolved_host = self._peer_addr
 
             if resolved_host != client_host:
                 self.logger.info('Client host mismatch: received %s, '
@@ -6097,7 +6221,7 @@ class SSHServerConnection(SSHConnection):
             self.logger.debug1('Invalid host-based auth signature')
             return False
 
-        result = self._owner.validate_host_based_user(username, client_host,
+        result = self._owner.validate_host_based_user(username, resolved_host,
                                                       client_username)
 
         if inspect.isawaitable(result):
@@ -7046,6 +7170,7 @@ class SSHServerConnection(SSHConnection):
         self._update_recv_pktlen(max_pktsize)
 
         return SSHServerChannel(self, self._loop, self._allow_pty,
+                                self._accept_env, self._set_env,
                                 self._line_editor, self._line_echo,
                                 self._line_history, self._max_line_length,
                                 self._encoding if encoding == '' else encoding,
@@ -7461,7 +7586,8 @@ class SSHConnectionOptions(Options, Generic[_Options]):
         self.passphrase = passphrase
 
         if proxy_command == ():
-            proxy_command = cast(Optional[str], config.get('ProxyCommand'))
+            proxy_command = cast(Optional[Sequence[str]],
+                                 config.get('ProxyCommand'))
 
         if isinstance(proxy_command, str):
             proxy_command = split_args(proxy_command)
@@ -8011,6 +8137,9 @@ class SSHClientConnectionOptions(SSHConnectionOptions):
            The default receive window size to set for client sessions.
        :param max_pktsize: (optional)
            The default maximum packet size to set for client sessions.
+           Some SSH implementations won't accept a maximum packet size
+           below a minimum of their own and may close the connection,
+           so values much smaller than the default should be avoided.
        :param config: (optional)
            Paths to OpenSSH client configuration files to load. This
            configuration will be used as a fallback to override the
@@ -8158,7 +8287,7 @@ class SSHClientConnectionOptions(SSHConnectionOptions):
     window: int
     max_pktsize: int
 
-    # pylint: disable=arguments-differ
+    # pylint: disable=arguments-renamed
     def prepare(self, # type: ignore
                 loop: Optional[asyncio.AbstractEventLoop] = None,
                 last_config: Optional[SSHConfig] = None,
@@ -8544,9 +8673,10 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
        :param trust_client_host: (optional)
            Whether or not to use the hostname provided by the client
            when performing host-based authentication. By default, the
-           client-provided hostname is not trusted and is instead
-           determined by doing a reverse lookup of the IP address the
-           client connected from.
+           client-provided hostname is not trusted. Instead, if
+           `rdns_lookup` is enabled, the hostname is determined by doing
+           a verified reverse lookup of the IP address the client
+           connected from. Otherwise, the client's IP address is used.
        :param authorized_client_keys: (optional)
            A list of authorized user and CA public keys which should be
            trusted for certificate-based client public key authentication.
@@ -8612,6 +8742,34 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
        :param allow_pty: (optional)
            Whether or not to allow allocation of a pseudo-tty in sessions,
            defaulting to `True`
+       :param accept_env: (optional)
+           A list of environment variable names which the client is
+           allowed to set in sessions. Wildcard patterns using `'*'`
+           and `'?'` are allowed, and matching is case-sensitive.
+           Patterns specified as `str` are encoded as UTF-8 before
+           being matched against the client's variable names.
+           If not specified, the value of "AcceptEnv" in the server
+           config is used. If that is also not set, this defaults to
+           `'*'`, allowing clients to set any environment variable.
+           Setting this to `None` or an empty list will cause all
+           client environment variable requests to be rejected.
+
+               .. note:: This default differs from OpenSSH, which
+                         accepts no client environment variables
+                         unless AcceptEnv is set. It is set this way
+                         for backward compatibility with earlier
+                         AsyncSSH releases, which didn't support this
+                         filtering. To get the OpenSSH behavior of
+                         not accepting any environment variables from
+                         the client, pass in `None`.
+       :param env: (optional)
+           Environment variables to set in all sessions on this server.
+           Keys and values can be `bytes` or `str`, with `str` values
+           encoded as UTF-8. Variable names are case-sensitive. These
+           values take precedence over both environment variables sent
+           by the client and those set by "environment" options in
+           authorized_keys. If not specified, the value of "SetEnv" in
+           the server config is used.
        :param line_editor: (optional)
            Whether or not to enable input line editing on sessions which
            have a pseudo-tty allocated, defaulting to `True`
@@ -8630,8 +8788,11 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
        :param rdns_lookup: (optional)
            Whether or not to perform reverse DNS lookups on the client's
            IP address to enable hostname-based matches in authorized key
-           file "from" options and "Match Host" config options, defaulting
-           to `False`.
+           file "from" options, "Match Host" config options, and
+           host-based authentication, defaulting to `False`. The
+           hostname returned by the reverse lookup is only used if it
+           maps back to the client's IP address. Otherwise, matching
+           is done using only the client's IP address.
        :param x11_forwarding: (optional)
            Whether or not to allow forwarding of X11 connections back
            to the client when the client supports it, defaulting to `False`
@@ -8680,11 +8841,13 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
            This option can only be used in conjunction with `sftp_factory`.
            If not specified, scp requests will be passed as regular
            commands to the `process_factory` or `session_factory`.
-           to the client when the client supports it, defaulting to `True`
        :param window: (optional)
            The receive window size for sessions on this server
        :param max_pktsize: (optional)
-           The maximum packet size for sessions on this server
+           The maximum packet size for sessions on this server. Some
+           SSH implementations won't accept a maximum packet size below
+           a minimum of their own and may close the connection, so
+           values much smaller than the default should be avoided.
        :param server_version: (optional)
            An ASCII string to advertise to SSH clients as the version of
            this server, defaulting to `'AsyncSSH'` and its version number.
@@ -8813,6 +8976,8 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
        :type gss_kex: `bool`
        :type gss_auth: `bool`
        :type allow_pty: `bool`
+       :type accept_env: `list` of `bytes` or `str`
+       :type env: `dict` with `bytes` or `str` keys and values
        :type line_editor: `bool`
        :type line_echo: `bool`
        :type line_history: `int`
@@ -8868,6 +9033,8 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
     gss_kex: bool
     gss_auth: bool
     allow_pty: bool
+    accept_env: Sequence[bytes]
+    env: Mapping[bytes, bytes]
     line_editor: bool
     line_echo: bool
     line_history: int
@@ -8886,7 +9053,7 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
     window: int
     max_pktsize: int
 
-    # pylint: disable=arguments-differ
+    # pylint: disable=arguments-renamed
     def prepare(self, # type: ignore
                 loop: Optional[asyncio.AbstractEventLoop] = None,
                 last_config: Optional[SSHConfig] = None,
@@ -8934,6 +9101,8 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
                 gss_kex: DefTuple[bool] = (),
                 gss_auth: DefTuple[bool] = (),
                 allow_pty: DefTuple[bool] = (),
+                accept_env: DefTuple[Optional[EnvSeq]] = (),
+                env: DefTuple[Optional[Env]] = (),
                 line_editor: bool = True,
                 line_echo: bool = True,
                 line_history: int = _DEFAULT_LINE_HISTORY,
@@ -9055,6 +9224,20 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
 
         self.allow_pty = cast(bool, allow_pty if allow_pty != () else
             config.get('PermitTTY', True))
+
+        if accept_env == ():
+            accept_env = cast(EnvSeq, config.get('AcceptEnv', ['*']))
+
+        accept_env: Optional[EnvSeq]
+
+        self.accept_env = encode_env_patterns(accept_env or [])
+
+        if env == ():
+            env = cast(Optional[Env], config.get('SetEnv'))
+
+        env: Optional[Env]
+
+        self.env = dict(encode_env(env)) if env else {}
 
         self.line_editor = line_editor
         self.line_echo = line_echo
@@ -9521,7 +9704,6 @@ async def listen(host = '', port: DefTuple[int] = (), *,
         options, config=config, host=host, port=port, tunnel=tunnel,
         family=family, **kwargs)
 
-    # pylint: disable=attribute-defined-outside-init
     new_options.proxy_command = None
 
     return await asyncio.wait_for(
@@ -9661,7 +9843,6 @@ async def listen_reverse(host = '', port: DefTuple[int] = (), *,
         options, config=config, host=host, port=port, tunnel=tunnel,
         family=family, **kwargs)
 
-    # pylint: disable=attribute-defined-outside-init
     new_options.proxy_command = None
 
     return await asyncio.wait_for(

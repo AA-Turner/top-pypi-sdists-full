@@ -1,0 +1,11225 @@
+"""Higher-order B-spline Galerkin MoM solver.
+
+The retired TriangularSolver was the degree-1 (tent) special case of this
+solver — d=1 reproduces it to roundoff on knot-fed meshes (see
+tests/test_tent_parity.py); this
+module extends to arbitrary degree d on multi-wire polylines with K-wire
+junctions, primarily as an in-codebase arbiter for the hentenna question
+(docs/2026-07-08-next-steps.md items 9, 13, 14): does the tent basis converge to the
+correct value, or is it converged-to-the-wrong-place?
+
+Scope:
+  * arbitrary number of wires; each wire is a polyline (M ≥ 2 anchors)
+  * uniform segments per edge, possibly non-uniform across edges
+  * free space, thin-wire kernel with a² wire-radius regularization;
+    `wire_radius` is a scalar or a per-wire sequence (momwire#147) — mixed
+    radii regularize each observer row with ITS wire's radius (the
+    observer-surface convention oracle-validated in
+    docs/sinusoidal_basis_design.md "Per-wire radius")
+  * delta-gap "applied-E" source on one feed wire
+  * degree d ∈ {1, 2}  (d=1 reproduces the tent basis up to feed convention)
+  * K-wire junctions with KCL constraint (Σ outflow currents = 0)
+  * ground junctions (#151): a wire end at `ground_z` keeps its value-1
+    boundary basis (end current is a dof; the image is the return path);
+    a junction at the plane keeps its directional bases but drops the
+    KCL row (current may flow into ground)
+  * ground: PEC image (`ground_z`), NEC-gn 0-style reflection-coefficient
+    finite ground (`ground_eps`, docs/refl-coef-ground-plan.md), and
+    NEC-gn 2-style Sommerfeld finite ground (`ground_model="sommerfeld"`,
+    docs/sommerfeld-ground-plan.md)
+
+Tent-basis generalisation: a polynomial-of-degree-d on each segment
+instead of just a linear ramp. Each interior basis Φ_m spans up to d+1
+contiguous segments within a single wire; on each segment in its support
+("wing") the basis equals Σ_p C[m, w, p] · u^p with u local arc length.
+
+J_pq[i, j] = ∫∫ u^p u'^q · exp(-jkR)/(4πR) du' du
+with R² = |r_i(u) - r_j(u')|² + a²
+
+Galerkin assembly:
+    Z_A[m,n]   = jωμ Σ_{a,b} (t_i · t_j) · Σ_{p,q} C[m,a,p] C[n,b,q]
+                 · J_{pq}[supp_seg[m,a], supp_seg[n,b]]
+    Z_Φ[m,n]   = (1/jωε) Σ_{a,b} Σ_{p≥1,q≥1} p·q · C[m,a,p] C[n,b,q]
+                 · J_{p-1,q-1}[supp_seg[m,a], supp_seg[n,b]]
+
+Junction directional bases: at every junction node with K connected wire-
+ends we add K boundary bases (B_0 or B_{N+d-1} of each connected wire,
+the ones with value 1 at the junction) and enforce KCL via a Lagrange-
+multiplier row (the same treatment the retired TriangularSolver used).
+
+Feed: v_m = Φ_m(s_f), Z_drive = 1 / (v^T c).
+"""
+
+import contextlib
+import functools
+import inspect
+import math
+import warnings
+from dataclasses import dataclass
+
+import numpy as np
+import scipy.linalg
+import scipy.sparse
+
+from . import _features
+from ._bspline_kernels import offset_reuse_scope
+from ._bspline_kernels import (
+    _EK,
+    _HAVE_BSPLINE_OFFEDGE_SWEPT_ACCEL,
+    _ek_axis_groups,
+    _ek_cut,
+    _normalize_ladder,
+    _refuse_complex_k,
+    _same_edge_corr,
+    _seg_seg_full_moments_offedge,
+    _seg_seg_full_moments_offedge_swept,
+    _seg_seg_reg_geometry,
+    _seg_seg_reg_geometry_pairs,
+    _seg_seg_reg_moments,
+    _seg_seg_reg_moments_from_geometry,
+    _seg_seg_reg_moments_from_geometry_swept,
+    _seg_seg_reg_nodes,
+    _seg_seg_static_moments,
+    _seg_seg_static_moments_window,
+)
+from ._bspline_static_moments import MAX_D as _BSPLINE_MOMENTS_MAX_D
+from ._quadrature import leggauss
+
+from . import _below_interface
+from . import _buried_quadrature
+from . import _bspline_kernels
+from . import _crossing_fill
+from . import _exact_kernel
+from . import _exact_kernel_base
+from . import _exact_kernel_seam
+from . import _feed_snap
+from . import _fill_report
+from . import _kcl_nullspace
+from . import _ground_mirror
+from . import _ground_refl
+from . import _near_interface
+from . import _near_surface
+from . import _ground_spec
+from . import _lapack
+from . import _medium_spec
+from . import _potential_ground
+from . import _quadrature
+from . import _remainder_graded
+from . import _rotational_symmetry
+from . import _schedule
+from . import _sommerfeld
+from . import _sommerfeld_below
+from . import _wire_loading
+from . import _wire_spec
+from ._accel import acc as _acc
+from ._accel import MAX_N_QP as _ACCEL_MAX_N_QP
+from . import _surface_height
+from ._cancel import _Cancelable
+from ._capabilities import Capabilities
+from ._element_currents import _ElementCurrents
+from ._port_solution import (
+    PortSolution,
+    _SweptPortSolutions,
+    port_impedances,
+    refuse_undriven,
+)
+from ._vec3 import norm3, dot3
+
+# Cross-edge quadrature defaults, resolved per deck by `BSplineSolver.n_qp_pair`.
+# Two constants because there are two fills; see that property for the
+# measurements and for why the buried order is not applied everywhere.
+DEFAULT_N_QP_PAIR = 8
+# The buried base order serves only the pairs under the ladder's first rung
+# (`BURIED_PAIR_ORDER_LADDER`): since momwire#1752 S2 (Steve's option (b),
+# 10-29), the NEAR-CONTACT pairs, centre distance under a tenth of the longer
+# segment -- in practice a buried wire's own image where it climbs to a
+# crossing node at the surface. 32 (momwire#760) was not converged there:
+# fx_slant_base_source read 86.905-17.784j at 32, 86.653-18.783j at 64,
+# 86.622-18.923j at 128 and 86.6215-18.9278j at 256/512, a 1.18 ohm
+# quadrature error against a 0.52 ohm mesh error. 128 lands within 0.004 ohm.
+# The values and their reason are declared in `_buried_quadrature.BSPLINE`,
+# beside SG's deliberately different entry; these names are bspline's reading
+# of that record.
+BURIED_N_QP_PAIR = _buried_quadrature.BSPLINE.base_order
+
+# The distance-adaptive pair-order LADDER (momwire#906), resolved per deck by
+# `BSplineSolver.pair_order_ladder` alongside `n_qp_pair`: a pair whose centre
+# distance is >= 2 segment lengths takes order 8, >= 16 lengths order 4, the
+# rest the base order. Measured on the 654-segment buried screen: every
+# ladder tried reproduces uniform-32 Z to the printed digit while ~87 % of
+# the pairs run at order 4.
+#
+# Free space (momwire#907) has ONE tier, not two: its base is already 8, so
+# the order-8 rung IS the base and only the order-4 rung is left. Three
+# consequences worth knowing before touching this:
+#
+#   * That sole tier is the phase-limited one, so `_ladder_for_block` drops
+#     it WHOLE — free space has no order-8 rung to fall back to — once a
+#     block's longest segment passes kL = 0.5 (L > lambda/12.57). The guard
+#     is per block and the free-space fill's block is the entire deck, so one
+#     coarse segment disables the ladder deck-wide: a 400-segment loop plus a
+#     single 0.3-lambda strut goes from 146,284 pairs served at order 4 to
+#     zero, and serves all 146,284 again once that strut is meshed at
+#     lambda/20. Conservative (it falls back to the shipped arithmetic, never
+#     to a wrong one) but abrupt; a per-PAIR guard would not have the cliff.
+#   * A deck coarse enough to trip the guard has too few segments for any
+#     pair to reach ratio 16 anyway, which is why the ceiling costs nothing
+#     on the decks measured: real meshes sit at kL 0.016-0.075.
+#   * The above-ground image fills (`_build_J_image_blocks`,
+#     `_accumulate_Z_image_chunked`) were left untiered by #906, whose study
+#     binned direct pair geometry only. momwire#1304 measured image geometry
+#     and wired them to the SAME deck ladder (`_image_fill_ladder`): the
+#     selector reads observer-to-IMAGE-source distance, the per-pair kL guard
+#     is unchanged, and the worst Z movement over a height sweep to 0.005
+#     lambda and the whole AK catalog was 1.4e-11 relative (PEC), with every
+#     served image pair inside G-906-3's 1e-9 per-pair contract. The 8-point
+#     image fill stays reachable as `image_pair_order_ladder=()`.
+#
+# Movement from turning it on, free space, order 8: 3e-12 to 2e-11 absolute
+# on Z (relative 3e-14 to 1e-13), i.e. under the base order's own
+# discretization error by eleven orders of magnitude. On the yagi the tiered
+# answer is CLOSER to flat-32 than the untiered one (1.4e-12 against
+# 4.4e-12), so this is noise, not a bias.
+DEFAULT_PAIR_ORDER_LADDER = ((16.0, 4),)
+# momwire#1752 S2 (option (b)): above the near-contact rung the buried
+# fill keeps today's 32 out to 1.5 segment lengths and takes 16 from 1.5 to
+# 2. The 16 rung cannot start lower: from 1.0 it moved the dense-hub test
+# screens 0.01 ohm off their q = 128 answers (screen12: 1.0e-2 against 1.5e-4
+# at 32, its mesh error 7.2e-3; the 4-radial hub 9.6e-3 against 7.8e-5, mesh
+# 8.7e-2), and from 1.5 every deck measured reads its 32-point answer. Pairs
+# past two lengths are #906's ladder, unchanged. Was ((2.0, 8), (16.0, 4))
+# under the base 32.
+# momwire#1752 H2 (proposed): the order-4 rung from 4 lengths instead of 16.
+# #906 measured order 4 at 6e-10 per pair over [4, 16); on the 15-deck set
+# Z_in moves at most 2e-10 of max|Z| and no deck's error against q = 256
+# moves at the second digit, while the hubs' mid-range cross-radial pairs
+# (the bulk of their fill) drop from 64 to 16 kernel reads.
+BURIED_PAIR_ORDER_LADDER = _buried_quadrature.BSPLINE.ladder
+
+_HAVE_BSPLINE_ASSEMBLE_ACCEL = _acc is not None and hasattr(_acc, "assemble_Z_bspline")
+_HAVE_BSPLINE_ASSEMBLE_W_ACCEL = _acc is not None and hasattr(
+    _acc, "assemble_Z_bspline_weighted"
+)
+_HAVE_ENRICH_ACCEL = _acc is not None and hasattr(_acc, "assemble_Z_enrich")
+# momwire#910: the in-medium (complex eps~) twins of the two assemblers. The
+# buried fill used to take the numpy einsum loop for both of its assemblies
+# because the C++ entries' `double eps` would truncate eps~.
+_HAVE_BSPLINE_ASSEMBLE_CPLX_EPS_ACCEL = _acc is not None and hasattr(
+    _acc, "assemble_Z_bspline_cplx_eps"
+)
+_HAVE_BSPLINE_ASSEMBLE_W_CPLX_EPS_ACCEL = _acc is not None and hasattr(
+    _acc, "assemble_Z_bspline_weighted_cplx_eps"
+)
+# momwire#915: the complex-eps~ twins of the two WINDOWED assemblers, which
+# are what let a buried deck take the chunked fill+assemble route instead of
+# refusing when its dense tensor does not fit the budget.
+_HAVE_BSPLINE_WINDOWED_CPLX_EPS_ACCEL = _acc is not None and hasattr(
+    _acc, "assemble_Z_bspline_windowed_cplx_eps"
+)
+_HAVE_BSPLINE_W_WINDOWED_CPLX_EPS_ACCEL = _acc is not None and hasattr(
+    _acc, "assemble_Z_bspline_weighted_windowed_cplx_eps"
+)
+# momwire#914 unit 1: the below/below plan extents in C++. Gated on the #914
+# capability flag AND the symbol — the flag alone would be satisfied by a .so
+# whose binding moved, and the symbol alone by a build predating the contract.
+_HAVE_PLAN_EXTENTS_ACCEL = (
+    _acc is not None
+    and getattr(_acc, "plan_extents_914", False)
+    and hasattr(_acc, "pair_extents_below")
+)
+_HAVE_FIELD_GALERKIN_ACCEL = (
+    _acc is not None
+    and getattr(_acc, "field_galerkin_914", False)
+    and hasattr(_acc, "assemble_field_galerkin")
+)
+# momwire#1115 part 3. The buried Z is column-major (momwire#136), so
+# accumulating into it directly needs a kernel that addresses its target
+# through ITS OWN strides. `field_galerkin_target_1115` does not promise that
+# -- that contract REFUSES a column-major Q -- so the `out=` lever gates on
+# this flag and nothing weaker.
+_HAVE_FIELD_GALERKIN_STRIDED = _HAVE_FIELD_GALERKIN_ACCEL and getattr(
+    _acc, "field_galerkin_strided_1115", False
+)
+# momwire#1132: a ROW-COMPACT target -- (n_rows, n_basis) plus a `row_of` map
+# -- for the sector route, which reads a few rows of Z and used to allocate
+# all n of them. One flag per TU, each set beside the bindings it vouches for;
+# the route takes the compact fill only when BOTH are present and otherwise
+# fills the square Z and slices it (the same bits, none of the saving).
+_HAVE_WINDOWED_ROW_OF = _acc is not None and getattr(
+    _acc, "windowed_row_of_1132", False
+)
+_HAVE_FIELD_GALERKIN_ROW_OF = _HAVE_FIELD_GALERKIN_STRIDED and getattr(
+    _acc, "field_galerkin_row_of_1132", False
+)
+
+# Which of the accelerator's two routes to the same numbers to take. The
+# fused one skips `Jc` entirely and is what production wants: on the
+# 48-radial screen it assembles in 0.70 s against the other's 1.51 s
+# (momwire#914, medians of three). That gap is the whole margin -- the #914
+# budget for this term was 1.5 s, which the fused route clears by 2x and the
+# Jc one does not clear at all. The literal
+# transcription stays REACHABLE rather than being a `fused=True` the C++
+# hard-codes, for two reasons: an unreachable branch in the TU is untested
+# code that still ships, and a second independent route is the strongest
+# available cross-check on the fused one's index arithmetic. Tests flip it;
+# nothing else should.
+_FIELD_GALERKIN_FUSED = True
+# momwire#1224: a block whose observer and source axes are the SAME nodes
+# (the below/below remainder's square fill) projects each unordered pair once
+# and assembles its mirror through the transposed target. False takes the
+# full rectangle, which is the reference the halved route is gated against;
+# tests flip it, nothing else should.
+_FIELD_GALERKIN_SYMMETRIC = True
+# momwire#1290: the symmetric route's two targets from ONE call, so stage 1
+# (the chunk's table against the row-wings' g vectors) is formed once rather
+# than once per target; and `lanes`, the AVX2 stage 1 and the dead-column
+# skip. Both are the same floats as the two scalar calls they replace
+# (tests/test_field_galerkin_lanes_1290.py). False takes those two calls on
+# the scalar route, the reference; tests flip them, nothing else should.
+_HAVE_FIELD_GALERKIN_MIRROR = _HAVE_FIELD_GALERKIN_STRIDED and getattr(
+    _acc, "field_galerkin_mirror_1290", False
+)
+_FIELD_GALERKIN_MIRROR = True
+_FIELD_GALERKIN_LANES = True
+# The field-form block's observer chunk: this many projected-table entries,
+# `(chunk·q) x (n_src·q)`, a chunk (`_field_galerkin_block`'s step rule). A
+# module constant only so a test can force several chunks on a small deck
+# through the production rule (momwire#1337); nothing else should change it.
+_FIELD_GALERKIN_CHUNK_ELEMS = 1 << 19
+
+# The symmetric field-form block's (`_field_galerkin_block_symmetric`) least
+# number of observer chunks (momwire#1752 L1): each pair the mirror serves is
+# projected once, so more chunks project less of the square -- 1/2 + 1/(2c)
+# of it -- at one kernel call per chunk. Measured on the buried 101-segment
+# dipole: 1 chunk 28 ms, 4 21, 8 21, 16 20, 32 21; on a 29-segment pair 16
+# chunks of two segments were slower than 8, so 8. The rounding it moves is
+# the reciprocal table's (6e-17 relative, momwire#1224).
+_FIELD_GALERKIN_SYM_CHUNKS = 8
+
+# The buried fill's chunked direct blocks (`_accumulate_Z_subset_chunked`)
+# leave each fixed edge's own block out of the off-edge sweep and add the
+# same-edge moments alone (momwire#1752 L2). Read at call time; False is the
+# reference route (sweep everything, subtract it back), which the gates pin
+# this one against at the chunked route's 1e-12, and the C++ twin
+# (`accumulate_subset`) has only the True route.
+_SUBSET_SKIP_SAME_EDGE = True
+
+
+def _fg_lanes_kw():
+    """`lanes=False` for the kernel when the reference is asked for."""
+    if _FIELD_GALERKIN_LANES or not _HAVE_FIELD_GALERKIN_MIRROR:
+        return {}
+    return {"lanes": False}
+
+
+#: The site columns' solve and readout run on one BLAS thread at or under
+#: this many unknowns (momwire#1923; `BSplineSolver._site_solve_scope` has
+#: the measurement). Above it the caller's pool is left alone.
+_SITE_SOLVE_ONE_THREAD_N = 512
+
+_HAVE_BSPLINE_SWEPT_ASSEMBLE_ACCEL = _acc is not None and hasattr(
+    _acc, "assemble_Z_bspline_swept"
+)
+_HAVE_BSPLINE_WINDOWED_ASSEMBLE_ACCEL = _acc is not None and hasattr(
+    _acc, "assemble_Z_bspline_windowed"
+)
+_HAVE_BSPLINE_W_WINDOWED_ASSEMBLE_ACCEL = _acc is not None and hasattr(
+    _acc, "assemble_Z_bspline_weighted_windowed"
+)
+
+# The C++ same-edge dispatch is a hard 9-case `p*3 + q` switch over the
+# generated inline moments (`_accel_bspline.cpp`), so it stops at degree 2 even
+# though the generated headers now carry degree 3 (momwire#883). Degree 3 falls
+# to the numpy twin through the `d <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D` guards
+# below, which is correct and slower; extending the switch to 4x4 (and checking
+# the far multipole series at p, q = 3) is its own unit. The switch's `default`
+# throws rather than returning a wrong number, so a guard that ever leaked
+# would be loud.
+# The highest degree the generated same-edge moment tables cover. Read from
+# the generated file so that raising `MAX_D` in
+# scripts/derive_bspline_static_moments.py and re-running is the whole of
+# extending the basis axis; a hand-written copy here is how the two drift
+# (momwire#883).
+_BSPLINE_MAX_DEGREE = _BSPLINE_MOMENTS_MAX_D
+
+# The same-edge correction's chunked route is the DEFAULT; this switch turns it
+# off so the dense whole-edge route stays available as the reference every
+# pre-#966 gate was pinned on. Flipped by tests (module attribute, the way the
+# accelerator flags are flipped), never by a caller: chunking changes only the
+# ORDER of a floating-point accumulation, so a user has no reason to choose and
+# a gate has every reason to compare. Same shape as momwire#915's dense route.
+_SAME_EDGE_CORR_CHUNKED = True
+
+# The second half of momwire#966, switched separately because it is a separate
+# residency worth a separate measurement: R is dead the moment `A_reg` exists
+# on a single-k solve, and holding it to the end of the correction costs
+# (N_e·n_qp)²·8 bytes — measured 806 MB on the 4,001-segment wire, 201 MB on
+# the gate's own deck. Off, the pre-#966 lifetime returns.
+_SAME_EDGE_DROP_R = True
+
+# momwire#968's reference switch. On (the default), `A_st` and `A_reg` are built
+# per observer window inside the correction's chunk loop; off, they are built
+# whole-edge once, which is the #967 route and is what the memory gate measures
+# against. Like its two siblings above this is for gates, never for callers:
+# a window is the square answer's sub-block bit for bit, so there is nothing to
+# choose between.
+_SAME_EDGE_WINDOW_BLOCKS = True
+
+# momwire#1411: the exact-kernel correction walks each coaxial group in
+# observer-row windows (`swept_mem_mb` each) rather than building the group's
+# whole (d+1)²·n² block. Off restores the whole-group route, the reference the
+# windows are gated against; like the switches above it is for gates, not
+# callers. `_EXACT_KERNEL_ROWS_OVERRIDE` pins the window height (rows) so a
+# gate can cut a small deck into many windows.
+_EXACT_KERNEL_ROW_WINDOWS = True
+_EXACT_KERNEL_ROWS_OVERRIDE = None
+
+# momwire#1421: the windows' BASE moments (what the fill put on the group's
+# pairs) come from `_exact_kernel_base.BaseRows`, which evaluates one pair per
+# diagonal of each uniform run-pair block rather than every pair. Off restores
+# the per-pair recompute (`_exact_kernel_base_J`), the reference it is gated
+# against; for gates, not callers.
+_EXACT_KERNEL_BASE_DEDUP = True
+
+_BSPLINE_ASSEMBLE_ACCEL_MAX_D = 2
+
+# Constant Vandermonde inverses for uniform sample points [0, 1/d, ..., 1].
+# Used by `_build_basis_polynomials` to convert per-segment basis values at
+# d+1 uniform local-u sample points to polynomial coefficients without a
+# per-segment scipy.linalg.solve. With u_local = h_seg * [0, 1/d, ..., 1],
+# the Vandermonde factors as Vmat = V_unit @ diag(1, h, h², ..., h^d), so
+# coeffs_p = (V_unit_inv @ vals)_p / h_seg^p — pure matmul + column scaling.
+#
+# Written out rather than computed with `np.linalg.inv`: every entry below is
+# an exact binary float (integers, and halves at d = 3), so the literals are
+# the exact inverse while a numerical inversion would put roundoff into the
+# d = 1 and d = 2 answers that ship today. They were derived exactly —
+# `sympy.Matrix([[u**p ...]]).inv()` on u_i = i/d — and `tests/…` checks each
+# one against its Vandermonde rather than trusting the transcription.
+_V_UNIT_INV: dict[int, np.ndarray] = {
+    1: np.array([[1.0, 0.0], [-1.0, 1.0]]),
+    2: np.array([[1.0, 0.0, 0.0], [-3.0, 4.0, -1.0], [2.0, -4.0, 2.0]]),
+    3: np.array(
+        [
+            [1.0, 0.0, 0.0, 0.0],
+            [-5.5, 9.0, -4.5, 1.0],
+            [9.0, -22.5, 18.0, -4.5],
+            [-4.5, 13.5, -13.5, 4.5],
+        ]
+    ),
+}
+
+
+def _bspline_basis_rows(x, t, k):
+    """Every basis function that is nonzero at each sample, on knots ``t``.
+
+    Returns ``(values, first)``: ``values`` is (n_samples, k+1) and row ``i``
+    holds bases ``first[i] .. first[i] + k`` at ``x[i]``, in ascending order.
+    This is the whole content of a B-spline design matrix (each row has
+    exactly k+1 bases that can be nonzero), without the matrix.
+
+    It is scipy's ``BSpline.design_matrix`` reproduced to the bit (momwire
+    #1489, which drops scipy.interpolate from the import path): the same
+    span search and the same Cox-de Boor recurrence, term for term, so the
+    basis polynomials every bs2 fill is built from do not move.
+    ``tests/test_bspline_own_readouts_1489.py`` holds the two equal bit for
+    bit on clamped knots at every supported degree, knot samples included.
+
+    Span rule: a sample in ``[t[l], t[l+1])`` uses span ``l`` -- so a sample
+    exactly ON an interior knot takes the span to its RIGHT -- except the
+    last knot of the base interval, which closes the last span. Repeated
+    knots resolve to the last copy. A sample outside ``[t[k], t[n]]``
+    (n = len(t) - k - 1) or not a finite number is refused, as scipy's
+    ``extrapolate=False`` design matrix refuses it.
+    """
+    x = np.ascontiguousarray(np.asarray(x, dtype=np.float64).reshape(-1))
+    t = np.asarray(t, dtype=np.float64)
+    n = t.shape[0] - k - 1
+    m = x.shape[0]
+    if m:
+        if not np.all(np.isfinite(x)):
+            raise ValueError("a B-spline sample position is not a finite number")
+        lo, hi = float(t[k]), float(t[n])
+        x_min, x_max = float(x.min()), float(x.max())
+        if x_min < lo or x_max > hi:
+            bad = x_min if x_min < lo else x_max
+            raise ValueError(
+                f"B-spline sample position {bad:.17g} lies outside the knot "
+                f"range {lo:.17g} to {hi:.17g}"
+            )
+    ell = np.searchsorted(t, x, side="right") - 1
+    np.clip(ell, k, n - 1, out=ell)
+    h = np.zeros((m, k + 1), dtype=np.float64)
+    h[:, 0] = 1.0
+    # Cox-de Boor, written in the order scipy's C evaluates it so the
+    # roundoff is the same: at each level j, h[nn-1] += w·(xb - x) and
+    # h[nn] = w·(x - xa) with w = hh[nn-1] / (xb - xa), and a zero-width
+    # knot pair (the clamped ends) contributes nothing.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for j in range(1, k + 1):
+            hh = h[:, :j].copy()
+            h[:, 0] = 0.0
+            for nn in range(1, j + 1):
+                xb = t[ell + nn]
+                xa = t[ell + nn - j]
+                same = xb == xa
+                w = hh[:, nn - 1] / (xb - xa)
+                h[:, nn - 1] = np.where(same, h[:, nn - 1], h[:, nn - 1] + w * (xb - x))
+                h[:, nn] = np.where(same, 0.0, w * (x - xa))
+    return h, ell - k
+
+
+def _bspline_design_matrix_dense(x, t, k):
+    """The dense (n_samples, n_basis) design matrix, from `_bspline_basis_rows`.
+
+    For the few-sample callers only (a feed point, a source quadrature): it
+    is O(n_samples · n_basis), the cost #329 removed from the basis build.
+    """
+    vals, first = _bspline_basis_rows(x, t, k)
+    n_basis = np.asarray(t).shape[0] - k - 1
+    out = np.zeros((vals.shape[0], n_basis), dtype=np.float64)
+    rows = np.arange(vals.shape[0])[:, None]
+    out[rows, first[:, None] + np.arange(k + 1)] = vals
+    return out
+
+
+def _design_matrix_band(vals, first, n_seg, d):
+    """Per-segment basis values as (n_seg, d+1 samples, d+1 bases).
+
+    ``vals`` / ``first`` are `_bspline_basis_rows` at d+1 samples per
+    segment, segment-major. Band column b holds basis (seg + b): segment s
+    lies inside the support of exactly bases s .. s+d, so this band is all
+    of the dense design matrix that any per-segment consumer can read.
+
+    Sample rows are placed by each row's OWN first basis, not by a shared
+    per-segment offset. A segment's last sample sits on its right-hand knot,
+    and the span rule resolves a sample on an interior knot into the NEXT
+    span; such a row starts one basis higher and carries a trailing entry
+    for the basis whose support opens at that knot, which is zero there.
+    Whether a given segment's endpoint sample lands that way is a
+    floating-point question (arc[s] + h[s] need not round to arc[s+1]), so
+    the offset is read per row and the out-of-band column is checked to be
+    zero rather than reasoned about.
+    """
+    width = d + 1
+    data = vals.reshape(n_seg, width, width)
+    starts = first.reshape(n_seg, width)
+    off = starts - np.arange(n_seg)[:, None]
+    if off.min() < 0 or off.max() > 1:
+        raise AssertionError(
+            f"design-matrix span offset outside [0, 1]: {off.min()}..{off.max()}"
+        )
+    padded = np.zeros((n_seg, width, width + 1), dtype=np.float64)
+    np.put_along_axis(padded, off[:, :, None] + np.arange(width), data, axis=2)
+    if np.any(padded[:, :, width] != 0.0):
+        raise AssertionError("nonzero design-matrix entry outside the segment band")
+    return padded[:, :, :width].copy()
+
+
+def _wire_span_polynomials(coeffs, polys, kept, local_to_global, n_seg, d):
+    """The solved current on each knot span of one wire, as a polynomial.
+
+    Returns (n_seg, d+1) complex: row s holds the coefficients, lowest
+    power first, of Σ_m c_m·Φ_m on span s in the span's own local arc
+    u = s_arc - arc[s] — the same local variable, and the same per-(basis,
+    wing) polynomials, that `_build_basis_polynomials` hands the fills.
+
+    Bases are summed in ascending local index on every span, so the
+    order of accumulation is fixed by the mesh, not by the junction or
+    ground layout that decided which bases were kept. A dropped (free-end)
+    basis contributes nothing, as its zero coefficient did before.
+    """
+    out = np.zeros((n_seg, d + 1), dtype=np.complex128)
+    if not kept:
+        return out
+    j = np.array([kj for (kj, _kind, _junc, _end) in kept], dtype=np.int64)
+    m = np.array([local_to_global[i] for i in range(len(kept))], dtype=np.int64)
+    c = np.asarray(coeffs)[m]
+    seg_lo = np.maximum(0, j - d)
+    seg_hi = np.minimum(n_seg, j + 1)
+    # band[s, b, :] is the polynomial of basis s + b on span s, and
+    # band_c[s, b] its coefficient: basis j covers spans max(0, j-d) ..
+    # min(n_seg, j+1) - 1, its wing w sitting on span max(0, j-d) + w.
+    band = np.zeros((n_seg, d + 1, d + 1), dtype=np.float64)
+    band_c = np.zeros((n_seg, d + 1), dtype=np.complex128)
+    for w in range(d + 1):
+        span = seg_lo + w
+        ok = span < seg_hi
+        b = j[ok] - span[ok]
+        band[span[ok], b, :] = polys[m[ok], w, :]
+        band_c[span[ok], b] = c[ok]
+    for b in range(d + 1):
+        out += band_c[:, b, None] * band[:, b, :]
+    return out
+
+
+def _eval_span_polynomials(span_polys, arc, s, derivative):
+    """Evaluate `_wire_span_polynomials` (or its arc derivative) at ``s``.
+
+    ``s`` must already lie in [arc[0], arc[-1]]. The span is the knot rule
+    the basis itself uses (`_bspline_basis_rows`): a sample in
+    [arc[i], arc[i+1]) uses span i, so a sample ON an interior knot reads
+    the span to its RIGHT, and the last knot closes the last span. That
+    choice is invisible in the current, which is continuous, and decides
+    the slope at a knot when degree 1 makes it piecewise constant.
+
+    Horner in the local arc u; the derivative is the exact one of the
+    span polynomial (degree d - 1), not a difference.
+    """
+    n_seg, n_poly = span_polys.shape
+    d = n_poly - 1
+    span = np.searchsorted(arc, s, side="right") - 1
+    np.clip(span, 0, n_seg - 1, out=span)
+    u = s - arc[span]
+    coef = span_polys[span]
+    if not derivative:
+        val = coef[:, d].copy()
+        for p in range(d - 1, -1, -1):
+            val = val * u + coef[:, p]
+        return val
+    val = d * coef[:, d]
+    for p in range(d - 1, 0, -1):
+        val = val * u + p * coef[:, p]
+    return val
+
+
+# Module-level caches for `_build_geometry` and `_build_basis_polynomials`.
+# Both functions are pure functions of immutable geometry inputs (wires +
+# n_per_edge_per_wire, plus degree + junctions for the basis case) — they
+# don't depend on `k` / wavelength / feed location. The instance-level
+# caches in `_cached_geometry` / `_cached_basis_polynomials` only help the
+# swept path (where one solver instance handles many k's). The engine
+# wrapper instantiates a fresh BSplineSolver per impedance() call, so the
+# instance cache is dead for the interactive UI sweep. These module-level
+# caches survive across instances and turn a band-sweep of N freqs into
+# 1 cold call + (N−1) hot calls for the geometry/basis stages.
+#
+# FIFO with a small bound — typical interactive use has 1–3 active
+# (geometry, degree) combinations at a time.
+_GEOMETRY_CACHE: dict = {}
+_BASIS_POLY_CACHE: dict = {}
+_GEOMETRY_CACHE_MAX = 32
+_BASIS_POLY_CACHE_MAX = 32
+
+# The SommerfeldGrid cache lives in `_sommerfeld.get_grid` (module-level,
+# keyed `(eps_t, k, r1_bucket, omega, mu)`, r1_max bucketed UP in ~25%
+# geometric steps) so SinusoidalSolver and the fast solvers share fills
+# with this module — docs/sommerfeld-everywhere-plan.md Phase 1.
+
+
+def _lu_solve(Z, rhs, overwrite_a=False, overwrite_b=False):
+    """Solve Z·x = rhs through `lu_factor` + `lu_solve` (momwire#1290).
+
+    The same getrf on the same matrix, then the same getrs, so the answer is
+    `scipy.linalg.solve`'s to the bit: scipy 1.18's `solve` with no
+    `assume_a` only takes another factorization when Z is EXACTLY symmetric,
+    triangular or banded, and these Z are not (|Z - Zᵀ| is roundoff). What
+    `solve` adds is its reciprocal-condition estimate: a 1-norm of Z (lange)
+    before the factorization and gecon after it. Both are memory-bound
+    O(N²) passes that do not thread, and they were the whole gap to
+    `lu_factor`: measured on Skylake at N = 2816, `solve` 0.390 s,
+    `lu_factor` + `lu_solve` 0.290 s, gecon alone 0.052 s. That estimate
+    only drove an ill-conditioning `LinAlgWarning` that nothing here reads;
+    it is dropped, as SG's `_solve_in_place` and the point-matched solve
+    already do. `check_finite` stays, so a NaN in Z is still a `ValueError`.
+
+    `overwrite_a=True` factors Z's own storage when Z is F-contiguous (the
+    fills arrange it), so Z holds its LU factors afterwards and callers must
+    not read it; a C-ordered Z is copied, as `solve` did. `overwrite_b` lets
+    a locally built F-ordered rhs take the solution. An EXACTLY singular Z
+    still raises `LinAlgError`, as `solve` did, where `lu_factor` alone only
+    warns and the solve would return inf/NaN: that policy is
+    `_lapack.lu_factor_strict`'s, shared by every dense route (momwire#1981).
+
+    Both calls go through `momwire._lapack`, which is scipy's own unless a
+    host process has published its LAPACK there.
+    """
+    return _lapack.factor_and_solve(
+        Z, rhs, overwrite_a=overwrite_a, overwrite_b=overwrite_b
+    )
+
+
+# Block edge of `_fortran_in_place`'s swap: two (b, b) complex tiles of
+# scratch, 1 MiB each at 256.
+_TRANSPOSE_BLOCK = 256
+
+
+def _fortran_in_place(Z):
+    """Z's own buffer rearranged so that `Z.T` is the same matrix in
+    Fortran order, which `_lu_solve(overwrite_a=True)` then factors in place
+    (momwire#1798). A C-order Z handed to `lu_factor` is copied to Fortran
+    order first -- a second n_basis^2 matrix at the LU on every dense
+    (C-order) fill. The swap moves values without arithmetic, so the factor
+    and the solve see the bits the copy held. Z itself is consumed: read the
+    returned view, never Z. An F-ordered or non-square Z is returned as is.
+    """
+    n = Z.shape[0]
+    if (
+        Z.ndim != 2
+        or Z.shape[1] != n
+        or Z.flags.f_contiguous
+        or not Z.flags.c_contiguous
+    ):
+        return Z
+    b = _TRANSPOSE_BLOCK
+    for i0 in range(0, n, b):
+        i1 = min(i0 + b, n)
+        D = Z[i0:i1, i0:i1]
+        D[...] = D.T.copy()
+        for j0 in range(i1, n, b):
+            j1 = min(j0 + b, n)
+            t = Z[i0:i1, j0:j1].copy()
+            Z[i0:i1, j0:j1] = Z[j0:j1, i0:i1].T
+            Z[j0:j1, i0:i1] = t.T
+    return Z.T
+
+
+def _evict_fifo(cache: dict, limit: int) -> None:
+    while len(cache) >= limit:
+        cache.pop(next(iter(cache)))
+
+
+# The extended-kernel spec for a SAME-EDGE moment block (momwire#249). One
+# edge is one straight run of one wire at one radius, so every pair in the
+# block is coaxial-and-equal-radius by construction and the labels carry no
+# information — the all-None spec is the kernel layer's spelling for "the
+# whole block is eligible".
+_EK_SAME_EDGE = _EK(a=None, group_i=None, group_j=None)
+
+# momwire#631. A horizontal edge's own PEC image is the SAME arc translated
+# by -2h in z, so its moment block is the same-edge kernel at an effective
+# radius sqrt(a^2 + 4h^2) — exactly, with no quadrature order to key. Off-edge
+# quadrature at `n_qp_pair` only agrees with that closed form while the image
+# stays far compared with a segment; measured against a 256-point reference on
+# a 39.6 m radial, max relative error over the block:
+#
+#   delta/2h     0.76      7.57      69.4
+#   n_qp_pair=4  3.8e-06   4.2e-02   1.6e+00
+#   closed form  7.5e-09   1.3e-06   5.0e-06
+#
+# so the analytic block is better everywhere and the off-edge rule collapses
+# above delta/2h ~ 1. (The measured row is at n_qp_pair=4, the default when
+# it was taken; momwire#743 moved that default to 8, which tightens the
+# off-edge row without touching the conclusion — the collapse above
+# delta/2h ~ 1 is the rule losing its premise, not losing quadrature order.) The threshold is set an octave below where the shipped
+# rule starts to lose figures, which keeps every non-grazing deck on exactly
+# the arithmetic it had (the two agree to ~1e-6 at the crossover, far below
+# any tolerance the suite pins) while catching the grazing regime whole.
+_NEAR_IMAGE_DELTA_OVER_2H = 0.5
+
+# momwire#631, the remainder half. Same rule and same constants razor took in
+# momwire#510 — `_quadrature.remainder_qp` owns the arithmetic; these are
+# bspline's own clip, so patching one trunk's cap never moves the other's.
+_REMAINDER_QP_CAP = 192
+_REMAINDER_QP_C = 1.0
+
+# momwire#1189: the dense remainder fill keys the order PER SEGMENT PAIR
+# (`_quadrature.remainder_qp_pairs`) rather than deck-wide. Read at call time,
+# so the gate that pins the pre-#1189 fill can switch it off and get today's
+# arithmetic back exactly. False = the deck-wide order of momwire#631.
+_REMAINDER_PER_PAIR = True
+
+# ...and raises the pairs TOUCHING a raised pair with it (see
+# `_remainder_qp_pairs`). A switch only so the gate can show what the one-ring
+# is for; False is not a supported configuration.
+_REMAINDER_PAIR_DILATE = True
+
+# momwire#1201: the listed pairs are integrated on GRADED panels
+# (`_remainder_graded`) instead of one Gauss rule of their keyed order. The
+# keyed order still decides WHICH pairs are listed; it no longer decides how
+# they are integrated, which is what left a 48-radial surface screen 1.1e-2
+# from converged at the cap of 192. Read at call time; False restores the
+# keyed-order Gauss rule of #1189 exactly (the brute-force ladder, and the
+# negative control).
+_REMAINDER_GRADED = True
+
+# ...and, on that route, the LISTING threshold: a pair is integrated on graded
+# panels when `_REMAINDER_GRADED_C · len / R_min` exceeds the base order (the
+# #631 rule at c = 4 instead of 1: len/R_min > 0.75 at the base order of 3,
+# the pairs the c = 4 brute-force ladder raises). Once the grazing pairs
+# converge, what is left is the pairs never listed, run at the base order.
+# Relative Z_in residue by listing c, against the brute-force ladder (no cap,
+# the tolerant guard below; c = 8 on the 12-radial screen, c = 4 on the 48):
+#
+#   deck                        c=1      c=2      c=4      c=8
+#   12-radial surface screen    8.9e-7   3.8e-7   5.7e-9   4.2e-8
+#   48-radial surface screen    1.4e-6   3.2e-7   2.2e-7   2.3e-7
+#
+# (on the 48-radial screen the c = 4 brute-force reference itself is ~2e-7
+# from its c = 8 twin), so c = 1 alone misses the 1e-6 bar there. Listing is
+# cheap on this route — a pair that barely qualifies is a few panels — so the
+# threshold is set by that measurement, not by cost.
+_REMAINDER_GRADED_C = 4.0
+
+# ...but only where the spike is narrow (momwire#1752 S3, Steve 10-28): a
+# listed pair whose keyed order (the listing rule's `ceil(c len / R_min)` at
+# this c, clipped to [base, cap]) is under `_REMAINDER_GRADED_MIN_Q` takes the
+# keyed Gauss rule at that order instead, which is the brute-force ladder
+# itself at that order and costs Q^2 kernel reads against the ~800 a graded
+# pair spends. Measured against REF_48 (the 48-radial surface screen, #1201's
+# 1e-6 bar), by threshold:
+#
+#   threshold        0 (all graded)  8        16       32       64
+#   |Z - REF_48|     2.2e-7          1.7e-7   1.5e-7   1.5e-7   1.3e-7
+#   pairs graded     27135           18973    11481    11001    10039
+#
+# and the 12-radial screen moves from 5.6e-9 to 3.7e-8 of REF_12 at 16. On
+# the 16-radial screen 0.5 m up (no pair with a narrow spike) every listed
+# pair leaves the panels and Z_in moves 3e-6 ohm. 16 is under the ~28 where
+# the keyed rule's Q^2 overtakes a graded pair's cost. 0 is the #1201 route
+# (every listed pair graded), kept as the reference.
+_REMAINDER_GRADED_MIN_Q = 16
+# momwire#1860 B1 (`crossing_above_rule`): the crossing node's band of
+# segments keeps the cross block's order against every above segment within
+# this many band lengths of the node. Measured: 2 gives the shipped route's
+# printed Zin on efhw_hi, the hub, the Beverage and the ACA screen (8 to 272
+# pairs), as raising the band against every segment did (812 to 3552).
+_B1_NODE_REACH = 2.0
+
+# ...with the broadside guard widened by this much of a segment, so a foot
+# landing exactly on a segment end (radials and a mast meeting at a hub) is
+# decided the same way in every rotated copy of a symmetric deck (see
+# `_quadrature.remainder_qp_pairs`). With the strict guard the 48-radial
+# screen's list is asymmetric at c = 1 (80 pairs, as shipped) and c = 4 (180);
+# a 4-radial screen's rotational route moved 5e-8 off its dense twin; and the
+# junction pairs the tie drops are not negligible: listing them moves the
+# 12-radial screen 2.3e-3 (the brute-force ladder, listed the same way, agrees
+# with the graded answer to 6e-9).
+_REMAINDER_GRADED_EDGE_TOL = 1e-9
+
+
+def _remainder_side(seg_l, seg_r, h, segs, tq, wg, d1):
+    """`_remainder_pair_moments`' per-side nodes `(n, q, 3)` and moment
+    weights `W[p, n, q] = (h/2 w_q) (h t_q)^p` over `segs`, one rule."""
+    sl, sr = seg_l[segs], seg_r[segs]
+    nodes = sl[:, None, :] + tq[None, :, None] * (sr - sl)[:, None, :]
+    u_phys = h[segs][:, None] * tq[None, :]
+    w_node = 0.5 * h[segs][:, None] * wg[None, :]
+    W = w_node[None] * np.float_power(u_phys[None], np.arange(d1)[:, None, None])
+    return nodes, W
+
+
+def _solved_wires(inputs, dedup):
+    """Input wire indices as the solved wires' (momwire#1649): unchanged with
+    no duplicate dropped, else the solved wires whose kept input is named."""
+    if dedup is None:
+        return tuple(int(w) for w in inputs)
+    named = {int(w) for w in inputs}
+    return tuple(i for i, k in enumerate(dedup.kept) if k in named)
+
+
+def _segment_touch_lists(seg_l, seg_r):
+    """CSR lists of the segments sharing an endpoint with each segment,
+    each segment included in its own list."""
+    from scipy.spatial import cKDTree
+
+    n = seg_l.shape[0]
+    ends = np.concatenate([seg_l, seg_r])
+    owner = np.concatenate([np.arange(n), np.arange(n)])
+    lens = norm3(seg_r - seg_l)
+    tol = 1e-9 * max(float(lens.max()), 1e-300)
+    pairs = cKDTree(ends).query_pairs(tol, output_type="ndarray")
+    a, b = owner[pairs[:, 0]], owner[pairs[:, 1]]
+    keep = a != b
+    a, b = a[keep], b[keep]
+    ii = np.concatenate([np.arange(n), a, b])
+    jj = np.concatenate([np.arange(n), b, a])
+    key = np.unique(ii * n + jj)
+    ii, jj = key // n, key % n
+    ptr = np.concatenate([[0], np.cumsum(np.bincount(ii, minlength=n))])
+    return ptr, jj
+
+
+def _pair_max(I, J, Q, n):
+    """The distinct (I, J) pairs, sorted by I then J, each with its largest Q."""
+    uk, inv = np.unique(I * n + J, return_inverse=True)
+    qmax = np.zeros(uk.size, dtype=np.int64)
+    np.maximum.at(qmax, inv, Q)
+    return uk // n, uk % n, qmax
+
+
+def _csr_expand(ptr, idx, rows):
+    """For each entry of `rows`, every member of its CSR list: returns
+    `(k, members)` with `k` the position in `rows` each member came from."""
+    counts = np.diff(ptr)[rows]
+    k = np.repeat(np.arange(rows.size), counts)
+    off = np.arange(k.size) - np.repeat(np.cumsum(counts) - counts, counts)
+    return k, idx[ptr[rows][k] + off]
+
+
+# Pairs per chunk when a per-pair correction is scattered into Q, bounding the
+# (pairs, wings, wings) transient whatever the number of elevated pairs.
+_PAIR_SCATTER_CHUNK = 1 << 15
+
+# `_build_J_blocks` fills only the off-edge pairs, one kernel call per edge,
+# up to this many edges (momwire#1517); past it, one whole-mesh call.
+_OFFEDGE_SPLIT_MAX_EDGES = 32
+
+
+#: Read by antennaknobs (its private surface, `mw._private`) to decline its
+#: own edge-pair hint before passing it. momwire reads no hint since
+#: momwire#2063: its census finds the classes, and a hint is read as
+#: ``pair_reuse=True``. Kept until antennaknobs stops importing it.
+_PAIR_REUSE_MIN_PAIRS_PER_MEMBER = 8.0
+
+#: Representative groups evaluated between cancellation checkpoints.
+_REUSE_GROUPS_PER_CHECKPOINT = 64
+
+#: Observer rows of one edge per window of the same-edge routine under a
+#: plan (`_same_edge_class_values`, `_near_own`, `_near_same_edge_fixup`;
+#: the exe's `SAME_EDGE_VALUE_ROWS`).
+_SAME_EDGE_VALUE_ROWS = 64
+
+# momwire#2063 step 2a: whole-mesh image fills assembled from the plan's
+# class values. Counted so a gate can show the route ran.
+IMAGE_REUSE_FILLS = 0
+#: TEST HOOK (the adversarial gate): "scale" adds the image block with +1 in
+#: place of -1, "tangent" weights it with the source's unmirrored tangent, in
+#: the plan's image route only. None is the fill.
+_IMAGE_REUSE_PROBE = None
+
+
+def _ek_slice(ek, rows=None, cols=None):
+    """Restrict an `_EK` spec's per-segment labels to a block's rows/cols.
+
+    The solver builds ONE label array over the whole mesh (labels have to be
+    globally comparable — `group_i[i] == group_j[j]` is the eligibility
+    test), and every windowed/blocked fill site then hands the kernel the
+    labels of just the segments it is filling. `rows`/`cols` are anything
+    numpy indexes a 1-D array with: a slice, or a fancy-index array.
+    None (both here and for a spec's own labels) means "unrestricted".
+    """
+    if ek is None:
+        return None
+    return _ek_cut(ek, rows, cols)
+
+
+def _xfem_projection_coeffs(d):
+    """Coefficients c such that P_bubble Φ_sing (t) = Σ_p c_p t^p, where
+    P_bubble is the L²-orthogonal projection of Φ_sing(t) = t·log(t) onto
+    the subspace of P_d on [0, 1] whose elements vanish at t=0 and t=1.
+
+    Returns an array of length d+1, the monomial coefficients of the
+    projection. Pure constants — h-independent and geometry-independent.
+
+    Used to build the "stable" XFEM enrichment basis
+        Φ_sing_stable(t) = t·log(t) − Σ_p c_p t^p
+    Φ_sing_stable retains both endpoint BCs of Φ_sing — vanishing at
+    t=0 (the junction node, required for finite-current KCL at the
+    K-wire junction — the KCL constraint only sees polynomial bases,
+    so enrichment must self-zero there) and at t=1 (the segment's far
+    end, required for current continuity with the adjacent non-enriched
+    segment). And on the BC-compatible bubble subspace, the enrichment
+    is L²-orthogonal: α_enrich = 0 exactly when the truth's
+    BC-compatible-bubble part lives in the polynomial subspace — the
+    small-N transient where the original Φ_sing absorbs polynomial
+    discretization error is eliminated.
+
+    Bubble basis: b_k(t) = t^(k+1) − t^(k+2) = t·(1−t)·t^k for k = 0..d−2.
+    Dimension is d−1 (for d=2 it's 1D = span{t(1−t)}; for d=1 it's empty,
+    matching the empirical "d=1 enrichment is a no-op" finding in
+    NEXT_STEPS item 15(b)).
+    """
+    if d < 2:
+        return np.zeros(d + 1)
+    n_b = d - 1
+    # Bubble Gram matrix: ⟨b_i, b_j⟩ = ∫₀¹ (t^(i+1)-t^(i+2))(t^(j+1)-t^(j+2)) dt
+    #                  = 1/(i+j+3) − 2/(i+j+4) + 1/(i+j+5)
+    G = np.array(
+        [
+            [
+                1.0 / (i + j + 3) - 2.0 / (i + j + 4) + 1.0 / (i + j + 5)
+                for j in range(n_b)
+            ]
+            for i in range(n_b)
+        ]
+    )
+    # Moment vector: ⟨Φ_sing, b_i⟩ = ∫₀¹ t·log(t)·(t^(i+1)-t^(i+2)) dt
+    #              = ∫ t^(i+2) log(t) dt − ∫ t^(i+3) log(t) dt
+    #              = −1/(i+3)² + 1/(i+4)²    [using ∫₀¹ t^n log(t) dt = −1/(n+1)²]
+    m = np.array([-1.0 / (i + 3) ** 2 + 1.0 / (i + 4) ** 2 for i in range(n_b)])
+    alpha = np.linalg.solve(G, m)
+    # Bubble-coefficient α → monomial coefficients c:
+    # P(t) = Σ_k α_k · (t^(k+1) − t^(k+2))  ⇒  c[k+1] += α_k, c[k+2] −= α_k.
+    coeffs = np.zeros(d + 1)
+    for k in range(n_b):
+        coeffs[k + 1] += alpha[k]
+        coeffs[k + 2] -= alpha[k]
+    return coeffs
+
+
+def _feed_cell(arc_at_knot, s_f):
+    """Index of the mesh cell a segment gap at arclength `s_f` spans. A feed
+    exactly on a knot takes the cell to its right, and one at the wire's far
+    end is clipped to the last cell. Shared by the source vector and
+    `BSplineSolver.feed_placements`, so the report is the fill's own choice."""
+    seg_idx = int(np.searchsorted(arc_at_knot, s_f, side="right")) - 1
+    return max(0, min(seg_idx, len(arc_at_knot) - 2))
+
+
+@dataclass(frozen=True)
+class _SplineBasis:
+    """Opaque `PortSolution.basis` payload for the B-spline families.
+
+    The per-solve context needed to read a coefficient column: the geometry
+    tables, the basis support map and per-basis polynomials, the knot vectors
+    and the basis-index map, plus `n_poly` — the number of polynomial dofs,
+    i.e. where the singular-enrichment block starts in a column (== the column
+    length when enrichment is off). Private on purpose — #232 hands consumers
+    an OPAQUE handle, not an interface; nothing here promises it survives the
+    next solve.
+    """
+
+    geom: dict
+    supp_seg: object
+    polys: object
+    wire_knots: object
+    wire_basis_global: object
+    n_poly: int
+
+
+# momwire#396: three `use_singular_enrichment` combination refusals, reused
+# by their `__init__` raises below and by `capabilities.refusals` — one
+# message per combination, not a copy in each.
+_ENRICHMENT_WIRE_LOADING_REFUSAL = (
+    "use_singular_enrichment + distributed wire loading together "
+    "not supported yet — the enrichment bases don't carry the "
+    "loading overlap term"
+)
+_ENRICHMENT_EXTENDED_KERNEL_REFUSAL = (
+    "extended_kernel=True + use_singular_enrichment=True is refused, "
+    "permanently (momwire#271) — the enrichment DOFs bypass the moment "
+    "kernels entirely (they carry their own Φ_sing "
+    "quadrature), they exist only at K >= 3 junctions where "
+    "NEC's own gating turns EK off, and the O(a²) tube "
+    "expansion was never derived for the s^(-1/2) shapes "
+    "(stevenmburns/momwire#249 follow-up C)"
+)
+# The Gauss order the buried fill's field-form blocks run at — see
+# `BSplineSolver._n_qp_buried_field` for the measurement that sets it.
+_N_QP_BURIED_FIELD = _below_interface.N_QP_BURIED_FIELD
+
+_ENRICHMENT_PER_WIRE_RADIUS_REFUSAL = (
+    "use_singular_enrichment + mixed per-wire radii together "
+    "not supported yet — the enrichment kernels take a single "
+    "radius (stevenmburns/momwire#147)"
+)
+
+# The sentence the OTHER families' `singular_enrichment` cell reads
+# (momwire#792). It lives here because the enrichment is this
+# family's — the same reason `_ground_spec` owns the one contact-under-
+# refl-coef sentence the whole tree quotes — and it is imported by
+# `razor` and `sinusoidal` (and through the latter by
+# `sinusoidal_galerkin`) rather than copied into each.
+#
+# NOT YET, not never, and the distinction is the point of recording it: the
+# enrichment is a junction basis written against THIS family's knot vector
+# and its Galerkin testing, and what the same dof looks like under another
+# formulation's testing is an open design question (momwire#445), not a
+# decision any of those rows has taken. `{cls}` is substituted with the
+# declaring class (momwire#564) — these sentences reach a user verbatim
+# through `capabilities.refusals`.
+SINGULAR_ENRICHMENT_NEVER = (
+    "singular enrichment is not built for {cls}, and will not be: the enrichment "
+    "in tree (`use_singular_enrichment`) is the B-spline family's junction basis — "
+    "an extra dof carrying the s^(-1/2) edge shape, written against that family's "
+    "knot vector and integrated by its Galerkin testing. It is kept as a "
+    "B-spline-only EXPERIMENTAL feature (maintainer decision, momwire#445, "
+    "2026-09-02): it has not yet bought anything measurable, so it is not "
+    "extended to any other formulation and may be removed altogether later. "
+    "This cell is a NEVER, not a not-yet. There is no `use_singular_enrichment` "
+    "keyword on this class at all, so asking for it is a caller typo (a "
+    "TypeError) rather than this sentence"
+)
+
+# momwire#553 U5: what a BURIED deck may not reach, and the domain a buried
+# deck may not leave. Every one of these names the geometry AND the limit in
+# the same sentence, because the two buried Sommerfeld families refuse rather
+# than clamp — there is no negligible tail to freeze below the interface —
+# and a serve-time refusal with no numbers in it is not actionable.
+_BURIED_ENRICHMENT_REFUSAL = _below_interface.BURIED_ENRICHMENT_REFUSAL
+_BURIED_EXTENDED_KERNEL_REFUSAL = _below_interface.BURIED_EXTENDED_KERNEL_REFUSAL
+_BURIED_EXTENDED_KERNEL_ABOVE_ONLY = _below_interface.BURIED_EXTENDED_KERNEL_ABOVE_ONLY
+_BURIED_DENSE_BUDGET_REFUSAL = _below_interface.BURIED_DENSE_BUDGET_REFUSAL
+_BURIED_GRAZING_REFUSAL = _below_interface.BURIED_GRAZING_REFUSAL
+_BURIED_CROSS_RANGE_REFUSAL = _below_interface.BURIED_CROSS_RANGE_REFUSAL
+_BURIED_DEPTH_REFUSAL = _below_interface.BURIED_DEPTH_REFUSAL
+_BURIED_CROSS_GRAZING_REFUSAL = _below_interface.BURIED_CROSS_GRAZING_REFUSAL
+
+
+def below_reach_refusal(points, ground_z, ground_eps, freq_hz):
+    """The below/below refusal these buried points would draw, or None.
+
+    A PRE-FLIGHT for callers that want to know before paying for a fill:
+    antennaknobs#1135 wants a knob combination to fail at construction rather
+    than 20 s into a solve, and the app's knob panel wants to grey it rather
+    than offer it. `_buried_serve_plan` raises this same sentence from inside
+    the fill; this returns it instead, formatted from the same template and
+    the same constant, so there is exactly one copy of it.
+
+    ONE bound since momwire#1053: the grazing floor. The below/below R1 cap
+    used to be the other, and past it the fill now SERVES the remainder as
+    zero instead of refusing (the bound that licenses the zero is written at
+    `_SOMM_BELOW_R1_CAP_LAMBDA_M`). Since momwire#1187 the floor is asked of
+    the pairs INSIDE the cap only — a pair whose remainder is served as zero
+    reads no surface, so its angle cannot matter — and the cap is in
+    in-medium wavelengths, so `ground_eps` and `freq_hz` are read again: they
+    set lambda_m.
+
+    `points` is (n, 3) in metres; `ground_eps` is the `(eps_r, sigma)` pair a
+    solver takes, and `freq_hz` the solve frequency. Only rows at or below
+    `ground_z` are read — an above-ground wire has no below/below pair to
+    bound.
+
+    ON WHAT THE CALLER SHOULD PASS. The fill measures its extents on the
+    QUADRATURE NODES, which are strictly interior to their segments; a caller
+    that has only a polyline can pass its VERTICES instead, and that is safe
+    in the one direction that matters. Vertices reach further and lie
+    shallower than any node, so the verdict is conservative: it can over-refuse
+    a deck the fill would serve, never the reverse. Measured on the 4-radial
+    connected screen -- vertices give r1_max 10.0045 m / theta_min 1.71836 deg
+    against the nodes' 9.9707 m / 1.72418 deg, i.e. 0.3 % tighter on the
+    binding axis and the same verdict.
+
+    Returns None when the geometry is served, or when there is nothing below.
+    """
+    pts = np.asarray(points, dtype=np.float64)
+    if pts.ndim != 2 or pts.shape[1] != 3:
+        raise ValueError(f"points must be (n, 3), got {pts.shape}")
+    gz = float(ground_z)
+    d_b = gz - pts[:, 2]
+    keep = d_b >= 0.0
+    if not np.any(keep):
+        return None
+    x, y, d_b = pts[keep, 0], pts[keep, 1], d_b[keep]
+    # The medium the fill would build, with a solver's own constants.
+    eps0, mu0 = BSplineSolver.eps, BSplineSolver.mu
+    omega = 2.0 * np.pi * float(freq_hz)
+    eps_t = _ground_refl.eps_tilde(ground_eps, omega, eps0)
+    k_p = omega * np.sqrt(eps0 * mu0)
+    r1_cap = _sommerfeld_below.below_r1_cap(_sommerfeld_below.k_medium(eps_t, k_p))
+    floor = math.radians(_sommerfeld_below._SOMM_BELOW_TH_MIN_DEG)
+    _r1_max, th_min = _pair_extents_below(
+        x, y, d_b, r1_cap=_below_interface.plan_r1_cap(r1_cap), floor=floor
+    )
+    if th_min < floor:
+        return _BURIED_GRAZING_REFUSAL.format(
+            th=math.degrees(th_min),
+            floor=_sommerfeld_below._SOMM_BELOW_TH_MIN_DEG,
+            depth=2.0 * float(np.min(d_b)),
+        )
+    return None
+
+
+def _pair_extents_below(x, y, d_b, rows=256, *, r1_cap=None, floor=None):
+    """`(r1_max, th_min)` over every node pair for the below/below plan —
+    the largest image distance hypot(rho, h_i + h_j) and the shallowest
+    angle atan2(h_i + h_j, rho) — without an (n, n) array ever being live.
+
+    `r1_cap` (momwire#1187): when given, th_min is the shallowest angle over
+    the pairs INSIDE the cap only (image distance <= r1_cap) — the pairs
+    whose below/below remainder the fill evaluates; past the cap it is served
+    as zero and reads no surface. r1_max still reads every pair. No capped
+    pair at all gives th_min = pi/2 (the minimum over an empty set, +inf
+    ratio). `None` is the pre-#1187 walk exactly, and so is a cap no pair
+    reaches.
+
+    `floor` (radians) is the question the caller asks of th_min, and lets the
+    capped walk run only where it can change the answer. The all-pairs
+    minimum is taken first, on the accelerated walk when there is one; if no
+    pair reaches past the cap, or that minimum is already at or above
+    `floor` (every capped pair is then at least as steep, so `th_min < floor`
+    answers the same), it is returned as it stands — the pre-#1187 value to
+    the bit. Only a deck the all-pairs minimum puts under the floor with a
+    pair past the cap, i.e. one refused before #1187, takes the capped walk,
+    and it takes the numpy one.
+
+    WHY THE C++ TWIN DOES NOT TAKE THE CAP. It did in a draft, and that cost
+    the bit identity of every served buried deck: any edit to
+    `_accel_mw568.cpp` moves GCC's translation-unit-wide inlining budget, and
+    the rebuild changed the code of nine functions, among them the below and
+    transmitted grid-fill integrands (`adaptive_segment<SixBelow>`,
+    `transmitted_integrand_six`). hub_deck(16)'s Z moved at 7e-20 of its
+    largest entry and its admittance at 2e-14 — a change that only removes
+    refusals, moving numbers it does not touch. The capped walk only ever
+    runs on decks that were refused, whose node counts are a rod's, so the
+    numpy form is cheap where it runs.
+
+    momwire#910: the all-pairs spelling built six (n, n) arrays over the
+    3,924 buried nodes of a 12-radial screen (123 MB each) and spent 0.6 s,
+    a third of it in arctan2, to find two scalars. Rows are walked in
+    chunks, the squared distance is accumulated in place, and the angle is
+    ONE atan at the end: on the closed quadrant hh, rho >= 0 the map
+    atan2(hh, rho) is monotone in hh / rho, so the minimum angle is the
+    minimum ratio. rho = 0 only where a node meets itself or a coincident one.
+    Below the plane hh > 0 there and the ratio is +inf, never the minimum; a
+    node ON the interface (a vertical's base, momwire#1036) makes it 0/0, and
+    that pair has no angle at all. Either way the pair is dropped, as the C++
+    twin drops it, never the whole chunk. Same two numbers to 1e-12 as the
+    all-pairs form over the pairs that have an angle (gated).
+    """
+    x = np.asarray(x, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+    d_b = np.asarray(d_b, dtype=np.float64)
+    r1_max, th_min = _pair_extents_below_all(x, y, d_b, rows)
+    if r1_cap is None or r1_max <= r1_cap or (floor is not None and th_min >= floor):
+        return r1_max, th_min
+    return r1_max, _pair_extents_below_numpy(x, y, d_b, rows, r1_cap)[1]
+
+
+# The AVX2 lanes of the accelerated walk (perf item 9): bit-identical to its
+# scalar loop, which `False` selects (tests/test_pair_extents_lanes_1290.py).
+_PAIR_EXTENTS_LANES = True
+
+
+def _pair_extents_below_all(x, y, d_b, rows):
+    """`_pair_extents_below` over every pair: the accelerated walk when there
+    is one, else the numpy one."""
+    if _HAVE_PLAN_EXTENTS_ACCEL and x.size:
+        # momwire#914 unit 1. The C++ twin walks the upper triangle (the pair
+        # matrix is exactly symmetric) and minimises hh^2/rho^2, the same
+        # argmin on the non-negative quadrant, so the per-pair sqrt is gone:
+        # 2.31 s -> 0.062 s over the 246 M pairs of a 48-radial screen.
+        # The numpy form below stays the reference and the fallback, and is
+        # what G-914-1 gates against.
+        r1_max, th_min = _acc.pair_extents_below(x, y, d_b, lanes=_PAIR_EXTENTS_LANES)
+        return float(r1_max), float(th_min)
+    return _pair_extents_below_numpy(x, y, d_b, rows)
+
+
+def _pair_extents_below_numpy(x, y, d_b, rows, r1_cap=None):
+    """`_pair_extents_below`'s numpy walk, and its only capped one."""
+    cap2 = None if r1_cap is None else float(r1_cap) * float(r1_cap)
+    r1sq_max = 0.0
+    ratio_min = np.inf
+    for i0 in range(0, x.shape[0], rows):
+        i1 = min(i0 + rows, x.shape[0])
+        rho2 = (x[i0:i1, None] - x[None, :]) ** 2
+        rho2 += (y[i0:i1, None] - y[None, :]) ** 2
+        hh = d_b[i0:i1, None] + d_b[None, :]
+        r1sq = rho2 + hh * hh
+        r1sq_max = max(r1sq_max, float(np.max(r1sq)))
+        np.sqrt(rho2, out=rho2)
+        # rho = 0 pairs are dropped before the minimum (see the docstring): an
+        # interface node's 0/0 must not reach `np.min`, which would carry the
+        # NaN to the chunk and let the outer `min` discard every real pair in it.
+        keep = rho2 > 0.0
+        if cap2 is not None:
+            # momwire#1187: and every pair past the cap, whose remainder is
+            # served as zero.
+            keep &= r1sq <= cap2
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = np.where(keep, hh / rho2, np.inf)
+        ratio_min = min(ratio_min, float(np.min(ratio)))
+    return float(np.sqrt(r1sq_max)), float(np.arctan(ratio_min))
+
+
+def _pair_extents_below_rect(obs, src, d_obs, d_src, pairs=1 << 20, *, r1_cap=None):
+    """`(th_min, hh_at)` over every (observer, source) pair — the shallowest
+    angle atan2(h_o + h_s, rho) and the depth sum h_o + h_s of the pair that
+    attains it — without an (n_obs, n_src) array larger than `pairs` ever
+    being live. `_pair_extents_below`'s RECTANGULAR twin (momwire#1168 U3):
+    that one asks a cloud against itself, this one asks two different
+    clouds against each other, which is what razor's below remainder
+    evaluates (testing-path points against Gauss nodes,
+    `RazorSolver._below_remainder_th_min`).
+
+    `obs` and `src` are (n, 3) (only x, y are read); `d_obs` / `d_src` the
+    depths below the interface. Observers are walked in row chunks of at
+    most `pairs` pairs.
+
+    Deliberately NOT the square helper's pair rule: every pair is kept and
+    its angle is `np.arctan2(hh, np.hypot(dx, dy))` itself, rho = 0 pairs
+    included (atan2's own value there, pi/2 for a buried pair). The minimum
+    is the FIRST one in row-major order, as a single `np.argmin` over the
+    whole matrix would return, whatever the chunking — so the answer is
+    bit-identical to the one-shot spelling and to razor's earlier
+    hand-chunked one (gated, `tests/test_razor_grazing_shared_1168.py`).
+
+    `r1_cap` (momwire#1187): when given, only pairs with image distance
+    hypot(rho, h_o + h_s) <= r1_cap are kept — the pairs whose remainder is
+    evaluated; the rest read +inf and are never the minimum. `(inf, 0.0)`
+    when no pair is kept. `None` is the pre-#1187 walk exactly.
+    """
+    obs = np.asarray(obs, dtype=np.float64)
+    src = np.asarray(src, dtype=np.float64)
+    d_obs = np.asarray(d_obs, dtype=np.float64)
+    d_src = np.asarray(d_src, dtype=np.float64)
+    best, best_hh = np.inf, 0.0
+    step = max(1, int(pairs) // max(1, src.shape[0]))
+    for i0 in range(0, obs.shape[0], step):
+        o = obs[i0 : i0 + step]
+        rho = np.hypot(
+            o[:, 0][:, None] - src[:, 0][None, :],
+            o[:, 1][:, None] - src[:, 1][None, :],
+        )
+        hh = d_obs[i0 : i0 + step][:, None] + d_src[None, :]
+        th = np.arctan2(hh, rho)
+        if r1_cap is not None:
+            th[np.sqrt(rho * rho + hh * hh) > r1_cap] = np.inf
+        k = int(np.argmin(th))
+        if th.flat[k] < best:
+            best, best_hh = float(th.flat[k]), float(hh.flat[k])
+    return best, best_hh
+
+
+# `_schedule.runs`, under the name the buried fill's gates import.
+_contiguous_runs = _schedule.runs
+
+
+class _ObserverRows(_schedule.ObserverRows):
+    """The observer restriction of the ABOVE-GROUND fill (momwire#1131) --
+    the twin of the buried fill's `rows=` / `compact=` (momwire#1029, #1132),
+    threaded through the chunked writers instead of the pair classes.
+
+    `_schedule.ObserverRows` is the restriction; this names the B-spline
+    basis rows it keeps: `basis_rows` (R) is the rows whose whole live
+    support lies inside `seg_rows` (`_below_interface._crossing_basis_rows`,
+    which refuses a split basis by name).
+    """
+
+    __slots__ = ()
+
+    def __init__(self, seg_rows, supp_seg, polys, n_segs, *, compact):
+        super().__init__(
+            seg_rows,
+            n_segs,
+            supp_seg.shape[0],
+            lambda rows: _below_interface._crossing_basis_rows(supp_seg, polys, rows),
+            compact=compact,
+        )
+
+
+def _exact_kernel_refusals(use_singular_enrichment, rotational_symmetry):
+    """``[(condition, message)]``: bs2's own refusals of `exact_kernel=True`
+    (`_exact_kernel_seam.ExactKernelOption._exact_kernel_family_refusals`)."""
+    return [
+        (
+            bool(use_singular_enrichment),
+            "exact_kernel=True + use_singular_enrichment=True is "
+            "refused: the enrichment blocks have no exact-kernel "
+            "correction (momwire#1408)",
+        ),
+        (
+            bool(rotational_symmetry),
+            "exact_kernel=True + rotational_symmetry=True is refused: "
+            "the sector route fills restricted rows, which the "
+            "exact-kernel correction does not serve (momwire#1408)",
+        ),
+    ]
+
+
+def _offset_reuse_fill(method):
+    """Run a fill method under its solver's `offset_reuse` (momwire#1809).
+
+    A generator method's body runs at each step, not at the call, so its
+    scope is set around every step: set around the call alone, the body
+    would run after the scope had closed (dense, silently), and set across
+    a yield it would leak into the consumer between steps."""
+    if inspect.isgeneratorfunction(method):
+
+        @functools.wraps(method)
+        def gen_wrapper(self, *args, **kwargs):
+            gen = method(self, *args, **kwargs)
+            if not getattr(self, "_offset_reuse", False):
+                return (yield from gen)
+            while True:
+                with offset_reuse_scope(True):
+                    try:
+                        item = next(gen)
+                    except StopIteration as stop:
+                        return stop.value
+                yield item
+
+        return gen_wrapper
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if not getattr(self, "_offset_reuse", False):
+            return method(self, *args, **kwargs)
+        with offset_reuse_scope(True):
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
+
+class BSplineSolver(
+    _fill_report.FillReport,
+    _exact_kernel_seam.ExactKernelOption,
+    _ElementCurrents,
+    _SweptPortSolutions,
+    _Cancelable,
+):
+    """Degree-d B-spline Galerkin MoM, multi-wire polylines with junctions.
+
+    **Usable Δ/a floor (issue #248).** Like every reduced-kernel
+    (filament-source) solver, this one answers a question that stops being
+    well-posed when segments get shorter than the wire radius: below
+    Δ/a ≈ 1 the solved current develops a cell-alternating spurious mode at
+    the feed that dominates the driving-point reading, and mesh refinement
+    at fixed radius makes it diverge rather than settle (|I_feed| grows
+    without bound; Z → 0 — measured for every momwire basis, diagnosis on
+    the issue). The answer there is basis-dependent, not physical;
+    `SinusoidalSolver` reproduces nec2c's EK-OFF column on those rungs only
+    because it is NEC-2's own discretization. Against that oracle at NS=41
+    this solver holds ≤0.7% for Δ/a ≥ 24, ≤2.1% for Δ/a ≥ 6, ≤2.9% for
+    Δ/a ≥ 2.4, then 5.9% / 18.5% / 33.8% at Δ/a = 1.22 / 0.81 / 0.41.
+    Treat **Δ/a ≥ 2 as the usable floor** (≈3%), Δ/a ≥ 6 for ≈2%; the
+    residual also grows with absolute a/λ at fixed Δ/a. Fat conductors need
+    the extended kernel AND a mesh that keeps Δ/a above ~1 — they are not
+    rescued by refining the mesh.
+
+    `extended_kernel=True` (issue #249) is the first half of that: it buys
+    ~10× on the same-edge moments at Δ/a ≥ 2 (measured against the exact
+    tube kernel). It does NOT move the floor. EK stops improving the moments
+    below Δ/a ≈ 1, and by Δ/a ≈ 0.5 it is *worse* than the reduced kernel on
+    the nearest-neighbour moment — an engine-free confirmation of the same
+    floor #248 found from the divergence side. The reason is that EK's O(a²)
+    tube expansion is a truncation in b/R, and the self moment integrates
+    through the ζ ≲ a region where that truncation is still O(1) wrong.
+
+    Parameters
+    ----------
+    wires : list of (M, 3) polyline arrays, M ≥ 2 anchors each.
+    n_per_edge_per_wire : list of (int | sequence | None). Per-wire segment
+        counts per edge. None for a wire ⇒ use `nsegs` on every edge; int ⇒
+        same count for every edge; sequence ⇒ explicit per-edge count.
+    degree : B-spline degree (1 ≤ degree ≤ 3 currently; the static-moment
+        file covers max_d=3 since momwire#883). d=1 IS the tent basis (it
+        reproduced the
+        retired TriangularSolver to roundoff whenever the feed lands on a
+        knot; for a between-knots feed arclength triangular snapped to the
+        nearest knot while this solver excites the exact arclength).
+    feed_wire_index : index of the wire carrying the delta-gap source.
+    feed_arclength : arc length along the feed wire at which to evaluate
+        Φ_m(s_f). Default: feed wire midpoint.
+    feed_model : gap-source model, `"point"` (default) or `"segment"`
+        (stevenmburns/momwire#216). `"point"` is this solver's native
+        zero-width drive, E_app = V·δ(s − s_f), whose Galerkin drive column
+        collapses on the delta to v_m = Φ_m(s_f). `"segment"` is NEC's
+        segment-wide gap, E_app = V/Δ uniform over the mesh cell containing
+        s_f, giving v_m = (1/Δ)∫_cell Φ_m ds — the same source
+        `SinusoidalSolver` hard-codes, so it is what makes a feed-matched
+        comparison against that solver possible from this side (report §19).
+        It is a CONTROL for isolating the testing axis rather than a
+        compatibility lane: NEC-2's formulation is `sinusoidal` — that basis,
+        that point matching, that gap — so Galerkin-with-a-segment-gap
+        reproduces NEC's reactance WALK, because the walk comes from the
+        source, but not NEC's formulation.
+        `"point"` is the PRODUCTION drive on this solver and on
+        `SinusoidalGalerkinSolver`, whose default it has also been since
+        momwire#654. This sentence used to say `"segment"` was that default,
+        which was true before #654 and has since sent at least one reader
+        reaching for the wrong lever (momwire#1135). The point gap converges
+        to the B-spline answer (momwire#192), is exactly self-dual under the
+        default centre readout, and removed up to 992x of the cross-basis
+        disagreement on the antennaknobs#478 class (momwire#213).
+        Mutually exclusive with
+        `feed_smoothing_factor`. Note the readout follows: Z = 1/(vᵀc) is
+        always the drive's dual, so `"segment"` reads the gap-AVERAGED
+        current, matching `SinusoidalGalerkinSolver(feed_readout=
+        "variational")` rather than its default centre readout.
+    junctions : list of [(wire_idx, "start"|"end"), ...] tuples, each entry
+        one junction node where K wire endpoints meet.
+    n_qp_pair : Gauss-Legendre nodes per segment per axis for CROSS-EDGE and
+        cross-wire pairs (full kernel with a² regularization). Default 8,
+        raised from 4 in momwire#743.
+
+        Two moment paths used to share this number and they want opposite
+        things. Cross-edge order is what a split straight wire and a
+        radius-step junction need, and it is free in memory because the C++
+        kernel streams — `seg_seg_full_moments_bspline_kernel` allocates
+        `J({NM, NM, N_i, N_j})`, with no `n_qp` in the shape. Same-edge order
+        is the entire memory cost and buys nothing. Measured as a known zero
+        (splitting a straight wire at a collinear anchor is geometrically a
+        no-op, so `|Z_split − Z_unsplit|` has an exact answer of 0):
+
+            N     qp=4              qp=8
+            18    0.761 Ω (0.557%)  0.198 Ω (0.145%)
+            30    0.450 Ω (0.329%)  0.112 Ω (0.082%)
+            60    0.216 Ω (0.158%)  0.048 Ω (0.035%)
+
+        8 is also the ceiling: the accelerated kernels carry a fixed
+        `n_qp² ≤ 64` scratch buffer and raise above it, so this default sits
+        exactly at the cap.
+    n_qp_pair_same_edge : the same, for SAME-EDGE pairs — the smooth-kernel
+        piece of a segment pair on one edge. Default 4, i.e. what
+        `n_qp_pair` meant for both paths before momwire#743.
+
+        Raising this is pure cost: `_seg_seg_reg_geometry` materialises one
+        edge's `(N_e·n_qp, N_e·n_qp)` R table, quadratic in BOTH, while the
+        answer does not move — `Re Z = 135.698155` bit-identical at 2, 4 and
+        8 on an N=400 single edge, where peak RSS goes 162 / 177 / 353 MB.
+        There is a saving available here (2 is bit-identical to 4 at N=400)
+        but it also governs #631's near-image analytic block, which has not
+        been measured at 2, so the default stays where it was.
+    pair_order_ladder : the distance-adaptive off-edge quadrature ladder
+        (momwire#906): a tuple of `(ratio, n_qp)` with ratios strictly
+        ascending and orders strictly descending below `n_qp_pair`. A pair
+        whose centre distance over the longer segment meets a tier's ratio
+        takes that tier's order; the rest pay `n_qp_pair`. Resolved from the
+        deck like `n_qp_pair` when None: buried decks get
+        `BURIED_PAIR_ORDER_LADDER` = ((0.1, 32), (1.5, 16), (2, 8), (4, 4))
+        under the base 128 (momwire#1752 S2 and H2), free-space decks
+        `DEFAULT_PAIR_ORDER_LADDER` = ((16, 4),) since momwire#907 — one tier
+        there, because the base order 8 already IS the order-8 rung. Tiers at
+        or above the base order are dropped, so an explicit `n_qp_pair=8`
+        under the buried default also leaves ((16, 4),). The per-block phase
+        guard in `_seg_seg_full_moments_offedge` drops the order-4 tier when
+        the longest segment passes kL = 0.5 — in free space that is the only
+        tier, so the guard disables the ladder for that block entirely.
+
+        Not every fill honours it: the ArrayBlock fill has no ladder on
+        either term, and the H-matrix and frequency-swept fills take it under
+        the extended kernel only (momwire#1362) -- their reduced twins have
+        none (`_fill_ladder` is what a fill should ask rather than reading
+        this property directly). The single-k extended kernel honours it
+        since momwire#1362 too.
+
+        What it buys: on the 654-segment radial screen the two buried pair
+        blocks went from 6.3 s to well under a second at the same Z, because
+        87 % of the pairs sit 16+ segment lengths apart and the study
+        measured order 4 there at 3e-14 relative to order 32.
+    image_pair_order_ladder : the same ladder for the above-ground IMAGE
+        term (PEC, refl-coef, and the Sommerfeld exact-image part; both the
+        chunked sweep with its near-image fixup and the dense image blocks),
+        momwire#1304. None (the default) follows the direct term's resolved
+        ladder, so a deck gets one quadrature rule on both terms. `()` is the
+        REFERENCE: every image pair at `n_qp_pair`, the arithmetic before
+        #1304 bit for bit — what the #1304 gates compare against. An explicit
+        ladder is normalised against `n_qp_pair` as `pair_order_ladder` is.
+        The ratio a pair is binned by is the observer centre to the IMAGE
+        source's centre over the longer segment, and the per-pair kL <= 0.5
+        guard applies unchanged. Buried decks do not take this path at all:
+        their images ride the subset fill, which already uses
+        `pair_order_ladder`.
+    extended_kernel : NEC's EK card for this basis family (#249). False —
+        the default, and what this solver did before #249 — is the reduced
+        ("thin-wire") kernel: the source current is a filament on the wire
+        axis and the conductor's girth survives only as the a²
+        regularization of R. True is NEC's EXTENDED thin-wire kernel, Eq 89
+        of the theory manual, the O(a²) azimuthal average of the Green's
+        function over a source tube of radius a. Unlike `SinusoidalSolver`,
+        which transcribes NEC's per-END IND1/IND2 gating, this Galerkin fill
+        applies EK to EVERY segment pair (momwire#1368; `_ek_axis_groups`),
+        with NEC Eq 89 in its two-radius form — the observer's radius as ρ,
+        the source's as the tube b, the factor's R floored at b
+        (`_ek_factor_floored`) — so Z is continuous in bend angle and in
+        radius ratio, as licensed NEC-4.2 and NEC-5 are. The rule is
+        symmetric in the pair, so the Galerkin symmetry of Z survives as an
+        error detector. (Before #1368 only coaxial equal-radius pairs were
+        extended, and Z jumped at the first bend angle and radius ratio.)
+
+        Every fill an EK-on solve takes is C++-served (momwire#270): the
+        same-edge static and reg moments, the off-edge moments single-k and
+        batched-over-k, and `HMatrixSolver`/`ArrayBlockSolver`'s fused ACA
+        block assembler all have extended-kernel twins. Measured cost of
+        turning EK on, 400-segment monopole, degree 2: ~1.1x on the dense
+        path and ~1.1x on the H-matrix, the same factor in free space, over
+        PEC ground and over both finite grounds. Refused, rather than
+        half-served, with `use_singular_enrichment` — see the
+        `NotImplementedError` in `__init__`.
+
+        **Ground under EK.** PEC ground (`ground_z` alone) and both finite-
+        ground models (`ground_eps`) are served (momwire#269). The image
+        blocks are extended: eligibility is scored against the MIRRORED
+        source geometry (`_ek_axis_labels(mirror=True)`, one joint scan), so
+        a vertical monopole extends against its own image — NEC's IND = 0
+        ground-contact branch — while a horizontal wire, whose image is
+        parallel but offset by twice the height, does not. `ground_eps`
+        costs nothing extra over PEC: its Fresnel dyad / image-charge tables
+        are per-segment-pair weights applied by the assembler AFTER the
+        moment fill, so the same EK moment twins serve them (dense route:
+        `_accumulate_Z_image_chunked`; H-matrix near blocks:
+        `_zblock_image_refl`; H-matrix far blocks: the fused
+        `bspline_assemble_offedge_block_refl_ek` twin).
+
+        What stays REDUCED under EK is the Sommerfeld remainder
+        (`_Z_sommerfeld_remainder`, `_sommerfeld_global_lowrank`) — the
+        smooth ground-wave correction NEC's eqs 143-147 add on top of the
+        C2-scaled exact image. That is deliberate, not an omission: EK is an
+        O((a/R)²) tube correction, and the remainder's source is the ground
+        reflection, so R ≥ 2h for a wire at height h and the un-applied
+        correction is O((a/2h)²). Measured, by building the extended
+        remainder outright (the same field azimuthally averaged over the
+        source tube) and re-solving: for a wire CLEAR of the plane it moves
+        |Z| by ≤ 1.1e-4 relative — three orders below the EK shift the image
+        blocks do carry, two below this basis's own accuracy at Δ/a ≥ 2. At
+        ground CONTACT, where the (a/2h)² estimate degenerates and only the
+        remainder's smoothness bounds it, the measured cost is 3-4e-3
+        relative: still an order below the basis error, but ~45% of that
+        deck's own EK shift, so it is the one place the mixture is visible.
+        The full table, the O(a²) confirmation and the tolerances are in
+        tests/test_extended_kernel_bspline.py Gate 18.
+
+        **Buried wires under EK** (momwire#1170 stage 0). A deck with wires
+        below a Sommerfeld ground plane is served IN PART: a pair whose two
+        segments are both above ground takes the extended kernel, direct and
+        image, as on an all-above deck, and every pair that touches a buried
+        segment keeps the reduced kernel — the below/below blocks at the
+        in-medium wavenumber, and the cross-medium blocks, which are field
+        integrals with no thin-wire kernel in them. The extended kernel in
+        and across the soil is not derived (the later stages of #1170), so a
+        wire continued below the plane through a crossing junction changes
+        kernel at the node. It was a refusal before; now the first buried
+        fill raises `ExtendedKernelAboveGround` once, naming the wires that
+        kept the reduced kernel, and `extended_kernel_wires()` reports the
+        same per wire. Measured, at equal mesh against the all-reduced solve
+        it replaces: with a buried wire detached and 1.4 wavelengths off,
+        the feed's EK shift is the above-only deck's to 2e-6 of itself. On
+        1 mm wire the shift is small against the deck's own gap to either
+        engine: 5-7 milliohm on a 16-radial buried-radial vertical (gaps
+        0.5-9 ohm) and at most 0.12 ohm on a 20 m end-fed vertical on a 2 m
+        stake (gaps 45-170 ohm). On a 25 mm vertical on a 1 m stake, at
+        segment/radius 5 and 2.5, it is 0.16-0.23 ohm, TOWARD NEC-5 and AWAY
+        from NEC-4.2. `tests/test_ek_above_ground_1170.py` counts the pairs
+        per kernel.
+    exact_kernel_auto_skip : wire indices whose segments "auto" does not
+        ask about (momwire#1649): the pieces a deck seam cut at z = 0, whose
+        length is where the plane fell rather than the user's mesh. Default
+        (): every wire is asked. An explicit `exact_kernel=True` still
+        reaches every wire.
+    exact_kernel : the exact ring kernel on coaxial pairs (momwire#1408),
+        opt-in. False (the default) leaves every fill exactly as it was, bit
+        for bit: no line of the correction runs. True replaces, after the
+        free-space fill, the moment integrals of every pair of segments
+        that lie on ONE line at ONE radius (`_ek_axis_groups_coaxial`: the
+        same wire's straight run, and collinear wires such as the two
+        halves of an end-port feed) with the exact ring kernel
+        K(z) = (1/2π)∮e^{-jkR}/(4πR)dφ, R² = z² + 4a²sin²(φ/2) — at every
+        separation along that line, not only near the source, so no kernel
+        switch sits inside a wire. A pair on one line across a radius step
+        (momwire#1438) takes the two-radius kernel, each ring on its own
+        wire's surface: R² = z² + a_i² + a_j² - 2a_i a_j cos φ
+        (`_exact_kernel.ring_kernel2`, symmetric in the radii, so Z stays
+        symmetric). Every other pair (bends, offset parallel
+        wires, the ground image, the Sommerfeld remainder) keeps the kernel
+        `extended_kernel` selects. The kernel is log-singular at z = 0; the
+        self and adjacent cells integrate its log term by product
+        integration against the basis polynomials (`_exact_kernel`). The
+        exact moments are computed in C++ where the accelerator is built
+        (`_accel_exact_kernel.cpp`, momwire#1410; the numpy route otherwise),
+        by observer-row windows of `swept_mem_mb` (momwire#1411), with O(n)
+        kernel work on a uniformly meshed run, and assembled into Z as
+        Z_exact - Z_base over the group's bases.
+
+        **The feed.** Under the exact kernel a zero-width gap has no
+        limiting reactance: each halving of the gap adds 4ln2·ωε₀a of
+        susceptance (Fikioris & Valagiannopoulos 2005). A point-gap feed is
+        served (with a warning) so that drift can be studied; a segment
+        gap's width is the mesh's; a fixed geometric gap is two facing wire
+        ends driven through `junction_ports`.
+
+        **Buried wires** (momwire#1619 stage 1): served IN PART
+        (`_exact_kernel_seam.BURIED_ABOVE_ONLY`). The correction acts on the
+        coaxial pairs whose two segments are both above the ground -- the
+        upper medium, where k is real -- after the buried fill, and every
+        pair that touches a buried segment keeps the fill's kernel; "auto"
+        reads the above-ground segments only. The lower medium's complex
+        wavenumber is stage 2. A wholly buried deck is refused.
+
+        Not served: a wholly buried deck, a complex wavenumber or
+        permittivity, `use_singular_enrichment`, `rotational_symmetry` and
+        the H-matrix/array subclasses (refused by name). A junction of three or
+        more wires is not excluded: its collinear through-pair takes the
+        exact kernel, though the ring-uniform current it assumes is no
+        better there than for the thin-wire kernels.
+
+        **"auto"** (momwire#1408 follow-up) resolves once, at construction,
+        to True iff (i) this route serves the kernel -- not a subclass that
+        refuses it, not `use_singular_enrichment`, not `rotational_symmetry`,
+        some wire above ground, no complex wavenumber or permittivity -- and
+        (ii) some segment it can correct (an above-ground one, on a buried
+        deck) is fat for its length, h/a < `EXACT_KERNEL_AUTO_H_OVER_A`
+        (3). Every segment is in a coaxial group (its own, at least), so
+        (ii) is "the correction would act on a segment that short". The
+        threshold is the kernel-error table's: the extended kernel's error
+        is 2.1e-3 at |z|/a = 3 and 3.1e-2 at 1. Where (i) fails, "auto"
+        resolves False silently -- it never raises where True would refuse
+        -- and a restricted-row fill reached under "auto" skips the
+        correction rather than refusing it. `exact_kernel_requested` holds
+        what was asked for and `exact_kernel` what runs (a bool, after
+        resolution), which is what a reader should report. Under "auto" a
+        point-gap feed does not warn; True still does. The mesh advisories
+        read the resolved value (momwire#1412): where the exact kernel runs,
+        `ShortSegments` is silent and `GapMeshFloor` states the point-gap
+        drift and names the end-port feed instead of the thin-wire collapse.
+
+        **Bends.** The correction covers coaxial pairs only, so where a
+        straight run turns, the pair leaves the exact kernel for the
+        extended (or reduced) one. At a = 50 mm that step is ~0.024 ohm,
+        ~1e-4 relative, and flat under refinement; it is accepted and
+        documented rather than smoothed (the continuous form is
+        momwire#1413), so "auto" engages on bent fat wires too.
+    wavelength, halfdriver_factor, wire_radius, nsegs : shared solver
+        conventions (see SinusoidalSolver for the same surface).
+    wire_conductivity : distributed conductor loss (#131). None (default)
+        = PEC; a scalar σ [S/m] applies to every wire; a per-wire sequence
+        with NaN entries switches individual wires off. Adds the exact
+        round-conductor internal impedance Z'_int(ω) (valid DC → strong
+        skin effect) as a series loading over same-wire basis overlaps.
+        `wire_loss_power(coeffs)` reads back the dissipated watts.
+    insulation_radius, insulation_eps_r : dielectric jacket (#131), given
+        together (scalar / per-wire like wire_conductivity). Adds King's
+        quasi-static series inductance μ₀/2π·(1−1/εr)·ln(b/a) per meter —
+        the insulated-wire velocity-factor effect (the wire tunes a few
+        percent long) — with the equivalent kernel radius (#865). Purely
+        reactive unless a loss tangent is given.
+    insulation_loss_tangent : the jacket's dielectric loss tangent tan δ
+        (momwire#765), scalar / per-wire like the two above, NaN or 0 for a
+        lossless jacket; needs `insulation_radius`. Served as a charge-side
+        term (`_charge_gram` scaled by `_wire_loading.jacket_loss_charge`);
+        `wire_loss_power` counts its watts.
+    distributed_rlc : NEC's `LD 2` / `LD 3` per-metre RLC (momwire#1088).
+        None (default) = off; one `_wire_loading.DistributedRLC` applies to
+        every wire, or a per-wire sequence whose None entries switch
+        individual wires off. Adds Z'(ω) [Ω/m] — series R'+jωL'+1/jωC' or
+        the parallel combination — to the SAME per-wire sum the two above
+        feed, so a wire may carry all three at once.
+    swept_mem_mb : memory budget (MB, default 256) for dense moment tensors
+        and for the batched swept path's per-chunk transients — the
+        all-pairs J moment tensor plus
+        the same-edge reg moment blocks (see `_swept_batched_z_chunks`;
+        the per-k fallback sweeps chunk their same-edge hoist under the
+        same budget, `_same_edge_prep_swept_chunks`).
+        Peak transient memory of a sweep ≈ this budget (honest since #338:
+        the chunked fills `del` each observer-row window before the next
+        one is built, so the loop never holds two at once — it used to,
+        which silently doubled the real transient behind this knob), so a
+        memory-constrained deployment caps it per solve (e.g. 64 on a
+        small shared host). Speed saturates by ~256 (chunk ≈ 8-16 on
+        production shapes); below ~64 the batching win starts eroding
+        (chunk=1 costs ~+75% on the worst shapes).
+    rotational_symmetry : the sector (block-circulant) route, opt-in
+        (momwire#1029). False changes nothing — no attribute the dense path
+        reads moves, and no line of route code runs. None (the default)
+        defers to MOMWIRE_X_ROTATIONAL_SYMMETRY (`_features`, momwire#1338),
+        unset is False; on, a deck the route serves takes it and any other is
+        solved densely, the reason in `rotational_symmetry_declined`. True asks for
+        a deck that is N copies of one sector about a vertical axis — the
+        sector wires may include vertical ones off the axis (momwire#1897) —
+        whose port set the rotation maps onto itself: `compute_impedance`
+        then fills ONE sector's rows against every source and solves the
+        (m + p) harmonic-0 block whatever N is. `compute_port_solution` and
+        `compute_y_matrix` (and their swept forms) are served from the same
+        fill; a port off the axis, one of N rotated copies, takes each
+        harmonic's m x m block as well. A deck that is not that shape is
+        REFUSED AT CONSTRUCTION, naming the first condition of the rule it
+        breaks (`_rotational_symmetry`), because no fill could rescue it.
+    """
+
+    # momwire#927. Class-level so they exist before any solve and on a deck
+    # that never reaches the surface-height check at all (free space, or a
+    # deck with nothing near the interface). `_surface_advisory` is the
+    # (h_min, a_at, count) summary the advisory is composed from;
+    # `_surface_advisory_emitted` keeps a cache-hit re-emission to once per
+    # solver, which is once per solve.
+    _surface_advisory = None
+    _surface_advisory_emitted = False
+
+    eps = 8.8541878188e-12
+    mu = 1.25663706127e-6
+
+    # This family's name in the feature registry (`_features.SOLVERS`,
+    # `Feature.solvers`): which features it honours (momwire#1980).
+    FEATURE_SOLVER = "bspline"
+
+    # momwire#396: everything is served on its own — three of the four
+    # refusals are `use_singular_enrichment` combinations (`__init__`'s
+    # three raises, reused here). `HMatrixSolver` / `ArrayBlockSolver` fall
+    # back to the dense path under enrichment rather than refusing it, so
+    # they inherit this row unchanged (see those modules — no override).
+    #
+    # The fourth is momwire#282 stage 1's withdrawal: ground CONTACT under
+    # `ground_model="refl-coef"`. Ground contact is not a declared AXIS (no
+    # solver has one), so it says so through a combination key, exactly as
+    # `RazorSolver` says its own contact refusal through
+    # `"contact+finite_ground"`. The ground stays in `grounds`: refl-coef is
+    # served, and is still the default, for wires clear of the plane.
+    #
+    # `buried` and `contact` are declared CELLS since momwire#792, not
+    # condition tokens: this is the one family that fills a wire below the
+    # interface (momwire#553) and it stands a wire end in the plane
+    # (momwire#151), so both read True and the refusals around them are the
+    # combinations. Two of those combinations are the ground column itself —
+    # a PEC plane and a reflection-coefficient ground have no lower medium to
+    # be buried IN — and they were missing entirely: `refusal("buried",
+    # "pec")` answered None while `_medium_spec.wire_media` raised.
+    capabilities = Capabilities(
+        # Compositional row (antennaknobs#1006). `degree=` is a kwarg, so
+        # this class IS tent, quadratic and cubic — the set, not one value.
+        # `extended_kernel=` likewise gives it both kernels.
+        axes={
+            "basis": ("bspline-1", "bspline-2", "bspline-3"),
+            "testing": ("galerkin",),
+            "charge_support": ("spline",),
+            "kernel": ("reduced", "extended"),
+            "quadrature": ("converged",),
+            # BOTH, default first. "sector" is the opt-in
+            # `rotational_symmetry=True` route (momwire#1029): a
+            # rotationally symmetric screen fills one sector and solves the
+            # harmonic-0 block, and no name on the roster says so — a
+            # consumer offering the flag reads it here or nowhere.
+            #
+            # The subclasses REPLACE this cell rather than extending it, so
+            # neither inherits "sector"; both declare `buried=False` and the
+            # route fills through the buried path, which is the same fact
+            # said twice.
+            "solve_strategy": ("dense", "sector"),
+            # BOTH, default first. This row said ("segment-gap",) while the
+            # constructor has always defaulted to feed_model="point" and
+            # accepted either — so a consumer reading the row described a
+            # source this class does not use by default. antennaknobs' new
+            # composition line rendered exactly that: "segment gap" on a tab
+            # whose stock solve uses a point gap.
+            #
+            # DEFAULT FIRST is now the row's convention and is gated: the
+            # first declared value must be what the constructor picks when
+            # nothing is passed, so anything reading the row for "what does
+            # this solver do by default" gets the right answer.
+            "feed_model": ("point-gap", "segment-gap"),
+        },
+        grounds=frozenset({"pec", "refl-coef", "sommerfeld"}),
+        wire_loading=True,
+        extended_kernel=True,
+        junction_ports=True,
+        node_gaps=True,
+        knot_feeds=True,
+        # momwire#673: the B-spline family integrates the delta at the
+        # arclength itself and never snaps, so it lands on whichever grid the
+        # caller named -- both cells True, including at d=1.
+        centre_feeds=True,
+        per_wire_radius=True,
+        singular_enrichment=True,
+        buried=True,
+        contact=True,
+        refusals={
+            "wire_loading+singular_enrichment": _ENRICHMENT_WIRE_LOADING_REFUSAL,
+            "extended_kernel+singular_enrichment": _ENRICHMENT_EXTENDED_KERNEL_REFUSAL,
+            "per_wire_radius+singular_enrichment": _ENRICHMENT_PER_WIRE_RADIUS_REFUSAL,
+            "contact+refl-coef": _ground_spec.CONTACT_UNDER_REFL_COEF_REFUSAL,
+            # momwire#553 U5 — a wire STRICTLY below a Sommerfeld interface
+            # is served; these say what around it is not. The two ground rows
+            # come first: buried is a SOMMERFELD capability, and the other two
+            # grounds refuse it before any of the rest is reached.
+            "buried+pec": _medium_spec.BURIED_PEC_REFUSAL,
+            "buried+refl-coef": _medium_spec.BURIED_REFL_REFUSAL,
+            "buried+contact": _medium_spec.CONTACT_WITH_BURIED_REFUSAL,
+            "buried+singular_enrichment": _BURIED_ENRICHMENT_REFUSAL,
+            "buried+crossing": _medium_spec.CROSSING_REFUSAL,
+        },
+        # momwire#1170 stage 0: served, but not on every pair -- the
+        # extended kernel acts above ground and the buried wires keep the
+        # reduced kernel. It was a refusal until then, and the accelerated
+        # subclasses still refuse a buried deck outright.
+        partials={"buried+extended_kernel": _BURIED_EXTENDED_KERNEL_ABOVE_ONLY},
+    )
+
+    # momwire#1408: `_serves_exact_kernel`, `EXACT_KERNEL_CHOICES` and
+    # `EXACT_KERNEL_AUTO_H_OVER_A` come from `_exact_kernel_seam.
+    # ExactKernelOption` (momwire#1433), shared with every family that serves
+    # the kernel. Subclasses that replace the dense fill (H-matrix, array
+    # blocks) never reach the correction and set `_serves_exact_kernel` False.
+
+    def __init__(
+        self,
+        *,
+        wires,
+        n_per_edge_per_wire=None,
+        degree=2,
+        feed_wire_index=0,
+        feed_arclength=None,
+        feeds=None,
+        feed_model="point",
+        feed_smoothing_factor=None,
+        junctions=None,
+        junction_ports=None,
+        node_gaps=None,
+        n_qp_pair=None,
+        n_qp_pair_same_edge=4,
+        pair_order_ladder=None,
+        image_pair_order_ladder=None,
+        n_qp_source=16,
+        extended_kernel=False,
+        exact_kernel=False,
+        exact_kernel_auto_skip=(),
+        wavelength=22,
+        halfdriver_factor=0.962,
+        wire_radius=0.0005,
+        wire_conductivity=None,
+        insulation_radius=None,
+        insulation_eps_r=None,
+        insulation_loss_tangent=None,
+        distributed_rlc=None,
+        nsegs=101,
+        ground_z=None,
+        ground_eps=None,
+        ground_phi_mode="normal",
+        ground_model="refl-coef",
+        n_qp_sommerfeld=3,
+        use_singular_enrichment=False,
+        n_qp_sing=32,
+        enrichment_min_k=3,
+        enrichment_variant="raw",
+        tikhonov_lambda=1e-3,
+        auto_tap_ratio_threshold=0.3,
+        swept_mem_mb=256,
+        rotational_symmetry=None,
+        pair_reuse=None,
+        offset_reuse=None,
+        transmitted_anchors=None,
+        mixed_lu=None,
+        factored_columns=None,
+        height_sheet_recal=None,
+        crossing_table=None,
+        crossing_sheet_retune=None,
+        crossing_above_rule=None,
+        kcl_nullspace=None,
+        cancel=None,
+    ):
+        # momwire#1042: a wire listed twice is solved once. Dropped here,
+        # before anything reads a wire index, and every wire-indexed argument
+        # remapped; the per-wire readouts re-expand through `_wire_dedup`.
+        (
+            wires,
+            n_per_edge_per_wire,
+            _per_wire,
+            _sites,
+            junctions,
+            self._wire_dedup,
+        ) = _wire_spec.drop_duplicated_wires(
+            type(self).__name__,
+            list(wires) if wires is not None else [],
+            n_per_edge_per_wire,
+            per_wire={
+                "wire_radius": wire_radius,
+                "wire_conductivity": wire_conductivity,
+                "insulation_radius": insulation_radius,
+                "insulation_eps_r": insulation_eps_r,
+                "insulation_loss_tangent": insulation_loss_tangent,
+                "distributed_rlc": distributed_rlc,
+            },
+            sites={
+                "feeds": feeds,
+                "feed_wire_index": [(feed_wire_index,)] if feeds is None else [],
+                "node_gaps": node_gaps,
+            },
+            junctions=junctions,
+            junction_refs=tuple(junction_ports or ()),
+        )
+        wire_radius = _per_wire["wire_radius"]
+        wire_conductivity = _per_wire["wire_conductivity"]
+        insulation_radius = _per_wire["insulation_radius"]
+        insulation_eps_r = _per_wire["insulation_eps_r"]
+        insulation_loss_tangent = _per_wire["insulation_loss_tangent"]
+        distributed_rlc = _per_wire["distributed_rlc"]
+        feeds = _sites["feeds"]
+        if feeds is None:
+            feed_wire_index = _sites["feed_wire_index"][0][0]
+        node_gaps = _sites["node_gaps"]
+        self._cancel = cancel
+        # `pair_reuse` (momwire#1982, one switch since momwire#2063 step 4):
+        # True, "verify" or a front end's edge-pair hint turn on the census
+        # and the same-edge Toeplitz form together, False turns both off.
+        # Since momwire#2063 the census finds the classes itself
+        # (`_reuse_plan`), so a hint is read as True and not kept.
+        # `offset_reuse` is its deprecated spelling here, warned, and
+        # `pair_reuse` wins when both are given (`_features.enabled`).
+        reuse = None if pair_reuse is None else pair_reuse is not False
+        # Every feature this family honours is resolved here, once
+        # (`_features.bind`, momwire#1980), and read off `bound` below.
+        bound = _features.bind(
+            self,
+            self.FEATURE_SOLVER,
+            pair_reuse=reuse,
+            offset_reuse=offset_reuse,
+            transmitted_anchors=transmitted_anchors,
+            factored_columns=factored_columns,
+            height_sheet_recal=height_sheet_recal,
+            crossing_table=crossing_table,
+            crossing_sheet_retune=crossing_sheet_retune,
+            crossing_above_rule=crossing_above_rule,
+            kcl_nullspace=kcl_nullspace,
+            mixed_lu=mixed_lu,
+            rotational_symmetry=(
+                None if rotational_symmetry is None else bool(rotational_symmetry)
+            ),
+        )
+        self._rotational_bound = bound["rotational_symmetry"]
+        self._reuse_on = bool(bound["pair_reuse"])
+        # (geom, plan or None) of the last `_reuse_plan`, and that plan's
+        # evaluation groups, both per geometry object.
+        self._reuse_plan_cache = None
+        self._reuse_groups_cache = None
+        # Why the last plan has no image block over a ground (momwire#2063
+        # step 2a), and the class values a direct fill hands the image fill.
+        self._reuse_image_declined = None
+        self._held_reuse_values = None
+        # The pairs the same-edge routine formed for the last class values.
+        self._reuse_same_edge_formed = 0
+        self._remainder_reuse_cache = None
+        self._reuse_remainder_declined = None
+        # Why the reuse served nothing (None when it served, or was not
+        # asked): the sinusoidal and razor2p solvers' readout, of the same
+        # type.
+        self.pair_reuse_declined = None
+        # What the last fill served (momwire#2020), counted where the pairs
+        # were served, or None when no fill read a plan.
+        self.pair_reuse_served = None
+        # What the running fill's ground terms did (momwire#2068), by family:
+        # written where the image and the Sommerfeld remainder are filled,
+        # reset at each fill's start, read by `_fill_report_end`.
+        self._fill_ground_notes = {}
+        # momwire#1809, inside a block: a uniform edge's same-edge reg moments
+        # filled by segment offset (2N - 1 entries, not N^2), on with the
+        # switch: off is the dense fill, bit for bit.
+        self._offset_reuse = self._reuse_on
+        # Whether the fill report has reuse to speak of (momwire#2016).
+        self._fill_reuse_asked = self._reuse_on
+        # momwire#1847: the below->above grid from frequency anchors, so a
+        # sweep shares it. None defers to MOMWIRE_X_TRANSMITTED_ANCHORS
+        # (`_features`, reach 1); off is the exact grid, bit for bit.
+        self._transmitted_anchors = bound["transmitted_anchors"]
+        # momwire#1860 L1: the near-interface columns' factored route. None
+        # defers to MOMWIRE_X_FACTORED_COLUMNS (`_features`, reach 1, native);
+        # off is the member route, bit for bit.
+        self._factored_columns = bound["factored_columns"]
+        # momwire#1860 L2: the near-interface height census recalibrated.
+        # None defers to MOMWIRE_X_HEIGHT_SHEET_RECAL (`_features`, reach 1,
+        # python); off is the shipped census, bit for bit.
+        self._height_sheet_recal = bound["height_sheet_recal"]
+        # momwire#1860 L5: the crossing table. None defers to
+        # MOMWIRE_X_CROSSING_TABLE (`_features`, reach 1, native); off is the
+        # column twin, bit for bit.
+        self._crossing_table = bound["crossing_table"]
+        # momwire#1956: the near-interface sheets' build weights retuned. None
+        # defers to MOMWIRE_X_CROSSING_SHEET_RETUNE (`_features`, reach 1,
+        # python); off is the shipped census, bit for bit.
+        self._crossing_sheet_retune = bound["crossing_sheet_retune"]
+        # momwire#1860 B1: a crossing deck's above/above remainder at the
+        # above-ground rule. None defers to MOMWIRE_X_CROSSING_ABOVE_RULE
+        # (`_features`, reach 1, python); off is the cross block's order,
+        # bit for bit.
+        self._crossing_above_rule = bound["crossing_above_rule"]
+        # momwire#1898: the junction constraints eliminated before the factor
+        # (`_kcl_nullspace`) where the Schur solve back-substitutes them. None
+        # defers to MOMWIRE_X_KCL_NULLSPACE (`_features`, reach 1, python);
+        # off is the Schur route, bit for bit. `kcl_nullspace_route` records
+        # what the last constrained solve took: None (off, or no rows),
+        # "reduced", or "schur: <why the rows were not reducible>".
+        self._kcl_nullspace = bound["kcl_nullspace"]
+        self.kcl_nullspace_route = None
+        # momwire#2125: the one-shot dense solve by complex64 LU and complex128
+        # refinement, falling back to the ordinary in-place factor
+        # (`_lapack.mixed_lu_scope`, opened around `_lu_solve` only). Off is
+        # the flag-off solve, bit for bit.
+        self._mixed_lu = bound["mixed_lu"]
+        if degree < 1:
+            raise ValueError(f"degree must be >= 1, got {degree}")
+        if degree > _BSPLINE_MAX_DEGREE:
+            raise NotImplementedError(
+                f"degree > {_BSPLINE_MAX_DEGREE} needs "
+                "scripts/derive_bspline_static_moments.py to be re-run with a "
+                "larger MAX_D"
+            )
+        if not wires:
+            raise ValueError("wires must be non-empty")
+        if use_singular_enrichment and (
+            wire_conductivity is not None or insulation_radius is not None
+        ):
+            raise NotImplementedError(_ENRICHMENT_WIRE_LOADING_REFUSAL)
+
+        self.degree = int(degree)
+        self.wavelength = wavelength
+        self.halfdriver_factor = halfdriver_factor
+        self.wire_radius = wire_radius
+        self.nsegs = nsegs
+        self.ground_z = ground_z
+        # Finite ground via NEC-style reflection-coefficient weighting of the
+        # image block (docs/refl-coef-ground-plan.md). None → PEC image
+        # (today's behavior). A complex ε̃ or (eps_r, sigma) tuple → Fresnel-
+        # weighted image; needs ground_z. `ground_phi_mode` picks the image-
+        # charge (Φ-term) weighting candidate — see _ground_refl.PHI_MODES.
+        #
+        # Validity window (#153): this mixed-potential refl-coef path is
+        # accurate for wires 0.1–0.5λ above the plane — the Φ-term has no
+        # exact Fresnel weight, and its θ=0 approximation degrades in the
+        # quasi-static near field (|ΔΓ| ~0.02 at 0.1λ, ~0.13 at 0.05λ).
+        # Below ~0.1λ prefer `ground_model="sommerfeld"` (exact everywhere,
+        # contact-capable since #151) or the field-based SinusoidalSolver,
+        # which applies NEC's dyad exactly at any height.
+        #
+        # AT the plane it is no longer advice. Ground CONTACT under this
+        # ground model is REFUSED (momwire#282 stage 1, below) — the window
+        # does not merely degrade at zero clearance, it ends, and this
+        # comment used to be the only thing saying so while the code
+        # answered anyway.
+        if ground_eps is not None and ground_z is None:
+            raise ValueError("ground_eps requires ground_z to be set")
+        if ground_phi_mode not in _ground_refl.PHI_MODES:
+            raise ValueError(
+                f"ground_phi_mode must be one of {_ground_refl.PHI_MODES}, "
+                f"got {ground_phi_mode!r}"
+            )
+        self.ground_eps = ground_eps
+        self.ground_phi_mode = ground_phi_mode
+        # `ground_model` picks the finite-ground physics when `ground_eps`
+        # is set: "refl-coef" (NEC gn 0 style, the default) or "sommerfeld"
+        # (NEC gn 2 style: exact image scaled by C2 = (eps-1)/(eps+1) plus
+        # the interpolated Sommerfeld remainder — see
+        # docs/sommerfeld-ground-plan.md). `ground_phi_mode` applies to
+        # "refl-coef" only; the sommerfeld image coefficient is exact and
+        # has no knob. `n_qp_sommerfeld` is the per-segment Gauss order of
+        # the remainder block's field-form Galerkin quadrature (the kernel
+        # is smooth — the image point is below the plane — so 3 converges;
+        # guarded by a q-vs-q+2 test).
+        if ground_model not in ("refl-coef", "sommerfeld"):
+            raise ValueError(
+                "ground_model must be 'refl-coef' or 'sommerfeld', "
+                f"got {ground_model!r}"
+            )
+        if ground_model == "sommerfeld" and ground_eps is None:
+            raise ValueError("ground_model='sommerfeld' requires ground_eps")
+        self.ground_model = ground_model
+        self.n_qp_sommerfeld = int(n_qp_sommerfeld)
+        # NEC's extended thin-wire kernel (momwire#249). See the class
+        # docstring for what it is and what it costs; `_ek_spec` builds the
+        # per-fill eligibility spec and every fill site guards on this flag,
+        # so an EK-off solve never enters a line of EK code.
+        self.extended_kernel = bool(extended_kernel)
+        # (geom, {mirror: (group_i, group_j)}) — per-geometry-object cache of
+        # the axis-group labels, identity-checked, same pattern as
+        # `SinusoidalSolver._cached_ek_gating`.
+        self._cached_ek_groups = None
+        # momwire#1170 stage 0: the buried fill's masked spec, same cache shape.
+        self._cached_ek_above = None
+        self._warned_ek_above = False
+        if self.extended_kernel:
+            # One refusal rather than a half-served path (#249 §5). The
+            # second (finite ground) was lifted by momwire#269 — see below.
+            if use_singular_enrichment:
+                raise NotImplementedError(_ENRICHMENT_EXTENDED_KERNEL_REFUSAL)
+            # Finite ground (`ground_eps`, both models) is served since
+            # momwire#269. What #249 refused as "an ungated mixture" now has
+            # its gates: the refl-coef image rides the same EK-aware moment
+            # blocks as the PEC image (the Fresnel tables are per-pair
+            # weights applied AFTER the fill, so the kernel choice is
+            # orthogonal to them), and the Sommerfeld remainder /global
+            # low-rank term deliberately stay REDUCED — see the class
+            # docstring's "Finite ground under EK" note for the (a/2h)²
+            # negligibility arithmetic and
+            # tests/test_extended_kernel_bspline.py's G16-G19 for the
+            # measurements behind it.
+        # momwire#1408: the exact ring kernel on coaxial pairs, opt-in. Off,
+        # nothing below reads it but the guard in `_compute_Z_operator`.
+        # Parsed, and True's refusals raised, by the shared option
+        # (`_exact_kernel_seam`, momwire#1433); "auto" is resolved at the end
+        # of __init__ (`_resolve_exact_kernel_auto`), once the geometry and
+        # the ground are known, and is off until then. The two refusals of
+        # this family's own are `_exact_kernel_family_refusals`.
+        self._exact_kernel_init(
+            exact_kernel,
+            _exact_kernel_refusals(use_singular_enrichment, rotational_symmetry),
+            # the seam's wire indices, onto the wires solved (a dropped copy
+            # is not one)
+            auto_skip=_solved_wires(exact_kernel_auto_skip, self._wire_dedup),
+        )
+        self.swept_mem_mb = int(swept_mem_mb)
+        if self.swept_mem_mb < 1:
+            raise ValueError(f"swept_mem_mb must be >= 1, got {swept_mem_mb}")
+        # Source smoothing: when None (default) → delta-gap at exact midpoint
+        # of feed wire. When set to a float α, the delta-gap is replaced by a
+        # cos² bump of width w = α · h_feed_segment_at_source centered on s_f,
+        # giving basis-limited convergence instead of the O(1/N) delta-gap
+        # source-singularity rate. α ≈ 2-4 is a sensible starting point;
+        # larger α gives faster basis-limited convergence but the smoothing
+        # error from the bump's finite width takes longer to vanish.
+        self.feed_smoothing_factor = feed_smoothing_factor
+        # Gap-source model (stevenmburns/momwire#216), the mirror of #192's
+        # option on the sinusoidal siblings. "point" (default) is this
+        # solver's native zero-width drive E_app = V·δ(s − s_f); "segment" is
+        # NEC's segment-wide gap, E_app = V/Δ uniform over the mesh cell
+        # containing s_f (Eq 187's convention). Both are gap models, so
+        # combining "segment" with the cos²-bump `feed_smoothing_factor` is
+        # meaningless — each replaces the point drive outright.
+        if feed_model not in ("point", "segment"):
+            raise ValueError(
+                f"feed_model must be 'point' or 'segment', got {feed_model!r}"
+            )
+        if feed_model == "segment" and feed_smoothing_factor is not None:
+            raise ValueError(
+                "feed_model='segment' and feed_smoothing_factor are mutually "
+                "exclusive — both replace the point drive with a spread one"
+            )
+        self.feed_model = feed_model
+        self.n_qp_source = int(n_qp_source)
+
+        self.c = 1 / np.sqrt(self.eps * self.mu)
+        self.freq = self.c / self.wavelength
+        self.omega = 2 * np.pi * self.freq
+        self.k = self.omega / self.c
+        self.halfdriver = self.halfdriver_factor * self.wavelength / 4
+
+        self.wires_polylines = [np.asarray(w, dtype=float) for w in wires]
+        for i, pl in enumerate(self.wires_polylines):
+            if pl.ndim != 2 or pl.shape[0] < 2 or pl.shape[1] != 3:
+                raise ValueError(f"wire {i}: polyline must be (M, 3) with M >= 2")
+
+        # momwire#282 stage 1: ground CONTACT under the reflection-
+        # coefficient ground is refused, at construction, before any
+        # geometry is built. It is checked HERE rather than beside the other
+        # ground validation above because it is the one ground check that
+        # needs the wires. The condition is exactly `contact_ends` — a wire
+        # END in the plane, junctioned or not, which is what
+        # `_wire_endpoint_status` will tag `"ground"` — so the refusal and
+        # the grounded basis agree on what contact is by construction.
+        if self.ground_eps is not None and self.ground_model == "refl-coef":
+            touching = _ground_spec.contact_ends(self.wires_polylines, self.ground_z)
+            if touching:
+                where = ", ".join(f"wire {w} {kind}" for w, kind in touching)
+                raise NotImplementedError(
+                    f"{where} lies in the ground plane: "
+                    f"{_ground_spec.CONTACT_UNDER_REFL_COEF_REFUSAL}"
+                )
+
+        n_w = len(self.wires_polylines)
+
+        # Per-wire conductor radius (stevenmburns/momwire#147): a scalar
+        # applies to every wire; a length-n_wires sequence gives each wire
+        # (polyline) its own. `_uniform_radius` is the scalar fast path —
+        # it keeps the historical scalar code paths (and the single-`a`
+        # C++ kernel arguments) bit-identical whenever all wires share one
+        # radius, including when that radius arrived as a uniform array.
+        # Mixed radii use the OBSERVER wire's radius in the a²-regularised
+        # kernel — see docs/sinusoidal_basis_design.md "Per-wire radius"
+        # for the convention and its PyNEC oracle validation.
+        self._radius_per_wire, self._uniform_radius = _wire_spec.normalize_wire_radius(
+            wire_radius, n_w
+        )
+        if use_singular_enrichment and self._uniform_radius is None:
+            raise NotImplementedError(_ENRICHMENT_PER_WIRE_RADIUS_REFUSAL)
+
+        # Distributed series wire impedance (stevenmburns/momwire#131):
+        # finite conductivity (skin-effect internal impedance) and/or a
+        # dielectric jacket (series inductance → velocity factor). Each is
+        # None (off, today's PEC behavior), a scalar (every wire), or a
+        # per-wire sequence (NaN entries switch a wire off). The loading
+        # enters Z as Σ_w Z'_w(ω)·S_w over same-wire basis overlaps — see
+        # `_loading_gram` / `_apply_loading`.
+        _wire_loading.configure_loading(
+            self,
+            n_w,
+            wire_conductivity,
+            insulation_radius,
+            insulation_eps_r,
+            distributed_rlc,
+            insulation_loss_tangent,
+        )
+        # Per-instance cache for the k-independent loading Gram structure
+        # (rows, cols, vals, wire_of_nnz) — see `_loading_gram`.
+        self._cached_loading_gram = None
+        self._cached_charge_gram = None
+
+        if n_per_edge_per_wire is None:
+            n_per_edge_per_wire = [None] * n_w
+        if len(n_per_edge_per_wire) != n_w:
+            raise ValueError(
+                f"n_per_edge_per_wire length {len(n_per_edge_per_wire)} != n_wires {n_w}"
+            )
+
+        self.n_per_edge_per_wire = []
+        for i, (pl, npe) in enumerate(zip(self.wires_polylines, n_per_edge_per_wire)):
+            n_edges_w = pl.shape[0] - 1
+            if npe is None:
+                npe = self.nsegs
+            if np.isscalar(npe):
+                npe = [int(npe)] * n_edges_w
+            npe = list(npe)
+            if len(npe) != n_edges_w:
+                raise ValueError(
+                    f"wire {i}: n_per_edge length {len(npe)} != n_edges {n_edges_w}"
+                )
+            self.n_per_edge_per_wire.append(npe)
+
+        if feeds is None:
+            if not (0 <= feed_wire_index < n_w):
+                raise ValueError(f"feed_wire_index {feed_wire_index} out of range")
+            self.feeds = [(int(feed_wire_index), feed_arclength, 1.0 + 0.0j)]
+        else:
+            if len(feeds) == 0 and not junction_ports and not node_gaps:
+                # Junction ports (issue #172) and node gaps (issue #305) are
+                # drive/readout ports in their own right, so a solve driven
+                # entirely through them needs no gap feed at all.
+                raise ValueError("feeds must contain at least one entry")
+            norm = []
+            for i, f in enumerate(feeds):
+                if len(f) != 3:
+                    raise ValueError(
+                        f"feeds[{i}]: expected (wire_index, arclength, voltage), got {f!r}"
+                    )
+                w_i, arc_i, v_i = f
+                if not (0 <= w_i < n_w):
+                    raise ValueError(
+                        f"feeds[{i}]: wire_index {w_i} out of range [0, {n_w})"
+                    )
+                arc_i = None if arc_i is None else float(arc_i)
+                norm.append((int(w_i), arc_i, complex(v_i)))
+            self.feeds = norm
+
+        # Back-compat scalars — None when driven entirely through junction
+        # ports (feeds=[] with junction_ports, issue #172).
+        self.feed_wire_index = self.feeds[0][0] if self.feeds else None
+        self.feed_arclength = self.feeds[0][1] if self.feeds else None
+        # `None` means "let the deck choose" — resolved lazily by the
+        # `n_qp_pair` property below, because whether this deck is buried is
+        # a GEOMETRY question and the wires are not walked yet here. An
+        # explicit value always wins and is never second-guessed.
+        self._n_qp_pair_arg = None if n_qp_pair is None else int(n_qp_pair)
+        self._n_qp_pair_resolved = None
+        self.n_qp_pair_same_edge = int(n_qp_pair_same_edge)
+        # Same contract as `n_qp_pair`: None defers to the deck, an explicit
+        # ladder (including the empty one) always wins (momwire#906).
+        self._pair_order_ladder_arg = (
+            None
+            if pair_order_ladder is None
+            else tuple((float(r), int(n)) for r, n in pair_order_ladder)
+        )
+        # momwire#1304: None follows the direct term's ladder; `()` is the
+        # pre-#1304 8-point image fill, kept as the reference.
+        self._image_pair_order_ladder_arg = (
+            None
+            if image_pair_order_ladder is None
+            else tuple((float(r), int(n)) for r, n in image_pair_order_ladder)
+        )
+
+        # Singular basis enrichment at K≥`enrichment_min_k` junctions.
+        # When enabled, adds ONE extra basis per (wire, end_pos) tuple at each
+        # qualifying junction, with shape Φ_sing(u) = (u/h)·log(u/h) on the
+        # adjacent segment (u measured from the junction node, so Φ_sing(0)=0
+        # matching the finite-current condition while dΦ_sing/du has a log
+        # singularity that captures the classical K≥3 junction charge-density
+        # singularity). On hentenna-class geometries this flips the R-rate
+        # from O(1/N) to ~O(1/N^(d+1)) (basis-limited). Quadrature is GL with
+        # `n_qp_sing` nodes per axis (default 32) routed through the C++
+        # `assemble_Z_enrich` accelerator.
+        self.use_singular_enrichment = bool(use_singular_enrichment)
+        self.n_qp_sing = int(n_qp_sing)
+        self.enrichment_min_k = int(enrichment_min_k)
+        # `enrichment_variant` picks the singular basis shape:
+        #   "raw"    → Φ_sing(t) = t·log(t), the unmodified PR #47 shape.
+        #             Mixed behavior: captures real cusps where they exist
+        #             (balanced K=3 like Y-fixture: ~0.08 Ω R correction)
+        #             but also absorbs polynomial discretization error at
+        #             small N (hentenna n=21: ~0.26 Ω X transient post-#51
+        #             sign fix). PR #45 / #47 default.
+        #   "stable" → Φ_sing_stable(t) = t·log(t) − P_bubble(t·log(t)) where
+        #             P_bubble is the L²-orthogonal projection onto the
+        #             polynomial bubble subspace of P_d that vanishes at
+        #             both t=0 and t=1 (preserves Φ_sing's endpoint BCs;
+        #             required because the KCL constraint only sees the
+        #             polynomial bases). Trade-offs measured on probe
+        #             scripts: hentenna large-N converges faster
+        #             (X-rate p≈4.10 vs raw's 2.7); fan-dipole gap closes
+        #             to noise floor; **hentenna small-N gets a larger
+        #             transient (~0.79 Ω X at n=21)**; Y-fixture loses
+        #             its 0.08 Ω R cusp benefit. Not "universally safe."
+        #             For d=1 the bubble subspace is empty so "stable"
+        #             reduces to "raw" identically.
+        # "tikhonov" → raw Φ_sing basis, but add λ·s·I to the enrichment
+        # block Z_ee at solve time, where s is the average diagonal
+        # magnitude of Z_ee (so λ is a dimensionless relative-strength
+        # knob). Penalizes ||α_enr||² in the augmented objective; shrinks
+        # spurious-large α at small N without re-deriving the basis.
+        # λ → 0 ⇒ raw; λ → ∞ ⇒ enrichment effectively off.
+        # "auto" → two-pass selectivity. Solve once without enrichment,
+        # measure tap_ratio = min|I_wire|/max|I_wire| over wires meeting
+        # at each K≥enrichment_min_k junction (the same diagnostic as
+        # scripts/probe_k3_junction_imbalance.py), and apply raw
+        # enrichment only at junctions where tap_ratio exceeds
+        # `auto_tap_ratio_threshold`. Cleanly separates dominant-pair
+        # K=3 (hentenna ≈ 0.16, fan-dipole ≈ 0.03) from balanced 3-way
+        # (Y-fixture ≈ 0.50). One extra solve per compute_impedance
+        # call; second solve skipped if no junction qualifies.
+        if enrichment_variant not in ("raw", "stable", "tikhonov", "auto"):
+            raise ValueError(
+                f"enrichment_variant must be one of 'raw', 'stable', "
+                f"'tikhonov', 'auto', got {enrichment_variant!r}"
+            )
+        self.enrichment_variant = enrichment_variant
+        self.tikhonov_lambda = float(tikhonov_lambda)
+        self.auto_tap_ratio_threshold = float(auto_tap_ratio_threshold)
+        # Populated by compute_impedance when variant="auto" runs the
+        # two-pass solve so currents_at_knots can index the enrichment
+        # block consistently. None means "ignore auto-selection".
+        self._auto_active_junctions = None
+
+        # momwire#429 rank 8: the spec, its inference and its validation are
+        # `_wire_spec.normalize_junctions` -- one owner, because a node-gap
+        # port names a MEMBER of a group and every family has to agree with
+        # every other about what the members are.
+        self.junctions = _wire_spec.normalize_junctions(
+            junctions, self.wires_polylines, self.n_per_edge_per_wire
+        )
+
+        # Junction ports (issue #172): junction groups promoted to network
+        # ports. Each entry is (junction_index, voltage) — a plain int means
+        # voltage 0. A port junction's KCL closure row leaves the constraint
+        # set (the grounded-junction #151 move) and becomes the port's
+        # source/readout vector instead: voltage V drives the excitation
+        # v += V·A_p, and the port current reads I_p = A_p·coeffs — the same
+        # Galerkin-reciprocity pairing as delta-gap feeds, so mixed-port Y
+        # matrices stay symmetric by construction. Ports are ordered after
+        # the gap feeds everywhere: [feeds..., junction_ports...].
+        self.junction_ports = []
+        if junction_ports is not None:
+            seen = set()
+            for p in junction_ports:
+                if isinstance(p, (int, np.integer)):
+                    j_idx, volt = int(p), 0j
+                else:
+                    j_idx, volt = int(p[0]), complex(p[1])
+                if not (0 <= j_idx < len(self.junctions)):
+                    raise ValueError(
+                        f"junction_ports: junction index {j_idx} out of range "
+                        f"[0, {len(self.junctions)})"
+                    )
+                if j_idx in seen:
+                    raise ValueError(f"junction_ports: junction {j_idx} listed twice")
+                seen.add(j_idx)
+                self.junction_ports.append((j_idx, volt))
+
+        # Node gaps (issue #305): a SERIES delta-gap EMF at a junction node,
+        # in series with a named wire-end — the apex feed. Each entry is
+        # (wire_index, "start"|"end", voltage). The named end must belong to
+        # a junction group; the junction's KCL row STAYS in the constraint
+        # set (current is continuous through a series EMF — contrast a #172
+        # junction port, whose row leaves it to drive net inflow). The port's
+        # drive/readout vector is the σ-signed unit indicator of that
+        # wire-end's directional basis (σ = +1 start / −1 end, the KCL
+        # outflow sign), so I_port is the current flowing from the node into
+        # the named wire and the pairing is Galerkin-reciprocal — mixed-port
+        # Y stays symmetric alongside gap feeds and junction ports. At a
+        # degree-2 vertex the member choice does not change Z (through
+        # current, both orientations agree); at degree ≥ 3 it names which
+        # arm the gap separates, NEC-5's tag/segment/end addressing. Ports
+        # order [feeds..., junction_ports..., node_gaps...].
+        # momwire#603 U4: the spec and its validation are
+        # `_wire_spec.normalize_node_gaps` — every rule in it is about the
+        # SPEC and the topology, not about this basis.  What stays here is
+        # the port's column (`_node_gap_columns`), which is the one part a
+        # family cannot share.
+        self.node_gaps = _wire_spec.normalize_node_gaps(
+            node_gaps,
+            self.junctions,
+            n_w,
+            junction_ports=[j for j, _v in self.junction_ports],
+        )
+
+        # `compute_impedance(...)` and `currents_at_knots(coeffs)` both call
+        # `_build_geometry()` + `_build_basis_polynomials(geom)` from scratch
+        # — on the N=21 hentenna width-sweep harness that's ~90 ms/step of
+        # repeated Python work (see scripts/vtune_hentenna_width_sweep.py).
+        # Cache both on the instance. Neither depends on `k` (only on the
+        # immutable geometry inputs + degree + junctions), so
+        # `compute_impedance_swept`'s per-k loop also benefits.
+        self._cached_geometry: dict | None = None
+        self._cached_basis_polynomials: tuple | None = None
+        # (geom, specular tables) for the ground_eps weighted image — same
+        # lifetime as the geometry cache; k-independent, so swept solves
+        # reuse it across the whole frequency loop.
+        self._cached_image_refl_prep: tuple | None = None
+        # momwire#634: the near-image analytic edge blocks the fast
+        # solvers' sub-block fills gather from, and the spans that say
+        # which segments are on one. Both are properties of the deck
+        # (and, for the blocks, of k), not of any partition.
+        self._cached_near_image_spans: tuple | None = None
+        self._cached_near_image_blocks: tuple | None = None  # (k, {edge: block})
+        # Per-wire medium labels (momwire#553 U5): geometry plus the three
+        # ground kwargs, all frozen after __init__, so one answer per solver.
+        self._cached_wire_media: tuple | None = None
+        # SommerfeldGrid lives in the module-level cache in
+        # `_sommerfeld.get_grid` so it survives across solver instances.
+
+        # momwire#1029: the opt-in sector (block-circulant) route. LAST in
+        # __init__ because the check reads the normalized junctions, ports and
+        # loading above it, and it refuses AT CONSTRUCTION — a deck that is not
+        # N copies of one sector can never take the route, so failing here
+        # names the geometry while the caller still has it in hand, rather than
+        # at the end of a fill. `None` is the whole of the default path: no
+        # attribute the dense route reads changes, and no new code runs.
+        self._rotational_map = None
+        # How far the N axis-against-sector copies of Z disagree on the last
+        # solve, relative to their largest entry — PLAN-phase1 §4's free check
+        # on the sector assignment, read back by the gates. None until a
+        # sector solve has run.
+        self._rotational_copy_spread = None
+        # momwire#1338: the keyword insists (a deck the route does not serve
+        # is refused), while None defers to MOMWIRE_X_ROTATIONAL_SYMMETRY,
+        # which asks for the route where it serves and otherwise declines,
+        # naming why (`rotational_symmetry_declined`). exact_kernel=True is
+        # one such reason: with the keyword it is refused above.
+        self.rotational_symmetry, self._rotational_map = _rotational_symmetry.resolve(
+            self,
+            rotational_symmetry,
+            self._rotational_bound,
+            self._rotational_check,
+            extra_refusal=(
+                "rotational symmetry: exact_kernel=True does not serve the sector"
+                " route's restricted rows (momwire#1408)."
+                if self.exact_kernel_requested is True
+                else None
+            ),
+        )
+        if self.exact_kernel_requested == "auto":
+            self.exact_kernel = self._resolve_exact_kernel_auto()
+        # The advisories below read the RESOLVED kernel (momwire#1412), so they
+        # follow "auto" -- which is why they come after it. The fill can still
+        # drop the correction under "auto" for a restricted-row route, but the
+        # only one is the rotational sector route, which "auto" already
+        # resolves False for here.
+        # True with a route the fill will refuse (buried, lossy) counts as
+        # not running: the fill raises before any number comes out
+        # (`_exact_kernel_resolved`).
+        exact_runs, servable = self._exact_kernel_resolved()
+        gaps = _wire_spec.solver_gaps(self, end_ports_are_gaps=not exact_runs)
+        short_ek, gap_ek = self._exact_kernel_advisory_kernels(
+            exact_runs, servable, gaps
+        )
+        # momwire#1378: any segment under two radii, anywhere (not only at a gap).
+        # Advisory, once per solver, on the final mesh; silent where the exact
+        # ring kernel runs (on a buried deck, on the wires it reaches).
+        _wire_spec.advise_short_segments(
+            type(self).__name__,
+            self.wires_polylines,
+            self.n_per_edge_per_wire,
+            self._radius_per_wire,
+            exact_kernel=short_ek,
+        )
+        # momwire#959: segments below the radius AT A GAP. Advisory, once per
+        # solver; its text follows the kernel (thin-wire collapse, or the
+        # exact kernel's point-gap drift), and under the exact kernel the
+        # end-port junction ports are not gaps.
+        _wire_spec.advise_gap_mesh_floor(
+            type(self).__name__,
+            self.wires_polylines,
+            self.n_per_edge_per_wire,
+            self._radius_per_wire,
+            self.extended_kernel,
+            gaps,
+            gap_model="point",
+            exact_kernel=gap_ek,
+            fixed_gap_feed=self.EXACT_KERNEL_FIXED_GAP_FEED,
+        )
+        if (
+            self.exact_kernel_requested is True
+            and self.feed_model == "point"
+            and self.feeds
+        ):
+            warnings.warn(
+                _exact_kernel_seam.point_gap_warning(self.EXACT_KERNEL_FIXED_GAP_FEED),
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+    # -- the exact-kernel option's hooks (`_exact_kernel_seam`, momwire#1433)
+    def _exact_kernel_family_refusals(self):
+        """The two refusals of `exact_kernel=True` this family adds to the
+        shared ones, on the solver's current flags; either also makes "auto"
+        resolve False."""
+        return _exact_kernel_refusals(
+            self.use_singular_enrichment, self.rotational_symmetry
+        )
+
+    def _exact_kernel_buried(self):
+        return self.ground_z is not None and self._has_buried_wires()
+
+    # momwire#1619 stage 1: the coaxial pairs whose two segments are both
+    # above the ground take the correction after the buried fill.
+    _serves_exact_kernel_above_buried = True
+
+    def _exact_kernel_any_above(self):
+        return any(m != _medium_spec.BELOW for m in self._wire_media())
+
+    def _exact_kernel_lossy(self):
+        return bool(np.iscomplexobj(self.k) or np.iscomplexobj(self.eps))
+
+    def _exact_kernel_h_and_a(self):
+        geom = self._build_geometry()
+        h = norm3(geom["seg_r"] - geom["seg_l"])
+        a = self._seg_radius(geom)
+        seg_off = np.asarray(geom["seg_offsets"], dtype=np.int64)
+        wire = np.repeat(np.arange(seg_off.size - 1), np.diff(seg_off))
+        if self._exact_kernel_buried():
+            above = ~np.asarray(self._below_segments(geom), dtype=bool)
+            return h[above], a[above], wire[above]
+        return h, a, wire
+
+    def _rotational_ground_kind(self):
+        """The ground's name for the rotational-symmetry rule (momwire#1029
+        §3.6). Every ground THIS family can express is invariant under
+        rotation about a vertical axis, so every answer here is in
+        `_rotational_symmetry.AXISYMMETRIC_GROUNDS` — the seam exists because
+        the condition is about the ground and not about this solver, and a
+        family that grows a terrain or two-media ground refuses the route by
+        overriding this with a name the whitelist does not carry."""
+        if self.ground_z is None:
+            return "free"
+        if self.ground_eps is None:
+            return "pec"
+        return self.ground_model
+
+    def _rotational_check(self):
+        """The §3 rule plus the scope condition that is about THIS route
+        rather than about the deck's symmetry.
+
+        There used to be a second one: the route filled one sector through
+        the BURIED fill, the only one that could restrict its observer rows,
+        so a deck with no wire below the interface was refused. The
+        above-ground fill learned `rows=` in momwire#1131, so an elevated or
+        surface screen -- over any ground `_rotational_ground_kind` names,
+        free space included -- is served now. What breaks the symmetry is
+        still refused, by `sector_map`, condition by condition."""
+        if self.use_singular_enrichment:
+            raise _rotational_symmetry.RotationalSymmetryRefused(
+                "rotational symmetry: singular enrichment adds a block that is "
+                "not sector-structured, and the route has no decomposition for "
+                "it. Disable singular enrichment, or drop "
+                "rotational_symmetry=True to solve this deck densely."
+            )
+        return _rotational_symmetry.sector_map(self)
+
+    # ------------------------------------------------------------------
+    # Geometry build
+    # ------------------------------------------------------------------
+
+    def _build_geometry(self):
+        """Discretize all wires, concatenate to global arrays.
+
+        Per-wire metadata is preserved so the basis-polynomial extraction
+        (which operates on each wire's clamped knot vector independently)
+        can be done wire-by-wire.
+
+        Returns a `geom` dict with:
+          per_wire: list of per-wire dicts (seg_l, seg_r, tangents, h_per_seg,
+              edge_offsets, edge_arc_edges, arc_at_knot, n_total)
+          seg_offsets: list[n_w+1] of global segment index of wire start
+          n_segs_total: total segment count across all wires
+          h_per_seg: (N_total,) per-segment edge length
+          tangents: (N_total, 3) per-segment tangent unit vector
+          seg_l, seg_r: (N_total, 3) per-segment 3D endpoint
+        """
+        if self._cached_geometry is not None:
+            return self._cached_geometry
+        # Module cache hit → reuse the geom dict identity-stably across
+        # solver instances. The basis-polynomial instance cache keys on
+        # `cached_geom is geom`, so returning the same object also lets
+        # the basis-poly cache resolve through the module path below.
+        geom_key = self._geometry_cache_key()
+        cached = _GEOMETRY_CACHE.get(geom_key)
+        if cached is not None:
+            self._cached_geometry = cached
+            return cached
+        per_wire = []
+        seg_offsets = [0]
+        h_list = []
+        tangents_list = []
+        seg_l_list_all = []
+        seg_r_list_all = []
+        for w_idx, (pl, npe_list) in enumerate(
+            zip(self.wires_polylines, self.n_per_edge_per_wire)
+        ):
+            seg_l_w = []
+            seg_r_w = []
+            tan_w = []
+            h_w_list = []
+            edge_offsets = [0]
+            edge_arc_edges = []
+            for e_idx in range(pl.shape[0] - 1):
+                p0 = pl[e_idx]
+                p1 = pl[e_idx + 1]
+                edge_vec = p1 - p0
+                edge_len = float(norm3(edge_vec))
+                if edge_len < 1e-15:
+                    raise ValueError(f"wire {w_idx} edge {e_idx} has zero length")
+                tan = edge_vec / edge_len
+                n_e = npe_list[e_idx]
+                h_e = edge_len / n_e
+
+                t_node = np.linspace(0.0, 1.0, n_e + 1)
+                pts = (1 - t_node[:, None]) * p0[None, :] + t_node[:, None] * p1[
+                    None, :
+                ]
+                seg_l_w.append(pts[:-1])
+                seg_r_w.append(pts[1:])
+                tan_w.append(np.tile(tan, (n_e, 1)))
+                h_w_list.append(np.full(n_e, h_e))
+                edge_arc_edges.append(np.linspace(0.0, edge_len, n_e + 1))
+                edge_offsets.append(edge_offsets[-1] + n_e)
+
+            seg_l = np.vstack(seg_l_w)
+            seg_r = np.vstack(seg_r_w)
+            tangents_w = np.vstack(tan_w)
+            h_per_seg_w = np.concatenate(h_w_list)
+            n_total_w = seg_l.shape[0]
+            arc_at_knot = np.concatenate([[0.0], np.cumsum(h_per_seg_w)])
+
+            per_wire.append(
+                {
+                    "seg_l": seg_l,
+                    "seg_r": seg_r,
+                    "tangents": tangents_w,
+                    "h_per_seg": h_per_seg_w,
+                    "edge_offsets": edge_offsets,
+                    "edge_arc_edges": edge_arc_edges,
+                    "arc_at_knot": arc_at_knot,
+                    "n_total": n_total_w,
+                }
+            )
+            seg_offsets.append(seg_offsets[-1] + n_total_w)
+            h_list.append(h_per_seg_w)
+            tangents_list.append(tangents_w)
+            seg_l_list_all.append(seg_l)
+            seg_r_list_all.append(seg_r)
+
+        h_per_seg_global = np.concatenate(h_list)
+        tangents_global = np.vstack(tangents_list)
+        seg_l_global = np.vstack(seg_l_list_all)
+        seg_r_global = np.vstack(seg_r_list_all)
+
+        self._cached_geometry = {
+            "per_wire": per_wire,
+            "seg_offsets": seg_offsets,
+            "n_segs_total": seg_offsets[-1],
+            "h_per_seg": h_per_seg_global,
+            "tangents": tangents_global,
+            "seg_l": seg_l_global,
+            "seg_r": seg_r_global,
+        }
+        _evict_fifo(_GEOMETRY_CACHE, _GEOMETRY_CACHE_MAX)
+        _GEOMETRY_CACHE[geom_key] = self._cached_geometry
+        return self._cached_geometry
+
+    def _geometry_cache_key(self):
+        # Bytes view of each wire's float64 polyline + per-wire segmentation.
+        # Both are immutable post-__init__, and the geom dict depends on
+        # exactly these (see _build_geometry body).
+        return (
+            tuple(w.tobytes() for w in self.wires_polylines),
+            tuple(tuple(npe) for npe in self.n_per_edge_per_wire),
+        )
+
+    # ------------------------------------------------------------------
+    # Endpoint status (free vs junction)
+    # ------------------------------------------------------------------
+
+    def _wire_endpoint_status(self):
+        """For each wire, return the (start, end) endpoint condition:
+        "free", "ground", or the index of the junction connecting it.
+
+        "ground" marks an un-junctioned endpoint lying in an active ground
+        plane (|z − ground_z| ≤ 1e-6 of the wire's length): the wire is
+        electrically connected to ground, so its end current must NOT be
+        pinned to zero — the image supplies the return path/continuation
+        (issue #151). A *junctioned* endpoint at ground keeps its junction
+        index; the grounded-junction handling (KCL row dropped — current may
+        flow into ground) lives in `_grounded_junctions`.
+        """
+        n_w = len(self.wires_polylines)
+        start_status = ["free"] * n_w
+        end_status = ["free"] * n_w
+        for j_idx, jw in enumerate(self.junctions):
+            for w, end in jw:
+                if end == "start":
+                    start_status[w] = j_idx
+                else:
+                    end_status[w] = j_idx
+        gz = self.ground_z
+        _low_stand_off = []  # (h_min, a) per near-ground wire, momwire#865
+        if gz is not None:
+            media = self._wire_media()
+            for w_idx, pl in enumerate(self.wires_polylines):
+                tol = _ground_spec.ground_touch_tol(pl)
+                pl_arr = np.asarray(pl, dtype=np.float64)
+                if media[w_idx] == _medium_spec.BELOW:
+                    # Strictly below the interface, in the lower medium
+                    # (momwire#553 U5). No end of it touches the plane, so it
+                    # has no ground contact to tag and no in-plane edge to
+                    # diagnose — both of those are questions about the
+                    # INTERFACE, and this wire never reaches it. What used to
+                    # stand here was the "dips below the ground plane" raise;
+                    # `_wire_media` is where the two geometries still refused
+                    # (crossing, and buried over a ground with no lower
+                    # medium) name themselves now.
+                    continue
+                z_at = np.abs(pl_arr[:, 2] - gz) <= tol
+                if np.any(z_at[:-1] & z_at[1:]):
+                    raise ValueError(
+                        f"wire {w_idx} has an edge lying in the ground plane "
+                        "(both endpoints at ground_z) — degenerate over a "
+                        "conducting ground"
+                    )
+                # The validity FLOOR for the low-stand-off class (momwire#865).
+                # Two forms, because the evidence has two shapes:
+                #
+                #   bare wire:      h >= 2a
+                #   jacketed wire:  h >= b   (the jacket's OUTER radius)
+                #
+                # The bare bound is mesh stability. The jacketed one is
+                # physical and reads better than any ratio: the jacket may
+                # REST on the soil but not sink into it. At h = b the jacket
+                # exactly touches the interface; below it the jacket
+                # intersects the ground, which is a partly-buried wire and a
+                # different problem from a wire lying on top.
+                #
+                # Measured (N = 4, n_rad 10 -> 30, |dZ|/|Z|):
+                #
+                #   deck                       h/a   h/a'   10->30  20->30
+                #   bare at h = 2a (old floor)  2.00   2.00   5.81 %  0.49 %
+                #   No.18 b = 1.76a at h = b    1.76   1.21   2.48 %  0.28 %
+                #   THIN  b = 1.05a at h = b    1.05   1.02   6.03 %  0.93 %
+                #   THIN  b = 1.10a at h = b    1.10   1.04   5.52 %  0.85 %
+                #   bare at h = b (1.76a)       1.76    --    5.81 %  0.71 %
+                #
+                # A THICK jacket is markedly more stable than the bare deck the
+                # old floor admitted, and the enlarged a' is why: the
+                # a^2-regularised kernel is better conditioned for it.
+                #
+                # THAT ARGUMENT DOES NOT CARRY THE THIN JACKET, and the thin
+                # rows are the ones that justify the bound. At b = 1.05a the
+                # equivalent radius is only 1.02a, so the kernel is essentially
+                # the bare one at h/a = 1.05 — and it is still no worse than
+                # bare at h/a = 2.00 (6.03 % against 5.81 %, and BETTER on
+                # dR/R: 1.68 % against 3.97 %). The reason is the pair of bare
+                # rows above, which are IDENTICAL at h/a 2.00 and 1.76: in this
+                # range the bare instability is not a function of h at all, it
+                # is the mesh. A bare-like kernel at h/a 1.05 therefore behaves
+                # like a bare-like kernel at h/a 2.00, which is what makes
+                # h >= b safe for any jacket rather than only a thick one.
+                #
+                # Same "both endpoints" shape as the in-plane refusal above, so
+                # a vertical whose base merely reaches the plane is untouched —
+                # this is about an edge lying ALONGSIDE the interface, not one
+                # ending on it.
+                #
+                # The CONDUCTOR radius, not the kernel one: measuring the
+                # stand-off against a' would tighten the bare bound on the
+                # strength of a quasi-static charge radius, which is not what
+                # the mesh evidence measured.
+                a_w = float(self._conductor_radius_per_wire[w_idx])
+                jacket_b = None
+                if self.insulation_radius is not None and np.isfinite(
+                    self.insulation_radius[w_idx]
+                ):
+                    jacket_b = float(self.insulation_radius[w_idx])
+                # ONE owner since momwire#926 — the crossing advisory prices
+                # node grading against this same number, and two copies of it
+                # is how the two rules came to disagree in the first place.
+                h_floor = self._stand_off_floor(w_idx)
+                h_edge = pl_arr[:, 2] - gz
+                low = (h_edge > tol) & (h_edge < h_floor)
+                if np.any(low[:-1] & low[1:]):
+                    h_min = float(np.min(h_edge[low]))
+                    why = (
+                        (
+                            f"below b = {jacket_b * 1e3:.3f} mm, its jacket's "
+                            "OUTER radius. A jacketed wire may REST on the soil "
+                            "but not sink into it: at h = b the jacket exactly "
+                            "touches the interface, and below that the jacket "
+                            "intersects the ground, which is a partly-buried "
+                            "wire and a different problem. Lay it at h = b, or "
+                            "model it in the lower medium if it is genuinely "
+                            "buried"
+                        )
+                        if jacket_b is not None
+                        else (
+                            f"below the h/a = "
+                            f"{_surface_height.SURFACE_HEIGHT_CLASS.floor_h_over_a:.0f} "
+                            "validity floor for a BARE conductor, which is "
+                            "mesh stability rather than physics: the check "
+                            "moves "
+                            f"{_surface_height.SURFACE_HEIGHT_CLASS.mesh_move_pct_at_floor:.0f} "
+                            "% at the floor itself. Raise the wire, or give it "
+                            "the jacket it really has — an insulated conductor "
+                            "lying on soil is served down to h = b, and for "
+                            "No. 18 with a 0.4 mm wall that is h/a = 1.76, "
+                            "below this bare bound"
+                        )
+                    )
+                    # momwire#926: say so when this vertex came from GRADING.
+                    # The refusal is about a conductor lying alongside the
+                    # interface, but on a sloping arm the vertex is usually
+                    # not something the user placed — it is what
+                    # `CoarseCrossingNode` asked them to add, and that
+                    # advisory used to name an unconditional ~6 mm which this
+                    # floor forbids. Without this sentence the two rules read
+                    # as unrelated subsystems disagreeing.
+                    #
+                    # Detected locally, from facts this loop already has: the
+                    # wire ends ON the plane at a JUNCTION (so it is a node
+                    # arm), it has interior vertices at all (a single-edge arm
+                    # cannot have been graded), and a refused vertex IS one of
+                    # them. No call into the crossing machinery, which would
+                    # re-enter this method.
+                    graded = ""
+                    n_v = pl_arr.shape[0]
+                    node_end = (z_at[0] and start_status[w_idx] != "free") or (
+                        z_at[-1] and end_status[w_idx] != "free"
+                    )
+                    low_idx = np.flatnonzero(low)
+                    interior = np.any((low_idx > 0) & (low_idx < n_v - 1))
+                    if node_end and n_v > 2 and interior:
+                        e0 = 0 if z_at[0] else n_v - 2
+                        edge = pl_arr[e0 + 1] - pl_arr[e0]
+                        seg_len = float(norm3(edge))
+                        slope = abs(float(edge[2])) / seg_len if seg_len > 0 else 0.0
+                        l_min = _crossing_fill.node_panel_floor(h_floor, slope)
+                        if l_min is not None:
+                            graded = (
+                                f" This vertex came from node grading "
+                                f"(CoarseCrossingNode, momwire#674/#696): on "
+                                f"this arm's {slope * 100:.1f} % slope the "
+                                f"shortest panel the floor above allows is "
+                                f"L_min = {l_min * 1e3:.1f} mm, so grade from "
+                                f"there rather than from the ~6 mm that "
+                                f"advisory names on a level arm. The two rules "
+                                f"are connected: momwire#926."
+                            )
+                    raise _surface_height.StandOffFloorError(
+                        f"wire {w_idx} runs at h = {h_min * 1e3:.3f} mm above "
+                        f"the interface, h/a = {h_min / a_w:.2f}, {why}.{graded}"
+                        f" See {_surface_height.SURFACE_HEIGHT_CLASS.issue}"
+                    )
+                # Advisory candidates: served, but inside the sensitive band.
+                adv = (h_edge > tol) & (
+                    h_edge
+                    < _surface_height.SURFACE_HEIGHT_CLASS.advisory_h_over_a * a_w
+                )
+                if np.any(adv[:-1] & adv[1:]):
+                    _low_stand_off.append((float(np.min(h_edge[adv])), a_w))
+                if start_status[w_idx] == "free" and z_at[0]:
+                    start_status[w_idx] = "ground"
+                if end_status[w_idx] == "free" and z_at[-1]:
+                    end_status[w_idx] = "ground"
+        if _low_stand_off:
+            h_min, a_at = min(_low_stand_off)
+            # Recorded as well as emitted (momwire#927). This runs only past
+            # `_build_basis_polynomials`'s `_BASIS_POLY_CACHE` hit, and that
+            # cache deliberately outlives the solver instance — so without a
+            # summary to re-emit from, a second solve of the same deck says
+            # nothing at all.
+            self._surface_advisory = (h_min, a_at, len(_low_stand_off))
+            _surface_height.warn_surface_height(*self._surface_advisory)
+        return start_status, end_status
+
+    # ------------------------------------------------------------------
+    # Per-segment medium (momwire#553 U5)
+    # ------------------------------------------------------------------
+
+    def _lower_medium(self):
+        """Whether this solve's ground has a HALF-SPACE below the interface —
+        `_below_interface.lower_medium` (momwire#553 U5, moved in #980)."""
+        return _below_interface.lower_medium(self.ground_eps, self.ground_model)
+
+    def _wire_media(self):
+        """One `_medium_spec` label per wire, cached per instance.
+
+        Raises the crossing / no-lower-medium refusals by name. Geometry and
+        the three ground kwargs are all frozen after `__init__`, so this is
+        computed once.
+        """
+        cached = self._cached_wire_media
+        if cached is None:
+            cached = _medium_spec.wire_media(
+                self.wires_polylines,
+                self.ground_z,
+                lower_medium=self._lower_medium(),
+                pec=self.ground_eps is None,
+                crossing_ends=self._grounded_junction_ends(),
+            )
+            self._cached_wire_media = cached
+            # momwire#1946: advisory only, read once per solver from the labels.
+            _near_surface.warn_for_solver(self, cached)
+        return cached
+
+    def _grounded_junction_ends(self):
+        """The `(wire, "start"|"end")` pairs in a junction whose shared point
+        lies IN the ground plane — the crossing-junction exemption
+        `_medium_spec.wire_media` keys on. `_below_interface.grounded_junction_ends`
+        over the DECLARED groups; razor hands the same function its detected
+        ones (momwire#700 is what two copies of the geometry cost)."""
+        if self.ground_z is None or not self.junctions:
+            return frozenset()
+        return _below_interface.grounded_junction_ends(
+            self.wires_polylines, self.ground_z, self.junctions
+        )
+
+    def _crossing_junctions(self):
+        """Indices of junctions that CROSS the interface, after the crossing
+        serve's scope check — `_below_interface.crossing_junctions` over the
+        declared groups (momwire#524 phase 2; the scope and the #698 exemption
+        audit are documented there, shared with razor since #980). BSpline
+        opts into the two-radius node (antennaknobs plan U5)."""
+        return _below_interface.crossing_junctions(
+            self._wire_media(),
+            self.junctions,
+            self._grounded_junctions(),
+            self.wires_polylines,
+            self.ground_z,
+            self._radius_per_wire,
+            two_radius=True,
+        )
+
+    def _two_radius_crossing(self):
+        """`(a_above, a_below)` for a served TWO-RADIUS crossing deck, else
+        `None` (antennaknobs plan U5).
+
+        `None` without asking anything else when every wire has one radius, so
+        the shipped one-radius decks never reach the crossing scope from here;
+        `None` too when the deck has no crossing junction. A spread within one
+        side raises (`_below_interface.crossing_side_radii`)."""
+        radii = np.asarray(self._radius_per_wire, dtype=float)
+        if float(radii.max()) - float(radii.min()) <= 0.0:
+            return None
+        if self.ground_z is None or not self.junctions:
+            return None
+        media = self._wire_media()
+        if _medium_spec.BELOW not in media:
+            return None
+        return _below_interface.two_radius_crossing(
+            media, radii, self._crossing_junctions(), self.junctions
+        )
+
+    @property
+    def n_qp_pair(self):
+        """Cross-edge quadrature order, resolved from the deck when not given.
+
+        Two defaults because there are two FILLS, not because one knob means
+        two things. A deck with wires below the interface dispatches to
+        `_compute_Z_operator_buried`, which the comment there calls
+        "structurally a different fill, not a flag inside this one": three
+        pair classes, two wavenumbers, two permittivities. It gets its own
+        quadrature default for the same reason it gets its own code path.
+
+        Why 32 there (momwire#760). The buried/crossing class carries a large
+        quadrature CONSTANT — not, as #760 long recorded, a lost convergence
+        rate. Measured against a q=256 reference on main @ f729cb5, soil A,
+        degree 2:
+
+            deck                          q=8      q=32
+            antennaknobs hub (shipped)  0.1717    0.0047
+            crossing_deck(1)            0.0929    0.0003
+            hub_deck()                  0.0514    0.0001
+            fan (coincident rises)      2.5562    0.1049
+
+        Why NOT everywhere. On these decks the Sommerfeld evaluation
+        dominates and the order is free (+1-2% at steady state). In free
+        space it is the whole cost and it is O(n_qp^2): on a bent 400-segment
+        deck, 8 -> 32 is **4.8x**. A single-edge deck is unaffected either way
+        (since momwire#759 it never enters an off-edge kernel at all), which
+        is exactly why a straight-wire timing would have made this look free.
+
+        Resolution is lazy and cached: `_has_buried_wires()` walks the wires,
+        so it cannot be answered in `__init__`.
+        """
+        if self._n_qp_pair_arg is not None:
+            return self._n_qp_pair_arg
+        if self._n_qp_pair_resolved is None:
+            self._n_qp_pair_resolved = (
+                BURIED_N_QP_PAIR
+                if self.ground_z is not None and self._has_buried_wires()
+                else DEFAULT_N_QP_PAIR
+            )
+        return self._n_qp_pair_resolved
+
+    @property
+    def pair_order_ladder(self):
+        """The off-edge pair-order ladder for this deck (momwire#906).
+
+        Explicit wins; otherwise buried decks get `BURIED_PAIR_ORDER_LADDER`
+        and free-space decks `DEFAULT_PAIR_ORDER_LADDER`. Tiers that do not
+        sit strictly below the resolved `n_qp_pair` are dropped rather than
+        refused — a ladder written for the buried 32 is still a valid wish
+        under an explicit 8, just a shorter one. What survives is validated
+        by the kernel module's `_normalize_ladder`.
+
+        This is the deck's WISH, not what a fill should hand the kernel:
+        `_fill_ladder` resolves the phase guard once against the whole mesh
+        and honours the extended kernel's refusal (momwire#907).
+        """
+        if self._pair_order_ladder_arg is not None:
+            ladder = self._pair_order_ladder_arg
+        elif self.ground_z is not None and self._has_buried_wires():
+            ladder = BURIED_PAIR_ORDER_LADDER
+        else:
+            ladder = DEFAULT_PAIR_ORDER_LADDER
+        base = self.n_qp_pair
+        return _normalize_ladder(tuple((r, n) for r, n in ladder if n < base), base)
+
+    def _fill_ladder(self, k, seg_l, seg_r, ek):
+        """The pair-order ladder for a WHOLE fill, resolved once (momwire#907).
+
+        The problem this solves (momwire#921) is that two windows covering the
+        SAME pair must not disagree about its quadrature order. The chunked
+        fills add every pair in a sweep and subtract same-edge blocks back as
+        `corr = (A_st + A_reg) - J_edge`, and that cancellation is exact only
+        if both arms ran the same rule. When the phase guard was answered per
+        BLOCK, a sweep window spanning one coarse segment dropped the order-4
+        tier while the correction window for a finely meshed edge kept it —
+        measured on a 61-segment buried deck as ((2, 8),) against
+        ((2, 8), (16, 4)), over 33,738 far pairs on the free-space twin.
+
+        #921 fixed that by resolving the guard once against the whole mesh
+        here. momwire#920 replaced the mechanism: the guard is now answered
+        PER PAIR inside the kernel, so a pair's order depends only on the
+        pair and two windows cannot disagree about it however they are cut.
+        This method therefore hands the ladder over intact — trimming it here
+        would re-impose the deck-wide cliff #920 removed — and #921's
+        invariant holds for a better reason than it did.
+
+        The extended kernel takes the same ladder (momwire#1362): its coaxial
+        factor is applied at whatever order a pair runs. It was empty under
+        EK until the factor had been measured on the ladder; the EK-on Z
+        moved by at most 4e-13 relative on the issue's decks, the size of the
+        ladder's own movement with EK off, against 4e-5 to 2.4e-4 between EK
+        on and off (`tests/test_ek_pair_order_ladder_1362.py`). `ek` stays in
+        the signature so every fill keeps asking here.
+        """
+        del ek
+        return _normalize_ladder(self.pair_order_ladder, self.n_qp_pair)
+
+    def _image_fill_ladder(self, k, seg_l, seg_r, ek):
+        """The ladder for an above-ground IMAGE fill (momwire#1304).
+
+        By default the direct term's `_fill_ladder`, so the two terms of one
+        deck run the same rule. An image pair is, to the kernel, just a pair
+        of segments: the observer and a source the fill has already
+        reflected. The selector bins it by the distance to the source it is
+        HANDED (the mirror) over the longer segment, and the per-pair kL
+        guard (#920) reads the two segment lengths, which a mirror does not
+        change — so a given image pair gets exactly the order, and the error,
+        the same geometry would get as a direct pair (measured: per moment
+        index, order 4 vs 8 on a 2-lambda wire's image at kL 0.42 and 0.48
+        matches the parallel direct pair to two digits). What the image term
+        adds is only a different population of geometries, and the #1304
+        study covered it: a height sweep to 0.005 lambda and the AK catalog,
+        worst Z movement 1.4e-11, every served pair inside G-906-3's 1e-9.
+        Grazing heights are harmless: a segment near its own image sits at
+        ratio < 16 and keeps the base order, and a horizontal edge's whole
+        self-image block is replaced by the #631 analytic block anyway.
+
+        ONE ladder per fill, as `_fill_ladder` requires (#921): the chunked
+        sweep and its near-image fixup both ask here, so the fixup subtracts
+        exactly the arithmetic the sweep added.
+
+        Served under the extended kernel too, as `_fill_ladder` is
+        (momwire#1362).
+        """
+        if self._image_pair_order_ladder_arg is None:
+            return self._fill_ladder(k, seg_l, seg_r, ek)
+        base = self.n_qp_pair
+        return _normalize_ladder(
+            tuple((r, n) for r, n in self._image_pair_order_ladder_arg if n < base),
+            base,
+        )
+
+    @property
+    def _accel_serves_n_qp_pair(self):
+        # momwire#769: the chunked and swept fills go straight into the capped
+        # C++ pair kernels, so they have to ask the same question the per-block
+        # path asks. SILENT on purpose — construction does not know whether
+        # this deck will ever reach an off-edge kernel (a single-edge deck has
+        # not entered one since momwire#759), so the warning is left to the
+        # per-block path, which knows. A property now, not an __init__ scalar,
+        # because the order it asks about is itself resolved from the deck.
+        return self.n_qp_pair <= _ACCEL_MAX_N_QP
+
+    def _has_buried_wires(self):
+        """Whether any wire lies strictly below the interface."""
+        return _medium_spec.BELOW in self._wire_media()
+
+    def _below_segments(self, geom):
+        """`(n_segs,)` bool: this segment is in the lower medium."""
+        return _medium_spec.segment_media(self._wire_media(), geom["seg_offsets"])
+
+    def _stand_off_floor(self, w_idx):
+        """The height wire `w_idx` must clear above the interface.
+
+        `b` for a jacketed conductor — a jacket may REST on the soil but not
+        sink into it — and `floor_h_over_a * a` for a bare one. This is the
+        quantity `_wire_endpoint_status` refuses below; momwire#926 gave it a
+        name so the crossing advisory can price node grading against the SAME
+        number rather than a second copy of the rule.
+        """
+        a_w = float(self._conductor_radius_per_wire[w_idx])
+        if self.insulation_radius is not None and np.isfinite(
+            self.insulation_radius[w_idx]
+        ):
+            return float(self.insulation_radius[w_idx])
+        return _surface_height.SURFACE_HEIGHT_CLASS.floor_h_over_a * a_w
+
+    def _crossing_node_members(self, crossing, media):
+        """A `_crossing_fill.NodeArm` per member of every crossing junction —
+        `_below_interface.crossing_node_members` over the declared groups, with
+        this solver's stand-off floor for the above-side arms (momwire#926)."""
+        return _below_interface.crossing_node_members(
+            crossing,
+            media,
+            self.junctions,
+            self.wires_polylines,
+            self.n_per_edge_per_wire,
+            self._stand_off_floor,
+        )
+
+    def _crossing_context(self, geom, supp_seg, polys):
+        """What the crossing fill reads off this solver, as data
+        (momwire#801): the basis as per-segment polynomials, the five
+        geometry columns, the buried medium, and the four scalars. The
+        fill never sees the solver; any formulation with a
+        piecewise-polynomial basis can build the same record."""
+        two = self._two_radius_crossing()
+        return _crossing_fill.CrossingContext(
+            basis=_crossing_fill.BasisPolynomials(supp_seg, polys, self.degree),
+            geom=_crossing_fill.AxisGeometry(
+                geom["seg_l"],
+                geom["seg_r"],
+                geom["h_per_seg"],
+                geom["tangents"],
+                geom["seg_offsets"],
+            ),
+            medium=self._buried_medium(),
+            ground_z=float(self.ground_z),
+            a_wire=float(self._radius_per_wire[0]) if two is None else min(two),
+            omega=self.omega,
+            mu=self.mu,
+            eps=self.eps,
+            a_above=None if two is None else two[0],
+            a_below=None if two is None else two[1],
+            cancel=self._cancel,
+            # momwire#1487: a junction port's member ends take no by-parts
+            # end term — the port's voltage IS that boundary term.
+            port_ends=frozenset(
+                (int(w), str(e))
+                for j_idx, _v in self.junction_ports
+                for w, e in self.junctions[j_idx]
+            ),
+        )
+
+    def _grounded_junctions(self):
+        """Indices of junctions whose shared point lies in the ground plane —
+        `_below_interface.grounded_junctions`. Their KCL row is dropped: at a
+        grounded node current may flow into the ground stake."""
+        return _below_interface.grounded_junctions(
+            self.wires_polylines, self.ground_z, self.junctions
+        )
+
+    def _kcl_row_junctions(self):
+        """The junctions that carry a KCL row, in index order: every
+        non-grounded junction, plus two kinds of crossing junction —
+
+        * every crossing junction of a TWO-RADIUS crossing deck (antennaknobs
+          plan U5), whose continuity the two-radius fill closes with the
+          multiplier — at two radii the split fill's own continuity does not
+          converge;
+        * a crossing junction a node gap sits on (momwire#1282,
+          `_node_gap_crossing_junctions`).
+
+        One helper, so `_build_basis_polynomials` and `_split_kcl_ports`
+        cannot count the rows differently."""
+        grounded = self._grounded_junctions()
+        closed = (
+            set(self._crossing_junctions())
+            if self._two_radius_crossing() is not None
+            else set()
+        )
+        closed |= self._node_gap_crossing_junctions()
+        return [
+            j for j in range(len(self.junctions)) if j not in grounded or j in closed
+        ]
+
+    def _node_gap_crossing_junctions(self):
+        """Indices of the CROSSING junctions a node gap names (momwire#1282).
+
+        At a crossing node the members' end bases are independent unknowns
+        and the crossing fill's own physics closes the current through the
+        node (`_crossing_fill`, "split ≡ merged ≡ V-constrained"). That is a
+        statement about a node nothing drives. A node gap's column is ONE
+        member's end basis, so without the row the source sits between the
+        node and that member alone and the current on the far side is free to
+        differ: the two members name two different ports (Dan AC6LA's deck,
+        0.25 + 0.54j Ω apart). With the row the K = 2 constrained space has one
+        through-current dof and the two σ-signed columns are minus each other
+        on it, so either member names the same port — the series EMF NEC-5
+        puts on the node.
+
+        Empty without node gaps or ground, so no other deck reaches the
+        crossing scope from here."""
+        if not self.node_gaps or self.ground_z is None or not self.junctions:
+            return frozenset()
+        named = {(w, e) for w, e, _v in self.node_gaps}
+        candidates = {
+            j
+            for j in self._grounded_junctions()
+            if {tuple(m) for m in self.junctions[j]} & named
+        }
+        if not candidates or _medium_spec.BELOW not in self._wire_media():
+            return frozenset()
+        return frozenset(candidates & set(self._crossing_junctions()))
+
+    def _split_kcl_ports(self, kcl_A):
+        """Split the assembled KCL matrix into (constraint rows, port rows,
+        port voltages) per `self.junction_ports` (issue #172).
+
+        `_build_basis_polynomials` emits one KCL row per
+        `_kcl_row_junctions` entry, in junction-index order; a junction port's row moves from
+        the constraint set to the port set. Returns
+        ``(kcl_con, port_A, port_V)`` where ``port_A`` rows follow
+        `self.junction_ports` order and ``port_V`` is the matching complex
+        voltage vector. With no junction ports this is
+        ``(kcl_A, (0, n) empty, (0,) empty)`` — the exact passthrough.
+        """
+        if not self.junction_ports:
+            return (
+                kcl_A,
+                np.zeros((0, kcl_A.shape[1]), dtype=np.float64),
+                np.zeros(0, dtype=np.complex128),
+            )
+        grounded = self._grounded_junctions()
+        row_of = {j: row for row, j in enumerate(self._kcl_row_junctions())}
+        assert len(row_of) == kcl_A.shape[0], (len(row_of), kcl_A.shape)
+        port_rows = []
+        for j_idx, _v in self.junction_ports:
+            if j_idx in grounded:
+                if j_idx in self._crossing_junctions():
+                    raise ValueError(
+                        _below_interface.crossing_junction_port_refusal(j_idx)
+                    )
+                raise ValueError(
+                    f"junction {j_idx} is both grounded and a junction port — "
+                    "a grounded node's voltage is pinned by the ground image, "
+                    "so it cannot also be a driven port"
+                )
+            port_rows.append(row_of[j_idx])
+        keep = [r for r in range(kcl_A.shape[0]) if r not in set(port_rows)]
+        kcl_con = kcl_A[keep, :]
+        port_A = kcl_A[port_rows, :]
+        port_V = np.array([v for _j, v in self.junction_ports], dtype=np.complex128)
+        return kcl_con, port_A, port_V
+
+    # ------------------------------------------------------------------
+    # Basis polynomial extraction
+    # ------------------------------------------------------------------
+
+    def _build_basis_polynomials(self, geom):
+        """Extract polynomial coefficients per (basis, wing).
+
+        For each wire:
+          * Build clamped knot vector on the wire's cumulative arc.
+          * Determine which of the d+1 boundary bases per end are kept:
+              - Free end: drop all d+1 boundary bases (Φ(end) = 0 strictly,
+                  AND derivative 0, etc. — for d ≤ 2 this means drop just
+                  B_0 because only B_0 has nonzero value, and the higher
+                  boundary bases are kept as ordinary interior bases since
+                  their value at the end is 0).
+              - Junction end: keep the value-1 boundary basis B_0 as a
+                  directional basis; keep B_1..B_{d-1} as interior bases.
+          * Extract per-segment polynomial coefficients via BSpline +
+            Vandermonde (uniform within each segment's local-u range).
+
+        Returns
+        -------
+        supp_seg, polys : as in the single-wire case, concatenated globally.
+        kcl_A : (n_junctions, n_basis_total) Lagrange-multiplier rows
+            (+1 / -1 outflow sign per directional basis).
+        wire_knots : list of per-wire knot vectors (for the source vector).
+        wire_basis_global : list of per-wire (kept_idx, global_basis_idx)
+            tuples for the source-vector mapping.
+        """
+        # Cache key is geometry identity: the result depends only on `geom`
+        # (per-wire arc knots), `self.degree`, and `self.junctions` (via
+        # _wire_endpoint_status); none change after __init__, so a cached
+        # result computed against the same geom dict is still valid.
+        cached_geom = self._cached_geometry
+        if cached_geom is geom and self._cached_basis_polynomials is not None:
+            return self._cached_basis_polynomials
+        # Module cache promotes the per-instance memoization across solver
+        # instances (the engine wrapper recreates the solver per impedance()
+        # call). Key is geometry signature + degree + junctions; the result
+        # is k-independent.
+        basis_key = (
+            self._geometry_cache_key(),
+            self.degree,
+            tuple(tuple((w, e) for (w, e) in j) for j in self.junctions),
+            # Endpoint conditions depend on the ground plane (ground ends /
+            # grounded junctions, #151); geometry alone no longer keys them.
+            self.ground_z,
+            # A two-radius crossing junction keeps its KCL row (U5), and the
+            # radii are not part of the geometry key.
+            self._two_radius_crossing() is not None,
+            # So does a crossing junction a node gap sits on (momwire#1282),
+            # and the node gaps are not part of it either.
+            tuple(sorted(self._node_gap_crossing_junctions())),
+        )
+        cached_entry = _BASIS_POLY_CACHE.get(basis_key)
+        if cached_entry is not None:
+            cached_basis, cached_advisory = cached_entry
+            # momwire#927. The advisory is composed in `_wire_endpoint_status`,
+            # which this return skips — so a repeat solve of one deck used to
+            # be silent, and the advisory came back only when cache pressure
+            # evicted the entry. Re-emit it here from the summary stored with
+            # the basis.
+            #
+            # Once per SOLVER, not once per call: `_build_basis_polynomials`
+            # runs several times in a solve, and the engine wrapper builds one
+            # solver per `impedance()` — so this is exactly once per solve,
+            # which is what the cold path does.
+            if cached_advisory is not None and not self._surface_advisory_emitted:
+                self._surface_advisory_emitted = True
+                _surface_height.warn_surface_height(*cached_advisory)
+            if cached_geom is geom:
+                self._cached_basis_polynomials = cached_basis
+            return cached_basis
+        d = self.degree
+        n_wings = d + 1
+        n_poly = d + 1
+
+        start_status, end_status = self._wire_endpoint_status()
+
+        all_supp_seg = []
+        all_polys = []
+        wire_knots = []
+        wire_basis_global = []
+        # Track per-junction the list of (directional-basis global idx,
+        # outflow sign).
+        junction_dirs = {j: [] for j in range(len(self.junctions))}
+
+        m_global = 0
+        for w_idx, pw in enumerate(geom["per_wire"]):
+            arc = pw["arc_at_knot"]
+            wire_arc = arc[-1]
+            interior_knots = arc.copy()
+            knots = np.concatenate(
+                [np.full(d, 0.0), interior_knots, np.full(d, wire_arc)]
+            )
+            wire_knots.append(knots)
+            n_basis_w = len(knots) - d - 1  # = N_w + d
+
+            # Determine kept bases. For d ∈ {1, 2}:
+            #   B_0 is the value-1 boundary basis at the start
+            #   B_{n_basis_w - 1} is the value-1 boundary basis at the end
+            #   B_1, ..., B_{n_basis_w - 2} are interior (value 0 at endpoints)
+            kept = []  # list of (basis_j, kind, junction_idx-or-None)
+            # Start boundary basis (B_0)
+            if start_status[w_idx] == "free":
+                pass  # drop
+            elif start_status[w_idx] == "ground":
+                # Ground junction: keep the value-1 end basis so the end
+                # current is a real dof — its image (integrated by the
+                # ground blocks like every basis's) is the continuation
+                # through the plane. No KCL partner: the image IS the
+                # return path.
+                kept.append((0, "gnd", None, "start"))
+            else:
+                kept.append((0, "dir", start_status[w_idx], "start"))
+            # Truly interior bases
+            for j in range(1, n_basis_w - 1):
+                kept.append((j, "int", None, None))
+            # End boundary basis (B_{n_basis_w - 1})
+            if end_status[w_idx] == "free":
+                pass  # drop
+            elif end_status[w_idx] == "ground":
+                kept.append((n_basis_w - 1, "gnd", None, "end"))
+            else:
+                kept.append((n_basis_w - 1, "dir", end_status[w_idx], "end"))
+
+            seg_off = geom["seg_offsets"][w_idx]
+            h_per_seg_w = pw["h_per_seg"]
+            arc_at_knot_w = pw["arc_at_knot"]
+            n_total_w = pw["n_total"]
+
+            # Vectorize: one basis evaluation per wire + constant
+            # V_unit_inv lookup replaces per-(basis, wing) spline
+            # construction + per-segment linspace/vander/solve.
+            #
+            # Sample points: d+1 uniform u within each segment, in global
+            # arc. shape (n_total_w, d+1) → flatten for the evaluation.
+            unit = np.linspace(0.0, 1.0, d + 1)  # (d+1,) shared across segs
+            u_local_per_seg = h_per_seg_w[:, None] * unit[None, :]  # (N, d+1)
+            u_global_per_seg = arc_at_knot_w[:-1, None] + u_local_per_seg
+            u_flat = u_global_per_seg.reshape(-1)
+
+            # All basis values at all sample points in one
+            # `_bspline_basis_rows` call, kept in the (n_total_w, d+1, d+1) band: band column b
+            # of segment s is basis s+b, the only bases that segment sees.
+            DM_seg = _design_matrix_band(
+                *_bspline_basis_rows(u_flat, knots, d), n_total_w, d
+            )
+
+            # V_unit_inv @ vals: convert d+1 basis values per segment to
+            # poly coeffs (in u_local). Then divide by h_seg^p column-wise
+            # to recover coeffs in u_local = h_seg · u_unit terms.
+            V_unit_inv = _V_UNIT_INV[d]
+            # `np.float_power`, not `**`: numpy's `power` takes a vectorised
+            # AVX-512 route on an AVX-512 CPU that rounds differently from
+            # libm's `pow` (momwire#1517), and `float_power` is libm's
+            # everywhere -- the bits `power` gives on every AVX2 machine.
+            inv_h_powers = np.float_power(h_per_seg_w[:, None], -np.arange(d + 1))
+            # → (N, d+1, d+1): for each segment, polynomial coeff p of
+            # each in-band basis expressed as Σ_p coeffs_p · u_local^p
+            poly_per_seg = np.einsum("ij,sjk->sik", V_unit_inv, DM_seg)
+            poly_per_seg *= inv_h_powers[:, :, None]
+
+            # Per-basis support range as half-open segment indices [lo, hi).
+            # knots = [0]*d + arc + [wire_arc]*d, so knots[j] sits at
+            # segment index max(0, j - d), and knots[j+d+1] sits at
+            # min(N, j+1). Result: basis j has wings = segments
+            # max(0, j-d) .. min(N, j+1) - 1.
+
+            per_basis_local_to_global = {}
+            for kept_idx, (j, kind, junc_idx, end_pos) in enumerate(kept):
+                seg_lo = max(0, j - d)
+                seg_hi = min(n_total_w, j + 1)
+                n_actual = seg_hi - seg_lo
+
+                supp_seg_m = np.zeros(n_wings, dtype=np.int64)
+                polys_m = np.zeros((n_wings, n_poly), dtype=np.float64)
+                seg_rows = np.arange(seg_lo, seg_hi)
+                supp_seg_m[:n_actual] = seg_off + seg_rows
+                # Basis j sits at band column j - s of segment s, which
+                # walks d, d-1, ... down the wing (or j, j-1, ... for the
+                # clamped start bases, whose support is truncated).
+                polys_m[:n_actual, :] = poly_per_seg[
+                    seg_rows[:, None],
+                    np.arange(n_poly)[None, :],
+                    (j - seg_rows)[:, None],
+                ]
+
+                all_supp_seg.append(supp_seg_m)
+                all_polys.append(polys_m)
+                per_basis_local_to_global[kept_idx] = m_global
+
+                if kind == "dir":
+                    sign = +1.0 if end_pos == "start" else -1.0
+                    junction_dirs[junc_idx].append((m_global, sign))
+
+                m_global += 1
+
+            wire_basis_global.append((kept, per_basis_local_to_global))
+
+        supp_seg = (
+            np.stack(all_supp_seg, axis=0)
+            if all_supp_seg
+            else (np.zeros((0, n_wings), dtype=np.int64))
+        )
+        polys = (
+            np.stack(all_polys, axis=0)
+            if all_polys
+            else (np.zeros((0, n_wings, n_poly), dtype=np.float64))
+        )
+        n_basis_total = supp_seg.shape[0]
+
+        # Grounded junctions keep their directional bases but lose the KCL
+        # closure row — current may leave through the ground image (#151) —
+        # except a two-radius crossing junction's (`_kcl_row_junctions`).
+        kcl_rows = self._kcl_row_junctions()
+        kcl_A = np.zeros((len(kcl_rows), n_basis_total), dtype=np.float64)
+        for row, j_idx in enumerate(kcl_rows):
+            for m_g, sign in junction_dirs[j_idx]:
+                kcl_A[row, m_g] = sign
+
+        result = (supp_seg, polys, kcl_A, wire_knots, wire_basis_global)
+        if cached_geom is geom:
+            self._cached_basis_polynomials = result
+        _evict_fifo(_BASIS_POLY_CACHE, _BASIS_POLY_CACHE_MAX)
+        # The cache VALUE gains the advisory summary; the RETURN does not.
+        # Callers unpack this 5-tuple, and the cache is read and written only
+        # here, so the summary rides along without touching that contract.
+        #
+        # The flag is set only when there was something to emit. Setting it
+        # unconditionally would read as "this solver has emitted" on a solver
+        # that never did, and a later cache hit carrying a real summary would
+        # then be suppressed. Leaving it unset when the cold path DID emit is
+        # the opposite error and gives two advisories in one solve, so the
+        # guard is what makes "once per solve" true on both paths.
+        if self._surface_advisory is not None:
+            self._surface_advisory_emitted = True
+        _BASIS_POLY_CACHE[basis_key] = (result, self._surface_advisory)
+        return result
+
+    # ------------------------------------------------------------------
+    # J moment integrals
+    # ------------------------------------------------------------------
+
+    def _image_positions(self, positions):
+        """Mirror an array of 3D positions across z = ground_z."""
+        return _ground_mirror.mirror_positions(positions, self.ground_z)
+
+    def _image_tangent_dot(self, tangents):
+        """t_m · t_image_n with t_image_n = (t_n_x, t_n_y, -t_n_z)."""
+        return tangents @ _ground_mirror.mirror_tangents(tangents).T
+
+    def _remainder_qp(self, seg_l, seg_r, gz, cap=None):
+        """This fill's Sommerfeld remainder order, keyed to grazing height.
+
+        momwire#631's second half. The closed-form near-image block fixes the
+        EXACT image; the remainder Q is a Sommerfeld integral with no closed
+        form, so it needs the order rule razor took in momwire#510 — and the
+        cross that named this defect showed neither half is sufficient alone
+        (image-only left 152 %, remainder-only 306 %, both 0.62 %).
+
+        Observers are the remainder's own Gauss nodes at the BASE order.
+        They are strictly interior to their segments, which is what keeps a
+        wire ENDING in the plane from reading as zero distance to its own
+        mirror and pinning the order at the cap: contact is a legitimate
+        geometry here (the basis handles it) and is not what this rule is
+        about. Taking them at the base order rather than at the order being
+        chosen also keeps the observer set independent of the answer.
+        """
+        cap = _REMAINDER_QP_CAP if cap is None else cap
+        xg, _ = leggauss(int(self.n_qp_sommerfeld))
+        tq = 0.5 * (xg + 1.0)
+        nodes = seg_l[:, None, :] + tq[None, :, None] * (seg_r - seg_l)[:, None, :]
+        return _quadrature.remainder_qp(
+            nodes.reshape(-1, 3),
+            seg_l,
+            seg_r,
+            gz,
+            self.n_qp_sommerfeld,
+            cap,
+            _REMAINDER_QP_C,
+        )
+
+    def _remainder_qp_pairs(self, seg_l, seg_r, gz, cap=None, c=None):
+        """The segment pairs whose remainder order is above the base.
+
+        momwire#1189: `_remainder_qp` per pair — the same observers (each
+        segment's own Gauss nodes at the BASE order, for the reasons given
+        there) and the same rule, reduced over one (observer segment, source
+        segment) pair at a time instead of over the deck. So its maximum is
+        `_remainder_qp` exactly.
+
+        Symmetrised: pair (i, j) and pair (j, i) are the same near-image ridge
+        read from either side (the remainder field is reciprocal), and the
+        dense fill's Q is symmetric because both are filled at one order.
+        Each takes the larger of the two readings, which keeps that true.
+
+        Returns `(I, J, Q)` int64 arrays, sorted by `I` then `J`, listing only
+        the pairs above `n_qp_sommerfeld`; empty for a deck with nothing
+        grazing.
+
+        `c` defaults to the route's own constant: `_REMAINDER_QP_C` when the
+        listed pairs are filled at their keyed order, `_REMAINDER_GRADED_C`
+        when they go on graded panels (momwire#1201), where Q only decides
+        which pairs are listed.
+        """
+        cap = _REMAINDER_QP_CAP if cap is None else cap
+        if c is None:
+            c = _REMAINDER_GRADED_C if _REMAINDER_GRADED else _REMAINDER_QP_C
+        edge_tol = _REMAINDER_GRADED_EDGE_TOL if _REMAINDER_GRADED else 0.0
+        base = int(self.n_qp_sommerfeld)
+        xg, _ = leggauss(base)
+        tq = 0.5 * (xg + 1.0)
+        nodes = seg_l[:, None, :] + tq[None, :, None] * (seg_r - seg_l)[:, None, :]
+        I, J, Q = _quadrature.remainder_qp_pairs(
+            nodes, seg_l, seg_r, gz, base, cap, c, edge_tol=edge_tol
+        )
+        if I.size == 0:
+            return I, J, Q
+        n = int(seg_l.shape[0])
+        I, J = np.concatenate([I, J]), np.concatenate([J, I])
+        Q = np.concatenate([Q, Q])
+        if _REMAINDER_PAIR_DILATE:
+            # A pair's ridge does not stop at a segment boundary: the
+            # near-image ridge of pair (i, j) runs on into the pairs whose
+            # segments TOUCH i and j, where it is a corner feature of the
+            # same width that the base-order nodes of neither segment can
+            # see. The deck-wide order resolved those corners by accident;
+            # a per-pair order has to raise them on purpose. Measured on
+            # #631's grazing wire (n = 16, h/lambda = 1.09e-4): the pairs
+            # alone land 6.6e-3 from a q = 192 reference where the deck-wide
+            # order lands 1.5e-3; with this one-ring they land 2.6e-7 from
+            # the deck-wide answer.
+            #
+            # One side at a time, reducing to the distinct pairs in between
+            # (momwire#1201): the product of both touch lists at once is
+            # |touch(i)|·|touch(j)| entries per listed pair, 49 x 49 at a
+            # 48-radial hub, and its unique() was seconds. The set and the
+            # per-pair maximum are the same either way.
+            ptr, idx = _segment_touch_lists(seg_l, seg_r)
+            k1, ii = _csr_expand(ptr, idx, I)
+            I, J, Q = _pair_max(ii, J[k1], Q[k1], n)
+            k2, jj = _csr_expand(ptr, idx, J)
+            I, J, Q = I[k2], jj, Q[k2]
+        return _pair_max(I, J, Q, n)
+
+    def _below_remainder_pairs(self, seg_l, seg_r, gz, base):
+        """The below/below segment pairs whose remainder needs more than the
+        base order (momwire#1672), local to the segments handed in.
+
+        `_remainder_qp_pairs`' rule below the surface: each segment's own
+        base-order nodes as observers, R_min against the source's mirror,
+        `ceil(c · len / R_min)` clipped to `[base, cap]` -- then symmetrised
+        and dilated to the touching pairs, as above. Empty for a buried deck
+        whose wires all sit a segment or more down, which keeps its fill bit
+        for bit what it was."""
+        base = int(base)
+        xg, _ = leggauss(base)
+        tq = 0.5 * (xg + 1.0)
+        nodes = seg_l[:, None, :] + tq[None, :, None] * (seg_r - seg_l)[:, None, :]
+        I, J, Q = _quadrature.remainder_qp_pairs(
+            nodes, seg_l, seg_r, gz, base, _REMAINDER_QP_CAP, _REMAINDER_QP_C
+        )
+        if I.size == 0:
+            return I, J, Q
+        n = int(seg_l.shape[0])
+        I, J = np.concatenate([I, J]), np.concatenate([J, I])
+        Q = np.concatenate([Q, Q])
+        ptr, idx = _segment_touch_lists(seg_l, seg_r)
+        k1, ii = _csr_expand(ptr, idx, I)
+        I, J, Q = _pair_max(ii, J[k1], Q[k1], n)
+        k2, jj = _csr_expand(ptr, idx, J)
+        return _pair_max(I[k2], jj, Q[k2], n)
+
+    def _remainder_runs_batched(self, geom, grid, requests):
+        """`_remainder_pair_moments(geom, obs, [src], q, grid)[:, 0]` for each
+        request `(obs, src, q)`, in one C++ call (momwire#1752 K2): the
+        keyed runs of `_remainder_pair_correction` in parallel. Each request's
+        arrays are the single call's, gathered from every segment's nodes and
+        weights at its order, and its kernel is the single call's kernel, so
+        each result is that call's bytes. None when the extension lacks it."""
+        if _acc is None or not hasattr(_acc, "sommerfeld_remainder_bspline_runs"):
+            return None
+        seg_l, seg_r, h = geom["seg_l"], geom["seg_r"], geom["h_per_seg"]
+        d1 = self.degree + 1
+        everyone = np.arange(seg_l.shape[0])
+        rules, nodes, Ws = {}, [], []
+        rule = np.empty(len(requests), dtype=np.int64)
+        src = np.empty(len(requests), dtype=np.int64)
+        ptr = np.zeros(len(requests) + 1, dtype=np.int64)
+        for r, (obs, s_, q) in enumerate(requests):
+            q = int(q)
+            if q not in rules:
+                xg, wg = leggauss(q)
+                tq = 0.5 * (xg + 1.0)
+                nd, W = _remainder_side(seg_l, seg_r, h, everyone, tq, wg, d1)
+                rules[q] = len(nodes)
+                nodes.append(np.ascontiguousarray(nd))
+                Ws.append(np.ascontiguousarray(W))
+            rule[r] = rules[q]
+            src[r] = int(s_)
+            ptr[r + 1] = ptr[r] + len(obs)
+        obs_all = (
+            np.concatenate([np.asarray(o, dtype=np.int64) for o, _s, _q in requests])
+            if requests
+            else np.zeros(0, dtype=np.int64)
+        )
+        out = _acc.sommerfeld_remainder_bspline_runs(
+            nodes,
+            Ws,
+            np.ascontiguousarray(geom["tangents"], dtype=np.float64),
+            rule,
+            src,
+            ptr,
+            obs_all,
+            float(self.ground_z),
+            float(self.k),
+            *_sommerfeld.grid_cpp_args(grid),
+            int(self._cancel_flag),
+        )
+        return [out[ptr[r] : ptr[r + 1]] for r in range(len(requests))]
+
+    def _remainder_pair_moments(self, geom, obs_segs, src_segs, q, grid, cache=None):
+        """Segment-pair remainder moments `Jf[a, b, p, P]` over the rectangle
+        `obs_segs x src_segs`, at Gauss order `q` on both sides.
+
+        The same double sum `_Z_sommerfeld_remainder` assembles, stopped
+        before the basis polynomials. The fused kernel only returns
+        basis-assembled blocks, so it is handed unit "pseudo-bases": one per
+        (segment, power), all wings on that segment and a one-hot polynomial
+        on wing 0. Its stage 2 then multiplies each moment by exactly 1 and
+        adds exact zeros, so the returned block IS the moment slab.
+        """
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        tang = geom["tangents"]
+        h = geom["h_per_seg"]
+        d1 = self.degree + 1
+        obs_segs = np.asarray(obs_segs, dtype=np.int64)
+        src_segs = np.asarray(src_segs, dtype=np.int64)
+        no, ns = int(obs_segs.size), int(src_segs.size)
+        q = int(q)
+        xg, wg = leggauss(q)
+        tq = 0.5 * (xg + 1.0)
+
+        def side_of(segs):
+            return _remainder_side(seg_l, seg_r, h, segs, tq, wg, d1)
+
+        # `cache` (momwire#1752 K1): one dict for a run of calls over the same
+        # geometry and grid. Every segment's nodes and weights at order q are
+        # built once and indexed (each is an elementwise product of that
+        # segment's own numbers, so a slice of the whole is the subset's
+        # value bit for bit), and so are the pseudo-bases.
+        if cache is not None:
+            key = ("side", q)
+            if key not in cache:
+                cache[key] = side_of(np.arange(seg_l.shape[0]))
+
+        def side(segs):
+            if cache is None:
+                nodes, W = side_of(segs)
+            else:
+                all_nodes, all_W = cache[("side", q)]
+                nodes, W = all_nodes[segs], all_W[:, segs]
+            return nodes, np.ascontiguousarray(tang[segs], dtype=np.float64), W
+
+        nodes_o, tang_o, W_o = side(obs_segs)
+        nodes_s, tang_s, W_s = side(src_segs)
+        gz = self.ground_z
+        if _acc is not None and hasattr(_acc, "sommerfeld_remainder_bspline_Q"):
+
+            def pseudo_of(n):
+                loc = np.repeat(np.arange(n, dtype=np.int64), d1)[:, None]
+                loc = np.ascontiguousarray(np.broadcast_to(loc, (n * d1, d1)))
+                poly = np.zeros((n * d1, d1, d1))
+                poly[:, 0, :] = np.tile(np.eye(d1), (n, 1))
+                return loc, poly
+
+            def pseudo(n):
+                if cache is None:
+                    return pseudo_of(n)
+                key = ("pseudo", n, d1)
+                if key not in cache:
+                    cache[key] = pseudo_of(n)
+                return cache[key]
+
+            # not cached: a lazy grid may take regions between two calls
+            gargs = _sommerfeld.grid_cpp_args(grid)
+
+            loc_o, p_o = pseudo(no)
+            loc_s, p_s = pseudo(ns)
+            out = _acc.sommerfeld_remainder_bspline_Q(
+                np.ascontiguousarray(nodes_o),
+                tang_o,
+                np.ascontiguousarray(W_o),
+                np.ascontiguousarray(nodes_s),
+                tang_s,
+                np.ascontiguousarray(W_s),
+                loc_o,
+                p_o,
+                loc_s,
+                p_s,
+                float(gz),
+                float(self.k),
+                *gargs,
+                int(self._cancel_flag),
+            )
+            # out[a*d1 + p, b*d1 + P] -> Jf[a, b, p, P]
+            return out.reshape(no, d1, ns, d1).transpose(0, 2, 1, 3)
+        proj = _sommerfeld.remainder_field_proj(
+            nodes_o.reshape(-1, 3),
+            np.repeat(tang_o, q, axis=0),
+            nodes_s.reshape(-1, 3),
+            np.repeat(tang_s, q, axis=0),
+            gz,
+            self.k,
+            grid,
+        ).reshape(no, q, ns, q)
+        return np.einsum("paq,aqbr,Pbr->abpP", W_o, proj, W_s, optimize=True)
+
+    def _remainder_pair_moments_graded(self, geom, I, J, grid):
+        """`Jf[n, p, P]` for the pairs (I[n], J[n]) on graded panels.
+
+        momwire#1201: the same moments `_remainder_pair_moments` returns at a
+        fixed Gauss order, integrated by `_remainder_graded.pair_moments` —
+        split at the near-image foot and the interpolant's seams, graded
+        toward them — so a pair converges however narrow its spike.
+        """
+        return _remainder_graded.pair_moments(
+            geom["seg_l"],
+            geom["seg_r"],
+            geom["tangents"],
+            geom["h_per_seg"],
+            I,
+            J,
+            self.ground_z,
+            self.k,
+            grid,
+            self.degree + 1,
+            cancel_flag=self._cancel_flag,
+            checkpoint=self._checkpoint,
+        )
+
+    def _remainder_pair_correction(
+        self, Q, geom, supp_seg, polys, grid, pairs, restrict=None, entries=None
+    ):
+        """Raise the listed segment pairs of the base-order Q to their own
+        orders, in place (momwire#1189).
+
+        `Q` was filled at `n_qp_sommerfeld` over every pair. For each listed
+        pair the base-order moments are swapped for the pair's own:
+        `Q += P·(Jf_q − Jf_base)·P` over every (basis, wing) resting on the
+        two segments. Only the listed pairs are ever evaluated at a high
+        order — that is the whole saving — and a deck that lists none never
+        reaches here, which is what keeps it bit-identical.
+
+        `restrict` (an `_ObserverRows`, momwire#1131): `Q` holds only the
+        basis rows R, `(len(R), n_basis)`. Only the pairs whose OBSERVER
+        segment is requested are evaluated, in the list's own order, and
+        their adds land at each row's position in R -- the same products added
+        to the same entries in the same sequence, so the rows stay bitwise.
+
+        `entries` (momwire#1798, `_Z_sommerfeld_remainder_into`): `Q` is
+        instead the 1-D side store of the exempted entries, `entries` their
+        sorted flat indices `m * n_basis + n` (`_remainder_pair_entries`);
+        each add lands at its entry's position there, in the same sequence.
+        """
+        I, J, Qp = pairs
+        row_pos = None
+        if restrict is not None:
+            keep = restrict.seg_mask[I]
+            I, J, Qp = I[keep], J[keep], Qp[keep]
+            row_pos = np.full(supp_seg.shape[0], -1, dtype=np.int64)
+            row_pos[restrict.basis_rows] = np.arange(
+                restrict.basis_rows.size, dtype=np.int64
+            )
+        base = int(self.n_qp_sommerfeld)
+        d1 = self.degree + 1
+        n_seg = geom["seg_l"].shape[0]
+        graded = _REMAINDER_GRADED
+        dJ = np.zeros((I.size, d1, d1), dtype=np.complex128)
+        # momwire#1752 S3: graded panels only where the spike is narrow, the
+        # pair's keyed order at least `_REMAINDER_GRADED_MIN_Q`; a pair with
+        # a wider spike takes the keyed Gauss rule at that order (the #1189
+        # route, which is the brute-force ladder itself at that order).
+        on_panels = (
+            Qp >= _REMAINDER_GRADED_MIN_Q if graded else np.zeros(I.size, dtype=bool)
+        )
+        if on_panels.any():
+            # momwire#1201: the listed pairs on graded panels; only the
+            # base-order moments the dense fill added are taken back out
+            # below, one source column at a time.
+            sel = np.flatnonzero(on_panels)
+            dJ[sel] = self._remainder_pair_moments_graded(geom, I[sel], J[sel], grid)
+        self._last_remainder_graded = int(on_panels.sum())
+        # One kernel call per (route, order, source segment), its observers
+        # that column of the pair list, so nothing outside the list is
+        # evaluated. Column-wise rather than row-wise because the kernel
+        # threads over its observer segments; the list is symmetric, so
+        # either walk covers it. A graded run's key order is 0.
+        key_q = np.where(on_panels, 0, Qp)
+        grp = np.lexsort((J, key_q))
+        kq, kj = key_q[grp], J[grp]
+        cuts = np.flatnonzero((np.diff(kq) != 0) | (np.diff(kj) != 0)) + 1
+        runs = np.split(grp, cuts)
+        # momwire#1752 K2: every run's base and keyed moments in one call
+        requests = []
+        for run in runs:
+            requests.append((I[run], int(J[run[0]]), base))
+            if not on_panels[run[0]]:
+                requests.append((I[run], int(J[run[0]]), int(Qp[run[0]])))
+        self._checkpoint()
+        got = self._remainder_runs_batched(geom, grid, requests) if runs else None
+        run_cache = {}  # momwire#1752 K1: the runs share one geometry and grid
+        k = 0
+        for run in runs:
+            if got is None:
+                self._checkpoint()
+                src = J[run[:1]]
+                obs = I[run]
+                lo = self._remainder_pair_moments(
+                    geom, obs, src, base, grid, run_cache
+                )[:, 0]
+                if not on_panels[run[0]]:
+                    q = int(Qp[run[0]])
+                    hi = self._remainder_pair_moments(
+                        geom, obs, src, q, grid, run_cache
+                    )[:, 0]
+            else:
+                lo = got[k]
+                k += 1
+                if not on_panels[run[0]]:
+                    hi = got[k]
+                    k += 1
+            if on_panels[run[0]]:
+                dJ[run] -= lo
+                continue
+            dJ[run] = hi - lo
+
+        ent = self._segment_wing_table(supp_seg, polys, n_seg)
+        self._last_pair_wing_width = int(ent.shape[1])
+        valid = ent >= 0
+        m_of = np.where(valid, ent // d1, 0)
+        a_of = np.where(valid, ent % d1, 0)
+        pw = polys[m_of, a_of, :] * valid[:, :, None]  # (n_seg, width, d1)
+
+        for c0 in range(0, I.size, _PAIR_SCATTER_CHUNK):
+            c1 = min(c0 + _PAIR_SCATTER_CHUNK, I.size)
+            Ic, Jc = I[c0:c1], J[c0:c1]
+            contrib = np.einsum(
+                "kup,kpP,kvP->kuv", pw[Ic], dJ[c0:c1], pw[Jc], optimize=True
+            )
+            rows = np.broadcast_to(m_of[Ic][:, :, None], contrib.shape)
+            cols = np.broadcast_to(m_of[Jc][:, None, :], contrib.shape)
+            keep = valid[Ic][:, :, None] & valid[Jc][:, None, :]
+            if entries is not None:
+                flat = rows[keep] * supp_seg.shape[0] + cols[keep]
+                np.add.at(Q, np.searchsorted(entries, flat), contrib[keep])
+            elif row_pos is None:
+                np.add.at(Q, (rows[keep], cols[keep]), contrib[keep])
+            else:
+                r = row_pos[rows[keep]]
+                held = r >= 0
+                np.add.at(Q, (r[held], cols[keep][held]), contrib[keep][held])
+        return Q
+
+    def _near_image_edge_blocks(self, geom):
+        """Edges whose own image is a NEAR, PARALLEL translate of themselves.
+
+        momwire#631. For a HORIZONTAL edge at height h over `ground_z` the
+        mirror is the same arc translated by -2h in z: `mirror_tangents` flips
+        only the z component and that component is zero, so the image runs the
+        same way at a constant perpendicular offset. The separation of the
+        point at arc s on the edge from the point at s' on its image is then
+
+            R^2 = (s - s')^2 + (2h)^2       (+ a^2 for the tube)
+
+        which is exactly what `J_static_moment` and `_seg_seg_reg_geometry`
+        integrate, both of which take `a` as nothing but that constant offset.
+        So the image block IS the same-edge block at
+
+            a_eff = sqrt(a^2 + 4h^2)
+
+        and the analytic static + regularised split `_build_J_blocks` uses on
+        the diagonal serves it unchanged — no order to key, and no premise
+        about the image being far.
+
+        Only SELF-edge blocks qualify, and only horizontal ones. A vertical
+        edge's image is collinear with it rather than offset (ground contact,
+        which the EK path already treats), and a tilted edge's image is
+        neither parallel nor constantly offset, so neither reduces to this
+        kernel. Cross-edge image pairs are a different geometry again.
+
+        Yields `(slice, arc, a_eff)` per eligible edge, empty when the deck
+        has no grazing horizontal run — in which case nothing downstream
+        deviates by so much as a bit from what it did before #631.
+        """
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        per_wire = geom["per_wire"]
+        seg_off = geom["seg_offsets"]
+        gz = self.ground_z
+        out = []
+        for w in range(len(per_wire)):
+            pw = per_wire[w]
+            ed_off = pw["edge_offsets"]
+            ed_arc = pw["edge_arc_edges"]
+            base = seg_off[w]
+            a_w = float(self._radius_per_wire[w])
+            for i_e in range(len(ed_off) - 1):
+                sl = slice(base + ed_off[i_e], base + ed_off[i_e + 1])
+                z = np.concatenate([seg_l[sl, 2], seg_r[sl, 2]])
+                arc = np.asarray(ed_arc[i_e], dtype=np.float64)
+                h = float(z[0]) - gz
+                # Horizontal means every endpoint of the run shares one
+                # height; `a_w` is the scale that decides what "flat" means,
+                # since a deviation below the tube radius is not a tilt this
+                # kernel can tell from none.
+                if not np.allclose(z - gz, h, rtol=0.0, atol=max(a_w, 1e-12)):
+                    continue
+                # Strictly ABOVE the plane. h == 0 is ground contact, not a
+                # near image; h < 0 is a BURIED wire, whose image lands in the
+                # other medium and whose blocks are built by the momwire#553
+                # machinery rather than here — the arc identity would still
+                # hold geometrically, but nothing in this arc measured it
+                # there, so it is not claimed.
+                if h <= 0.0:
+                    continue
+                two_h = 2.0 * h
+                delta = float(np.min(np.diff(arc)))
+                if delta <= _NEAR_IMAGE_DELTA_OVER_2H * two_h:
+                    continue  # image still far compared with a segment
+                out.append((sl, arc, float(np.sqrt(a_w * a_w + two_h * two_h))))
+        return out
+
+    @_offset_reuse_fill
+    def _near_image_analytic_block(self, arc, a_eff, k):
+        """The closed-form near-image moment block for one horizontal edge.
+
+        The extended kernel is deliberately NOT applied. EK scores image
+        eligibility against the mirrored source geometry
+        (`_ek_axis_labels(mirror=True)`), and a horizontal wire — whose image
+        is parallel but offset rather than coaxial — is not eligible, so the
+        off-edge fill this replaces carries no EK on these pairs either.
+        """
+        d = self.degree
+        return _seg_seg_static_moments(
+            arc, a_eff, max_d=d, ek=None, cancel=self._cancel
+        ) + _seg_seg_reg_moments(
+            arc, a_eff, k, max_d=d, n_qp=self.n_qp_pair_same_edge, ek=None
+        )
+
+    def _build_J_image_blocks(self, geom, k, ground=None):
+        """Build the J moment tensor with j-segments mirrored across the
+        ground plane. Off-edge quadrature handles every (i, j) pair
+        uniformly, EXCEPT the self-edge block of a horizontal edge whose
+        image has come close enough to break that rule — momwire#631, see
+        `_near_image_edge_blocks` — which is overwritten with the analytic
+        static + reg split at the image's effective radius.
+
+        The mirrored source geometry comes from the ground object's
+        `image_geometry()` (momwire#398 unit 1) — the mirror map is the
+        ground's, and this is the same reading `_image_positions` gave when
+        it was spelled here. `ground` is the caller's already-built
+        `PotentialGround` when it has one; callers that don't (tests, the
+        perf scripts) get one built here, which for every ground momwire
+        ships is a handful of scalar operations.
+        """
+        d = self.degree
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        if ground is None:
+            ground = _potential_ground.potential_ground_for(self, geom, k, self.omega)
+        img = ground.image_geometry()
+        seg_l_img = img.seg_l
+        seg_r_img = img.seg_r
+        # Observers (rows) are the real segments — the per-observer radius
+        # convention applies to the image block unchanged. Under EK the
+        # source side is the MIRRORED geometry, so eligibility is scored
+        # against it (`mirror=True`): a vertical monopole is coaxial with
+        # its own image and extends, a horizontal wire is not and does not.
+        ek = self._ek_spec(geom, mirror=True) if self.extended_kernel else None
+        J = _seg_seg_full_moments_offedge(
+            seg_l,
+            seg_r,
+            seg_l_img,
+            seg_r_img,
+            self._seg_radius(geom),
+            k,
+            d,
+            self.n_qp_pair,
+            ek=ek,
+            ladder=self._image_fill_ladder(k, seg_l, seg_r, ek),
+        )
+        for sl, arc, a_eff in self._near_image_edge_blocks(geom):
+            J[:, :, sl, sl] = self._near_image_analytic_block(arc, a_eff, k)
+        n = int(seg_l.shape[0])
+        self._note_ground_fill("image", n * n, n * n, n * n)
+        return J
+
+    def _image_refl_prep(self, geom):
+        """The CACHE over `_potential_ground.specular_prep`: k-independent
+        per-pair specular tables (cos θ, PEC mirror dot, out-of-plane dyad
+        component) for the `ground_eps` weighted image, memoised per
+        geometry object so swept callers pay for the O(N²) build once, not
+        per frequency.
+
+        The build itself moved to `_potential_ground` with momwire#429
+        unit 1; what is left here is the SCHEDULE, which the fill hands to
+        `PotentialGround.weight_tables(prep=…)` exactly as
+        `SinusoidalGalerkinSolver` hands its own cache to
+        `FieldGround.projector(tables=…)` on the sibling trunk.
+        """
+        cached = self._cached_image_refl_prep
+        if cached is not None and cached[0] is geom:
+            return cached[1]
+        tables = _potential_ground.specular_prep(geom, self.ground_z)
+        self._cached_image_refl_prep = (geom, tables)
+        return tables
+
+    def _image_weight_row_bytes(self, n_segs):
+        """Bytes-per-observer-row `PotentialGround.weight_windows`' closure
+        holds alongside one moment window, for the chunked image fill's
+        row-byte budget arithmetic (issue #347 — follow-up to #338, which
+        sized that arithmetic on the moment window alone).
+
+        This is the one place on the chunked route that still reads
+        `ground_eps` / `ground_model` after momwire#398 unit 1, and it stays
+        deliberately: it prices what a chunk allocates, which is budget —
+        the same scheduling layer the field trunk's object also keeps out
+        (`_field_ground`'s "what stays out"). The three branches below must
+        track `weight_windows`' three producers, which is what the memory
+        gates measure.
+
+        PEC / sommerfeld (`weight_windows`' `pec_weights` /
+        `sommerfeld_weights`): the
+        two returned (chunk, n_segs) complex128 windows (w_A, w_Phi) — one
+        gemm output plus its `ones_like`/`full` sibling. Nothing else of
+        row-scale is built.
+
+        refl-coef (`weight_windows`' `refl_weights`): the first cut of this
+        accounting
+        (issue #347, first pass) only priced the three arrays
+        `specular_pair_tables` RETURNS (cos_th, td_img, P) plus the two
+        `fresnel_rho` returns (rho_v, rho_h) plus the two final windows
+        (w_A, w_Phi) — 1.06x budget locally, but 1.11x on a CI runner
+        with different BLAS/allocator behavior: still dishonest, just by
+        less. CPython keeps every LOCAL VARIABLE in a function's frame
+        alive until the function returns (or the name is reassigned),
+        regardless of whether the code uses it again — not only the
+        values a function returns. Instrumented with per-statement
+        tracemalloc snapshots at the gate's own config (N=1200,
+        swept_mem_mb=8, chunk=30): `specular_ray_tables`' own peak
+        (before `specular_pair_tables` even builds P/td_img) already
+        holds dx, dy, dz, hyp, rmag, safe, inv_hyp alongside its cos_th,
+        px, py returns — none of which the first-pass accounting counted
+        because they die when `specular_ray_tables` returns, before
+        `weight_windows`' caller ever sees them.
+        `specular_pair_tables` itself adds tm_p, tn_p on top of its own
+        cos_th/td_img/P/px/py inputs and returns. `fresnel_rho` then adds
+        sin2 and root, both of which stay bound for its ENTIRE body (used
+        once each, in the `root = sqrt(...)` line, but never reassigned
+        after) — alive through both the rho_v and the rho_h expression,
+        each of which additionally repeats `eps_t * cos_th` textually and
+        so evaluates (and transiently allocates) it twice. Priced
+        additively, at true dtype width, the way the rest of this budget
+        already prices every named array it counts — not attempting to
+        model exactly which of these temporaries overlap in time, the
+        same conservative convention `_offedge_fallback_row_bytes` uses:
+          float64  (8 B/elem):  cos_th, td_img, P, px, py, tm_p, tn_p,
+                                 dx, dy, dz, hyp, rmag, inv_hyp, sin2 (14)
+          bool     (1 B/elem):  safe                             (1)
+          complex128 (16 B/elem): root, rho_v, rho_h, w_A, w_Phi (5)
+        Measured post-fix at the same N=1200/swept_mem_mb=8 config (the
+        larger array count shrinks the chunk further than the first pass
+        did): 0.72x budget — comfortable local headroom under the 1.1x
+        bar for the ~5% CI allocator variance that pushed the first pass
+        (1.06x locally) over on a GitHub runner (1.11x there).
+        """
+        if self.ground_eps is None or self.ground_model == "sommerfeld":
+            # w_A, w_Phi: two complex128 (chunk, n_segs) windows.
+            return 2 * n_segs * 16
+        n_float64 = 14
+        n_bool = 1
+        n_complex128 = 5
+        return n_float64 * n_segs * 8 + n_bool * n_segs * 1 + n_complex128 * n_segs * 16
+
+    def _image_weight_window_fn(self, geom):
+        """Producer of the image weight WINDOWS the chunked accumulator
+        consumes: `weights_fn(i0, i1) -> (w_A, w_Phi)`, each complex128 of
+        shape (i1-i0, n_segs) — observer rows [i0, i1) against every source.
+
+        The chunked path used to be handed the same global (N, N) tables the
+        tensor path builds and slice them per chunk, which put 2× the dense
+        Z on the peak of every grounded solve for weights only ever read one
+        row-band at a time (issue #323). Each mode's algebra is row-local, so
+        the window is produced directly and nothing N² is ever allocated.
+
+        Since momwire#398 unit 1 the three per-mode producers, and the
+        choice between them, are `PotentialGround.weight_windows` — the
+        `(w_A, w_Φ)` weight row the architecture doc §2.2 assigns to this
+        trunk's ground object. This stays as the solver-side spelling the
+        fill and the existing gates name.
+        """
+        return _potential_ground.potential_ground_for(
+            self, geom, self.k, self.omega
+        ).weight_windows()
+
+    def _image_weight_enrich_blocks(self, geom, seg_e_arr, eps_t=None):
+        """Rectangular ground-image weight tables for the enrichment
+        reaction (issue #328): the (n_enrich, N), (N, n_enrich) and
+        (n_enrich, n_enrich) sub-blocks `_assemble_Z_enrich_image_numpy`
+        actually reads, in place of the (N, N) `w_A_all`/`w_Phi_all`
+        `_enrichment_Z_assemble` used to build (for all three ground modes)
+        for a handful of enrichment DOFs.
+
+        `seg_e_arr` is the per-enrichment-DOF segment id (`spec_seg`).
+        `eps_t` is the frequency-only complex ε̃, precomputed by the caller
+        so the sommerfeld/refl-coef branches don't redo `eps_tilde` (unused
+        for PEC). Returns (w_A_row, w_Phi_row, w_A_col, w_Phi_col, w_A_ee,
+        w_Phi_ee):
+
+          row (n_enrich, N)        — observer = enrichment segments, source
+                                      = every segment; feeds Z_ep's
+                                      `w_A_all[seg_e, seg_m]` read.
+          col (N, n_enrich)        — observer = every segment, source =
+                                      enrichment segments; feeds Z_pe's
+                                      `w_A_all[seg_m, seg_e]` read.
+          ee (n_enrich, n_enrich)  — both axes enrichment segments; feeds
+                                      Z_ee. Sliced out of `row` (whose
+                                      source axis already covers every
+                                      segment, enrichment ones included)
+                                      rather than built a third time.
+
+        Same per-mode algebra as `PotentialGround.weight_windows` (a third
+        weight SHAPE, not yet migrated — momwire#398 unit 1). `row` and `col`
+        are each their own direct gemm / `specular_pair_tables` call,
+        restricted on their own natural axis — not one transposed into the
+        other — so bit-exactness against the retired full-table reads rests
+        on the #323 identity (slicing a gemm's output axes is exact when
+        its reduction axis is untouched), not on the image reaction's
+        reciprocity symmetry.
+        """
+        tangents = geom["tangents"]
+        mirror_tangents = _ground_mirror.mirror_tangents
+        tan_e = tangents[seg_e_arr]
+
+        if self.ground_eps is None:
+            w_A_row = tan_e @ mirror_tangents(tangents).T
+            w_A_col = tangents @ mirror_tangents(tan_e).T
+            w_Phi_row = np.ones_like(w_A_row)
+            w_Phi_col = np.ones_like(w_A_col)
+        elif self.ground_model == "sommerfeld":
+            c2 = (eps_t - 1.0) / (eps_t + 1.0)
+            w_A_row = c2 * (tan_e @ mirror_tangents(tangents).T)
+            w_A_col = c2 * (tangents @ mirror_tangents(tan_e).T)
+            w_Phi_row = np.full(w_A_row.shape, c2)
+            w_Phi_col = np.full(w_A_col.shape, c2)
+        else:
+            seg_c = 0.5 * (geom["seg_l"] + geom["seg_r"])
+            phi_mode = self.ground_phi_mode
+
+            def refl_block(obs_c, obs_t, src_c, src_t):
+                cos_th, td_img, P = _ground_refl.specular_pair_tables(
+                    obs_c, obs_t, self.ground_z, src_centers=src_c, src_tangents=src_t
+                )
+                rho_v, rho_h = _ground_refl.fresnel_rho(eps_t, cos_th)
+                w_A = _ground_refl.a_term_weights(rho_v, rho_h, td_img, P)
+                w_Phi = _ground_refl.phi_term_weights(phi_mode, eps_t, rho_v)
+                if np.ndim(w_Phi) == 0:
+                    # "image"/"normal" are pair-independent; "rho_v"/"blend"
+                    # already come back as per-pair windows.
+                    w_Phi = np.full(w_A.shape, complex(w_Phi))
+                return w_A, w_Phi
+
+            seg_c_e = seg_c[seg_e_arr]
+            w_A_row, w_Phi_row = refl_block(seg_c_e, tan_e, seg_c, tangents)
+            w_A_col, w_Phi_col = refl_block(seg_c, tangents, seg_c_e, tan_e)
+
+        w_A_row = np.ascontiguousarray(w_A_row, dtype=np.complex128)
+        w_Phi_row = np.ascontiguousarray(w_Phi_row, dtype=np.complex128)
+        w_A_col = np.ascontiguousarray(w_A_col, dtype=np.complex128)
+        w_Phi_col = np.ascontiguousarray(w_Phi_col, dtype=np.complex128)
+        w_A_ee = np.ascontiguousarray(w_A_row[:, seg_e_arr], dtype=np.complex128)
+        w_Phi_ee = np.ascontiguousarray(w_Phi_row[:, seg_e_arr], dtype=np.complex128)
+        return w_A_row, w_Phi_row, w_A_col, w_Phi_col, w_A_ee, w_Phi_ee
+
+    def _image_Z_refl(self, J_img, supp_seg, polys, geom):
+        """Fresnel-weighted image sub-assembly for `ground_eps` (NEC-style
+        reflection-coefficient finite ground). Returns the matrix to SUBTRACT
+        from the free-space Z — same global-minus convention as the PEC
+        image, which this reproduces exactly in the ε̃ → ∞ limit.
+
+        Structure mirrors `_assemble_Z`'s numpy fallback, with two per-
+        segment-pair weight tables instead of one: the A term takes the
+        Fresnel dyad tangent table w_A (in place of the PEC mirror tangent
+        dot), and the Φ term — which the PEC path leaves unweighted — takes
+        the per-pair image-charge weight w_Φ picked by `ground_phi_mode`.
+
+        Hot path is the C++ `assemble_Z_bspline_weighted` — the PEC assembly
+        kernel with complex per-pair weight tables on both terms, added in
+        Phase 2 after profiling showed Python-side weighted assembly at
+        ~3× the PEC image assembly cost on a 41-freq grounded sweep
+        (scripts/perf_refl_coef_sweep.py). The einsum loop below stays as
+        the no-accelerator fallback and bit-exact reference.
+
+        Since momwire#398 unit 1 the dense fill reaches this pairing through
+        `PotentialGround.weight_tables()` rather than through this method,
+        so what is left here is the SPELLING the block-path tests and the
+        perf script name — the whole-geometry refl-coef image, as one call
+        — and since momwire#429 unit 1 it reaches it the same way they do,
+        handing the object this solver's `_image_refl_prep` cache.
+        """
+        ground = _potential_ground.potential_ground_for(self, geom, self.k, self.omega)
+        w_A, w_Phi = ground.weight_tables(prep=lambda: self._image_refl_prep(geom))
+        return self._image_Z_weighted(J_img, supp_seg, polys, w_A, w_Phi)
+
+    def _image_Z_weighted(self, J_img, supp_seg, polys, w_A, w_Phi, eps=None):
+        """Weighted image assembly core: complex per-pair tables w_A on the
+        A term and w_Phi on the charge term, through the C++
+        `assemble_Z_bspline_weighted` kernel when available with the numpy
+        einsum loop as the bit-exact fallback. Shared by the refl-coef
+        ground (Fresnel tables), the Sommerfeld ground's exact-image part
+        (constant C2 tables) and — since momwire#553 U5 — the BURIED image,
+        whose constant tables carry A_m = (1 − ε̃)/(1 + ε̃) instead.
+
+        `eps` is the same seam `_assemble_Z` names: the buried image's Φ term
+        divides by ε̃_m = ε₀·ε̃. A complex one used to take the numpy branch by
+        force because the C++ kernel's signature is `double eps`; since
+        momwire#910 it takes the complex-eps twin, with the numpy loop as the
+        reference it is gated against."""
+        d = self.degree
+        eps_z = self.eps if eps is None else eps
+        in_medium = np.iscomplexobj(eps_z)
+        if (
+            _HAVE_BSPLINE_ASSEMBLE_W_ACCEL
+            and d <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and not in_medium
+        ):
+            return _acc.assemble_Z_bspline_weighted(
+                np.ascontiguousarray(J_img, dtype=np.complex128),
+                np.ascontiguousarray(supp_seg, dtype=np.int64),
+                np.ascontiguousarray(polys, dtype=np.float64),
+                np.ascontiguousarray(w_A, dtype=np.complex128),
+                np.ascontiguousarray(w_Phi, dtype=np.complex128),
+                float(self.omega),
+                float(eps_z),
+                float(self.mu),
+                int(d),
+                self._cancel_flag,
+            )
+        if (
+            _HAVE_BSPLINE_ASSEMBLE_W_CPLX_EPS_ACCEL
+            and d <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and in_medium
+        ):
+            # momwire#910: the complex-eps~ twin (see `_assemble_Z`).
+            return _acc.assemble_Z_bspline_weighted_cplx_eps(
+                np.ascontiguousarray(J_img, dtype=np.complex128),
+                np.ascontiguousarray(supp_seg, dtype=np.int64),
+                np.ascontiguousarray(polys, dtype=np.float64),
+                np.ascontiguousarray(w_A, dtype=np.complex128),
+                np.ascontiguousarray(w_Phi, dtype=np.complex128),
+                float(self.omega),
+                complex(eps_z),
+                float(self.mu),
+                int(d),
+                self._cancel_flag,
+            )
+
+        n_basis, n_wings, n_poly = polys.shape
+        assert n_wings == d + 1 and n_poly == d + 1
+        Z_A = np.zeros((n_basis, n_basis), dtype=np.complex128)
+        Z_Phi = np.zeros((n_basis, n_basis), dtype=np.complex128)
+        p_vec = np.arange(1, d + 1, dtype=np.float64) if d >= 1 else None
+
+        for a in range(n_wings):
+            sm = supp_seg[:, a]
+            for b in range(n_wings):
+                sn = supp_seg[:, b]
+                J_blk = J_img[:, :, sm[:, None], sn[None, :]]
+                wA_blk = w_A[sm[:, None], sn[None, :]]
+
+                inner_A = np.einsum(
+                    "mp,pPmn,nP->mn", polys[:, a, :], J_blk, polys[:, b, :]
+                )
+                Z_A += wA_blk * inner_A
+
+                if d >= 1:
+                    wPhi_blk = w_Phi[sm[:, None], sn[None, :]]
+                    deriv_m = polys[:, a, 1:] * p_vec[None, :]
+                    deriv_n = polys[:, b, 1:] * p_vec[None, :]
+                    J_blk_lo = J_blk[:d, :d]
+                    inner_Phi = np.einsum("mp,pPmn,nP->mn", deriv_m, J_blk_lo, deriv_n)
+                    Z_Phi += wPhi_blk * inner_Phi
+
+        Z_A = 1j * self.omega * self.mu * Z_A
+        Z_Phi = Z_Phi / (1j * self.omega * eps_z)
+        return Z_A + Z_Phi
+
+    def _ground_finite_Z(self, J_img, supp_seg, polys, geom, ground=None):
+        """Ground-image matrix to SUBTRACT from the free-space Z (the
+        seams' `Z - ...` convention), from the moment-tensor route's
+        already-built image blocks `J_img`. Serves all three grounds.
+
+        Since momwire#398 unit 1 this reads ONE `PotentialGround` where it
+        used to branch on `ground_model` and rebuild ε̃ and C2 by hand:
+
+        * `weight_tables() is None` — PEC. Assemble unweighted, with the
+          image tangent-dot table (a different kernel, not a special case
+          of the weighted one; see `PotentialGround.weight_tables`).
+        * `mode == "fold"` with tables — refl-coef. The Fresnel-weighted
+          image, the same pair `_image_Z_refl` builds.
+        * `mode == "compose"` — sommerfeld. NEC's decomposition (theory
+          manual eqs 136-147): the exact image scaled by the constant
+          C2 = (eps-1)/(eps+1), which absorbs all the singular behavior
+          and reuses the weighted-image kernel with constant tables, plus
+          the smooth Sommerfeld remainder block. The association is the
+          mode's whole point — `C2·img + Q` is summed HERE, before the
+          caller's single minus. In the eps->inf limit C2 -> 1 and the
+          remainder vanishes, reproducing the PEC image exactly; at
+          eps -> 1 both terms vanish, reproducing free space. Both limits
+          are unit-tested.
+
+        `ground` is the caller's already-built object when it has one.
+        """
+        if ground is None:
+            ground = _potential_ground.potential_ground_for(
+                self, geom, self.k, self.omega
+            )
+        weights = ground.weight_tables(prep=lambda: self._image_refl_prep(geom))
+        if weights is None:
+            return self._assemble_Z(
+                J_img,
+                supp_seg,
+                polys,
+                geom,
+                td_all=ground.image_geometry().tangent_dot(),
+            )
+        M = self._image_Z_weighted(J_img, supp_seg, polys, *weights)
+        remainder = ground.remainder()
+        if remainder is None:
+            return M
+        # `M + Q`, folded into M's own buffer (momwire#1798)
+        return remainder.fold_into(M, +1, supp_seg, polys)
+
+    def _somm_grid(self, eps_t, r1_max, lazy=False):
+        return _below_interface.somm_grid(
+            eps_t, self.k, r1_max, self.omega, self.mu, self._cancel_flag, lazy=lazy
+        )
+
+    def _remainder_prep(self, geom, eps_t):
+        """What `_Z_sommerfeld_remainder` and `_Z_sommerfeld_remainder_into`
+        both fill from: the order (and #1189's raised pairs), the quadrature
+        nodes and moment weights, and the grid -- one copy of the code, so the
+        two fills cannot drift apart (momwire#1798)."""
+        gz = self.ground_z
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        tang = geom["tangents"]
+        h = geom["h_per_seg"]
+        n_seg = seg_l.shape[0]
+        zmin = min(seg_l[:, 2].min(), seg_r[:, 2].min()) - gz
+        # Touching (zmin == 0) is allowed since #151: the ground-junction
+        # basis handles contact, and the remainder quadrature samples
+        # Gauss nodes strictly interior to segments, so z+z' > 0 holds
+        # even for a wire ending in the plane. Only genuinely submerged
+        # geometry is rejected (already caught at geometry build too).
+        if zmin < -1e-12:
+            raise ValueError(
+                "ground_model='sommerfeld' requires every wire at or "
+                f"above ground_z (min height above plane: {zmin:.3g})"
+            )
+
+        d = self.degree
+        # momwire#631 keyed the order on grazing height; momwire#1189 keys it
+        # per segment pair. The whole deck is filled at the base order and
+        # only the listed pairs are raised afterwards, so a deck that lists
+        # none is the base-order fill, bit for bit.
+        if _REMAINDER_PER_PAIR:
+            pairs = self._remainder_qp_pairs(seg_l, seg_r, gz)
+            q = int(self.n_qp_sommerfeld)
+        else:
+            pairs = None
+            q = self._remainder_qp(seg_l, seg_r, gz)
+        self._last_remainder_orders = self._remainder_order_census(n_seg, q, pairs)
+        self._last_remainder_graded = 0
+        xg, wg = leggauss(q)
+        tq = 0.5 * (xg + 1.0)
+        nodes = seg_l[:, None, :] + tq[None, :, None] * (seg_r - seg_l)[:, None, :]
+        u_phys = h[:, None] * tq[None, :]  # (N, q) physical arc offsets
+        w_node = 0.5 * h[:, None] * wg[None, :]
+        # Moment weights W[p, i, qi] = w_qi * u_qi^p — the quadrature dual
+        # of the J-block u^p moments, so `polys` applies unchanged.
+        W = w_node[None] * np.float_power(u_phys[None], np.arange(d + 1)[:, None, None])
+
+        # Grid extent: obs-to-image-point distance is convex in the two
+        # segment parameters, so its max over all pairs is attained at
+        # endpoint pairs.
+        r1_max = _sommerfeld.max_image_distance(seg_l, seg_r, gz)
+        grid = self._somm_grid(eps_t, r1_max)
+        return gz, seg_l, seg_r, tang, h, n_seg, d, pairs, q, nodes, W, grid
+
+    def _Z_sommerfeld_remainder(self, geom, supp_seg, polys, eps_t, restrict=None):
+        """Galerkin block Q[m,n] = ∫∫ f_m f_n · t_m·F(r, r')·t_n of the
+        smooth Sommerfeld remainder field F (theory manual eqs 143-147:
+        the ground field minus its C2-scaled exact-image part). The EFIE
+        contribution is -Q; `_ground_finite_Z` returns C2-image + Q so the
+        seams' single subtraction lands both terms.
+
+        Field-form, not mixed-potential: F is the total E-field of a unit
+        current element over ground (endpoint charges inherent in the
+        element superposition), interpolated from the four SommerfeldGrid
+        surfaces, combined per source-tangent vertical/horizontal
+        decomposition (eqs 143-147 azimuth factors), projected on the
+        observer tangent, and integrated with the basis polynomials by
+        per-segment Gauss quadrature.
+
+        BOTH paths band the assembly over observer segments so no
+        (d+1)^2 * N^2 moment tensor is ever live (issue #343): the fused
+        kernel bands internally (64 MiB slab), the numpy fallback below
+        assembles each chunk into Q as it goes.
+
+        `restrict` (an `_ObserverRows`, momwire#1131) returns only the
+        `(len(R), n_basis)` rows R it names. On the fused kernel that is its
+        own rectangular form with the requested segments as observers: every
+        observer segment's moment slab is computed independently of the
+        others, and the kernel's banding is order-preserving (see its
+        header), so each row is the square block's row bit for bit. The grid
+        extent and the quadrature orders (the base order and momwire#1189's
+        raised-pair list) are sized from the WHOLE mesh either way; the raised
+        pairs are then applied to the requested rows only
+        (`_remainder_pair_correction`). The numpy fallback fills the square
+        block and slices it.
+        """
+        gz, seg_l, seg_r, tang, h, n_seg, d, pairs, q, nodes, W, grid = (
+            self._remainder_prep(geom, eps_t)
+        )
+
+        # Fully-fused C++ path: interpolate + project + moment-quadrature +
+        # basis-assemble straight into Q, skipping the Python-side Jf tensor
+        # and the two Galerkin einsums (sommerfeld-perf-plan Phase 4b stage
+        # 2). The dense block is the symmetric obs==src case of the
+        # rectangular kernel, with the support map == supp_seg (segment set
+        # is all segments). The kernel's own moment slab is banded over
+        # observer segments (#343), so the full-N call is bounded too.
+        if restrict is not None and not (
+            _acc is not None and hasattr(_acc, "sommerfeld_remainder_bspline_Q")
+        ):
+            R = restrict.basis_rows
+            return np.ascontiguousarray(
+                self._Z_sommerfeld_remainder(geom, supp_seg, polys, eps_t)[R]
+            )
+        if _acc is not None and hasattr(_acc, "sommerfeld_remainder_bspline_Q"):
+            nodes_c = np.ascontiguousarray(nodes, dtype=np.float64)
+            tang_c = np.ascontiguousarray(tang, dtype=np.float64)
+            W_c = np.ascontiguousarray(W, dtype=np.float64)
+            supp_c = np.ascontiguousarray(supp_seg, dtype=np.int64)
+            polys_c = np.ascontiguousarray(polys, dtype=np.float64)
+            if restrict is not None:
+                # The requested segments as the observer set, and R's support
+                # map re-expressed in it. An unlive (zero-padded) slot keeps
+                # a valid local index -- its polynomial is zero, so it adds
+                # an exact zero wherever it lands.
+                obs = np.flatnonzero(restrict.seg_mask)
+                R = restrict.basis_rows
+                live = np.any(polys_c[R] != 0.0, axis=2)
+                loc = np.searchsorted(obs, supp_c[R])
+                loc = np.where(live, loc, 0)
+                Q = _acc.sommerfeld_remainder_bspline_Q(
+                    np.ascontiguousarray(nodes_c[obs]),
+                    np.ascontiguousarray(tang_c[obs]),
+                    np.ascontiguousarray(W_c[:, obs, :]),
+                    nodes_c,
+                    tang_c,
+                    W_c,
+                    np.ascontiguousarray(loc, dtype=np.int64),
+                    np.ascontiguousarray(polys_c[R]),
+                    supp_c,
+                    polys_c,
+                    float(gz),
+                    float(self.k),
+                    *_sommerfeld.grid_cpp_args(grid),
+                    int(self._cancel_flag),
+                )
+                if pairs is not None and pairs[0].size:
+                    self._remainder_pair_correction(
+                        Q, geom, supp_seg, polys, grid, pairs, restrict=restrict
+                    )
+                return Q
+            copy_map = self._remainder_reuse_args(geom, gz)
+            counts = np.zeros(5, dtype=np.int64)
+            Q = _acc.sommerfeld_remainder_bspline_Q(
+                nodes_c,
+                tang_c,
+                W_c,
+                nodes_c,
+                tang_c,
+                W_c,
+                supp_c,
+                polys_c,
+                supp_c,
+                polys_c,
+                float(gz),
+                float(self.k),
+                *_sommerfeld.grid_cpp_args(grid),
+                int(self._cancel_flag),
+                **copy_map,
+                counts=counts,
+            )
+            n_raised = 0 if pairs is None else int(pairs[0].size)
+            if n_raised:
+                self._remainder_pair_correction(Q, geom, supp_seg, polys, grid, pairs)
+            self._note_remainder_kernel(n_seg, counts, copy_map, n_raised)
+            return Q
+
+        n_nodes = n_seg * q
+        src = nodes.reshape(n_nodes, 3)
+        t_src = np.repeat(tang, q, axis=0)
+
+        # numpy fallback. The observer chunking bounds the field evaluation,
+        # but the moment tensor it filled used to be the FULL
+        # (d+1, d+1, n_seg, n_seg) block — 144 N^2 bytes, the same ~9x-dense
+        # transient the fused kernel carried (issue #343), and the assembly
+        # below then gathered a second copy of it per wing pair. Assemble
+        # each observer chunk's contribution into Q immediately instead: a
+        # basis row only sees the chunks holding its own support segments, so
+        # nothing bigger than (d+1, d+1, chunk, n_seg) is ever live.
+        n_basis = polys.shape[0]
+        Q = np.zeros((n_basis, n_basis), dtype=np.complex128)
+        chunk = max(1, (1 << 19) // max(n_nodes * q, 1))
+        # A checkpoint per observer chunk of the eval+assemble block.
+        for i0, i1 in _schedule.chunks([(0, n_seg)], chunk, self._checkpoint):
+            obs = nodes[i0:i1].reshape(-1, 3)
+            t_obs = np.repeat(tang[i0:i1], q, axis=0)
+            proj = _sommerfeld.remainder_field_proj(
+                obs, t_obs, src, t_src, gz, self.k, grid
+            )
+            fq = proj.reshape(i1 - i0, q, n_seg, q)
+            # optimize=True (momwire#910): as one three-operand loop numpy
+            # walks every index at once — 16.6 ms per chunk on the 12-radial
+            # screen; contracted pairwise it is 3.6 ms, same sum to roundoff.
+            Jc = np.einsum("piq,iqjr,Pjr->pPij", W[:, i0:i1], fq, W, optimize=True)
+            for a in range(d + 1):
+                sm = supp_seg[:, a]
+                # Wings of this chunk only; every wing lands in exactly one
+                # chunk, so the (a, b) pair sum is complete and disjoint.
+                rows = np.nonzero((sm >= i0) & (sm < i1))[0]
+                if rows.size == 0:
+                    continue
+                sml = sm[rows] - i0
+                for b in range(d + 1):
+                    sn = supp_seg[:, b]
+                    J_blk = Jc[:, :, sml[:, None], sn[None, :]]
+                    Q[rows] += np.einsum(
+                        "mp,pPmn,nP->mn", polys[rows, a, :], J_blk, polys[:, b, :]
+                    )
+        n_raised = 0 if pairs is None else int(pairs[0].size)
+        if n_raised:
+            self._remainder_pair_correction(Q, geom, supp_seg, polys, grid, pairs)
+        n2 = int(n_seg) ** 2
+        self._note_ground_fill("remainder", n2, n2, n2 + n_raised)
+        return Q
+
+    def _Z_sommerfeld_remainder_into(self, T, sign, geom, supp_seg, polys, eps_t):
+        """`T -= Q` (sign -1) or `T += Q` (sign +1) for the dense block
+        `_Z_sommerfeld_remainder` returns, in place, with no n_basis^2 Q
+        held beside T (momwire#1798): on the ELT whip that second matrix was
+        2.5 GB of a 5.0 GB peak.
+
+        The fused kernel's symmetric route forms every entry completely
+        before it lands (a Q entry lives in one tile pair), so it folds each
+        one into T as it finishes: `T[m, n] - Q[m, n]`, componentwise, the
+        subtraction numpy's `Z -= Q` makes. The raised pairs (#1189) are the
+        one wrinkle: the dense route adds their corrections to Q BEFORE the
+        fold, so the entries they touch are exempted from it -- the kernel
+        stores those few on the side, the correction adds to them there in
+        its own order, and they fold last. Every entry of T is therefore the
+        bits the dense route gives it.
+
+        Without the fused kernel this is the dense route itself.
+        """
+        # Both bindings, so a caller that takes the dense kernel away (a test
+        # forcing the numpy route) takes the fold away with it.
+        if not (
+            _acc is not None
+            and hasattr(_acc, "sommerfeld_remainder_bspline_Q")
+            and hasattr(_acc, "sommerfeld_remainder_bspline_Q_into")
+        ):
+            Q = self._Z_sommerfeld_remainder(geom, supp_seg, polys, eps_t)
+            if sign < 0:
+                T -= Q
+            else:
+                T += Q
+            return T
+        gz, _sl, _sr, tang, _h, n_seg, _d, pairs, _q, nodes, W, grid = (
+            self._remainder_prep(geom, eps_t)
+        )
+        nb = supp_seg.shape[0]
+        raised = pairs is not None and pairs[0].size
+        if raised:
+            E = self._remainder_pair_entries(supp_seg, polys, n_seg, pairs[0], pairs[1])
+        else:
+            E = np.zeros(0, dtype=np.int64)
+        ex_row, ex_col = np.divmod(E, nb)
+        ex_ptr = np.searchsorted(ex_row, np.arange(nb + 1), side="left").astype(
+            np.int64
+        )
+        side = np.zeros(E.size, dtype=np.complex128)
+        copy_map = self._remainder_reuse_args(geom, gz)
+        counts = np.zeros(5, dtype=np.int64)
+        _acc.sommerfeld_remainder_bspline_Q_into(
+            np.ascontiguousarray(nodes, dtype=np.float64),
+            np.ascontiguousarray(tang, dtype=np.float64),
+            np.ascontiguousarray(W, dtype=np.float64),
+            np.ascontiguousarray(supp_seg, dtype=np.int64),
+            np.ascontiguousarray(polys, dtype=np.float64),
+            float(gz),
+            float(self.k),
+            *_sommerfeld.grid_cpp_args(grid),
+            T,
+            int(sign),
+            ex_ptr,
+            np.ascontiguousarray(ex_col, dtype=np.int64),
+            side,
+            int(self._cancel_flag),
+            **copy_map,
+            counts=counts,
+        )
+        self._note_remainder_kernel(
+            n_seg, counts, copy_map, int(pairs[0].size) if raised else 0
+        )
+        if raised:
+            self._remainder_pair_correction(
+                side, geom, supp_seg, polys, grid, pairs, entries=E
+            )
+            if sign < 0:
+                T[ex_row, ex_col] -= side
+            else:
+                T[ex_row, ex_col] += side
+        return T
+
+    def _remainder_pair_entries(self, supp_seg, polys, n_seg, I, J):
+        """Sorted unique flat indices `m * n_basis + n` of every Q entry
+        `_remainder_pair_correction` adds to for the pairs (I, J): the same
+        wing table and the same `keep` mask its scatter uses, so the set is
+        exactly the entries its `np.add.at` names."""
+        nb = supp_seg.shape[0]
+        d1 = self.degree + 1
+        ent = self._segment_wing_table(supp_seg, polys, n_seg)
+        valid = ent >= 0
+        m_of = np.where(valid, ent // d1, 0).astype(np.int64)
+        out = []
+        for c0 in range(0, I.size, _PAIR_SCATTER_CHUNK):
+            c1 = min(c0 + _PAIR_SCATTER_CHUNK, I.size)
+            Ic, Jc = I[c0:c1], J[c0:c1]
+            flat = m_of[Ic][:, :, None] * nb + m_of[Jc][:, None, :]
+            keep = valid[Ic][:, :, None] & valid[Jc][:, None, :]
+            out.append(np.unique(flat[keep]))
+        if not out:
+            return np.zeros(0, dtype=np.int64)
+        return np.unique(np.concatenate(out))
+
+    @staticmethod
+    def _segment_wing_table(supp_seg, polys, n_seg):
+        """`(n_seg, width)` flat (basis * d1 + wing) indices of every REAL
+        wing resting on each segment, in flat order, padded with -1.
+
+        `supp_seg` pads a basis's unused wing slots with segment 0 and a zero
+        polynomial, so read raw every padded slot lands on segment 0: on a
+        48-radial screen its list was 198 wide where a real segment carries
+        three, and the correction's (pairs, width, width) transient reached
+        7 GiB (the #1189 regression found by momwire#1131). A slot whose
+        polynomial is identically zero contributes exactly zero wherever it
+        rests, so dropping it changes no entry of Q.
+        """
+        flat_all = supp_seg.ravel()
+        real = np.flatnonzero(np.any(polys != 0.0, axis=2).ravel())
+        flat = flat_all[real]
+        counts = np.bincount(flat, minlength=n_seg)
+        width = int(counts.max()) if counts.size else 0
+        order = np.argsort(flat, kind="stable")
+        starts = np.concatenate([[0], np.cumsum(counts)[:-1]])
+        ent = np.full((n_seg, width), -1, dtype=np.int64)
+        pos = np.arange(flat.size) - np.repeat(starts, counts)
+        ent[flat[order], pos] = real[order]
+        return ent
+
+    @staticmethod
+    def _remainder_order_census(n_seg, q_fill, pairs):
+        """`{order: segment pairs filled at it}` for the last remainder fill.
+
+        Recorded on `_last_remainder_orders` so a gate can read which orders
+        the fill actually ran rather than infer it from the answer.
+        """
+        total = int(n_seg) * int(n_seg)
+        if pairs is None or pairs[0].size == 0:
+            return {int(q_fill): total}
+        qs, counts = np.unique(pairs[2], return_counts=True)
+        census = {int(a): int(b) for a, b in zip(qs, counts, strict=True)}
+        census[int(q_fill)] = total - int(counts.sum())
+        return census
+
+    def _Q_sommerfeld_remainder_enrich(
+        self, geom, supp_seg_poly, polys_poly, spec_seg, spec_origin, eps_t
+    ):
+        """Sommerfeld remainder-field reaction for the enrichment DOFs (#167
+        stage 3): the (Q_pe, Q_ep, Q_ee) counterpart of
+        `_Z_sommerfeld_remainder`.
+
+        Same smooth remainder field F (theory eqs 143-147, interpolated from
+        the SommerfeldGrid via `_sommerfeld.remainder_field_proj`), projected
+        between basis quad nodes and integrated with the basis shapes. F is the
+        field of a unit current MOMENT — basis-agnostic — so the enrichment
+        side simply weights its nodes by ``w·Φ_sing`` where the polynomial side
+        uses the ``u^p`` moment weights. Field-form, so the singular basis's
+        endpoint charges are inherent (no separate Φ term).
+
+        The returned blocks are SUBTRACTED alongside the C2 exact-image blocks
+        (the sommerfeld branch of `_enrichment_Z_assemble`), matching the
+        polynomial `_ground_finite_Z` convention (C2-image + Q, one minus).
+        numpy-only and negligible: the enrichment node count is a handful.
+        """
+        gz = self.ground_z
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        tang = geom["tangents"]
+        h = geom["h_per_seg"]
+        d = self.degree
+        n_enrich = spec_seg.shape[0]
+        n_poly, n_wings = supp_seg_poly.shape
+        n_seg = seg_l.shape[0]
+
+        # Same grid extent as _Z_sommerfeld_remainder: endpoint pairs bound the
+        # obs-to-image distance, and every interior quad node sits inside it.
+        r1_max = _sommerfeld.max_image_distance(seg_l, seg_r, gz)
+        grid = self._somm_grid(eps_t, r1_max)
+
+        # Enrichment-side nodes: the singular basis value Φ_sing(u) sampled at
+        # the enrichment quadrature (n_qp_sing), times the node weight. Same
+        # Φ_sing shape as the free-space / image enrichment assembly.
+        gl_xi, gl_w = leggauss(self.n_qp_sing)
+        te = 0.5 * (gl_xi + 1.0)
+        we = 0.5 * gl_w
+        q_e = te.shape[0]
+        if self.enrichment_variant == "stable":
+            proj_coeffs = _xfem_projection_coeffs(d)
+        else:
+            proj_coeffs = np.zeros(d + 1)
+        polyval = np.polynomial.polynomial.polyval
+        eps_tiny = 1e-300
+
+        pos_e = np.zeros((n_enrich, q_e, 3))
+        wphi_e = np.zeros((n_enrich, q_e))  # node weight · Φ_sing
+        t_e = np.zeros((n_enrich, 3))
+        for e in range(n_enrich):
+            se = int(spec_seg[e])
+            orig = int(spec_origin[e])
+            u_norm = te if orig == 0 else (1.0 - te)
+            u_safe = np.where(u_norm > eps_tiny, u_norm, eps_tiny)
+            sing = u_norm * np.log(u_safe) - polyval(u_norm, proj_coeffs)
+            wphi_e[e] = (we * h[se]) * sing
+            pos_e[e] = seg_l[se] + te[:, None] * (seg_r[se] - seg_l[se])
+            t_e[e] = tang[se]
+
+        obs_e = pos_e.reshape(n_enrich * q_e, 3)
+        tobs_e = np.repeat(t_e, q_e, axis=0)
+
+        # Q_ee: enrichment observer vs enrichment source. F is smooth, so the
+        # Φ_sing-weighted double sum is a plain contraction (no chunking — the
+        # (n_enrich·q_e)² block is tiny).
+        proj_ee = _sommerfeld.remainder_field_proj(
+            obs_e, tobs_e, obs_e, tobs_e, gz, self.k, grid, self._cancel_flag
+        ).reshape(n_enrich, q_e, n_enrich, q_e)
+        Q_ee = np.einsum("eq,eqfr,fr->ef", wphi_e, proj_ee, wphi_e)
+
+        Q_pe = np.zeros((n_poly, n_enrich), dtype=np.complex128)
+        Q_ep = np.zeros((n_enrich, n_poly), dtype=np.complex128)
+        if n_poly == 0:
+            return Q_pe, Q_ep, Q_ee
+
+        # Polynomial-side nodes + u^p moment weights, exactly as
+        # _Z_sommerfeld_remainder — including its momwire#631 keying, so the
+        # enrichment cross-blocks are sampled at the same order as the
+        # polynomial block they sit beside rather than at a stale default.
+        q = self._remainder_qp(seg_l, seg_r, gz)
+        xg, wg = leggauss(q)
+        tq = 0.5 * (xg + 1.0)
+        nodes_p = seg_l[:, None, :] + tq[None, :, None] * (seg_r - seg_l)[:, None, :]
+        u_phys = h[:, None] * tq[None, :]
+        w_node = 0.5 * h[:, None] * wg[None, :]
+        Wm = w_node[None] * np.float_power(
+            u_phys[None], np.arange(d + 1)[:, None, None]
+        )
+        obs_p = nodes_p.reshape(n_seg * q, 3)
+        tobs_p = np.repeat(tang, q, axis=0)
+
+        # Q_pe: poly observer m, enrichment source e. Poly side assembled with
+        # the u^p moments + basis polynomials; enrichment side with w·Φ_sing.
+        proj_pe = _sommerfeld.remainder_field_proj(
+            obs_p, tobs_p, obs_e, tobs_e, gz, self.k, grid, self._cancel_flag
+        ).reshape(n_seg, q, n_enrich, q_e)
+        field_pe = np.einsum("iqer,er->iqe", proj_pe, wphi_e)  # (n_seg, q, n_enrich)
+        Jf_pe = np.einsum("piq,iqe->pie", Wm, field_pe)  # (d+1, n_seg, n_enrich)
+        for a in range(n_wings):
+            sm = supp_seg_poly[:, a]
+            Q_pe += np.einsum("mp,pme->me", polys_poly[:, a, :], Jf_pe[:, sm, :])
+
+        # Q_ep: enrichment observer e, poly source m.
+        proj_ep = _sommerfeld.remainder_field_proj(
+            obs_e, tobs_e, obs_p, tobs_p, gz, self.k, grid, self._cancel_flag
+        ).reshape(n_enrich, q_e, n_seg, q)
+        field_ep = np.einsum("eq,eqir->eir", wphi_e, proj_ep)  # (n_enrich, n_seg, q)
+        # Jf_ep[e, i, P] = Σ_r field_ep[e,i,r] · Wm[P,i,r]
+        Jf_ep = np.einsum("eir,Pir->eiP", field_ep, Wm)  # (n_enrich, n_seg, d+1)
+        for b in range(n_wings):
+            sn = supp_seg_poly[:, b]
+            # Jf_ep[:, sn, :] -> (n_enrich, n_poly, d+1); polys_poly[:, b, :] -> (n_poly, d+1)
+            Q_ep += np.einsum("enP,nP->en", Jf_ep[:, sn, :], polys_poly[:, b, :])
+
+        return Q_pe, Q_ep, Q_ee
+
+    def _seg_radius(self, geom):
+        """(n_segs_total,) per-segment radius (`_wire_spec.seg_radius`)."""
+        seg_off = np.asarray(geom["seg_offsets"], dtype=np.int64)
+        return _wire_spec.seg_radius(self._radius_per_wire, np.diff(seg_off))
+
+    def _ek_axis_labels(self, geom, mirror):
+        """Cached extended-kernel labels for this geometry: since momwire#1368
+        `_ek_axis_groups` gives every segment one label, so every pair —
+        real/real and real/image — is extended. The scan below is kept as
+        the shape the labels' convention needs (comparable arrays, cached),
+        and the history of the joint scan is kept with it.
+
+        Returns `(group_i, group_j)`, both (n_segs,), for the observer and
+        source sides of a fill. `mirror=False` is the free-space case, where
+        both sides are the same real segments and therefore the same labels.
+
+        `mirror=True` is the PEC-image block, where the SOURCE segments are
+        the real ones reflected through z = ground_z. The two label arrays
+        must stay COMPARABLE — eligibility is `group_i[i] == group_j[j]` —
+        so the labels are built by one scan over the CONCATENATION of the
+        real and mirrored segments and then split, not by two independent
+        scans. Two independent scans would be actively wrong: a horizontal
+        wire and its image would both be labelled 0 and every real/image
+        pair would be declared coaxial, when in fact they are parallel and
+        offset by twice the height. With the joint scan, a vertical monopole
+        on the plane mirrors onto its own axis and IS one group (NEC's
+        IND = 0 ground-contact branch, #249 §4.3), while the horizontal wire
+        splits into two.
+
+        Cached per geometry OBJECT (identity check) and per mirror flag, so
+        a grounded swept solve pays for the O(N·G) scan once, not per k.
+        """
+        cached = self._cached_ek_groups
+        if cached is None or cached[0] is not geom:
+            cached = (geom, {})
+            self._cached_ek_groups = cached
+        hit = cached[1].get(mirror)
+        if hit is not None:
+            return hit
+
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        tangents = geom["tangents"]
+        seg_a = self._seg_radius(geom)
+        if mirror:
+            n = seg_l.shape[0]
+            joint = _ek_axis_groups(
+                np.vstack([seg_l, self._image_positions(seg_l)]),
+                np.vstack([seg_r, self._image_positions(seg_r)]),
+                np.vstack([tangents, _ground_mirror.mirror_tangents(tangents)]),
+                np.concatenate([seg_a, seg_a]),
+            )
+            hit = (joint[:n], joint[n:])
+        else:
+            labels = _ek_axis_groups(seg_l, seg_r, tangents, seg_a)
+            hit = (labels, labels)
+        cached[1][mirror] = hit
+        return hit
+
+    def _ek_spec(self, geom, mirror=False):
+        """The `_EK` spec for a whole-mesh fill, or None when EK is off.
+
+        Call sites guard on `self.extended_kernel` before calling, so an
+        EK-off solve enters no EK code at all (the monkeypatch-counter gate
+        in tests/test_extended_kernel_bspline.py pins that); the `not`
+        branch here is belt-and-braces for a direct caller.
+
+        Windowed and blocked fills restrict the returned spec's labels to
+        their own rows/columns with `_ek_slice`; same-edge blocks use
+        `_EK_SAME_EDGE` instead (whole-block eligibility).
+        """
+        if not self.extended_kernel:
+            return None
+        group_i, group_j = self._ek_axis_labels(geom, mirror)
+        # a=None: each kernel call's own regularisation radius — the
+        # OBSERVER row's — is Eq 89's ρ. b_j is the source tube's radius per
+        # source segment (momwire#1368's two-radius factor; an image segment
+        # carries its own segment's radius). None on a uniform-radius mesh,
+        # where b = a on every pair and nothing needs carrying.
+        seg_a = np.asarray(self._seg_radius(geom), dtype=np.float64)
+        b_j = None if np.all(seg_a == seg_a[0]) else seg_a
+        return _EK(a=None, group_i=group_i, group_j=group_j, b_j=b_j)
+
+    def _ek_spec_above(self, geom, mirror=False):
+        """The `_EK` spec of a deck with BURIED wires (momwire#1170 stage 0):
+        `_ek_spec`'s labels with every segment below the interface marked
+        never-extend (-1, the marker `_ek_axis_groups` reserves), or None
+        when the extended kernel is off or no segment is above.
+
+        The extended kernel is the O(a^2) tube average of the free-space
+        Green's function at ONE wavenumber. A pair of above-ground segments
+        is that case, and so is an above segment against the mirror of an
+        above source (the image block momwire#269 serves). A pair that
+        touches a buried segment is not: the pair spans two media, or sits
+        in the lower one, where neither the expansion's wavenumber nor its
+        image has been measured (the later stages of #1170). Those pairs
+        keep the reduced kernel, so the mask is on the SEGMENT, both as an
+        observer and as a source, real or mirrored.
+
+        Only the buried fill asks here. A deck with no buried wire never
+        does, which is what keeps every other route's labels, and bits,
+        what they were. Cached per geometry object and mirror flag.
+        """
+        if not self.extended_kernel:
+            return None
+        cached = self._cached_ek_above
+        if cached is None or cached[0] is not geom:
+            cached = (geom, {})
+            self._cached_ek_above = cached
+        hit = cached[1].get(mirror)
+        if hit is None:
+            below = np.asarray(self._below_segments(geom), dtype=bool)
+            if below.all():
+                hit = (None,)
+            else:
+                spec = self._ek_spec(geom, mirror=mirror)
+                hit = (
+                    spec._replace(
+                        group_i=np.where(below, -1, spec.group_i),
+                        group_j=np.where(below, -1, spec.group_j),
+                    ),
+                )
+            cached[1][mirror] = hit
+        return hit[0]
+
+    def _advise_ek_above(self):
+        """Say, once per solver, that this buried deck's extended kernel is
+        the above-ground one (`ExtendedKernelAboveGround`, momwire#1170). A
+        front end that has already said it in its own words sets
+        `_warned_ek_above` and this stays silent."""
+        if not self.extended_kernel or self._warned_ek_above:
+            return
+        self._warned_ek_above = True
+        wires = self.extended_kernel_wires()
+        if all(wires):
+            return
+        warnings.warn(
+            _below_interface.extended_kernel_above_advisory(wires),
+            _below_interface.ExtendedKernelAboveGround,
+            stacklevel=4,
+        )
+
+    def _ek_subset(self, geom, obs_sel, seg_idx, mirror):
+        """`_ek_spec_above` for one buried-fill subset block, cut to nothing
+        when the block has no eligible pair: `(spec, same_edge_spec)`, both
+        None for a block of buried segments, so that block makes exactly the
+        reduced-kernel calls it made before the mask existed."""
+        ek = self._ek_spec_above(geom, mirror=mirror)
+        if ek is None:
+            return None, None
+        if not (np.any(ek.group_i[obs_sel] >= 0) and np.any(ek.group_j[seg_idx] >= 0)):
+            return None, None
+        return ek, _EK_SAME_EDGE
+
+    def extended_kernel_wires(self):
+        """Per wire, whether its pairs take the extended kernel: a tuple of
+        bools, one per wire, all False with `extended_kernel=False`.
+
+        All True on a deck with no buried wire. On a deck with wires below a
+        Sommerfeld ground plane (momwire#1170 stage 0) a buried wire is
+        False: every pair that touches one of its segments keeps the reduced
+        kernel, and the extended kernel acts on the pairs whose two segments
+        are both above ground (and on their images).
+        """
+        n = len(self.wires_polylines)
+        if not self.extended_kernel:
+            return (False,) * n
+        if self.ground_z is None or not self._has_buried_wires():
+            return (True,) * n
+        return tuple(m != _medium_spec.BELOW for m in self._wire_media())
+
+    @_offset_reuse_fill
+    def _same_edge_prep(self, geom):
+        """k-independent per-same-edge precompute hoisted out of the swept-k
+        loop: each edge's analytic static-moment block, plus the O(N_e)
+        ingredients (`ed_arc`, `a_w`) `_seg_seg_reg_geometry` needs to
+        rebuild the reg-kernel quadrature geometry on demand. Returns a
+        list of `(global_slice, A_static, ed_arc, a_w)`.
+
+        The reg-kernel geometry itself — an `(N_e·n_qp, N_e·n_qp)` R table,
+        128·N_e² bytes at the default `n_qp_pair_same_edge=4` — is NOT
+        materialised here (issue #330): every swept caller holds this
+        return value's list across the WHOLE sweep, so a retained R table
+        per edge would be resident for the sweep's entire lifetime rather
+        than the one edge's turn it actually needs. `A_static` (72·N_e²
+        bytes) stays small enough to keep; `ed_arc` is the (N_e+1,) arc
+        array already owned by `geom` (a reference, not a copy) and `a_w`
+        is a scalar — both O(N_e). Consumers rebuild the R table from
+        these with `_seg_seg_reg_geometry(ed_arc, a_w, max_d=d,
+        n_qp=self.n_qp_pair, ek=...)` — same function, same inputs as this
+        method used to call, so the rebuilt table is bit-identical to the
+        one this used to retain.
+
+        Same-edge pairs live on a single wire, so each edge's block uses
+        that wire's own radius — and, under `extended_kernel`, is eligible
+        in its entirety (`_EK_SAME_EDGE`). Consumers recompute the SAME
+        `_EK_SAME_EDGE if self.extended_kernel else None` spec that built
+        `A_static` here, so EK rides through unchanged.
+        """
+        d = self.degree
+        ek = _EK_SAME_EDGE if self.extended_kernel else None
+        return [
+            (sl, _seg_seg_static_moments(arc, a_w, max_d=d, ek=ek), arc, a_w)
+            for _w, sl, arc, a_w in self._edge_ingredients(geom)
+        ]
+
+    def _edge_ingredients(self, geom):
+        """`(wire, global_slice, edge_arc, radius)` per edge, in wire order:
+        what every same-edge block is built from. O(N_e) each; `edge_arc` is
+        `geom`'s own array."""
+        per_wire = geom["per_wire"]
+        seg_off = geom["seg_offsets"]
+        out = []
+        for w in range(len(per_wire)):
+            ed_off = per_wire[w]["edge_offsets"]
+            ed_arc = per_wire[w]["edge_arc_edges"]
+            base = seg_off[w]
+            a_w = float(self._radius_per_wire[w])
+            for i_e in range(len(ed_off) - 1):
+                sl = slice(base + ed_off[i_e], base + ed_off[i_e + 1])
+                out.append((w, sl, ed_arc[i_e], a_w))
+        return out
+
+    @_offset_reuse_fill
+    def _same_edge_prep_swept_chunks(self, prep, k_array):
+        """Yield `(ki, k, same_edge_k)` per sweep point, where `same_edge_k`
+        is the per-k `same_edge_prep` list the fallback sweeps hand to
+        `compute_port_solution` / `compute_impedance`.
+
+        The swept same-edge reg-moment hoist is chunked over k so the
+        hoisted blocks stay under the `swept_mem_mb` budget (issue #263):
+        the whole-sweep hoist is an O(n_k · nm² · ΣN_e²) transient that the
+        budget never saw — the same corner as #238's per-k tensor, one
+        multiplicative n_k worse. The chunk arithmetic mirrors the
+        same-edge term of `_swept_batched_z_chunks` (nm² ΣN_e² complex per
+        k). Chunking is pure re-batching: each k's moment block is computed
+        independently of its chunk mates, so a sweep that fits in one chunk
+        is byte-for-byte the old whole-sweep call, and a multi-chunk sweep
+        matches it to the last ulp.
+
+        `prep`'s entries no longer carry a materialised reg-geometry table
+        (issue #330): each edge's R table is rebuilt HERE, once per (chunk,
+        edge) — the same granularity the old code consumed it at, since the
+        chunk loop below already called `_seg_seg_reg_moments_from_geometry_swept`
+        once per (chunk, edge) on a table the caller had pre-built. Rebuilding
+        instead of reusing means only one edge's R table is ever alive at a
+        time (the list comprehension drops each one immediately after its
+        einsum), instead of every edge's table riding in `prep` for the whole
+        generator's lifetime. Same function (`_seg_seg_reg_geometry`), same
+        inputs (`ed_arc`, `a_w`, `d`, `n_qp_pair`, `ek`) as the retired
+        materialise-once call, so this is bit-identical, not an approximation
+        — only the moment CHUNK COUNT changes the wall-clock cost, never the
+        answer.
+        """
+        # `dtype=float` below would silently drop the imaginary part of an
+        # in-medium sweep. Unit 1 of momwire#553 widens the moment KERNELS,
+        # not the solver: this method also feeds `_assemble_Z`'s
+        # `float(self.eps)` prefactor seam and the C++ windowed assembler,
+        # neither of which has a medium. Refuse by name rather than truncate.
+        _refuse_complex_k(k_array, "the swept B-spline same-edge fill")
+        k_array = np.asarray(k_array, dtype=float)
+        n_k = k_array.shape[0]
+        d = self.degree
+        nm = d + 1
+        n_qp = self.n_qp_pair_same_edge
+        ek = _EK_SAME_EDGE if self.extended_kernel else None
+        sum_ne2 = sum((sl.stop - sl.start) ** 2 for sl, _A_st, _arc, _a in prep)
+        max_ne2 = max(
+            ((sl.stop - sl.start) ** 2 for sl, _A_st, _arc, _a in prep), default=0
+        )
+        bytes_per_k = nm * nm * sum_ne2 * 16
+        # Budget honesty (issue #330): while a chunk's moment blocks are
+        # being built, one edge's rebuilt R table is transiently alive
+        # too — float64, (N_e·n_qp)² entries, 8 bytes each. Only the
+        # LARGEST edge's table is ever live at once (the list
+        # comprehension below drops each edge's table before starting the
+        # next), so reserve that much of the budget up front and size the
+        # k-chunk out of what is left, rather than pretending the rebuild
+        # is free.
+        transient_bytes = max_ne2 * n_qp * n_qp * 8
+        chunk = _schedule.k_chunk(n_k, self.swept_mem_mb, bytes_per_k, transient_bytes)
+        # A checkpoint before each chunk's batched reg-moment build.
+        for c0, c1 in _schedule.k_chunks(n_k, chunk, self._checkpoint):
+            ks = k_array[c0:c1]
+            reg_chunk = [
+                _seg_seg_reg_moments_from_geometry_swept(
+                    _seg_seg_reg_geometry(ed_arc, a_w, max_d=d, n_qp=n_qp, ek=ek), ks
+                )
+                for _sl, _A_st, ed_arc, a_w in prep
+            ]
+            for i in range(ks.shape[0]):
+                same_edge_k = [
+                    (sl, A_st, reg_chunk[e][i])
+                    for e, (sl, A_st, _arc, _a) in enumerate(prep)
+                ]
+                yield c0 + i, ks[i], same_edge_k
+
+    @staticmethod
+    def _same_edge_slices(geom):
+        """The segment ranges that form same-edge blocks, one per edge.
+
+        Same spelling as the overwrite loop in `_build_J_blocks`; factored out
+        so the pre-pass can ask what it is about to throw away before paying
+        for it (momwire#743)."""
+        per_wire = geom["per_wire"]
+        seg_off = geom["seg_offsets"]
+        out = []
+        for w in range(len(per_wire)):
+            ed_off = per_wire[w]["edge_offsets"]
+            base = seg_off[w]
+            for i_e in range(len(ed_off) - 1):
+                out.append(slice(base + ed_off[i_e], base + ed_off[i_e + 1]))
+        return out
+
+    def _between_edge_pairs(self):
+        """The ordered segment pairs outside every edge's own block: the
+        pairs a copy between edges could serve."""
+        geom = self._build_geometry()
+        own = sum((sl.stop - sl.start) ** 2 for sl in self._same_edge_slices(geom))
+        return int(geom["n_segs_total"]) ** 2 - own
+
+    def _fill_report_begin(self):
+        self._fill_ground_notes = {}
+        return self.__dict__.get("_fill_served")
+
+    def _note_ground_fill(
+        self, name, pairs, computed, kernel_evals, copy_map=None, plan=None
+    ):
+        """Count one fill of a ground term, `name` "image" or "remainder",
+        for the fill report (momwire#2068). Called once per whole-mesh fill
+        of the term; a fill of chosen rows notes nothing, so its term reads
+        as uncounted.
+
+        THE PAIR CONVENTION is the direct family's: ORDERED segment pairs,
+        n_seg^2 for a whole-mesh fill, each counted once however many times
+        a kernel formed it. `computed` are the pairs whose value was formed
+        from their own geometry, so `pairs - computed` were copied from
+        another pair's value (a member read transposed from its class's
+        value included, as in the direct fill): by `copy_map` (the
+        remainder's class map, `_note_remainder_kernel`'s ``{"plan",
+        "tied"}``). `kernel_evals` is what the kernel was called on,
+        which exceeds `computed` where pairs are formed twice (a segment in
+        two tiles' support halos, #1189's raised pairs). `plan` (a plan's weak ref)
+        says the term copied between edges by the plan's image block
+        (momwire#2063 step 2a), whose wire map counts it."""
+        notes = self.__dict__.setdefault("_fill_ground_notes", {})
+        note = notes.setdefault(
+            name,
+            {
+                "pairs": 0,
+                "computed": 0,
+                "kernel_evals": 0,
+                "maps": [],
+                "plans": [],
+            },
+        )
+        if plan is not None:
+            note["plans"].append(plan)
+        note["pairs"] += int(pairs)
+        note["computed"] += int(computed)
+        note["kernel_evals"] += int(kernel_evals)
+        if copy_map is not None:
+            note["maps"].append(copy_map)
+
+    def _note_remainder_kernel(self, n_seg, counts, copy_map, n_raised):
+        """Note the fused kernel's whole-mesh remainder (momwire#2068) from
+        the counts it returned (`RemainderCounts`: walked, copied, cached,
+        tied, tied_pairs).
+
+        On the class map (momwire#2063 step 2b) each class the kernel served
+        has its first pair computed (`cached` of them, evaluated up front at
+        the representatives) and its others reused; a single, and every pair
+        of a class the tie rule left to the walk (`tied_pairs`), is computed.
+        The kernel's own `copied` is not the count: it reads a pair each time
+        its tile walk forms it, and a segment in two tiles' halos is walked
+        twice."""
+        walked, copied, cached, tied, tied_pairs = (int(c) for c in counts)
+        pairs = int(n_seg) ** 2
+        reused = 0
+        used = None
+        if copy_map:
+            handle = self._remainder_reuse_cache[3]
+            singles = int(handle.stats()["near_pairs"])
+            computed = cached + singles + tied_pairs
+            reused = pairs - computed
+            if reused > 0:
+                used = {"plan": handle.ref(), "tied": np.array(copy_map["reuse_tied"])}
+        evals = (walked - copied + cached) if walked else pairs - reused
+        self._note_ground_fill(
+            "remainder",
+            pairs,
+            pairs - reused,
+            evals + int(n_raised),
+            copy_map=used,
+        )
+
+    def _fill_report_end(self, ledger):
+        """What the fill that just ended served of `pair_reuse` (momwire#2016).
+
+        A fill that served reuse wrote a new `_fill_served`; one that did not
+        leaves the last one standing, which must not read as this fill's."""
+        ledger.route = (
+            "sector"
+            if self._rotational_map is not None
+            else self._fill_report_route_name
+        )
+        if not self._fill_reuse_asked:
+            ledger.reuse = None
+            return
+        detail = self.__dict__.get("_fill_served")
+        reused = 0
+        if detail is not None and detail is not ledger.mark:
+            served = detail["served"]
+            reused = served["copied_pairs"]
+        if reused <= 0:
+            ledger.reuse = _fill_report.declined_entry(self.pair_reuse_declined)
+            ledger.last = None
+            return
+        pairs = served["pairs"]
+        near = served["near_pairs"]
+        computed = pairs - reused - near
+        left_out = []
+        # The ground terms (momwire#2068): each its own family, counted where
+        # it was filled (`_note_ground_fill`); a term this ground has that no
+        # whole-mesh fill noted is listed, not guessed.
+        # The kernels' evaluations: the off-edge kernel's (the plan's groups)
+        # and the same-edge routine's (its classes' rows).
+        evals = (
+            served["kernel_evals"] + computed - served["classes"]
+            if detail["plan"] is not None
+            else computed
+        )
+        families = {"direct": _fill_report.family(pairs, computed, near, evals)}
+        uncounted = []
+        notes = self.__dict__.get("_fill_ground_notes", {})
+        for name in self._ground_families():
+            note = notes.get(name)
+            if note is None:
+                uncounted.append(name)
+                continue
+            families[name] = _fill_report.family(
+                note["pairs"], note["computed"], 0, note["kernel_evals"]
+            )
+        # A ground term filled with no copy between edges, beside a direct
+        # term that served (momwire#2074), is named. A mesh of one edge has
+        # no block between edges to copy, so its ground terms leave nothing
+        # out.
+        between = None
+        for name in families:
+            note = notes.get(name)
+            if note is None or note["maps"] or note.get("plans"):
+                continue
+            if between is None:
+                between = self._between_edge_pairs()
+            if between == 0:
+                continue
+            why = (
+                self._reuse_image_declined
+                if name == "image"
+                else self.__dict__.get("_reuse_remainder_declined")
+            )
+            left_out.append(
+                f"the {name} term copied no block between edges"
+                + (f" ({why})" if why else "")
+            )
+        ledger.reuse = _fill_report.reuse_entry(
+            "partial" if left_out else "served",
+            declined="; ".join(left_out) or None,
+            families=families,
+            uncounted=uncounted,
+            plan_bytes=detail["plan_bytes"],
+            census_peak_bytes=detail["census_peak_bytes"],
+        )
+        ledger.last = {
+            **detail,
+            "ground": {n: notes[n] for n in families if n in notes},
+        }
+
+    def _ground_families(self):
+        """The ground terms this solver's fill adds to the direct one: the
+        image over any ground, and the Sommerfeld remainder over a finite
+        one modelled by it."""
+        if self.ground_z is None:
+            return ()
+        if self.ground_eps is not None and self.ground_model == "sommerfeld":
+            return ("image", "remainder")
+        return ("image",)
+
+    def _fill_report_wires(self, ledger):
+        """The last fill's pairs per wire pair (momwire#2016): the direct
+        family's from the plan the process still holds (the same-edge pairs
+        are classes like the rest since momwire#2063 step 3), the ground
+        families' from what their fills noted."""
+        detail = ledger.last
+        if detail is None:
+            return {"unavailable": _fill_report.PLAN_GONE}
+        geom = self._build_geometry()
+        seg_off = np.asarray(geom["seg_offsets"], dtype=np.int64)
+        sizes = np.diff(seg_off)
+        n_wires = int(sizes.size)
+        pairs = np.outer(sizes, sizes)
+        if detail["plan"] is not None:
+            wire_of_seg = np.repeat(np.arange(n_wires, dtype=np.int32), sizes)
+            counts = detail["plan"].wire_map(wire_of_seg, n_wires)
+            if counts is None:
+                return {"unavailable": _fill_report.PLAN_GONE}
+        else:
+            counts = np.stack(
+                [pairs, np.zeros_like(pairs), np.zeros_like(pairs)], axis=2
+            )
+        # The ground families (momwire#2068), from what their fills noted.
+        for name, note in detail.get("ground", {}).items():
+            if note["pairs"] != int(pairs.sum()):
+                return {"unavailable": f"the {name} term was not one whole-mesh fill"}
+            g_reused = np.zeros((n_wires, n_wires), dtype=np.int64)
+            for ref in note.get("plans", []):
+                # The image block (momwire#2063 step 2a): its reused pairs.
+                if len(note["plans"]) != 1:
+                    return {
+                        "unavailable": f"the {name} term was not one whole-mesh fill"
+                    }
+                wire_of_seg = np.repeat(np.arange(n_wires, dtype=np.int32), sizes)
+                block = ref.wire_map(wire_of_seg, n_wires, 1)
+                if block is None:
+                    return {"unavailable": _fill_report.PLAN_GONE}
+                g_reused += block[:, :, 1]
+            for used in note["maps"]:
+                # The remainder's class map (momwire#2063 step 2b), the
+                # classes its fill's tie rule left to the walk computed.
+                wire_of_seg = np.repeat(np.arange(n_wires, dtype=np.int32), sizes)
+                block = used["plan"].remainder_wire_map(
+                    used["tied"], wire_of_seg, n_wires
+                )
+                if block is None:
+                    return {"unavailable": _fill_report.PLAN_GONE}
+                g_reused += block[:, :, 1]
+            counts += np.stack(
+                [pairs - g_reused, g_reused, np.zeros_like(g_reused)], axis=2
+            )
+        dedup = self._wire_dedup
+        labels = _fill_report.wire_labels(
+            n_wires, None if dedup is None else dedup.kept
+        )
+        return _fill_report.wire_block(labels, counts)
+
+    def _reuse_plan(self, geom):
+        """The census's plan of this geometry (momwire#2063), or None when
+        `pair_reuse` is off or the plan does not serve the deck
+        (`pair_reuse_declined` then says why). The plan is the process's
+        (`_bspline_pair_reuse_core.h`), shared by every solver of one mesh
+        and every frequency; this is its handle, kept per geometry object."""
+        if not self._reuse_on:
+            return None
+        hit = self._reuse_plan_cache
+        if hit is not None and hit[0] is geom:
+            return hit[1]
+        plan = _fill_report.timed_census(self, lambda: self._reuse_plan_built(geom))()
+        self._reuse_plan_cache = (geom, plan)
+        self._reuse_groups_cache = None
+        return plan
+
+    def _reuse_refusal(self, geom):
+        """Why this deck's fill cannot take a plan before any census runs, or
+        None. The class values are the shipped C++ off-edge fill's per-pair
+        bits; the numpy reference makes no such promise about a pair in
+        another call's company."""
+        if (
+            _acc is None
+            or not hasattr(_acc, "bspline_reuse_plan")
+            or not _bspline_kernels._HAVE_BSPLINE_ACCEL
+            or self.degree > _bspline_kernels._BSPLINE_ACCEL_MAX_D
+            or not self._accel_serves_n_qp_pair
+        ):
+            return "no C++ moment kernel"
+        small = int(_acc.bspline_reuse_small_deck_segs())
+        if int(geom["n_segs_total"]) < small:
+            return f"too few segments to repay the plan (N < {small})"
+        return None
+
+    def _reuse_plan_built(self, geom):
+        why = self._reuse_refusal(geom)
+        if why is not None:
+            self.pair_reuse_declined = why
+            return None
+        n = int(geom["n_segs_total"])
+        edge = np.full(n, -1, dtype=np.int32)
+        # each segment's edge h as the same-edge routine reads it (its static
+        # table's, momwire#2063 step 3)
+        edge_h = np.zeros(n, dtype=np.float64)
+        for e, (_w, sl, arc, _a) in enumerate(self._edge_ingredients(geom)):
+            edge[sl] = e
+            edge_h[sl] = arc[1] - arc[0]
+        if np.any(edge < 0):
+            self.pair_reuse_declined = "the edges do not tile the mesh in order"
+            return None
+        seg_l = np.ascontiguousarray(geom["seg_l"], dtype=np.float64)
+        seg_r = np.ascontiguousarray(geom["seg_r"], dtype=np.float64)
+        ek = self._ek_spec(geom) if self.extended_kernel else None
+        ladder = self._fill_ladder(self.k, seg_l, seg_r, ek)
+        args = (
+            seg_l,
+            seg_r,
+            np.ascontiguousarray(self._seg_radius(geom), dtype=np.float64),
+            edge,
+            None if ek is None else np.asarray(ek.group_i, dtype=np.int64),
+            None if ek is None else np.asarray(ek.group_j, dtype=np.int64),
+            None if ek is None or ek.b_j is None else np.asarray(ek.b_j, dtype=float),
+            [float(r) for r, _n in ladder],
+            int(self.degree),
+        )
+        self._reuse_image_declined = None
+        image = self._reuse_image_args(geom, ek, ladder)
+        if isinstance(image, str):
+            self._reuse_image_declined = image
+        elif image is not None:
+            handle = _acc.bspline_reuse_plan(*args, *image, edge_h=edge_h)
+            if handle.declined is None:
+                return handle
+            # The image block's census declined: the direct plan alone, as
+            # before the image had one.
+            self._reuse_image_declined = handle.declined
+        handle = _acc.bspline_reuse_plan(*args, edge_h=edge_h)
+        if handle.declined is not None:
+            self.pair_reuse_declined = handle.declined
+            return None
+        return handle
+
+    def _image_near_starts(self, geom):
+        """The starts of the edges whose own image block the near-image
+        fixup corrects (momwire#631)."""
+        return {e[0].start for e in self._near_image_edge_blocks(geom)}
+
+    def _reuse_image_args(self, geom, ek, ladder):
+        """The image block's census inputs (momwire#2063 step 2a): the
+        mirrored end points and each segment's own-image mode
+        (`ImageMode`, `_bspline_pair_reuse_core.h`); None over no ground, or
+        why the image is not planned. The block keys (o, M(s)) with the
+        direct key, which is the image moment's complete invariant only where
+        the image fill runs the direct fill's kernel on the mirrored
+        segment: its ladder and EK labels."""
+        if self.ground_z is None or self._has_buried_wires():
+            return None
+        # The chunked image fill's own gate (`_compute_Z_operator_filled`):
+        # past it the image is the tensor route's, which reads no plan.
+        if not (
+            _HAVE_BSPLINE_W_WINDOWED_ASSEMBLE_ACCEL
+            and self.degree <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and self._accel_serves_n_qp_pair
+        ):
+            return "the image fill is not the chunked one"
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        if self._image_fill_ladder(self.k, seg_l, seg_r, ek) != ladder:
+            return "the image fill's pair-order ladder is not the direct fill's"
+        if ek is not None:
+            ek_img = self._ek_spec(geom, mirror=True)
+            same_b = (ek.b_j is None) == (ek_img.b_j is None) and (
+                ek.b_j is None or np.array_equal(ek.b_j, ek_img.b_j)
+            )
+            if not (
+                same_b
+                and np.array_equal(ek.group_i, ek_img.group_i)
+                and np.array_equal(ek.group_j, ek_img.group_j)
+            ):
+                return "the image's extended-kernel labels are not the direct fill's"
+        near = self._image_near_starts(geom)
+        mode = np.zeros(int(geom["n_segs_total"]), dtype=np.int8)
+        for sl in self._same_edge_slices(geom):
+            if sl.start in near:
+                mode[sl] = 2
+        return (
+            np.ascontiguousarray(self._image_positions(seg_l), dtype=np.float64),
+            np.ascontiguousarray(self._image_positions(seg_r), dtype=np.float64),
+            mode,
+        )
+
+    def _reuse_values(self, plan, geom, k, ladder, ek):
+        """Each class's moments at `k`, ``(classes, d+1, d+1)``: the shipped
+        off-edge fill over each group's observer rows against the union of
+        its representatives' sources. A pair's moments are its own in any
+        call (the tier and phase guard are per pair, momwire#920), so a
+        class's value is its representative's fill, bit for bit."""
+        held = self._held_reuse_values
+        if held is not None and held[0] is plan and held[1] == k:
+            return held[2]
+        hit = self._reuse_groups_cache
+        if hit is None or hit[0] is not plan:
+            hit = self._reuse_groups_cache = (plan, plan.groups(), plan.group_blocks())
+        d = self.degree
+        d1 = d + 1
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        a_row = self._seg_radius(geom)
+        # The image block's representatives (momwire#2063 step 2a): the image
+        # fill's own moments, the observer against the mirrored source.
+        src_ends = [(seg_l, seg_r, ek)]
+        if plan.image:
+            src_ends.append(
+                (
+                    self._image_positions(seg_l),
+                    self._image_positions(seg_r),
+                    self._ek_spec(geom, mirror=True) if ek is not None else None,
+                )
+            )
+        values = np.empty((plan.classes, d1, d1), dtype=np.complex128)
+        for g, ((obs, src, cls, at), blk) in enumerate(
+            zip(hit[1], hit[2], strict=True)
+        ):
+            if g % _REUSE_GROUPS_PER_CHECKPOINT == 0:
+                self._checkpoint()
+            s_l, s_r, s_ek = src_ends[int(blk)]
+            block = _seg_seg_full_moments_offedge(
+                seg_l[obs],
+                seg_r[obs],
+                s_l[src],
+                s_r[src],
+                a_row[obs],
+                k,
+                d,
+                self.n_qp_pair,
+                ek=_ek_slice(s_ek, rows=obs, cols=src),
+                ladder=ladder,
+            )
+            values[cls] = np.moveaxis(block.reshape(d1, d1, -1)[:, :, at], 2, 0)
+        self._same_edge_class_values(plan, geom, k, values)
+        # Held for this k's image fill, which takes it (`_accumulate_Z_image_chunked`).
+        self._held_reuse_values = (plan, k, values) if plan.image else None
+        return values
+
+    def _same_edge_class_values(self, plan, geom, k, values):
+        """Each same-edge class's moments at `k` into `values` (momwire#2063
+        step 3), by the routine the fill without reuse gives every same-edge
+        pair: the analytic static moments plus the regularised smooth part
+        on the edge's arc (`_seg_seg_static_moments`, `_seg_seg_reg_moments`),
+        at the class's representative, the regularised part always densely
+        (`offset_reuse`'s Toeplitz form synthesises the offsets, which is not
+        the routine the fill without reuse runs). The exe's own code
+        (`same_edge_class_values`, `_bspline_fill_core.h`) forms them; the
+        pairs it formed are kept in `_reuse_same_edge_formed`."""
+        ing = self._edge_ingredients(geom)
+        self._reuse_same_edge_formed = int(
+            plan.same_edge_values(
+                values,
+                np.fromiter((sl.start for _w, sl, _a, _r in ing), dtype=np.int64),
+                np.fromiter((sl.stop for _w, sl, _a, _r in ing), dtype=np.int64),
+                [
+                    np.ascontiguousarray(arc, dtype=np.float64)
+                    for _w, _sl, arc, _r in ing
+                ],
+                np.fromiter((a_w for _w, _sl, _a, a_w in ing), dtype=np.float64),
+                float(k),
+                int(self.degree),
+                int(self.n_qp_pair_same_edge),
+                bool(self.extended_kernel),
+            )
+        )
+
+    def _reuse_served(self, route, plan, n_segs):
+        """The `pair_reuse_served` counts of a fill that read `plan`: each
+        class evaluated once (its representative), every other pair of a
+        class copied, the near pairs evaluated alone. The same-edge pairs are
+        classes like the rest (momwire#2063 step 3), evaluated by the
+        same-edge routine; `kernel_evals` counts the off-edge kernel's pairs
+        here, and the fill adds the same-edge routine's."""
+        st = plan.stats()
+        # The direct block's: the classes whose representative is a direct
+        # pair (momwire#2063 step 2a).
+        near = int(st["near_block"][0])
+        far = int(st["classes_block"][0]) - near
+        pairs = int(n_segs) ** 2
+        return {
+            "route": route,
+            "classes": far,
+            "near_pairs": near,
+            "copied_pairs": pairs - far - near,
+            "same_edge_classes": int(st["same_edge_classes"]),
+            "pairs": pairs,
+            "kernel_evals": int(st["evals_block"][0]),
+        }
+
+    def _reuse_fill_served(self, served, plan):
+        """What the fill report reads of a fill that served (momwire#2016)."""
+        self._fill_served = {
+            "served": served,
+            "plan": None if plan is None else plan.ref(),
+            "plan_bytes": None if plan is None else int(plan.plan_bytes),
+            "census_peak_bytes": None if plan is None else int(plan.census_peak_bytes),
+        }
+
+    def _remainder_reuse_args(self, geom, gz):
+        """The Sommerfeld remainder's `pair_reuse` plan as the fused kernel's
+        class map (momwire#2063 step 2b), or ``{}`` for none: the kernel's
+        ``reuse_*`` keywords. The remainder reads each node pair's horizontal
+        separation and height sum, and the tangents in the pair's horizontal
+        frame, so its census is of segment pairs keyed by those plane
+        invariants (`remainder_plan_for`, `_bspline_pair_reuse_core.h`): a
+        member takes its class's value, evaluated once at the class's
+        representative, transposed under reciprocity. Read only where the
+        direct plan serves. Cached per geometry and ground height: a solve
+        asks more than once. ``reuse_tied`` is written by each fill: the
+        classes its tie rule left to the walk."""
+        hit = self._remainder_reuse_cache
+        if hit is not None and hit[0] is geom and hit[1] == gz:
+            return hit[2]
+        out, handle = self._remainder_reuse_map(geom, gz)
+        self._remainder_reuse_cache = (geom, gz, out, handle)
+        return out
+
+    def _remainder_reuse_map(self, geom, gz):
+        """`_remainder_reuse_args`' build: ``(kwargs, plan handle)``, or
+        ``({}, None)`` with `_reuse_remainder_declined` saying why when a
+        plan was asked for and declined."""
+        self._reuse_remainder_declined = None
+        if self._reuse_plan(geom) is None:
+            return {}, None
+        seg_l = np.ascontiguousarray(geom["seg_l"], dtype=np.float64)
+        seg_r = np.ascontiguousarray(geom["seg_r"], dtype=np.float64)
+        n_seg = seg_l.shape[0]
+        # The raised pairs (momwire#1189) are their own classes: the walk's
+        # own base-order value is what their correction subtracts.
+        raised = np.zeros(0, dtype=np.int64)
+        if _REMAINDER_PER_PAIR:
+            I, J, _Q = self._remainder_qp_pairs(seg_l, seg_r, gz)
+            raised = np.asarray(I, dtype=np.int64) * n_seg + np.asarray(
+                J, dtype=np.int64
+            )
+        handle = _acc.bspline_reuse_remainder_plan(
+            seg_l,
+            seg_r,
+            np.ascontiguousarray(geom["h_per_seg"], dtype=np.float64),
+            float(gz),
+            raised,
+            int(self.degree),
+        )
+        if handle.declined is not None:
+            self._reuse_remainder_declined = handle.declined
+            return {}, None
+        cls, rep, code, single = handle.remainder_arrays()
+        return {
+            "reuse_classes": cls,
+            "reuse_rep": rep,
+            "reuse_rep_code": code,
+            "reuse_single": single,
+            "reuse_tied": np.zeros(rep.size, dtype=np.uint8),
+        }, handle
+
+    def _tensor_reuse_Z(self, geom, k, supp_seg, polys, same_edge_prep):
+        """The tensor route's Z under a served plan (momwire#2063), assembled
+        tile by tile from the class values as the chunked route's windows are
+        (momwire#2166, `_reuse_block`), the (d+1, d+1, N, N) tensor never
+        written; None where the plan does not serve or the tiled assembler
+        does not (`_build_J_blocks` then gathers, or fills without reuse).
+
+        One window, rows [0, N): the tensor fits the budget, so the chunked
+        route's cut would be the whole mesh too. Every pair is its class's
+        value, a near same-edge single included: on this route the fill
+        without reuse writes the routine's own (A_st + A_reg) for it, which
+        is its class value, so no band of the sweep's moments and no fixup
+        follow (`own` is None). What moves Z is the sum order alone,
+        `assemble_Z_bspline`'s against the windowed assembler's."""
+        if not (
+            _HAVE_BSPLINE_WINDOWED_ASSEMBLE_ACCEL
+            and self.degree <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+        ):
+            return None
+        plan = self._reuse_plan(geom)
+        if plan is None:
+            return None
+        if same_edge_prep is not None and [p[0] for p in same_edge_prep] != (
+            self._same_edge_slices(geom)
+        ):
+            return None
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        n_segs = int(geom["n_segs_total"])
+        n_basis = supp_seg.shape[0]
+        ek = self._ek_spec(geom) if self.extended_kernel else None
+        ladder = self._fill_ladder(k, seg_l, seg_r, ek)
+        values = self._reuse_values(plan, geom, k, ladder, ek)
+        served = self._reuse_served("tensor", plan, n_segs)
+        served["kernel_evals"] += self._reuse_same_edge_formed
+        Z, _row_kw = _schedule.new_target(n_basis)
+        all_n = np.arange(n_basis, dtype=np.int64)
+        self._checkpoint()
+        plan.assemble(
+            values,
+            0,
+            n_segs,
+            None,
+            None,
+            None,
+            np.ascontiguousarray(supp_seg, dtype=np.int64),
+            np.ascontiguousarray(polys, dtype=np.float64),
+            np.ascontiguousarray(geom["tangents"], dtype=np.float64),
+            all_n,
+            all_n,
+            float(self.omega),
+            float(self.eps),
+            float(self.mu),
+            Z,
+            self._cancel_flag,
+        )
+        del values
+        self.pair_reuse_served = served
+        self._reuse_fill_served(served, plan)
+        return Z
+
+    def _build_J_blocks(self, geom, k, same_edge_prep=None):
+        """All polynomial moment integrals J_pq[i, j] for p, q ∈ {0..d} and
+        every (i, j) global segment pair. Returns shape (d+1, d+1, N, N).
+
+        Fused build: first compute
+        every pair by full GL quadrature on the regularized full kernel
+        G = exp(-jkR)/(4πR), R² = |Δr|² + a²; then overwrite same-edge
+        blocks with the analytic static + GL-regularized split (essential
+        for the log-singular diagonal).
+
+        `same_edge_prep` (from `_same_edge_prep`) lets a swept-k caller share
+        the k-independent static + reg-geometry across frequencies; when None
+        the same quantities are computed inline (single-k path). (Fully
+        batched sweeps bypass this method entirely —
+        `_compute_impedance_swept_batched` builds its own chunked
+        (n_k, d+1, d+1, N, N) tensors.)
+        """
+        d = self.degree
+        a_row = self._seg_radius(geom)
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        ek = self._ek_spec(geom) if self.extended_kernel else None
+        ek_se = _EK_SAME_EDGE if self.extended_kernel else None
+
+        # Which segment ranges are about to be OVERWRITTEN by the analytic
+        # same-edge block. Collected before the pre-pass so a deck whose
+        # same-edge blocks tile the whole matrix can skip it entirely.
+        same_slices = (
+            [sl for sl, _A_st, _reg in same_edge_prep]
+            if same_edge_prep is not None
+            else self._same_edge_slices(geom)
+        )
+        n_total = int(seg_l.shape[0])
+        # momwire#2063: the census's classes. Every pair is gathered from its
+        # class's value, each class evaluated once at its representative, by
+        # the off-edge fill or, a same-edge class (step 3), by the same-edge
+        # routine: nothing is overwritten. Only where the tiled assembler does
+        # not serve: the tensor route assembles Z from the class values
+        # without this tensor (`_tensor_reuse_Z`).
+        plan = self._reuse_plan(geom)
+        if plan is not None and same_slices != self._same_edge_slices(geom):
+            self._decline_unread_plan("the swept fill's edges are not the plan's")
+            plan = None
+
+        # All-pairs full kernel (same a² regularization handles touching
+        # segments at kink corners and at junctions to within ~1e-5 at
+        # antenna scales; off-segment-pair accuracy is what GL is good at).
+        # Per-observer-row radius under mixed per-wire radii.
+        #
+        # ...except when there is nothing to keep. This build is fused: every
+        # pair by GL, then same-edge blocks overwritten. On a SINGLE-EDGE deck
+        # the one same-edge block IS the whole matrix, so 100% of the pre-pass
+        # is discarded — measurably (|Z(n_qp_pair=8) - Z(n_qp_pair=4)| is
+        # bit-identical zero there) and expensively (momwire#743: 8.5-22% of
+        # the solve depending on how the kernel scales in n_qp). A dipole is a
+        # single-edge deck, so this is the commonest shape there is.
+        if plan is not None:
+            ladder = self._fill_ladder(k, seg_l, seg_r, ek)
+            values = self._reuse_values(plan, geom, k, ladder, ek)
+            J = np.empty((d + 1, d + 1, n_total, n_total), dtype=complex)
+            plan.gather(values, 0, n_total, J)
+            del values
+            served = self._reuse_served("tensor", plan, n_total)
+            served["kernel_evals"] += self._reuse_same_edge_formed
+            self.pair_reuse_served = served
+            self._reuse_fill_served(served, plan)
+            return J
+        elif len(same_slices) == 1 and same_slices[0] == slice(0, n_total):
+            J = np.zeros((d + 1, d + 1, n_total, n_total), dtype=complex)
+        elif len(same_slices) <= _OFFEDGE_SPLIT_MAX_EDGES:
+            # The off-edge pairs only (momwire#1517): each edge's rows against
+            # every column off it. The same-edge blocks are overwritten below,
+            # and a pair's moments do not depend on which pairs share its call
+            # (the per-pair phase guard and tier, momwire#920), so this is the
+            # J the whole-mesh call gives, bit for bit, without computing the
+            # half it would throw away. Few edges only: many short edges would
+            # pay a call each for little.
+            ladder = self._fill_ladder(k, seg_l, seg_r, ek)
+            J = np.zeros((d + 1, d + 1, n_total, n_total), dtype=complex)
+            for sl in same_slices:
+                cols = np.r_[0 : sl.start, sl.stop : n_total]
+                if cols.size == 0:
+                    continue
+                J[:, :, sl, cols] = _seg_seg_full_moments_offedge(
+                    seg_l[sl],
+                    seg_r[sl],
+                    seg_l[cols],
+                    seg_r[cols],
+                    a_row[sl],
+                    k,
+                    d,
+                    self.n_qp_pair,
+                    ek=_ek_slice(ek, rows=sl, cols=cols),
+                    ladder=ladder,
+                )
+        else:
+            J = _seg_seg_full_moments_offedge(
+                seg_l,
+                seg_r,
+                seg_l,
+                seg_r,
+                a_row,
+                k,
+                d,
+                self.n_qp_pair,
+                ek=ek,
+                ladder=self._fill_ladder(k, seg_l, seg_r, ek),
+            )  # (d+1, d+1, N, N) complex
+
+        # Overwrite each same-edge block with analytic static + reg
+        if same_edge_prep is None:
+            per_wire = geom["per_wire"]
+            seg_off = geom["seg_offsets"]
+            for w in range(len(per_wire)):
+                pw = per_wire[w]
+                ed_off = pw["edge_offsets"]
+                ed_arc = pw["edge_arc_edges"]
+                base = seg_off[w]
+                a_w = float(self._radius_per_wire[w])
+                for i_e in range(len(ed_off) - 1):
+                    sl = slice(base + ed_off[i_e], base + ed_off[i_e + 1])
+                    A_st = _seg_seg_static_moments(ed_arc[i_e], a_w, max_d=d, ek=ek_se)
+                    A_reg = _seg_seg_reg_moments(
+                        ed_arc[i_e],
+                        a_w,
+                        k,
+                        max_d=d,
+                        n_qp=self.n_qp_pair_same_edge,
+                        ek=ek_se,
+                    )
+                    J[:, :, sl, sl] = A_st + A_reg
+        else:
+            for sl, A_st, reg in same_edge_prep:
+                # `reg` is either a reg-geometry dict (compute this k's block
+                # now) or a precomputed (max_d+1, max_d+1, N, N) moment block
+                # for this k (swept caller batched it across frequencies).
+                A_reg = (
+                    _seg_seg_reg_moments_from_geometry(reg, k)
+                    if isinstance(reg, dict)
+                    else reg
+                )
+                J[:, :, sl, sl] = A_st + A_reg
+
+        return J
+
+    # ------------------------------------------------------------------
+    # Z assembly
+    # ------------------------------------------------------------------
+
+    def _assemble_Z(self, J, supp_seg, polys, geom, td_all=None, eps=None):
+        """Assemble the (n_basis, n_basis) complex Z matrix.
+
+        Uses the templated C++ accelerator `assemble_Z_bspline` when
+        available and `self.degree` is in its instantiation set; otherwise
+        falls back to a numpy-einsum implementation that's a bit-exact
+        reference target.
+
+        `td_all` defaults to the free-space tangent dot product matrix
+        derived from `geom["tangents"]`. The PEC image build passes its
+        own (tx, ty, -tz)-modified table here so the same assembly fuses
+        the image-current sign flip.
+
+        `eps` overrides the permittivity the Φ term divides by — the
+        `float(self.eps)` seam momwire#553 U5 finally lands. A BURIED pair
+        block's mixed potential is written in the LOWER medium: jωμ₀ still
+        multiplies the A term (μ_r = 1 is this arc's scope), and the Φ term
+        divides by ε̃_m = ε₀·ε̃ rather than by ε₀. A complex `eps` used to take
+        the numpy branch by force — the C++ assembler's signature is `double
+        eps` and `float()` on a complex raises, which is the silent-
+        truncation class U1 killed one level down; since momwire#910 it takes
+        the complex-eps ENTRY POINT instead, gated against that numpy loop.
+        `eps=None` is the pre-#553 spelling, same branch and same bytes.
+        """
+        d = self.degree
+        n_basis, n_wings, n_poly = polys.shape
+        assert n_wings == d + 1 and n_poly == d + 1
+
+        if td_all is None:
+            tangents = geom["tangents"]
+            td_all = tangents @ tangents.T
+
+        eps_z = self.eps if eps is None else eps
+        in_medium = np.iscomplexobj(eps_z)
+
+        if (
+            _HAVE_BSPLINE_ASSEMBLE_ACCEL
+            and d <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and not in_medium
+        ):
+            return _acc.assemble_Z_bspline(
+                np.ascontiguousarray(J, dtype=np.complex128),
+                np.ascontiguousarray(supp_seg, dtype=np.int64),
+                np.ascontiguousarray(polys, dtype=np.float64),
+                np.ascontiguousarray(td_all, dtype=np.float64),
+                float(self.omega),
+                float(eps_z),
+                float(self.mu),
+                int(d),
+                self._cancel_flag,
+            )
+        if (
+            _HAVE_BSPLINE_ASSEMBLE_CPLX_EPS_ACCEL
+            and d <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and in_medium
+        ):
+            # momwire#910: the complex-eps~ ENTRY POINT, never `float()` on a
+            # complex (the #553 U1 hazard class). The numpy loop below stays
+            # the reference it is gated against.
+            return _acc.assemble_Z_bspline_cplx_eps(
+                np.ascontiguousarray(J, dtype=np.complex128),
+                np.ascontiguousarray(supp_seg, dtype=np.int64),
+                np.ascontiguousarray(polys, dtype=np.float64),
+                np.ascontiguousarray(td_all, dtype=np.float64),
+                float(self.omega),
+                complex(eps_z),
+                float(self.mu),
+                int(d),
+                self._cancel_flag,
+            )
+
+        Z_A = np.zeros((n_basis, n_basis), dtype=np.complex128)
+        Z_Phi = np.zeros((n_basis, n_basis), dtype=np.complex128)
+        p_vec = np.arange(1, d + 1, dtype=np.float64) if d >= 1 else None
+
+        for a in range(n_wings):
+            sm = supp_seg[:, a]
+            for b in range(n_wings):
+                sn = supp_seg[:, b]
+                J_blk = J[:, :, sm[:, None], sn[None, :]]
+                td_blk = td_all[sm[:, None], sn[None, :]]
+
+                inner_A = np.einsum(
+                    "mp,pPmn,nP->mn", polys[:, a, :], J_blk, polys[:, b, :]
+                )
+                Z_A += td_blk * inner_A
+
+                if d >= 1:
+                    deriv_m = polys[:, a, 1:] * p_vec[None, :]
+                    deriv_n = polys[:, b, 1:] * p_vec[None, :]
+                    J_blk_lo = J_blk[:d, :d]
+                    inner_Phi = np.einsum("mp,pPmn,nP->mn", deriv_m, J_blk_lo, deriv_n)
+                    Z_Phi += inner_Phi
+
+        Z_A = 1j * self.omega * self.mu * Z_A
+        Z_Phi = Z_Phi / (1j * self.omega * eps_z)
+        return Z_A + Z_Phi
+
+    def _offedge_fallback_row_bytes(self, n_segs):
+        """Extra per-observer-row bytes the chunked fills' row-byte budget
+        must carry when `_seg_seg_full_moments_offedge` falls back to its
+        pure-numpy reference (issue #347 — follow-up to #338, which noted
+        but did not fix this: "the pure-Python/numpy fallback producer ...
+        genuinely does carry the ~7x internal-intermediate transient the
+        issue described").
+
+        Checked against the LIVE flag on the `_bspline_kernels` module
+        object (not a name imported at load time) so a test that
+        monkeypatches `_bspline_kernels._HAVE_BSPLINE_ACCEL` — the same
+        precedent `test_bspline_cpp_kernel_matches_numpy` uses to force the
+        numpy path — is honored here too. Zero whenever the C++
+        accelerator is available: its per-pair work is fixed-size stack
+        scratch inside the kernel, independent of N (issue #338).
+
+        Without the accelerator, `_seg_seg_full_moments_offedge`'s numpy
+        path builds three (row, n_qp, n_segs, n_qp[, 3]) pairwise tables
+        that all outlive each other before reducing to the (d+1, d+1, row,
+        n_segs) window this row-byte budget otherwise prices alone:
+        `diff` (float64, plus its own trailing length-3 axis, 24 bytes/
+        elem), `R` (float64, 8 bytes/elem), and `G` (complex128, plus the
+        `exp(-jkR)` temporary the expression that builds it needs before
+        the division, effectively 2x its own 16 bytes/elem). Measured in
+        isolation via tracemalloc (fit across several (n_segs, chunk,
+        n_qp) combinations): ~55-56 bytes/(pair-quadrature-point) at
+        n_qp=4.
+
+        RE-FITTED to 80 for momwire#743's `n_qp_pair=8` default. The old
+        64 was fitted at n_qp=4 only, and its error showed up as a
+        coefficient that was not scale-free: on the #347 gate deck the
+        measured transient/budget ratio ran 0.836 at n_qp=4 but 0.960 at
+        n_qp=8. **That q-dependence IS the under-pricing** — this model's
+        whole claim is that the transient goes as `n_qp^2 * n_segs *
+        chunk`, so if the constant were right the ratio would not care
+        what n_qp is. At 80 it does not: 0.716 at n_qp=4 against 0.725 at
+        n_qp=8. Re-fit that way rather than by widening the gate, which
+        would have hidden a real regression: at 64 the q=8 ratio cleared
+        the 1.1 bar locally and FAILED it on CI (1.14), whose allocation
+        behaviour sits ~19% above this box's.
+        """
+        if _bspline_kernels._HAVE_BSPLINE_ACCEL:
+            return 0
+        n_qp2 = self.n_qp_pair * self.n_qp_pair
+        bytes_per_pair_point = 80
+        return n_qp2 * n_segs * bytes_per_pair_point
+
+    def _compute_Z_dense_chunked(
+        self, geom, k, supp_seg, polys, same_edge_prep=None, *, restrict=None
+    ):
+        """Free-space dense Z without materialising the (d+1, d+1, N, N)
+        moment tensor (issue #136).
+
+        Observer-row chunks of the all-pairs full-kernel moments accumulate
+        straight into Z through the windowed C++ assembler — the
+        (zA, zPhi) → Z mixing is linear, so per-window accumulation equals
+        the all-at-once assembly. Same-edge blocks are then fixed up
+        per edge with a correction window (analytic static + regularised
+        split MINUS the full-kernel block the sweep already added), the
+        chunked equivalent of `_build_J_blocks`'s overwrite. Identical
+        quadrature and algebra to `_build_J_blocks` + `_assemble_Z`; the
+        peak transient is one row chunk (bounded by `swept_mem_mb`, the
+        same fill-transient budget the batched sweep uses) instead of the
+        full tensor — the difference between ~3 GB and ~0.25 GB on a
+        4,700-segment mesh.
+
+        No N²-scale transient survives the fill: the pair tangent dot is
+        formed inside the assembler from the (N, 3) tangent table, rather
+        than from an N×N dot matrix that would sit alongside Z for the
+        whole build at half its size (issue #318).
+
+        `restrict` (an `_ObserverRows`, momwire#1131) fills only the observer
+        rows it names, into the target it allocates (square with the other
+        rows zero, or row-compact). None is the shipped fill, call for call.
+        The chunk boundaries are the dense fill's in both cases -- see
+        `_ObserverRows.windows` for why that is what makes the rows bitwise.
+
+        A `pair_reuse` plan is served here too (momwire#2020, #2063): each
+        observer window is assembled from the plan's class values, tile by
+        tile without writing the window (momwire#2166), the same-edge pairs
+        among them (step 3: their classes are the same-edge routine's), so
+        no fixup follows. A restricted fill reads no plan, and says so in
+        `pair_reuse_declined`.
+        """
+        d = self.degree
+        a_row = self._seg_radius(geom)
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        n_segs = geom["n_segs_total"]
+        n_basis = supp_seg.shape[0]
+        tangents = geom["tangents"]
+        ek = self._ek_spec(geom) if self.extended_kernel else None
+        ek_se = _EK_SAME_EDGE if self.extended_kernel else None
+
+        Z, row_kw = _schedule.new_target(n_basis, restrict)
+        supp_c = np.ascontiguousarray(supp_seg, dtype=np.int64)
+        polys_c = np.ascontiguousarray(polys, dtype=np.float64)
+        tan_c = np.ascontiguousarray(tangents, dtype=np.float64)
+        all_n = np.arange(n_basis, dtype=np.int64)
+
+        def _accumulate(J_win, i0, i1, j0, j1, m_idx, n_idx):
+            if restrict is not None:
+                m_idx = restrict.held(m_idx)
+                if m_idx.size == 0:
+                    return
+            # Producer contract, not a conversion: every window handed here
+            # is already C-contiguous complex128, so the ascontiguousarray
+            # this used to wrap it in returned the SAME object on every
+            # path (issue #318 audit — C++ reduced kernel, C++ EK twin,
+            # numpy einsum fallback, the mixed-radius `concatenate`, and
+            # the same-edge `(A_st + A_reg) - J_edge` difference, which
+            # promotes float64 A_st to complex128 by itself). The assert
+            # pins the contract and vanishes under -O; the pybind
+            # `c_style | forcecast` on the assembler stays the safety net.
+            assert J_win.dtype == np.complex128 and J_win.flags.c_contiguous, (
+                f"moment window must be C-contiguous complex128, got {J_win.dtype}"
+            )
+            _acc.assemble_Z_bspline_windowed(
+                J_win,
+                supp_c,
+                polys_c,
+                tan_c,
+                m_idx,
+                n_idx,
+                int(i0),
+                int(i1),
+                int(j0),
+                int(j1),
+                float(self.omega),
+                float(self.eps),
+                float(self.mu),
+                Z,
+                self._cancel_flag,
+                **row_kw,
+            )
+
+        def _bases_touching(lo, hi):
+            mask = ((supp_c >= lo) & (supp_c < hi)).any(axis=1)
+            return np.nonzero(mask)[0].astype(np.int64)
+
+        # Row-chunk budget: bytes per observer row of the (d+1, d+1, ·, N)
+        # chunk, against the same transient budget the swept path uses.
+        #
+        # Honest only if the walk never holds two windows at once (issue
+        # #338: 511 MB transient, 1.997x budget, at 8,320 basis and
+        # swept_mem_mb=256 when the old window outlived its rebind; 255 MB,
+        # 0.996x, without). Each window is `_sweep_block`'s local, so it
+        # dies when the block returns, before `_schedule.sweep` builds the
+        # next.
+        #
+        # `_offedge_fallback_row_bytes` adds the numpy-fallback producer's
+        # own internal-intermediate overhead (issue #347) — zero, and this
+        # collapses to the #338 arithmetic above, whenever the C++
+        # accelerator is available (the certified 8,320-basis numbers all
+        # exercise that path).
+        row_bytes = (d + 1) ** 2 * n_segs * 16 + self._offedge_fallback_row_bytes(
+            n_segs
+        )
+        # The census's plan (momwire#2063): every window is assembled from
+        # the class values, which are the plan's, counted by its allowance,
+        # not by this fill's budget, so the windows keep the whole budget.
+        # Under the plan no window is written whole (momwire#2166), but the
+        # cuts stay the budget's: each window adds to Z once, so where the
+        # windows are cut is part of Z's bits.
+        plan = self._chunked_reuse(geom, same_edge_prep, restrict)
+        chunk = _schedule.mb_rows(self.swept_mem_mb, row_bytes)
+        # momwire#907: ONE ladder for the whole fill. The same-edge correction
+        # below subtracts what this sweep added, so the two must agree on
+        # every pair's order; see `_fill_ladder` for why per-window resolution
+        # does not.
+        ladder = self._fill_ladder(k, seg_l, seg_r, ek)
+
+        def _moments(r0, r1, c0, c1):
+            return _seg_seg_full_moments_offedge(
+                seg_l[r0:r1],
+                seg_r[r0:r1],
+                seg_l[c0:c1],
+                seg_r[c0:c1],
+                a_row[r0:r1],
+                k,
+                d,
+                self.n_qp_pair,
+                ek=_ek_slice(ek, rows=slice(r0, r1), cols=slice(c0, c1)),
+                ladder=ladder,
+            )
+
+        if plan is not None:
+            served = self._reuse_served("chunked", plan, n_segs)
+            values = self._reuse_values(plan, geom, k, ladder, ek)
+            served["kernel_evals"] += self._reuse_same_edge_formed
+            band_lo, band_hi = plan.same_edge_bands()
+            pieces = [(sl.start, sl.stop) for sl in self._same_edge_slices(geom)]
+
+        def _near_own(r0, r1):
+            """The banded near same-edge singles of rows [r0, r1) as the
+            sweep forms them, ``(own, lo, hi)``: own ``(d+1, d+1, r1 - r0,
+            bw)``, row i's band columns lo[i]..hi[i]; ``(None,) * 3`` for
+            none. Formed for
+            each edge's rows in windows of `_SAME_EDGE_VALUE_ROWS` against
+            the band their singles span."""
+            lo = band_lo[r0:r1]
+            width = band_hi[r0:r1] - lo
+            if not (width > 0).any():
+                return None, None, None
+            own = np.zeros(
+                (d + 1, d + 1, r1 - r0, int(width.max())), dtype=np.complex128
+            )
+            for e0, e1 in pieces:
+                for p0 in range(max(r0, e0), min(r1, e1), _SAME_EDGE_VALUE_ROWS):
+                    p1 = min(p0 + _SAME_EDGE_VALUE_ROWS, r1, e1)
+                    h = band_hi[p0:p1] > band_lo[p0:p1]
+                    if not h.any():
+                        continue
+                    c0 = int(band_lo[p0:p1][h].min())
+                    c1 = int(band_hi[p0:p1][h].max())
+                    J = _moments(p0, p1, c0, c1)
+                    served["kernel_evals"] += (p1 - p0) * (c1 - c0)
+                    for i in np.flatnonzero(h):
+                        a0, a1 = band_lo[p0 + i] - c0, band_hi[p0 + i] - c0
+                        own[:, :, p0 - r0 + i, : a1 - a0] = J[:, :, i, a0:a1]
+            return (
+                own,
+                np.ascontiguousarray(lo, dtype=np.int64),
+                np.ascontiguousarray(band_hi[r0:r1], dtype=np.int64),
+            )
+
+        def _reuse_block(w0, w1, _j0, _j1):
+            """One observer window assembled from the class values, never
+            written whole (momwire#2166): `plan.assemble` adds to Z what
+            `_accumulate` adds for the window `plan.gather` writes, bit for
+            bit, filling each tile of Z from the class values as it runs; its
+            near same-edge singles the sweep's own moments, as without reuse
+            (the fixup below corrects them)."""
+            own, lo, hi = _near_own(w0, w1)
+            plan.assemble(
+                values,
+                w0,
+                w1,
+                own,
+                lo,
+                hi,
+                supp_c,
+                polys_c,
+                tan_c,
+                _bases_touching(w0, w1),
+                all_n,
+                float(self.omega),
+                float(self.eps),
+                float(self.mu),
+                Z,
+                self._cancel_flag,
+            )
+
+        def _sweep_block(w0, w1, j0, j1):
+            J_chunk = _seg_seg_full_moments_offedge(
+                seg_l[w0:w1],
+                seg_r[w0:w1],
+                seg_l,
+                seg_r,
+                a_row[w0:w1],
+                k,
+                d,
+                self.n_qp_pair,
+                ek=_ek_slice(ek, rows=slice(w0, w1)),
+                ladder=ladder,
+            )
+            _accumulate(J_chunk, w0, w1, j0, j1, _bases_touching(w0, w1), all_n)
+
+        # One checkpoint per observer chunk; under `restrict` (momwire#1131)
+        # each chunk keeps only its requested windows.
+        _schedule.sweep(
+            [(0, n_segs)],
+            chunk,
+            _reuse_block if plan is not None else _sweep_block,
+            sources=[(0, n_segs)],
+            checkpoint=self._checkpoint,
+            restrict=restrict,
+        )
+        if plan is not None:
+            del values
+            self._near_same_edge_fixup(
+                Z,
+                geom,
+                k,
+                plan,
+                band_lo,
+                band_hi,
+                _moments,
+                _accumulate,
+                _bases_touching,
+                served,
+            )
+            if restrict is None:
+                # What the fill report reads (momwire#2016).
+                self._reuse_fill_served(served, plan)
+                self.pair_reuse_served = served
+            return Z
+
+        # Same-edge fixup: the sweep above added the full-kernel block for
+        # every pair; each same-edge block must instead be the analytic
+        # static + regularised split, so accumulate the difference.
+        built_prep_here = same_edge_prep is None
+        edge_ingredients = None
+        if same_edge_prep is None:
+            # momwire#968: keep the INGREDIENTS, not the whole-edge blocks.
+            # `A_st` and `A_reg` are `(d+1, d+1, N_e, N_e)` each and were the
+            # last two whole-edge residencies left after #967 chunked
+            # everything around them; built per observer window they never
+            # exist at full height. `ed_arc` and `a_w` are O(N_e).
+            edge_ingredients = [
+                (sl, arc, a_w) for _w, sl, arc, a_w in self._edge_ingredients(geom)
+            ]
+            same_edge_prep = []
+        # THE CORRECTION IS CHUNKED TOO (momwire#966). The sweep above is
+        # bounded by `swept_mem_mb`; this block used to be bounded only by the
+        # EDGE, which is the same thing on every deck whose edges are short
+        # and a different thing entirely on one 4,001-segment wire — where a
+        # single edge IS the whole mesh and the block reached 7 GB against a
+        # 0.26 GB answer.
+        #
+        # Three separate residencies, and it took a re-profile AFTER fixing
+        # the first to find the second (see `_seg_seg_reg_geometry`):
+        #
+        #   1. R, the (N·n_qp)² distance table — now built in place, and
+        #      DROPPED here as soon as `A_reg` exists rather than living to
+        #      the end of the loop. Only when this function built the prep
+        #      itself: a swept caller owns the list and reuses R across k.
+        #   2. `J_edge`, the whole-edge full-kernel block — now produced one
+        #      observer window at a time, exactly as the sweep does it.
+        #   3. `corr = (A_st + A_reg) - J_edge`, which materialised two more
+        #      whole-edge temporaries. Per window it is two window-sized ones.
+        #
+        # What is NOT chunked is `A_st` and `A_reg`. Both are whole-edge by
+        # construction: the C++ same-edge reg kernel checks that R is square,
+        # `(N·n_qp, N·n_qp)`, and refuses a rectangular window, so a row
+        # window there needs a rectangular twin of that kernel (and of its EK
+        # sibling) rather than a call-site change. That is momwire#966's
+        # remaining half and is deliberately not smuggled in here.
+        owns_prep = built_prep_here
+        # Two shapes of entry, one loop body. When this call built the prep it
+        # holds INGREDIENTS and windows `A_st` / `A_reg` per observer chunk
+        # (momwire#968); when a swept caller passed one in, the blocks are
+        # already materialised for its k and are sliced as before. The swept
+        # path is deliberately untouched: its blocks are hoisted once and
+        # reused across every k in the sweep, so windowing them there would
+        # rebuild per k and trade memory for a cost the sweep exists to avoid.
+        if owns_prep and _SAME_EDGE_WINDOW_BLOCKS:
+            entries = [(sl, None, None, arc, a_w) for sl, arc, a_w in edge_ingredients]
+        elif owns_prep:
+            # The pre-#968 route, kept as the reference: whole-edge blocks
+            # built once, then sliced per window.
+            entries = [
+                (
+                    sl,
+                    _seg_seg_static_moments(arc, a_w, max_d=d, ek=ek_se),
+                    _seg_seg_reg_geometry(
+                        arc,
+                        a_w,
+                        max_d=d,
+                        n_qp=self.n_qp_pair_same_edge,
+                        ek=ek_se,
+                    ),
+                    None,
+                    None,
+                )
+                for sl, arc, a_w in edge_ingredients
+            ]
+        else:
+            entries = [(sl, A_st, reg, None, None) for sl, A_st, reg in same_edge_prep]
+
+        def _fix_edge(sl, A_st, reg, ed_arc_e, a_w):
+            A_reg = None
+            if reg is not None:
+                A_reg = (
+                    _seg_seg_reg_moments_from_geometry(reg, k)
+                    if isinstance(reg, dict)
+                    else reg
+                )
+                if owns_prep and _SAME_EDGE_DROP_R and isinstance(reg, dict):
+                    # R is dead the moment A_reg exists on a single-k solve.
+                    # Guarded on ownership: a swept caller's prep is reused for
+                    # every k in the sweep, and clearing it would make the
+                    # second k rebuild the geometry — or fail.
+                    reg.clear()
+            n_edge = sl.stop - sl.start
+            e_idx = _bases_touching(sl.start, sl.stop)
+            # Same budget and the same arithmetic as the sweep's `row_bytes`,
+            # against this edge's own column count rather than the mesh's.
+            corr_row_bytes = (d + 1) ** 2 * n_edge * 16 + (
+                self._offedge_fallback_row_bytes(n_edge)
+            )
+            corr_chunk = _schedule.mb_rows(self.swept_mem_mb, corr_row_bytes)
+            if not _SAME_EDGE_CORR_CHUNKED:
+                corr_chunk = max(1, n_edge)  # the pre-#966 whole-edge route
+
+            def _corr_block(r0, r1, j0, j1):
+                win = slice(r0, r1)
+                # The correction subtracts what the sweep above already added
+                # for these pairs, so it must be filled with exactly the
+                # sweep's own EK treatment — the sliced whole-mesh spec, not
+                # `ek_se`. (They agree pair by pair on a same-edge block;
+                # slicing keeps the two windows the same arithmetic rather
+                # than merely the same value.)
+                J_win = _seg_seg_full_moments_offedge(
+                    seg_l[win],
+                    seg_r[win],
+                    seg_l[sl],
+                    seg_r[sl],
+                    a_row[win],
+                    k,
+                    d,
+                    self.n_qp_pair,
+                    ek=_ek_slice(ek, rows=win, cols=sl),
+                    ladder=ladder,  # the sweep's, not this block's (#907)
+                )
+                lo = r0 - sl.start
+                hi = r1 - sl.start
+                if ed_arc_e is not None:
+                    win = slice(lo, hi)
+                    A_st_w = _seg_seg_static_moments(
+                        ed_arc_e, a_w, max_d=d, ek=ek_se, rows=win
+                    )
+                    A_reg_w = _seg_seg_reg_moments_from_geometry(
+                        _seg_seg_reg_geometry(
+                            ed_arc_e,
+                            a_w,
+                            max_d=d,
+                            n_qp=self.n_qp_pair_same_edge,
+                            ek=ek_se,
+                            rows=win,
+                        ),
+                        k,
+                    )
+                else:
+                    A_st_w = A_st[:, :, lo:hi, :]
+                    A_reg_w = A_reg[:, :, lo:hi, :]
+                corr = _same_edge_corr(A_st_w, A_reg_w, J_win)
+                del J_win, A_st_w, A_reg_w  # not beside the assembler's call (#338)
+                _accumulate(corr, r0, r1, j0, j1, _bases_touching(r0, r1), e_idx)
+
+            # The edge's own row windows against its own columns; no
+            # checkpoint inside one edge's correction.
+            _schedule.sweep(
+                [(sl.start, sl.stop)],
+                corr_chunk,
+                _corr_block,
+                sources=[(sl.start, sl.stop)],
+            )
+
+        # One checkpoint per same-edge block. An unrequested edge writes only
+        # its own wire's rows, so a restricted fill skips it whole.
+        _schedule.walk(
+            entries,
+            _fix_edge,
+            checkpoint=self._checkpoint,
+            keep=None if restrict is None else (lambda e: restrict.covers(e[0])),
+        )
+        return Z
+
+    def _near_same_edge_fixup(
+        self, Z, geom, k, plan, band_lo, band_hi, moments, accumulate, touching, served
+    ):
+        """The chunked fill's same-edge fixup under a plan (momwire#2063 step
+        3): the near same-edge singles' `(A_st + A_reg) - J`, each edge's
+        rows in the fixup's own windows against the band their singles span,
+        every other pair's correction zero (its class value is the routine's
+        already). A near single's sum is then the fill without reuse's: its
+        sweep moment in the window, its correction after, in the fixup's
+        windows cut in `_SAME_EDGE_VALUE_ROWS` rows."""
+        d = self.degree
+        n_qp = self.n_qp_pair_same_edge
+        ek_se = _EK_SAME_EDGE if self.extended_kernel else None
+        for _w, sl, arc, a_w in self._edge_ingredients(geom):
+            if not (band_hi[sl] > band_lo[sl]).any():
+                continue
+            self._checkpoint()
+            n_edge = sl.stop - sl.start
+            corr_row_bytes = (d + 1) ** 2 * n_edge * 16 + (
+                self._offedge_fallback_row_bytes(n_edge)
+            )
+            corr_chunk = _schedule.mb_rows(self.swept_mem_mb, corr_row_bytes)
+            if not _SAME_EDGE_CORR_CHUNKED:
+                corr_chunk = max(1, n_edge)
+            nodes = _seg_seg_reg_nodes(arc, d, n_qp)
+            # the fixup's own windows, each cut in `_SAME_EDGE_VALUE_ROWS`
+            # rows against the band their singles span
+            windows = []
+            for c_start in range(sl.start, sl.stop, corr_chunk):
+                c_end = min(c_start + corr_chunk, sl.stop)
+                for q0 in range(c_start, c_end, _SAME_EDGE_VALUE_ROWS):
+                    windows.append((q0, min(q0 + _SAME_EDGE_VALUE_ROWS, c_end)))
+            for r0, r1 in windows:
+                has = band_hi[r0:r1] > band_lo[r0:r1]
+                if not has.any():
+                    continue
+                c0 = int(band_lo[r0:r1][has].min())
+                c1 = int(band_hi[r0:r1][has].max())
+                lo, hi = r0 - sl.start, r1 - sl.start
+                A_st = _seg_seg_static_moments_window(
+                    arc,
+                    a_w,
+                    d,
+                    np.arange(lo, hi),
+                    np.arange(c0 - sl.start, c1 - sl.start),
+                    ek=ek_se,
+                )
+                A_reg = _seg_seg_reg_moments_from_geometry(
+                    _seg_seg_reg_geometry_pairs(
+                        nodes,
+                        a_w,
+                        n_qp,
+                        np.arange(lo, hi),
+                        np.arange(c0 - sl.start, c1 - sl.start),
+                        ek=ek_se,
+                    ),
+                    k,
+                )
+                J_win = moments(r0, r1, c0, c1)
+                corr = _same_edge_corr(A_st, A_reg, J_win)
+                corr[:, :, ~plan.near_same_edge_mask(r0, r1, c0, c1)] = 0.0
+                served["kernel_evals"] += 2 * (r1 - r0) * (c1 - c0)
+                del J_win, A_st, A_reg
+                accumulate(corr, r0, r1, c0, c1, touching(r0, r1), touching(c0, c1))
+
+    def _decline_unread_plan(self, reason):
+        """Name in `pair_reuse_declined` why this fill route reads no
+        `pair_reuse` plan (momwire#2020); nothing is said when reuse is off.
+        No census runs: the route's numbers are the fill's without reuse."""
+        if self._reuse_on:
+            self.pair_reuse_declined = reason
+
+    def _image_reuse_plan(self, geom, restrict):
+        """The plan whose image block this image fill assembles from
+        (momwire#2063 step 2a), or None to sweep every pair. A fill of chosen
+        rows reads none, as the direct fill's (`_chunked_reuse`) says."""
+        if not self._reuse_on or restrict is not None:
+            return None
+        plan = self._reuse_plan(geom)
+        if plan is None or not plan.image:
+            return None
+        return plan
+
+    def _chunked_reuse(self, geom, same_edge_prep, restrict):
+        """The plan this chunked fill gathers from, or None to fill every
+        pair (momwire#2020, #2063). Every way the plan goes unread here is
+        recorded in `pair_reuse_declined`."""
+        if not self._reuse_on:
+            return None
+        if restrict is not None:
+            self._decline_unread_plan("a fill of chosen rows does not read the hint")
+            return None
+        plan = self._reuse_plan(geom)
+        if plan is None:
+            return None
+        slices = self._same_edge_slices(geom)
+        if same_edge_prep is not None and slices != [p[0] for p in same_edge_prep]:
+            self._decline_unread_plan("the swept fill's edges are not the plan's")
+            return None
+        stops = np.fromiter((sl.stop for sl in slices), dtype=np.int64)
+        starts = np.fromiter((sl.start for sl in slices), dtype=np.int64)
+        if (
+            starts[0] != 0
+            or stops[-1] != geom["n_segs_total"]
+            or np.any(stops[:-1] != starts[1:])
+        ):
+            self._decline_unread_plan("the edges do not tile the mesh in order")
+            return None
+        return plan
+
+    def _accumulate_Z_image_chunked(
+        self, Z, geom, k, supp_seg, polys, weights_fn, *, restrict=None
+    ):
+        """Chunked ground-image accumulation: subtract the weighted image
+        sub-assembly from Z without materialising the (d+1, d+1, N, N)
+        image tensor OR an intermediate n_basis² matrix (issue #136,
+        ground scope). Observer-row chunks of the mirrored-source
+        full-kernel moments feed the weighted windowed assembler with
+        scale = -1 (the seams' `Z - image` convention). Image pairs are
+        never singular, but momwire#631 found they are not always FAR
+        either: a horizontal edge at grazing height sits a fraction of a
+        segment from its own image, and off-edge quadrature at
+        `n_qp_pair` loses that block entirely (measured 1.6 relative at
+        delta/2h = 69). So there is a near-image correction pass after
+        the sweep, the image-side twin of the free-space same-edge fixup
+        — see `_near_image_edge_blocks`. The complex weights serve all
+        three grounds: PEC (mirror tangent dot / ones), refl-coef
+        (Fresnel dyad / image charge), Sommerfeld exact image
+        (constant C2).
+
+        Weights arrive as `weights_fn(i0, i1) -> (w_A, w_Phi)`, called once
+        per observer chunk for WINDOWS of shape (i1-i0, n_segs) aligned with
+        the moment window's trailing axes — not as global (N, N) tables
+        (issue #323). Producing them per chunk is what retires the 2× dense-Z
+        residency this path used to carry: nothing N² in the weights is ever
+        allocated. See `PotentialGround.weight_windows` for the per-mode
+        producers.
+
+        `restrict` (an `_ObserverRows`, momwire#1131) is
+        `_compute_Z_dense_chunked`'s: `Z` is the target it allocated, and
+        only its rows are written, through the dense fill's own chunks."""
+        d = self.degree
+        a_row = self._seg_radius(geom)
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        seg_l_img = self._image_positions(seg_l)
+        seg_r_img = self._image_positions(seg_r)
+        n_segs = geom["n_segs_total"]
+        n_basis = supp_seg.shape[0]
+        ek = self._ek_spec(geom, mirror=True) if self.extended_kernel else None
+        # momwire#1304: ONE image ladder for the sweep AND the near-image
+        # fixup below, so the fixup's `analytic - J_edge` removes exactly what
+        # the sweep added for those pairs (#921's invariant, image side).
+        ladder = self._image_fill_ladder(k, seg_l, seg_r, ek)
+
+        supp_c = np.ascontiguousarray(supp_seg, dtype=np.int64)
+        polys_c = np.ascontiguousarray(polys, dtype=np.float64)
+        all_n = np.arange(n_basis, dtype=np.int64)
+
+        # The window and its weight windows are `_image_block`'s locals, so
+        # the walk never holds an old chunk beside its replacement (#338).
+        #
+        # #338 left this arithmetic sizing the moment window ALONE — the
+        # weight windows `weights_fn` returns (and, for refl-coef, the
+        # specular intermediates it builds them from) ride along on top of
+        # every chunk uncounted, which is why the grounded transient only
+        # improved to 1.22x (PEC) / 1.68x (refl-coef) budget there instead
+        # of the free-space fill's 0.996x. `_image_weight_row_bytes` prices
+        # those extra arrays in so the chunk shrinks to actually honor the
+        # budget (issue #347). `_offedge_fallback_row_bytes` does the same
+        # for the mirrored-source moment window's own numpy-fallback
+        # overhead when the C++ accelerator is unavailable.
+        row_bytes = (
+            (d + 1) ** 2 * n_segs * 16
+            + self._image_weight_row_bytes(n_segs)
+            + self._offedge_fallback_row_bytes(n_segs)
+        )
+        chunk = _schedule.mb_rows(self.swept_mem_mb, row_bytes)
+        row_kw = {} if restrict is None else restrict.kwargs()
+
+        def _rows(m_idx):
+            return m_idx if restrict is None else restrict.held(m_idx)
+
+        def _image_moments(r0, r1, c0, c1):
+            return _seg_seg_full_moments_offedge(
+                seg_l[r0:r1],
+                seg_r[r0:r1],
+                seg_l_img[c0:c1],
+                seg_r_img[c0:c1],
+                a_row[r0:r1],
+                k,
+                d,
+                self.n_qp_pair,
+                ek=_ek_slice(ek, rows=slice(r0, r1), cols=slice(c0, c1)),
+                ladder=ladder,
+            )
+
+        # momwire#2063 step 2a: the plan's image block, whole-mesh fills only.
+        plan = self._image_reuse_plan(geom, restrict)
+
+        def _assemble_window(J, r0, r1, c0, c1, w_A, w_Phi, m_idx, n_idx):
+            _acc.assemble_Z_bspline_weighted_windowed(
+                np.ascontiguousarray(J),
+                supp_c,
+                polys_c,
+                np.ascontiguousarray(w_A),
+                np.ascontiguousarray(w_Phi),
+                _rows(m_idx),
+                n_idx,
+                int(r0),
+                int(r1),
+                int(c0),
+                int(c1),
+                float(self.omega),
+                float(self.eps),
+                float(self.mu),
+                complex(-1.0),
+                Z,
+                self._cancel_flag,
+                **row_kw,
+            )
+
+        def _touching(lo, hi):
+            return np.nonzero(((supp_c >= lo) & (supp_c < hi)).any(axis=1))[0].astype(
+                np.int64
+            )
+
+        if plan is not None:
+            values = self._reuse_values(plan, geom, k, ladder, ek)
+            self._held_reuse_values = None
+            scale = complex(1.0 if _IMAGE_REUSE_PROBE == "scale" else -1.0)
+
+        def _image_block_plan(i0, i1, j0, j1):
+            """One observer chunk against every source from the class
+            values, the window never written (the image tile, momwire#2063
+            step 2a): every pair its class's moments of (o, M(s)), weighted
+            by its own (w_A, w_Phi)."""
+            w_A_win, w_Phi_win = weights_fn(i0, i1)
+            if _IMAGE_REUSE_PROBE == "tangent":
+                t = geom["tangents"]
+                w_A_win = np.ascontiguousarray(t[i0:i1] @ t.T, dtype=np.complex128)
+            m_mask = ((supp_c >= i0) & (supp_c < i1)).any(axis=1)
+            plan.assemble_image(
+                values,
+                int(i0),
+                int(i1),
+                supp_c,
+                polys_c,
+                w_A_win,
+                w_Phi_win,
+                np.nonzero(m_mask)[0].astype(np.int64),
+                all_n,
+                float(self.omega),
+                float(self.eps),
+                float(self.mu),
+                scale,
+                Z,
+                self._cancel_flag,
+            )
+
+        def _image_block(i0, i1, j0, j1):
+            J_chunk = _image_moments(i0, i1, 0, n_segs)
+            m_mask = ((supp_c >= i0) & (supp_c < i1)).any(axis=1)
+            # Same producer contract as `_accumulate` in the free-space
+            # chunked fill (issue #318 audit): the offedge producer emits
+            # C-contiguous complex128 on every path, so the wrapper this
+            # replaced was the same dead no-op. `forcecast` on the
+            # assembler stays the safety net.
+            assert J_chunk.dtype == np.complex128 and J_chunk.flags.c_contiguous, (
+                f"moment window must be C-contiguous complex128, got {J_chunk.dtype}"
+            )
+            # The window producers are gemm/elementwise expressions, so they
+            # emit C-contiguous complex128 of exactly the chunk's shape
+            # already — same producer contract as the moment window above,
+            # asserted rather than re-wrapped.
+            w_A_win, w_Phi_win = weights_fn(i0, i1)
+            assert all(
+                w.shape == (i1 - i0, n_segs)
+                and w.dtype == np.complex128
+                and w.flags.c_contiguous
+                for w in (w_A_win, w_Phi_win)
+            ), f"weight windows must be C-contiguous complex128 ({i1 - i0}, {n_segs})"
+            _acc.assemble_Z_bspline_weighted_windowed(
+                J_chunk,
+                supp_c,
+                polys_c,
+                # The j-window is the full [0, n_segs), so the producers hand
+                # back whole rows.
+                w_A_win,
+                w_Phi_win,
+                _rows(np.nonzero(m_mask)[0].astype(np.int64)),
+                all_n,
+                int(i0),
+                int(i1),
+                int(j0),
+                int(j1),
+                float(self.omega),
+                float(self.eps),
+                float(self.mu),
+                complex(-1.0),
+                Z,
+                self._cancel_flag,
+                **row_kw,
+            )
+
+        # One checkpoint per observer chunk; under `restrict` (momwire#1131)
+        # each chunk keeps only its requested windows.
+        _schedule.sweep(
+            [(0, n_segs)],
+            chunk,
+            _image_block if plan is None else _image_block_plan,
+            sources=[(0, n_segs)],
+            checkpoint=self._checkpoint,
+            restrict=restrict,
+        )
+        if plan is not None:
+            global IMAGE_REUSE_FILLS
+            IMAGE_REUSE_FILLS += 1
+            del values
+
+        if restrict is None:
+            n2 = int(n_segs) ** 2
+            if plan is None:
+                self._note_ground_fill("image", n2, n2, n2)
+            else:
+                # The image block's own classes (their representatives are
+                # image pairs).
+                st = plan.stats()
+                self._note_ground_fill(
+                    "image",
+                    n2,
+                    int(st["classes_block"][1]),
+                    int(st["evals_block"][1]),
+                    plan=plan.ref(),
+                )
+
+        # Near-image fixup (momwire#631), the image-side twin of the
+        # free-space same-edge fixup in `_compute_Z_dense_chunked`: the sweep
+        # above added the off-edge block for every pair, and for a horizontal
+        # edge whose image has come close that block is the one thing
+        # off-edge quadrature cannot do at this order. Accumulate the
+        # DIFFERENCE, so the pairs it does not name keep exactly the
+        # arithmetic they had rather than merely the same value.
+        def _fix_image_edge(sl, arc, a_eff):
+            J_edge = _seg_seg_full_moments_offedge(
+                seg_l[sl],
+                seg_r[sl],
+                seg_l_img[sl],
+                seg_r_img[sl],
+                a_row[sl],
+                k,
+                d,
+                self.n_qp_pair,
+                ek=_ek_slice(ek, rows=sl, cols=sl),
+                ladder=ladder,
+            )
+            corr = self._near_image_analytic_block(arc, a_eff, k) - J_edge
+            del J_edge  # not beside the weight windows (#338)
+            w_A_win, w_Phi_win = weights_fn(sl.start, sl.stop)
+            e_idx = np.nonzero(((supp_c >= sl.start) & (supp_c < sl.stop)).any(axis=1))[
+                0
+            ].astype(np.int64)
+            _acc.assemble_Z_bspline_weighted_windowed(
+                np.ascontiguousarray(corr, dtype=np.complex128),
+                supp_c,
+                polys_c,
+                # `weights_fn` hands back whole rows; this block's j-window is
+                # its own columns, so both tables are narrowed to match.
+                np.ascontiguousarray(w_A_win[:, sl], dtype=np.complex128),
+                np.ascontiguousarray(w_Phi_win[:, sl], dtype=np.complex128),
+                _rows(e_idx),
+                e_idx,
+                int(sl.start),
+                int(sl.stop),
+                int(sl.start),
+                int(sl.stop),
+                float(self.omega),
+                float(self.eps),
+                float(self.mu),
+                complex(-1.0),
+                Z,
+                self._cancel_flag,
+                **row_kw,
+            )
+
+        # An unrequested edge writes only its own wire's rows.
+        _schedule.walk(
+            self._near_image_edge_blocks(geom),
+            _fix_image_edge,
+            checkpoint=self._checkpoint,
+            keep=None if restrict is None else (lambda e: restrict.covers(e[0])),
+        )
+
+    # ------------------------------------------------------------------
+    # Distributed series wire loading (stevenmburns/momwire#131)
+    # ------------------------------------------------------------------
+
+    def _loading_gram(self):
+        """COO triplets of the loading Gram matrix, tagged per wire.
+
+        S[m, n] = ∫ Φ_m(l)·Φ_n(l) dl over the segments the two bases share
+        — nonzero only for overlapping bases on the same wire, so the
+        structure is banded and block-diagonal by wire. The full loading
+        term is Σ_w Z'_w(ω)·S_w; the triplets carry `wire_of_nnz` so one
+        structure serves every ω (only the per-wire scale changes).
+
+        Involves no kernel (no exp(-jkR)) — on each shared segment the
+        integral is the closed-form polynomial moment
+        Σ_pq C[m,a,p]·C[n,b,q]·h^(p+q+1)/(p+q+1). k-independent; cached
+        per instance (geometry is immutable after __init__).
+
+        Returns (rows, cols, vals, wire_of_nnz) int64/float64 arrays.
+        Duplicate (row, col) entries are intentional (one per shared
+        segment) — consumers accumulate (np.add.at / COO semantics).
+        """
+        cached = self._cached_loading_gram
+        if cached is not None:
+            return cached
+        geom = self._build_geometry()
+        supp_seg, polys, _kcl_A, _wk, _wbg = self._build_basis_polynomials(geom)
+        result = self._overlap_triplets(geom, supp_seg, polys, polys)
+        self._cached_loading_gram = result
+        return result
+
+    def _charge_gram(self):
+        """COO triplets of the DERIVATIVE Gram, tagged per wire (momwire#1154).
+
+        D[m, n] = ∫ Φ_m′(l)·Φ_n′(l) dl over shared segments — the weak form
+        of a LOCAL scalar potential ΔS′·q with q = −(1/jω)·dI/dl, tested the
+        way this formulation tests its kernel's scalar-potential term
+        (by parts, boundary terms dropped at free ends and junctions because
+        the conductor's total potential is continuous). Scaled per wire by
+        `LoadingSpec.zq_wire` = ΔS′/(jω), it is a buried jacket's missing
+        elastance (`_wire_loading.jacket_elastance`).
+
+        The same closed-form moments as `_loading_gram`, on the
+        differentiated per-segment polynomials (exact, since `polys` is).
+        Cached per instance; built only when a deck has a jacketed buried
+        wire or a lossy jacket.
+
+        `wire_loss_power` reads only the lossy jacket's share of it
+        (`_wire_loading.jacket_loss_charge`, momwire#765): the real part of
+        the buried ΔS′ is the soil's loss seen through the jacket, which the
+        solved impedance carries and the wire ledger must not count.
+        """
+        cached = self._cached_charge_gram
+        if cached is not None:
+            return cached
+        geom = self._build_geometry()
+        supp_seg, polys, _kcl_A, _wk, _wbg = self._build_basis_polynomials(geom)
+        n_poly = polys.shape[2]
+        dpolys = polys[:, :, 1:] * np.arange(1, n_poly, dtype=np.float64)
+        result = self._overlap_triplets(geom, supp_seg, polys, dpolys)
+        self._cached_charge_gram = result
+        return result
+
+    @staticmethod
+    def _overlap_triplets(geom, supp_seg, polys, coef):
+        """∫ p_m·p_n over shared segments for the per-(basis, wing)
+        polynomial coefficients `coef` (`polys` itself, or its derivative),
+        with the support read off `polys` — see `_loading_gram`."""
+        n_basis, n_wings, _n = polys.shape
+        n_poly = coef.shape[2]
+        h_per_seg = geom["h_per_seg"]
+        seg_offsets = np.asarray(geom["seg_offsets"], dtype=np.int64)
+
+        # segment → [(basis, wing), ...]. Padded wings (beyond a boundary
+        # basis's actual support) have all-zero poly rows; skip them so a
+        # padding segment index of 0 can't alias real segment 0.
+        seg_map: dict[int, list[tuple[int, int]]] = {}
+        nonzero_wing = np.any(polys != 0.0, axis=2)
+        for m in range(n_basis):
+            for a in range(n_wings):
+                if nonzero_wing[m, a]:
+                    seg_map.setdefault(int(supp_seg[m, a]), []).append((m, a))
+
+        pq = np.arange(n_poly)
+        pq_sum = pq[:, None] + pq[None, :] + 1
+        rows, cols, vals, wire_ids = [], [], [], []
+        for s, entries in seg_map.items():
+            hs = h_per_seg[s]
+            # H[p, q] = ∫₀^h u^p·u^q du = h^(p+q+1)/(p+q+1)
+            # libm's pow on every CPU (momwire#1517), not numpy's `power`
+            H = np.float_power(hs, pq_sum) / pq_sum
+            C = coef[[m for m, _ in entries], [a for _, a in entries], :]
+            M = C @ H @ C.T
+            w = int(np.searchsorted(seg_offsets, s, side="right") - 1)
+            n_e = len(entries)
+            for i in range(n_e):
+                mi = entries[i][0]
+                for j in range(n_e):
+                    rows.append(mi)
+                    cols.append(entries[j][0])
+                    vals.append(M[i, j])
+                    wire_ids.append(w)
+
+        return (
+            np.asarray(rows, dtype=np.int64),
+            np.asarray(cols, dtype=np.int64),
+            np.asarray(vals, dtype=np.float64),
+            np.asarray(wire_ids, dtype=np.int64),
+        )
+
+    def _apply_loading(self, Z, omega=None, row_of=None):
+        """Add the loading term into Z in place; no-op when loading is off.
+
+        Z is (n_basis, n_basis) with scalar `omega` (default self.omega),
+        or a swept chunk (n_k, n_basis, n_basis) with `omega` (n_k,).
+        Returns Z for call-site convenience.
+
+        `row_of` (momwire#1132) makes a single Z ROW-COMPACT: (n_rows,
+        n_basis), basis row m held at row `row_of[m]`, -1 for a row it does
+        not hold. See `_add_wire_scaled` for why that stays bit-identical.
+        """
+        if not self._loading_active:
+            return Z
+        rows, cols, vals, wire_ids = self._loading_gram()
+        if omega is None:
+            omega = self.omega
+        # (n_w,) or (n_w, n_k) — the shared spec layer (momwire#428); the
+        # Gram is keyed by wire, so this row consumes the per-WIRE form.
+        spec = _wire_loading.loading_for(self, omega)
+        self._add_wire_scaled(
+            Z, (rows, cols, vals, wire_ids), spec.z_wire, row_of=row_of
+        )
+        # A jacket's charge-side term — a BURIED jacket's (momwire#1154), a
+        # lossy one's (momwire#765) — after the series one. `zq_wire` is None
+        # on every deck without one, so every other fill is structurally what
+        # it was.
+        if spec.zq_wire is not None:
+            self._add_wire_scaled(Z, self._charge_gram(), spec.zq_wire, row_of=row_of)
+        return Z
+
+    @staticmethod
+    def _add_wire_scaled(Z, triplets, zw, row_of=None):
+        """`Z += Σ_w zw[w]·G_w` for wire-tagged COO `triplets`; Z is one
+        (n, n) matrix with zw (n_w,), or a chunk (n_k, n, n) with (n_w, n_k).
+
+        `row_of` (momwire#1132): Z is row-compact, so only the COO entries
+        whose row it holds are kept, and their rows remapped. Each kept entry
+        is the same product added in the same order `np.add.at` would have
+        added it to the square Z, so every held row is that row bit for bit.
+        """
+        rows, cols, vals, wire_ids = triplets
+        if row_of is not None:
+            if Z.ndim != 2:
+                raise ValueError("row_of applies to one (n_rows, n) matrix")
+            keep = row_of[rows] >= 0
+            rows, cols = row_of[rows[keep]], cols[keep]
+            vals, wire_ids = vals[keep], wire_ids[keep]
+        if Z.ndim == 2:
+            np.add.at(Z, (rows, cols), zw[wire_ids] * vals)
+        else:
+            data = zw[wire_ids, :].T * vals[None, :]  # (n_k, nnz)
+            for ki in range(Z.shape[0]):
+                np.add.at(Z[ki], (rows, cols), data[ki])
+
+    def _loading_block(self, I, J, omega=None):
+        """Dense loading sub-block L[I][:, J] for restricted evaluators
+        (HMatrixSolver.zblock). The scaled CSR is cached per ω — the
+        H-matrix fill calls zblock many times per k."""
+        rows, cols, vals, wire_ids = self._loading_gram()
+        if omega is None:
+            omega = self.omega
+        cache = getattr(self, "_loading_csr_cache", None)
+        if cache is None or cache[0] != omega:
+            geom = self._build_geometry()
+            supp_seg, _p, _k, _wk, _wbg = self._build_basis_polynomials(geom)
+            n = supp_seg.shape[0]
+            spec = _wire_loading.loading_for(self, omega)
+            zw = spec.z_wire
+            L = scipy.sparse.coo_matrix(
+                (zw[wire_ids] * vals, (rows, cols)), shape=(n, n)
+            ).tocsr()
+            if spec.zq_wire is not None:
+                # The jacket's charge-side term (momwire#1154, #765), so the
+                # H-matrix blocks carry what the dense `_apply_loading` does.
+                q_rows, q_cols, q_vals, q_wire = self._charge_gram()
+                L = (
+                    L
+                    + scipy.sparse.coo_matrix(
+                        (spec.zq_wire[q_wire] * q_vals, (q_rows, q_cols)),
+                        shape=(n, n),
+                    ).tocsr()
+                )
+            self._loading_csr_cache = (omega, L)
+        L = self._loading_csr_cache[1]
+        return L[I][:, J].toarray()
+
+    @_wire_spec.reads_input_wires("loss")
+    def wire_loss_power(self, coeffs, omega=None):
+        """Power dissipated in the wire — its metal and its jacket — from a
+        solve's coeffs.
+
+        P_wire = ½ Σ_w Re[Z'_w(ω)] · (c^H S_w c) — the ∫ R'(l)·|I(l)|² dl
+        readout the downstream power budget reports — plus, on a jacket with
+        tan δ > 0 (momwire#765), its dielectric loss
+        ½ Σ_w Re[zq_loss,w] · (c^H D_w c) = ½·Re(zq)·∫|dI/dl|² dl, through
+        the same derivative Gram the fill loads (`_charge_gram`). A lossless
+        jacket contributes nothing. Trailing KCL Lagrange-multiplier entries
+        in `coeffs` are ignored.
+
+        Returns (total_watts, per_wire_watts ndarray (n_wires,)).
+        """
+        n_w = len(self.wires_polylines)
+        per_wire = np.zeros(n_w, dtype=np.float64)
+        if not self._loading_active:
+            return 0.0, per_wire
+        rows, cols, vals, wire_ids = self._loading_gram()
+        geom = self._build_geometry()
+        supp_seg, _p, _k, _wk, _wbg = self._build_basis_polynomials(geom)
+        c = np.asarray(coeffs)[: supp_seg.shape[0]]
+        r_w = np.real(
+            _wire_loading.loading_for(
+                self, self.omega if omega is None else omega
+            ).z_wire
+        )
+        contrib = 0.5 * r_w[wire_ids] * np.real(np.conj(c[rows]) * c[cols]) * vals
+        np.add.at(per_wire, wire_ids, contrib)
+        zq_loss = _wire_loading.jacket_loss_charge(
+            self, self.omega if omega is None else omega
+        )
+        if zq_loss is not None:
+            q_rows, q_cols, q_vals, q_wire = self._charge_gram()
+            contrib = (
+                0.5
+                * np.real(zq_loss)[q_wire]
+                * np.real(np.conj(c[q_rows]) * c[q_cols])
+                * q_vals
+            )
+            np.add.at(per_wire, q_wire, contrib)
+        return float(per_wire.sum()), per_wire
+
+    # ------------------------------------------------------------------
+    # Source vector
+    # ------------------------------------------------------------------
+
+    def _build_source_vector(
+        self,
+        geom,
+        wire_knots,
+        wire_basis_global,
+        n_basis_total,
+        wi=None,
+        s_f=None,
+    ):
+        """Galerkin RHS for a delta-gap, segment-gap or smoothed source.
+
+        Delta-gap (`feed_model="point"`, no smoothing — the default):
+        v_m = Φ_m(s_f).
+
+        Segment gap (`feed_model="segment"`, stevenmburns/momwire#216): NEC's
+        Eq 187 convention, E_app = V/Δ uniform over the mesh cell [s_lo, s_hi]
+        containing s_f, so v_m = (1/Δ)∫_{s_lo}^{s_hi} Φ_m ds with Δ = s_hi −
+        s_lo. Every Φ_m is a polynomial of degree d on that cell (its
+        endpoints ARE knots), so the existing `n_qp_source`-node Gauss rule —
+        exact through degree 2·n_qp_source − 1, i.e. 31 at the default 16 —
+        integrates it exactly; there is no accuracy knob to add here. This is
+        the same source `SinusoidalSolver` hard-codes and
+        `SinusoidalGalerkinSolver` defaults to, so it is the feed-matched
+        setting for a comparison against either (report §19). It shares the
+        smoothed source's cure for the delta gap's O(1/N) term below: the
+        drive is a bounded function, not a distribution.
+
+        Smoothed source: replace V·δ(s − s_f) with V·g_w(s − s_f) where g_w
+        is a cos² bump of integral 1 and half-width w/2 = α·h_feed/2 (with
+        α = self.feed_smoothing_factor). Then v_m = ⟨Φ_m, g_w(. − s_f)⟩,
+        computed by Gauss-Legendre quadrature on the bump's support. The
+        impedance extraction in `compute_impedance` is unchanged:
+        I_in = v^T c gives the smoothing-weighted current, and Z = 1/I_in.
+        In the α → 0 limit g_w → δ and both v and I_in revert to the
+        delta-gap formulas.
+
+        Why this fixes the convergence rate. The delta-gap source produces a
+        log singularity in the current at s_f that no polynomial basis can
+        represent; the integrated impedance picks up an O(1/N) error term
+        regardless of basis degree. The smoothed source has no singularity,
+        so the convergence is basis-limited (O(1/N³) for d=2).
+
+        For unit excitation V=1 at a single (wi, s_f); the multi-feed
+        caller scales each per-feed vector by V_i and sums them. wi/s_f
+        default to self.feeds[0] for back-compat with single-feed callers.
+        """
+        d = self.degree
+        if wi is None:
+            wi = self.feeds[0][0]
+        arc = geom["per_wire"][wi]["arc_at_knot"]
+        wire_arc = arc[-1]
+        if s_f is None:
+            arc_req = self.feeds[0][1]
+            s_f = arc_req if arc_req is not None else wire_arc / 2.0
+        knots = wire_knots[wi]
+        kept, local_to_global = wire_basis_global[wi]
+        # A feed AT a wire end, clipped onto the knot vector's own domain.
+        # The caller's arclength for an end is the polyline's straight-line
+        # length; `arc` is that same length ACCUMULATED over the mesh, and the
+        # two differ in the last ulps — measured 3.6e-15 short on a
+        # 95-segment 19.84542 m wire, which put the request past `knots[-d-1]`
+        # and made the basis evaluation (then scipy's design matrix) refuse
+        # it as out of bounds on a feed that was exactly where it was asked
+        # for. `_feed_cell` already clips the same request for the segment
+        # model ("one at the wire's far end is clipped to the last cell");
+        # this is that clip for the point one.
+        #
+        # Inside a RELATIVE tolerance of the two ends only, so an arclength
+        # that is genuinely off the wire still reaches the raise rather than
+        # being fed silently at an end.
+        s_lo, s_hi = float(knots[d]), float(knots[-d - 1])
+        slack = 1e-9 * max(s_hi - s_lo, 1.0)
+        if s_lo - slack <= s_f < s_lo:
+            s_f = s_lo
+        elif s_hi < s_f <= s_hi + slack:
+            s_f = s_hi
+
+        if self.feed_smoothing_factor is None and self.feed_model == "point":
+            # Delta-gap (original)
+            DM = _bspline_design_matrix_dense(np.array([s_f]), knots, d)[0]
+            v = np.zeros(n_basis_total, dtype=np.complex128)
+            for kept_idx, (j, _kind, _junc_idx, _end_pos) in enumerate(kept):
+                m_global = local_to_global[kept_idx]
+                v[m_global] = DM[j]
+            return v
+
+        if self.feed_model == "segment":
+            # NEC's segment-wide gap: E_app = V/Δ uniform over the mesh cell
+            # holding s_f. Same cell location as the smoothing branch below
+            # (a feed exactly on a knot takes the cell to its right, and a
+            # feed at the wire end is clipped to the last cell).
+            arc_at_knot = arc
+            seg_idx = _feed_cell(arc_at_knot, s_f)
+            s_lo = float(arc_at_knot[seg_idx])
+            s_hi = float(arc_at_knot[seg_idx + 1])
+            h_cell = s_hi - s_lo
+            gl_xi, gl_w = leggauss(self.n_qp_source)
+            t = 0.5 * (s_hi + s_lo) + 0.5 * h_cell * gl_xi
+            # (1/h)·∫_cell Φ_m ds — exact, the integrand being degree d on
+            # exactly one knot span (see the docstring).
+            weights = (0.5 * h_cell * gl_w) / h_cell
+            DM = _bspline_design_matrix_dense(t, knots, d)
+            v_full = DM.T @ weights
+            v = np.zeros(n_basis_total, dtype=np.complex128)
+            for kept_idx, (j, _kind, _junc_idx, _end_pos) in enumerate(kept):
+                m_global = local_to_global[kept_idx]
+                v[m_global] = v_full[j]
+            return v
+
+        # Smoothed source: find the feed segment to set the smoothing width
+        # w = α·h_feed. The "feed segment" is the segment containing s_f.
+        h_per_seg = geom["per_wire"][wi]["h_per_seg"]
+        arc_at_knot = arc
+        # Locate segment such that arc_at_knot[seg] <= s_f < arc_at_knot[seg+1]
+        seg_idx = int(np.searchsorted(arc_at_knot, s_f, side="right")) - 1
+        seg_idx = max(0, min(seg_idx, len(h_per_seg) - 1))
+        h_feed = float(h_per_seg[seg_idx])
+        alpha = float(self.feed_smoothing_factor)
+        smoothing_w = alpha * h_feed
+        half_w = smoothing_w / 2.0
+
+        # Clip to wire arc range — if the feed is too close to a wire end,
+        # the bump may not fit; in that case the integral is just over the
+        # available portion (consistent with the smoothed source convention
+        # but breaks symmetry at the wire end).
+        s_lo = max(0.0, s_f - half_w)
+        s_hi = min(wire_arc, s_f + half_w)
+        if s_lo >= s_hi:
+            raise ValueError(
+                "feed_smoothing_factor too large for wire — bump doesn't fit"
+            )
+
+        gl_xi, gl_w = leggauss(self.n_qp_source)
+        t = 0.5 * (s_hi + s_lo) + 0.5 * (s_hi - s_lo) * gl_xi
+        weights = 0.5 * (s_hi - s_lo) * gl_w
+
+        # Cos² bump on |x| < smoothing_w/2:
+        #   g_w(x) = (2/smoothing_w) · cos²(π x / smoothing_w)
+        # so ∫ g_w = 1 (since ∫_{-w/2}^{w/2} cos²(πx/w) dx = w/2).
+        delta = t - s_f
+        in_support = np.abs(delta) < half_w
+        g_vals = np.where(
+            in_support,
+            (2.0 / smoothing_w) * np.cos(np.pi * delta / smoothing_w) ** 2,
+            0.0,
+        )
+
+        # Evaluate every basis at the quadrature points and integrate.
+        DM = _bspline_design_matrix_dense(t, knots, d)  # (n_qp, n_basis_w_full)
+        v_full = np.einsum("qj,q,q->j", DM, g_vals, weights)  # (n_basis_w_full,)
+
+        v = np.zeros(n_basis_total, dtype=np.complex128)
+        for kept_idx, (j, _kind, _junc_idx, _end_pos) in enumerate(kept):
+            m_global = local_to_global[kept_idx]
+            v[m_global] = v_full[j]
+        return v
+
+    # ------------------------------------------------------------------
+    # KCL solve (Schur complement)
+    # ------------------------------------------------------------------
+
+    def _kcl_plan(self, kcl_A):
+        """The `_kcl_nullspace.Plan` for `kcl_A` when the feature is on and
+        the rows are reducible, else None (the Schur route). Records the
+        route taken on `kcl_nullspace_route` and in `_kcl_nullspace.COUNTS`."""
+        if not getattr(self, "_kcl_nullspace", False) or kcl_A.shape[0] == 0:
+            return None
+        return _kcl_nullspace.record(self, _kcl_nullspace.plan(kcl_A))
+
+    def _solve_reduced(self, Z, V, plan, overwrite):
+        """(Qᵀ Z Q) y = Qᵀ V, returned as x = Q y (momwire#1898). `V` is
+        (n,) or (n, r); `overwrite` lets Z's own buffer hold the reduction.
+        The step the sector route's harmonics share (momwire#1983)."""
+        return _kcl_nullspace.solve_reduced(Z, V, plan, overwrite=overwrite)
+
+    def _solve_reduced_stacked(self, Z, V, plan):
+        """`_solve_reduced` per k over a (n_k, n, n) stack; `V` (n,) or
+        (n, r) is shared across k. Each Z[k] is reduced in a copy."""
+        return np.stack(
+            [self._solve_reduced(Z[i], V, plan, False) for i in range(Z.shape[0])]
+        )
+
+    def _mixed_scope(self):
+        """`_lapack.mixed_lu_scope` at this solver's `mixed_lu` (momwire#2125),
+        opened around the one-shot dense factor and nothing else: the Schur
+        step's small λ solve stays outside it, as do the stacked swept solves.
+        A subclass whose constructor never reached the binding is off."""
+        return _lapack.mixed_lu_scope(getattr(self, "_mixed_lu", False))
+
+    def _solve_with_kcl(self, Z, v, kcl_A, overwrite=False):
+        """Constrained solve [Z A^T; A 0] [I; λ] = [v; 0] via Schur.
+
+        If kcl_A is empty (no junctions), do a plain solve. With
+        `kcl_nullspace` on and reducible rows, the constraints are
+        eliminated before the factor instead (`_solve_reduced`).
+
+        `overwrite=True` lets LAPACK factor Z in place instead of copying
+        it — a full n_basis²-complex saving (2.5 GB at whip-benchmark
+        scale). Callers pass it only where Z is dead after the solve. A
+        C-order Z is first transposed in its own buffer
+        (`_fortran_in_place`, momwire#1798), so it is consumed either way. The
+        locally-built rhs is always overwritten; the caller's `v` never is.
+        """
+        if overwrite:
+            Z = _fortran_in_place(Z)
+        if kcl_A.shape[0] == 0:
+            with self._mixed_scope():
+                return _lu_solve(Z, v, overwrite_a=overwrite)
+        plan = self._kcl_plan(kcl_A)
+        if plan is not None:
+            with self._mixed_scope():
+                return self._solve_reduced(Z, v, plan, overwrite)
+        n_b = Z.shape[0]
+        n_c = kcl_A.shape[0]
+        rhs = np.empty((n_b, 1 + n_c), dtype=np.complex128, order="F")
+        rhs[:, 0] = v
+        rhs[:, 1:] = kcl_A.T
+        with self._mixed_scope():
+            sol = _lu_solve(Z, rhs, overwrite_a=overwrite, overwrite_b=True)
+        w = sol[:, 0]
+        X = sol[:, 1:]
+        lam = _lapack.solve(kcl_A @ X, kcl_A @ w)
+        return w - X @ lam
+
+    def _solve_with_kcl_ports(self, Z, V, kcl_A, overwrite=False):
+        """Multi-port KCL-constrained Schur solve. V: (n_b, n_p), returns
+        (n_b, n_p). Matrix-RHS generalisation of `_solve_with_kcl` — all
+        n_p source columns share one LU factorisation with the n_c
+        constraint columns. `overwrite` as in `_solve_with_kcl`; the
+        caller's V is never overwritten.
+        """
+        if overwrite:
+            Z = _fortran_in_place(Z)
+        if kcl_A.shape[0] == 0:
+            with self._mixed_scope():
+                return _lu_solve(Z, V, overwrite_a=overwrite)
+        plan = self._kcl_plan(kcl_A)
+        if plan is not None:
+            with self._mixed_scope():
+                return self._solve_reduced(Z, V, plan, overwrite)
+        n_b, n_p = V.shape
+        n_c = kcl_A.shape[0]
+        rhs = np.empty((n_b, n_p + n_c), dtype=np.complex128, order="F")
+        rhs[:, :n_p] = V
+        rhs[:, n_p:] = kcl_A.T
+        with self._mixed_scope():
+            sol = _lu_solve(Z, rhs, overwrite_a=overwrite, overwrite_b=True)
+        W = sol[:, :n_p]
+        X = sol[:, n_p:]
+        Lam = _lapack.solve(kcl_A @ X, kcl_A @ W)
+        return W - X @ Lam
+
+    def _solve_with_kcl_batch(self, Z, v, kcl_A):
+        """k-batched KCL-constrained Schur solve. Z: (n_k, n_b, n_b),
+        v: (n_b,) shared across k. Returns (n_k, n_b).
+
+        The Schur algebra is basis-agnostic (it only sees Z and kcl_A):
+        solves the saddle-point system [Z Aᵀ; A 0][I; λ] = [v; 0] without
+        materializing the augmented matrix per k. Packs the
+        (1 + n_c) right-hand sides into one stacked np.linalg.solve so
+        the per-k LU factorisation is paid once.
+        """
+        n_k, n_b = Z.shape[0], Z.shape[1]
+        if kcl_A.shape[0] == 0:
+            rhs = np.broadcast_to(v[None, :, None], (n_k, n_b, 1))
+            return _lapack.solve_stacked(Z, rhs)[:, :, 0]
+        plan = self._kcl_plan(kcl_A)
+        if plan is not None:
+            return self._solve_reduced_stacked(Z, v, plan)
+        n_c = kcl_A.shape[0]
+        rhs = np.empty((n_k, n_b, 1 + n_c), dtype=np.complex128)
+        rhs[:, :, 0] = v[None, :]
+        rhs[:, :, 1:] = kcl_A.T[None, :, :]
+        sol = _lapack.solve_stacked(Z, rhs)  # (n_k, n_b, 1 + n_c)
+        w = sol[:, :, 0]
+        X = sol[:, :, 1:]
+        # The contractions are matmuls broadcast over k, as the single-k
+        # forms write them: plain `einsum` runs them as a one-thread C loop
+        # with no BLAS, O(n_c^2 n_b) per k, which was 51 of 60 s of a dense
+        # one-frequency sweep at n_b ~ 8,000, n_c ~ 2,000 (momwire#1900).
+        S = kcl_A @ X
+        Aw = (kcl_A @ w[:, :, None])[:, :, 0]
+        lam = _lapack.solve_stacked(S, Aw[:, :, None])[:, :, 0]
+        return w - (X @ lam[:, :, None])[:, :, 0]
+
+    def _solve_with_kcl_swept_ports(self, Z, V, kcl_A):
+        """k- and port-batched KCL-constrained Schur solve.
+        Z: (n_k, n_b, n_b), V: (n_b, n_p) shared across k. Returns
+        (n_k, n_b, n_p) — the matrix-RHS generalisation of
+        `_solve_with_kcl_batch`.
+        """
+        n_k = Z.shape[0]
+        n_b, n_p = V.shape
+        if kcl_A.shape[0] == 0:
+            rhs = np.broadcast_to(V[None, :, :], (n_k, n_b, n_p))
+            return _lapack.solve_stacked(Z, rhs)
+        plan = self._kcl_plan(kcl_A)
+        if plan is not None:
+            return self._solve_reduced_stacked(Z, V, plan)
+        n_c = kcl_A.shape[0]
+        rhs = np.empty((n_k, n_b, n_p + n_c), dtype=np.complex128)
+        rhs[:, :, :n_p] = V[None, :, :]
+        rhs[:, :, n_p:] = kcl_A.T[None, :, :]
+        sol = _lapack.solve_stacked(Z, rhs)
+        W = sol[:, :, :n_p]
+        X = sol[:, :, n_p:]
+        # matmuls broadcast over k, not `einsum` (see `_solve_with_kcl_batch`)
+        S = kcl_A @ X
+        AW = kcl_A @ W
+        Lam = _lapack.solve_stacked(S, AW)
+        return W - X @ Lam
+
+    # ------------------------------------------------------------------
+    # Driver impedance
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Singular basis enrichment at K≥3 junctions
+    # ------------------------------------------------------------------
+
+    def _enrichment_specs(self, geom, active_junction_indices=None):
+        """For each (wire, end_pos) at a K≥enrichment_min_k junction, return
+        the global segment index of the adjacent segment and the "orientation"
+        flag: u_local from junction = u_seg_left if end_pos == "start",
+        h - u_seg_left if end_pos == "end".
+
+        When `active_junction_indices` is provided (a container of indices
+        into self.junctions), only those junctions get specs — for the
+        "auto" variant's per-junction enrichment selectivity. None means
+        all qualifying junctions enrich (raw / stable / tikhonov path).
+        """
+        specs = []  # list of (junction_idx, wire_w, end_pos, seg_idx, u_origin)
+        active_set = (
+            None if active_junction_indices is None else set(active_junction_indices)
+        )
+        for j_idx, jw in enumerate(self.junctions):
+            if len(jw) < self.enrichment_min_k:
+                continue
+            if active_set is not None and j_idx not in active_set:
+                continue
+            for wire_w, end_pos in jw:
+                if end_pos == "start":
+                    seg_idx = geom["seg_offsets"][wire_w]
+                    u_origin = "left"  # u from junction = u_seg_left
+                else:
+                    seg_idx = geom["seg_offsets"][wire_w + 1] - 1
+                    u_origin = "right"  # u from junction = h - u_seg_left
+                specs.append((j_idx, wire_w, end_pos, seg_idx, u_origin))
+        return specs
+
+    def _junction_tap_ratios(self, coeffs_poly):
+        """Compute tap_ratio = min(|I_wire|) / max(|I_wire|) at each
+        junction node, using the polynomial-only coefficient vector from
+        a no-enrichment solve. Returns a list of length len(self.junctions);
+        entries are None for junctions with K < enrichment_min_k.
+
+        At a junction node only the bspline directional bases are nonzero
+        (one per wire end), so the wire-by-wire current magnitudes can be
+        read directly out of `currents_at_knots` at the junction-side knot.
+        Per-wire |I| values at a K-junction sum to zero by KCL (vector
+        sum), but individual magnitudes need not be equal — the ratio
+        captures how lopsided the split is.
+        """
+        # Temporarily disable enrichment so currents_at_knots doesn't try
+        # to index past the polynomial block.
+        saved = self.use_singular_enrichment
+        self.use_singular_enrichment = False
+        try:
+            I_per_wire = self.currents_at_knots(coeffs_poly, _solved=True)
+        finally:
+            self.use_singular_enrichment = saved
+
+        ratios = []
+        for jw in self.junctions:
+            if len(jw) < self.enrichment_min_k:
+                ratios.append(None)
+                continue
+            mags = []
+            for wire_w, end_pos in jw:
+                knot_idx = 0 if end_pos == "start" else -1
+                mags.append(abs(I_per_wire[wire_w][knot_idx]))
+            m_max = max(mags)
+            ratios.append(0.0 if m_max == 0.0 else min(mags) / m_max)
+        return ratios
+
+    @staticmethod
+    def _assemble_Z_enrich_numpy(
+        spec_seg,
+        spec_origin,
+        seg_l,
+        seg_r,
+        h_per_seg,
+        tangents,
+        supp_seg_poly,
+        polys_poly,
+        a_squared,
+        k,
+        omega,
+        eps_,
+        mu_,
+        gl_t01,
+        gl_w01,
+        proj_coeffs,
+    ):
+        """Pure-numpy reference for the C++ `assemble_Z_enrich` kernel.
+
+        Mirrors the C++ structure (precompute Φ_sing values/derivatives
+        and 3D positions at the enrichment-side quadrature nodes, then
+        nested-loop Galerkin sums for Z_ee / Z_pe / Z_ep) so the parity
+        test in tests/test_momwire.py catches any drift between the two.
+
+        Also lets BSplineSolver(use_singular_enrichment=True) work without
+        the C++ accelerator at all — Windows users hit this path because
+        setup.py skips the Pybind11Extension under MSVC (the GCC-only
+        `-fopenmp` / `-mavx2` / `-lmvec` flags don't link there).
+
+        Same argument names and semantics as the C++ binding. `proj_coeffs`
+        of length d+1 selects raw (all zeros → Φ_sing = t·log(t)) vs
+        stable XFEM (subtract Σ_p proj_coeffs[p] t^p from both Φ and its
+        derivative).
+
+        `tangents` is the (n_segs, 3) per-segment unit tangent table
+        (issue #334) — each tangent dot `td` is formed here at the single
+        (m, e) / (e, f) pair it is needed for, rather than read from a
+        precomputed (n_segs, n_segs) `td_all` matrix. `assemble_Z_enrich`
+        only ever reads that table at these same handful of pairs, so the
+        full N² table was pure transient.
+        """
+        n_enrich = spec_seg.shape[0]
+        n_poly, n_wings = supp_seg_poly.shape
+        d_plus_1 = polys_poly.shape[2]
+        n_qp = gl_t01.shape[0]
+
+        Z_pe = np.zeros((n_poly, n_enrich), dtype=np.complex128)
+        Z_ep = np.zeros((n_enrich, n_poly), dtype=np.complex128)
+        Z_ee = np.zeros((n_enrich, n_enrich), dtype=np.complex128)
+        if n_enrich == 0:
+            return Z_pe, Z_ep, Z_ee
+
+        inv_4pi = 1.0 / (4.0 * np.pi)
+        omega_mu = omega * mu_
+        inv_omega_eps = 1.0 / (omega * eps_)
+        eps_tiny = 1e-300
+
+        # Derivative coefficients in monomial basis for the proj polynomial:
+        # P(t) = Σ_p c_p t^p ⇒ P'(t) = Σ_{p≥1} p·c_p t^(p-1).
+        proj_deriv_coeffs = proj_coeffs[1:] * np.arange(1, d_plus_1)
+
+        # Per-enrichment precompute.
+        pos_e_all = np.zeros((n_enrich, n_qp, 3))
+        sing_val_all = np.zeros((n_enrich, n_qp))
+        sing_dval_all = np.zeros((n_enrich, n_qp))
+        w_e_all = np.zeros((n_enrich, n_qp))
+        polyval = np.polynomial.polynomial.polyval
+        for e in range(n_enrich):
+            se = int(spec_seg[e])
+            orig = int(spec_origin[e])
+            he = h_per_seg[se]
+            dphi_sign = 1.0 if orig == 0 else -1.0
+            t = gl_t01
+            u_norm = t if orig == 0 else (1.0 - t)
+            u_safe = np.where(u_norm > eps_tiny, u_norm, eps_tiny)
+            log_u = np.log(u_safe)
+            poly_val = polyval(u_norm, proj_coeffs)
+            if proj_deriv_coeffs.size > 0:
+                poly_dval = polyval(u_norm, proj_deriv_coeffs)
+            else:
+                poly_dval = np.zeros_like(u_norm)
+            sing_val_all[e] = u_norm * log_u - poly_val
+            sing_dval_all[e] = dphi_sign * (log_u + 1.0 - poly_dval) / he
+            w_e_all[e] = gl_w01 * he
+            pos_e_all[e, :, 0] = (1.0 - t) * seg_l[se, 0] + t * seg_r[se, 0]
+            pos_e_all[e, :, 1] = (1.0 - t) * seg_l[se, 1] + t * seg_r[se, 1]
+            pos_e_all[e, :, 2] = (1.0 - t) * seg_l[se, 2] + t * seg_r[se, 2]
+
+        seg_e_arr = spec_seg.astype(np.int64, copy=False)
+
+        # Z_ee: symmetric. Fill upper triangle, mirror.
+        for e in range(n_enrich):
+            for f in range(e, n_enrich):
+                td = float(dot3(tangents[seg_e_arr[e]], tangents[seg_e_arr[f]]))
+                diff = pos_e_all[e, :, None, :] - pos_e_all[f, None, :, :]
+                R = np.sqrt(np.sum(diff * diff, axis=-1) + a_squared)
+                iR_4pi = inv_4pi / R
+                phase = -k * R
+                Gre = np.cos(phase) * iR_4pi
+                Gim = np.sin(phase) * iR_4pi
+                wprod_A = (w_e_all[e] * sing_val_all[e])[:, None] * (
+                    w_e_all[f] * sing_val_all[f]
+                )[None, :]
+                wprod_P = (w_e_all[e] * sing_dval_all[e])[:, None] * (
+                    w_e_all[f] * sing_dval_all[f]
+                )[None, :]
+                IA_re = np.sum(wprod_A * Gre)
+                IA_im = np.sum(wprod_A * Gim)
+                IP_re = np.sum(wprod_P * Gre)
+                IP_im = np.sum(wprod_P * Gim)
+                # Z = jωμ·td·I_A + I_Φ / (jωε)
+                Zre = -omega_mu * td * IA_im + IP_im * inv_omega_eps
+                Zim = omega_mu * td * IA_re - IP_re * inv_omega_eps
+                Z_ee[e, f] = complex(Zre, Zim)
+                if e != f:
+                    Z_ee[f, e] = Z_ee[e, f]
+
+        # Z_pe / Z_ep. Loop over polynomial bases and their wings;
+        # for each wing, precompute poly value/derivative + 3D quad-point
+        # positions on the wing's segment, then loop over enrichments.
+        # Z_pe and Z_ep are computed independently (no .T shortcut) to
+        # mirror the C++ kernel — the kernel is symmetric, so the totals
+        # agree to floating-point rounding either way.
+        for m in range(n_poly):
+            for w_idx in range(n_wings):
+                cw = polys_poly[m, w_idx]
+                if not np.any(cw != 0.0):
+                    continue
+                seg_m = int(supp_seg_poly[m, w_idx])
+                hm = h_per_seg[seg_m]
+                t = gl_t01
+                u_arc = t * hm
+                pv = polyval(u_arc, cw)
+                cw_deriv = cw[1:] * np.arange(1, d_plus_1)
+                if cw_deriv.size > 0:
+                    dv = polyval(u_arc, cw_deriv)
+                else:
+                    dv = np.zeros_like(u_arc)
+                w_m = gl_w01 * hm
+                pos_m = np.empty((n_qp, 3))
+                pos_m[:, 0] = (1.0 - t) * seg_l[seg_m, 0] + t * seg_r[seg_m, 0]
+                pos_m[:, 1] = (1.0 - t) * seg_l[seg_m, 1] + t * seg_r[seg_m, 1]
+                pos_m[:, 2] = (1.0 - t) * seg_l[seg_m, 2] + t * seg_r[seg_m, 2]
+                for e in range(n_enrich):
+                    seg_e = int(seg_e_arr[e])
+                    td_me = float(dot3(tangents[seg_m], tangents[seg_e]))
+                    td_em = float(dot3(tangents[seg_e], tangents[seg_m]))
+                    # Z_pe leg: i = m-axis, j = e-axis
+                    diff = pos_m[:, None, :] - pos_e_all[e, None, :, :]
+                    R = np.sqrt(np.sum(diff * diff, axis=-1) + a_squared)
+                    iR_4pi = inv_4pi / R
+                    phase = -k * R
+                    Gre = np.cos(phase) * iR_4pi
+                    Gim = np.sin(phase) * iR_4pi
+                    wprod_A = (w_m * pv)[:, None] * (w_e_all[e] * sing_val_all[e])[
+                        None, :
+                    ]
+                    wprod_P = (w_m * dv)[:, None] * (w_e_all[e] * sing_dval_all[e])[
+                        None, :
+                    ]
+                    pe_IA_re = np.sum(wprod_A * Gre)
+                    pe_IA_im = np.sum(wprod_A * Gim)
+                    pe_IP_re = np.sum(wprod_P * Gre)
+                    pe_IP_im = np.sum(wprod_P * Gim)
+                    # Z_ep leg: i = e-axis, j = m-axis
+                    diff = pos_e_all[e, :, None, :] - pos_m[None, :, :]
+                    R = np.sqrt(np.sum(diff * diff, axis=-1) + a_squared)
+                    iR_4pi = inv_4pi / R
+                    phase = -k * R
+                    Gre = np.cos(phase) * iR_4pi
+                    Gim = np.sin(phase) * iR_4pi
+                    wprod_A = (w_e_all[e] * sing_val_all[e])[:, None] * (w_m * pv)[
+                        None, :
+                    ]
+                    wprod_P = (w_e_all[e] * sing_dval_all[e])[:, None] * (w_m * dv)[
+                        None, :
+                    ]
+                    ep_IA_re = np.sum(wprod_A * Gre)
+                    ep_IA_im = np.sum(wprod_A * Gim)
+                    ep_IP_re = np.sum(wprod_P * Gre)
+                    ep_IP_im = np.sum(wprod_P * Gim)
+                    Z_pe[m, e] += complex(
+                        -omega_mu * td_me * pe_IA_im + pe_IP_im * inv_omega_eps,
+                        omega_mu * td_me * pe_IA_re - pe_IP_re * inv_omega_eps,
+                    )
+                    Z_ep[e, m] += complex(
+                        -omega_mu * td_em * ep_IA_im + ep_IP_im * inv_omega_eps,
+                        omega_mu * td_em * ep_IA_re - ep_IP_re * inv_omega_eps,
+                    )
+
+        return Z_pe, Z_ep, Z_ee
+
+    @staticmethod
+    def _assemble_Z_enrich_image_numpy(
+        spec_seg,
+        spec_origin,
+        seg_l,
+        seg_r,
+        h_per_seg,
+        w_A_row,
+        w_Phi_row,
+        w_A_col,
+        w_Phi_col,
+        w_A_ee,
+        w_Phi_ee,
+        supp_seg_poly,
+        polys_poly,
+        a_squared,
+        k,
+        omega,
+        eps_,
+        mu_,
+        gl_t01,
+        gl_w01,
+        proj_coeffs,
+        ground_z,
+    ):
+        """Ground-image reaction blocks for the enrichment DOFs (#167).
+
+        The image counterpart of `_assemble_Z_enrich_numpy`: the reaction of
+        each real observer basis against the ground-plane image of every
+        source basis. Same Galerkin kernel and mixing algebra
+        (`Z = jωμ·w_A·I_A + w_Φ·I_Φ/(jωε)`), with the two changes that define
+        the polynomial image path (`_image_Z_weighted`):
+
+          * the source-side quadrature positions are mirrored across
+            `z = ground_z` (the `_image_positions` reflection), and
+          * the free-space tangent dot on the A term becomes a per-segment-
+            pair weight, and the charge term picks up its own weight —
+            `w_A_row`/`w_Phi_row` (observer = enrichment segments, source =
+            every segment; Z_ep), `w_A_col`/`w_Phi_col` (observer = every
+            segment, source = enrichment segments; Z_pe) and `w_A_ee`/
+            `w_Phi_ee` (both axes enrichment segments; Z_ee) — the (N,
+            n_enrich)-scale sub-blocks of the (N, N) tables the polynomial
+            image block uses, sized to what this function actually reads
+            (issue #328; see `_image_weight_enrich_blocks`).
+
+        Same per-mode weights as the polynomial block, so both grounds are
+        one code path: **PEC image** passes `w_A = t_m·(t_n,x, t_n,y, -t_n,z)`
+        (the mirror tangent dot) and `w_Φ = 1`; the **fast finite ground**
+        (refl-coef) passes the Fresnel dyad table `_ground_refl.a_term_weights`
+        and the image-charge table `_ground_refl.phi_term_weights`. The caller
+        SUBTRACTS the returned blocks from the free-space (Z_pe, Z_ep, Z_ee):
+        the single global minus captures both the image current's anti-parallel
+        horizontal direction and the image charge's sign flip (PEC), or is
+        absorbed into the complex Fresnel weights (finite).
+
+        numpy-only: there are only a few enrichment DOFs (one per
+        K≥enrichment_min_k junction), so this O(n_enrich·(n_enrich + n_poly))
+        assembly is negligible beside the O(N²) polynomial image fill and
+        needs no C++ twin. `a_squared` regularises the reduced kernel exactly
+        as in the free-space path, so a ground-touching wire (image coincident
+        with the wire) stays finite.
+        """
+        n_enrich = spec_seg.shape[0]
+        n_poly, n_wings = supp_seg_poly.shape
+        d_plus_1 = polys_poly.shape[2]
+        n_qp = gl_t01.shape[0]
+
+        Z_pe = np.zeros((n_poly, n_enrich), dtype=np.complex128)
+        Z_ep = np.zeros((n_enrich, n_poly), dtype=np.complex128)
+        Z_ee = np.zeros((n_enrich, n_enrich), dtype=np.complex128)
+        if n_enrich == 0:
+            return Z_pe, Z_ep, Z_ee
+
+        inv_4pi = 1.0 / (4.0 * np.pi)
+        omega_mu = omega * mu_
+        inv_omega_eps = 1.0 / (omega * eps_)
+        eps_tiny = 1e-300
+
+        proj_deriv_coeffs = proj_coeffs[1:] * np.arange(1, d_plus_1)
+
+        # Per-enrichment precompute — identical to the free-space reference
+        # (kept in lockstep by inspection); then mirror the positions to serve
+        # as the ground-plane image sources.
+        pos_e_all = np.zeros((n_enrich, n_qp, 3))
+        sing_val_all = np.zeros((n_enrich, n_qp))
+        sing_dval_all = np.zeros((n_enrich, n_qp))
+        w_e_all = np.zeros((n_enrich, n_qp))
+        polyval = np.polynomial.polynomial.polyval
+        for e in range(n_enrich):
+            se = int(spec_seg[e])
+            orig = int(spec_origin[e])
+            he = h_per_seg[se]
+            dphi_sign = 1.0 if orig == 0 else -1.0
+            t = gl_t01
+            u_norm = t if orig == 0 else (1.0 - t)
+            u_safe = np.where(u_norm > eps_tiny, u_norm, eps_tiny)
+            log_u = np.log(u_safe)
+            poly_val = polyval(u_norm, proj_coeffs)
+            if proj_deriv_coeffs.size > 0:
+                poly_dval = polyval(u_norm, proj_deriv_coeffs)
+            else:
+                poly_dval = np.zeros_like(u_norm)
+            sing_val_all[e] = u_norm * log_u - poly_val
+            sing_dval_all[e] = dphi_sign * (log_u + 1.0 - poly_dval) / he
+            w_e_all[e] = gl_w01 * he
+            pos_e_all[e, :, 0] = (1.0 - t) * seg_l[se, 0] + t * seg_r[se, 0]
+            pos_e_all[e, :, 1] = (1.0 - t) * seg_l[se, 1] + t * seg_r[se, 1]
+            pos_e_all[e, :, 2] = (1.0 - t) * seg_l[se, 2] + t * seg_r[se, 2]
+
+        # Image sources: mirror z across the ground plane.
+        pos_e_img = _ground_mirror.mirror_positions(pos_e_all, ground_z)
+
+        # Z_ee image: real observer e against image source f. The image
+        # reaction is symmetric (a mirror is an isometry, so reciprocity
+        # holds), but both halves are computed independently to mirror the
+        # free-space "no .T shortcut" convention. Complex per-pair weights
+        # w_A / w_Φ (PEC: real td / 1; finite: Fresnel) fold in via
+        # Z = jωμ·w_A·I_A + w_Φ·I_Φ/(jωε). `w_A_ee`/`w_Phi_ee` are already
+        # indexed by enrichment-DOF position (issue #328), no segment-id
+        # indirection needed.
+        for e in range(n_enrich):
+            for f in range(n_enrich):
+                w_A = w_A_ee[e, f]
+                w_Phi = w_Phi_ee[e, f]
+                diff = pos_e_all[e, :, None, :] - pos_e_img[f, None, :, :]
+                R = np.sqrt(np.sum(diff * diff, axis=-1) + a_squared)
+                iR_4pi = inv_4pi / R
+                phase = -k * R
+                Gre = np.cos(phase) * iR_4pi
+                Gim = np.sin(phase) * iR_4pi
+                wprod_A = (w_e_all[e] * sing_val_all[e])[:, None] * (
+                    w_e_all[f] * sing_val_all[f]
+                )[None, :]
+                wprod_P = (w_e_all[e] * sing_dval_all[e])[:, None] * (
+                    w_e_all[f] * sing_dval_all[f]
+                )[None, :]
+                I_A = complex(np.sum(wprod_A * Gre), np.sum(wprod_A * Gim))
+                I_P = complex(np.sum(wprod_P * Gre), np.sum(wprod_P * Gim))
+                Z_ee[e, f] = (
+                    1j * omega_mu * w_A * I_A - 1j * w_Phi * I_P * inv_omega_eps
+                )
+
+        # Z_pe / Z_ep image: real polynomial observer against image
+        # enrichment source (Z_pe) and real enrichment observer against image
+        # polynomial source (Z_ep). Both mirror one side and use the image
+        # tangent dot; the two agree by reciprocity but are computed apart.
+        for m in range(n_poly):
+            for w_idx in range(n_wings):
+                cw = polys_poly[m, w_idx]
+                if not np.any(cw != 0.0):
+                    continue
+                seg_m = int(supp_seg_poly[m, w_idx])
+                hm = h_per_seg[seg_m]
+                t = gl_t01
+                u_arc = t * hm
+                pv = polyval(u_arc, cw)
+                cw_deriv = cw[1:] * np.arange(1, d_plus_1)
+                if cw_deriv.size > 0:
+                    dv = polyval(u_arc, cw_deriv)
+                else:
+                    dv = np.zeros_like(u_arc)
+                w_m = gl_w01 * hm
+                pos_m = np.empty((n_qp, 3))
+                pos_m[:, 0] = (1.0 - t) * seg_l[seg_m, 0] + t * seg_r[seg_m, 0]
+                pos_m[:, 1] = (1.0 - t) * seg_l[seg_m, 1] + t * seg_r[seg_m, 1]
+                pos_m[:, 2] = (1.0 - t) * seg_l[seg_m, 2] + t * seg_r[seg_m, 2]
+                pos_m_img = _ground_mirror.mirror_positions(pos_m, ground_z)
+                for e in range(n_enrich):
+                    # `w_A_col`/`w_A_row` are already restricted to the
+                    # enrichment DOFs on their small axis (issue #328); `e`
+                    # indexes that axis directly, `seg_m` the full-N one.
+                    wA_me = w_A_col[seg_m, e]
+                    wPhi_me = w_Phi_col[seg_m, e]
+                    wA_em = w_A_row[e, seg_m]
+                    wPhi_em = w_Phi_row[e, seg_m]
+                    # Z_pe leg: real poly m vs image enrichment e.
+                    diff = pos_m[:, None, :] - pos_e_img[e, None, :, :]
+                    R = np.sqrt(np.sum(diff * diff, axis=-1) + a_squared)
+                    iR_4pi = inv_4pi / R
+                    phase = -k * R
+                    Gre = np.cos(phase) * iR_4pi
+                    Gim = np.sin(phase) * iR_4pi
+                    wprod_A = (w_m * pv)[:, None] * (w_e_all[e] * sing_val_all[e])[
+                        None, :
+                    ]
+                    wprod_P = (w_m * dv)[:, None] * (w_e_all[e] * sing_dval_all[e])[
+                        None, :
+                    ]
+                    pe_I_A = complex(np.sum(wprod_A * Gre), np.sum(wprod_A * Gim))
+                    pe_I_P = complex(np.sum(wprod_P * Gre), np.sum(wprod_P * Gim))
+                    # Z_ep leg: real enrichment e vs image poly m.
+                    diff = pos_e_all[e, :, None, :] - pos_m_img[None, :, :]
+                    R = np.sqrt(np.sum(diff * diff, axis=-1) + a_squared)
+                    iR_4pi = inv_4pi / R
+                    phase = -k * R
+                    Gre = np.cos(phase) * iR_4pi
+                    Gim = np.sin(phase) * iR_4pi
+                    wprod_A = (w_e_all[e] * sing_val_all[e])[:, None] * (w_m * pv)[
+                        None, :
+                    ]
+                    wprod_P = (w_e_all[e] * sing_dval_all[e])[:, None] * (w_m * dv)[
+                        None, :
+                    ]
+                    ep_I_A = complex(np.sum(wprod_A * Gre), np.sum(wprod_A * Gim))
+                    ep_I_P = complex(np.sum(wprod_P * Gre), np.sum(wprod_P * Gim))
+                    Z_pe[m, e] += (
+                        1j * omega_mu * wA_me * pe_I_A
+                        - 1j * wPhi_me * pe_I_P * inv_omega_eps
+                    )
+                    Z_ep[e, m] += (
+                        1j * omega_mu * wA_em * ep_I_A
+                        - 1j * wPhi_em * ep_I_P * inv_omega_eps
+                    )
+
+        return Z_pe, Z_ep, Z_ee
+
+    def _enrichment_Z_assemble(
+        self, geom, supp_seg_poly, polys_poly, active_junction_indices=None
+    ):
+        """Assemble the (Z_pe, Z_ep, Z_ee) enrichment blocks via the C++
+        accelerator (`momwire._accelerators.assemble_Z_enrich`).
+
+        Z = [[Z_pp, Z_pe],
+             [Z_ep, Z_ee]]
+        with n_poly + n_enrich basis functions. Z_pp is built by the
+        existing polynomial assembly; the three new blocks come from
+        Gauss-Legendre quadrature over the (u·log(u/h))-shaped singular
+        basis adjacent to each K≥`enrichment_min_k` junction. Z_pe and
+        Z_ep are computed independently — the Galerkin .T shortcut is
+        mathematically exact for symmetric kernels but the productized
+        path computes both halves so a future quadrature change can't
+        silently break symmetry.
+        """
+        # The singular-enrichment fill is a SECOND kernel implementation —
+        # its own GL quadrature over the (u·log(u/h))-shaped basis, in C++
+        # (`assemble_Z_enrich`, `double k`) and in its numpy twin, plus
+        # three more image/remainder assemblers below. momwire#553 unit 1
+        # widens the polynomial moment kernels only, so complex k refuses
+        # here by name rather than reaching `float(self.k)` and dying as a
+        # TypeError that names nothing.
+        _refuse_complex_k(self.k, "the B-spline singular-enrichment fill")
+        specs = self._enrichment_specs(
+            geom, active_junction_indices=active_junction_indices
+        )
+        n_enrich = len(specs)
+        if n_enrich == 0:
+            return None  # no qualifying junctions → no-op
+
+        spec_seg = np.fromiter((s[3] for s in specs), dtype=np.int64, count=n_enrich)
+        spec_origin = np.fromiter(
+            (0 if s[4] == "left" else 1 for s in specs),
+            dtype=np.int64,
+            count=n_enrich,
+        )
+
+        tangents = geom["tangents"]
+        # Pass the (n_segs, 3) tangent table straight through — the kernel
+        # forms each td = tangents[i]·tangents[j] dot in-kernel at the
+        # handful of (spec_seg[e], n) pairs it actually needs (issue #334).
+        # The old `tangents @ tangents.T` line built the full (N, N) table
+        # even for free-space geometry, and rebuilt it per k in an
+        # enrichment sweep.
+        tan_arr = np.ascontiguousarray(tangents, dtype=np.float64)
+
+        gl_xi, gl_w = leggauss(self.n_qp_sing)
+        t01 = 0.5 * (gl_xi + 1.0)
+        w01 = 0.5 * gl_w
+
+        # "stable" variant subtracts the L²-projection of Φ_sing onto
+        # the BC-preserving polynomial bubble subspace; "raw" and
+        # "tikhonov" both send zero coefficients (the tikhonov knob is
+        # applied at solve time to Z_ee, not at the basis level).
+        if self.enrichment_variant == "stable":
+            proj_coeffs = _xfem_projection_coeffs(self.degree)
+        else:
+            proj_coeffs = np.zeros(self.degree + 1)
+
+        seg_l_arr = np.ascontiguousarray(geom["seg_l"], dtype=np.float64)
+        seg_r_arr = np.ascontiguousarray(geom["seg_r"], dtype=np.float64)
+        h_arr = np.ascontiguousarray(geom["h_per_seg"], dtype=np.float64)
+        supp_arr = np.ascontiguousarray(supp_seg_poly, dtype=np.int64)
+        polys_arr = np.ascontiguousarray(polys_poly, dtype=np.float64)
+        a_squared = float(self._uniform_radius) ** 2
+        t01_arr = np.ascontiguousarray(t01, dtype=np.float64)
+        w01_arr = np.ascontiguousarray(w01, dtype=np.float64)
+        proj_arr = np.ascontiguousarray(proj_coeffs, dtype=np.float64)
+
+        kernel_args = (
+            spec_seg,
+            spec_origin,
+            seg_l_arr,
+            seg_r_arr,
+            h_arr,
+            tan_arr,
+            supp_arr,
+            polys_arr,
+            a_squared,
+            float(self.k),
+            float(self.omega),
+            float(self.eps),
+            float(self.mu),
+            t01_arr,
+            w01_arr,
+            proj_arr,
+        )
+        if _HAVE_ENRICH_ACCEL:
+            Z_pe, Z_ep, Z_ee = _acc.assemble_Z_enrich(*kernel_args)
+        else:
+            Z_pe, Z_ep, Z_ee = self._assemble_Z_enrich_numpy(*kernel_args)
+
+        ground = _potential_ground.potential_ground_for(self, geom, self.k, self.omega)
+        if ground is not None:
+            # Ground image reaction for the enrichment DOFs (#167). Same
+            # global-minus + per-segment-pair weight convention as the
+            # polynomial image block. Three grounds, one image kernel with the
+            # matching weight tables:
+            #   PEC        — mirror tangent dot on A, unit charge weight;
+            #   refl-coef  — Fresnel weight tables
+            #                (`_potential_ground.refl_weight_tables`);
+            #   sommerfeld — the C2 exact-image weights, PLUS the smooth
+            #                remainder-field reaction added below.
+            # numpy-only — the handful of enrichment DOFs make the cost
+            # negligible beside the poly image fill. The weight tables
+            # themselves used to be the full (N, N) `w_A_all`/`w_Phi_all`
+            # the tensor path builds, even though the blocks below only ever
+            # index (N, n_enrich), (n_enrich, N) and (n_enrich, n_enrich)
+            # sub-blocks of them — the last N²-scale allocation left on a
+            # grounded enrichment solve (issue #328).
+            # `_image_weight_enrich_blocks` produces exactly those sub-blocks;
+            # momwire#398 unit 1 moved the two hoists it needs — "is this the
+            # composing ground" and ε̃ — onto the ground object, but left its
+            # per-mode algebra (a THIRD weight shape: row / col / ee
+            # rectangular sub-blocks) where it is.
+            sommerfeld = ground.mode == "compose"
+            eps_t = ground.eps_tilde
+            (
+                w_A_row,
+                w_Phi_row,
+                w_A_col,
+                w_Phi_col,
+                w_A_ee,
+                w_Phi_ee,
+            ) = self._image_weight_enrich_blocks(geom, spec_seg, eps_t=eps_t)
+            Z_pe_img, Z_ep_img, Z_ee_img = self._assemble_Z_enrich_image_numpy(
+                spec_seg,
+                spec_origin,
+                seg_l_arr,
+                seg_r_arr,
+                h_arr,
+                w_A_row,
+                w_Phi_row,
+                w_A_col,
+                w_Phi_col,
+                w_A_ee,
+                w_Phi_ee,
+                supp_arr,
+                polys_arr,
+                a_squared,
+                float(self.k),
+                float(self.omega),
+                float(self.eps),
+                float(self.mu),
+                t01_arr,
+                w01_arr,
+                proj_arr,
+                float(self.ground_z),
+            )
+            Z_pe = Z_pe - Z_pe_img
+            Z_ep = Z_ep - Z_ep_img
+            Z_ee = Z_ee - Z_ee_img
+
+            if sommerfeld:
+                # The exact-image part above is only the C2-scaled image; the
+                # Sommerfeld ground adds the smooth remainder field. Subtract
+                # its enrichment reaction (one minus, matching the poly
+                # `_ground_finite_Z` = C2-image + Q convention). In the
+                # ε̃ → ∞ limit C2 → 1 and Q → 0, so this collapses to PEC.
+                Q_pe, Q_ep, Q_ee = self._Q_sommerfeld_remainder_enrich(
+                    geom, supp_arr, polys_arr, spec_seg, spec_origin, eps_t
+                )
+                Z_pe = Z_pe - Q_pe
+                Z_ep = Z_ep - Q_ep
+                Z_ee = Z_ee - Q_ee
+
+        return {
+            "specs": specs,
+            "n_enrich": n_enrich,
+            "Z_pe": Z_pe,
+            "Z_ep": Z_ep,
+            "Z_ee": Z_ee,
+        }
+
+    # ------------------------------------------------------------------
+    # The buried fill (momwire#553 U5)
+    # ------------------------------------------------------------------
+
+    def _buried_medium(self):
+        """`(eps_t, eps_m, k_p, k_m, c2, a_m)` for a buried solve.
+
+        `eps_t` is the ground's RELATIVE ε̃(ω); `eps_m = ε₀·ε̃` is what the
+        lower medium's mixed potential divides its Φ term by. `c2` is the
+        ±=+ family's exact-image coefficient and `a_m` the ±=− family's,
+        `image_coefficient_below` — measured, not derived, and the negative
+        of `c2`, which is exactly the kind of coincidence a sign scan exists
+        to keep honest (`_sommerfeld_below.image_coefficient_below`).
+        """
+        return _crossing_fill.buried_medium(
+            self.ground_eps, self.omega, self.eps, self.k
+        )
+
+    def _n_qp_buried_field(self):
+        """Gauss order for the buried fill's three field-form blocks —
+        `_below_interface.n_qp_buried_field` (momwire#553's fifth inversion;
+        the measurement that set the order is documented there).
+
+        The BASE order. A cross block whose two media come closer than a
+        segment needs more, and `compute_Z_operator_buried` raises it there
+        with `_below_interface.near_q_factor` (momwire#1004) — per pair class,
+        because the two same-medium remainders have no such pair and would pay
+        the raised order for nothing."""
+        return _below_interface.n_qp_buried_field(self.n_qp_sommerfeld)
+
+    def _buried_nodes(self, geom, seg_idx, *, q_factor=1):
+        """`(points, tangents, W)` for the field-form quadrature over a SUBSET
+        of segments: `_below_interface.field_nodes`' basis-agnostic nodes with
+        the polynomial moment weights `W[p, i, q] = w_q·u_q^p` folded on.
+
+        `q_factor` multiplies the base order — `near_q_factor`'s answer for
+        this pair class, 1 for every block but a near-plane cross one. The
+        order is not returned: `_field_galerkin_block` reads it back off these
+        arrays' own shapes, so the fill cannot disagree with the nodes."""
+        nodes, tang, u_phys, w_node = _below_interface.field_nodes(
+            geom["seg_l"][seg_idx],
+            geom["seg_r"][seg_idx],
+            geom["tangents"][seg_idx],
+            geom["h_per_seg"][seg_idx],
+            self._n_qp_buried_field() * int(q_factor),
+        )
+        d = self.degree
+        W = w_node[None] * np.float_power(u_phys[None], np.arange(d + 1)[:, None, None])
+        return nodes, tang, W
+
+    def _buried_remainder_nodes(self, geom, seg_idx):
+        """`_buried_nodes` at the below/below remainder's own order,
+        `max(n_qp_sommerfeld, N_QP_BELOW_REMAINDER)` (momwire#1752 S1): the
+        cross block keeps `_n_qp_buried_field`'s 6."""
+        q = max(int(self.n_qp_sommerfeld), _below_interface.N_QP_BELOW_REMAINDER)
+        nodes, tang, u_phys, w_node = _below_interface.field_nodes(
+            geom["seg_l"][seg_idx],
+            geom["seg_r"][seg_idx],
+            geom["tangents"][seg_idx],
+            geom["h_per_seg"][seg_idx],
+            q,
+        )
+        d = self.degree
+        W = w_node[None] * np.float_power(u_phys[None], np.arange(d + 1)[:, None, None])
+        return nodes, tang, W
+
+    def _field_galerkin_block(
+        self,
+        supp_seg,
+        polys,
+        proj_fn,
+        obs_idx,
+        src_idx,
+        obs,
+        t_obs,
+        W_obs,
+        src,
+        t_src,
+        W_src,
+        *,
+        out=None,
+        scale=1.0,
+        row_of=None,
+        symmetric=False,
+    ):
+        """`Q[m, n]` — the FIELD-form Galerkin block of a projected pair
+        table, over a rectangular (observer segments × source segments)
+        subset.
+
+        `_Z_sommerfeld_remainder`'s einsum, generalized on both axes so the
+        below/below remainder and the two transmitted blocks consume the same
+        assembly. The caller supplies the projected table through
+        `proj_fn(obs, t_obs, src, t_src) -> (n_obs·q, n_src·q)`; everything
+        here is testing, not physics, so all three families share it and none
+        of them can drift on the moment convention.
+
+        The observer axis is banded exactly as the ±=+ fill bands it, so
+        nothing bigger than `(d+1, d+1, chunk, n_src)` is ever live.
+        """
+        d = self.degree
+        n_obs = len(obs_idx)
+        n_src = len(src_idx)
+        n_basis = polys.shape[0]
+        # `out=` accumulates into the caller's matrix instead of returning a
+        # fresh one, which is the whole point of the lever: at 150 radials the
+        # (n, n) transient this would otherwise allocate is 1.05 GB. `scale`
+        # rides with it, so `out=Z, scale=-1.0` IS `Z -= block` with no
+        # temporary. NOT bit-identical to the two-step form and not meant to
+        # be -- the observer loop below chunks, and a basis row whose support
+        # straddles a chunk boundary reassociates: `Z - (c1 + c2)` becomes
+        # `(Z - c1) - c2`.
+        # `row_of` (momwire#1132) makes `out` ROW-COMPACT: (n_rows, n_basis),
+        # basis row m accumulated at row `row_of[m]`. Only the address of each
+        # add moves, so a held row is the square target's row bit for bit.
+        if row_of is not None and out is None:
+            raise ValueError("row_of names the rows of a caller's `out`")
+        Q = np.zeros((n_basis, n_basis), dtype=np.complex128) if out is None else out
+        if n_obs == 0 or n_src == 0:
+            return Q
+        # The order is INFERRED from the arrays handed in and never asked of
+        # the solver (momwire#1004). `q` RESHAPES the projected table below,
+        # and the nodes were built at whatever order the caller chose for this
+        # pair class — a cross block near the plane gets a raised one — so an
+        # order taken from a second source that disagreed would reshape a
+        # correct table into a wrong answer with no exception. One derivation,
+        # at the consumer, cross-checked against the moment weights it is about
+        # to contract: `W[p, i, q]` carries the same q, and it is what the C++
+        # twin reads, so the two routes cannot part on it either.
+        q, rem_obs = divmod(len(obs), n_obs)
+        q_src, rem_src = divmod(len(src), n_src)
+        assert rem_obs == 0 and rem_src == 0 and q == q_src, (
+            len(obs),
+            n_obs,
+            len(src),
+            n_src,
+        )
+        assert W_obs.shape[-1] == q and W_src.shape[-1] == q, (
+            W_obs.shape,
+            W_src.shape,
+            q,
+        )
+        # Global segment index -> position on each axis; -1 means "not on
+        # this axis", which is how a wing that belongs to the other medium
+        # drops out of the block rather than being clamped into it.
+        n_seg_total = int(np.max(supp_seg)) + 1
+        pos_o = np.full(n_seg_total, -1, dtype=np.int64)
+        pos_o[obs_idx] = np.arange(n_obs)
+        pos_s = np.full(n_seg_total, -1, dtype=np.int64)
+        pos_s[src_idx] = np.arange(n_src)
+
+        chunk = max(1, _FIELD_GALERKIN_CHUNK_ELEMS // max(n_src * q * q, 1))
+        if symmetric:
+            # The caller's claim, checked rather than trusted: a mirror
+            # assembled over two DIFFERENT axes is a wrong block, not a slow one.
+            same = (
+                np.array_equal(obs_idx, src_idx)
+                and (obs is src or np.array_equal(obs, src))
+                and (t_obs is t_src or np.array_equal(t_obs, t_src))
+                and (W_obs is W_src or np.array_equal(W_obs, W_src))
+            )
+            if not same:
+                raise ValueError(
+                    "symmetric=True needs the observer and source axes to be "
+                    "the same nodes, tangents and moment weights"
+                )
+        if (
+            symmetric
+            and _FIELD_GALERKIN_SYMMETRIC
+            and row_of is None
+            and _HAVE_FIELD_GALERKIN_STRIDED
+        ):
+            # momwire#1752 L1: the mirror saves only BETWEEN chunks, so a block
+            # the element budget leaves as one chunk (under ~140 segments at
+            # q = 6) projected the whole square. At least
+            # `_FIELD_GALERKIN_SYM_CHUNKS` chunks project 1/2 + 1/(2 x that)
+            # of it. The C++ twin (`fill_buried`) takes the same cap.
+            chunk = min(chunk, max(1, -(-n_obs // _FIELD_GALERKIN_SYM_CHUNKS)))
+            self._field_galerkin_block_symmetric(
+                supp_seg,
+                polys,
+                proj_fn,
+                obs,
+                t_obs,
+                W_obs,
+                pos_o,
+                n_obs,
+                q,
+                chunk,
+                Q,
+                scale,
+            )
+            return Q
+        for i0, i1 in _schedule.chunks([(0, n_obs)], chunk, self._checkpoint):
+            proj = proj_fn(
+                obs[i0 * q : i1 * q],
+                t_obs[i0 * q : i1 * q],
+                src,
+                t_src,
+            )
+            if _HAVE_FIELD_GALERKIN_ACCEL and (
+                row_of is None or _HAVE_FIELD_GALERKIN_ROW_OF
+            ):
+                # momwire#914 unit 2. The C++ twin fuses both moment sums into
+                # a q-vector per wing, so it never materialises `Jc` nor the
+                # per-wing-pair gather below; it accumulates into `Q` in place.
+                # Everything after this line is the reference it is gated
+                # against, and the fallback when the .so predates the contract.
+                _acc.assemble_field_galerkin(
+                    proj,
+                    np.ascontiguousarray(W_obs[:, i0:i1]),
+                    W_src,
+                    supp_seg,
+                    polys,
+                    pos_o,
+                    pos_s,
+                    i0,
+                    Q,
+                    _FIELD_GALERKIN_FUSED,
+                    scale,
+                    **({} if row_of is None else {"row_of": row_of}),
+                    **_fg_lanes_kw(),
+                )
+                continue
+            fq = proj.reshape(i1 - i0, q, n_src, q)
+            # optimize=True: pairwise contraction, momwire#910 (see the
+            # remainder's twin above for the measurement).
+            Jc = np.einsum(
+                "piq,iqjr,Pjr->pPij", W_obs[:, i0:i1], fq, W_src, optimize=True
+            )
+            for a in range(d + 1):
+                pm = pos_o[supp_seg[:, a]]
+                rows = np.nonzero((pm >= i0) & (pm < i1))[0]
+                if row_of is not None:
+                    # A row the compact target does not hold reaches here only
+                    # through a padded slot (an exact zero): drop it, as the
+                    # C++ twin does, rather than let -1 index the last row.
+                    rows = rows[row_of[rows] >= 0]
+                if rows.size == 0:
+                    continue
+                pml = pm[rows] - i0
+                for b in range(d + 1):
+                    pn = pos_s[supp_seg[:, b]]
+                    cols = np.nonzero(pn >= 0)[0]
+                    if cols.size == 0:
+                        continue
+                    J_blk = Jc[:, :, pml[:, None], pn[cols][None, :]]
+                    q_rows = rows if row_of is None else row_of[rows]
+                    Q[np.ix_(q_rows, cols)] += scale * np.einsum(
+                        "mp,pPmn,nP->mn",
+                        polys[rows, a, :],
+                        J_blk,
+                        polys[cols, b, :],
+                    )
+        return Q
+
+    def _field_galerkin_block_symmetric(
+        self,
+        supp_seg,
+        polys,
+        proj_fn,
+        nodes,
+        tangents,
+        W,
+        pos,
+        n_axis,
+        q,
+        chunk,
+        Q,
+        scale,
+    ):
+        """`_field_galerkin_block` over ONE axis (observers = sources), each
+        unordered pair projected once (momwire#1224).
+
+        Why it is licensed. The projected table is reciprocal,
+        t_m·F(r_m, r_n)·t_n = t_n·F(r_n, r_m)·t_m: the below/below remainder
+        depends on the pair through rho and the depth SUM, both symmetric, and
+        the dyad is its own transpose. Measured on the hub x8 deck's real
+        chunks: max|P - P^T| / max|P| = 6e-17 (bs2), i.e. rounding. With the
+        two axes' moment weights also identical, the row-wing and column-wing
+        q-vectors the assembler builds (`g` and `h` in
+        `assemble_field_galerkin`) are one function, so the block contributed
+        by observer segment m and source segment n is the transpose of the one
+        contributed by n and m.
+
+        So chunk c (segments [i0, i1)) projects only against sources from i0
+        on, which is every ordered pair (m, n) with n's segment at or past
+        i0 -- the diagonal block in both orders, and the upper rectangle once.
+        That table is assembled twice: as itself into Q, and, with the
+        chunk's own columns masked out, into Q.T, which writes the lower
+        rectangle (n, m) for n past i1 -- both from one kernel call since
+        momwire#1290, which contracts the table against the chunk's rows
+        once and accumulates into Q and then Q.T, the order of the two calls
+        it replaced. Each ordered segment pair lands exactly once. The
+        kernel projects sum_c c·(n - i0) pairs instead of
+        n², i.e. 1/2 + chunk/(2n) of them.
+
+        Not bit-identical to the rectangle, and not meant to be: a lower
+        entry is the upper pair's projection rather than its own (the two
+        differ at the rounding above), and each Q entry's adds arrive in a
+        different chunk order. The gate is the reference route at 1e-12.
+        """
+        QT = Q.T
+        for i0, i1 in _schedule.chunks([(0, n_axis)], chunk, self._checkpoint):
+            proj = proj_fn(
+                nodes[i0 * q : i1 * q],
+                tangents[i0 * q : i1 * q],
+                nodes[i0 * q :],
+                tangents[i0 * q :],
+            )
+            W_rows = np.ascontiguousarray(W[:, i0:i1])
+            W_cols = np.ascontiguousarray(W[:, i0:])
+            # Source positions relative to the table's first column; a
+            # segment before i0 (or off this axis) drops out as -1.
+            pos_from_i0 = np.where(pos >= i0, pos - i0, -1)
+            mirror = {}
+            if (
+                i1 < n_axis
+                and _FIELD_GALERKIN_MIRROR
+                and _FIELD_GALERKIN_FUSED
+                and _HAVE_FIELD_GALERKIN_MIRROR
+            ):
+                # momwire#1290: the mirror below, in the same call.
+                mirror = {
+                    "mirror_pos_s": np.where(pos >= i1, pos - i0, -1),
+                    "mirror_Q": QT,
+                }
+            _acc.assemble_field_galerkin(
+                proj,
+                W_rows,
+                W_cols,
+                supp_seg,
+                polys,
+                pos,
+                pos_from_i0,
+                i0,
+                Q,
+                _FIELD_GALERKIN_FUSED,
+                scale,
+                **mirror,
+                **_fg_lanes_kw(),
+            )
+            if i1 < n_axis and not mirror:
+                # The mirror: the same table with the chunk's own columns
+                # masked (the diagonal block is already in, in both orders),
+                # written through the transposed target.
+                pos_past_i1 = np.where(pos >= i1, pos - i0, -1)
+                _acc.assemble_field_galerkin(
+                    proj,
+                    W_rows,
+                    W_cols,
+                    supp_seg,
+                    polys,
+                    pos,
+                    pos_past_i1,
+                    i0,
+                    QT,
+                    _FIELD_GALERKIN_FUSED,
+                    scale,
+                    **_fg_lanes_kw(),
+                )
+            del proj
+
+    @_offset_reuse_fill
+    def _build_J_blocks_subset(
+        self, geom, k, seg_idx, mirror_sources=False, *, obs_idx=None
+    ):
+        """`_build_J_blocks` / `_build_J_image_blocks` over a SUBSET of
+        segments, scattered back into a full `(d+1, d+1, N, N)` tensor whose
+        other entries stay zero.
+
+        Zeros are the pair MASK: a pair that belongs to another medium
+        contributes nothing to this block, and writing that as "the moment is
+        zero" rather than as a masked assembly keeps `_assemble_Z` and
+        `_image_Z_weighted` unmodified — the prefactors are global multipliers,
+        so a zero moment stays zero through both.
+
+        The subset is always a union of whole WIRES (media are labelled per
+        wire, `_medium_spec`), so each wire's same-edge overwrite lands on a
+        contiguous local slice and the analytic static + regularized split is
+        applied exactly where `_build_J_blocks` applies it.
+
+        `obs_idx` (momwire#1029) restricts the OBSERVER axis: None is every
+        segment of `seg_idx`, i.e. today's tensor byte for byte; a subset
+        computes only those rows and leaves the rest of the tensor zero, which
+        the assemblers carry through as zero Z rows. Sources stay `seg_idx`,
+        and the same-edge overwrite applies where an edge is on both axes.
+        """
+        d = self.degree
+        n_total = geom["n_segs_total"]
+        if seg_idx.size == 0 or (obs_idx is not None and len(obs_idx) == 0):
+            # A FULLY buried deck has no above segments at all (the phase-0
+            # buried dipoles are exactly this), and an empty subset is a legal
+            # answer rather than a degenerate one: the class contributes
+            # nothing.
+            return np.zeros((d + 1, d + 1, n_total, n_total), dtype=np.complex128)
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        obs_sel = seg_idx if obs_idx is None else np.asarray(obs_idx, dtype=np.int64)
+        a_row = self._seg_radius(geom)[obs_sel]
+        src_l = seg_l[seg_idx]
+        src_r = seg_r[seg_idx]
+        if mirror_sources:
+            src_l = self._image_positions(src_l)
+            src_r = self._image_positions(src_r)
+        # momwire#1170 stage 0: None on every block of buried segments and
+        # on every block of an `extended_kernel=False` solve, which is then
+        # the call below as it always was. Set, it is the above/above block
+        # (direct or image) under the extended kernel.
+        ek, ek_se = self._ek_subset(geom, obs_sel, seg_idx, mirror_sources)
+        ek_kw = {} if ek is None else {"ek": _ek_slice(ek, rows=obs_sel, cols=seg_idx)}
+        ek_se_kw = {} if ek_se is None else {"ek": ek_se}
+        block = _seg_seg_full_moments_offedge(
+            seg_l[obs_sel],
+            seg_r[obs_sel],
+            src_l,
+            src_r,
+            a_row,
+            k,
+            d,
+            self.n_qp_pair,
+            ladder=self._fill_ladder(k, seg_l[seg_idx], seg_r[seg_idx], None),
+            **ek_kw,
+        )
+        if not mirror_sources:
+            # Same-edge overwrite, per edge of each subset wire. The image
+            # block never needs it: a segment and its own mirror are a
+            # distance 2·depth apart, which the off-edge quadrature resolves.
+            per_wire = geom["per_wire"]
+            seg_off = geom["seg_offsets"]
+            local_of = np.full(n_total, -1, dtype=np.int64)
+            local_of[obs_sel] = np.arange(len(obs_sel))
+            src_of = np.full(n_total, -1, dtype=np.int64)
+            src_of[seg_idx] = np.arange(len(seg_idx))
+            for w in range(len(per_wire)):
+                if local_of[seg_off[w]] < 0 and src_of[seg_off[w]] < 0:
+                    continue
+                pw = per_wire[w]
+                ed_off = pw["edge_offsets"]
+                ed_arc = pw["edge_arc_edges"]
+                base = seg_off[w]
+                a_w = float(self._radius_per_wire[w])
+                for i_e in range(len(ed_off) - 1):
+                    lo = int(local_of[base + ed_off[i_e]])
+                    s_lo = int(src_of[base + ed_off[i_e]])
+                    if lo < 0 or s_lo < 0:
+                        continue  # not on both axes under a row restriction
+                    hi = lo + (ed_off[i_e + 1] - ed_off[i_e])
+                    s_hi = s_lo + (ed_off[i_e + 1] - ed_off[i_e])
+                    sl = slice(lo, hi)
+                    ssl = slice(s_lo, s_hi)
+                    A_st = _seg_seg_static_moments(
+                        ed_arc[i_e], a_w, max_d=d, **ek_se_kw
+                    )
+                    A_reg = _seg_seg_reg_moments(
+                        ed_arc[i_e],
+                        a_w,
+                        k,
+                        max_d=d,
+                        n_qp=self.n_qp_pair_same_edge,
+                        **ek_se_kw,
+                    )
+                    block[:, :, sl, ssl] = A_st + A_reg
+        J = np.zeros((d + 1, d + 1, n_total, n_total), dtype=np.complex128)
+        J[:, :, obs_sel[:, None], seg_idx[None, :]] = block
+        return J
+
+    def _refuse_buried_out_of_scope(self, geom):
+        """The three solver configurations a buried deck may not reach —
+        `_below_interface.refuse_out_of_scope`, with this solver's flags."""
+        n = int(geom["n_segs_total"])
+        _below_interface.refuse_out_of_scope(
+            use_singular_enrichment=self.use_singular_enrichment,
+            # momwire#1170 stage 0: not refused on this family any more. The
+            # subset fills extend the above/above pairs and leave the rest
+            # reduced (`_ek_spec_above`), and the fill says so once
+            # (`_advise_ek_above`).
+            extended_kernel=False,
+            n=n,
+            degree=self.degree,
+            dense_fits=self._dense_tensor_fits_budget(n),
+            chunked_serves=self._buried_chunked_serves,
+            swept_mem_mb=self.swept_mem_mb,
+        )
+
+    @property
+    def _buried_chunked_serves(self):
+        """Whether the buried fill can take the chunked fill+assemble route
+        (momwire#915): both windowed assemblers have their complex-eps~
+        twins and the degree is one they instantiate."""
+        return (
+            _HAVE_BSPLINE_WINDOWED_ASSEMBLE_ACCEL
+            and _HAVE_BSPLINE_W_WINDOWED_ASSEMBLE_ACCEL
+            and _HAVE_BSPLINE_WINDOWED_CPLX_EPS_ACCEL
+            and _HAVE_BSPLINE_W_WINDOWED_CPLX_EPS_ACCEL
+            and self.degree <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+        )
+
+    @_offset_reuse_fill
+    def _accumulate_Z_subset_chunked(
+        self,
+        Z,
+        geom,
+        k,
+        seg_idx,
+        supp_seg,
+        polys,
+        *,
+        mirror_sources,
+        eps,
+        scale,
+        weight=None,
+        obs_idx=None,
+        row_of=None,
+    ):
+        """`_build_J_blocks_subset` + its assembly, accumulated into `Z`
+        window by window and never holding a (d+1, d+1, N, N) tensor
+        (momwire#915) — the buried fill's twin of `_compute_Z_dense_chunked`
+        and `_accumulate_Z_image_chunked`.
+
+        `seg_idx` is a union of whole wires, so it is a few contiguous runs
+        of global segment index; every (observer chunk × source run)
+        rectangle is one off-edge window handed to the windowed assembler
+        with the bases that touch it. `weight` is None for a direct block
+        (the assembler forms t_m·t_n itself, as `_assemble_Z`'s default
+        `td_all` does) or the scalar the image block multiplies
+        (t_m·t_image_n, 1) by — C₂ above, A_m below — produced per window so
+        nothing (N, N) is ever built. `scale` is +1 for the direct blocks and
+        −1 for the image ones: the dense path's `Z +=` / `Z -=`, folded into
+        the accumulator. `eps` complex takes the #915 twins, real the
+        shipped entries — the same seam `_assemble_Z` names, one level down.
+
+        The same-edge overwrite of the dense path is the same-edge fixup
+        here: for a direct block each edge's (analytic static + regularised)
+        block MINUS the off-edge block the sweep added, accumulated as a
+        correction window, exactly as the free-space chunked fill does. The
+        image block has no fixup on either route.
+
+        `row_of` (momwire#1132): Z is ROW-COMPACT, (n_rows, n_basis), basis
+        row m accumulated at row `row_of[m]`. The assemblers check the map
+        against every row a window writes, and only the address of the `+=`
+        moves, so a held row is the square Z's row bit for bit.
+        """
+        d = self.degree
+        seg_l = geom["seg_l"]
+        seg_r = geom["seg_r"]
+        a_row = self._seg_radius(geom)
+        tangents = geom["tangents"]
+        src_l, src_r = seg_l, seg_r
+        src_t = tangents
+        if mirror_sources:
+            src_l = self._image_positions(seg_l)
+            src_r = self._image_positions(seg_r)
+            src_t = _ground_mirror.mirror_tangents(tangents)
+        supp_c = np.ascontiguousarray(supp_seg, dtype=np.int64)
+        polys_c = np.ascontiguousarray(polys, dtype=np.float64)
+        tan_c = np.ascontiguousarray(tangents, dtype=np.float64)
+        in_medium = np.iscomplexobj(eps)
+        eps_arg = complex(eps) if in_medium else float(eps)
+        if weight is None:
+            fn = (
+                _acc.assemble_Z_bspline_windowed_cplx_eps
+                if in_medium
+                else _acc.assemble_Z_bspline_windowed
+            )
+        else:
+            fn = (
+                _acc.assemble_Z_bspline_weighted_windowed_cplx_eps
+                if in_medium
+                else _acc.assemble_Z_bspline_weighted_windowed
+            )
+        # momwire#921: ONE ladder for this fill, resolved against the subset
+        # it will actually window over — not `pair_order_ladder` raw. The
+        # same-edge correction below subtracts what the sweep added, and
+        # `_ladder_for_block` keys on each block's longest segment, so the raw
+        # property let a sweep window spanning a coarse segment drop the
+        # order-4 tier while a correction window for one fine edge kept it.
+        # The dense twin `_build_J_blocks_subset` resolves the same way, so
+        # the two routes to this block stay the same arithmetic.
+        ladder = self._fill_ladder(k, seg_l[seg_idx], seg_r[seg_idx], None)
+        # momwire#1170 stage 0, as in `_build_J_blocks_subset`: None unless
+        # this is an above/above block of an extended-kernel solve. The
+        # whole-mesh spec is cut to each window, sweep and same-edge fixup
+        # alike, so the fixup subtracts the arithmetic the sweep added.
+        ek, ek_se = self._ek_subset(
+            geom, seg_idx if obs_idx is None else obs_idx, seg_idx, mirror_sources
+        )
+        ek_se_kw = {} if ek_se is None else {"ek": ek_se}
+
+        def _ek_kw(rows, cols):
+            return {} if ek is None else {"ek": _ek_slice(ek, rows=rows, cols=cols)}
+
+        def _bases_touching(lo, hi):
+            mask = ((supp_c >= lo) & (supp_c < hi)).any(axis=1)
+            return np.nonzero(mask)[0].astype(np.int64)
+
+        # Passed only when set, so the square fill's call is the shipped one.
+        row_kw = {} if row_of is None else {"row_of": row_of}
+        live_c = None if row_of is None else np.any(polys_c != 0.0, axis=2)
+
+        def _held(m_idx, i0, i1):
+            """`m_idx` less the rows a row-compact Z does not hold. Such a row
+            can only touch an observer window through a PADDED support slot
+            (`supp_seg` is zero-padded, so an unlive slot names segment 0),
+            which adds an exact zero to a row nobody reads; a LIVE touch would
+            be a row the caller's `rows=` split, and is refused by name."""
+            keep = row_of[m_idx] >= 0
+            if keep.all():
+                return m_idx
+            drop = m_idx[~keep]
+            sd = supp_c[drop]
+            if np.any((sd >= i0) & (sd < i1) & live_c[drop]):
+                raise ValueError(
+                    "row_of: a basis with live support in this observer window "
+                    "has no row in the compact Z (momwire#1132)"
+                )
+            return m_idx[keep]
+
+        def _accumulate(J_win, i0, i1, j0, j1):
+            J_win = np.ascontiguousarray(J_win, dtype=np.complex128)
+            m_idx = _bases_touching(i0, i1)
+            if row_of is not None:
+                m_idx = _held(m_idx, i0, i1)
+            n_idx = _bases_touching(j0, j1)
+            if m_idx.size == 0 or n_idx.size == 0:
+                return
+            if weight is None:
+                if scale != 1.0:
+                    J_win = J_win * scale
+                fn(
+                    J_win,
+                    supp_c,
+                    polys_c,
+                    tan_c,
+                    m_idx,
+                    n_idx,
+                    int(i0),
+                    int(i1),
+                    int(j0),
+                    int(j1),
+                    float(self.omega),
+                    eps_arg,
+                    float(self.mu),
+                    Z,
+                    self._cancel_flag,
+                    **row_kw,
+                )
+            else:
+                w_A = np.ascontiguousarray(
+                    weight * (tangents[i0:i1] @ src_t[j0:j1].T), dtype=np.complex128
+                )
+                w_Phi = np.full((i1 - i0, j1 - j0), weight, dtype=np.complex128)
+                fn(
+                    J_win,
+                    supp_c,
+                    polys_c,
+                    w_A,
+                    w_Phi,
+                    m_idx,
+                    n_idx,
+                    int(i0),
+                    int(i1),
+                    int(j0),
+                    int(j1),
+                    float(self.omega),
+                    eps_arg,
+                    float(self.mu),
+                    complex(scale),
+                    Z,
+                    self._cancel_flag,
+                    **row_kw,
+                )
+
+        runs = _schedule.runs(seg_idx)
+        # momwire#1029: the OBSERVER axis may be narrowed; sources stay
+        # `seg_idx`, and `chunk` is sized off the source axis as before.
+        obs_runs = runs if obs_idx is None else _schedule.runs(obs_idx)
+        n_sub = int(seg_idx.size)
+        row_bytes = (d + 1) ** 2 * n_sub * 16
+        chunk = _schedule.mb_rows(self.swept_mem_mb, row_bytes)
+
+        def _window(i0, i1, j0, j1):
+            J_win = _seg_seg_full_moments_offedge(
+                seg_l[i0:i1],
+                seg_r[i0:i1],
+                src_l[j0:j1],
+                src_r[j0:j1],
+                a_row[i0:i1],
+                k,
+                d,
+                self.n_qp_pair,
+                ladder=ladder,
+                **_ek_kw(slice(i0, i1), slice(j0, j1)),
+            )
+            _accumulate(J_win, i0, i1, j0, j1)
+
+        # The edges whose same-edge block the fixup below overwrites: those
+        # of a subset wire on both axes (momwire#1029).
+        seg_off = geom["seg_offsets"]
+        on_subset = np.zeros(int(geom["n_segs_total"]), dtype=bool)
+        on_subset[seg_idx] = True
+        on_obs = on_subset
+        if obs_idx is not None:
+            on_obs = np.zeros_like(on_subset)
+            on_obs[np.asarray(obs_idx, dtype=np.int64)] = True
+
+        def _fixed(e):
+            return on_subset[seg_off[e[0]]] and on_obs[seg_off[e[0]]]
+
+        edges = self._edge_ingredients(geom)
+        # momwire#1752 L2: a direct block's sweep leaves those edges' own
+        # blocks out, and the fixup adds `A_st + A_reg` instead of
+        # `(A_st + A_reg) - J_edge`. The sweep used to integrate every
+        # same-edge pair through the off-edge kernel -- the buried ladder's
+        # 32 x 32 rule on each pair within two lengths, nearly all of them
+        # same-edge -- for the fixup to integrate them again and subtract
+        # both. Only the association of Z's adds moves (measured at most
+        # 9e-16 of max|Z| on eight buried decks).
+        skip = not mirror_sources and _SUBSET_SKIP_SAME_EDGE
+        if skip:
+            edge_lo = np.full(int(geom["n_segs_total"]), -1, dtype=np.int64)
+            edge_hi = np.full(int(geom["n_segs_total"]), -1, dtype=np.int64)
+            for e in edges:
+                if _fixed(e):
+                    edge_lo[e[1]] = e[1].start
+                    edge_hi[e[1]] = e[1].stop
+
+        def _subset_block(i0, i1, j0, j1):
+            if not skip:
+                _window(i0, i1, j0, j1)
+                return
+            # The observer rows in runs of one fixed edge (or of none), each
+            # run's source window less that edge's own columns: the part
+            # before it, then the part after.
+            r = i0
+            while r < i1:
+                lo = int(edge_lo[r])
+                if lo < 0:
+                    r1 = r + 1
+                    while r1 < i1 and edge_lo[r1] < 0:
+                        r1 += 1
+                    _window(r, r1, j0, j1)
+                    r = r1
+                    continue
+                hi = int(edge_hi[r])
+                r1 = min(hi, i1)
+                if j0 < lo:
+                    _window(r, r1, j0, min(j1, lo))
+                if j1 > hi:
+                    _window(r, r1, max(j0, hi), j1)
+                r = r1
+
+        # Every (observer chunk x source run) rectangle, one window live at a
+        # time (#338), a checkpoint per observer chunk.
+        _schedule.sweep(
+            obs_runs, chunk, _subset_block, sources=runs, checkpoint=self._checkpoint
+        )
+
+        if mirror_sources:
+            return
+        # Same-edge fixup, per edge of each subset wire (the dense path's
+        # overwrite, as a correction window).
+
+        def _fix_edge(w, sl, arc, a_w):
+            A_st = _seg_seg_static_moments(arc, a_w, max_d=d, **ek_se_kw)
+            A_reg = _seg_seg_reg_moments(
+                arc, a_w, k, max_d=d, n_qp=self.n_qp_pair_same_edge, **ek_se_kw
+            )
+            if skip:  # the sweep left this block out (momwire#1752 L2)
+                _accumulate(A_st + A_reg, sl.start, sl.stop, sl.start, sl.stop)
+                return
+            J_edge = _seg_seg_full_moments_offedge(
+                seg_l[sl],
+                seg_r[sl],
+                seg_l[sl],
+                seg_r[sl],
+                a_row[sl],
+                k,
+                d,
+                self.n_qp_pair,
+                ladder=ladder,
+                **_ek_kw(sl, sl),
+            )
+            corr = (A_st + A_reg) - J_edge
+            del J_edge
+            _accumulate(corr, sl.start, sl.stop, sl.start, sl.stop)
+
+        # The same-edge correction is a DIAGONAL block, so it is written only
+        # where the wire is on both axes (momwire#1029).
+        _schedule.walk(edges, _fix_edge, checkpoint=self._checkpoint, keep=_fixed)
+
+    def _buried_serve_plan(self, geom, a_idx, obs_a, obs_b, k_p, k_m, crossing=False):
+        """Grid extents for the three field-form blocks, or a named refusal —
+        `_below_interface.serve_plan` over this fill's quadrature nodes, with
+        `_pair_extents_below` (this module's accelerated kernel, looked up at
+        call time so its tests can monkeypatch it here) as the extents."""
+        return _below_interface.serve_plan(
+            self.ground_z,
+            geom["seg_l"],
+            geom["seg_r"],
+            a_idx,
+            obs_a,
+            obs_b,
+            k_p,
+            k_m,
+            crossing=crossing,
+            pair_extents=_pair_extents_below,
+        )
+
+    def buried_serve_refusal(self):
+        """The sentence this deck's buried fill would refuse with, or None.
+
+        A PRE-FLIGHT that is exact rather than conservative: it runs
+        `_below_interface.plan_buried`, the same sequence the fill runs, on
+        this solver's own geometry and quadrature nodes, and stops before any
+        grid is filled. It covers the out-of-scope solver configurations, the
+        crossing scope, and every serve-plan extent (below/below and
+        cross-medium), and returns the refusal's message verbatim.
+
+        `below_reach_refusal(points, ...)` stays for callers that hold only
+        polylines. Over vertices it can over-refuse, and a crossing node's
+        vertex sits exactly in the plane, so two of them at different nodes
+        pair at theta = 0 (antennaknobs#1464). The fill's nodes are strictly
+        interior and never do.
+
+        None when the deck has no ground or no buried wire, or when the fill
+        would reach its grids.
+        """
+        if self.ground_z is None:
+            return None
+        try:
+            # Inside the try (momwire#1061): labeling the wires raises by name
+            # for a ground-CONTACT end beside a buried wire, and that sentence
+            # is exactly what this pre-flight exists to return.
+            if not self._has_buried_wires():
+                return None
+            _below_interface.plan_buried(
+                self._build_geometry(),
+                nodes=self._buried_nodes,
+                below_segments=self._below_segments,
+                buried_medium=self._buried_medium,
+                refuse_out_of_scope_fn=self._refuse_buried_out_of_scope,
+                crossing_junctions_fn=self._crossing_junctions,
+                serve_plan_fn=self._buried_serve_plan,
+                below_pairs_fn=self._below_remainder_pairs,
+                ground_z=self.ground_z,
+                remainder_nodes=self._buried_remainder_nodes,
+            )
+        except (ValueError, NotImplementedError) as exc:
+            return str(exc)
+        return None
+
+    @_near_interface.under_levers
+    def _compute_Z_operator_buried(
+        self, geom, supp_seg, polys, rows=None, compact=False
+    ):
+        """`_compute_Z_operator_buried_scoped` under this solver's
+        near-interface levers (`_near_interface.under_levers`: momwire#1860,
+        #1956, set in one place since #1980)."""
+        self._decline_unread_plan("the buried fill does not read the hint")
+        return self._compute_Z_operator_buried_scoped(
+            geom, supp_seg, polys, rows=rows, compact=compact
+        )
+
+    def _compute_Z_operator_buried_scoped(
+        self, geom, supp_seg, polys, rows=None, compact=False
+    ):
+        """The mixed-medium dense Z. The ROUTING moved to `_below_interface`
+        (momwire#980 step C part 2); this hands it the solver's own fills.
+
+        `rows` (momwire#1029) is the routing's observer restriction, passed
+        straight through: None is today's path byte for byte, and a subset of
+        global segment indices computes only those rows of a full-size Z. The
+        contract and what it does NOT restrict are in
+        `_below_interface.compute_Z_operator_buried`. `compact=True`
+        (momwire#1132, with `rows=`) returns `(Z[R], R)` without ever
+        allocating the square Z.
+
+        The three pair classes and their signs are one body there, so the
+        sinusoidal-Galerkin serve adopts the routing instead of copying it —
+        the same reason the scope half moved in part 1. What stays here is
+        what is basis- or instance-shaped: the moment assemblers, the
+        `CrossingContext` adapter that names the basis, and the per-instance
+        media and node caches.
+        """
+        self._advise_ek_above()
+        return _below_interface.compute_Z_operator_buried(
+            geom,
+            supp_seg,
+            polys,
+            f=_below_interface.BuriedFills(
+                checkpoint=self._checkpoint,
+                nodes=self._buried_nodes,
+                wire_media=self._wire_media,
+                crossing_context=self._crossing_context,
+                assemble_Z=self._assemble_Z,
+                build_J_blocks_subset=self._build_J_blocks_subset,
+                accumulate_Z_subset_chunked=self._accumulate_Z_subset_chunked,
+                image_Z_weighted=self._image_Z_weighted,
+                image_tangent_dot=self._image_tangent_dot,
+                field_galerkin_block=self._field_galerkin_block,
+                field_galerkin_out_ok=_HAVE_FIELD_GALERKIN_STRIDED,
+                apply_loading=self._apply_loading,
+                compact_ok=_HAVE_WINDOWED_ROW_OF and _HAVE_FIELD_GALERKIN_ROW_OF,
+                below_remainder_pairs=self._below_remainder_pairs,
+                remainder_nodes=self._buried_remainder_nodes,
+                transmitted_anchors=self._transmitted_anchors,
+                crossing_above_rule=(
+                    self._crossing_above_remainder_rule
+                    if getattr(self, "_crossing_above_rule", False)
+                    else None
+                ),
+                remainder_pair_entries=self._remainder_pair_entries,
+                remainder_pair_correction=self._remainder_pair_correction,
+            ),
+            below_segments=self._below_segments,
+            buried_medium=self._buried_medium,
+            refuse_out_of_scope_fn=self._refuse_buried_out_of_scope,
+            crossing_junctions_fn=self._crossing_junctions,
+            serve_plan_fn=self._buried_serve_plan,
+            somm_grid_fn=self._somm_grid,
+            crossing_node_members_fn=self._crossing_node_members,
+            ground_z=self.ground_z,
+            eps=self.eps,
+            omega=self.omega,
+            mu=self.mu,
+            cancel_flag=self._cancel_flag,
+            chunked=self._buried_chunked_serves,
+            rows=rows,
+            compact=compact,
+        )
+
+    def _crossing_above_remainder_rule(self, geom, a_idx):
+        """`BuriedFills.crossing_above_rule` (momwire#1860 B1): the above
+        segments' remainder rule as `_remainder_prep` takes it for the whole
+        of an all-above deck -- the base order `n_qp_sommerfeld` and
+        #1189's raised pairs (or the deck-wide `_remainder_qp` without
+        per-pair orders) -- as `(points, tangents, W, pairs, reads)`, the
+        pairs in global segment indices and sorted by observer then source,
+        `reads` the points its grid reads take (None: not listable).
+
+        One addition to that rule: every pair with a segment AT THE CROSSING
+        NODE -- an end within one of its own lengths of a point where an
+        above wire meets the plane, i.e. the node's own segment and the next
+        one along each wire through it -- keeps the cross block's order
+        `_n_qp_buried_field` when the listed one is lower. #1189 keys its
+        pairs on grazing height through the base-order nodes and lists none
+        there, and the basis does not vanish at a crossing node. Without
+        them, against a q = 48 flat reference: the buried-hub vertical's Zin
+        moves 0.12 ohm away (2.4e-3) with the bare rule, and the ACA screen's
+        0.009 ohm (1.3e-4) with the node's own segment alone; with both
+        segments each is the shipped route's Zin again. The band is raised
+        against the segments within `_B1_NODE_REACH` band lengths of the
+        node only; against every segment it cost the Beverage its saving."""
+        gz = self.ground_z
+        seg_l, seg_r = geom["seg_l"][a_idx], geom["seg_r"][a_idx]
+        I = J = Qp = np.zeros(0, dtype=np.int64)
+        if _REMAINDER_PER_PAIR:
+            q = int(self.n_qp_sommerfeld)
+            I, J, Qp = self._remainder_qp_pairs(seg_l, seg_r, gz)
+        else:
+            q = self._remainder_qp(seg_l, seg_r, gz)
+        q_node = int(self._n_qp_buried_field())
+        # The segments at the crossing node: an end within one of their own
+        # lengths of a point where an above wire meets the plane (the node's
+        # own segment, and the next one along each wire through it). Each is
+        # raised against the segments within twice the band's longest
+        # length of the node -- the pairs that see the node's singular
+        # current -- and no further: the far pairs' remainder is smooth.
+        h_a = geom["h_per_seg"][a_idx]
+        ends = np.concatenate([seg_l, seg_r])
+        node = ends[np.abs(ends[:, 2] - gz) <= _crossing_fill._PLANE_TOL]
+        band = near = np.zeros(0, dtype=np.int64)
+        if node.shape[0]:
+            node = np.unique(node, axis=0)
+            dist = np.minimum(
+                np.linalg.norm(seg_l[:, None, :] - node[None], axis=2).min(axis=1),
+                np.linalg.norm(seg_r[:, None, :] - node[None], axis=2).min(axis=1),
+            )
+            band = np.flatnonzero(dist <= h_a + _crossing_fill._PLANE_TOL)
+            if band.size:
+                reach = _B1_NODE_REACH * float(h_a[band].max())
+                near = np.flatnonzero(dist <= reach + _crossing_fill._PLANE_TOL)
+        # The pair correction swaps BASE-order moments, so only on the
+        # per-pair route (the deck-wide order lists no pairs at all).
+        if _REMAINDER_PER_PAIR and band.size and q_node > q:
+            bI = np.repeat(band, near.size)
+            bJ = np.tile(near, band.size)
+            I = np.concatenate([I, bI, bJ])
+            J = np.concatenate([J, bJ, bI])
+            Qp = np.concatenate([Qp, np.full(2 * bI.size, q_node, np.int64)])
+            # One entry per pair, at the larger order, sorted by (I, J).
+            order = np.lexsort((-Qp, J, I))
+            I, J, Qp = I[order], J[order], Qp[order]
+            first = np.ones(I.size, dtype=bool)
+            first[1:] = (I[1:] != I[:-1]) | (J[1:] != J[:-1])
+            I, J, Qp = I[first], J[first], Qp[first]
+        pairs = (a_idx[I], a_idx[J], Qp) if I.size else None
+        tang_a = geom["tangents"][a_idx]
+        pts, tang, u, w = _below_interface.field_nodes(seg_l, seg_r, tang_a, h_a, q)
+        W = w[None] * np.float_power(u[None], np.arange(self.degree + 1)[:, None, None])
+        # Every point the grid reads take, for the lazy census
+        # (`_below_interface.crossing_above_grid`): the base nodes, and each
+        # raised pair's two segments at its Gauss order. None when a pair
+        # goes on #1201's graded panels, whose points are drawn as they go.
+        reads = pts
+        if I.size:
+            if _REMAINDER_GRADED and bool((Qp >= _REMAINDER_GRADED_MIN_Q).any()):
+                reads = None
+            else:
+                parts = [pts]
+                for qq in np.unique(Qp):
+                    segs = np.unique(np.concatenate([I[Qp == qq], J[Qp == qq]]))
+                    parts.append(
+                        _below_interface.field_nodes(
+                            seg_l[segs], seg_r[segs], tang_a[segs], h_a[segs], int(qq)
+                        )[0]
+                    )
+                reads = np.concatenate(parts)
+        return pts, tang, W, pairs, reads
+
+    def _dense_tensor_fits_budget(self, n_segs):
+        """Whether one dense polynomial-moment tensor fits the memory budget."""
+        tensor_bytes = (
+            (self.degree + 1) ** 2 * int(n_segs) ** 2 * np.dtype(np.complex128).itemsize
+        )
+        return _schedule.fits_mb(tensor_bytes, self.swept_mem_mb)
+
+    @_offset_reuse_fill
+    def _compute_Z_operator(
+        self, geom, supp_seg, polys, same_edge_prep=None, rows=None, compact=False
+    ):
+        """`_compute_Z_operator_filled` on the fill report's clock."""
+        with _fill_report.fill_clock(self):
+            return self._compute_Z_operator_filled(
+                geom,
+                supp_seg,
+                polys,
+                same_edge_prep=same_edge_prep,
+                rows=rows,
+                compact=compact,
+            )
+
+    def _compute_Z_operator_filled(
+        self, geom, supp_seg, polys, same_edge_prep=None, rows=None, compact=False
+    ):
+        """Loaded (free-space or grounded) dense Z for one k — the operator
+        construction shared by `compute_impedance` and `compute_y_matrix`.
+
+        `rows` / `compact` restrict the OBSERVER rows (momwire#1131), with
+        the buried fill's contract (`_compute_Z_operator_buried`): `rows` is a
+        sorted array of global segments made of whole wires, and the fill
+        computes only the basis rows R whose support lies inside it --
+        square with every other row exactly zero, or with `compact=True` as
+        `(Z[R], R)`. `rows=None` is the code below, untouched. See
+        `_compute_Z_operator_rows` for the restricted route.
+
+        Dispatches to the chunked fill+assemble (issue #136) whenever the
+        (d+1, d+1, N, N) moment tensor would blow the `swept_mem_mb`
+        budget. `compute_y_matrix` used to bypass that dispatch and
+        materialise the full tensor unconditionally — a flat ~12x n²·16 B
+        peak on exactly the entry point the NEC-2 launcher and the array
+        benchmarks drive (issue #235).
+        """
+        # "auto" never refuses: an unserved route skips the correction, and
+        # the solver says so (`_exact_kernel_seam`, momwire#1433).
+        use_exact = self._exact_kernel_fill_gate(rows, compact)
+        if self.ground_z is not None and self._has_buried_wires():
+            # Per-segment media (momwire#553 U5). Structurally a different
+            # fill, not a flag inside this one: three pair classes, two
+            # wavenumbers, two permittivities and three field-form blocks.
+            # An all-above deck never reaches it, which is what keeps the
+            # shipped path byte-identical.
+            if rows is None and not compact:
+                Z = self._compute_Z_operator_buried(geom, supp_seg, polys)
+                if use_exact:
+                    # momwire#1619 stage 1: the above/above coaxial pairs,
+                    # after the whole buried fill (its loading included).
+                    self._checkpoint()
+                    self._add_exact_kernel_correction(
+                        Z, geom, supp_seg, polys, self.k, above_only=True
+                    )
+                return Z
+            return self._compute_Z_operator_buried(
+                geom, supp_seg, polys, rows=rows, compact=compact
+            )
+        if rows is not None:
+            return self._compute_Z_operator_rows(
+                geom,
+                supp_seg,
+                polys,
+                rows,
+                compact=compact,
+                same_edge_prep=same_edge_prep,
+            )
+        if compact:
+            raise ValueError("compact=True restricts rows: pass rows= as well")
+
+        dense_tensor_fits = self._dense_tensor_fits_budget(geom["n_segs_total"])
+
+        self._checkpoint()  # after geometry/basis, before the J-block fill
+        if (
+            _HAVE_BSPLINE_WINDOWED_ASSEMBLE_ACCEL
+            and self.degree <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and not dense_tensor_fits
+            and self._accel_serves_n_qp_pair
+        ):
+            # Chunked fill+assemble: never materialises the full
+            # (d+1, d+1, N, N) tensor (issue #136). Identical algebra to
+            # the tensor path below, bounded transients.
+            Z = self._compute_Z_dense_chunked(
+                geom, self.k, supp_seg, polys, same_edge_prep=same_edge_prep
+            )
+        else:
+            Z = self._tensor_reuse_Z(geom, self.k, supp_seg, polys, same_edge_prep)
+            if Z is None:
+                J = self._build_J_blocks(geom, self.k, same_edge_prep=same_edge_prep)
+                Z = self._assemble_Z(J, supp_seg, polys, geom)
+                del J
+
+        if use_exact:
+            self._checkpoint()
+            self._add_exact_kernel_correction(Z, geom, supp_seg, polys, self.k)
+
+        ground = _potential_ground.potential_ground_for(self, geom, self.k, self.omega)
+        if ground is not None:
+            self._checkpoint()  # between fills: before the image J-block fill
+            # Image method: subtract the same-shape assembly built from
+            # J integrals over image segments + the ground's own weights on
+            # the A and Φ terms (PEC: the (tx, ty, -tz)-modified tangent dot
+            # products, unweighted charge). The minus sign captures both the
+            # image current's horizontal anti-parallel direction and the
+            # image charge's sign flip (one minus combined) — which is why
+            # a `"fold"` ground may take it entry by entry and a
+            # `"compose"` one may not (momwire#398 unit 1).
+            if (
+                _HAVE_BSPLINE_W_WINDOWED_ASSEMBLE_ACCEL
+                and self.degree <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+                and self._accel_serves_n_qp_pair
+            ):
+                # Chunked image subtraction — no (d+1, d+1, N, N) image
+                # tensor, no intermediate n_basis² matrix (issue #136), and
+                # no (N, N) weight table either: `weight_windows` produces
+                # each observer chunk's window on demand (issue #323).
+                # `"compose"`'s remainder Q is a separate, already
+                # observer-chunked term, and the composition survives being
+                # split across the two calls only because the accumulator's
+                # `scale = -1` and this `Z -=` are the SAME single minus.
+                self._accumulate_Z_image_chunked(
+                    Z,
+                    geom,
+                    self.k,
+                    supp_seg,
+                    polys,
+                    ground.weight_windows(),
+                )
+                remainder = ground.remainder()
+                if remainder is not None:
+                    # `Z -= Q` with no Q held (momwire#1798)
+                    remainder.fold_into(Z, -1, supp_seg, polys)
+            else:
+                J_img = self._build_J_image_blocks(geom, self.k, ground=ground)
+                # In-place subtract (issue #334): `Z = Z - ...` held the
+                # old Z, the new Z, and the image block — three n_basis²
+                # matrices at once. `Z -=` folds the subtraction into Z's
+                # own buffer, holding two.
+                Z -= self._ground_finite_Z(J_img, supp_seg, polys, geom, ground=ground)
+        # A direct fill's class values not taken by an image fill.
+        self._held_reuse_values = None
+
+        # Distributed series wire loading (independent of ground: it's a
+        # wire property, added once to the final Z).
+        return self._apply_loading(Z)
+
+    def _exact_kernel_groups(self, geom):
+        """[(segment indices, [(slice, arc, radius) per edge])] per coaxial
+        equal-radius group: the segments the exact ring kernel covers."""
+        labels, groups = _exact_kernel_seam.coaxial_groups(
+            geom["seg_l"], geom["seg_r"], geom["tangents"], self._seg_radius(geom)
+        )
+        edges = {}
+        for _w, sl, arc, a_w in self._edge_ingredients(geom):
+            edges.setdefault(int(labels[sl.start]), []).append((sl, arc, a_w))
+        return [(S, edges[g]) for g, S in groups]
+
+    def _exact_kernel_lines(self, geom):
+        """[(segment indices, radius labels, [(slice, arc, radius) per
+        edge])] per coaxial line carrying a radius step (momwire#1438,
+        `_exact_kernel_seam.coaxial_lines`). An edge is one straight run at
+        one radius, so it lies on exactly one line."""
+        seg_a = self._seg_radius(geom)
+        labels, _groups = _exact_kernel_seam.coaxial_groups(
+            geom["seg_l"], geom["seg_r"], geom["tangents"], seg_a
+        )
+        lines = _exact_kernel_seam.coaxial_lines(
+            geom["seg_l"], geom["seg_r"], geom["tangents"], seg_a, labels
+        )
+        if not lines:
+            return []
+        line_of = np.full(int(geom["n_segs_total"]), -1, dtype=np.int64)
+        for i, (S, _lab) in enumerate(lines):
+            line_of[S] = i
+        edges = {}
+        for _w, sl, arc, a_w in self._edge_ingredients(geom):
+            i = int(line_of[sl.start])
+            if i >= 0:
+                edges.setdefault(i, []).append((sl, arc, a_w))
+        return [(S, lab, edges[i]) for i, (S, lab) in enumerate(lines)]
+
+    def _exact_kernel_jobs(self, geom, above_only=False):
+        """[(segment indices, edges, radius labels or None)]: every coaxial
+        group (labels None), then every stepped line's cross job
+        (momwire#1438). The two own disjoint pairs, so their corrections
+        add; a deck with no step has no cross job.
+
+        `above_only` (momwire#1619 stage 1, a deck with buried wires): each
+        job cut to its above-ground segments, so no pair touching a buried
+        one is corrected. Media are per wire and an edge lies on one wire,
+        so an edge is kept or dropped whole. A job left empty is dropped,
+        and so is a cross job left with one radius: its pairs were the step
+        into the buried wire."""
+        jobs = [(S, g_edges, None) for S, g_edges in self._exact_kernel_groups(geom)]
+        jobs += [
+            (S, g_edges, lab) for S, lab, g_edges in self._exact_kernel_lines(geom)
+        ]
+        if not above_only:
+            return jobs
+        above = ~np.asarray(self._below_segments(geom), dtype=bool)
+        out = []
+        for S, g_edges, lab in jobs:
+            keep = above[S]
+            if not keep.any():
+                continue
+            if lab is not None:
+                lab = lab[keep]
+                if np.unique(lab).size < 2:
+                    continue
+            edges = [e for e in g_edges if above[e[0].start]]
+            out.append((S[keep], edges, lab))
+        return out
+
+    def _exact_kernel_base_J(self, geom, S, g_edges, k, rows=None, fill=None):
+        """The (d+1, d+1, n, n) moments the free-space fill put on the
+        group's pairs, recomputed through the same kernels with the same
+        arguments (`_build_J_blocks` restricted to the group), so the
+        correction removes them to roundoff whichever fill route ran.
+
+        `rows` (a slice of the group's LOCAL segment order, momwire#1411)
+        returns only those observer rows, (d+1, d+1, r1 - r0, n): every
+        kernel below takes an observer window natively, as the chunked fill
+        uses them. `fill` is `_exact_kernel_fill_spec`'s (ek, ladder), hoisted
+        by a caller that walks many windows."""
+        d = self.degree
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        n = S.size
+        r0, r1 = (0, n) if rows is None else rows.indices(n)[:2]
+        Sr = S[r0:r1]
+        if len(g_edges) == 1:
+            J = np.zeros((d + 1, d + 1, r1 - r0, n), dtype=complex)
+        else:
+            ek, ladder = fill or self._exact_kernel_fill_spec(geom, k)
+            ek_g = None
+            if ek is not None:
+                ek_g = ek._replace(
+                    group_i=ek.group_i[Sr],
+                    group_j=ek.group_j[S],
+                    b_i=None if ek.b_i is None else ek.b_i[Sr],
+                    b_j=None if ek.b_j is None else ek.b_j[S],
+                )
+            J = _seg_seg_full_moments_offedge(
+                seg_l[Sr],
+                seg_r[Sr],
+                seg_l[S],
+                seg_r[S],
+                self._seg_radius(geom)[Sr],
+                k,
+                d,
+                self.n_qp_pair,
+                ek=ek_g,
+                ladder=ladder,
+            )
+        ek_se = _EK_SAME_EDGE if self.extended_kernel else None
+        loc = np.full(int(geom["n_segs_total"]), -1, dtype=np.int64)
+        loc[S] = np.arange(n)
+        for sl, arc, a_w in g_edges:
+            l0 = int(loc[sl.start])
+            l1 = l0 + (sl.stop - sl.start)
+            lo, hi = max(l0, r0), min(l1, r1)
+            if lo >= hi:
+                continue
+            win = None if (lo, hi) == (l0, l1) else slice(lo - l0, hi - l0)
+            J[:, :, lo - r0 : hi - r0, l0:l1] = _seg_seg_static_moments(
+                arc, a_w, max_d=d, ek=ek_se, rows=win
+            ) + _seg_seg_reg_moments_from_geometry(
+                _seg_seg_reg_geometry(
+                    arc,
+                    a_w,
+                    max_d=d,
+                    n_qp=self.n_qp_pair_same_edge,
+                    ek=ek_se,
+                    rows=win,
+                ),
+                k,
+            )
+        return J
+
+    def _exact_kernel_fill_spec(self, geom, k, above_only=False):
+        """(ek, ladder): the whole-mesh EK spec and pair-order ladder the
+        fill used, which the base moments must reproduce. `above_only`
+        (momwire#1619): the buried fill's above/above blocks' spec
+        (`_ek_spec_above`, `_build_J_blocks_subset`'s ladder)."""
+        if above_only:
+            ek = self._ek_spec_above(geom) if self.extended_kernel else None
+            above = ~np.asarray(self._below_segments(geom), dtype=bool)
+            return ek, self._fill_ladder(
+                k, geom["seg_l"][above], geom["seg_r"][above], None
+            )
+        ek = self._ek_spec(geom) if self.extended_kernel else None
+        return ek, self._fill_ladder(k, geom["seg_l"], geom["seg_r"], ek)
+
+    def _exact_kernel_row_bytes(self, n):
+        """Transient bytes per observer row of one group window (momwire#1411):
+        the exact rows, the base rows and their difference (complex), the
+        static rows (real), the same-edge distance table R (n_qp² per pair),
+        and the dedup keys with `np.unique`'s sort copies (~200 B per pair),
+        plus the numpy off-edge fallback's own overhead when that runs. The
+        C++ route's dedup (momwire#1410) holds an 8-byte slot per pair and,
+        per key new to the window, its moments and its table entry: a few
+        bytes a pair on a uniform run, up to ~300 on a graded mesh where
+        every pair is new, inside this total either way (memgate:
+        tests/test_exact_kernel_accel_1410.py).
+
+        The base dedup (momwire#1421) builds the same-edge R table and the
+        reg rows only for the pairs it recomputes directly -- all of them on
+        a graded mesh, which this total already prices -- and gathers the
+        rest from O(n) diagonal values, so its window transients stay inside
+        this total too. Its cross-window cache is not a per-row cost: it is
+        held to `_exact_kernel_base_cache_bytes`, which the windows' budget
+        gives up before this total divides it (memgates:
+        tests/test_exact_kernel_base_dedup_1421.py)."""
+        nd2 = (self.degree + 1) ** 2
+        per_pair = 3 * nd2 * 16 + nd2 * 8 + 2 * 8 * self.n_qp_pair_same_edge**2 + 200
+        return n * per_pair + self._offedge_fallback_row_bytes(n)
+
+    def _exact_kernel_base_cache_bytes(self):
+        """The most of `swept_mem_mb` held back from the row windows for the
+        base dedup's cross-window cache (momwire#1421): a sixteenth. The
+        windows give up only what the cache can hold
+        (`BaseRows.cache_entries_needed`), capped here: one (d+1)² complex
+        moment per diagonal of a run-pair block that can gather -- 2n - 1 on
+        a uniform run, 870 kB at n = 3,000, d = 2 -- and nothing on a graded
+        mesh or one of many tiny edges, whose windows are then main's. The
+        cap only bites on pathological meshes, where a block past it is
+        deduplicated inside its window and not remembered."""
+        return int(self.swept_mem_mb * 1024 * 1024) // 16
+
+    def _add_exact_kernel_correction(
+        self, Z, geom, supp_seg, polys, k, above_only=False
+    ):
+        """Z += Z_exact - Z_base over every coaxial group (momwire#1408),
+        and over the cross-radius pairs of every line with a radius step
+        (momwire#1438: `_exact_kernel.coaxial_cross_rows`, its base the
+        `BaseRows` cross mode, which produces only those pairs).
+
+        In place, by observer-row windows of each group (momwire#1411): a
+        window's exact moments (`_exact_kernel.CoaxialRows`) minus the base
+        moments the fill used, accumulated straight into Z through the
+        windowed assembler. Peak memory is one window -- `swept_mem_mb`, the
+        fill's own transient budget -- plus the dedup cache, bounded by the
+        same budget and O(n) on a uniform run. The whole-group block it
+        replaces traced 5.6 GB inside this call on one 3,000-segment fat wire
+        at d = 2 (process peak 4.6 GB against the fill's own 1.1 GB); the
+        windows trace 176 MB there and leave the process peak at the fill's.
+        The pre-#1411 whole-group route stays behind
+        `_EXACT_KERNEL_ROW_WINDOWS` as the reference this one is gated
+        against.
+
+        The base moments are subtracted in place by
+        `_exact_kernel_base.BaseRows` (momwire#1421): one kernel evaluation
+        per diagonal of each uniform run-pair block, so a uniform run's base
+        costs O(n) kernel work like its exact moments (5,999 pairs instead
+        of 9,000,000 on the 3,000-segment wire), and pairs it cannot gather
+        are recomputed as `_exact_kernel_base_J` does, which stays behind
+        `_EXACT_KERNEL_BASE_DEDUP` as the reference.
+
+        `above_only` (momwire#1619 stage 1): a deck with buried wires, Z its
+        whole buried fill. Only the coaxial pairs whose two segments are
+        both above ground are corrected (`_exact_kernel_jobs`), against the
+        base the buried fill's above/above direct block put there
+        (`_exact_kernel_fill_spec`); the rest keeps the fill's kernel."""
+        if not _EXACT_KERNEL_ROW_WINDOWS:
+            return self._add_exact_kernel_correction_whole(
+                Z, geom, supp_seg, polys, k, above_only
+            )
+        d = self.degree
+        nd = d + 1
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        tang = geom["tangents"]
+        seg_a = self._seg_radius(geom)
+        n_total = int(geom["n_segs_total"])
+        polys_c = np.ascontiguousarray(polys, dtype=np.float64)
+        accel = (
+            _HAVE_BSPLINE_WINDOWED_ASSEMBLE_ACCEL
+            and d <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and not np.iscomplexobj(self.eps)
+        )
+        fill = self._exact_kernel_fill_spec(geom, k, above_only)
+        for S, g_edges, lab in self._exact_kernel_jobs(geom, above_only):
+            n = S.size
+            _axis, x0, sgn, h = _exact_kernel_seam.group_frame(S, seg_l, seg_r, tang)
+            budget = self.swept_mem_mb * 1024 * 1024
+            if lab is None:
+                exact = _exact_kernel.coaxial_rows(
+                    x0,
+                    sgn,
+                    h,
+                    float(seg_a[S[0]]),
+                    k,
+                    nd,
+                    max_cached=max(1, budget // (nd * nd * 16 + 256)),
+                )
+            else:
+                # zero on the same-radius pairs (momwire#1438); C++ where it
+                # serves, the text the standalone bs2 route runs (momwire#1615)
+                exact = _exact_kernel.coaxial_cross_rows(
+                    x0,
+                    sgn,
+                    h,
+                    seg_a[S],
+                    lab,
+                    k,
+                    nd,
+                    max_cached=max(1, budget // (nd * nd * 16 + 256)),
+                )
+            # Bases are relabelled onto the group's local segment order;
+            # a wing elsewhere points at the sentinel n, which no window
+            # holds, so both assemblers skip it.
+            loc = np.full(n_total, n, dtype=np.int64)
+            loc[S] = np.arange(n)
+            supp_loc = np.where(supp_seg >= 0, loc[supp_seg], n).astype(np.int64)
+            supp_loc = np.ascontiguousarray(supp_loc)
+            B = np.flatnonzero(np.any(supp_loc < n, axis=1)).astype(np.int64)
+            tan_loc = np.zeros((n + 1, 3))
+            tan_loc[:n] = tang[S]
+            window_mb = self.swept_mem_mb
+            base = None
+            if _EXACT_KERNEL_BASE_DEDUP:
+                base = _exact_kernel_base.BaseRows(
+                    seg_l=seg_l,
+                    seg_r=seg_r,
+                    seg_a=seg_a,
+                    tangents=tang,
+                    S=S,
+                    g_edges=g_edges,
+                    k=k,
+                    d=d,
+                    n_qp_pair=self.n_qp_pair,
+                    n_qp_same_edge=self.n_qp_pair_same_edge,
+                    ek=fill[0],
+                    ladder=fill[1],
+                    ek_se=_EK_SAME_EDGE if self.extended_kernel else None,
+                    n_segs_total=n_total,
+                    cross_lab=lab,
+                )
+                entry = nd * nd * 16 + 1
+                reserve = min(
+                    self._exact_kernel_base_cache_bytes(),
+                    base.cache_entries_needed() * entry,
+                )
+                base.max_cached = reserve // entry
+                window_mb = (budget - reserve) / (1024 * 1024)
+            chunk = _schedule.mb_rows(window_mb, self._exact_kernel_row_bytes(n))
+            if _EXACT_KERNEL_ROWS_OVERRIDE is not None:
+                chunk = int(_EXACT_KERNEL_ROWS_OVERRIDE)
+            for r0 in range(0, n, chunk):
+                r1 = min(n, r0 + chunk)
+                self._checkpoint()
+                dJ = exact.rows(r0, r1)
+                if base is not None:
+                    base.subtract_from(dJ, r0, r1)
+                else:
+                    bJ = self._exact_kernel_base_J(
+                        geom, S, g_edges, k, rows=slice(r0, r1), fill=fill
+                    )
+                    if lab is not None:
+                        # The same-radius pairs are the one-radius groups'.
+                        bJ[:, :, lab[r0:r1, None] == lab[None, :]] = 0.0
+                    dJ -= bJ
+                    del bJ
+                sB = supp_loc[B]
+                M = B[np.any((sB >= r0) & (sB < r1), axis=1)]
+                if accel:
+                    _acc.assemble_Z_bspline_windowed(
+                        np.ascontiguousarray(dJ),
+                        supp_loc,
+                        polys_c,
+                        tan_loc,
+                        M,
+                        B,
+                        int(r0),
+                        int(r1),
+                        0,
+                        int(n),
+                        float(self.omega),
+                        float(self.eps),
+                        float(self.mu),
+                        Z,
+                        self._cancel_flag,
+                    )
+                else:
+                    self._assemble_Z_window_numpy(
+                        Z, dJ, supp_loc, polys_c, tan_loc, M, B, r0, r1, n
+                    )
+                del dJ
+
+    def _assemble_Z_window_numpy(self, Z, J, supp, polys, tan, M, N, r0, r1, n):
+        """Z[M, N] += the assembly of one observer-row window J (d+1, d+1,
+        r1 - r0, n) whose source window is [0, n): the numpy twin of
+        `assemble_Z_bspline_windowed`, wings outside either window skipped
+        (`_assemble_Z`'s own loop, restricted). For the degrees and media
+        the C++ assembler does not take."""
+        d = self.degree
+        n_wings = d + 1
+        p_vec = np.arange(1, d + 1, dtype=np.float64)
+        Z_A = np.zeros((M.size, N.size), dtype=np.complex128)
+        Z_Phi = np.zeros((M.size, N.size), dtype=np.complex128)
+        for a in range(n_wings):
+            sm = supp[M, a]
+            on_m = (sm >= r0) & (sm < r1)
+            im = np.where(on_m, sm - r0, 0)
+            for b in range(n_wings):
+                sn = supp[N, b]
+                on_n = (sn >= 0) & (sn < n)
+                jn = np.where(on_n, sn, 0)
+                mask = on_m[:, None] & on_n[None, :]
+                J_blk = J[:, :, im[:, None], jn[None, :]] * mask
+                td_blk = tan[np.where(on_m, sm, n)] @ tan[np.where(on_n, sn, n)].T
+                Z_A += td_blk * np.einsum(
+                    "mp,pPmn,nP->mn", polys[M, a, :], J_blk, polys[N, b, :]
+                )
+                if d >= 1:
+                    deriv_m = polys[M, a, 1:] * p_vec[None, :]
+                    deriv_n = polys[N, b, 1:] * p_vec[None, :]
+                    Z_Phi += np.einsum(
+                        "mp,pPmn,nP->mn", deriv_m, J_blk[:d, :d], deriv_n
+                    )
+                del J_blk
+        Z[np.ix_(M, N)] += 1j * self.omega * self.mu * Z_A + Z_Phi / (
+            1j * self.omega * self.eps
+        )
+
+    def _add_exact_kernel_correction_whole(
+        self, Z, geom, supp_seg, polys, k, above_only=False
+    ):
+        """The pre-#1411 route: each group's whole (d+1)²·n² correction block
+        at once, assembled by `_assemble_Z`. The reference the row-window
+        route is gated against (`_EXACT_KERNEL_ROW_WINDOWS = False`)."""
+        d = self.degree
+        nd = d + 1
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        tang = geom["tangents"]
+        seg_a = self._seg_radius(geom)
+        n_total = int(geom["n_segs_total"])
+        fill = self._exact_kernel_fill_spec(geom, k, above_only)
+        for S, g_edges, lab in self._exact_kernel_jobs(geom, above_only):
+            n = S.size
+            _axis, x0, sgn, h = _exact_kernel_seam.group_frame(S, seg_l, seg_r, tang)
+            if lab is None:
+                dJ = _exact_kernel.coaxial_block(x0, sgn, h, float(seg_a[S[0]]), k, nd)
+                dJ -= self._exact_kernel_base_J(geom, S, g_edges, k, fill=fill)
+            else:
+                dJ = _exact_kernel.coaxial_cross_block(x0, sgn, h, seg_a[S], lab, k, nd)
+                base = self._exact_kernel_base_J(geom, S, g_edges, k, fill=fill)
+                base[:, :, lab[:, None] == lab[None, :]] = 0.0
+                dJ -= base
+                del base
+            # assemble over the bases touching the group; wings elsewhere
+            # point at one extra all-zero segment
+            loc = np.full(n_total, n, dtype=np.int64)
+            loc[S] = np.arange(n)
+            B = np.flatnonzero(np.any(loc[supp_seg] < n, axis=1))
+            dJx = np.zeros((nd, nd, n + 1, n + 1), dtype=complex)
+            dJx[:, :, :n, :n] = dJ
+            del dJ
+            td = np.zeros((n + 1, n + 1))
+            td[:n, :n] = tang[S] @ tang[S].T
+            dZ = self._assemble_Z(
+                dJx, np.ascontiguousarray(loc[supp_seg[B]]), polys[B], geom, td_all=td
+            )
+            Z[np.ix_(B, B)] += dZ
+
+    def _compute_Z_operator_rows(
+        self, geom, supp_seg, polys, rows, *, compact=False, same_edge_prep=None
+    ):
+        """The above-ground Z restricted to observer `rows` (momwire#1131),
+        which is what lets the sector route (momwire#1029) serve an elevated
+        or surface screen and not only a buried one.
+
+        Every writer of the dense route, in the dense route's order, each
+        restricted on its observer axis and nothing else: the free-space
+        sweep and its same-edge fixup (`_compute_Z_dense_chunked`), the
+        image sweep and its near-image fixup (`_accumulate_Z_image_chunked`,
+        whose weight windows are row-local for every ground), the Sommerfeld
+        remainder (`_Z_sommerfeld_remainder`) and the loading. The source
+        axis, the ladder, the grid extent and every quadrature order are the
+        whole mesh's, so a requested row is the DENSE CHUNKED fill's row bit
+        for bit -- the gate this route is held to.
+
+        **Always the chunked route**, including on a deck whose moment tensor
+        fits `swept_mem_mb`, where the dense fill takes the tensor route
+        instead. The restricted tensor is not a thing the tensor assembler
+        can take (it is square in the basis), and the two dense routes are
+        the same numbers to roundoff rather than to the bit: the tensor route
+        OVERWRITES each same-edge block, the chunked one adds a correction
+        onto the sweep's. So on such a deck the rows agree with the dense
+        answer at the chunked-vs-tensor roundoff, which the route's own
+        Z_in / currents gate already covers.
+
+        Where the windowed assemblers cannot serve (no accelerator, a degree
+        or `n_qp_pair` they do not take, no row-compact twin for
+        `compact=True`), the dense Z is filled and sliced: the same numbers,
+        none of the saving.
+        """
+        n_basis = int(supp_seg.shape[0])
+        restrict = _ObserverRows(
+            rows, supp_seg, polys, geom["n_segs_total"], compact=compact
+        )
+        ground = _potential_ground.potential_ground_for(self, geom, self.k, self.omega)
+        serves = (
+            _HAVE_BSPLINE_WINDOWED_ASSEMBLE_ACCEL
+            and self.degree <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and self._accel_serves_n_qp_pair
+            and (ground is None or _HAVE_BSPLINE_W_WINDOWED_ASSEMBLE_ACCEL)
+            and (not compact or _HAVE_WINDOWED_ROW_OF)
+        )
+        R = restrict.basis_rows
+        if not serves:
+            Z_full = self._compute_Z_operator(
+                geom, supp_seg, polys, same_edge_prep=same_edge_prep
+            )
+            if compact:
+                return np.ascontiguousarray(Z_full[R]), R
+            Z = np.zeros((n_basis, n_basis), dtype=np.complex128, order="F")
+            Z[R] = Z_full[R]
+            return Z
+
+        self._checkpoint()  # after geometry/basis, before the J-block fill
+        Z = self._compute_Z_dense_chunked(
+            geom,
+            self.k,
+            supp_seg,
+            polys,
+            same_edge_prep=same_edge_prep,
+            restrict=restrict,
+        )
+        if ground is not None:
+            self._checkpoint()  # between fills: before the image J-block fill
+            self._accumulate_Z_image_chunked(
+                Z,
+                geom,
+                self.k,
+                supp_seg,
+                polys,
+                ground.weight_windows(),
+                restrict=restrict,
+            )
+            remainder = ground.remainder()
+            if remainder is not None:
+                Q = remainder.evaluate(supp_seg, polys, restrict=restrict)
+                if compact:
+                    Z -= Q
+                else:
+                    Z[R] -= Q
+                del Q
+        self._apply_loading(Z, row_of=restrict.loading_map)
+        return (Z, R) if compact else Z
+
+    def _port_count(self):
+        """Ports `compute_port_solution` returns: [gap feeds…, junction
+        ports…, node gaps…]. Answered from the configuration, without
+        solving."""
+        return len(self.feeds) + len(self.junction_ports) + len(self.node_gaps)
+
+    def _node_gap_columns(self, wire_basis_global, n_basis_total):
+        """`(cols, volts)` for the series node gaps (issue #305), in
+        `self.node_gaps` order: column p is the σ-signed unit indicator of the
+        named wire-end's directional basis — drive AND readout vector, like
+        every other port column, so mixed-port Y stays symmetric. σ is the
+        KCL outflow sign (+1 start / −1 end): I_port is the current flowing
+        from the node into the named wire, which makes the port invariant
+        under re-parametrizing the wire. k-independent."""
+        cols = np.zeros((n_basis_total, len(self.node_gaps)), dtype=np.float64)
+        volts = np.zeros(len(self.node_gaps), dtype=np.complex128)
+        if not self.node_gaps:
+            return cols, volts
+        # A crossing junction is grounded by geometry (its node is in the
+        # plane) but is not shorted to the plane: one member is in the soil
+        # and the node is a through-junction between the two media. Its gap
+        # is a series EMF between those members (momwire#1282), served with
+        # the junction's KCL row kept (`_node_gap_crossing_junctions`).
+        grounded = self._grounded_junctions() - self._node_gap_crossing_junctions()
+        end_to_junction = {}
+        for j, jw in enumerate(self.junctions):
+            for member in jw:
+                end_to_junction[member] = j
+        for p, (w_i, end_i, v_i) in enumerate(self.node_gaps):
+            j_idx = end_to_junction[(w_i, end_i)]
+            if j_idx in grounded:
+                raise ValueError(
+                    f"node_gaps[{p}]: junction {j_idx} is grounded — a series "
+                    "gap between a wire and the ground stake is not supported "
+                    "(#151 grounds the node through the image instead)"
+                )
+            kept, local_to_global = wire_basis_global[w_i]
+            m_global = None
+            for kept_idx, (_j, kind, junc_idx, end_pos) in enumerate(kept):
+                if kind == "dir" and junc_idx == j_idx and end_pos == end_i:
+                    m_global = local_to_global[kept_idx]
+                    break
+            assert m_global is not None, (w_i, end_i, j_idx)
+            cols[m_global, p] = +1.0 if end_i == "start" else -1.0
+            volts[p] = v_i
+        return cols, volts
+
+    @_wire_spec.reads_input_wires("placements")
+    def feed_placements(self):
+        """Where each entry of ``feeds`` lands, as one
+        :class:`~momwire.FeedPlacement` per feed, in order (momwire#1059).
+
+        A point gap and a smoothed source sit at the arclength named, so the
+        two agree. ``feed_model="segment"`` spreads the gap over the mesh cell
+        holding that arclength (:func:`_feed_cell`), whose centre is reported.
+        """
+        geom = self._build_geometry()
+        placements = []
+        for w_i, arc_i, _v in self.feeds:
+            arc_at_knot = geom["per_wire"][w_i]["arc_at_knot"]
+            s_f = float(arc_i) if arc_i is not None else float(arc_at_knot[-1]) / 2.0
+            placed = s_f
+            if self.feed_model == "segment":
+                cell = _feed_cell(arc_at_knot, s_f)
+                placed = 0.5 * (float(arc_at_knot[cell]) + float(arc_at_knot[cell + 1]))
+            placements.append(_feed_snap.FeedPlacement(int(w_i), s_f, placed))
+        return tuple(placements)
+
+    def _gap_source_vectors(self, geom, wire_knots, wire_basis_global, n_basis_total):
+        """One unit Galerkin source vector per configured gap feed, in feed
+        order. k-independent (it only integrates basis shapes against the
+        delta gap), which is why every swept path hoists it out of the loop.
+        """
+        v_per_feed = []
+        for w_i, arc_i, _v in self.feeds:
+            arc_at_knot = geom["per_wire"][w_i]["arc_at_knot"]
+            s_f_i = arc_i if arc_i is not None else arc_at_knot[-1] / 2.0
+            v_per_feed.append(
+                self._build_source_vector(
+                    geom,
+                    wire_knots,
+                    wire_basis_global,
+                    n_basis_total,
+                    wi=w_i,
+                    s_f=s_f_i,
+                )
+            )
+        return v_per_feed
+
+    def _port_columns(self, geom, wire_knots, wire_basis_global, n_basis_total, kcl_A):
+        """`(B, kcl_con)`: the unit-drive/readout column per port and the
+        constraint rows left over, shared by every entry point that solves
+        all ports at once (#252).
+
+        Column j of `B` is port j's Galerkin source vector AND its readout
+        vector — the reciprocity that makes `Y = Bᵀ X` symmetric. Ports run
+        [gap feeds…, junction ports…, node gaps…]: a ported junction's KCL row
+        (#172) leaves the constraint set and becomes a column here, which is
+        why the returned `kcl_con` is shorter than the `kcl_A` handed in; a
+        node gap's column (#305) is the σ-signed indicator of its wire-end's
+        directional basis, and its junction's KCL row stays a constraint. All
+        of it is k-independent, so the swept paths build it once for the sweep.
+        """
+        B = np.zeros((n_basis_total, len(self.feeds)), dtype=np.complex128)
+        for j, v_j in enumerate(
+            self._gap_source_vectors(geom, wire_knots, wire_basis_global, n_basis_total)
+        ):
+            B[:, j] = v_j
+        kcl_con, port_A, _port_V = self._split_kcl_ports(kcl_A)
+        gap_cols, _gap_V = self._node_gap_columns(wire_basis_global, n_basis_total)
+        return (
+            np.hstack(
+                [B, port_A.T.astype(np.complex128), gap_cols.astype(np.complex128)]
+            ),
+            kcl_con,
+        )
+
+    def _feed_drive_and_readout(
+        self, geom, wire_knots, wire_basis_global, n_basis_total, kcl_A
+    ):
+        """The single-excitation drive/readout algebra shared by
+        `compute_impedance` and its batched sweep (#252).
+
+        Returns `(v, port_vectors, vpf_T, all_voltages, kcl_con)`: the RHS for
+        the configured voltages, the per-port readout vectors as a list and as
+        the `(n_basis, n_ports)` matrix the batched sweep contracts against,
+        the port voltages in [gap feeds…, junction ports…, node gaps…] order,
+        and the constraint rows left after the ported junctions become drives.
+        """
+        n_feeds = len(self.feeds)
+        v_per_feed = self._gap_source_vectors(
+            geom, wire_knots, wire_basis_global, n_basis_total
+        )
+        voltages = np.array([v for _, _, v in self.feeds], dtype=np.complex128)
+        v = np.zeros(n_basis_total, dtype=np.complex128)
+        for V_i, v_i in zip(voltages, v_per_feed):
+            v += V_i * v_i
+
+        # Junction ports (issue #172): drive v += V_p·A_p per port and
+        # append the A_p rows to the readout set; the port-junction KCL
+        # rows leave the constraint matrix.
+        kcl_con, port_A, port_V = self._split_kcl_ports(kcl_A)
+        v += port_V @ port_A
+        # Node gaps (issue #305): same drive/readout algebra on the σ-signed
+        # wire-end indicator columns; their junctions' KCL rows stay put.
+        gap_cols, gap_V = self._node_gap_columns(wire_basis_global, n_basis_total)
+        v += gap_cols @ gap_V
+        port_vectors = (
+            v_per_feed
+            + [port_A[i] for i in range(port_A.shape[0])]
+            + [gap_cols[:, p] for p in range(gap_cols.shape[1])]
+        )
+        all_voltages = np.concatenate([voltages, port_V, gap_V])
+        # Reshape keeps this 2-D at n_feeds == 0: np.array([]) is (0,) and
+        # would break the hstack against port_A's rows (issue #175).
+        vpf = np.asarray(v_per_feed, dtype=np.complex128).reshape(
+            n_feeds, n_basis_total
+        )
+        vpf_T = np.hstack(
+            [
+                vpf.T,
+                port_A.T.astype(np.complex128),
+                gap_cols.astype(np.complex128),
+            ]
+        )
+        return v, port_vectors, vpf_T, all_voltages, kcl_con
+
+    # ------------------------------------------------------------------
+    # The sector (block-circulant) route — momwire#1029, opt-in
+    #
+    # The algebra lives in `_rotational_symmetry` beside the check that
+    # decides whether a deck is this shape (phase 2 unit D). None of it is
+    # basis-shaped, and phase 3's general drive grows exactly this code. The
+    # methods stay so every caller — the phase-1 suites and the scratch
+    # harnesses that read `_rotational_rows` and `_rotational_solve` off the
+    # solver — keeps its call.
+    # ------------------------------------------------------------------
+
+    def _rotational_dof_groups(self, wire_basis_global, n_basis_total):
+        return _rotational_symmetry.dof_groups(self, wire_basis_global, n_basis_total)
+
+    def _rotational_rows(self, geom):
+        return _rotational_symmetry.observer_rows(self, geom)
+
+    def _rotational_K0(self, Z, sectors, axial):
+        return _rotational_symmetry.harmonic_zero_block(self, Z, sectors, axial)
+
+    def _rotational_solve(self, Z, v, kcl_A, sectors, axial):
+        return _rotational_symmetry.solve(self, Z, v, kcl_A, sectors, axial)
+
+    def _compute_impedance_rotational(self):
+        return _rotational_symmetry.compute_impedance(self)
+
+    def _compute_impedance_swept_rotational(self, k_array, z_out):
+        return _rotational_symmetry.compute_impedance_swept(self, k_array, z_out)
+
+    def _compute_port_solution_rotational(self):
+        Y, X, pieces = _rotational_symmetry.compute_port_solution(self)
+        geom, supp_seg, polys, wire_knots, wire_basis_global, n_basis_total = pieces
+        return PortSolution(
+            y=Y,
+            coeffs=X,
+            port_currents=Y,  # the same object: the readout IS the Y matrix
+            basis=_SplineBasis(
+                geom=geom,
+                supp_seg=supp_seg,
+                polys=polys,
+                wire_knots=wire_knots,
+                wire_basis_global=wire_basis_global,
+                n_poly=n_basis_total,
+            ),
+        )
+
+    def _per_feed_z(self, coeffs_full, port_vectors, all_voltages):
+        """Drive-point impedance per port (gap feeds, then junction ports,
+        then node gaps). `coeffs_full` may include the enrichment block; every
+        port vector is zero on that block by convention (gap feeds are not on
+        enriched segments; singular enrichment bases vanish AT junctions), so
+        the inner product naturally restricts to the polynomial block."""
+        currents = np.array(
+            [u_i @ coeffs_full[: u_i.shape[0]] for u_i in port_vectors],
+            dtype=np.complex128,
+        )
+        z_per = port_impedances(all_voltages, currents)
+        return z_per[0] if len(port_vectors) == 1 else z_per
+
+    def _configured_port_voltages(self):
+        """Every port's configured drive, [gap feeds, junction ports, node
+        gaps] — the `all_voltages` of `_feed_drive_and_readout`, read without
+        a geometry so `refuse_undriven` can run ahead of the fill."""
+        return (
+            [v for _, _, v in self.feeds]
+            + [v for _j, v in self.junction_ports]
+            + [v for _w, _e, v in self.node_gaps]
+        )
+
+    def compute_impedance(self, same_edge_prep=None):
+        refuse_undriven(self._configured_port_voltages())  # momwire#1164
+        if self._rotational_map is not None:
+            return self._compute_impedance_rotational()
+        geom = self._build_geometry()
+        supp_seg, polys, kcl_A, wire_knots, wire_basis_global = (
+            self._build_basis_polynomials(geom)
+        )
+        n_basis_total = supp_seg.shape[0]
+        Z = self._compute_Z_operator(
+            geom, supp_seg, polys, same_edge_prep=same_edge_prep
+        )
+
+        # Per-feed unit Galerkin source vectors. For multi-feed, the
+        # combined RHS is Σ_i V_i · v_i, and each per-feed driving-point
+        # current is I_i = v_i^T coeffs by reciprocity of the Galerkin
+        # inner product (V=1 source at port i gives v_i; the current
+        # sampled at port j by another source is then v_j^T · solve).
+        v, port_vectors, _vpf_T, all_voltages, kcl_con = self._feed_drive_and_readout(
+            geom, wire_knots, wire_basis_global, n_basis_total, kcl_A
+        )
+
+        def _per_feed_z(coeffs_full):
+            # `_per_feed_z` is a method (momwire#1029) so the sector route
+            # reads the ports exactly as this one does; the closure keeps the
+            # three call sites below unchanged.
+            return self._per_feed_z(coeffs_full, port_vectors, all_voltages)
+
+        # Clear any leftover per-junction selection from a prior solve
+        # (variant="auto" repopulates this below; everything else leaves
+        # it as None so the standard "all qualifying junctions" path
+        # runs in _enrichment_specs).
+        self._auto_active_junctions = None
+
+        active_junctions = None
+        if self.use_singular_enrichment and self.enrichment_variant == "auto":
+            # Pass 1: solve raw (no enrichment) to read tap_ratio at each
+            # K≥enrichment_min_k junction. Below the threshold ⇒ dominant-
+            # pair geometry, enrichment would absorb spurious polynomial-
+            # discretization error — skip. Above ⇒ genuinely balanced
+            # K-way split, enrichment captures real cusp physics — keep.
+            self._checkpoint()  # before the enrichment pass-1 probe solve
+            coeffs_p1 = self._solve_with_kcl(Z, v, kcl_con)
+            ratios = self._junction_tap_ratios(coeffs_p1)
+            active_junctions = [
+                j
+                for j, r in enumerate(ratios)
+                if r is not None and r > self.auto_tap_ratio_threshold
+            ]
+            self._auto_active_junctions = active_junctions
+            if not active_junctions:
+                # No junction qualifies → pass-1 result is the final answer.
+                return _per_feed_z(coeffs_p1), coeffs_p1
+
+        self._checkpoint()  # between passes: before pass-2 enrichment / final solve
+        if self.use_singular_enrichment:
+            enrich = self._enrichment_Z_assemble(
+                geom, supp_seg, polys, active_junction_indices=active_junctions
+            )
+            if enrich is not None:
+                n_p = n_basis_total
+                n_e = enrich["n_enrich"]
+                n_total = n_p + n_e
+                Z_aug = np.zeros((n_total, n_total), dtype=np.complex128)
+                Z_aug[:n_p, :n_p] = Z
+                # Z is fully copied into Z_aug's polynomial block and never
+                # read again on this path (the branch returns below) — drop
+                # it here rather than at function exit, halving the peak
+                # (issue #334).
+                del Z
+                Z_aug[:n_p, n_p:] = enrich["Z_pe"]
+                Z_aug[n_p:, :n_p] = enrich["Z_ep"]
+                Z_aug[n_p:, n_p:] = enrich["Z_ee"]
+                if self.enrichment_variant == "tikhonov":
+                    # λ·s·I on the enrichment-block diagonal. s is the
+                    # mean diagonal magnitude of Z_ee so λ is a
+                    # dimensionless knob independent of problem scale.
+                    # If Z_ee is empty (n_e=0) this block is skipped above.
+                    s = float(np.mean(np.abs(np.diag(enrich["Z_ee"]))))
+                    Z_aug[n_p:, n_p:] += self.tikhonov_lambda * s * np.eye(n_e)
+                v_aug = np.zeros(n_total, dtype=np.complex128)
+                v_aug[:n_p] = v
+                # Enrichment KCL: singular bases vanish at junction → 0 outflow
+                kcl_aug = np.zeros((kcl_con.shape[0], n_total), dtype=np.float64)
+                kcl_aug[:, :n_p] = kcl_con
+                # Z_aug is dead after the solve (and the unused `self.z`
+                # stash was dropped — it retained the full n_basis² matrix
+                # for nothing), so let LAPACK factor in place.
+                coeffs = self._solve_with_kcl(Z_aug, v_aug, kcl_aug, overwrite=True)
+                return _per_feed_z(coeffs), coeffs
+
+        coeffs = self._solve_with_kcl(Z, v, kcl_con, overwrite=True)
+        return _per_feed_z(coeffs), coeffs
+
+    def compute_y_matrix(self) -> np.ndarray:
+        """Short-circuit admittance matrix [Y_sc] at the configured feeds.
+
+        Y_sc[i, j] is the current flowing out of port i when port j is
+        driven with V_j = 1 and every other port is held at V_k = 0; the
+        caller can invert it to recover the open-circuit Z matrix used in
+        network analysis. BSpline's per-feed driving-point current uses the Galerkin
+        reciprocity I_i = v_i^T · coeffs (inner product of feed i's
+        source vector with the solution). Stacking the N source
+        vectors as RHS columns and back-substituting once gives
+        Y[i, j] = v_i^T · solve(Z, v_j) in one shot.
+
+        Junctions are handled through the matrix-RHS Schur solve in
+        `_solve_with_kcl_ports` — KCL is enforced once across all n_p
+        source columns, so the augmentation cost stays O(n_c²) per Y
+        rather than scaling with the port count.
+
+        Singular enrichment (issue #165) composes exactly as in
+        `compute_impedance`: the augmented system [[Z, Z_pe], [Z_ep, Z_ee]]
+        with zero RHS and zero KCL rows on the enrichment block, and the
+        readout restricted to the polynomial block (the source vectors are
+        zero on the enrichment dofs), so for a single feed 1/Y[0,0] equals
+        `compute_impedance`'s Z identically. The "auto" variant needs ONE
+        consistent operator across all port columns for Y to be symmetric
+        and self-consistent, so its pass-1 activates the UNION of junctions
+        whose tap_ratio exceeds the threshold under ANY port drive (a
+        single-feed solver therefore selects the same set as
+        `compute_impedance`).
+
+        This is the `y` field of `compute_port_solution()` and nothing else —
+        see there for the per-port solution columns this throws away (#232).
+        """
+        return self.compute_port_solution().y
+
+    def compute_port_solution(self, same_edge_prep=None) -> PortSolution:
+        """Solve every port from ONE fill and ONE factorisation.
+
+        Returns a `PortSolution` whose `y` is identical to
+        `compute_y_matrix()` and whose `coeffs` column j is the B-spline
+        amplitude vector for a 1 V drive at port j with every other port
+        shorted; any other excitation is `coeffs @ V` with no second fill.
+        Ports run [gap feeds…, junction ports…]. Lagrange multipliers are
+        already eliminated — the columns satisfy the junction KCL constraints,
+        they do not carry the multipliers.
+
+        The port algebra stays inside: the Galerkin source vector per gap
+        feed, the #172 split that turns a ported junction's KCL row into a
+        drive/readout column, and the Schur solve that enforces the remaining
+        constraints once across all port columns. Ground models, wire loading
+        and singular enrichment ride exactly as for `compute_y_matrix`.
+
+        With singular enrichment active, `coeffs` carries the enrichment
+        amplitudes after the polynomial block, so it is longer than the
+        polynomial basis; `basis` records where the split is. Readout is
+        unaffected — port vectors vanish on the enrichment dofs.
+
+        `basis` is an opaque handle, stable across the ports of this one
+        solution and NOT across solves.
+
+        `same_edge_prep` is the sweep's hoisted same-edge reg-moment block for
+        this k (see `_same_edge_prep`); it changes nothing about the answer,
+        it just spares the per-k rebuild when `_port_solutions_swept` drives
+        this method frequency by frequency.
+        """
+        if self._rotational_map is not None:
+            return self._compute_port_solution_rotational()
+        return self._port_solution_dense(same_edge_prep)
+
+    def _site_solve_scope(self, n_basis, n_extra):
+        """The BLAS scope the site columns' solve and readout run in
+        (momwire#1923): one thread at or under `_SITE_SOLVE_ONE_THREAD_N`
+        unknowns, else the caller's pool unchanged. No extra columns, no
+        scope, so every other caller is untouched.
+
+        Why: with the sites the solve carries n_basis-ish right-hand sides
+        and the readout is a real zgemm, both big enough for OpenBLAS to
+        thread. Its threads then spin past the call, over the OpenMP fill of
+        the next k. Measured on Haswell (4c/8t, quiet), a 5-k Sommerfeld
+        sweep at 347 unknowns with 116 sites: 655 ms threaded against 446 ms
+        with these two stages on one thread, and the Y sweep 410 ms either
+        way. Capping either stage alone bought nothing; capping the fill
+        bought nothing. At 1037 unknowns the cap cost time (3.99 s against
+        4.45 s), so it stops at the threshold. The limit never raises a
+        count a caller already pinned lower.
+
+        Bits: the thread count moves getrf's bits (and getrs/gemm's at this
+        many columns), which is why the scope is the SAME for `port_sites`
+        and every route of `port_sites_swept`: the per-k loop routes stay
+        bit for bit with the single-frequency call.
+        """
+        if n_extra == 0 or n_basis > _SITE_SOLVE_ONE_THREAD_N:
+            return contextlib.nullcontext()
+        from ._near_interface import _blas_controller
+
+        return _blas_controller().limit(limits=1, user_api="blas")
+
+    def _port_solution_dense(self, same_edge_prep=None, extra_columns=None):
+        """`compute_port_solution`'s dense route, with optional extra columns.
+
+        `extra_columns(geom, wire_knots, wire_basis_global, n_basis_total)`
+        returns an `(n_basis_total, n_extra)` block appended to the port
+        columns before the solve, so each extra column is driven, constrained
+        (KCL Schur / null-space reduction), enriched-padded and read out by
+        exactly the algebra a gap feed's column gets: `y` then spans
+        [ports…, extra…]. None appends nothing and evaluates the same
+        expressions as before the hook existed (`port_sites`, momwire#1915).
+        """
+        geom = self._build_geometry()
+        supp_seg, polys, kcl_A, wire_knots, wire_basis_global = (
+            self._build_basis_polynomials(geom)
+        )
+        n_basis_total = supp_seg.shape[0]
+
+        Z = self._compute_Z_operator(
+            geom, supp_seg, polys, same_edge_prep=same_edge_prep
+        )
+
+        # Junction ports (issue #172): their KCL rows become port-vector
+        # columns after the gap feeds; the constraint set shrinks to match.
+        # Reciprocity holds for them exactly as for gap feeds (drive vector
+        # == readout vector), so the mixed Y stays symmetric.
+        B, kcl_con = self._port_columns(
+            geom, wire_knots, wire_basis_global, n_basis_total, kcl_A
+        )
+        n_extra = 0
+        if extra_columns is not None:
+            E = extra_columns(geom, wire_knots, wire_basis_global, n_basis_total)
+            n_extra = E.shape[1]
+            B = np.hstack([B, E])
+            del E
+        n_ports = B.shape[1]
+        site_scope = self._site_solve_scope(n_basis_total, n_extra)
+
+        def _solution(Y, X):
+            """Wrap a (Y, columns) pair without touching either — the Y
+            expressions below are the ones `compute_y_matrix` has always
+            evaluated, spelled identically so no reduction order moves."""
+            return PortSolution(
+                y=Y,
+                coeffs=X,
+                port_currents=Y,  # the same object: the readout IS the Y matrix
+                basis=_SplineBasis(
+                    geom=geom,
+                    supp_seg=supp_seg,
+                    polys=polys,
+                    wire_knots=wire_knots,
+                    wire_basis_global=wire_basis_global,
+                    n_poly=n_basis_total,
+                ),
+            )
+
+        # Clear any leftover per-junction selection from a prior solve
+        # (mirrors compute_impedance; "auto" repopulates it below).
+        self._auto_active_junctions = None
+
+        active_junctions = None
+        if self.use_singular_enrichment and self.enrichment_variant == "auto":
+            # Pass 1: all port columns against the un-enriched operator.
+            # A junction activates when its tap_ratio exceeds the threshold
+            # under ANY port drive — the union keeps one operator for every
+            # column, so Y stays symmetric and internally consistent.
+            X1 = self._solve_with_kcl_ports(Z, B, kcl_con)
+            active = set()
+            for j in range(n_ports):
+                ratios = self._junction_tap_ratios(X1[:, j])
+                active |= {
+                    i
+                    for i, r in enumerate(ratios)
+                    if r is not None and r > self.auto_tap_ratio_threshold
+                }
+            active_junctions = sorted(active)
+            self._auto_active_junctions = active_junctions
+            if not active_junctions:
+                # pass-1 result is final
+                return _solution(_lapack.matmul(B.T, X1), X1)
+
+        if self.use_singular_enrichment:
+            enrich = self._enrichment_Z_assemble(
+                geom, supp_seg, polys, active_junction_indices=active_junctions
+            )
+            if enrich is not None:
+                n_p = n_basis_total
+                n_e = enrich["n_enrich"]
+                n_total = n_p + n_e
+                Z_aug = np.zeros((n_total, n_total), dtype=np.complex128)
+                Z_aug[:n_p, :n_p] = Z
+                # Z is fully copied into Z_aug's polynomial block and never
+                # read again on this path (the branch returns below) — drop
+                # it here rather than at function exit, halving the peak
+                # (issue #334).
+                del Z
+                Z_aug[:n_p, n_p:] = enrich["Z_pe"]
+                Z_aug[n_p:, :n_p] = enrich["Z_ep"]
+                Z_aug[n_p:, n_p:] = enrich["Z_ee"]
+                if self.enrichment_variant == "tikhonov":
+                    s = float(np.mean(np.abs(np.diag(enrich["Z_ee"]))))
+                    Z_aug[n_p:, n_p:] += self.tikhonov_lambda * s * np.eye(n_e)
+                B_aug = np.zeros((n_total, n_ports), dtype=np.complex128)
+                B_aug[:n_p, :] = B
+                # Enrichment KCL: singular bases vanish at the junction →
+                # zero outflow columns, same padding as compute_impedance.
+                kcl_aug = np.zeros((kcl_con.shape[0], n_total), dtype=np.float64)
+                kcl_aug[:, :n_p] = kcl_con
+                with site_scope:
+                    X = self._solve_with_kcl_ports(
+                        Z_aug, B_aug, kcl_aug, overwrite=True
+                    )
+                    # Readout restricted to the polynomial block (source
+                    # vectors are zero on the enrichment dofs); the returned
+                    # columns keep the enrichment block, which is part of the
+                    # solved current — `basis.n_poly` marks the split.
+                    Y = _lapack.matmul(B.T, X[:n_p, :])
+                return _solution(Y, X)
+
+        with site_scope:
+            X = self._solve_with_kcl_ports(Z, B, kcl_con, overwrite=True)
+            # Y[i, j] = v_i^T · solve(Z, v_j)
+            Y = _lapack.matmul(B.T, X)
+        return _solution(Y, X)
+
+    def port_sites(self, wire, span=None):
+        """Movable point ports on one wire, from ONE fill and factorisation
+        (momwire#1915).
+
+        Solves, beside the configured ports, one shorted port per B-spline
+        basis on `wire` whose support meets `span` (a closed arclength window
+        in metres from the wire's start, a feed's own convention; None is
+        the whole wire). The returned :class:`~momwire.PortSites` then gives
+        Y over [the configured ports…, a point port at each x…] and ∂Y/∂x at
+        any x in the window by combining d+1 cached columns per position;
+        the derivation, and the smoothness in x (C0 with a derivative jump
+        at a knot for d = 1, C1 for d = 2), are in `momwire._port_sites`.
+
+        The site columns go through `_port_solution_dense` beside the port
+        columns, so the junction KCL constraints, the ported-junction split,
+        node gaps, singular enrichment and the ground ride exactly as for a
+        gap feed: `y([x])` is `compute_y_matrix()` of this solver with a
+        point feed added at x, to rounding.
+
+        Refused, by name: a non-point feed model or a smoothed feed (the
+        site ports are delta gaps, so the configured feeds would differ in
+        kind from the moving one), the sector route, `enrichment_variant=
+        "auto"` (its pass-1 picks the enriched junctions from the port
+        drives, so the operator would depend on x), and a deck whose
+        duplicated wire was dropped (the caller's wire numbering would not
+        be the solve's). `port_sites_swept` is the multi-frequency twin.
+        """
+        plan = self._port_sites_plan(wire, span, "port_sites")
+        sol = self._port_solution_dense(extra_columns=plan["extra_columns"])
+        return self._port_sites_from(plan, sol)
+
+    def port_sites_swept(self, wire, k_array, span=None):
+        """`port_sites` at every wavenumber of `k_array`, from the swept fill
+        (momwire#1923); returns one :class:`~momwire.PortSites` per k, in
+        `k_array` order.
+
+        `[i]` is what `port_sites(wire, span)` gives at `k_array[i]`. The site
+        columns E ride beside the port columns B through
+        `_port_solutions_swept`, so the sweep shares what it shares for
+        `compute_y_matrix_swept`: the geometry, the basis polynomials and the
+        k-independent columns are built once, and the fill takes whichever of
+        the three swept routes the solver takes there. On the batched fast
+        path one stacked solve per k-chunk serves [B, E] together, and the
+        chunk sizing counts E's columns against `swept_mem_mb`.
+
+        Agreement with the per-k `port_sites`: bit for bit on the per-k loop
+        routes (singular enrichment, and the finite-ground / exact-kernel /
+        served-plan fallback, whose hoisted same-edge moments are the per-k
+        fill's); to
+        rounding on the batched route, whose assembly and stacked LU
+        reassociate against the per-k fill and `lu_factor`
+        (`tests/test_port_sites_swept_1923.py` holds both).
+
+        The refusals are `port_sites`'s, by the same names. A wire or span
+        that would be refused is refused before any fill, even for an empty
+        sweep.
+        """
+        _refuse_complex_k(k_array, "BSplineSolver.port_sites_swept")
+        k_array = np.asarray(k_array, dtype=float)
+        plan = self._port_sites_plan(wire, span, "port_sites_swept")
+        return [
+            self._port_sites_from(plan, sol)
+            for sol in self._port_solutions_swept(
+                k_array, extra_columns=plan["extra_columns"]
+            )
+        ]
+
+    def _port_sites_plan(self, wire, span, who):
+        """The k-independent half of `port_sites`: the refusals (each naming
+        `who`), the wire's knots, the window, and which kept bases on the
+        wire become sites. Returns a dict `_port_sites_from` reads, carrying
+        the `extra_columns` hook that builds E for `_port_solution_dense` /
+        `_port_solutions_swept`."""
+        if self.feed_model != "point" or self.feed_smoothing_factor is not None:
+            raise ValueError(
+                f"{who}: supported only with feed_model='point' and no "
+                f"feed_smoothing_factor (got feed_model={self.feed_model!r}, "
+                f"feed_smoothing_factor={self.feed_smoothing_factor!r})"
+            )
+        if self._rotational_map is not None:
+            raise ValueError(
+                f"{who}: not supported on the rotational_symmetry sector "
+                "route; build the solver with rotational_symmetry=False"
+            )
+        if self.use_singular_enrichment and self.enrichment_variant == "auto":
+            raise ValueError(
+                f"{who}: enrichment_variant='auto' chooses its enriched "
+                "junctions from the port drives, so the operator would move "
+                "with the port position; use 'raw' or 'tikhonov'"
+            )
+        if self._wire_dedup is not None:
+            raise ValueError(
+                f"{who}: this deck lists a wire twice and the copy was "
+                "dropped before the solve (momwire#1042); remove the duplicate"
+            )
+        wire = int(wire)
+        n_w = len(self.wires_polylines)
+        if not 0 <= wire < n_w:
+            raise ValueError(f"{who}: wire {wire} out of range [0, {n_w})")
+        d = self.degree
+        geom = self._build_geometry()
+        _supp, _polys, _kcl, wire_knots, wire_basis_global = (
+            self._build_basis_polynomials(geom)
+        )
+        knots = np.asarray(wire_knots[wire], dtype=np.float64)
+        s_lo, s_hi = float(knots[d]), float(knots[-d - 1])
+        slack = 1e-9 * max(s_hi - s_lo, 1.0)
+
+        def clip(s):
+            # `_build_source_vector`'s end clip, so a position means here
+            # what the same arclength means as a feed.
+            if s_lo - slack <= s < s_lo:
+                return s_lo
+            if s_hi < s <= s_hi + slack:
+                return s_hi
+            return s
+
+        if span is None:
+            lo, hi = s_lo, s_hi
+        else:
+            lo, hi = clip(float(span[0])), clip(float(span[1]))
+            if not (s_lo <= lo <= hi <= s_hi):
+                raise ValueError(
+                    f"{who}: span {tuple(span)!r} is not an ordered window "
+                    f"inside wire {wire}'s arclength [{s_lo!r}, {s_hi!r}]"
+                )
+        kept, local_to_global = wire_basis_global[wire]
+        n_local = knots.shape[0] - d - 1
+        site_of_local = np.full(n_local, -1, dtype=np.int64)
+        site_global = []
+        for kept_idx, (j, _kind, _junc_idx, _end_pos) in enumerate(kept):
+            if knots[j] <= hi and knots[j + d + 1] >= lo:
+                site_of_local[j] = len(site_global)
+                site_global.append(int(local_to_global[kept_idx]))
+        if len(set(site_global)) != len(site_global):
+            raise AssertionError(f"wire {wire}: two kept bases share a dof")
+
+        def extra_columns(_geom, _wk, _wbg, n_basis_total):
+            E = np.zeros((n_basis_total, len(site_global)), dtype=np.complex128)
+            E[site_global, np.arange(len(site_global))] = 1.0
+            return E
+
+        return dict(
+            wire=wire,
+            span=(lo, hi),
+            knots=knots,
+            site_of_local=site_of_local,
+            n_sites=len(site_global),
+            clip=clip,
+            extra_columns=extra_columns,
+        )
+
+    def _port_sites_from(self, plan, sol):
+        """Wrap one solve of [B, E] (a `PortSolution`) as `PortSites`."""
+        from ._port_sites import PortSites
+
+        return PortSites(
+            wire=plan["wire"],
+            span=plan["span"],
+            degree=self.degree,
+            knots=plan["knots"],
+            site_of_local=plan["site_of_local"],
+            n_ports=sol.y.shape[0] - plan["n_sites"],
+            m=sol.y,
+            columns=sol.coeffs,
+            n_poly=sol.basis.n_poly,
+            clip=plan["clip"],
+            basis_rows=_bspline_basis_rows,
+        )
+
+    def _port_solutions_swept(self, k_array, extra_columns=None):
+        """Per-k `PortSolution` generator behind `compute_y_matrix_swept`,
+        `compute_port_solution_swept` (#252) and `port_sites_swept` (#1923).
+
+        `extra_columns` is `_port_solution_dense`'s hook: its block is
+        appended to the port columns once for the whole sweep, and every
+        route solves it beside them. None appends nothing, and each route
+        then runs exactly the calls it ran before the hook existed.
+
+        Three routes, all producing the same per-k answer:
+
+        * singular enrichment (issue #165) — a bare per-k
+          `compute_port_solution` loop; the batched C++ assembly has no
+          augmented-system variant, and the same-edge hoist is skipped so the
+          enrichment sweep stays byte-for-byte what it was;
+        * the fully batched fast path (batched assembly + one k- and
+          port-batched KCL Schur solve per chunk) when
+          `_swept_batched_available` and no `pair_reuse` plan is served
+          (`_swept_reads_plan`, momwire#2172). This is the one route whose per-k core
+          is NOT `compute_port_solution` — thinning it would dissolve the
+          chunking that bounds `swept_mem_mb` — so it re-spells only the
+          readout, `Y = Bᵀ X`, off the shared `_port_columns`;
+        * otherwise a per-k `compute_port_solution` with the sweep's hoisted
+          same-edge reg moments. Routing through `compute_port_solution` puts
+          the fallback on `_compute_Z_operator`, so it honours the
+          `swept_mem_mb` dispatch instead of always materialising the full
+          (d+1, d+1, N, N) moment tensor (issue #238).
+        """
+        _refuse_complex_k(k_array, "BSplineSolver._port_solutions_swept")
+        k_array = np.asarray(k_array, dtype=float)
+        if self.use_singular_enrichment or self._rotational_map is not None:
+            # The sector route (momwire#1897) loops for the reason
+            # `compute_impedance_swept` does there: its fill is the
+            # row-compact one, which has no k axis to batch over.
+            with self._k_restored():
+                for kk in k_array:
+                    self._checkpoint()  # top of each frequency iteration
+                    self._set_k(kk)
+                    if extra_columns is None:
+                        yield self.compute_port_solution()
+                    else:
+                        # `port_sites` refuses the sector route, so this is
+                        # the dense route `compute_port_solution` would take.
+                        yield self._port_solution_dense(extra_columns=extra_columns)
+            return
+
+        geom = self._build_geometry()
+        supp_seg, polys, kcl_A, wire_knots, wire_basis_global = (
+            self._build_basis_polynomials(geom)
+        )
+        n_basis_total = supp_seg.shape[0]
+
+        # Port columns (gap feeds then junction ports, issue #172) are
+        # k-independent, so the whole sweep shares one build.
+        B, kcl_con = self._port_columns(
+            geom, wire_knots, wire_basis_global, n_basis_total, kcl_A
+        )
+        n_extra = 0
+        if extra_columns is not None:
+            E = extra_columns(geom, wire_knots, wire_basis_global, n_basis_total)
+            n_extra = E.shape[1]
+            B = np.hstack([B, E])
+            del E
+
+        def _solution(Y, X):
+            return PortSolution(
+                y=Y,
+                coeffs=X,
+                port_currents=Y,  # the same object: the readout IS the Y matrix
+                basis=_SplineBasis(
+                    geom=geom,
+                    supp_seg=supp_seg,
+                    polys=polys,
+                    wire_knots=wire_knots,
+                    wire_basis_global=wire_basis_global,
+                    n_poly=n_basis_total,
+                ),
+            )
+
+        if self._swept_batched_available() and not self._swept_reads_plan(geom):
+            for _c0, ks, Z in self._swept_batched_z_chunks(
+                k_array, geom, supp_seg, polys, n_extra_columns=n_extra
+            ):
+                with self._site_solve_scope(n_basis_total, n_extra):
+                    X = self._solve_with_kcl_swept_ports(Z, B, kcl_con)
+                    del Z  # the chunk's Z stack is dead; drop it before the yields
+                    # Spelled exactly as compute_port_solution's readout, so
+                    # the batched path differs from a per-k solve only by the
+                    # batched LAPACK/assembly reassociation, never by algebra.
+                    # Read out inside the scope; the yields stay outside it.
+                    Ys = [B.T @ X[i] for i in range(ks.shape[0])]
+                for i in range(ks.shape[0]):
+                    yield _solution(Ys[i], X[i])
+            return
+
+        # k-independent static + reg-geometry, shared across the sweep; the
+        # reg-kernel moment blocks are batched over chunks of k sized to the
+        # `swept_mem_mb` budget (one einsum per (edge, chunk) instead of one
+        # per (edge, k); whole-sweep hoisting was issue #263).
+        #
+        # A sweep that reads the plan hoists nothing: its classes hold the
+        # same-edge pairs (momwire#2063 step 3), so no fill reads the prep.
+        if self._swept_reads_plan(geom):
+            _refuse_complex_k(k_array, "the swept B-spline same-edge fill")
+            with self._k_restored():
+                for kk in np.asarray(k_array, dtype=float):
+                    self._checkpoint()  # top of each frequency iteration
+                    self._set_k(kk)
+                    if extra_columns is None:
+                        yield self.compute_port_solution()
+                    else:
+                        yield self._port_solution_dense(extra_columns=extra_columns)
+            return
+        prep = self._same_edge_prep(geom)
+        with self._k_restored():
+            for _ki, kk, same_edge_k in self._same_edge_prep_swept_chunks(
+                prep, k_array
+            ):
+                self._checkpoint()  # top of each frequency iteration
+                self._set_k(kk)
+                if extra_columns is None:
+                    yield self.compute_port_solution(same_edge_prep=same_edge_k)
+                else:
+                    yield self._port_solution_dense(
+                        same_edge_prep=same_edge_k, extra_columns=extra_columns
+                    )
+
+    def _swept_batched_available(self):
+        """True when the fully batched swept fast path can serve this
+        instance: batched C++ kernels present, degree instantiated, no
+        singular enrichment (two-pass / augmented system), and no finite
+        ground (per-k ε̃(ω) weight tables / sommerfeld grids stay on the
+        per-k loop). Junctions ARE supported — bspline's assembly is
+        already general (directional bases live in supp_seg / polys), so
+        only the KCL constraint needs batching, via the Schur solves
+        `_solve_with_kcl_batch` / `_solve_with_kcl_swept_ports`.
+        """
+        return (
+            not self.use_singular_enrichment
+            and not self.exact_kernel  # per-k loop: the correction is per k
+            and self.ground_eps is None
+            and _HAVE_BSPLINE_SWEPT_ASSEMBLE_ACCEL
+            and _HAVE_BSPLINE_OFFEDGE_SWEPT_ACCEL
+            and self.degree <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and self._accel_serves_n_qp_pair
+        )
+
+    def _swept_reads_plan(self, geom):
+        """Whether this sweep leaves the batched route to read the
+        `pair_reuse` plan frequency by frequency (momwire#2172).
+
+        The batched route evaluates every pair's moments over the k chunk and
+        reads no plan; the per-k route evaluates each class once per k and
+        copies the rest, and the plan, being k-independent (its key is
+        geometry, its ladder `_fill_ladder`'s), is built once for the sweep.
+        So with a served plan the per-k route is taken, on the solver whose
+        per-k fill is this class's own: a subclass's `compute_impedance` /
+        `compute_port_solution` (the H-matrix and array-block operators) reads
+        no plan, and the batched route stays theirs. With no plan the census
+        has already named why in `pair_reuse_declined`.
+        """
+        if not self._reuse_on:
+            return False
+        cls = type(self)
+        if not (
+            cls.compute_impedance is BSplineSolver.compute_impedance
+            and cls.compute_port_solution is BSplineSolver.compute_port_solution
+        ):
+            return False
+        return self._reuse_plan(geom) is not None
+
+    @_offset_reuse_fill
+    def _swept_batched_z_chunks(self, k_array, *args, **kwargs):
+        """`_swept_batched_z_chunks_filled`, each chunk on the fill report's
+        clock: one fill that covers the chunk's frequencies."""
+        chunks = self._swept_batched_z_chunks_filled(k_array, *args, **kwargs)
+        try:
+            while True:
+                with _fill_report.fill_clock(self) as clock:
+                    try:
+                        item = next(chunks)
+                    except StopIteration:
+                        clock.cancelled = True
+                        return
+                    clock.frequencies = int(item[1].shape[0])
+                yield item
+        finally:
+            chunks.close()
+
+    def _swept_batched_z_chunks_filled(
+        self, k_array, geom, supp_seg, polys, n_extra_columns=0
+    ):
+        """Yield (c0, ks, Z) stacks of the batched swept assembly, where
+        Z is (len(ks), n_basis, n_basis) for k_array[c0 : c0 + len(ks)].
+
+        The k axis is chunked so the transient moment tensors stay under
+        the `swept_mem_mb` constructor budget (default 256 MB). The
+        budget counts the per-k transients that actually scale with the
+        sweep — the all-pairs J tensor (chunk, nm, nm, N, N) AND the
+        same-edge reg moment slices (chunk, nm, nm, N_e, N_e per edge),
+        both computed per chunk — so peak transient memory ≈ the budget,
+        and a memory-constrained deployment can cap it per solve (e.g.
+        64–96 on a 2 GB host with concurrent users).
+
+        The tradeoff (measured, single 400-seg dipole, d=2, 41-pt sweep):
+        the batched kernels amortize their per-pair R-table hoists across
+        the chunk's k axis, so tiny chunks re-derive geometry per k —
+        chunk=1 costs ~+75% wall-clock; the win saturates by chunk ≈ 8-16.
+        Budgets below ~64 MB buy little memory and cost real time.
+
+        `prep`'s reg geometry is rebuilt per (chunk, edge) rather than held
+        for the whole sweep (issue #330) — see `_same_edge_prep_swept_chunks`
+        for the full rationale; the chunk arithmetic here mirrors it.
+
+        No `pair_reuse` plan is read here: the sweep's moments are batched over
+        k. A sweep with a served plan runs per k instead (`_swept_reads_plan`),
+        so with reuse on this route runs where the census declined, whose
+        reason `pair_reuse_declined` keeps, or on a solver whose per-k fill
+        reads no plan, where it says the batched sweep does not (momwire#2020).
+        """
+        hit = self._reuse_plan_cache
+        if not (hit is not None and hit[0] is geom and hit[1] is None):
+            self._decline_unread_plan("the batched sweep does not read the hint")
+        d = self.degree
+        n_k = k_array.shape[0]
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        tangents = geom["tangents"]
+        N = seg_l.shape[0]
+        nm = d + 1
+        n_qp = self.n_qp_pair_same_edge
+
+        # k-independent: same-edge static moments + O(N_e) geometry inputs,
+        # image segments — all built once for the whole sweep (the
+        # reg-kernel R table itself is rebuilt per chunk below). The
+        # tangent-dot is NOT hoisted as an (N, N) table here — the C++
+        # kernel forms it in-kernel from the (N, 3) tangent table(s) it's
+        # handed (issue #333, the swept-batched twin of #318); `tangents`
+        # itself is already O(N) and geom's own array, so nothing extra to
+        # hold for free space. The image term needs the mirrored copy,
+        # which is O(N) too.
+        prep = self._same_edge_prep(geom)
+        # Same specs as the per-k fills; the same-edge half already rides
+        # `prep` (its static blocks carry `_EK_SAME_EDGE`, and the rebuilt
+        # reg geometry below uses the same spec). Under EK the batched
+        # offedge kernels reach their own C++ twin (momwire#270 unit 2);
+        # only a build without it stacks per-k calls.
+        ek = self._ek_spec(geom) if self.extended_kernel else None
+        ek_se = _EK_SAME_EDGE if self.extended_kernel else None
+        ek_img = None
+        tangents_mirror = None
+        # The pair-order ladder, under EK only (momwire#1362): the swept EK
+        # twin takes the deck's ladder for both terms, asked for exactly as
+        # the per-k fills ask, so each k's moments are the per-k EK fill's.
+        # The reduced sweep has never taken a ladder and still does not.
+        ladder = ladder_img = None
+        if ek is not None:
+            ladder = self._fill_ladder(k_array, seg_l, seg_r, ek)
+        if self.ground_z is not None:
+            # Without EK, no pair-order ladder on this fill, image term
+            # included (momwire#1304 laddered the per-k image fills only):
+            # the reduced swept kernel takes no ladder for its direct term
+            # either, so both terms stay at `n_qp_pair` and on one rule.
+            tangents_mirror = _ground_mirror.mirror_tangents(tangents)
+            seg_l_img = self._image_positions(seg_l)
+            seg_r_img = self._image_positions(seg_r)
+            if self.extended_kernel:
+                ek_img = self._ek_spec(geom, mirror=True)
+                ladder_img = self._image_fill_ladder(k_array, seg_l, seg_r, ek_img)
+
+        # Chunk size from the memory budget. Per k, the transients are
+        # the all-pairs J tensor (nm² N² complex) plus the per-edge
+        # same-edge reg moment blocks (nm² ΣN_e² complex); the PEC image
+        # J reuses J's footprint (J is dropped before the image build).
+        sum_ne2 = sum((sl.stop - sl.start) ** 2 for sl, _A_st, _arc, _a in prep)
+        max_ne2 = max(
+            ((sl.stop - sl.start) ** 2 for sl, _A_st, _arc, _a in prep), default=0
+        )
+        bytes_per_k = nm * nm * (N * N + sum_ne2) * 16
+        # `port_sites_swept`'s site columns (momwire#1923): one per basis on
+        # the wire, so up to n_basis of them, each held per k three times
+        # across the consumer's stacked solve -- the broadcast right-hand
+        # side's copy, the solved block, and the kept solution columns.
+        # Zero for every other caller, so their chunking is unchanged.
+        bytes_per_k += 3 * supp_seg.shape[0] * int(n_extra_columns) * 16
+        # Budget honesty (issue #330): rebuilding a chunk's same-edge reg
+        # moments transiently holds ONE edge's rebuilt R table at a time
+        # (float64, (N_e·n_qp)² entries, 8 bytes each) — the largest edge
+        # sets the high-water mark, since the loop below overwrites `reg_geo`
+        # edge by edge rather than keeping every edge's table alive together.
+        transient_bytes = max_ne2 * n_qp * n_qp * 8
+        chunk = _schedule.k_chunk(n_k, self.swept_mem_mb, bytes_per_k, transient_bytes)
+
+        def _assemble_swept(J_tensor, t_row, t_col, omega_chunk):
+            return _acc.assemble_Z_bspline_swept(
+                np.ascontiguousarray(J_tensor, dtype=np.complex128),
+                np.ascontiguousarray(supp_seg, dtype=np.int64),
+                np.ascontiguousarray(polys, dtype=np.float64),
+                np.ascontiguousarray(t_row, dtype=np.float64),
+                np.ascontiguousarray(t_col, dtype=np.float64),
+                np.ascontiguousarray(omega_chunk, dtype=np.float64),
+                float(self.eps),
+                float(self.mu),
+                int(d),
+            )
+
+        for c0, c1 in _schedule.k_chunks(n_k, chunk, self._checkpoint):
+            ks = k_array[c0:c1]
+            omega_chunk = ks * self.c
+            J = _seg_seg_full_moments_offedge_swept(
+                seg_l,
+                seg_r,
+                seg_l,
+                seg_r,
+                self._seg_radius(geom),
+                ks,
+                d,
+                self.n_qp_pair,
+                ek=ek,
+                ladder=ladder,
+            )
+            # Same-edge reg moments for this chunk. Computed per chunk —
+            # the streaming kernel amortizes its R hoist over the chunk's
+            # k axis, which captures nearly all of the full-sweep hoist's
+            # win once chunk ≳ 8 while keeping the allocation inside the
+            # memory budget (a full-sweep hoist is O(n_k·nm²·ΣN_e²) —
+            # ~1 GB on a 41-pt sweep of a single 400-seg wire). The R table
+            # itself is rebuilt HERE from `ed_arc`/`a_w` rather than reused
+            # from `prep` (issue #330): same `_seg_seg_reg_geometry` call,
+            # same inputs, bit-identical result, but only one edge's table
+            # is alive at a time instead of every edge's riding in `prep`
+            # for the whole sweep.
+            for sl, A_st, ed_arc, a_w in prep:
+                reg_geo = _seg_seg_reg_geometry(
+                    ed_arc, a_w, max_d=d, n_qp=n_qp, ek=ek_se
+                )
+                J[:, :, :, sl, sl] = A_st[
+                    None
+                ] + _seg_seg_reg_moments_from_geometry_swept(reg_geo, ks)
+            Z = _assemble_swept(J, tangents, tangents, omega_chunk)
+            if self.ground_z is not None:
+                del J  # let the image tensor reuse J's footprint
+                J_img = _seg_seg_full_moments_offedge_swept(
+                    seg_l,
+                    seg_r,
+                    seg_l_img,
+                    seg_r_img,
+                    self._seg_radius(geom),
+                    ks,
+                    d,
+                    self.n_qp_pair,
+                    ek=ek_img,
+                    ladder=ladder_img,
+                )
+                # Near-image blocks (momwire#631), the image-side twin of the
+                # same-edge overwrite this loop already does above: a
+                # horizontal edge at grazing height sits a fraction of a
+                # segment from its own image, where off-edge quadrature at
+                # `n_qp_pair` loses the block. Same closed form, built per k
+                # through the same swept reg twin. Without this the swept
+                # route answered a grazing deck 194 % away from what
+                # `compute_impedance` answered for it.
+                for sl, arc, a_eff in self._near_image_edge_blocks(geom):
+                    A_st_ni = _seg_seg_static_moments(arc, a_eff, max_d=d, ek=None)
+                    reg_ni = _seg_seg_reg_geometry(
+                        arc, a_eff, max_d=d, n_qp=self.n_qp_pair_same_edge, ek=None
+                    )
+                    J_img[:, :, :, sl, sl] = A_st_ni[
+                        None
+                    ] + _seg_seg_reg_moments_from_geometry_swept(reg_ni, ks)
+                # In-place fold (issue #333 part 2): `Z = Z - ...` held the
+                # old stack, the image stack, and the difference — three
+                # (chunk, n_basis, n_basis) complex stacks at the sweep's
+                # peak moment. `Z -=` holds two.
+                Z -= _assemble_swept(J_img, tangents, tangents_mirror, omega_chunk)
+                # (#347) same rebind-before-del gap #338 fixed on the other
+                # two chunked fills: this is a GENERATOR, so `J_img` stays
+                # bound across the `yield` below and into the top of the
+                # next iteration, where `J = producer(...)` rebuilds a new
+                # (chunk, nm, nm, N, N) stack before this one's reference is
+                # dropped — one budget's worth of accidental double
+                # buffering `bytes_per_k` never accounted for.
+                del J_img
+            else:
+                # (#347) same reasoning as the grounded `del J_img` above,
+                # for the free-space branch: without this, `J` rides across
+                # the yield and into the next iteration's rebind.
+                del J
+            # Loading is Z'(ω)-scaled per k within the chunk (skin R ∝ √ω,
+            # insulation X ∝ ω), added after the batched kernel assembly.
+            Z = self._apply_loading(Z, omega=omega_chunk)
+            yield c0, ks, Z
+
+    def _compute_impedance_swept_batched(self, k_array):
+        """Fully batched swept solve: the whole sweep's
+        J and Z built in batched C++ calls, one stacked LAPACK solve per
+        k-chunk instead of looping compute_impedance per frequency.
+        Junctions ride the batched KCL Schur solve.
+
+        The drive and readout algebra is `compute_impedance`'s own
+        `_feed_drive_and_readout` — this method owns the batching, not a
+        second copy of the port bookkeeping (#252).
+        """
+        n_k = k_array.shape[0]
+
+        geom = self._build_geometry()
+        supp_seg, polys, kcl_A, wire_knots, wire_basis_global = (
+            self._build_basis_polynomials(geom)
+        )
+        n_basis_total = supp_seg.shape[0]
+
+        # Junction ports (issue #172): k-independent drive and readout rows,
+        # exactly like the gap source vectors, so they batch for free.
+        v, port_vectors, vpf_T, all_voltages, kcl_con = self._feed_drive_and_readout(
+            geom, wire_knots, wire_basis_global, n_basis_total, kcl_A
+        )
+        n_total = len(port_vectors)
+
+        z_out = (
+            np.zeros(n_k, dtype=np.complex128)
+            if n_total == 1
+            else np.zeros((n_k, n_total), dtype=np.complex128)
+        )
+        for c0, ks, Z in self._swept_batched_z_chunks(k_array, geom, supp_seg, polys):
+            coeffs = self._solve_with_kcl_batch(Z, v, kcl_con)
+            currents = coeffs @ vpf_T  # (chunk, n_total)
+            z_per = port_impedances(all_voltages[None, :], currents)
+            z_out[c0 : c0 + ks.shape[0]] = z_per[:, 0] if n_total == 1 else z_per
+
+        return z_out
+
+    def compute_impedance_swept(self, k_array):
+        """Driver impedance over a batch of wavenumbers.
+
+        Fully batched fast path (batched C++ J/Z assembly + stacked
+        LAPACK solve, junctions via the batched KCL Schur) when
+        `_swept_batched_available` and no `pair_reuse` plan is served
+        (`_swept_reads_plan`); otherwise a per-k loop that rebinds
+        self.k / self.omega / self.wavelength per call and restores them
+        (enrichment, finite grounds and a served plan live here).
+
+        Both routes read their drive/readout algebra off
+        `_feed_drive_and_readout`, the same helper `compute_impedance` uses,
+        so there is no swept copy of it to drift (#252). This entry point
+        stays on `compute_impedance`'s single-excitation solve rather than on
+        the port columns: at one RHS instead of n_ports it is the cheaper
+        solve, and it keeps the swept answer bit-comparable with the per-k
+        `compute_impedance` it mirrors.
+
+        Under `rotational_symmetry=True` this is the SECOND entry point the
+        sector route serves (momwire#1029 phase 2b), on the same single
+        axis-symmetric drive — a per-k loop through the route's own
+        `compute_impedance`, filling the `z_out` allocated below, so the
+        contract a caller reads is this method's own whichever route filled
+        it.
+        """
+        _refuse_complex_k(k_array, "BSplineSolver.compute_impedance_swept")
+        # Up front, so an undriven deck refuses even at an empty sweep.
+        refuse_undriven(self._configured_port_voltages())  # momwire#1164
+        k_array = np.asarray(k_array, dtype=float)
+        n_total = len(self.feeds) + len(self.junction_ports)
+        if n_total == 1:
+            z_out = np.zeros(k_array.shape[0], dtype=np.complex128)
+        else:
+            z_out = np.zeros((k_array.shape[0], n_total), dtype=np.complex128)
+
+        # The route, ahead of the batched dispatch rather than beside it:
+        # Since momwire#1131 the route also serves free-space and PEC
+        # screens, where `_swept_batched_available` can be True; ordering it
+        # here is what keeps "the route never batches" structural rather
+        # than incidental.
+        if self._rotational_map is not None:
+            return self._compute_impedance_swept_rotational(k_array, z_out)
+
+        # Fully batched fast path: build the whole sweep's
+        # J / Z / solve in batched calls instead of looping compute_impedance
+        # per frequency. Junctions included; see _swept_batched_available
+        # for the (enrichment / finite-ground / accel) eligibility rules.
+        if self._swept_batched_available() and not self._swept_reads_plan(
+            self._build_geometry()
+        ):
+            return self._compute_impedance_swept_batched(k_array)
+
+        # k-independent static + reg-geometry, shared across the sweep; the
+        # reg-kernel moment blocks are batched over chunks of k sized to the
+        # `swept_mem_mb` budget (one einsum per (edge, chunk) instead of one
+        # per (edge, k); whole-sweep hoisting was issue #263).
+        # A sweep that reads the plan hoists nothing: its classes hold the
+        # same-edge pairs (momwire#2063 step 3), so no fill reads the prep.
+        if self._swept_reads_plan(self._build_geometry()):
+            _refuse_complex_k(k_array, "the swept B-spline same-edge fill")
+            with self._k_restored():
+                for i, kk in enumerate(np.asarray(k_array, dtype=float)):
+                    self._checkpoint()  # top of each frequency iteration
+                    self._set_k(kk)
+                    z, _ = self.compute_impedance()
+                    z_out[i] = z
+            return z_out
+        prep = self._same_edge_prep(self._build_geometry())
+        with self._k_restored():
+            for i, kk, same_edge_k in self._same_edge_prep_swept_chunks(prep, k_array):
+                self._checkpoint()  # top of each frequency iteration
+                self._set_k(kk)
+                z, _ = self.compute_impedance(same_edge_prep=same_edge_k)
+                z_out[i] = z
+        return z_out
+
+    @_wire_spec.reads_input_wires("per_wire")
+    def current_slopes(self, coeffs, s_array=None):
+        """Per-wire ``dI/ds`` — the solved current's arc-length derivative.
+
+        The twin of :meth:`currents_at_knots`, differentiated in the basis
+        rather than around it: a B-spline of degree ``d`` is a polynomial on
+        each knot span, and this differentiates the span polynomials
+        `_build_basis_polynomials` already built (degree ``d-1``), so it is
+        the same sum evaluated with the same coefficients and no step size
+        anywhere. (scipy's ``BSpline.derivative`` did this until momwire
+        #1489; the two agree to the tolerance
+        ``tests/test_bspline_own_readouts_1489.py`` derives.)
+
+        Returned per wire, in ``wires_polylines`` order, at the mesh knots
+        (``s_array=None``) or at the arc positions given per wire — the same
+        two calling conventions, and the same clipping into the clamped knot
+        range, that :meth:`currents_at_knots` uses.
+
+        **Why it exists** (momwire#497): the linear charge density a NEC
+        printout reports is ``q = -(1/jω)·dI/ds`` at each element's centre,
+        and differencing knot currents to get it would report a
+        discretisation of a quantity this basis already knows exactly. At
+        ``degree >= 2`` the derivative is continuous across a knot; at
+        ``degree == 1`` it is piecewise constant and a sample taken AT a knot
+        reads the span to its right (the last span at the wire's end, the
+        convention scipy's spline used), so ask for centres.
+
+        Singular enrichment is refused rather than silently dropped: the
+        enrichment shape ``(u/h)·log(u/h)`` contributes nothing to the
+        current AT a knot but its slope diverges there, so an evaluation
+        that ignored it would be wrong wherever it matters most.
+        """
+        if self.use_singular_enrichment:
+            raise NotImplementedError(
+                "current_slopes does not serve use_singular_enrichment=True: "
+                "the enrichment shape's slope is singular at the junction "
+                "knot, so dropping it would be a silent error rather than an "
+                "approximation"
+            )
+        coeffs = np.asarray(coeffs)
+        geom = self._build_geometry()
+        _, polys, _, wire_knots, wire_basis_global = self._build_basis_polynomials(geom)
+        d = self.degree
+
+        out = []
+        for w_idx in range(len(self.wires_polylines)):
+            arc_at_knot = geom["per_wire"][w_idx]["arc_at_knot"]
+            knots_vec = wire_knots[w_idx]
+            if s_array is None:
+                s_eval = np.clip(arc_at_knot, knots_vec[0], knots_vec[-1])
+            else:
+                s_eval = np.clip(
+                    np.asarray(s_array[w_idx], dtype=np.float64),
+                    knots_vec[0],
+                    knots_vec[-1],
+                )
+            if s_eval.shape[0] == 0:
+                out.append(np.zeros(0, dtype=np.complex128))
+                continue
+            kept, local_to_global = wire_basis_global[w_idx]
+            span_polys = _wire_span_polynomials(
+                coeffs, polys, kept, local_to_global, len(arc_at_knot) - 1, d
+            )
+            slope = _eval_span_polynomials(
+                span_polys, arc_at_knot, s_eval, derivative=True
+            )
+            # A sample that is not a number reads as not a number, as the
+            # scipy spline this replaces returned it (its out-of-range
+            # answer); clipping cannot move one into the wire.
+            slope[np.isnan(s_eval)] = complex(np.nan, np.nan)
+            out.append(slope)
+        return out
+
+    @_wire_spec.reads_input_wires("per_wire")
+    def currents_at_knots(self, coeffs, s_array=None):
+        """Per-wire complex current at every mesh knot.
+
+        Evaluates Σ_kept c_g · B_{j_local}(s_knot) per wire from the
+        per-span basis polynomials `_build_basis_polynomials` built (Horner
+        in each span's local arc), on the wire's clamped knot range. Until
+        momwire#1489 this read scipy's B-spline design matrix; the two agree
+        to the tolerance ``tests/test_bspline_own_readouts_1489.py`` derives.
+
+        When `s_array` is provided as a list of 1D arc-length arrays (one per
+        wire), the basis sum is evaluated at those arc positions instead of
+        the mesh knots. With `use_singular_enrichment=True`, the enrichment
+        basis Φ_sing(u) = (u/h)·log(u/h) — non-zero between knots but exactly
+        zero AT the bounding knots — is added at sample positions interior to
+        the enriched segments. Φ_sing contributes nothing at mesh knots, so
+        the s_array=None path is unchanged.
+
+        KCL Lagrange multipliers (trailing entries beyond the polynomial
+        and enrichment blocks of `coeffs`) carry no current shape and are
+        ignored by this evaluation.
+        """
+        coeffs = np.asarray(coeffs)
+        geom = self._build_geometry()
+        supp_seg, polys, _, wire_knots, wire_basis_global = (
+            self._build_basis_polynomials(geom)
+        )
+        n_poly = supp_seg.shape[0]
+        d = self.degree
+
+        enrich_specs = None
+        if self.use_singular_enrichment:
+            # Match the active-junction subset that compute_impedance used
+            # so the spec list lines up with the enrichment block of coeffs.
+            specs = self._enrichment_specs(
+                geom, active_junction_indices=self._auto_active_junctions
+            )
+            if specs:
+                enrich_specs = specs
+
+        out = []
+        for w_idx in range(len(self.wires_polylines)):
+            arc_at_knot = geom["per_wire"][w_idx]["arc_at_knot"]
+            knots_vec = wire_knots[w_idx]
+            if s_array is None:
+                s_eval = np.clip(arc_at_knot, knots_vec[0], knots_vec[-1])
+            else:
+                s_eval = np.clip(
+                    np.asarray(s_array[w_idx], dtype=np.float64),
+                    knots_vec[0],
+                    knots_vec[-1],
+                )
+            I_out = np.zeros(s_eval.shape[0], dtype=np.complex128)
+            kept, local_to_global = wire_basis_global[w_idx]
+            if s_eval.shape[0] > 0:
+                # Positions are clipped into [0, wire_arc] above — tiny FP
+                # overshoots at an end land on the end. A position that is
+                # not a number has no current, and is refused as the scipy
+                # design matrix this replaced refused it.
+                if np.isnan(s_eval).any():
+                    raise ValueError(
+                        "a current sample position along a wire is not a finite number"
+                    )
+                span_polys = _wire_span_polynomials(
+                    coeffs, polys, kept, local_to_global, len(arc_at_knot) - 1, d
+                )
+                I_out += _eval_span_polynomials(
+                    span_polys, arc_at_knot, s_eval, derivative=False
+                )
+
+            if enrich_specs is not None:
+                seg_off_w = geom["seg_offsets"][w_idx]
+                arc_at_knot_w = geom["per_wire"][w_idx]["arc_at_knot"]
+                h_per_seg_w = geom["per_wire"][w_idx]["h_per_seg"]
+                for spec_idx, (_, wire_w, _, seg_idx_global, u_origin) in enumerate(
+                    enrich_specs
+                ):
+                    if wire_w != w_idx:
+                        continue
+                    seg_local = seg_idx_global - seg_off_w
+                    seg_l_arc = arc_at_knot_w[seg_local]
+                    seg_r_arc = arc_at_knot_w[seg_local + 1]
+                    h_seg = h_per_seg_w[seg_local]
+                    mask = (s_eval >= seg_l_arc) & (s_eval <= seg_r_arc)
+                    if not np.any(mask):
+                        continue
+                    if u_origin == "left":
+                        u_from_junc = s_eval[mask] - seg_l_arc
+                    else:
+                        u_from_junc = seg_r_arc - s_eval[mask]
+                    u_norm = u_from_junc / h_seg
+                    # Match the solver's variant: "raw" subtracts nothing,
+                    # "stable" subtracts the bubble-subspace projection.
+                    # Both variants preserve Φ_sing(0)=Φ_sing(1)=0.
+                    phi = np.zeros_like(u_norm)
+                    pos = u_norm > 0.0
+                    phi[pos] = u_norm[pos] * np.log(u_norm[pos])
+                    if self.enrichment_variant == "stable":
+                        proj_coeffs = _xfem_projection_coeffs(self.degree)
+                        phi = phi - np.polyval(proj_coeffs[::-1], u_norm)
+                    I_out[mask] += coeffs[n_poly + spec_idx] * phi
+            out.append(I_out)
+        return out

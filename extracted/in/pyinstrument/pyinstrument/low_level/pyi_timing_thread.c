@@ -64,16 +64,6 @@ int pyi_timing_thread_subscribe(double desiredInterval) {
 
     PyThread_acquire_lock(subscriber_lock, WAIT_LOCK);
 
-    if (!thread_alive) {
-        PyThread_acquire_lock(update_lock, WAIT_LOCK);  // Initially hold the lock
-        thread_should_exit = 0;
-        PyThread_start_new_thread(timing_thread, NULL);
-        thread_alive = 1;
-
-        // initialise the current_time in case it's read immediately
-        current_time = pyi_floatclock(PYI_FLOATCLOCK_DEFAULT);
-    }
-
     int new_id = 0;
 
     // find an unused ID
@@ -100,6 +90,18 @@ int pyi_timing_thread_subscribe(double desiredInterval) {
     subscribers[index].interval = desiredInterval;
     subscriber_count++;
 
+    if (!thread_alive) {
+        // Start the thread only after the subscription is added, so that it
+        // reads the right interval.
+        PyThread_acquire_lock(update_lock, WAIT_LOCK);  // Initially hold the lock
+        thread_should_exit = 0;
+        PyThread_start_new_thread(timing_thread, NULL);
+        thread_alive = 1;
+
+        // initialise the current_time in case it's read immediately
+        current_time = pyi_floatclock(PYI_FLOATCLOCK_DEFAULT);
+    }
+
     // signal a possible change in the interval
     PyThread_release_lock(update_lock);
     PyThread_acquire_lock(update_lock, WAIT_LOCK);
@@ -123,8 +125,9 @@ int pyi_timing_thread_unsubscribe(int id) {
         }
     }
 
-    // if the last subscriber was removed, stop the thread
-    if (subscriber_count == 0) {
+    // Only stop when this call removed the last subscriber. Repeated
+    // unsubscribe calls must not release an already-unlocked update_lock.
+    if (removals > 0 && subscriber_count == 0) {
         thread_should_exit = 1;
         PyThread_release_lock(update_lock);
         thread_alive = 0;

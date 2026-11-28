@@ -285,6 +285,7 @@ def test_file_not_found_raises():
             strike=5,
             bid=6,
             ask=7,
+            delta=8,
         )
 
 
@@ -301,6 +302,7 @@ def test_empty_csv_raises():
             strike=5,
             bid=6,
             ask=7,
+            delta=8,
         )
 
 
@@ -635,6 +637,39 @@ class TestLoadCachedStocks:
         assert result.iloc[0]["close"] == 322.0
 
     @patch("optopsy.data.providers.cache.ParquetCache", autospec=True)
+    def test_date_filtering_tz_aware_intraday_bounds(self, MockCache):
+        """Timezone-aware intraday start/end bounds filter inclusively by calendar date."""
+        df = pd.DataFrame(
+            {
+                "underlying_symbol": ["SPY", "SPY", "SPY", "SPY"],
+                "date": pd.to_datetime(
+                    [
+                        "2020-01-02 16:00:00+00:00",
+                        "2020-01-03 16:00:00+00:00",
+                        "2020-01-04 16:00:00+00:00",
+                        "2020-01-05 16:00:00+00:00",
+                    ]
+                ),
+                "close": [320.0, 322.0, 324.0, 326.0],
+            }
+        )
+        mock_instance = MagicMock()
+        mock_instance.read.return_value = df
+        MockCache.return_value = mock_instance
+
+        result = load_cached_stocks(
+            "SPY",
+            start_date="2020-01-03T16:30:00+00:00",
+            end_date="2020-01-04T23:59:59+00:00",
+        )
+        assert result["quote_date"].dt.tz is None
+        assert result["quote_date"].tolist() == [
+            pd.Timestamp("2020-01-03"),
+            pd.Timestamp("2020-01-04"),
+        ]
+        assert result["close"].tolist() == [322.0, 324.0]
+
+    @patch("optopsy.data.providers.cache.ParquetCache", autospec=True)
     def test_empty_cache_raises(self, MockCache):
         """Empty cached DataFrame raises FileNotFoundError."""
         mock_instance = MagicMock()
@@ -658,3 +693,33 @@ class TestLoadCachedStocks:
         """load_cached_stocks is accessible via op.load_cached_stocks."""
         assert hasattr(op, "load_cached_stocks")
         assert op.load_cached_stocks is load_cached_stocks
+
+
+def test_csv_data_rejects_duplicate_column_index():
+    """Two fields mapped to one CSV column must raise, not silently drop one.
+
+    ``delta`` defaults to index 7, so passing ``ask=7`` without also setting
+    ``delta`` used to leave the frame with no ``ask`` column and a ``delta``
+    column holding ask prices.
+    """
+    with pytest.raises(ValueError, match="mapped to both"):
+        op.csv_data(
+            filepath(),
+            underlying_symbol=0,
+            option_type=2,
+            expiration=3,
+            quote_date=4,
+            strike=5,
+            bid=6,
+            ask=7,
+        )
+
+
+def test_csv_data_duplicate_index_names_both_fields():
+    """The error names the index and both conflicting fields."""
+    with pytest.raises(ValueError) as exc:
+        op.csv_data(filepath(), bid=6, ask=6, delta=8)
+    message = str(exc.value)
+    assert "Column index 6" in message
+    assert "'bid'" in message
+    assert "'ask'" in message

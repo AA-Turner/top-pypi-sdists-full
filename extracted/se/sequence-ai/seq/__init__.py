@@ -1,10 +1,12 @@
 """
-`seq` — write a robot policy or a benchmark, then deploy and evaluate it on the platform.
+`seq` — write a robot policy, then deploy it and evaluate it on any tasks of the platform's benchmarks.
 
-In one sentence: you decorate a class (`@seq.policy` or `@seq.benchmark`) with what it needs — GPU, image, weights —
-→ `seq deploy [folder]` (or `seq.deploy(Cls)`) sends that declaration and the folder its code is in to the platform,
-which builds and serves it → `seq eval run` (or `seq.eval(...)`) scores a deployed policy on a registered benchmark, on the platform.
-Nothing is built or run on this machine.
+In one sentence: you decorate a class (`@seq.policy`) with what it needs — image, weights; its card is the deploy's,
+`seq deploy --gpu L4` — → `seq deploy [folder]` (or `seq.deploy(Cls)`) sends that declaration and the folder its code is
+in to the platform, which builds and serves it → `seq eval run` (or `seq.eval(...)`) scores a deployed policy on any
+tasks you choose from our benchmarks, open and ready to run as they are, on the platform. Nothing is built or run on
+this machine.
+
 
 WHY this is a separate package from the `sequence_ai` client: the client is deliberately httpx-only and installs on a
 Python 3.9 robot, while authoring needs pydantic (through `sequence_base`) and Python 3.10+. Both ship in the one
@@ -138,6 +140,9 @@ __all__ = [
 
 
 
+
+
+
 _CLOUD_NAMES = frozenset({
     "BenchmarkRegistration",
     "DeploymentHandle",
@@ -153,16 +158,10 @@ _CLOUD_NAMES = frozenset({
     "adapter_versions",
     "audit",
     "benchmark",
-    "benchmark_cancel",
     "benchmark_evals",
     "benchmark_io",
-    "benchmark_logs",
     "benchmark_registration",
-    "benchmark_rm",
-    "benchmark_source",
-    "benchmark_status",
     "benchmark_tasks",
-    "benchmark_upgrade",
     "benchmark_versions",
     "benchmarks",
     "billing_credits",

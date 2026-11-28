@@ -4,11 +4,17 @@ skill sync (`root_skills_core.load_allowed_gated`): at sign-in, and on the daemo
 Each kept answer also brings every agent's gated copies in line at once (`apply_gated_copies`): Codex lists its
 skills when a session starts, BEFORE its SessionStart hook runs, so a copy only that hook makes reaches the session
 after next (the compute-tests T3 eval: Codex never saw compute-setup); and Claude Code's copy came only with its
-plugin's session-start sync, so a person who signed in during a chat (or has no plugin yet) never got it (T4b)."""
+plugin's session-start sync, so a person who signed in during a chat (or has no plugin yet) never got it (T4b).
+
+EVERY AGENT PROBE SETS UP takes them (`CAPABILITY_GATED_SKILLS`), each in its own home's `skills/`: Claude Code,
+Codex, pi, Kimi Code and Cursor. The server keys each skill to its FEATURE's flag, so turning a feature on for a
+person reaches all their agents by the next kept answer. No skill is gated today (`compute-setup` left the set, 11-27).
+Where each agent loads skills from, and when it sees a new one: `DESIGN.md` ("Gated skills")."""
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -26,6 +32,45 @@ RETRY_AFTER_FAILURE_S = 600.0
 _DENIED_STATUSES = (401, 403, 404)
 
 _next_try_at = 0.0
+
+#: Under `~/.local/state/probe/`, beside the kept answer: `{"agents": [<harness id>, ...]}`, the agents Probe was
+#: taken out of (`mark_taken_out`). The device stays signed in after one agent's uninstall, so without this the next
+#: kept answer would copy the gated skill straight back into an agent that no longer has Probe.
+TAKEN_OUT_NAME = "gated-skills-taken-out.json"
+
+
+def _get_taken_out_path() -> Path:
+    return core.get_gated_cache_path().with_name(TAKEN_OUT_NAME)
+
+
+def load_taken_out() -> frozenset:
+    """The agents that get no gated copy (`mark_taken_out`). Empty on any doubt."""
+    try:
+        agents = json.loads(_get_taken_out_path().read_text(encoding="utf-8")).get("agents")
+    except (OSError, ValueError, AttributeError):
+        return frozenset()
+    return frozenset(a for a in agents if isinstance(a, str)) if isinstance(agents, list) else frozenset()
+
+
+def mark_taken_out(agent: str, is_taken_out: bool = True) -> None:
+    """Probe was taken out of `agent` (its skills removed: uninstall, tracking off) or put back (an install's skills
+    step, `is_taken_out=False`). A taken-out agent's gated copy is pruned and never re-added until it is put back.
+    Never raises."""
+    try:
+        agents = set(load_taken_out())
+        if (agent in agents) == is_taken_out:
+            return
+        agents = agents | {agent} if is_taken_out else agents - {agent}
+        path = _get_taken_out_path()
+        if not agents:
+            path.unlink(missing_ok=True)
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        staging = path.with_name(f".{path.name}.{os.getpid()}")
+        staging.write_text(json.dumps({"agents": sorted(agents)}) + "\n", encoding="utf-8")
+        os.replace(staging, path)
+    except Exception:  # noqa: BLE001 -- a lost mark only means the next answer decides
+        return
 
 
 def fetch_allowed_gated(base_url: str, token: str, timeout: float = FETCH_TIMEOUT_S) -> "tuple[str, ...] | None":
@@ -59,8 +104,9 @@ def fetch_allowed_gated(base_url: str, token: str, timeout: float = FETCH_TIMEOU
 
 
 def get_gated_root(harness, env: "dict[str, str] | None" = None) -> "Path | None":
-    """Where `harness` keeps the gated copies alone (Codex's own `skills/`, `CAPABILITY_GATED_SKILLS`): None where
-    its root skills hold them (Claude Code's, copied with the plugin's skills) or it takes none."""
+    """Where `harness` keeps the gated copies alone (`CAPABILITY_GATED_SKILLS`: Codex's, pi's, Kimi Code's and
+    Cursor's own `skills/`): None where its root skills hold them (Claude Code's, copied with the plugin's skills)
+    or it takes none."""
     from probe.foundation.harness_registry.harness_registry import CAPABILITY_GATED_SKILLS, CAPABILITY_ROOT_SKILLS
 
     if harness is None or harness.can(CAPABILITY_ROOT_SKILLS) or not harness.can(CAPABILITY_GATED_SKILLS):
@@ -96,19 +142,22 @@ def find_release_plugin() -> "Path | None":
 
 
 def apply_gated_copies(env: "dict[str, str] | None" = None) -> None:
-    """Every installed agent that takes gated copies (Codex, Claude Code) gets exactly the kept answer's, from this
-    release's plugin folder, now; only gated copies are added or pruned. An agent whose home is not on this computer
-    is skipped. Never raises."""
+    """Every installed agent that takes gated copies (all five: Claude Code, Codex, pi, Kimi Code, Cursor) gets
+    exactly the kept answer's, from this release's plugin folder, now; only gated copies are added or pruned. An
+    agent whose home is not on this computer is skipped, and one Probe was taken out of (`load_taken_out`) keeps
+    none. Never raises."""
     try:
         from probe.foundation.harness_registry import get_registry
 
         source = find_release_plugin()
         if source is None:
             return
+        taken_out = load_taken_out()
         for harness in get_registry().all():
             root = get_gated_copies_root(harness, env)
             if root is not None and root.parent.is_dir():
-                core.apply_gated(root, source)
+                # An agent Probe was taken out of keeps none: its copy, if any, is pruned.
+                core.apply_gated(root, source, allowed_gated=frozenset() if harness.id in taken_out else None)
     except Exception:  # noqa: BLE001 -- the session-start sync does the same work next time
         return
 

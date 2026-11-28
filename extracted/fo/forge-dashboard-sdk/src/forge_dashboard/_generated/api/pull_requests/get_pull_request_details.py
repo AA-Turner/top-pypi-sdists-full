@@ -11,6 +11,7 @@ from ... import errors
 from ...models.error import Error
 from ...models.forge import Forge
 from ...models.pull_request_details import PullRequestDetails
+from ...models.rate_limited_error import RateLimitedError
 from typing import cast
 
 
@@ -50,7 +51,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Error | PullRequestDetails | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Error | PullRequestDetails | RateLimitedError | None:
     if response.status_code == 200:
         response_200 = PullRequestDetails.from_dict(response.json())
 
@@ -87,7 +88,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
         return response_404
 
     if response.status_code == 429:
-        response_429 = Error.from_dict(response.json())
+        response_429 = RateLimitedError.from_dict(response.json())
 
 
 
@@ -106,7 +107,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Error | PullRequestDetails]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Error | PullRequestDetails | RateLimitedError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -122,7 +123,7 @@ def sync_detailed(
     full_name: str,
     number: int,
 
-) -> Response[Error | PullRequestDetails]:
+) -> Response[Error | PullRequestDetails | RateLimitedError]:
     """ Read a pull request's description, comments and reactions, on demand
 
      What the pull request dialog shows: the description, the
@@ -163,7 +164,7 @@ def sync_detailed(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | PullRequestDetails]
+        Response[Error | PullRequestDetails | RateLimitedError]
      """
 
 
@@ -187,7 +188,7 @@ def sync(
     full_name: str,
     number: int,
 
-) -> Error | PullRequestDetails | None:
+) -> Error | PullRequestDetails | RateLimitedError | None:
     """ Read a pull request's description, comments and reactions, on demand
 
      What the pull request dialog shows: the description, the
@@ -228,7 +229,7 @@ def sync(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | PullRequestDetails
+        Error | PullRequestDetails | RateLimitedError
      """
 
 
@@ -247,7 +248,7 @@ async def asyncio_detailed(
     full_name: str,
     number: int,
 
-) -> Response[Error | PullRequestDetails]:
+) -> Response[Error | PullRequestDetails | RateLimitedError]:
     """ Read a pull request's description, comments and reactions, on demand
 
      What the pull request dialog shows: the description, the
@@ -288,7 +289,7 @@ async def asyncio_detailed(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | PullRequestDetails]
+        Response[Error | PullRequestDetails | RateLimitedError]
      """
 
 
@@ -312,7 +313,7 @@ async def asyncio(
     full_name: str,
     number: int,
 
-) -> Error | PullRequestDetails | None:
+) -> Error | PullRequestDetails | RateLimitedError | None:
     """ Read a pull request's description, comments and reactions, on demand
 
      What the pull request dialog shows: the description, the
@@ -353,7 +354,7 @@ async def asyncio(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | PullRequestDetails
+        Error | PullRequestDetails | RateLimitedError
      """
 
 

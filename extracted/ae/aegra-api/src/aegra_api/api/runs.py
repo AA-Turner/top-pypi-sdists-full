@@ -3,19 +3,22 @@
 import asyncio
 import contextlib
 from collections.abc import AsyncGenerator, MutableMapping
-from typing import Any
+from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, StreamingResponse
 from redis import RedisError
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 from sse_starlette import EventSourceResponse
 
 from aegra_api.core.active_runs import active_runs
 from aegra_api.core.auth_deps import auth_dependency, get_current_user
 from aegra_api.core.auth_handlers import build_auth_context, handle_event
+from aegra_api.core.auth_scope import ensure_thread_visible
 from aegra_api.core.orm import Run as RunORM
 from aegra_api.core.orm import Thread as ThreadORM
 from aegra_api.core.orm import _get_session_maker, get_session
@@ -23,6 +26,7 @@ from aegra_api.core.sse import create_end_event, get_sse_headers, make_sse_respo
 from aegra_api.models import Run, RunCreate, RunsCancel, RunStatus, User
 from aegra_api.models.enums import RunCancellationAction
 from aegra_api.models.errors import CONFLICT, NOT_FOUND, SSE_RESPONSE
+from aegra_api.models.runs import RunListItem, RunSelectField
 from aegra_api.services.broker import broker_manager
 from aegra_api.services.run_preparation import _apply_create_run_auth, _prepare_run
 from aegra_api.services.run_status import interrupt_run_before_delete, interrupt_unowned_run
@@ -103,7 +107,7 @@ async def create_run(
     if existing_thread and existing_thread.user_id != user.identity:
         raise HTTPException(404, f"Thread '{thread_id}' not found")
 
-    await _apply_create_run_auth(user, thread_id, request)
+    await _apply_create_run_auth(user, thread_id, request, session=session, thread_exists=existing_thread is not None)
 
     _run_id, run, _job = await _prepare_run(session, thread_id, request, user, initial_status="pending")
 
@@ -136,7 +140,9 @@ async def create_and_stream_run(
         if existing_thread and existing_thread.user_id != user.identity:
             raise HTTPException(404, f"Thread '{thread_id}' not found")
 
-        await _apply_create_run_auth(user, thread_id, request)
+        await _apply_create_run_auth(
+            user, thread_id, request, session=session, thread_exists=existing_thread is not None
+        )
 
         run_id, run, _job = await _prepare_run(session, thread_id, request, user, initial_status="pending")
 
@@ -184,7 +190,7 @@ async def get_run(
     # resource); @auth.on.threads.read covers it.
     ctx = build_auth_context(user, "threads", "read")
     value = {"run_id": run_id, "thread_id": thread_id}
-    await handle_event(ctx, value)
+    await ensure_thread_visible(thread_id, user, await handle_event(ctx, value), session=session)
 
     stmt = select(RunORM).where(
         RunORM.run_id == str(run_id),
@@ -206,7 +212,7 @@ async def get_run(
     return Run.model_validate(run_orm)
 
 
-@router.get("/threads/{thread_id}/runs", response_model=list[Run])
+@router.get("/threads/{thread_id}/runs", response_model=list[RunListItem])
 async def list_runs(
     thread_id: str,
     limit: int = Query(10, ge=1, description="Maximum number of runs to return"),
@@ -214,13 +220,21 @@ async def list_runs(
     status: str | None = Query(
         None, description="Filter by run status (e.g. pending, running, success, error, interrupted)"
     ),
+    fields: Annotated[
+        list[RunSelectField] | None,
+        Query(
+            alias="select",
+            description="Run fields to return. Omit to return every field. "
+            "Leave out `output` to skip loading each run's final state.",
+        ),
+    ] = None,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> list[Run]:
+) -> list[Run] | JSONResponse:
     """List runs for a thread.
 
     Returns runs ordered by creation time (newest first). Use `status` to
-    filter and `limit`/`offset` to paginate.
+    filter, `limit`/`offset` to paginate and `select` to return only some fields.
     """
     stmt = (
         select(RunORM)
@@ -233,12 +247,17 @@ async def list_runs(
         .offset(offset)
         .order_by(RunORM.created_at.desc())
     )
+    names = list(dict.fromkeys(fields)) if fields else None
+    if names:
+        # Unselected columns stay out of the query: one run's output can be the whole thread history.
+        stmt = stmt.options(load_only(*(getattr(RunORM, name) for name in names)))
     logger.info(f"[list_runs] querying DB thread_id={thread_id} user={user.identity}")
     result = await session.scalars(stmt)
     rows = result.all()
-    runs = [Run.model_validate(r) for r in rows]
-    logger.info(f"[list_runs] total={len(runs)} user={user.identity} thread_id={thread_id}")
-    return runs
+    logger.info(f"[list_runs] total={len(rows)} user={user.identity} thread_id={thread_id}")
+    if names:
+        return JSONResponse(jsonable_encoder([{name: getattr(row, name) for name in names} for row in rows]))
+    return [Run.model_validate(r) for r in rows]
 
 
 @router.patch("/threads/{thread_id}/runs/{run_id}", response_model=Run, responses={**NOT_FOUND})
@@ -368,7 +387,9 @@ async def wait_for_run(
         if existing_thread and existing_thread.user_id != user.identity:
             raise HTTPException(404, f"Thread '{thread_id}' not found")
 
-        await _apply_create_run_auth(user, thread_id, request)
+        await _apply_create_run_auth(
+            user, thread_id, request, session=session, thread_exists=existing_thread is not None
+        )
 
         run_id, _run, _job = await _prepare_run(session, thread_id, request, user, initial_status="pending")
 
@@ -585,7 +606,7 @@ async def delete_run(
     # resource); @auth.on.threads.delete covers it.
     ctx = build_auth_context(user, "threads", "delete")
     value = {"run_id": run_id, "thread_id": thread_id}
-    await handle_event(ctx, value)
+    await ensure_thread_visible(thread_id, user, await handle_event(ctx, value), session=session)
     logger.info(f"[delete_run] fetch run run_id={run_id} thread_id={thread_id} user={user.identity}")
     run_orm = await session.scalar(
         select(RunORM).where(

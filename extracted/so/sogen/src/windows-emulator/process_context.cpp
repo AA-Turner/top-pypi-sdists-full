@@ -6,6 +6,7 @@
 #include "registry/registry_utils.hpp"
 #include "sxs/activation_context.hpp"
 #include "syscall_utils.hpp"
+#include "user_profile.hpp"
 #include "windows_emulator.hpp"
 #include "version/windows_version_manager.hpp"
 
@@ -635,6 +636,9 @@ namespace sogen
         this->user_handles.setup(is_wow64_process);
         initialize_user_code_page_tables(win_emu);
 
+        this->accessibility.load(user_profile{win_emu.registry}, this->key_state);
+        this->user_handles.get_server_info().access([&](USER_SERVERINFO& server_info) { this->accessibility.publish(server_info); });
+
         auto [mh, monitor_obj] = this->user_handles.allocate_object<USER_MONITOR>(handle_types::monitor);
         this->default_monitor_handle = mh;
         monitor_obj.access([&](USER_MONITOR& monitor) {
@@ -1043,6 +1047,8 @@ namespace sogen
                 return std::nullopt;
             }
 
+            entry->waiters.clear();
+
             const auto attributes = this->events.attributes_of(object_handle);
             return process_shared_object{
                 .kind = process_shared_object_kind::event,
@@ -1059,6 +1065,8 @@ namespace sogen
             {
                 return std::nullopt;
             }
+
+            entry->waiters.clear();
 
             const auto attributes = this->mutants.attributes_of(object_handle);
             return process_shared_object{
@@ -1293,6 +1301,7 @@ namespace sogen
         buffer.write(this->debug_objects);
         buffer.write_map(this->atoms);
         buffer.write(this->clipboard);
+        buffer.write(this->accessibility);
         buffer.write_map(this->classes);
 
         buffer.write_map(this->apiset);
@@ -1434,6 +1443,7 @@ namespace sogen
         buffer.read(this->debug_objects);
         buffer.read_map(this->atoms);
         buffer.read(this->clipboard);
+        buffer.read(this->accessibility);
         buffer.read_map(this->classes);
 
         buffer.read_map(this->apiset);
@@ -1471,6 +1481,21 @@ namespace sogen
             this->terminated_thread_count += thread.is_terminated() ? 1 : 0;
         }
 
+        for (auto& e : this->events | std::views::values)
+        {
+            e.waiters.restore_links(*this);
+        }
+
+        for (auto& s : this->semaphores | std::views::values)
+        {
+            s.waiters.restore_links(*this);
+        }
+
+        for (auto& m : this->mutants | std::views::values)
+        {
+            m.waiters.restore_links(*this);
+        }
+
         active_thread = this->threads.get_by_index(buffer.read<uint64_t>());
 
         for (auto& entry : this->mutants | std::views::values)
@@ -1494,6 +1519,15 @@ namespace sogen
 
     void process_context::restore_after_state_restore(windows_emulator& win_emu)
     {
+        // A restored thread runs on without the thread switch that otherwise loads its vCPU's GDT.
+        for (uint32_t i = 0; i < win_emu.vcpu_count(); ++i)
+        {
+            if (auto* cpu = dynamic_cast<x86_64_cpu*>(&win_emu.vcpu(i).cpu))
+            {
+                cpu->load_gdt(this->gdt_base + i * GDT_LIMIT, GDT_LIMIT);
+            }
+        }
+
         this->section_views.restore_views(win_emu.memory);
 
         // captureCount lives in guest memory, which a snapshot taken before it was maintained restores as 0 while
@@ -2143,10 +2177,12 @@ namespace sogen
         thread.active_sent_messages.clear();
         thread.sent_message_waits.clear();
         this->impersonate_token(thread, {});
+        thread.unlink_object_wait();
 
         for (auto& entry : this->mutants | std::views::values)
         {
             entry.abandon_if_owned_by(mutant::make_owner(this->process_id, thread.id));
+            hand_over_mutant(entry, this->process_id);
         }
 
         this->release_update_lock_of_thread(thread.id);

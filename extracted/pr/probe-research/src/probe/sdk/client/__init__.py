@@ -18,6 +18,7 @@ _PIECES = (
     "probe.sdk.client.resources.auth",
     "probe.sdk.client.resources.catalog",
     "probe.sdk.client.resources.decisions.decisions",
+    "probe.sdk.client.resources.plans.plans",
     "probe.sdk.client.resources.delivery",
     "probe.sdk.client.resources.history.digest",
     "probe.sdk.client.resources.history.events",
@@ -258,6 +259,13 @@ _HOMES = {
     "TargetEffect": "probe.sdk.client.resources.decisions.decisions",
     "TargetType": "probe.sdk.client.resources.decisions.decisions",
     "is_decisions_off": "probe.sdk.client.resources.decisions.decisions",
+    # probe.sdk.client.resources.plans.plans: a project's plan stages (plan stages PR2)
+    "LinkRole": "probe.sdk.client.resources.plans.plans",
+    "PLAN_LIMITS": "probe.sdk.values.stage_key",
+    "PLAN_REVISION_CONFLICT": "probe.sdk.client.resources.plans.plans",
+    "PLAN_SOURCE_CONFLICT": "probe.sdk.client.resources.plans.plans",
+    "StageStatus": "probe.sdk.values.stage_key",
+    "get_error_code": "probe.sdk.client.resources.plans.plans",
     # probe.sdk.client.resources.projects.summaries
     "_PREDATES_SUMMARIES": "probe.sdk.client.resources.projects.summaries",
     # probe.sdk.client.resources.projects.projects

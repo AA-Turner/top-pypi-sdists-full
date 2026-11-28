@@ -10,6 +10,7 @@ from ... import errors
 
 from ...models.error import Error
 from ...models.forge import Forge
+from ...models.rate_limited_error import RateLimitedError
 from ...models.release_details import ReleaseDetails
 from typing import cast
 
@@ -50,7 +51,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Error | ReleaseDetails | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Error | RateLimitedError | ReleaseDetails | None:
     if response.status_code == 200:
         response_200 = ReleaseDetails.from_dict(response.json())
 
@@ -87,7 +88,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
         return response_404
 
     if response.status_code == 429:
-        response_429 = Error.from_dict(response.json())
+        response_429 = RateLimitedError.from_dict(response.json())
 
 
 
@@ -106,7 +107,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Error | ReleaseDetails]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Error | RateLimitedError | ReleaseDetails]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -122,7 +123,7 @@ def sync_detailed(
     full_name: str,
     tag: str,
 
-) -> Response[Error | ReleaseDetails]:
+) -> Response[Error | RateLimitedError | ReleaseDetails]:
     """ Read a published release's title and notes, on demand
 
      What the release dialog on the Main branches page shows for a
@@ -154,7 +155,7 @@ def sync_detailed(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | ReleaseDetails]
+        Response[Error | RateLimitedError | ReleaseDetails]
      """
 
 
@@ -178,7 +179,7 @@ def sync(
     full_name: str,
     tag: str,
 
-) -> Error | ReleaseDetails | None:
+) -> Error | RateLimitedError | ReleaseDetails | None:
     """ Read a published release's title and notes, on demand
 
      What the release dialog on the Main branches page shows for a
@@ -210,7 +211,7 @@ def sync(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | ReleaseDetails
+        Error | RateLimitedError | ReleaseDetails
      """
 
 
@@ -229,7 +230,7 @@ async def asyncio_detailed(
     full_name: str,
     tag: str,
 
-) -> Response[Error | ReleaseDetails]:
+) -> Response[Error | RateLimitedError | ReleaseDetails]:
     """ Read a published release's title and notes, on demand
 
      What the release dialog on the Main branches page shows for a
@@ -261,7 +262,7 @@ async def asyncio_detailed(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | ReleaseDetails]
+        Response[Error | RateLimitedError | ReleaseDetails]
      """
 
 
@@ -285,7 +286,7 @@ async def asyncio(
     full_name: str,
     tag: str,
 
-) -> Error | ReleaseDetails | None:
+) -> Error | RateLimitedError | ReleaseDetails | None:
     """ Read a published release's title and notes, on demand
 
      What the release dialog on the Main branches page shows for a
@@ -317,7 +318,7 @@ async def asyncio(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | ReleaseDetails
+        Error | RateLimitedError | ReleaseDetails
      """
 
 

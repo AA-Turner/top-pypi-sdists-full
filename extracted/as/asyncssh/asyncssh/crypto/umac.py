@@ -23,6 +23,8 @@
 import binascii
 import ctypes
 import ctypes.util
+import os
+import sys
 from typing import TYPE_CHECKING, Callable, Optional
 
 
@@ -31,7 +33,8 @@ if TYPE_CHECKING:
     _SetKey = Callable[[_ByteArray, bytes], None]
     _SetNonce = Callable[[_ByteArray, ctypes.c_size_t, bytes], None]
     _Update = Callable[[_ByteArray, ctypes.c_size_t, bytes], None]
-    _Digest = Callable[[_ByteArray, ctypes.c_size_t, _ByteArray], None]
+    _Digest3 = Callable[[_ByteArray, ctypes.c_size_t, _ByteArray], None]
+    _Digest4 = Callable[[_ByteArray, _ByteArray], None]
     _New = Callable[[bytes, Optional[bytes], Optional[bytes]], object]
 
 
@@ -53,7 +56,7 @@ def _build_umac(size: int) -> '_New':
     _set_key: _SetKey = getattr(_nettle, _prefix + 'set_key')
     _set_nonce: _SetNonce = getattr(_nettle, _prefix + 'set_nonce')
     _update: _Update = getattr(_nettle, _prefix + 'update')
-    _digest: _Digest = getattr(_nettle, _prefix + 'digest')
+    _digest = getattr(_nettle, _prefix + 'digest')
 
 
     class _UMAC:
@@ -113,7 +116,14 @@ def _build_umac(size: int) -> '_New':
             """
 
             result = ctypes.create_string_buffer(self.digest_size)
-            _digest(self._ctx, ctypes.c_size_t(self.digest_size), result)
+
+            if _nettle_version == 4:
+                digest4: _Digest4 = _digest
+                digest4(self._ctx, result)
+            else:
+                digest3: _Digest3 = _digest
+                digest3(self._ctx, ctypes.c_size_t(self.digest_size), result)
+
             return result.raw
 
         def hexdigest(self) -> str:
@@ -125,15 +135,52 @@ def _build_umac(size: int) -> '_New':
     return _UMAC.new
 
 
-for lib in ('nettle', 'libnettle', 'libnettle-6'):
-    _nettle_lib = ctypes.util.find_library(lib)
+_NETTLE_LIBS = ('nettle-9', 'nettle-8', 'nettle',
+                'libnettle-9', 'libnettle-8', 'libnettle')
+
+_NETTLE_SONAMES = {'darwin': ('libnettle.9.dylib', 'libnettle.8.dylib'),
+                   'linux': ('libnettle.so.9', 'libnettle.so.8')}
+
+_nettle: Optional[ctypes.CDLL] = None
+
+if sys.platform == 'win32':
+    for lib in _NETTLE_LIBS: # pragma: no branch
+        try:
+            _nettle = ctypes.CDLL(lib)
+            break
+        except OSError: # pragma: no cover
+            pass
+elif sys.platform in _NETTLE_SONAMES: # pragma: no branch
+    for prefix in dict.fromkeys((sys.prefix, sys.base_prefix)):
+        for lib in _NETTLE_SONAMES[sys.platform]:
+            try:
+                _nettle = ctypes.CDLL(os.path.join(prefix, 'lib', lib))
+                break
+            except OSError:
+                pass
+
+        if _nettle:
+            break
+
+if not _nettle:
+    for lib in _NETTLE_LIBS:
+        _nettle_lib = ctypes.util.find_library(lib)
+
+        if _nettle_lib: # pragma: no branch
+            break
+    else: # pragma: no cover
+        _nettle_lib = None
 
     if _nettle_lib: # pragma: no branch
-        break
-else: # pragma: no cover
-    _nettle_lib = None
+        _nettle = ctypes.cdll.LoadLibrary(_nettle_lib)
 
-if _nettle_lib: # pragma: no branch
-    _nettle = ctypes.cdll.LoadLibrary(_nettle_lib)
+_nettle_version = 3
 
-    umac32, umac64, umac96, umac128 = map(_build_umac, (32, 64, 96, 128))
+if _nettle: # pragma: no branch
+    try:
+        _nettle_version = _nettle.nettle_version_major()
+    except AttributeError: # pragma: no cover
+        pass
+
+    if _nettle_version <= 4: # pragma: no branch
+        umac32, umac64, umac96, umac128 = map(_build_umac, (32, 64, 96, 128))

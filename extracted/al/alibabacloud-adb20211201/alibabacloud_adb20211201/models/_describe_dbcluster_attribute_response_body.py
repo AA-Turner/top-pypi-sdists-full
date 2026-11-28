@@ -117,6 +117,9 @@ class DescribeDBClusterAttributeResponseBodyItemsDBCluster(DaraModel):
         reserved_node_count: int = None,
         reserved_node_size: str = None,
         resource_group_id: str = None,
+        routing_controller_node_count_free: int = None,
+        routing_controller_node_count_paid: int = None,
+        routing_controller_node_size: str = None,
         secondary_vswitch_id: str = None,
         secondary_zone_id: str = None,
         storage_resource: str = None,
@@ -166,6 +169,9 @@ class DescribeDBClusterAttributeResponseBodyItemsDBCluster(DaraModel):
         self.reserved_node_count = reserved_node_count
         self.reserved_node_size = reserved_node_size
         self.resource_group_id = resource_group_id
+        self.routing_controller_node_count_free = routing_controller_node_count_free
+        self.routing_controller_node_count_paid = routing_controller_node_count_paid
+        self.routing_controller_node_size = routing_controller_node_size
         self.secondary_vswitch_id = secondary_vswitch_id
         self.secondary_zone_id = secondary_zone_id
         self.storage_resource = storage_resource
@@ -293,6 +299,15 @@ class DescribeDBClusterAttributeResponseBodyItemsDBCluster(DaraModel):
 
         if self.resource_group_id is not None:
             result['ResourceGroupId'] = self.resource_group_id
+
+        if self.routing_controller_node_count_free is not None:
+            result['RoutingControllerNodeCountFree'] = self.routing_controller_node_count_free
+
+        if self.routing_controller_node_count_paid is not None:
+            result['RoutingControllerNodeCountPaid'] = self.routing_controller_node_count_paid
+
+        if self.routing_controller_node_size is not None:
+            result['RoutingControllerNodeSize'] = self.routing_controller_node_size
 
         if self.secondary_vswitch_id is not None:
             result['SecondaryVSwitchId'] = self.secondary_vswitch_id
@@ -441,6 +456,15 @@ class DescribeDBClusterAttributeResponseBodyItemsDBCluster(DaraModel):
 
         if m.get('ResourceGroupId') is not None:
             self.resource_group_id = m.get('ResourceGroupId')
+
+        if m.get('RoutingControllerNodeCountFree') is not None:
+            self.routing_controller_node_count_free = m.get('RoutingControllerNodeCountFree')
+
+        if m.get('RoutingControllerNodeCountPaid') is not None:
+            self.routing_controller_node_count_paid = m.get('RoutingControllerNodeCountPaid')
+
+        if m.get('RoutingControllerNodeSize') is not None:
+            self.routing_controller_node_size = m.get('RoutingControllerNodeSize')
 
         if m.get('SecondaryVSwitchId') is not None:
             self.secondary_vswitch_id = m.get('SecondaryVSwitchId')

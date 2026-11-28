@@ -167,6 +167,9 @@ __all__ = (
     "CapabilityBaseResponseConfigTypeDef",
     "CapabilityExtendedResponseConfigTypeDef",
     "CapabilityFailureTypeDef",
+    "CatalogConfigurationTypeDef",
+    "CatalogOptionsStatusTypeDef",
+    "CatalogOptionsTypeDef",
     "CategoryDiffResultTypeDef",
     "ChangeProgressDetailsTypeDef",
     "ChangeProgressStageTypeDef",
@@ -434,6 +437,7 @@ __all__ = (
     "RollbackServiceSoftwareUpdateRequestTypeDef",
     "RollbackServiceSoftwareUpdateResponseTypeDef",
     "S3GlueDataCatalogTypeDef",
+    "S3TablesEncryptionConfigurationTypeDef",
     "S3VectorsEngineTypeDef",
     "SAMLIdpTypeDef",
     "SAMLOptionsInputTypeDef",
@@ -443,6 +447,7 @@ __all__ = (
     "ScheduledAutoTuneDetailsTypeDef",
     "SecurityLakeDirectQueryDataSourceTypeDef",
     "ServerlessVectorAccelerationTypeDef",
+    "ServiceManagedS3TablesCatalogTypeDef",
     "ServiceOptionsOutputTypeDef",
     "ServiceOptionsTypeDef",
     "ServiceOptionsUnionTypeDef",
@@ -1500,6 +1505,11 @@ class RollbackServiceSoftwareUpdateRequestTypeDef(TypedDict):
     DomainName: str
 
 
+class S3TablesEncryptionConfigurationTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    KmsKeyArn: NotRequired[str]
+
+
 class SAMLIdpTypeDef(TypedDict):
     MetadataContent: str
     EntityId: str
@@ -2335,6 +2345,10 @@ class RollbackServiceSoftwareUpdateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ServiceManagedS3TablesCatalogTypeDef(TypedDict):
+    EncryptionConfiguration: NotRequired[S3TablesEncryptionConfigurationTypeDef]
+
+
 class SAMLOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     Idp: NotRequired[SAMLIdpTypeDef]
@@ -2705,6 +2719,10 @@ class DescribeReservedInstancesResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class CatalogConfigurationTypeDef(TypedDict):
+    ServiceManagedS3Tables: NotRequired[ServiceManagedS3TablesCatalogTypeDef]
+
+
 class AdvancedSecurityOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     InternalUserDatabaseEnabled: NotRequired[bool]
@@ -2904,9 +2922,60 @@ class OffPeakWindowOptionsStatusTypeDef(TypedDict):
     Status: NotRequired[OptionStatusTypeDef]
 
 
+class CatalogOptionsTypeDef(TypedDict):
+    Enabled: bool
+    Catalog: NotRequired[CatalogConfigurationTypeDef]
+
+
 class AdvancedSecurityOptionsStatusTypeDef(TypedDict):
     Options: AdvancedSecurityOptionsTypeDef
     Status: OptionStatusTypeDef
+
+
+class DescribeInstanceTypeLimitsResponseTypeDef(TypedDict):
+    LimitsByRole: dict[str, LimitsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CompareDomainConfigurationResponseTypeDef(TypedDict):
+    SourceDomainArn: str
+    TargetDomainArn: str
+    Categories: dict[str, CategoryDiffResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CatalogOptionsStatusTypeDef(TypedDict):
+    Options: NotRequired[CatalogOptionsTypeDef]
+    Status: NotRequired[OptionStatusTypeDef]
+
+
+class CreateDomainRequestTypeDef(TypedDict):
+    DomainName: str
+    EngineVersion: NotRequired[str]
+    ClusterConfig: NotRequired[ClusterConfigUnionTypeDef]
+    EBSOptions: NotRequired[EBSOptionsTypeDef]
+    AccessPolicies: NotRequired[str]
+    IPAddressType: NotRequired[IPAddressTypeType]
+    SnapshotOptions: NotRequired[SnapshotOptionsTypeDef]
+    VPCOptions: NotRequired[VPCOptionsTypeDef]
+    CognitoOptions: NotRequired[CognitoOptionsTypeDef]
+    EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
+    NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
+    AdvancedOptions: NotRequired[Mapping[str, str]]
+    LogPublishingOptions: NotRequired[Mapping[LogTypeType, LogPublishingOptionTypeDef]]
+    CatalogOptions: NotRequired[CatalogOptionsTypeDef]
+    DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
+    AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsInputTypeDef]
+    IdentityCenterOptions: NotRequired[IdentityCenterOptionsInputTypeDef]
+    TagList: NotRequired[Sequence[TagTypeDef]]
+    AutoTuneOptions: NotRequired[AutoTuneOptionsInputTypeDef]
+    OffPeakWindowOptions: NotRequired[OffPeakWindowOptionsTypeDef]
+    SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsTypeDef]
+    AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[EngineModeType]
 
 
 class DomainStatusTypeDef(TypedDict):
@@ -2933,6 +3002,7 @@ class DomainStatusTypeDef(TypedDict):
     NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
     AdvancedOptions: NotRequired[dict[str, str]]
     LogPublishingOptions: NotRequired[dict[LogTypeType, LogPublishingOptionTypeDef]]
+    CatalogOptions: NotRequired[CatalogOptionsTypeDef]
     ServiceSoftwareOptions: NotRequired[ServiceSoftwareOptionsTypeDef]
     DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
     AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsTypeDef]
@@ -2950,46 +3020,6 @@ class DomainStatusTypeDef(TypedDict):
     EngineMode: NotRequired[EngineModeType]
 
 
-class DescribeInstanceTypeLimitsResponseTypeDef(TypedDict):
-    LimitsByRole: dict[str, LimitsTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CompareDomainConfigurationResponseTypeDef(TypedDict):
-    SourceDomainArn: str
-    TargetDomainArn: str
-    Categories: dict[str, CategoryDiffResultTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateDomainRequestTypeDef(TypedDict):
-    DomainName: str
-    EngineVersion: NotRequired[str]
-    ClusterConfig: NotRequired[ClusterConfigUnionTypeDef]
-    EBSOptions: NotRequired[EBSOptionsTypeDef]
-    AccessPolicies: NotRequired[str]
-    IPAddressType: NotRequired[IPAddressTypeType]
-    SnapshotOptions: NotRequired[SnapshotOptionsTypeDef]
-    VPCOptions: NotRequired[VPCOptionsTypeDef]
-    CognitoOptions: NotRequired[CognitoOptionsTypeDef]
-    EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
-    NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
-    AdvancedOptions: NotRequired[Mapping[str, str]]
-    LogPublishingOptions: NotRequired[Mapping[LogTypeType, LogPublishingOptionTypeDef]]
-    DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
-    AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsInputTypeDef]
-    IdentityCenterOptions: NotRequired[IdentityCenterOptionsInputTypeDef]
-    TagList: NotRequired[Sequence[TagTypeDef]]
-    AutoTuneOptions: NotRequired[AutoTuneOptionsInputTypeDef]
-    OffPeakWindowOptions: NotRequired[OffPeakWindowOptionsTypeDef]
-    SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsTypeDef]
-    AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
-    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
-    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
-    UseCase: NotRequired[DomainUseCaseType]
-    EngineMode: NotRequired[EngineModeType]
-
-
 class UpdateDomainConfigRequestTypeDef(TypedDict):
     DomainName: str
     ClusterConfig: NotRequired[ClusterConfigUnionTypeDef]
@@ -3001,6 +3031,7 @@ class UpdateDomainConfigRequestTypeDef(TypedDict):
     AccessPolicies: NotRequired[str]
     IPAddressType: NotRequired[IPAddressTypeType]
     LogPublishingOptions: NotRequired[Mapping[LogTypeType, LogPublishingOptionTypeDef]]
+    CatalogOptions: NotRequired[CatalogOptionsTypeDef]
     EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
     DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
     NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
@@ -3032,6 +3063,7 @@ class DomainConfigTypeDef(TypedDict):
     NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsStatusTypeDef]
     AdvancedOptions: NotRequired[AdvancedOptionsStatusTypeDef]
     LogPublishingOptions: NotRequired[LogPublishingOptionsStatusTypeDef]
+    CatalogOptions: NotRequired[CatalogOptionsStatusTypeDef]
     DomainEndpointOptions: NotRequired[DomainEndpointOptionsStatusTypeDef]
     AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsStatusTypeDef]
     IdentityCenterOptions: NotRequired[IdentityCenterOptionsStatusTypeDef]

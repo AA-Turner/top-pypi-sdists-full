@@ -47,7 +47,7 @@ from .kiosk_config import DesktopRuntime, Kiosk, MCPServer as MCPServer
 DEFAULT_VM_BASE_IMAGE = (
     "ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55"
 )
-DEFAULT_VM_GPU_BASE_IMAGE = "public.ecr.aws/n4e0e1y0/beta9-microvm:69f97c98348b-nvidia"
+DEFAULT_VM_GPU_BASE_IMAGE = "public.ecr.aws/n4e0e1y0/beta9-microvm:ba9894fd3fd5-nvidia"
 
 # How long wait() asks one container for exec before it reads the VM again.
 CONTAINER_WAIT = 5.0
@@ -165,6 +165,12 @@ def prepare_image(
     return prepared
 
 
+def _given(**options):
+    """The options that are set. An unset one stays out of the request, so
+    gateways that predate it see the body they always have."""
+    return {name: value for name, value in options.items() if value}
+
+
 @dataclass
 class _VMSandbox(SandboxInstance):
     vm_channel: Optional[Channel] = None
@@ -264,6 +270,7 @@ class VM:
         self.info: Dict[str, Any] = {}
         self._connected = None
         self._connected_at = 0
+        self._touched_at = 0.0
         self._services_container = None
         self._spec = {
             "cpu": int(cpu * 1000) if cpu is not None else None,
@@ -339,12 +346,16 @@ class VM:
 
     def _touch(self, *, timeout=240, lease=None, release=False):
         params = {"lease": lease, "release": "1" if release else "0"} if lease else {}
-        return self._api("POST", self._path() + "/touch", timeout=timeout, json={}, params=params)
+        result = self._api("POST", self._path() + "/touch", timeout=timeout, json={}, params=params)
+        self._touched_at = time.monotonic()
+        return result
 
     def _set(self, info):
-        if info.get("container_id") != self.info.get("container_id"):
+        previous_container = self.info.get("container_id")
+        if info.get("container_id") != previous_container:
             self._connected = None
             self._services_container = None
+            self._touched_at = 0.0
 
         self.info = info
         self.name = info["name"]
@@ -356,6 +367,13 @@ class VM:
                 ok=True,
                 vm_channel=self._service.channel,
             )
+            self._connected_at = time.monotonic()
+            self._touched_at = self._connected_at
+        elif (
+            self._connected is not None
+            and info.get("status") == "running"
+            and info.get("container_id") == previous_container
+        ):
             self._connected_at = time.monotonic()
 
         return self
@@ -718,8 +736,8 @@ class VM:
         self._api("DELETE", self._path())
         self._connected = None
 
-    def snapshot(self, name=None):
-        return self._action("snapshot", name=name or "")
+    def snapshot(self, name=None, *, memory: bool = False):
+        return self._action("snapshot", name=name or "", **_given(memory=memory))
 
     def snapshots(self):
         return [a for a in self._api("GET", "/artifacts/snapshot") if a["vm_id"] == self.id]
@@ -727,19 +745,29 @@ class VM:
     def remove_snapshot(self, name: str):
         self._api("DELETE", "/artifacts/snapshot/" + quote(name, safe=""))
 
-    def create_template(self, name=None, description="", *, public=False):
+    def create_template(self, name=None, description="", *, public=False, memory: bool = False):
         """Save an immutable root; public=True lets other workspaces fork by ID.
 
         Public templates include the complete root and its snapshot history.
         Use a fresh VM that has never held personal data or signed-in accounts.
+        Pass memory=True to include live RAM so VMs created from the template
+        boot directly from saved memory.
         """
         return self._action(
-            "template", name=name or self.name, description=description, public=public
+            "template",
+            name=name or self.name,
+            description=description,
+            public=public,
+            **_given(memory=memory),
         )
 
-    def fork(self, name=None, wait=True, *, cpu_tier=None) -> "VM":
-        tier = {"cpu_tier": cpu_tier} if cpu_tier else {}
-        info = self._action("fork", name=name or "", ssh_public_key=public_key(), **tier)
+    def fork(self, name=None, wait=True, *, cpu_tier=None, memory: bool = False) -> "VM":
+        info = self._action(
+            "fork",
+            name=name or "",
+            ssh_public_key=public_key(),
+            **_given(cpu_tier=cpu_tier, memory=memory),
+        )
         # SDK-owned children have independent connections; caller-owned
         # clients retain their explicit shared lifetime.
         child = (
@@ -794,8 +822,11 @@ class VM:
                 vm_channel=self._service.channel,
             )
             self._connected_at = time.monotonic()
-        if self.info.get("spec", {}).get("idle_timeout"):
-            self._touch()
+        idle_timeout = self.info.get("spec", {}).get("idle_timeout")
+        if idle_timeout:
+            touch_interval = max(1.0, min(30.0, idle_timeout / 4))
+            if time.monotonic() - self._touched_at >= touch_interval:
+                self._touch()
         return self._connected
 
     @contextmanager

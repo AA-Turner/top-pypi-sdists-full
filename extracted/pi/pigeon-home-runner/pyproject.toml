@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pigeon-home-runner"
-version = "4.0.37.5"
+version = "4.0.37.20"
 description = "Self-hosted, email-driven agent: tell your cloud SI to send signed jobs via email that execute on your machine."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -199,6 +199,7 @@ pytest_add_cli_args_test_selection = [
     "runner/tests/test_extensions.py",
     "runner/tests/test_extreme_concurrent_poison.py",
     "runner/tests/test_extreview.py",
+    "runner/tests/test_f15_whole_gate.py",
     "runner/tests/test_file_names.py",
     "runner/tests/test_file_transport_operator_path.py",
     "runner/tests/test_first_ping.py",
@@ -469,6 +470,7 @@ pytest_add_cli_args_test_selection = [
     "runner/tests/test_v4_models.py",
     "runner/tests/test_v4_the_answer.py",
     "runner/tests/test_v4_the_bars.py",
+    "runner/tests/test_v4_the_completion.py",
     "runner/tests/test_v4_the_examples.py",
     "runner/tests/test_v4_the_projection.py",
     "runner/tests/test_v4_the_folder.py",

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: fasttransform
-Version: 0.0.5
+Version: 0.0.6
 Summary: Transform is the main building block of data pipelines in fastai. And elsewhere if you want.
 Author-email: Jeremy Howard and Rens Dimmendaal and Alexis Gallagher <info@fast.ai>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/AnswerDotAI/fasttransform
 Project-URL: Documentation, https://AnswerDotAI.github.io/fasttransform
 Keywords: nbdev,jupyter,notebook,python
@@ -12,11 +12,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fastcore>=2.2.22
-Requires-Dist: plum-dispatch<2.10
+Requires-Dist: plum-dispatch
 Provides-Extra: dev
 Requires-Dist: matplotlib; extra == "dev"
 Requires-Dist: numpy; extra == "dev"

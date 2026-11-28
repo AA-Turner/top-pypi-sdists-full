@@ -22,6 +22,7 @@ from kasa import (
     KasaException,
     Module,
 )
+from kasa.cli.common import _echo
 from kasa.cli.device import (
     alias,
     factory_reset,
@@ -208,10 +209,17 @@ async def test_list_update_failed(
     assert row in res.output.replace("\n", "")
 
 
+# Unsupported device fixtures failing on their encryption, by fixture id
+UNSUPPORTED_ENCRYPTION_ROWS = {
+    "unknown_encryption": "ENCRYPTION FOO",
+    "wrong_encryption_smart": "ENCRYPTION IOT",
+}
+
+
 async def test_list_unsupported(
-    unsupported_device_info: dict, runner: CliRunner
+    unsupported_device_info: dict, runner: CliRunner, request: pytest.FixtureRequest
 ) -> None:
-    """Test that device update is called on main."""
+    """Test that unsupported devices are listed with the reason, if known."""
     res = await runner.invoke(
         cli,
         ["--username", "foo", "--password", "bar", "discover", "list"],
@@ -222,7 +230,8 @@ async def test_list_unsupported(
         f"{'HOST':<15} {'MODEL':<9} {'DEVICE FAMILY':<20} {'ENCRYPT':<7} "
         f"{'HTTPS':<5} {'LV':<3} {'ALIAS'}"
     )
-    row = f"{'127.0.0.1':<15} UNSUPPORTED DEVICE"
+    reason = UNSUPPORTED_ENCRYPTION_ROWS.get(request.node.callspec.id, "DEVICE")
+    row = f"{'127.0.0.1':<15} UNSUPPORTED {reason}\n"
     assert header in res.output
     assert row in res.output
 
@@ -1568,3 +1577,10 @@ def test_echo_strips_rich_tags_without_rich(monkeypatch, capsys):
     module._echo("[bold red]Only discover is available[/bold red] [ABC]")
 
     assert capsys.readouterr().out == "Only discover is available [ABC]\n"
+
+
+def test_echo_prints_non_string_messages(capsys):
+    """Messages other than strings are echoed as-is."""
+    _echo(1)
+
+    assert capsys.readouterr().out == "1\n"

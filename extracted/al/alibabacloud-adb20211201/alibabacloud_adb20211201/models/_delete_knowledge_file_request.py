@@ -15,9 +15,9 @@ class DeleteKnowledgeFileRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id
-        # The ID of the file.
+        # The file ID.
         self.file_id = file_id
-        # The path of the knowledge base document.
+        # The location of the knowledge base document.
         self.file_location = file_location
 
     def validate(self):

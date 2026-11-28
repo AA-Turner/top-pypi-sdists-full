@@ -4250,8 +4250,11 @@ def _packet_release(
     if ctx.policy_decides:
         ctx.grants_hash = _grants_hash(policy)
         ctx.declared_purpose = _declared_purpose(vault_root, who, purpose)
-        for rel_path in sorted(path for path in named_paths if path):
-            ctx.decide(rel_path)
+        named = sorted(path for path in named_paths if path)
+        # Announced, the store decides every named page on one request instead of one per page.
+        with deciding(named):
+            for rel_path in named:
+                ctx.decide(rel_path)
 
     # A candidate the guard could not resolve to a single real page has
     # a SET of interpretations instead (R3): a plain string containing `#`
@@ -4409,8 +4412,9 @@ def page_text_bounds(
         tombstoned=set(), withheld=set(), prose_resolved={},
         declared_purpose=_declared_purpose(root, who, purpose), grants_hash=_grants_hash(policy),
     )
-    for rel_path in wanted:
-        ctx.decide(rel_path)
+    with deciding(wanted):
+        for rel_path in wanted:
+            ctx.decide(rel_path)
     return {
         rel_path: page_text_bound(None if ctx.decisions[rel_path] is None else ctx.decisions[rel_path].level)
         for rel_path in wanted
@@ -4649,14 +4653,15 @@ def guard_working_set(
         # A relisted row may be one this packet never named, so nothing above
         # decided it. It is decided here for this caller, like every named path,
         # rather than trusted to the compiler's own view of the reader.
-        for entry in relisted:
-            rel_path = str(entry.get("path") or "")
-            if not rel_path or rel_path in decisions or rel_path in withheld:
-                continue
-            if _floor_withholds(vault_root, rel_path, who):
-                withheld.add(rel_path)
-            elif ctx.policy_decides:
-                ctx.decide(rel_path)
+        relisted_paths = [str(entry.get("path") or "") for entry in relisted]
+        with deciding(path for path in relisted_paths if path and path not in decisions and path not in withheld):
+            for rel_path in relisted_paths:
+                if not rel_path or rel_path in decisions or rel_path in withheld:
+                    continue
+                if _floor_withholds(vault_root, rel_path, who):
+                    withheld.add(rel_path)
+                elif ctx.policy_decides:
+                    ctx.decide(rel_path)
         guarded["anchors"] = [
             anchor
             for anchor in guarded["anchors"]
@@ -6717,14 +6722,51 @@ def _name_committed_file_item(
 
 def _name_receipt_title(result: dict[str, Any], path: str, title: str | None) -> dict[str, Any]:
     """Replace the one subject of the summary and preserve the receipt fields."""
+    if path and isinstance(title, str) and title.strip():
+        return _rename_receipt_subject(result, [path], f" -> {title}")
+    return result
+
+
+def _rename_receipt_subject(result: dict[str, Any], paths: Sequence[str], subject: str) -> dict[str, Any]:
+    """Put `subject` where the summary names `paths`, keeping the verb before it and the store name after it."""
     from ..mutation_terminal import _lead
 
     summary = result.get("user_summary")
-    if isinstance(summary, str) and path and isinstance(title, str) and title.strip():
-        head, separator, tail = summary.partition(_lead("", [path]))
+    if isinstance(summary, str) and paths:
+        head, separator, tail = summary.partition(_lead("", paths))
         if separator:
-            return {**result, "user_summary": f"{head} -> {title}{tail}"}
+            return {**result, "user_summary": f"{head}{subject}{tail}"}
     return result
+
+
+def _name_committed_store_row(writer: Any, payload: Mapping[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    """Name a store-backed Records write by its row and its collection, the way a person recognises them.
+
+    The summary was built from the pages the write touched, which for a summary collection are the
+    collection page and its rendered views. The receipt keeps those in `paths`. The row's label and the
+    collection's title come from the caller's own governed read; where either cannot be read or proved,
+    the sentence says "a row" and leaves out the collection rather than state what was not released.
+    A collection the store does not hold keeps its summary, so a file collection is named by its file.
+    """
+    from ..collection_store import receipt_names
+
+    paths, collection, key = payload.get("paths"), result.get("collection_id"), result.get("item_key")
+    if (not isinstance(result.get("user_summary"), str) or not isinstance(paths, list) or not paths
+            or not all(isinstance(path, str) for path in paths)
+            or not isinstance(collection, str) or not isinstance(key, str)):
+        return result
+    version = result.get("after_item_hash")
+    owned, title, label = False, None, None
+    try:
+        owned = receipt_names.owns(writer, collection)
+        if owned:
+            title, label = receipt_names.receipt_names(
+                writer, collection, key, version if isinstance(version, str) else None)
+    except Exception as error:  # noqa: BLE001 - optional prose cannot refuse a commit
+        log.warning("receipt names unreadable for collection %s: %s", collection, type(error).__name__)
+    if not owned:
+        return result
+    return _rename_receipt_subject(result, paths, f" {label or 'a row'}" + (f" in {title}" if title else ""))
 
 
 @_at_release_boundary
@@ -7132,6 +7174,9 @@ _METADATA_ONLY_COMMANDS: frozenset[str] = frozenset(
         # Owner-only mutation of one ref the caller supplied; a result shows the
         # change to that page only at FULL release.
         "approve_procedure",
+        # Owner-only face operations: the leaf refuses every caller without unrestricted
+        # content authority before it reads anything, so no path it names is withheld from its caller.
+        "manage_faces",
         "process_media",
         "transfer_artifact",
         "adopt_vault",
@@ -7267,6 +7312,12 @@ _SELECTOR_ADAPTERS: dict[tuple[str, str], dict[str, str]] = {
         "revoke": "mutation",
         "quarantine": "mutation",
     },
+    ("manage_faces", "action"): {
+        "status": "structure",
+        "set": "mutation",
+        "name": "mutation",
+        "delete": "mutation",
+    },
     ("configure_memory", "action"): {
         "inspect": "structure",
         "set": "mutation",
@@ -7352,6 +7403,8 @@ _SELECTOR_ADAPTERS: dict[tuple[str, str], dict[str, str]] = {
         "reclassify": "mutation",
         "propose-reclassification": "structure",
         "revert-reclassification": "mutation",
+        # A classify with `validate_only` is its preview, which writes nothing.
+        "classify": "validation",
     },
     ("schema_memory", "operation"): {
         "infer": "save-conditional",
@@ -10319,6 +10372,8 @@ def filter_withheld_entries(
             for resolved in _resolve_vault_item(candidate)
         )
     filtered = _walk(payload)
+    if _item_receipt and writer is not None and isinstance(filtered, dict) and isinstance(payload, Mapping):
+        filtered = _name_committed_store_row(writer, payload, filtered)
     if _item_receipt and policy.empty and who.resolved and writer is None and isinstance(filtered, dict):
         paths, version = filtered.get("paths"), filtered.get("after_item_hash")
         if (isinstance(paths, list) and len(paths) == 1 and isinstance(paths[0], str)

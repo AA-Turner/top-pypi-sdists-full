@@ -416,6 +416,11 @@ class SkillsCapability(AbstractCapability[AgentDepsT]):
         Registries sync to this machine and the file tools index this machine, so harness is
         pointed at the local filesystem rather than at the run's workspace, which may be a
         remote sandbox, or absent.
+
+        Options such as `missing_directories` and `duplicate_names` are left at harness's
+        own default rather than pinned here: this package inherits harness's behavior for
+        anything that doesn't break its own code, so a future default change is a question
+        for the next upstream-watch run, not something to override pre-emptively.
         """
         if not libraries:
             return None

@@ -16,9 +16,10 @@ use uuid::Uuid;
 use crate::person_login::_helpers::credentials;
 use crate::person_login::constants::REQUEST_SECONDS;
 use crate::person_login::models::{Bootstrap, LocationTarget, PersonClient, PersonCredential};
+use sqlbuild_orchestration::tls::main::client_builder::client_builder;
 
 pub(crate) fn connect(origin: &str, ca: Option<&Path>) -> Result<PersonClient, std::io::Error> {
-    let mut builder = reqwest::Client::builder()
+    let mut builder = client_builder()
         .redirect(reqwest::redirect::Policy::none())
         .timeout(Duration::from_secs(REQUEST_SECONDS))
         .default_headers(
@@ -303,6 +304,9 @@ async fn rejection(response: reqwest::Response, action: &str) -> std::io::Error 
         return std::io::Error::other("CLI session is unavailable or revoked; run sqb login again");
     }
     match response.json::<ApiErrorBody>().await {
+        Ok(body) if status == reqwest::StatusCode::CONFLICT => {
+            std::io::Error::other(format!("{action} refused: {}", body.error))
+        }
         Ok(body) => std::io::Error::other(format!(
             "{action} rejected (HTTP {}{})",
             status.as_u16(),

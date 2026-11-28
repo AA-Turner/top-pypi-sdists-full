@@ -40,6 +40,28 @@ def _jobs() -> dict:
     return workflow["jobs"]
 
 
+def test_shared_build_wheel_action_stages_all_package_notices() -> None:
+    action = yaml_loads((REPO_ROOT / ".github" / "actions" / "build-wheel" / "action.yml").read_text(encoding="utf-8"))
+    steps = action["runs"]["steps"]
+    generate_index = next(
+        index for index, step in enumerate(steps) if step.get("name") == "Generate third-party license texts"
+    )
+    stage_index = next(index for index, step in enumerate(steps) if step.get("name") == "Stage package legal notices")
+    assert generate_index < stage_index
+    assert steps[stage_index]["run"] == "python scripts/release/stage_package_notices.py"
+
+
+def test_py37_lite_build_generates_and_stages_package_notices() -> None:
+    steps = _jobs()["py37-lite"]["steps"]
+    setup_index = next(index for index, step in enumerate(steps) if step.get("uses") == "actions/setup-python@v6")
+    generate_index = next(
+        index for index, step in enumerate(steps) if step.get("name") == "Generate third-party license texts"
+    )
+    stage_index = next(index for index, step in enumerate(steps) if step.get("name") == "Stage package legal notices")
+    build_index = next(index for index, step in enumerate(steps) if "build_py37_pure_wheel.py" in step.get("run", ""))
+    assert setup_index < generate_index < stage_index < build_index
+
+
 def test_manual_backfill_reuses_verified_github_release_assets() -> None:
     workflow = yaml_loads(BUILD_WHEELS_WORKFLOW.read_text(encoding="utf-8"))
     reuse_input = workflow["on"]["workflow_call"]["inputs"]["reuse-release-assets"]
@@ -109,7 +131,7 @@ def test_release_wheels_are_uploaded_once_after_every_build() -> None:
 
     publish = jobs["publish-release"]
     assert set(publish["needs"]) == PUBLISH_JOB_IDS
-    assert publish["if"] == "inputs.release-tag-name != ''"
+    assert publish["if"] == "inputs['release-tag-name'] != ''"
     assert publish["permissions"] == {"actions": "read", "contents": "write"}
 
     # The macOS cp37 wheel is a build-verification spike, not a release
@@ -149,7 +171,7 @@ def test_release_wheels_are_uploaded_once_after_every_build() -> None:
     # release PAT through the reusable-workflow secret.
     assert upload["with"] == {
         "token": "${{ secrets.RELEASE_TOKEN || github.token }}",
-        "tag_name": "${{ inputs.release-tag-name }}",
+        "tag_name": "${{ inputs['release-tag-name'] }}",
         "files": "dist/*",
         # Replacing a same-named asset is opt-in: the caller decides, because
         # only the asset backfill may overwrite an existing release.
@@ -219,7 +241,8 @@ def test_python37_runtime_smokes_share_version_and_ref_bound_dependency_preparat
 def test_py37_contract_check_keeps_macos_target_gate_off_linux_and_windows() -> None:
     """The macOS cp37 target gate must stay scoped to macOS.
 
-    Linux and Windows pass their own `target` values (`x86_64`, `x64`), so
+    Linux and Windows pass their own `target` values (`x86_64`,
+    `x86_64-pc-windows-msvc`), so
     reusing the Apple triple check for them rejects every non-macOS cp37 lane
     before the wheel contract ever runs.
     """

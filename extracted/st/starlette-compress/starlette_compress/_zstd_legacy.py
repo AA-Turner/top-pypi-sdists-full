@@ -1,15 +1,26 @@
 from __future__ import annotations
 
+from typing import cast
+
 from zstandard import ZstdCompressor
 
 from starlette_compress._responder import CompressionResponder
+from starlette_compress._utils import (
+    DEFAULT_CONTENT_TYPES,
+    DEFAULT_STREAMING_CONTENT_TYPES,
+)
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
+    from typing import Protocol
 
     from starlette.types import ASGIApp
-    from zstandard import ZstdCompressionChunker
+
+    class _ZstdChunker(Protocol):
+        def compress(self, data: bytes) -> Iterator[bytes]: ...
+        def flush(self) -> Iterator[bytes]: ...
+        def finish(self) -> Iterator[bytes]: ...
 
 
 class _ZstdLegacyStreamEncoder:
@@ -25,7 +36,7 @@ class _ZstdLegacyStreamEncoder:
 
     __slots__ = ('_chunker',)
 
-    def __init__(self, chunker: ZstdCompressionChunker) -> None:
+    def __init__(self, chunker: _ZstdChunker) -> None:
         self._chunker = chunker
 
     def feed(self, data: bytes, flush: bool) -> Iterable[bytes]:
@@ -40,12 +51,29 @@ class _ZstdLegacyStreamEncoder:
 class ZstdResponder(CompressionResponder):
     __slots__ = ()
 
-    def __init__(self, app: ASGIApp, minimum_size: int, level: int) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        minimum_size: int,
+        level: int,
+        content_types: frozenset[str] = DEFAULT_CONTENT_TYPES,
+        streaming_content_types: frozenset[str] = DEFAULT_STREAMING_CONTENT_TYPES,
+    ) -> None:
         def oneshot(body: bytes) -> bytes:
             return ZstdCompressor(level=level).compress(body)
 
         def create_encoder(content_length: int) -> _ZstdLegacyStreamEncoder:
-            chunker = ZstdCompressor(level=level).chunker(content_length)
+            chunker = cast(
+                '_ZstdChunker', ZstdCompressor(level=level).chunker(content_length)
+            )
             return _ZstdLegacyStreamEncoder(chunker)
 
-        super().__init__(app, minimum_size, 'zstd', oneshot, create_encoder)
+        super().__init__(
+            app,
+            minimum_size,
+            'zstd',
+            oneshot,
+            create_encoder,
+            content_types,
+            streaming_content_types,
+        )

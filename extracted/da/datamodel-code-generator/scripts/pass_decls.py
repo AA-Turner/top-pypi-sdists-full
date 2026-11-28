@@ -1420,7 +1420,15 @@ FIX_TAG_OPT_OUT_FIELD_ORDERING = PassDecl(
     Phase.RENDER_PREPARATION,
     Scope.GLOBAL,
     PassKind.REPAIR,
-    reads=_facts(Fact.BASES, Fact.FIELD_SET, Fact.REQUIRED, Fact.DEFAULTS, RenderFact.KEYWORD_ONLY),
+    reads=_facts(
+        Fact.BASES,
+        Fact.FIELD_SET,
+        Fact.REQUIRED,
+        Fact.DEFAULTS,
+        RenderFact.FIELD_ORDER,
+        RenderFact.KEYWORD_ONLY,
+        RenderFact.BACKEND_CONFIG,
+    ),
     writes=_facts(RenderFact.KEYWORD_ONLY),
     after=(
         After(
@@ -1464,12 +1472,27 @@ FINALIZE_TYPE_ALIAS_USERS = PassDecl(
     Phase.RENDER_PREPARATION,
     Scope.GLOBAL,
     PassKind.TRANSFORM,
-    reads=_facts(Fact.MODEL_KIND, Fact.FIELD_TYPES, Fact.CONSTRAINTS),
-    writes=_facts(RenderFact.BACKEND_CONFIG),
+    reads=_facts(
+        Fact.BASES,
+        Fact.MODEL_KIND,
+        Fact.FIELD_TYPES,
+        Fact.CONSTRAINTS,
+        RenderFact.MODULE_MEMBERSHIP,
+        RenderFact.CLASS_NAMES,
+        RenderFact.MODULE_IMPORTS,
+    ),
+    writes=_facts(
+        RenderFact.BACKEND_CONFIG,
+        RenderFact.HINT_BODY_TYPES,
+        RenderFact.MODULE_IMPORTS,
+        RenderFact.IMPORT_ALIASES,
+    ),
     summary=(
         "Lets the backend configure the regex engine of its models from their final patterns, also through the type "
-        "aliases they use (model hook)."
+        "aliases they use (model hook), gives each field its copies of the types naming a model that its hint writes "
+        "from type alias bodies, then imports the models that those and the inherited fields a model redeclares name."
     ),
+    after=(After("prepare_type_alias_fields", "the alias bodies, whose patterns the copies leave out, are final"),),
 )
 MARK_SET_ITEM_MODELS_HASHABLE = PassDecl(
     "mark_set_item_models_hashable",
@@ -1486,7 +1509,10 @@ FINALIZE_STRUCTURED_IMPORTS = PassDecl(
     PassKind.TRANSFORM,
     reads=_facts(Fact.DEFAULTS, Fact.CONSTRAINTS, Fact.FIELD_NAMES, RenderFact.MODULE_IMPORTS),
     writes=_facts(RenderFact.DEFAULT_EXPRESSION, RenderFact.IMPORT_ALIASES, RenderFact.MODULE_IMPORTS),
-    after=(After("prepare_type_alias_fields", "aliases imports after alias bodies dropped their con* imports"),),
+    after=(
+        After("prepare_type_alias_fields", "aliases imports after alias bodies dropped their con* imports"),
+        After("finalize_type_alias_users", "aliases imports after the copies a model redeclares imported their models"),
+    ),
     summary="Aliases imports that runtime default expressions shadow (Avro also aligns shared defaults).",
     target=Phase.IMPORTS,
 )
@@ -1549,6 +1575,7 @@ FREEZE_FIELD_RENDER_PLANS = PassDecl(
         RenderFact.DEFAULT_VALIDATION,
         RenderFact.DEFAULT_EXPRESSION,
         RenderFact.BACKEND_CONFIG,
+        RenderFact.HINT_BODY_TYPES,
     ),
     summary="Freezes one render plan per field of the built-in output models, which rendering reads; B2 follows.",
 )
@@ -1563,6 +1590,7 @@ SNAPSHOT_MODEL_IMPORTS = PassDecl(
         RenderFact.IMPORT_ALIASES,
         RenderFact.QUOTING,
         RenderFact.TYPE_ALIAS_BODY,
+        RenderFact.HINT_BODY_TYPES,
         RenderFact.DEFAULT_EXPRESSION,
         RenderFact.BACKEND_CONFIG,
     ),
@@ -1739,7 +1767,8 @@ IMPORT_MODELS_OF_HIDDEN_SUBMODULES = PassDecl(
     ),
     summary=(
         "Imports a model of a submodule from the submodule where its package's ``__init__`` binds the submodule's name "
-        "itself, by its ``__future__`` import or a class, e.g. ``from .annotations import Item``, or where another "
+        "itself, by its ``__future__`` import or a class it defines or forwards from an import cycle merge, e.g. "
+        "``from .annotations import Item``, or where another "
         "import of the module binds the name of its module import, e.g. ``from .BaseModel import Thing`` beside "
         "``pydantic.BaseModel``, names the enum of an "
         "enum member literal through that import, e.g. ``Literal[Kind.book]``, and imports under an alias what the "

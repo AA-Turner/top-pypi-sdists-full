@@ -58,6 +58,8 @@ class TrackParamsTypedDict(TypedDict):
     r"""The amount of usage to record. Defaults to 1. Use negative values to credit balance (e.g., when removing a seat)."""
     properties: NotRequired[Dict[str, Any]]
     r"""Additional properties to attach to this usage event."""
+    idempotency_key: NotRequired[str]
+    r"""Deduplicates this track: a second track with the same key within 24 hours is ignored, and answered with a 409 `duplicate_idempotency_key`. The key is shared with the edge cache, so a track recorded there and resent to Autumn under the same key counts once."""
     timestamp: NotRequired[int]
     r"""Unix timestamp in milliseconds to use for the usage event. Defaults to the current time."""
     overage_behavior: NotRequired[TrackOverageBehavior]
@@ -85,6 +87,9 @@ class TrackParams(BaseModel):
     properties: Optional[Dict[str, Any]] = None
     r"""Additional properties to attach to this usage event."""
 
+    idempotency_key: Optional[str] = None
+    r"""Deduplicates this track: a second track with the same key within 24 hours is ignored, and answered with a 409 `duplicate_idempotency_key`. The key is shared with the edge cache, so a track recorded there and resent to Autumn under the same key counts once."""
+
     timestamp: Optional[int] = None
     r"""Unix timestamp in milliseconds to use for the usage event. Defaults to the current time."""
 
@@ -103,6 +108,7 @@ class TrackParams(BaseModel):
                 "event_name",
                 "value",
                 "properties",
+                "idempotency_key",
                 "timestamp",
                 "overage_behavior",
                 "async",

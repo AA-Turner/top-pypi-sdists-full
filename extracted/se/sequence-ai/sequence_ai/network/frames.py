@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """
 A camera frame resized on the robot to the size its policy takes, before upload, and encoded as JPEG; and on the
-server, turned back into the array its policy reads - what openpi's own client and server carry (network.openpi:
-image_tools on the robot, its infer() on the server).
+server, turned back into the array its policy reads.
 
     from sequence_ai.network import frames
 

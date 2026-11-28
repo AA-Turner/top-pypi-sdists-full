@@ -106,6 +106,14 @@ class PolicyCopy:
             log.info("plans for each episode every %g s (%s)", adapter.plan_every_s,
                      "async" if adapter.plan_is_async else "a thread a plan")
 
+    @property
+    def plays(self) -> dict:
+        """How the policy declares its answers play (@seq.policy): its hz, action_chunk_valid_len,
+        action_chunk_replan_at and max_wait_for_batch, those it declares - what serve() says on /ping where it seats no
+        robot by them."""
+        declared = getattr(self._adapter, "declared_plays", None) or {}
+        return {k: v for k, v in declared.items() if v is not None}
+
     def attach(self, executor: concurrent.futures.Executor) -> None:
         """The server's policy thread, where every call of the policy's code runs."""
         self._executor = executor

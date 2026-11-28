@@ -971,6 +971,15 @@ class Ending(StrEnum):
     failed = 'failed'
 
 
+class EnrollmentTokenKind(StrEnum):
+    """
+    How often an enrollment token enrolls (control/099). Named at every mint: neither is a silent default.
+    """
+
+    single_use = 'single_use'
+    reusable = 'reusable'
+
+
 class DisabledFilter(StrEnum):
     entity_types = 'entity_types'
     statuses = 'statuses'
@@ -1039,6 +1048,27 @@ class EpisodeStatus(StrEnum):
     running = 'running'
     completed = 'completed'
     error = 'error'
+
+
+class ContentType(StrEnum):
+    string = 'string'
+    object = 'object'
+    array = 'array'
+    null = 'null'
+    boolean = 'boolean'
+    number = 'number'
+    missing = 'missing'
+
+
+class State1(StrEnum):
+    queued = 'queued'
+    running = 'running'
+    scoring = 'scoring'
+    completed = 'completed'
+    cut_off = 'cut_off'
+    timed_out = 'timed_out'
+    error = 'error'
+    cancelled = 'cancelled'
 
 
 class ExampleProfile(StrEnum):
@@ -1184,6 +1214,12 @@ class GpuUnsupported(StrEnum):
     """
 
     engine = 'engine'
+
+
+class GradeStatus(StrEnum):
+    graded = 'graded'
+    ungraded = 'ungraded'
+    unknown = 'unknown'
 
 
 class Grant(StrEnum):
@@ -1674,6 +1710,16 @@ class MessageState(StrEnum):
     received = 'received'
     delivered = 'delivered'
     expired = 'expired'
+
+
+class ArgumentsType(StrEnum):
+    string = 'string'
+    object = 'object'
+    array = 'array'
+    null = 'null'
+    boolean = 'boolean'
+    number = 'number'
+    missing = 'missing'
 
 
 class MetricAgg(StrEnum):
@@ -2723,6 +2769,7 @@ class SemanticRefKind(StrEnum):
     project = 'project'
     group = 'group'
     trial = 'trial'
+    paper = 'paper'
 
 
 class SenderKind(StrEnum):
@@ -3158,7 +3205,7 @@ class WorkloadKind(StrEnum):
     unknown = 'unknown'
 
 
-class State2(StrEnum):
+class State3(StrEnum):
     absent = 'absent'
     generating = 'generating'
     fresh = 'fresh'

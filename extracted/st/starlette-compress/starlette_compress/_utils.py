@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from functools import lru_cache
 
 from starlette.datastructures import MutableHeaders
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from typing import Literal
-
     from starlette.types import Message
+
+
+class StartVerdict(StrEnum):
+    SKIP = 'skip'
+    BUFFERED = 'buffered'
+    STREAMING = 'streaming'
+
 
 _SUPPORTED_ENCODINGS = frozenset({'br', 'gzip', 'zstd'})
 _MUTABLE_RESPONSE_HEADERS = frozenset({
@@ -53,8 +59,8 @@ def _accepts_encoding_quality(params: list[str]) -> bool:
 def parse_accept_encoding(accept_encoding: str) -> frozenset[str]:
     """Parse the accept encoding header and return a set of supported encodings.
 
-    >>> _parse_accept_encoding('br;q=1.0, gzip;q=0.8, *;q=0.1')
-    {'br', 'gzip', 'zstd'}
+    >>> sorted(parse_accept_encoding('br;q=1.0, gzip;q=0.8, *;q=0.1'))
+    ['br', 'gzip', 'zstd']
     """
     accepted: set[str] = set()
     rejected: set[str] = set()
@@ -84,7 +90,7 @@ def parse_accept_encoding(accept_encoding: str) -> frozenset[str]:
 # Based on
 # - https://github.com/h5bp/server-configs-nginx/blob/main/h5bp/web_performance/compression.conf#L38
 # - https://developers.cloudflare.com/speed/optimization/content/compression/
-_compress_content_types: set[str] = {
+DEFAULT_CONTENT_TYPES: frozenset[str] = frozenset({
     'application/atom+xml',
     'application/connect+json',
     'application/connect+proto',
@@ -153,37 +159,19 @@ _compress_content_types: set[str] = {
     'text/x-markdown',
     'text/x-script',
     'text/xml',
-}
+})
 
 # Content types that commit early, bypass minimum_size, and flush per ASGI body message.
-_streaming_content_types: set[str] = {
+DEFAULT_STREAMING_CONTENT_TYPES: frozenset[str] = frozenset({
     'text/event-stream',
-}
-
-
-def add_compress_type(content_type: str, *, streaming: bool = False) -> None:
-    """Add a new content-type to be compressed.
-
-    When ``streaming=True``, also register the type for early commit, minimum_size
-    bypass, and per-message compressor flush. A plain re-add does not demote an
-    existing streaming membership.
-    """
-    content_type = content_type.lower()
-    _compress_content_types.add(content_type)
-    if streaming:
-        _streaming_content_types.add(content_type)
-
-
-def remove_compress_type(content_type: str) -> None:
-    """Remove a content-type from being compressed (and from streaming types)."""
-    content_type = content_type.lower()
-    _compress_content_types.discard(content_type)
-    _streaming_content_types.discard(content_type)
+})
 
 
 def classify_start_message(
     message: Message,
-) -> Literal['skip', 'buffered', 'streaming']:
+    content_types: frozenset[str] = DEFAULT_CONTENT_TYPES,
+    streaming_content_types: frozenset[str] = DEFAULT_STREAMING_CONTENT_TYPES,
+) -> StartVerdict:
     """Classify whether a response start should be compressed.
 
     Returns:
@@ -195,7 +183,7 @@ def classify_start_message(
     status: int = message.get('status', 200)
     # 1xx informational, 204 No Content, 205 Reset Content, 304 Not Modified
     if status < 200 or status in (204, 205, 304):
-        return 'skip'
+        return StartVerdict.SKIP
 
     content_type: bytes | None = None
     for name, value in message['headers']:
@@ -204,23 +192,23 @@ def classify_start_message(
             for encoding in value.split(b','):
                 encoding = encoding.strip()
                 if encoding and encoding.lower() != b'identity':
-                    return 'skip'
+                    return StartVerdict.SKIP
         elif name == b'content-type':
             content_type = value
         elif name == b'content-range':
-            return 'skip'
+            return StartVerdict.SKIP
 
     if content_type is None:
-        return 'skip'
+        return StartVerdict.SKIP
 
     basic_content_type = content_type.split(b';', maxsplit=1)[0].strip()
     try:
         media_type = basic_content_type.decode('ascii').lower()
     except UnicodeDecodeError:
-        return 'skip'
+        return StartVerdict.SKIP
 
-    if media_type not in _compress_content_types:
-        return 'skip'
-    if media_type in _streaming_content_types:
-        return 'streaming'
-    return 'buffered'
+    if media_type not in content_types:
+        return StartVerdict.SKIP
+    if media_type in streaming_content_types:
+        return StartVerdict.STREAMING
+    return StartVerdict.BUFFERED

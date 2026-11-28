@@ -82,6 +82,9 @@ class BaseDict(dict[_K, _V]):
             return o in self._dict
         return super().__contains__(o)
 
+    def __copy__(self) -> Self:
+        return self.copy()
+
     def __deepcopy__(self, memo: dict[int, Any]) -> Self:
         obj = self.__class__()
         for key, value in self.items():
@@ -98,6 +101,8 @@ class BaseDict(dict[_K, _V]):
         super().__delitem__(key)
 
     def __eq__(self, other: object) -> bool:
+        if isinstance(other, BaseDict) and other._dict is not None:
+            other = other._dict
         if self._dict is not None:
             return self._dict == other
         return super().__eq__(other)
@@ -125,6 +130,8 @@ class BaseDict(dict[_K, _V]):
         return super().__len__()
 
     def __ne__(self, other: object) -> bool:
+        if isinstance(other, BaseDict) and other._dict is not None:
+            other = other._dict
         if self._dict is not None:
             return self._dict != other
         return super().__ne__(other)
@@ -255,6 +262,8 @@ class BaseDict(dict[_K, _V]):
 
     def setdefault(self, key: _K, default: _V | None = None) -> _V:
         self._check_frozen()
+        if key in self:
+            return self[key]
         default = self._get_dict_or_value(default)
         if self._dict is not None:
             return self._dict.setdefault(key, default)

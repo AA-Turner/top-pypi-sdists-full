@@ -176,7 +176,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="AMANNN_ACTION_SEMANTIC_PULL_REQUEST")
     @builtins.classmethod
     def AMANNN_ACTION_SEMANTIC_PULL_REQUEST(cls) -> builtins.str:
-        '''(experimental) amannn/action-semantic-pull-request at v6.1.2 (immutable).
+        '''(experimental) amannn/action-semantic-pull-request at v6.1.3 (immutable).
 
         :stability: experimental
         '''

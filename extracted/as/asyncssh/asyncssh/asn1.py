@@ -32,7 +32,8 @@
 
 """
 
-from typing import Dict, FrozenSet, Sequence, Set, Tuple, Type, TypeVar, Union
+from typing import Dict, FrozenSet, Iterable, List, Sequence, Set, Tuple, Type
+from typing import TypeVar, Union
 from typing import cast
 
 
@@ -59,6 +60,16 @@ SEQUENCE          = 0x10
 SET               = 0x11
 IA5_STRING        = 0x16
 
+# Limits on decoding to bound the cost of processing malformed input,
+# also enforced when encoding so encoded values can always be decoded
+_MAX_DEPTH        = 32   # Maximum nesting of constructed values
+_MAX_TAG_LEN      = 4    # Maximum length of a long-form tag number
+_MAX_OID_COMP_LEN = 20   # Maximum length of an OID component (140 bits)
+
+_MAX_TAG          = 1 << (7 * _MAX_TAG_LEN)
+_MAX_OID_COMP     = 1 << (7 * _MAX_OID_COMP_LEN)
+_MAX_OID_DIGITS   = len(str(_MAX_OID_COMP))
+
 _asn1_class = ('Universal', 'Application', 'Context-specific', 'Private')
 
 _der_class_by_tag: Dict[int, _DERClass] = {}
@@ -71,9 +82,15 @@ def _encode_identifier(asn1_class: int, constructed: bool, tag: int) -> bytes:
     if asn1_class not in (UNIVERSAL, APPLICATION, CONTEXT_SPECIFIC, PRIVATE):
         raise ASN1EncodeError('Invalid ASN.1 class')
 
+    if tag < 0:
+        raise ASN1EncodeError('Tag must be non-negative')
+
+    if tag >= _MAX_TAG:
+        raise ASN1EncodeError('Tag too large')
+
     flags = (asn1_class << 6) | (0x20 if constructed else 0x00)
 
-    if tag < 0x20:
+    if tag < 0x1f:
         identifier = [flags | tag]
     else:
         identifier = [tag & 0x7f]
@@ -105,7 +122,7 @@ class DERType:
     identifier: bytes = b''
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode value as a DER byte string"""
 
         raise NotImplementedError
@@ -188,8 +205,10 @@ class RawDERObject:
         return _encode_identifier(self.asn1_class, False, self.tag)
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode the content for this object as a DER byte string"""
+
+        # pylint: disable=unused-argument
 
         return cast('RawDERObject', value).content
 
@@ -234,10 +253,11 @@ class TaggedDERObject:
         return _encode_identifier(self.asn1_class, True, self.tag)
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode the content for this object as a DER byte string"""
 
-        return der_encode(cast('TaggedDERObject', value).value)
+        tagged_value = cast('TaggedDERObject', value).value
+        return b''.join(_encode_items((tagged_value,), depth + 1))
 
 
 @DERTag(NULL, (type(None),))
@@ -245,10 +265,8 @@ class _Null(DERType):
     """A null value"""
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a DER null value"""
-
-        # pylint: disable=unused-argument
 
         return b''
 
@@ -270,7 +288,7 @@ class _Boolean(DERType):
     """A boolean value"""
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a DER boolean value"""
 
         return b'\xff' if value else b'\0'
@@ -293,7 +311,7 @@ class _Integer(DERType):
     """An integer value"""
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a DER integer value"""
 
         i = cast(int, value)
@@ -309,6 +327,9 @@ class _Integer(DERType):
         if constructed:
             raise ASN1DecodeError('INTEGER should not be constructed')
 
+        if not content:
+            raise ASN1DecodeError('Empty INTEGER')
+
         return int.from_bytes(content, 'big', signed=True)
 
 
@@ -317,7 +338,7 @@ class _OctetString(DERType):
     """An octet string value"""
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a DER octet string"""
 
         return cast(bytes, value)
@@ -337,7 +358,7 @@ class _UTF8String(DERType):
     """A UTF-8 string value"""
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a DER UTF-8 string"""
 
         return cast(str, value).encode('utf-8')
@@ -353,63 +374,27 @@ class _UTF8String(DERType):
 
 
 @DERTag(SEQUENCE, (list, tuple), constructed=True)
-class _Sequence(DERType):
+class _Sequence(DERType): # pylint: disable=abstract-method
     """A sequence of values"""
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a sequence of DER values"""
 
         seq_value = cast(Sequence[object], value)
-        return b''.join(der_encode(item) for item in seq_value)
-
-    @classmethod
-    def decode(cls, constructed: bool, content: bytes) -> Sequence[object]:
-        """Decode a sequence of DER values"""
-
-        if not constructed:
-            raise ASN1DecodeError('SEQUENCE should always be constructed')
-
-        offset = 0
-        length = len(content)
-
-        value = []
-        while offset < length:
-            item, consumed = der_decode_partial(content[offset:])
-            value.append(item)
-            offset += consumed
-
-        return tuple(value)
+        return b''.join(_encode_items(seq_value, depth + 1))
 
 
 @DERTag(SET, (set, frozenset), constructed=True)
-class _Set(DERType):
+class _Set(DERType): # pylint: disable=abstract-method
     """A set of DER values"""
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a set of DER values"""
 
         set_value = cast(Union[FrozenSet[object], Set[object]], value)
-        return b''.join(sorted(der_encode(item) for item in set_value))
-
-    @classmethod
-    def decode(cls, constructed: bool, content: bytes) -> FrozenSet[object]:
-        """Decode a set of DER values"""
-
-        if not constructed:
-            raise ASN1DecodeError('SET should always be constructed')
-
-        offset = 0
-        length = len(content)
-
-        value = set()
-        while offset < length:
-            item, consumed = der_decode_partial(content[offset:])
-            value.add(item)
-            offset += consumed
-
-        return frozenset(value)
+        return b''.join(sorted(_encode_items(set_value, depth + 1)))
 
 
 @DERTag(BIT_STRING)
@@ -443,6 +428,10 @@ class BitString(DERType):
             if unused:
                 raise ASN1EncodeError('Unused bit count should not be set '
                                       'when providing a string')
+
+            if not set(value) <= {'0', '1'}:
+                raise ASN1EncodeError('Bit string should contain only '
+                                      '0 and 1')
 
             used = len(value) % 8
             unused = 8 - used if used else 0
@@ -481,7 +470,7 @@ class BitString(DERType):
         return hash((self.value, self.unused))
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a DER bit string"""
 
         bitstr_value = cast('BitString', value)
@@ -497,14 +486,23 @@ class BitString(DERType):
         if not content or content[0] > 7:
             raise ASN1DecodeError('Invalid unused bit count')
 
-        return cls(content[1:], unused=content[0])
+        unused = content[0]
+
+        if unused:
+            if len(content) == 1:
+                raise ASN1DecodeError('Can\'t have unused bits with empty '
+                                      'value')
+            elif content[-1] & ((1 << unused) - 1):
+                raise ASN1DecodeError('Unused bits in value should be zero')
+
+        return cls(content[1:], unused=unused)
 
 
 @DERTag(IA5_STRING)
 class IA5String(DERType):
     """An ASCII string value"""
 
-    def __init__(self, value: Union[bytes, bytearray]):
+    def __init__(self, value: bytes):
         self.value = value
 
     def __str__(self) -> str:
@@ -523,7 +521,7 @@ class IA5String(DERType):
         return hash(self.value)
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a DER IA5 string"""
 
         # ASN.1 defines this type as only containing ASCII characters, but
@@ -581,15 +579,14 @@ class ObjectIdentifier(DERType):
         return hash(self.value)
 
     @staticmethod
-    def encode(value: object) -> bytes:
+    def encode(value: object, depth: int) -> bytes:
         """Encode a DER object identifier"""
 
         def _bytes(component: int) -> bytes:
             """Convert a single element of an OID to a DER byte string"""
 
-            if component < 0:
-                raise ASN1EncodeError('Components of object identifier must '
-                                      'be greater than or equal to 0')
+            if component >= _MAX_OID_COMP:
+                raise ASN1EncodeError('Object identifier component too large')
 
             result = [component & 0x7f]
             while component >= 0x80:
@@ -599,20 +596,26 @@ class ObjectIdentifier(DERType):
             return bytes(result[::-1])
 
         oid_value = cast('ObjectIdentifier', value)
+        components: List[int] = []
 
-        try:
-            components = [int(c) for c in oid_value.value.split('.')]
-        except ValueError:
-            raise ASN1EncodeError('Component values must be '
-                                  'integers') from None
+        for c in oid_value.value.split('.'):
+            if not (c.isascii() and c.isdigit() and
+                    (c == '0' or c[0] != '0')):
+                raise ASN1EncodeError('Components of object identifier must '
+                                      'be non-negative decimal integers')
+
+            if len(c) > _MAX_OID_DIGITS:
+                raise ASN1EncodeError('Object identifier component too large')
+
+            components.append(int(c))
 
         if len(components) < 2:
             raise ASN1EncodeError('Object identifiers must have at least two '
                                   'components')
-        elif components[0] < 0 or components[0] > 2:
+        elif components[0] > 2:
             raise ASN1EncodeError('First component of object identifier must '
                                   'be between 0 and 2')
-        elif components[0] < 2 and (components[1] < 0 or components[1] > 39):
+        elif components[0] < 2 and components[1] > 39:
             raise ASN1EncodeError('Second component of object identifier must '
                                   'be between 0 and 39')
 
@@ -630,22 +633,31 @@ class ObjectIdentifier(DERType):
         if not content:
             raise ASN1DecodeError('Empty object identifier')
 
-        b = content[0]
-        components = list(divmod(b, 40)) if b < 80 else [2, b-80]
-
+        components: List[int] = []
         component = 0
-        for b in content[1:]:
-            if b == 0x80 and component == 0:
-                raise ASN1DecodeError('Invalid component')
-            elif b < 0x80:
-                components.append(component | b)
-                component = 0
-            else:
-                component |= b & 0x7f
-                component <<= 7
+        comp_len = 0
 
-        if component:
+        for b in content:
+            if b == 0x80 and comp_len == 0:
+                raise ASN1DecodeError('Invalid component')
+
+            comp_len += 1
+
+            if comp_len > _MAX_OID_COMP_LEN:
+                raise ASN1DecodeError('Object identifier component too large')
+
+            component = (component << 7) | (b & 0x7f)
+
+            if b < 0x80:
+                components.append(component)
+                component = 0
+                comp_len = 0
+
+        if comp_len:
             raise ASN1DecodeError('Incomplete component')
+
+        first = components[0]
+        components[0:1] = divmod(first, 40) if first < 80 else (2, first - 80)
 
         return cls('.'.join(str(c) for c in components))
 
@@ -675,15 +687,21 @@ def der_encode(value: object) -> bytes:
 
     """
 
+    return _encode_value(value, 0)
+
+
+def _encode_value(value: object, depth: int) -> bytes:
+    """Encode a value in DER format at the specified nesting depth"""
+
     t = type(value)
     if t in (RawDERObject, TaggedDERObject):
         value = cast(Union[RawDERObject, TaggedDERObject], value)
         identifier = value.encode_identifier()
-        content = value.encode(value)
+        content = value.encode(value, depth)
     elif t in _der_class_by_type:
         cls = _der_class_by_type[t]
         identifier = cls.identifier
-        content = cls.encode(value)
+        content = cls.encode(value, depth)
     else:
         raise ASN1EncodeError(f'Cannot DER encode type {t.__name__}')
 
@@ -697,56 +715,120 @@ def der_encode(value: object) -> bytes:
     return identifier + len_bytes + content
 
 
-def der_decode_partial(data: bytes) -> Tuple[object, int]:
-    """Decode a value in DER format and return the number of bytes consumed"""
+def _encode_items(items: Iterable[object], depth: int) -> List[bytes]:
+    """Encode the DER values in items at the specified nesting depth"""
 
-    if len(data) < 2:
+    if depth > _MAX_DEPTH:
+        raise ASN1EncodeError('Nesting too deep')
+
+    return [_encode_value(item, depth) for item in items]
+
+
+def _decode_items(data: bytes, offset: int, end: int,
+                  depth: int) -> List[object]:
+    """Decode the DER values in data[offset:end] without copying it"""
+
+    if depth > _MAX_DEPTH:
+        raise ASN1DecodeError('Nesting too deep')
+
+    items = []
+
+    while offset < end:
+        item, offset = _decode_value(data, offset, end, depth)
+        items.append(item)
+
+    return items
+
+
+def _decode_value(data: bytes, offset: int, limit: int,
+                  depth: int) -> Tuple[object, int]:
+    """Decode a DER value starting at offset which must end by limit
+
+       This returns the decoded value and the offset just past it.
+
+    """
+
+    if limit - offset < 2:
         raise ASN1DecodeError('Incomplete data')
 
-    tag = data[0]
+    tag = data[offset]
+    offset += 1
     asn1_class, constructed, tag = tag >> 6, bool(tag & 0x20), tag & 0x1f
-    offset = 1
+
     if tag == 0x1f:
         tag = 0
-        for b in data[offset:]:
+        tag_start = offset
+
+        while True:
+            if offset >= limit:
+                raise ASN1DecodeError('Incomplete tag')
+
+            if offset - tag_start >= _MAX_TAG_LEN:
+                raise ASN1DecodeError('Tag too large')
+
+            b = data[offset]
             offset += 1
+            tag = (tag << 7) | (b & 0x7f)
 
             if b < 0x80:
-                tag |= b
                 break
-            else:
-                tag |= b & 0x7f
-                tag <<= 7
-        else:
-            raise ASN1DecodeError('Incomplete tag')
 
-    if offset >= len(data):
+    if offset >= limit:
         raise ASN1DecodeError('Incomplete data')
 
     length = data[offset]
     offset += 1
-    if length > 0x80:
+
+    if length == 0xff:
+        raise ASN1DecodeError('Invalid length')
+    elif length > 0x80:
         len_size = length & 0x7f
+
+        if offset + len_size > limit:
+            raise ASN1DecodeError('Incomplete data')
+
         length = int.from_bytes(data[offset:offset+len_size], 'big')
         offset += len_size
     elif length == 0x80:
         raise ASN1DecodeError('Indefinite length not allowed')
 
     end = offset + length
-    content = data[offset:end]
 
-    if end > len(data):
+    if end > limit:
         raise ASN1DecodeError('Incomplete data')
 
-    if asn1_class == UNIVERSAL and tag in _der_class_by_tag:
+    value: object
+
+    if asn1_class == UNIVERSAL and tag in (SEQUENCE, SET):
+        if not constructed:
+            name = 'SEQUENCE' if tag == SEQUENCE else 'SET'
+            raise ASN1DecodeError(f'{name} should always be constructed')
+
+        items = _decode_items(data, offset, end, depth + 1)
+        value = tuple(items) if tag == SEQUENCE else frozenset(items)
+    elif asn1_class == UNIVERSAL and tag in _der_class_by_tag:
         cls = _der_class_by_tag[tag]
-        value = cls.decode(constructed, content)
+        value = cls.decode(constructed, data[offset:end])
     elif constructed:
-        value = TaggedDERObject(tag, der_decode(content), asn1_class)
+        if depth >= _MAX_DEPTH:
+            raise ASN1DecodeError('Nesting too deep')
+
+        tagged_value, value_end = _decode_value(data, offset, end, depth + 1)
+
+        if value_end < end:
+            raise ASN1DecodeError('Data contains unexpected bytes at end')
+
+        value = TaggedDERObject(tag, tagged_value, asn1_class)
     else:
-        value = RawDERObject(tag, content, asn1_class)
+        value = RawDERObject(tag, data[offset:end], asn1_class)
 
     return value, end
+
+
+def der_decode_partial(data: bytes) -> Tuple[object, int]:
+    """Decode a value in DER format and return the number of bytes consumed"""
+
+    return _decode_value(data, 0, len(data), 0)
 
 
 def der_decode(data: bytes) -> object:

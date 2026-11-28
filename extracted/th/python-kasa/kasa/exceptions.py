@@ -35,6 +35,18 @@ class UnsupportedDeviceError(KasaException):
         super().__init__(*args)
 
 
+class UnsupportedEncryptionError(UnsupportedDeviceError):
+    """Exception for devices using an encryption scheme not implemented here.
+
+    The device type may still be supported on firmware using another scheme.
+    ``encryption_type`` is the raw scheme name the device reported, e.g. ``TPAP``.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.encryption_type: str = kwargs["encryption_type"]
+        super().__init__(*args, **kwargs)
+
+
 class DeviceError(KasaException):
     """Base exception for device errors."""
 
@@ -53,6 +65,10 @@ class DeviceError(KasaException):
 
 class AuthenticationError(DeviceError):
     """Base exception for device authentication errors."""
+
+
+class DeviceUnavailableError(DeviceError):
+    """Exception for commands to an unreachable device."""
 
 
 class _RetryableError(DeviceError):

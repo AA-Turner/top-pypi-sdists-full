@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-gevent
-Version: 26.9.0.20261122
+Version: 26.9.0.20261128
 Summary: Typing stubs for gevent
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -34,9 +34,9 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.1
-* [pyrefly](https://pyrefly.org/) 1.4.1
+* [pyrefly](https://pyrefly.org/) 1.5.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.104
+* [ty](https://docs.astral.sh/ty/) 0.0.107
 
 It was generated from typeshed commit
-[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).
+[`b9f18c77fc82b7f48656829adf2bd3d67c588555`](https://github.com/python/typeshed/commit/b9f18c77fc82b7f48656829adf2bd3d67c588555).

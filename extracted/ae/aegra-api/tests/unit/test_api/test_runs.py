@@ -1,12 +1,15 @@
 """Unit tests for standard run endpoints (create, get, list, update, join)."""
 
+import json
 from datetime import UTC, datetime
+from typing import get_args
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
 from redis import RedisError
+from sqlalchemy.dialects import postgresql
 
 from aegra_api.api.runs import (
     _request_run_interruption,
@@ -20,6 +23,7 @@ from aegra_api.core.orm import Assistant as AssistantORM
 from aegra_api.core.orm import Run as RunORM
 from aegra_api.core.orm import Thread as ThreadORM
 from aegra_api.models import Run, RunCreate, RunStatus, User
+from aegra_api.models.runs import RunSelectField
 from aegra_api.services.run_preparation import _apply_create_run_auth
 
 
@@ -264,6 +268,54 @@ class TestRunsEndpoints:
 
         assert len(result) == 3
         assert result[0].run_id == "run-0"
+
+    @pytest.mark.asyncio
+    async def test_list_runs_with_select_does_not_load_output(self, mock_user: User, mock_session: AsyncMock) -> None:
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_session.scalars.return_value = mock_result
+
+        await list_runs(
+            "t", limit=10, offset=0, status=None, fields=["run_id", "status"], user=mock_user, session=mock_session
+        )
+
+        stmt = mock_session.scalars.await_args.args[0]
+        selected = str(stmt.compile(dialect=postgresql.dialect())).split("FROM")[0]
+        assert selected.split() == ["SELECT", "runs.run_id,", "runs.status"]
+
+    @pytest.mark.asyncio
+    async def test_list_runs_with_select_returns_only_selected_fields(
+        self, mock_user: User, mock_session: AsyncMock
+    ) -> None:
+        row = RunORM(
+            run_id="run-0",
+            thread_id="t",
+            assistant_id="agent",
+            user_id=mock_user.identity,
+            status="success",
+            created_at=datetime(2026, 11, 1, tzinfo=UTC),
+            updated_at=datetime(2026, 11, 1, tzinfo=UTC),
+        )
+        mock_result = MagicMock()
+        mock_result.all.return_value = [row]
+        mock_session.scalars.return_value = mock_result
+
+        response = await list_runs(
+            "t",
+            limit=10,
+            offset=0,
+            status=None,
+            fields=["status", "run_id", "status", "created_at"],
+            user=mock_user,
+            session=mock_session,
+        )
+
+        assert json.loads(response.body) == [
+            {"status": "success", "run_id": "run-0", "created_at": "2026-11-01T00:00:00+00:00"}
+        ]
+
+    def test_run_select_fields_cover_every_run_field(self) -> None:
+        assert set(get_args(RunSelectField)) == set(Run.model_fields)
 
     @pytest.mark.asyncio
     async def test_update_run_cancel(self, mock_user: User, mock_session: AsyncMock) -> None:
@@ -570,7 +622,7 @@ class TestApplyCreateRunAuth:
             return {}
 
         with patch("aegra_api.services.run_preparation.handle_event", new_callable=AsyncMock, side_effect=_handler):
-            await _apply_create_run_auth(mock_user, "t", request)
+            await _apply_create_run_auth(mock_user, "t", request, session=AsyncMock(), thread_exists=False)
 
         assert request.config == {"original": "kept"}
 
@@ -584,7 +636,7 @@ class TestApplyCreateRunAuth:
             return None
 
         with patch("aegra_api.services.run_preparation.handle_event", new_callable=AsyncMock, side_effect=_handler):
-            await _apply_create_run_auth(mock_user, "t", request)
+            await _apply_create_run_auth(mock_user, "t", request, session=AsyncMock(), thread_exists=False)
 
         assert request.config == {"original": "kept", "injected_via_value": True}
 
@@ -596,9 +648,49 @@ class TestApplyCreateRunAuth:
         with patch(
             "aegra_api.services.run_preparation.handle_event",
             new_callable=AsyncMock,
-            return_value={"config": {"injected": True}, "context": {"injected_ctx": 2}},
+            # Only create_run returns overrides; assistants.read would read this dict as a filter.
+            side_effect=lambda ctx, _value: (
+                {"config": {"injected": True}, "context": {"injected_ctx": 2}} if ctx.action == "create_run" else None
+            ),
         ):
-            await _apply_create_run_auth(mock_user, "t", request)
+            await _apply_create_run_auth(mock_user, "t", request, session=AsyncMock(), thread_exists=False)
 
         assert request.config == {"original": "kept", "injected": True}
         assert request.context == {"injected_ctx": 2}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("row", "hidden"), [(None, True), ("t", False)])
+    async def test_run_on_an_existing_thread_applies_the_threads_read_filter(
+        self, mock_user: User, row: str | None, hidden: bool
+    ) -> None:
+        request = RunCreate(assistant_id="a", input={})
+        session = AsyncMock(scalar=AsyncMock(return_value=row))
+
+        async def _handler(ctx: object, _value: dict) -> dict | None:
+            return {"team": "blue"} if (ctx.resource, ctx.action) == ("threads", "read") else None
+
+        with (
+            patch("aegra_api.services.run_preparation.handle_event", new_callable=AsyncMock, side_effect=_handler),
+            patch("aegra_api.core.auth_scope.get_session_maker") as own_session,
+        ):
+            if hidden:
+                with pytest.raises(HTTPException) as exc_info:
+                    await _apply_create_run_auth(mock_user, "t", request, session=session, thread_exists=True)
+                assert exc_info.value.status_code == 404
+            else:
+                await _apply_create_run_auth(mock_user, "t", request, session=session, thread_exists=True)
+
+        session.scalar.assert_awaited_once()
+        own_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_run_on_a_new_thread_does_not_dispatch_threads_read(self, mock_user: User) -> None:
+        request = RunCreate(assistant_id="a", input={})
+
+        with patch(
+            "aegra_api.services.run_preparation.handle_event", new_callable=AsyncMock, return_value=None
+        ) as mock_handle:
+            await _apply_create_run_auth(mock_user, "t", request, session=AsyncMock(), thread_exists=False)
+
+        actions = [(c.args[0].resource, c.args[0].action) for c in mock_handle.await_args_list]
+        assert actions == [("threads", "create_run"), ("assistants", "read")]

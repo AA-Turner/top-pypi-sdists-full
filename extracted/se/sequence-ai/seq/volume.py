@@ -1,7 +1,6 @@
 """
 `seq.Volume` — a named volume you uploaded (`seq volume put`): a policy's weights
-(`weights=seq.Volume.from_name("pi05_ft_user")`) or a benchmark's assets (`assets=`), each lowered to the wire
-`vol://<name>`.
+(`weights=seq.Volume.from_name("pi05_ft_user")`), lowered to the wire `vol://<name>`.
 
 WHY a handle object rather than a raw string: the name is checked and lowered in one place, and the call reads as what
 it is. A policy mounts no volumes of its own: `@seq.policy(volumes=...)`, which the platform refused, is gone

@@ -5,12 +5,15 @@ when:
   - event: tag
     branch: master
 
+depends_on:
+  - name: containers-wheel
+    optional: true
+
 matrix:
   PYTHON_VERSION:
-    - "3.11"
-    - "3.12"
     - "3.13"
     - "3.14"
+    - "3.15"
   ARCH:
     - amd64
     - arm64

@@ -16,13 +16,14 @@ use chrono::{Duration, Utc};
 use reqwest::StatusCode;
 use uuid::Uuid;
 
-use crate::api::tests::helpers::{start_api, stop_api};
+use crate::api::tests::helpers::{check_in, start_api, stop_api};
 use crate::api::tests::test_types::LocationWorkTestCase;
 use crate::api::tests::work_helpers::execute;
 use crate::credentials::tests::location_helpers::create_location;
 use crate::runs::tests::helpers::snapshot;
 use crate::store::tests::store_helpers::{close_test_store, open_test_store, run};
 use crate::store::tests::store_test_types::Backend;
+use crate::tls::main::client_builder::client_builder;
 
 #[test]
 fn given_outbound_work_when_claimed_retried_or_replaced_then_scope_and_immutable_results_are_enforced()
@@ -75,6 +76,7 @@ fn given_outbound_work_when_claimed_retried_or_replaced_then_scope_and_immutable
             let mut input = snapshot(location_id);
             input.target.clone_from(&request.target);
             publish_snapshot(store, &input).await.expect("publish");
+            check_in(store, location_id, &request.target).await;
             let invalid_audit = AuditContext {
                 granting_role: String::new(),
                 ..audit.clone()
@@ -172,7 +174,7 @@ fn given_outbound_work_when_claimed_retried_or_replaced_then_scope_and_immutable
                 foreign.poll(&poll).await,
                 Err(ClientError::Rejected(StatusCode::FORBIDDEN))
             ));
-            let client = reqwest::Client::new();
+            let client = client_builder().build().expect("HTTP client");
             let url = format!("{}/api/locations/{location_id}/work", api.url);
             let response = client
                 .post(format!("{url}/poll"))

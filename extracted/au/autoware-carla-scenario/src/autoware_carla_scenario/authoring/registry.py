@@ -38,7 +38,8 @@ from ..action_state import ActionState
 # is read, so the Metric card's options are the metrics themselves.
 from ..metrics import BUILT_IN_METRICS
 
-# Free to import: `seed` imports nothing but the standard library.  Every
+# Free to import: `seed` imports nothing but the standard library (and
+# value_text, which imports nothing else).  Every
 # seed field is bounded by MAX_SEED, as its constructor's check_seed is.
 from ..seed import MAX_SEED
 from dataclasses import dataclass
@@ -2743,6 +2744,21 @@ register_action_spec(
     )
 )
 
+#: The Set Speed cards' rate (SetSpeedAction's ``rate_kmh_s``).
+_SPEED_RATE_FIELD = FieldSpec(
+    name="rate_kmh_s",
+    label="Rate",
+    kind="number",
+    exclusive_minimum=0.0,
+    default=None,
+    required=False,
+    unit="km/h/s",
+    help=(
+        "Most the speed may change per second.  Leave empty to command the "
+        "new speed at once."
+    ),
+)
+
 register_action_spec(
     ActionSpec(
         type_id="set_speed",
@@ -2764,25 +2780,69 @@ register_action_spec(
                     "it there under its own acceleration limits."
                 ),
             ),
-            FieldSpec(
-                name="rate_kmh_s",
-                label="Rate",
-                kind="number",
-                exclusive_minimum=0.0,
-                default=None,
-                required=False,
-                unit="km/h/s",
-                help=(
-                    "Most the speed may change per second.  Leave empty to "
-                    "command the new speed at once."
-                ),
-            ),
+            _SPEED_RATE_FIELD,
         ),
         description=(
             "Command a vehicle to drive at a new speed.  Given a rate, the "
             "card stays running until the vehicle has actually reached the "
             "speed, so another action can wait for the manoeuvre rather than "
             "for the command."
+        ),
+    )
+)
+
+register_action_spec(
+    ActionSpec(
+        type_id="set_relative_speed",
+        title="Set Relative Speed",
+        category="Vehicle / Motion",
+        builder="build_set_relative_speed_action",
+        target="..actions:SetSpeedAction",
+        visual_kind="continuous",
+        fields=(
+            FieldSpec(
+                name="relative_to",
+                label="Relative to",
+                kind="entity",
+                default=None,
+                help="The entity whose speed the target is relative to.",
+            ),
+            FieldSpec(
+                name="delta_kmh",
+                label="Delta",
+                kind="number",
+                default=0.0,
+                required=False,
+                unit="km/h",
+                help="Added to its speed (times the factor); negative for slower.",
+            ),
+            FieldSpec(
+                name="factor",
+                label="Factor",
+                kind="number",
+                minimum=0.0,
+                default=1.0,
+                required=False,
+                help="Its speed is multiplied by this before the delta is added.",
+            ),
+            FieldSpec(
+                name="continuous",
+                label="Follow continuously",
+                kind="bool",
+                default=False,
+                required=False,
+                help=(
+                    "Read its speed every tick and keep following it (the card "
+                    "never completes); off reads it once, when the card starts."
+                ),
+            ),
+            _SPEED_RATE_FIELD,
+        ),
+        description=(
+            "Command a vehicle to drive at another entity's speed, times a "
+            "factor, plus a delta (OpenSCENARIO's RelativeTargetSpeed).  Read "
+            "once when the card starts -- given a rate, it stays running until "
+            "the vehicle has reached that speed -- or followed every tick."
         ),
     )
 )
@@ -3167,6 +3227,8 @@ register_action_spec(
                 kind="number",
                 default=30.0,
                 required=False,
+                # The builder refuses a negative speed (#2608); say so here.
+                minimum=0.0,
                 unit="km/h",
                 help="Times the lanelet path; 0 leaves it untimed; empty uses 30 km/h.",
             ),

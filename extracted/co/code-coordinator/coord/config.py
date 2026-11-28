@@ -32,6 +32,7 @@ from coord.models import (
     Machine,
     QuietHours,
     Repo,
+    TrancheRepoConfig,
     WorkerPermissionsConfig,
 )
 from coord.platform_paths import default_coord_dir
@@ -268,6 +269,15 @@ class ReviewsConfig:
     # flag) so the command can never be used to wave through a genuine
     # rewrite. 0 disables the bound (not recommended).
     reaffirm_max_diff_lines: int = 300
+    # #4174: reuse check — ask the reviewer to search the repo for an
+    # existing equivalent of every substantial new function/type/impl block
+    # in a `type="work"` diff before accepting it, instead of only judging
+    # the diff against CLAUDE.md and correctness. Defaults to `True` (unlike
+    # `require_shared_scenario`, which defaults opted-out) because it adds
+    # reviewer instructions, not a mechanical mandatory-request-changes gate
+    # — a repo that wants the old behavior opts out with
+    # `reviews.reuse_check: false`. See `coord.review.reuse_check_focus_lines`.
+    reuse_check: bool = True
 
 
 @dataclass
@@ -4100,6 +4110,7 @@ _KNOWN_REPO_KEYS = frozenset(
         "max_parallel",
         "board_doctor",
         "precheck",
+        "tranche",
     }
 )
 
@@ -4455,6 +4466,12 @@ def _parse_repos(raw: Any) -> tuple[list[Repo], list[str]]:
         # (a stuck row always falls through to the alert tier).
         board_doctor_cfg = _parse_board_doctor_repo_config(entry.get("board_doctor"), i)
 
+        # #4129/#4199: tranche.enabled — this repo's opt-in to the native
+        # tranche row kind. Absent/False means today's only decomposition
+        # outcome (a serial chain of child issues) stays unchanged for this
+        # repo — see `TrancheRepoConfig.enabled`'s docstring.
+        tranche_cfg = _parse_tranche_repo_config(entry.get("tranche"), i)
+
         repos.append(
             Repo(
                 name=name,
@@ -4482,6 +4499,7 @@ def _parse_repos(raw: Any) -> tuple[list[Repo], list[str]]:
                 requires=list(requires),
                 max_parallel=repo_max_parallel,
                 board_doctor=board_doctor_cfg,
+                tranche=tranche_cfg,
             )
         )
     return repos, warnings
@@ -4663,6 +4681,40 @@ def _parse_board_doctor_repo_config(raw: Any, repo_index: int) -> BoardDoctorRep
                 "a positive integer"
             )
         cfg.mechanic_leg_cap = mechanic_leg_cap
+    return cfg
+
+
+def _parse_tranche_repo_config(raw: Any, repo_index: int) -> TrancheRepoConfig:
+    """Parse the ``tranche`` block for a single repo (#4129/#4199, ``auto``
+    added by #4226).
+
+    When *raw* is ``None`` (key absent from YAML), both ``enabled`` and
+    ``auto`` stay at their opt-in-required-default ``False`` — see
+    :class:`TrancheRepoConfig`.
+    """
+    if raw is None:
+        return TrancheRepoConfig()
+
+    if not isinstance(raw, dict):
+        raise ConfigError(f"repos[{repo_index}].tranche must be a mapping")
+
+    unknown = sorted(set(raw) - {"enabled", "auto"})
+    if unknown:
+        raise ConfigError(
+            f"repos[{repo_index}].tranche has unknown key(s): {', '.join(unknown)}"
+        )
+
+    cfg = TrancheRepoConfig()
+    if "enabled" in raw:
+        enabled = raw["enabled"]
+        if not isinstance(enabled, bool):
+            raise ConfigError(f"repos[{repo_index}].tranche.enabled must be a boolean")
+        cfg.enabled = enabled
+    if "auto" in raw:
+        auto = raw["auto"]
+        if not isinstance(auto, bool):
+            raise ConfigError(f"repos[{repo_index}].tranche.auto must be a boolean")
+        cfg.auto = auto
     return cfg
 
 
@@ -4956,7 +5008,10 @@ def _parse_reviews(
             )
         cfg.provider = value
 
-    for bool_field in ("enabled", "auto_dispatch", "require_approval", "allow_review_flood"):
+    for bool_field in (
+        "enabled", "auto_dispatch", "require_approval", "allow_review_flood",
+        "reuse_check",
+    ):
         if bool_field in raw:
             value = raw[bool_field]
             if not isinstance(value, bool):

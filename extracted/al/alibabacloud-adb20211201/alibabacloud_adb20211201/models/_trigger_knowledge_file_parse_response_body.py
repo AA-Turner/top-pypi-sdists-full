@@ -53,13 +53,13 @@ class TriggerKnowledgeFileParseResponseBodyData(DaraModel):
         process_status: str = None,
         success: bool = None,
     ):
-        # The ID of the file submitted for reparsing, which is a decimal string. This parameter is returned only when the request is successful.
+        # The ID of the file submitted for reparsing. The value is a decimal string. This parameter is returned only when the operation is successful.
         self.file_id = file_id
         # The description of the operation result. If the operation fails, this parameter indicates the cause or the security error code.
         self.message = message
-        # The status before submission. Valid values: PENDING, COMPLETED, FAILED, SKIPPED, and DUPLICATED. This parameter is returned only when the request is successful.
+        # The status before the submission. Valid values: PENDING, COMPLETED, FAILED, SKIPPED, and DUPLICATED. This parameter is returned only when the operation is successful.
         self.previous_status = previous_status
-        # The status after submission. The value is fixed to PENDING. This parameter is returned only when the request is successful.
+        # The status after the submission. The value is fixed to PENDING. This parameter is returned only when the operation is successful.
         self.process_status = process_status
         # Indicates whether the operation is successful. If the operation fails, the Data parameter contains only the Success and Message parameters.
         self.success = success

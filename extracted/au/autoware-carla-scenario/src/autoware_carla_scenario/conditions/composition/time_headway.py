@@ -12,14 +12,23 @@ from ...coordinate.poses import CarlaWorldPose
 from ..base import ScenarioResult, find_actor_by_role_name
 from ..entity_existence import find_present_actor_by_role_name
 from ..comparison import ComparisonRule, ScalarComparisonRule
-from .base import CompositionCondition, DistanceCoordinateSystem
+from .base import CompositionCondition, DistanceCoordinateSystem, entity_axes
+from .speed import STANDSTILL_SPEED_MPS
 from ...failure import FailureCategory
 
 if TYPE_CHECKING:
     import typesafe_carla.carla as carla
 
-_SPEED_EPSILON = 1e-6
-"""Below this speed the headway is undefined rather than very large."""
+_AHEAD_EPSILON_M = 1e-6
+"""A target no further ahead than this is abeam, not ahead."""
+
+_HEADING_AXIS_SPEED_MPS = 1.0
+"""Below this speed the entity frame's forward axis is the heading.
+
+Just above a standstill the velocity's direction is mostly CARLA's noise at
+rest, and projecting onto it can turn a leader in front into one beside or
+behind the follower.
+"""
 
 
 class TimeHeadwayCondition(CompositionCondition):
@@ -39,9 +48,14 @@ class TimeHeadwayCondition(CompositionCondition):
     so by returning nothing.
 
     Projecting onto the velocity rather than onto the heading is deliberate:
-    the follower is known to be moving -- a standstill has no headway either --
-    so the direction of travel is always defined, and it is the direction the
-    gap is actually closing along.
+    the follower is known to be moving -- a standstill, a speed at or below
+    ``STANDSTILL_SPEED_MPS`` (0.1 m/s, the threshold of
+    :class:`StandstillCondition`), has no headway either -- so the direction
+    of travel is defined, and it is the direction the gap is actually closing
+    along.  Below 1 m/s the velocity's direction is not to be trusted (CARLA's
+    noise at rest is a few cm/s), and the entity frame takes the follower's
+    heading instead, pointed the way the velocity goes (a reversing follower
+    still looks behind it).
 
     *coordinate_system* chooses what "the distance ahead" means, and a
     following distance is the measure that cares most.
@@ -172,8 +186,8 @@ class TimeHeadwayCondition(CompositionCondition):
         velocity: Vector3 = read
         travel = Vector3(velocity.x, velocity.y, 0.0)
         speed = travel.magnitude()
-        if speed < _SPEED_EPSILON:
-            return None
+        if speed <= STANDSTILL_SPEED_MPS:
+            return None  # a standstill: velocity noise, no direction of travel
 
         if self._coordinate_system is DistanceCoordinateSystem.LANE:
             ahead = lane_gap(
@@ -185,9 +199,16 @@ class TimeHeadwayCondition(CompositionCondition):
             if ahead is None:
                 return None
         else:
-            ahead = offset.dot(travel / speed)
+            axis = travel / speed
+            if speed < _HEADING_AXIS_SPEED_MPS:
+                axes = entity_axes(source)
+                if axes is not None:
+                    forward, _left = axes
+                    # The heading, pointed the way the follower is going.
+                    axis = forward if forward.dot(travel) >= 0.0 else -forward
+            ahead = offset.dot(axis)
 
-        if ahead <= _SPEED_EPSILON:
+        if ahead <= _AHEAD_EPSILON_M:
             # Behind, or exactly abeam: there is no gap in front to close.
             #
             # In the entity frame a leader more than a half turn round a curve

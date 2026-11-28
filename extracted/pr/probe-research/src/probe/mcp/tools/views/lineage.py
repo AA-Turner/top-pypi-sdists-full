@@ -40,7 +40,7 @@ _LINEAGE_LINKS_SHARE = 0.5
 _LINEAGE_RUN_EDGES_MAX = 1000
 #: A link's stored `reason`, as the first page's glance shows it.
 _LINK_REASON_CHARS = 200
-#: The end type a lineage read names a paper with: no `entity` kind.
+#: The end type a lineage read names a paper with.
 _PAPER_END = "paper"
 
 
@@ -58,12 +58,12 @@ def _end_ref(end_type: Any, end_id: Any, end: dict | None) -> dict:
     """A link's far end as `entity` takes it: `kind:slug` and its name, from
     the lineage read's `ends` (swarm friction P6); `kind:<uuid>` for a slug past
     what `entity` takes, and the edge's own end type, unnamed, when the read did
-    not name it (an older server). A paper is no `entity` kind, so a paper end
-    is its `paper_id` and title, never a ref `entity` would refuse."""
+    not name it (an older server). A paper has no slug, so a paper end is
+    always `paper:<uuid>`, with `paper_id` kept for readers that key on it."""
     kind = (end or {}).get("type") or end_type
     out: dict[str, Any]
     if kind == _PAPER_END:
-        out = {"paper_id": end_id}
+        out = {"ref": f"{_PAPER_END}:{end_id}", "paper_id": end_id}
     else:
         slug = (end or {}).get("slug")
         ref = f"{kind}:{slug}"

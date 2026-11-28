@@ -181,6 +181,27 @@ async def test_metadata_only_load_does_not_clobber_loaded_values(fake_emscripten
 
 
 @pytest.mark.anyio
+async def test_metadata_only_load_of_a_new_sheet_allows_writes(
+    fake_emscripten, monkeypatch
+):
+    # Regression: a sheet that the book first sees in a metadata-only load (e.g.,
+    # added outside the script) had no `values` entry, so writing to it raised
+    # KeyError: 'values'.
+    async def get_book_data(opts=None):
+        data = _book_json([[]])
+        data["sheets"].append({**copy.deepcopy(data["sheets"][0]), "name": "New"})
+        return SimpleNamespace(to_py=lambda: data)
+
+    monkeypatch.setattr(sys.modules["js"].xlwings, "getBookData", get_book_data)
+    book = xw.Book(impl=_make_book(lazy=True))
+    await book.load()
+    book.sheets["New"]["A1"].value = [[1, 2], [3, 4]]
+    assert book.impl.json()["actions"][-1]["func"] == "setValues"
+    with pytest.raises(XlwingsError, match="haven't been loaded"):
+        book.sheets["New"]["A1"].value
+
+
+@pytest.mark.anyio
 async def test_sheet_load_values_true_marks_only_that_sheet(fake_emscripten):
     book = _make_book(lazy=True)
     sheet = book.sheets.active
@@ -314,5 +335,45 @@ async def test_new_unnamed_values_survive_first_reload(fake_emscripten, monkeypa
         assert book.json()["actions"][-1]["args"] == [0, 0, "number_format", "0.0"]
         with pytest.raises(KeyError):
             first.remove()
+    finally:
+        book.close()
+
+
+@pytest.mark.anyio
+async def test_copied_sheet_pivots_drop_the_source_ids(fake_emscripten, monkeypatch):
+    payload = _book_json()
+    payload["sheets"][0]["pivot_tables"] = [_pivot_metadata()]
+    app = R.App(R.Apps(), add_book=False)
+    book = xw.Book(impl=app.books.open(copy.deepcopy(payload)))
+    try:
+        source = book.sheets[0]
+        copied = source.copy(after=source)
+        pt = copied.pivot_tables[0]
+        value = pt.values[0]
+        pt.refresh()
+        action = book.json()["actions"][-1]
+        assert (action["pivot_id"], action["pivot_name"]) == (None, "Pivot")
+        assert action["sheet_position"] == 1
+        # The source keeps its IDs
+        source.pivot_tables[0].refresh()
+        assert book.json()["actions"][-1]["pivot_id"] == "pivot-1"
+
+        # Excel's metadata after the copy: the copy's objects have new IDs
+        payload["sheets"].append(copy.deepcopy(payload["sheets"][0]))
+        payload["sheets"][1]["name"] = copied.name
+        copied_pivot = payload["sheets"][1]["pivot_tables"][0]
+        copied_pivot["id"] = "pivot-copy"
+        for index, entry in enumerate(copied_pivot["values"]):
+            entry["id"] = f"value-copy-{index}"
+
+        async def get_book_data(opts=None):
+            return SimpleNamespace(to_py=lambda: copy.deepcopy(payload))
+
+        monkeypatch.setattr(sys.modules["js"].xlwings, "getBookData", get_book_data)
+        await book.load()
+        assert copied.pivot_tables[0].impl.api is pt.impl.api
+        assert pt.values[0].impl.api is value.impl.api
+        pt.refresh()
+        assert book.json()["actions"][-1]["pivot_id"] == "pivot-copy"
     finally:
         book.close()

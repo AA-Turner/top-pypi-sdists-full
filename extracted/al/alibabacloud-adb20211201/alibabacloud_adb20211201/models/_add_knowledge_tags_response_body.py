@@ -60,15 +60,15 @@ class AddKnowledgeTagsResponseBodyData(DaraModel):
         self.file_location = file_location
         # The message.
         self.message = message
-        # The number of tags that were successfully modified.
+        # The number of tags that are successfully modified.
         self.replaced = replaced
         # The list of skipped tags.
         self.skipped = skipped
-        # Specifies whether the request was successful. Valid values:
-        # - **true**: The request was successful.
-        # - **false**: The request failed.
+        # Indicates whether the request is successful. Valid values:
+        # - **true**: The request is successful.
+        # - **false**: The request fails.
         self.success = success
-        # The number of tags that were successfully added.
+        # The number of tags that are successfully added.
         self.written = written
 
     def validate(self):
@@ -136,7 +136,7 @@ class AddKnowledgeTagsResponseBodyDataSkipped(DaraModel):
         tag_key: str = None,
         tag_value: str = None,
     ):
-        # The reason why the tag was skipped.
+        # The reason why the tag is skipped.
         self.reason = reason
         # The key of the tag.
         self.tag_key = tag_key

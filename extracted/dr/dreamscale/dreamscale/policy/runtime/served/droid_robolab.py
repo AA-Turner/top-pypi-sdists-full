@@ -20,7 +20,7 @@ def placement(model, provider, region):
     if name is None:
         return False
     if provider not in (None, "aws", "modal"):
-        raise ValueError(f"{name} supports provider='aws' or provider='modal'")
+        raise ValueError(f"{name} doesn't take this provider; omit provider")
     if region not in _US_WEST_OK:
-        raise ValueError(f"{name} is served from us-west-2")
+        raise ValueError(f"{name} is served from us-west")
     return True

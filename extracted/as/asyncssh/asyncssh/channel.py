@@ -1,4 +1,4 @@
-# Copyright (c) 2013-2025 by Ron Frederick <ronf@timeheart.net> and others.
+# Copyright (c) 2013-2026 by Ron Frederick <ronf@timeheart.net> and others.
 #
 # This program and the accompanying materials are made available under
 # the terms of the Eclipse Public License v2.0 which accompanies this
@@ -30,7 +30,7 @@ import sys
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, AnyStr, Awaitable, Callable
 from typing import Dict, Generic, Iterable, List, Mapping, Optional
-from typing import Set, Tuple, Union, cast
+from typing import Sequence, Set, Tuple, Union, cast
 
 from . import constants
 from .constants import DEFAULT_LANG, EXTENDED_DATA_STDERR
@@ -49,6 +49,7 @@ from .logging import SSHLogger
 from .misc import ChannelOpenError, EnvMap, MaybeAwait, ProtocolError
 from .misc import TermModes, TermSize, TermSizeArg
 from .misc import decode_env, encode_env, get_symbol_names, map_handler_name
+from .misc import match_env
 
 from .packet import Boolean, Byte, String, UInt32, SSHPacket, SSHPacketHandler
 
@@ -226,7 +227,7 @@ class SSHChannel(Generic[AnyStr], SSHPacketHandler):
             self._request_waiters = []
 
         if self._session is not None:
-            # pylint: disable=broad-except
+            # pylint: disable=broad-exception-caught
             try:
                 self._session.connection_lost(exc)
             except Exception:
@@ -850,7 +851,6 @@ class SSHChannel(Generic[AnyStr], SSHPacketHandler):
 
         """
 
-        # pylint: disable=no-self-use
         return True
 
     def get_write_buffer_size(self) -> int:
@@ -1037,12 +1037,22 @@ class SSHChannel(Generic[AnyStr], SSHPacketHandler):
     def get_environment(self) -> Mapping[str, str]:
         """Return the environment for this session
 
-           This method returns the environment set by the client when
-           the session was opened. Keys and values are of type `str`
-           and this object only provides access to keys and values sent
-           as valid UTF-8 strings. Use :meth:`get_environment_bytes`
-           if you need to access environment variables with keys or
-           values containing binary data or non-UTF-8 encodings.
+           This method returns the environment for this session. On
+           the client, this is the environment the client requested
+           be set when the session was opened. On the server, this
+           is the set of environment variables accepted from the
+           client, combined with any set by "environment" options in
+           authorized_keys and by the server's "env" option or
+           "SetEnv" config option. When the same variable is set by
+           more than one of these, server settings take precedence
+           over authorized_keys options, which take precedence over
+           client settings.
+
+           Keys and values are of type `str` and this object only
+           provides access to keys and values which are valid UTF-8
+           strings. Use :meth:`get_environment_bytes` if you need to
+           access environment variables with keys or values containing
+           binary data or non-UTF-8 encodings.
 
            On the server, calls to this method should only be made after
            :meth:`session_started <SSHServerSession.session_started>` has
@@ -1051,7 +1061,7 @@ class SSHChannel(Generic[AnyStr], SSHPacketHandler):
            the handler function has started up.
 
            :returns: A dictionary containing the environment variables
-                     set by the client
+                     for this session
 
         """
 
@@ -1063,10 +1073,10 @@ class SSHChannel(Generic[AnyStr], SSHPacketHandler):
     def get_environment_bytes(self) -> Mapping[bytes, bytes]:
         """Return the environment for this session
 
-           This method returns the environment set by the client when
-           the session was opened. Keys and values are of type `bytes`
-           and can include arbitrary binary data, with the exception
-           of NUL (\0) bytes.
+           This method returns the environment for this session, as
+           described in :meth:`get_environment`. Keys and values are
+           of type `bytes` and can include arbitrary binary data, with
+           the exception of NUL (\0) bytes.
 
            On the server, calls to this method should only be made after
            :meth:`session_started <SSHServerSession.session_started>` has
@@ -1075,7 +1085,7 @@ class SSHChannel(Generic[AnyStr], SSHPacketHandler):
            the handler function has started up.
 
            :returns: A dictionary containing the environment variables
-                     set by the client
+                     for this session
 
         """
 
@@ -1504,6 +1514,7 @@ class SSHServerChannel(SSHChannel, Generic[AnyStr]):
 
     def __init__(self, conn: 'SSHServerConnection',
                  loop: asyncio.AbstractEventLoop, allow_pty: bool,
+                 accept_env: Sequence[bytes], set_env: Mapping[bytes, bytes],
                  line_editor: bool, line_echo: bool, line_history: int,
                  max_line_length: int, encoding: Optional[str], errors: str,
                  window: int, max_pktsize: int):
@@ -1511,10 +1522,9 @@ class SSHServerChannel(SSHChannel, Generic[AnyStr]):
 
         super().__init__(conn, loop, encoding, errors, window, max_pktsize)
 
-        env_opt = cast(EnvMap, conn.get_key_option('environment', {}))
-        self._env = dict(encode_env(env_opt))
-
         self._allow_pty = allow_pty
+        self._accept_env = accept_env
+        self._set_env = set_env
         self._line_editor = line_editor
         self._line_echo = line_echo
         self._line_history = line_history
@@ -1681,6 +1691,16 @@ class SSHServerChannel(SSHChannel, Generic[AnyStr]):
         value = packet.get_string()
         packet.check_end()
 
+        if self._session_started:
+            self.logger.debug1('  Env request after session start '
+                               'ignored: %s=%s', key, value)
+            return False
+
+        if not match_env(key, self._accept_env):
+            self.logger.debug1('  Env request not matching AcceptEnv '
+                               'ignored: %s=%s', key, value)
+            return False
+
         self.logger.debug1('  Env: %s=%s', key, value)
         self._env[key] = value
         return True
@@ -1705,6 +1725,16 @@ class SSHServerChannel(SSHChannel, Generic[AnyStr]):
             return False
 
         self._session_started = True
+
+        env_opt = cast(EnvMap, self._conn.get_key_option('environment', {}))
+
+        if env_opt:
+            self._env.update(encode_env(env_opt))
+            self._str_env = None
+
+        if self._set_env:
+            self._env.update(self._set_env)
+            self._str_env = None
 
         if command is not None:
             self._command = command

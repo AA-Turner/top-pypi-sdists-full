@@ -2092,6 +2092,7 @@ class TestArray:
     def test_get_ranges_arr(self):
         np.testing.assert_array_equal(array_.get_ranges_arr(0, 3), np.array([0, 1, 2]))
         np.testing.assert_array_equal(array_.get_ranges_arr(0, [1, 2, 3]), np.array([0, 0, 1, 0, 1, 2]))
+        np.testing.assert_array_equal(array_.get_ranges_arr([0, 1, 2], 3), np.array([0, 1, 2, 1, 2, 2]))
         np.testing.assert_array_equal(array_.get_ranges_arr([0, 3], [3, 6]), np.array([0, 1, 2, 3, 4, 5]))
 
     def test_uniform_summing_to_one_nb(self):
@@ -2332,6 +2333,38 @@ class TestParams:
             [4, 5, 5, 4, 5, 5, 4, 5, 5],
         ]
 
+    @pytest.mark.parametrize(
+        "rows,expected",
+        [
+            pytest.param([((0, 1), 2), ((3, 4), 5)], [[0, 3], [1, 4], [2, 5]], id="nested-list"),
+            pytest.param((((0, (1, 2)), 3), ((4, (5, 6)), 7)), [[0, 4], [1, 5], [2, 6], [3, 7]], id="nested-tuple"),
+            pytest.param([(0, 1, 2), (3, 4)], [[0, 3], [1, 4]], id="ragged-last"),
+            pytest.param([(0, 1), (2, 3, 4), (5,)], [[0, 2, 5]], id="ragged-first"),
+            pytest.param([((0, 1, 2), 3), ((4, 5), 6)], [[0, 4], [1, 5], [3, 6]], id="ragged-nested"),
+            pytest.param([], [], id="empty-list"),
+            pytest.param((), [], id="empty-tuple"),
+            pytest.param([(), ()], [], id="empty-rows"),
+            pytest.param([(0, 1), ()], [], id="empty-row"),
+            pytest.param([[0, 1], [2, 3]], [[0, 2], [1, 3]], id="list-rows"),
+            pytest.param([(0, 1), [2, 3]], [[0, 2], [1, 3]], id="mixed-rows"),
+        ],
+    )
+    def test_flatten_param_tuples(self, rows, expected):
+        assert params.flatten_param_tuples(rows) == expected
+
+    @pytest.mark.parametrize(
+        "make_rows,expected",
+        [
+            pytest.param(lambda: iter([(0, 1), (2, 3)]), [[0, 2], [1, 3]], id="iterator"),
+            pytest.param(lambda: iter([((0, 1), 2), ((3, 4), 5)]), [[0, 3], [1, 4], [2, 5]], id="nested-iterator"),
+            pytest.param(lambda: ((i, i + 1) for i in range(2)), [[0, 1], [1, 2]], id="generator"),
+            pytest.param(lambda: [iter((0, 1, 2)), iter((3, 4))], [[0, 3], [1, 4]], id="iterator-rows"),
+            pytest.param(lambda: iter([]), [], id="empty-iterator"),
+        ],
+    )
+    def test_flatten_param_iterators(self, make_rows, expected):
+        assert params.flatten_param_tuples(make_rows()) == expected
+
 
 # ############# datetime_.py ############# #
 
@@ -2392,6 +2425,12 @@ class TestDatetime:
             1970, 1, 1, 0, 0, 0, 500000, tzinfo=datetime_.get_utc_tz()
         )
         assert datetime_.to_tzaware_datetime(0) == _datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=datetime_.get_utc_tz())
+        assert datetime_.to_tzaware_datetime(-86400) == _datetime(
+            1969, 12, 31, 0, 0, 0, 0, tzinfo=datetime_.get_utc_tz()
+        )
+        assert datetime_.to_tzaware_datetime(-0.5) == _datetime(
+            1969, 12, 31, 23, 59, 59, 500000, tzinfo=datetime_.get_utc_tz()
+        )
         assert datetime_.to_tzaware_datetime(pd.Timestamp("2020-01-01").value) == _datetime(2020, 1, 1).replace(
             tzinfo=datetime_.get_utc_tz()
         )

@@ -2658,7 +2658,14 @@ class TestUatStateAndReasonColumns:
 # assignment both file a split for the same original issue.
 # #4147 bumped this to (31, 104): one new `assignments.
 # unsatisfied_capabilities` COLUMN, so both the count and the version moved.
-_PINNED_SCHEMA_VERSION_AND_MIGRATION_COUNT = (31, 104)
+# #4199 bumped this to (32, 104): two new `tranche_rows`/`tranche_children`
+# TABLES (not a column — `_MIGRATE_ADD_COLUMNS`'s length is unchanged at
+# 104, so only the version moved, to force `_ensure_schema`'s `CREATE TABLE
+# IF NOT EXISTS` to run once more on an existing database) — same shape as
+# #4077's `needs_decomposition_split_claims` bump above.
+# #4216 bumped this to (33, 105): one new `drive_queue.intervention_json`
+# COLUMN, so both the count and the version moved.
+_PINNED_SCHEMA_VERSION_AND_MIGRATION_COUNT = (33, 105)
 
 
 class TestMigrateAddColumnsVersionGuard:

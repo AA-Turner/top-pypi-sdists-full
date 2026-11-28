@@ -685,7 +685,10 @@ class Data(Wrapping, StatsBuilderMixin, PlotsBuilderMixin, metaclass=MetaData):
 
     @cached_method
     def concat(self, level_name: str = "symbol") -> tp.Data:
-        """Return a dict of Series/DataFrames with symbols as columns, keyed by column name."""
+        """Return a dict of Series/DataFrames with symbols as columns, keyed by column name.
+
+        Single-symbol results copy each stored column before object inference, avoiding
+        conversion through a floating-point placeholder."""
         first_data = self.data[self.symbols[0]]
         index = first_data.index
         if isinstance(first_data, pd.Series):
@@ -695,7 +698,7 @@ class Data(Wrapping, StatsBuilderMixin, PlotsBuilderMixin, metaclass=MetaData):
         if len(self.symbols) > 1:
             new_data = {c: pd.DataFrame(index=index, columns=pd.Index(self.symbols, name=level_name)) for c in columns}
         else:
-            new_data = {c: pd.Series(index=index, name=self.symbols[0]) for c in columns}
+            new_data = {}
         for c in columns:
             for s in self.symbols:
                 if isinstance(self.data[s], pd.Series):
@@ -705,7 +708,10 @@ class Data(Wrapping, StatsBuilderMixin, PlotsBuilderMixin, metaclass=MetaData):
                 if len(self.symbols) > 1:
                     new_data[c].loc[:, s] = col_data
                 else:
-                    new_data[c].loc[:] = col_data
+                    # A float placeholder can round integers or reject non-numeric columns.
+                    new_data[c] = pd.Series(col_data, index=index, copy=True)
+                    # Assign explicitly so a None symbol does not inherit the feature name.
+                    new_data[c].name = s
         for c in columns:
             new_data[c] = new_data[c].infer_objects()
         return new_data

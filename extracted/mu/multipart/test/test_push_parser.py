@@ -35,9 +35,8 @@ def assertRaiseStrict(text):
 
 
 class PushTestBase(unittest.TestCase):
-
     def setUp(self):
-        self.parser = None
+        self._parser = None
         self.reset()
         self.events = []
 
@@ -51,9 +50,14 @@ class PushTestBase(unittest.TestCase):
 
     def reset(self, **ka):
         ka.setdefault("boundary", "boundary")
-        self.parser = multipart.PushMultipartParser(**ka)
+        self._parser = multipart.PushMultipartParser(**ka)
         self.events = []
         return self
+
+    @property
+    def parser(self):
+        assert self._parser, "Parser not prepared yet"
+        return self._parser
 
     def parse(self, *chunks):
         events = []
@@ -105,12 +109,58 @@ class TestPushParser(PushTestBase):
             self.reset(boundary="")
 
     def test_init_bad_boundary(self):
-        with self.assertParseError("Invalid characters in boundary", klass=multipart.ParserError):
+        with self.assertParseError(
+            "Invalid characters in boundary", klass=multipart.ParserError
+        ):
             self.reset(boundary="foo\nbar")
 
-    def test_init_bad_header_charset(self):
-        with self.assertParseError("Invalid charset", klass=multipart.ParserError):
+    def test_header_charset(self):
+        """HTTP content-type headers may declare arbitrary charsets. This is officially
+        undefined and also deprected for multipart (everything should be UTF-8), but
+        still used by some real-world clients. We still should not blindly trust those,
+        as python knows some encodings with really bad performance (e.g. punycode) or
+        ones that are no real charsets in the fist place (e.g. rot-13 or base64).
+
+        In strict mode, we only allow UTF-8 (default), ISO-8859-1 and ASCII, covering all
+        modern browsers and clients. In non-strict mode we allow most supported codecs,
+        but still reject clearly broken ones (e.g. rot-13, base64, punycode).
+        """
+        # Valid charsets -> normalize
+        self.reset(header_charset="utf8")
+        self.assertEqual(self.parser.header_charset, "utf-8")
+        self.reset(header_charset="latin1")
+        self.assertEqual(self.parser.header_charset, "iso8859-1")
+        self.reset(header_charset="US-ASCII")
+        self.assertEqual(self.parser.header_charset, "ascii")
+
+        # Unknown charsets -> reject
+        with self.assertParseError(
+            "Invalid or unknown charset", klass=multipart.ParserError
+        ):
             self.reset(header_charset="does-not-exist")
+        with self.assertParseError(
+            "Invalid or unknown charset", klass=multipart.StrictParserError
+        ):
+            self.reset(header_charset="does-not-exist", strict=True)
+
+        # Unusual charsets -> accept only in non-strict mode
+        self.reset(header_charset="cp855")  # allowed in non-strict mode
+        self.assertEqual(self.parser.header_charset, "cp855")
+        with self.assertParseError(
+            "Invalid or unknown charset", klass=multipart.StrictParserError
+        ):
+            self.reset(header_charset="cp855", strict=True)
+
+        # Known bad charsets -> reject
+        for bad in ("rot13", "punycode"):
+            with self.assertParseError(
+                "Invalid or unknown charset", klass=multipart.ParserError
+            ):
+                self.reset(header_charset=bad)
+            with self.assertParseError(
+                "Invalid or unknown charset", klass=multipart.StrictParserError
+            ):
+                self.reset(header_charset=bad, strict=True)
 
     def test_init_uncommon_header_charset(self):
         self.reset(header_charset="cp1252")
@@ -120,7 +170,9 @@ class TestPushParser(PushTestBase):
         self.reset(boundary="x" * 1025, max_header_size=1024, strict=strict)
 
     def test_bad_chunk_type(self):
-        with self.assertParseError("Invalid chunk type", klass=multipart.ParserStateError):
+        with self.assertParseError(
+            "Invalid chunk type", klass=multipart.ParserStateError
+        ):
             self.parse(5)
 
     @assertRaiseStrict("Unexpected data after end of multipart stream")
@@ -241,19 +293,17 @@ class TestPushParser(PushTestBase):
         with self.assertParseError("Maximum segment header length exceeded"):
             self.parse(b"\tmoooooooooooooooooooooooooore value\r\n")
 
-    def test_header_continuation_empty(self):
-        self.reset(max_header_size=64)
+    def test_header_continuation_limit(self):
+        """Even in non-strict mode only allow one continuation per
+        segment header."""
         self.parse(b"--boundary\r\n")
-        self.parse(b"Content-Disposition: form-data; name=foo\r\n")
-        with self.assertRaises(multipart.StrictParserError):
-            self.parse(b" \r\n")
-
-    def test_header_continuation_unicode_whitespace_only(self):
-        self.reset(max_header_size=64)
-        self.parse(b"--boundary\r\n")
-        self.parse(b"Content-Disposition: form-data; name=foo\r\n")
-        with self.assertRaises(multipart.StrictParserError):
-            self.parse(b"  \r\n")
+        self.parse(b"Content-Disposition: form-data;\r\n")
+        self.parse(b'\tname="foo"\r\n')
+        with self.assertRaisesRegex(
+            multipart.ParserLimitReached,
+            "Too many segment header continuations",
+        ):
+            self.parse(b" value\r\n")
 
     def test_header_continuation_long_whitespace_padded(self):
         self.reset(max_header_size=64)
@@ -594,9 +644,7 @@ class TestPushParser(PushTestBase):
 
         def assert_bad_content(*content):
             self.reset()
-            with self.assertParseError(
-                "Unexpected bytes after boundary"
-            ):
+            with self.assertParseError("Unexpected bytes after boundary"):
                 self.parse(
                     "--boundary\r\n",
                     'Content-Disposition: form-data; name="bad"\r\n',
@@ -743,12 +791,12 @@ class TestPushParser(PushTestBase):
 
     def test_error_property(self):
         with self.assertRaises(multipart.MultipartError):
-            self.parse("--boundary\r\njunk\r\n--boundary--")
+            self.parse("--boundary\r\njunk\r\n\r\n--boundary--")
         self.assertIsInstance(self.parser.error, multipart.ParserError)
 
     def test_error_twice(self):
         with self.assertRaises(multipart.ParserError):
-            self.parse("--boundary\r\njunk\r\n--boundary--")
+            self.parse("--boundary\r\njunk\r\n\r\n--boundary--")
         first_error = self.parser.error
         self.assertIsInstance(first_error, multipart.ParserError)
         # The first error should stick

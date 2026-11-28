@@ -34,12 +34,12 @@ class XEP_0070(BasePlugin):
         register_stanza_plugin(Message, Confirm)
 
         self.xmpp.register_handler(
-            Callback('Confirm',
+            Callback('Confirm Iq',
                  StanzaPath('iq@type=get/confirm'),
                  self._handle_iq_confirm))
 
         self.xmpp.register_handler(
-            Callback('Confirm',
+            Callback('Confirm Message',
                  StanzaPath('message/confirm'),
                  self._handle_message_confirm))
 

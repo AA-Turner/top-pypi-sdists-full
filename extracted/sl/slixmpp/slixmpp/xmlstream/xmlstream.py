@@ -242,7 +242,7 @@ class XMLStream(asyncio.BaseProtocol):
     namespace_map: dict
 
     __root_stanza: list[type[StanzaBase]]
-    __handlers: list[BaseHandler]
+    __handlers: dict[str, BaseHandler]
     __event_handlers: dict[str, list[tuple[Handler, bool]]]
     __filters: _FiltersDict
 
@@ -344,7 +344,7 @@ class XMLStream(asyncio.BaseProtocol):
         self.namespace_map = {StanzaBase.xml_ns: 'xml'}
 
         self.__root_stanza = []
-        self.__handlers = []
+        self.__handlers = {}
         self.__event_handlers = {}
         self.__filters = {
             'in': [], 'out': [], 'out_sync': [], 'out_sce': []
@@ -975,7 +975,7 @@ class XMLStream(asyncio.BaseProtocol):
         """Remove an incoming or outgoing filter."""
         self.__filters[mode].remove(handler)
 
-    def register_handler(self, handler: BaseHandler, before: BaseHandler | None = None, after: BaseHandler | None = None) -> None:
+    def register_handler(self, handler: BaseHandler, before: BaseHandler | None = None) -> None:
         """Add a stream event handler that will be executed when a matching
         stanza is received.
 
@@ -984,7 +984,9 @@ class XMLStream(asyncio.BaseProtocol):
                 derived object to execute.
         """
         if handler.stream is None:
-            self.__handlers.append(handler)
+            if handler.name in self.__handlers:
+                raise ValueError(f'Handler {handler.name} already present!')
+            self.__handlers[handler.name] = handler
             handler.stream = weakref.ref(self)
 
     def remove_handler(self, name: str) -> bool:
@@ -992,13 +994,8 @@ class XMLStream(asyncio.BaseProtocol):
 
         :param name: The name of the handler.
         """
-        idx = 0
-        for handler in self.__handlers:
-            if handler.name == name:
-                self.__handlers.pop(idx)
-                return True
-            idx += 1
-        return False
+        value = self.__handlers.pop(name, None)
+        return value is not None
 
     async def get_dns_records(self, domain: str, port: int | None = None) -> list[tuple[str, str, str, int]]:
         """Get the DNS records for a domain.
@@ -1455,7 +1452,7 @@ class XMLStream(asyncio.BaseProtocol):
         # to run "in stream" will be executed immediately; the rest will
         # be queued.
         handled = False
-        matched_handlers = [h for h in self.__handlers if h.match(stanza)]
+        matched_handlers = [h for h in self.__handlers.values() if h.match(stanza)]
         for handler in matched_handlers:
             handler.prerun(stanza)
             try:
@@ -1463,7 +1460,7 @@ class XMLStream(asyncio.BaseProtocol):
             except Exception as e:
                 stanza.exception(e)
             if handler.check_delete():
-                self.__handlers.remove(handler)
+                self.remove_handler(handler.name)
             handled = True
 
         # Some stanzas require responses, such as Iq queries. A default

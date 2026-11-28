@@ -7,6 +7,7 @@ representation, and DataModel as the abstract base for all model types.
 from __future__ import annotations
 
 import ast as ast
+import operator
 import re
 import sys
 from abc import ABC, abstractmethod
@@ -128,6 +129,7 @@ from datamodel_code_generator.model._rendered_names import (
     FieldNameBindings,
     _bind_bare_loads,
     _bind_field_expressions,
+    _composed_aliases,
 )
 from datamodel_code_generator.python_literal import (
     _make_internal_type_expression,
@@ -187,10 +189,16 @@ _ADDITIONAL_PROPERTIES_TYPE_TEMPLATE_DATA_KEY = "additionalPropertiesType"
 _FORBID_UNKNOWN_FIELDS_TEMPLATE_DATA_KEY = "_forbid_unknown_fields"
 """Set under --use-msgspec-forbid-unknown-fields on a model whose schema admits no property but its own, and on every
 model with --extra-fields forbid."""
+_REDECLARED_FIELDS_KEY: Final = "redeclared_python_rejected_fields"
+"""The copies of inherited fields a Pydantic dataclass writes without a pattern its engine cannot build (#7452)."""
+_HINT_BODY_TYPES_KEY: Final = "_hint_body_types"
+"""The copy a field keeps of each type naming a model that its hint writes from a type alias body, beside the type, by
+the ``id`` of the type (``GenerationStore.record_hint_body_types``)."""
 # This key remains part of the legacy template contract, including custom outputs.
 _USE_TYPED_DICT_BACKPORT_TEMPLATE_DATA_KEY = "use_typeddict_backport"
 _USE_CLOSED_TYPED_DICT_TEMPLATE_DATA_KEY = "use_closed_typed_dict"
 _KEEP_FALSE_DATACLASS_ARGUMENTS_TEMPLATE_DATA_KEY = "keep_false_dataclass_arguments"
+_KEEP_INHERITED_DATACLASS_CONFIG_TEMPLATE_DATA_KEY = "keep_inherited_dataclass_config"
 _MODULE_NAME_INVALID_CHAR_PATTERN = re.compile(r"[^0-9a-zA-Z_]")
 _MODULE_NAME_INVALID_CHAR_WITH_DOTS_PATTERN = re.compile(r"[^0-9a-zA-Z_.]")
 _MAX_MISSING_CUSTOM_TEMPLATE_SUBDIRS = 128
@@ -954,6 +962,11 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
     def _hint_data_type(self) -> DataType:
         """Return the type the field's hint writes: its own, unless its backend writes a copy of it."""
         return self.data_type
+
+    @property
+    def _alias_body_named_types(self) -> list[DataType]:
+        """The types naming a model that the hint writes from the bodies of type aliases: none of its own."""
+        return []
 
     def _write_own_pre_render_nullability(self) -> None:
         """Write the pre-render nullability of the field's own type when its hint renders that type."""
@@ -1847,6 +1860,11 @@ def _nested_model_factory(field: DataModelFieldBase, model_cls: type[DataModel])
     return None
 
 
+def _keep_inherited_dataclass_config(extra_template_data: defaultdict[str, dict[str, object]]) -> None:
+    """Record ``--keep-inherited-dataclass-config`` for every model, which a Pydantic dataclass reads."""
+    extra_template_data[ALL_MODEL][_KEEP_INHERITED_DATACLASS_CONFIG_TEMPLATE_DATA_KEY] = True
+
+
 def _set_nested_model_default_factory_order(models: list[DataModel], metadata: NestedFactoryMetadata) -> None:
     """Publish the declaration order and the reference cycle of each model for the nested model factories."""
     for model in models:
@@ -2274,6 +2292,16 @@ class BaseClassDataType(DataType):
         return False
 
 
+def _library_base_class(library_base: Import, alias: str) -> tuple[BaseClassDataType, Import]:
+    """Return the base of the generated base class and its import: ``library_base``, which it stands for, as ``alias``.
+
+    The base carries the import it names, as a configured base does, so the aliases of a module's imports keep one
+    binding for the base, the fields that name the same class and the import line.
+    """
+    base_import = Import(from_=library_base.from_, import_=library_base.import_, alias=alias)
+    return BaseClassDataType(type=alias, import_=base_import), base_import
+
+
 UNDEFINED: Any = Sentinel("UNDEFINED")
 """The default of a field that declares none; a copy, a deep copy and a pickle of it are itself."""
 
@@ -2287,12 +2315,15 @@ class BaseLayoutView(NamedTuple):
     """How the layouts of generated bases look before the processing of each module changes them.
 
     ``is_slot`` accepts the fields that keep a slot whatever that processing does, ``layout_model`` gives the model
-    whose layout a model may take from it, and ``is_opaque`` tells the models whose layout the generator does not know.
+    whose layout a model may take from it, and ``is_opaque`` tells the models that are, or hold beside their generated
+    bases, a class whose layout the generator does not read. ``is_replaced``, where given, tells the models that the
+    output replaces whole by an imported class: their generated bases are not read, they stay unread leaves.
     """
 
     is_slot: Callable[[DataModelFieldBase], bool]
     layout_model: Callable[[DataModel], DataModel]
     is_opaque: Callable[[DataModel], bool]
+    is_replaced: Callable[[DataModel], bool] | None = None
 
 
 def _is_instance_field(field: DataModelFieldBase) -> bool:
@@ -2409,6 +2440,8 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     SUPPORTS_GENERIC_BASE_CLASS: ClassVar[bool] = True
     FIRST_BASE_CONFIGURES: ClassVar[bool] = False
     """Whether the first base of a class gives an option its bases set differently, not the last (msgspec)."""
+    EVALUATES_ANNOTATIONS_IN_BASES: ClassVar[bool] = False
+    """Whether the library evaluates a field's string annotation in the namespace of each base declaring it too."""
     FIELD_ASSIGNMENT_CHECKER: ClassVar[Callable[[DataModelFieldBase], bool]] = staticmethod(_has_field_assignment)
     FIELD_DEFAULT_CLASSIFIER: ClassVar[Callable[[DataModelFieldBase], tuple[bool, bool]]] = staticmethod(
         _get_field_default_info
@@ -3255,7 +3288,7 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         field_loads = {} if self._field_name_bindings is None else self._field_name_bindings.loads
         if not (bindings := {**field_loads, **(self._builtin_name_bindings or {})}):
             return rendered
-        return _bind_bare_loads(rendered, bindings)
+        return _bind_bare_loads(rendered, bindings, field_loads)
 
     def _typename_property(self) -> str:
         """Return the ``__typename`` property of a GraphQL object type, which returns its ``__typename`` field.
@@ -3297,7 +3330,7 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     def imports(self) -> tuple[Import, ...]:
         """Get all imports required by this model and its fields: the fields' kept imports, then the model's own."""
         return chain_as_tuple(
-            (i for f in self._class_body_fields() for i in field_imports(f)),
+            (i for f in _class_body_fields(self) for i in field_imports(f)),
             self._additional_imports,
         )
 
@@ -3376,6 +3409,28 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         ``as_string`` that the library resolves it from a string.
         """
         return assigned
+
+    def annotation_namespaces(self) -> dict[str, list[DataModel]]:
+        """Return, by field name, the generated bases whose namespace evaluates the annotation of a class body field.
+
+        Where the library evaluates a string annotation in the namespace of each base declaring the field too
+        (``EVALUATES_ANNOTATIONS_IN_BASES``, Pydantic dataclasses): the module of the base and its class body, failing
+        the class on any error but ``NameError``. The other libraries do not.
+        """
+        if not (self.EVALUATES_ANNOTATIONS_IN_BASES and self.base_classes):
+            return {}
+        walk = _base_walk((self,))
+        bases = [
+            base
+            for key in walk.graph.preorder(walk.starts[0], EdgeKind.BASE)
+            if (base := walk.node_of[key]) is not self and base.EVALUATES_ANNOTATIONS_IN_BASES
+        ]
+        declared = {base: {field.name for field in _class_body_fields(base)} for base in bases}
+        return {
+            field.name: declaring
+            for field in _class_body_fields(self)
+            if field.name is not None and (declaring := [base for base in bases if field.name in declared[base]])
+        }
 
     def assigns_forward_reference_field(  # noqa: PLR6301
         self,
@@ -3533,6 +3588,16 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         Each model type should override this to provide appropriate implementation.
         """
         return None
+
+    @classmethod
+    def config_left_without_generic_base_class(cls, config: dict[str, object]) -> Mapping[str, object]:
+        """Return the items of the run-level ``config`` that this type's models write but its missing base class drops.
+
+        A type that writes none of the run-level configuration leaves out nothing; a type that reads it per model
+        overrides this with its own config builder.
+        """
+        del config
+        return {}
 
     @classmethod
     def render_module_code(cls, models: list[DataModel]) -> str:  # noqa: ARG003
@@ -3814,14 +3879,25 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         return _bind_field_expressions(rendered, rendered_class_name, self._field_name_bindings.expressions)
 
     def set_field_name_bindings(self, bindings: FieldNameBindings) -> None:
-        """Set the aliases of the names the module's field names hide, which the rendered text writes."""
+        """Set the aliases of the names the module's field names hide, which the rendered text writes.
+
+        The aliases an earlier call set stay: the pass that binds them before the models render and the one that
+        binds the names a base hides in the rendered texts both set them. The second pass reads texts that already
+        write the aliases of the first, so it can alias an alias again; the rendered template writes the original
+        name, which the merged bindings map to the last alias.
+        """
+        if (earlier := self._field_name_bindings) is not None:
+            bindings = FieldNameBindings(
+                _composed_aliases(earlier.expressions, bindings.expressions),
+                _composed_aliases(earlier.loads, bindings.loads),
+            )
         self._field_name_bindings = bindings
         self.invalidate_render_caches()
 
     @property
     def _custom_template_fields(self) -> Sequence[DataModelFieldBase | _RenderedDataModelField]:
         """Return custom-template fields, allocating proxies only when escaping changes a docstring."""
-        fields = self._class_body_fields()
+        fields = _class_body_fields(self)
         if not any(
             field.use_field_description or field.use_field_description_example or field.use_inline_field_description
             for field in fields
@@ -3887,12 +3963,50 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         """Return fields with docstrings prepared for built-in templates."""
         return [
             _RenderedDataModelField(field, self._format_docstring(field.docstring, self.FIELD_DOCSTRING_INDENT))
-            for field in self._class_body_fields()
+            for field in _class_body_fields(self)
         ]
 
-    def _class_body_fields(self) -> list[DataModelFieldBase]:
-        """Return the fields the class body writes: the model's own."""
-        return self.fields
+
+def _redeclared_fields(model: DataModel) -> Sequence[DataModelFieldBase]:
+    """Return the copies of inherited fields the class body of a model writes before its own fields.
+
+    A Pydantic dataclass writes them (``_REDECLARED_FIELDS_KEY``) where it builds an inherited pattern with an engine
+    that cannot build it.
+    """
+    return model._internal_template_data.get(_REDECLARED_FIELDS_KEY, ())  # noqa: SLF001
+
+
+def _hint_body_types(field: DataModelFieldBase) -> Mapping[int, tuple[DataType, DataType]]:
+    """Return each type naming a model that the hint of a field writes from a type alias body, with the field's copy.
+
+    By the ``id`` of the type; none until the hint is decided (``GenerationStore.record_hint_body_types``).
+    """
+    return field.__dict__.get(_HINT_BODY_TYPES_KEY, {})
+
+
+def _hint_body_named_types(field: DataModelFieldBase) -> list[DataType]:
+    """Return the types naming a model that the hint of a field writes from the bodies of type aliases.
+
+    The field's backend decides them (``DataModelFieldBase._alias_body_named_types``) once its hint is decided.
+    """
+    return field._alias_body_named_types  # noqa: SLF001
+
+
+def _hint_types_beyond_fields(model: DataModel) -> Iterator[DataType]:
+    """Yield the types the class body of a model writes that the types of its fields (``all_data_types``) leave out.
+
+    Those are the types of the inherited fields it redeclares (``_redeclared_fields``), and the copies its fields keep
+    of the types naming a model that their hints write from type alias bodies (``_hint_body_types``).
+    """
+    for field in _redeclared_fields(model):
+        yield from field.data_type.all_data_types
+    for field in _class_body_fields(model):
+        yield from (copy for _, copy in _hint_body_types(field).values())
+
+
+def _class_body_fields(model: DataModel) -> list[DataModelFieldBase]:
+    """Return the fields the class body of a model writes: the inherited ones it redeclares, then its own."""
+    return [*redeclared, *model.fields] if (redeclared := _redeclared_fields(model)) else model.fields
 
 
 def _model_package_class(cls: type) -> bool:
@@ -4194,6 +4308,31 @@ def _effective_field_owners(
         _model_key_of_model,
         rule=model._BASE_FIELDS,  # noqa: SLF001
     )
+
+
+def _keyword_only_last_places(
+    model: DataModel, ancestors: Sequence[DataModel], stand_ins: Mapping[int, Reference | None] | None = None
+) -> tuple[str, ...]:
+    """Return the names of the instance fields of ``model`` in the order msgspec gives them (``__struct_fields__``).
+
+    ``ancestors`` are the models ``model`` inherits from in its method resolution order, ``stand_ins`` the bases
+    overrides replaced. Each class takes the order of its bases, the last base first, then its own fields: a name it
+    declares again keeps its place, a new one goes last, and each name is keyword-only when the class that declares it
+    last is (`DataModel.has_keyword_only_definition`). The class then puts its positional fields before its
+    keyword-only ones. So with ``Base(a, b=UNSET)``, ``Mid(Base, kw_only=True)`` declaring ``a`` and ``c`` gives
+    ``(b, a, c)``, and ``Leaf(Mid)`` declaring ``a`` again takes ``a`` positional after the default of ``b``.
+    """
+    places: dict[int, dict[str, bool]] = {}
+    for owner in (*reversed(ancestors), model):
+        keyword_only: dict[str, bool] = {}
+        for base in reversed(direct_base_models(owner, stand_ins)):
+            keyword_only.update(places.get(id(base), {}))
+        declared_keyword_only = owner.has_keyword_only_definition()
+        keyword_only.update(
+            (name, declared_keyword_only) for field in owner.fields if (name := _named_instance_field(field))
+        )
+        places[id(owner)] = dict(sorted(keyword_only.items(), key=operator.itemgetter(1)))
+    return tuple(places[id(model)])
 
 
 def get_effective_fields(model: DataModel) -> tuple[DataModelFieldBase, ...]:

@@ -22,7 +22,7 @@ import keyword
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from seq.errors import SeqAuthoringError
+from seq.errors import BENCHMARK_IS_LOCAL, SeqAuthoringError
 
 KINDS = ("policy", "benchmark", "adapter")
 
@@ -188,8 +188,8 @@ def choose(found: list[Found], name: str | None, folder: str, read: int, *, verb
         if not found:
             raise SeqAuthoringError(f"{folder} holds no class decorated @seq.policy ({files})")
     if not found:
-        raise SeqAuthoringError(f"{folder} holds no class decorated @seq.policy, @seq.benchmark or "
-                                f"@seq.adapter ({files} it uploads)")
+        raise SeqAuthoringError(f"{folder} holds no class decorated @seq.policy or @seq.adapter ({files} it uploads) "
+                                f"- {BENCHMARK_IS_LOCAL}")
     if name is not None:
         named = [f for f in found if f.name == name] or [f for f in found if f.qualname == name]
         if len(named) == 1:

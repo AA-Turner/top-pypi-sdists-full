@@ -322,3 +322,8 @@ class XEP_0410(BasePlugin):
                 "previous": previous,
                 "result": result
             })
+            self.xmpp.event(f'muc::{key[0]}::ping_changed', {
+                "key": key,
+                "previous": previous,
+                "result": result
+            })

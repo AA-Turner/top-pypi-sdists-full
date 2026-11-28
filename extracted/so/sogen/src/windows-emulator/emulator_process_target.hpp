@@ -205,7 +205,7 @@ namespace sogen
             this->on_thread(thread_id, [&](emulator_thread& thread) {
                 if (thread.teb64)
                 {
-                    result = {.teb = thread.teb64->value()};
+                    result = {.teb = thread.teb64->value(), .exited = thread.is_terminated()};
                 }
             });
             return result;
@@ -224,10 +224,15 @@ namespace sogen
                 if (resume)
                 {
                     thread->suspended = previous > 0 ? previous - 1 : 0;
+                    if (previous == 1)
+                    {
+                        thread->resume_object_wait(this->emulator_);
+                    }
                 }
                 else
                 {
                     ++thread->suspended;
+                    thread->unlink_object_wait();
                 }
                 return process_suspend_result{.previous_count = previous};
             });

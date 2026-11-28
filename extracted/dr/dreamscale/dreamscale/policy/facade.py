@@ -43,7 +43,7 @@ from dreamscale_transport.errors import (
 )
 
 from dreamscale import errors
-from dreamscale.config import warn_engine_ignored
+from dreamscale.config import warn_engine_ignored, warn_provider_deprecated
 from dreamscale.libero import LiberoObservation
 from dreamscale.model_names import aresolve_model, internal_model, public_model
 from dreamscale.policy.connection import (
@@ -1709,7 +1709,7 @@ class AsyncPolicy:
             # session is still closed so it stops counting toward the robot limit.
             failure = errors.catalog(
                 "reconnect_failed",
-                detail="the connection to the GPU dropped during run()/prepare()/an "
+                detail="the connection to the server dropped during run()/prepare()/an "
                 "episode, which this policy does not resume",
             )
             failure.__cause__ = exc
@@ -2126,7 +2126,8 @@ class Policy:
 _DEFAULT_PROGRESS = object()
 # Accepted for compatibility with a102/a103 code and the CLI; absent from the documented
 # signature. Each keeps today's behaviour, but `engine`: ignored, with a DeprecationWarning
-# (Praxis-1 has one engine).
+# (Praxis-1 has one engine). `provider` is still sent, with a DeprecationWarning (Dreamscale
+# chooses the server).
 LEGACY_CONNECT_KWARGS = frozenset(
     {
         "acceleration", "control", "rtc", "calibration", "region", "provider", "speed",
@@ -2172,10 +2173,31 @@ async def aconnect(
     ``api_key=``, ``DREAMSCALE_API_KEY`` or ``dreamscale login``. ``mode``: how
     ``next_action()`` runs chunks, ``"sync"`` (each to its end) or ``"async"`` (replanning);
     ``"auto"`` takes the model's own (sync for Praxis-1, async for the rest)."""
-    from dreamscale.policy.remote import _aconnect
-
     _check_legacy_kwargs(legacy)
     warn_engine_ignored(legacy.pop("engine", None))
+    warn_provider_deprecated(legacy.get("provider"))
+    return await _open_policy(
+        model, deployment=deployment, checkpoint=checkpoint, api_key=api_key, region=region,
+        region_fallback=region_fallback, on_progress=on_progress, mode=mode, **legacy,
+    )
+
+
+async def _open_policy(
+    model: str,
+    *,
+    deployment: str | None,
+    checkpoint: str | None,
+    api_key: str | None,
+    region: str,
+    region_fallback: bool | None,
+    on_progress: Any,
+    mode: str,
+    **legacy: Any,
+) -> AsyncPolicy:
+    """``aconnect`` once its keywords are checked and warned of: ``connect`` opens through it
+    too, so a caller is warned once, at its own line."""
+    from dreamscale.policy.remote import _aconnect
+
     mode = _checked_mode(mode)
     # A public name (pi0.5-bimanualyam), one only the control plane lists, or the internal
     # id; the SDK keys on the latter.
@@ -2223,15 +2245,15 @@ def connect(
     """Connect to a model (synchronous). See ``aconnect``."""
     _check_legacy_kwargs(legacy)
     warn_engine_ignored(legacy.pop("engine", None))
+    warn_provider_deprecated(legacy.get("provider"))
     _checked_mode(mode)
     runner = _LoopRunner()
     try:
         async_policy = runner.run(
-            aconnect(
+            _open_policy(
                 model, deployment=deployment, checkpoint=checkpoint, api_key=api_key,
-                on_progress=on_progress, mode=mode, **legacy,
-                **({"region": region} if region != "auto" else {}),
-                **({"region_fallback": region_fallback} if region_fallback is not None else {}),
+                region=region, region_fallback=region_fallback, on_progress=on_progress,
+                mode=mode, **legacy,
             )
         )
     except BaseException:

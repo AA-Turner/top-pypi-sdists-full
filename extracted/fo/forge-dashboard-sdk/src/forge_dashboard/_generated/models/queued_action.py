@@ -39,9 +39,11 @@ class QueuedAction:
             status (QueuedActionStatus): `queued`: waiting for the reset. `done`: the action ran.
                 `skipped`: the server re-read the pull request at the reset and
                 it no longer needed the action, so nothing was done; `code` and
-                `message` say why ("Already merged"). `failed`: the action ran
-                and the forge refused, with the structured `code` and `message`
-                an immediate action would have answered.
+                `message` say why ("Already merged"). `failed`: either the action
+                ran and the forge refused, with the structured `code` and
+                `message` an immediate action would have answered, or it never
+                ran because the forge still didn't answer, or was still slow,
+                an hour after the action first came due, with `code` `unknown`.
             run_at (datetime.datetime): When the forge's budget comes back, which is when the server
                 looks again. If the budget is spent again by then, it moves to
                 the new reset instead of failing.

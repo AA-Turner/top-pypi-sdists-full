@@ -51,6 +51,10 @@ from .rerun import RerunUnavailableError
 from .run_outputs import SENSORS_SUFFIX as SENSORS_SUFFIX
 from .run_outputs import sensors_recording_path as lidar_recording_path
 
+# The scratch files a merge and an extraction write through, which
+# run_outputs.remove_run_outputs removes when a killed run leaves one.
+from .run_outputs import extracting_path, merging_path
+
 # A camera's mount, the colours of a sweep, the sensors' entities and the
 # parse of ``rerun rrd print`` are the checked rerun_sensor_mount's (#1688);
 # the names they had here stay importable from here.
@@ -201,7 +205,7 @@ def merge_into(recording: Path, lidar: Path) -> Path:
     """
     cli = _cli()
     recording, lidar = Path(recording), Path(lidar)
-    merged = recording.with_name(f".{recording.name}.merging")
+    merged = merging_path(recording)
     try:
         _run_cli(
             [str(cli), "rrd", "merge", str(recording), str(lidar), "-o", str(merged)]
@@ -252,7 +256,7 @@ def extract_sensors(recording: Path, sensors: Path) -> bool:
     if not any(_is_sensor_entity(entity) for entity in entities):
         return False
     dropped = sorted(entity for entity in entities if not _is_sensor_entity(entity))
-    partial = sensors.with_name(f".{sensors.name}.extracting")
+    partial = extracting_path(sensors)
     try:
         _run_cli(
             [
@@ -328,11 +332,22 @@ class SensorRecorder:
         self._stream: Any = self._rr.RecordingStream(
             APPLICATION_ID, recording_id=recording_id
         )
-        # The converter's chunks are on `frame` and `sim_time` alone: the
-        # SDK's wall-clock `log_time` would put the sensors alone on a
-        # timeline of their own.
-        self._stream.set_log_time_enabled(False)
-        self._stream.save(str(self.path))
+        try:
+            # The converter's chunks are on `frame` and `sim_time` alone: the
+            # SDK's wall-clock `log_time` would put the sensors alone on a
+            # timeline of their own.
+            self._stream.set_log_time_enabled(False)
+            self._stream.save(str(self.path))
+        except BaseException:
+            # A recorder that cannot start leaves no stream running (#2485,
+            # #2617): nothing else would ever close it.
+            stream, self._stream = self._stream, None
+            try:
+                stream.disconnect()
+            finally:
+                del stream
+                _cleanup_orphaned_recordings(self._rr)
+            raise
 
     def start(self) -> "SensorRecorder":
         """Make this the recorder :func:`active_recorder` returns."""

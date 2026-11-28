@@ -1,14 +1,6 @@
-import warnings
+"""Compatibility exports for the repository-local CLIP API and tokenizer."""
 
-
-with warnings.catch_warnings():
-    warnings.filterwarnings(
-        'ignore',
-        message='pkg_resources is deprecated as an API.*',
-        category=UserWarning,
-    )
-    import clip as clip
-    from clip.simple_tokenizer import SimpleTokenizer
-
+from . import clip_api as clip
+from .clip_api import SimpleTokenizer
 
 __all__ = ['clip', 'SimpleTokenizer']

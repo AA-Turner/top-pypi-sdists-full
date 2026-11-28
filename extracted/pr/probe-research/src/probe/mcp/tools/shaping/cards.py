@@ -42,6 +42,17 @@ _ENTITY_REF_FIELDS = ("id", "slug", "name", "kind", "project_id", "experiment_id
 #: count before its backfill): null is left off the card, never shown as a value
 #: an agent could read as zero.
 _UNKNOWN_COUNT_FIELDS = frozenset({"tokens", "remaining_tokens"})
+#: A paper card's text fields beyond its title, each one a person or a
+#: provider can make long.
+_PAPER_CARD_TEXT = (
+    "authors",
+    "relevance",
+    "summary_md",
+    "discrepancies_md",
+    "extracted_title",
+    "extracted_authors",
+    "extracted_abstract",
+)
 _CARD_FIELDS: dict[str, tuple[str, ...]] = {
     EntityType.PROJECT: (
         "workspace_id",
@@ -85,6 +96,26 @@ _CARD_FIELDS: dict[str, tuple[str, ...]] = {
     # row measures the character backstop and is left off. A count the server
     # could not give (null) is left off too (`_UNKNOWN_COUNT_FIELDS`).
     EntityType.SUB_NOTE: ("tokens", "limit_tokens", "remaining_tokens", "notes_version"),
+    # A SAVED paper: what it says (the reader's summary, the abstract, the
+    # digest) and where it came from. Its card view caps every text leaf
+    # first and marks each cut as `<key>_truncated`, listed here so it shows.
+    EntityType.PAPER: (
+        *_PAPER_CARD_TEXT,
+        "source_url",
+        "repo_url",
+        "extracted_categories",
+        "extracted_published_at",
+        "extracted_venue",
+        "extraction_status",
+        "lineage_state",
+        "session_total",
+        "agent_sessions",
+        "digest_status",
+        "digest_stale",
+        "digest_generated_at",
+        "digest",
+        *(f"{key}_truncated" for key in (*_PAPER_CARD_TEXT, "title", "agent_sessions")),
+    ),
     # The data catalog (C4). `ref` is the server's canonical address, the one
     # a run's use names; a dataset's version, a checkpoint's facts and a
     # source's counts are what a reader decides with.

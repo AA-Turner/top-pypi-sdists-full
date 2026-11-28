@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import json
 import logging
 import os
@@ -23,6 +24,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from gemini_config import SYSTEM_SETTINGS_ENV, gemini_home
+from gemini_transcript import SESSION_POLL_S, SessionTail
+from tail_follow import following
 
 logger = logging.getLogger(__name__)
 
@@ -505,11 +508,13 @@ async def run_gemini(
     env: Mapping[str, str] | None = None,
     cwd: str | None = None,
     other_sessions: Callable[[], Collection[str]] = tuple,
+    aux_callback: Callable[[str, dict], None] | None = None,
 ) -> GeminiResult:
     """Run one `gemini -p` turn in ``env``, with ``cwd`` (else this process's) the CLI's workspace. ``event_callback``
     gets each stream-json event as the CLI prints it: exactly the events of the returned trajectory, in order.
     ``other_sessions`` answers, when it is asked, the sessions other turns and contexts claim, which a first turn's own
-    is never taken for."""
+    is never taken for. ``aux_callback`` gets the turn's model messages from the session transcript as the ``session``
+    aux file, while the CLI runs and once it has exited."""
     # Multimodal attachments are injected as `@<absolute_path>` references in
     # the prompt — that's the Gemini CLI's documented mechanism for headless
     # mode (there's no `--image` flag). The CLI's `read_many_files` tool
@@ -533,6 +538,9 @@ async def run_gemini(
         f"attachments={len(attachment_paths or [])})"
     )
     started = time.time()
+    # Read before the CLI starts, so a resumed session's messages from earlier turns are the ones it skips.
+    tail = await asyncio.to_thread(SessionTail, session_id, functools.partial(find_session_file, cwd=cwd or os.getcwd())) \
+        if aux_callback is not None else None
     proc = await _started(asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
@@ -563,6 +571,8 @@ async def run_gemini(
         etype = event.get("type")
         if etype == "init":
             captured_session_id = event.get("session_id", captured_session_id)
+            if tail is not None and captured_session_id:
+                tail.bind(captured_session_id)
         elif etype == "message" and event.get("role") == "assistant":
             content = event.get("content")
             if isinstance(content, str):
@@ -583,27 +593,33 @@ async def run_gemini(
         if event_callback is not None:
             event_callback(event)
 
-    try:
-        stderr = await asyncio.wait_for(_stream_cli(proc, on_line), timeout=timeout_s)
-    except asyncio.CancelledError:
-        _kill_cli(proc)
-        await _reap(proc)
-        raise
-    except asyncio.TimeoutError:
-        _kill_cli(proc)
-        await _reap(proc)
-        return GeminiResult(
-            response="", tool_call_count=0, session_id=captured_session_id,
-            error=f"gemini CLI timed out after {timeout_s}s",
-        )
-    except Exception:
-        # A failure while reading, such as an event_callback that raises, must
-        # not leave the CLI running.
-        _kill_cli(proc)
-        await _reap(proc)
-        raise
-    finally:
-        _RUNNING.discard(proc)
+    def read(final: bool) -> list[tuple[str, dict]]:
+        return [("session", record) for record in tail.read(final=final)]
+
+    follow = following(read, aux_callback, SESSION_POLL_S, "transcript") if tail is not None \
+        else contextlib.nullcontext()
+    async with follow:
+        try:
+            stderr = await asyncio.wait_for(_stream_cli(proc, on_line), timeout=timeout_s)
+        except asyncio.CancelledError:
+            _kill_cli(proc)
+            await _reap(proc)
+            raise
+        except asyncio.TimeoutError:
+            _kill_cli(proc)
+            await _reap(proc)
+            return GeminiResult(
+                response="", tool_call_count=0, session_id=captured_session_id,
+                error=f"gemini CLI timed out after {timeout_s}s",
+            )
+        except Exception:
+            # A failure while reading, such as an event_callback that raises, must
+            # not leave the CLI running.
+            _kill_cli(proc)
+            await _reap(proc)
+            raise
+        finally:
+            _RUNNING.discard(proc)
 
     response = "".join(response_parts)
     err: str | None = None

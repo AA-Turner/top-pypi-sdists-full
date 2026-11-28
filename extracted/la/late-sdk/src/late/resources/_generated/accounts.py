@@ -915,6 +915,23 @@ class AccountsResource:
             f"/v1/accounts/{account_id}/stripe-settings", data=payload
         )
 
+    def get_store_settings(self, account_id: str) -> dict[str, Any]:
+        """Get Shopify or WooCommerce store settings"""
+        return self._client._get(f"/v1/accounts/{account_id}/store-settings")
+
+    def update_store_settings(
+        self, account_id: str, forward_orders: bool
+    ) -> dict[str, Any]:
+        """Update Shopify or WooCommerce store settings"""
+        payload = self._build_body(
+            {
+                "forwardOrders": forward_orders,
+            }
+        )
+        return self._client._patch(
+            f"/v1/accounts/{account_id}/store-settings", data=payload
+        )
+
     def get_slack_settings(self, account_id: str) -> dict[str, Any]:
         """Get Slack account settings"""
         return self._client._get(f"/v1/accounts/{account_id}/slack-settings")
@@ -1784,6 +1801,23 @@ class AccountsResource:
         )
         return await self._client._apatch(
             f"/v1/accounts/{account_id}/stripe-settings", data=payload
+        )
+
+    async def aget_store_settings(self, account_id: str) -> dict[str, Any]:
+        """Get Shopify or WooCommerce store settings (async)"""
+        return await self._client._aget(f"/v1/accounts/{account_id}/store-settings")
+
+    async def aupdate_store_settings(
+        self, account_id: str, forward_orders: bool
+    ) -> dict[str, Any]:
+        """Update Shopify or WooCommerce store settings (async)"""
+        payload = self._build_body(
+            {
+                "forwardOrders": forward_orders,
+            }
+        )
+        return await self._client._apatch(
+            f"/v1/accounts/{account_id}/store-settings", data=payload
         )
 
     async def aget_slack_settings(self, account_id: str) -> dict[str, Any]:

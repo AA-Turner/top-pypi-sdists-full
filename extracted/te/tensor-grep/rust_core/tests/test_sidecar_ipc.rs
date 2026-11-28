@@ -237,6 +237,7 @@ fn test_tg_classify_text_flag_stdout_matches_python_module() {
     let mut tg = Command::new(env!("CARGO_BIN_EXE_tg"));
     tg.current_dir(repo_root())
         .arg("classify")
+        .arg("--json")
         .arg("--text")
         .arg(literal);
     configure_classify_env(&mut tg);
@@ -247,6 +248,7 @@ fn test_tg_classify_text_flag_stdout_matches_python_module() {
         .arg("-m")
         .arg("tensor_grep")
         .arg("classify")
+        .arg("--json")
         .arg("--text")
         .arg(literal);
     configure_classify_env(&mut py);
@@ -281,7 +283,10 @@ fn test_tg_classify_stdin_flag_stdout_matches_python_module() {
     let content = b"INFO ok\nERROR database failed\nWARN retrying\n".to_vec();
 
     let mut tg = Command::new(env!("CARGO_BIN_EXE_tg"));
-    tg.current_dir(repo_root()).arg("classify").arg("--stdin");
+    tg.current_dir(repo_root())
+        .arg("classify")
+        .arg("--json")
+        .arg("--stdin");
     configure_classify_env(&mut tg);
     let tg_output = run_with_stdin_timeout(tg, content.clone(), Duration::from_secs(40));
 
@@ -290,6 +295,7 @@ fn test_tg_classify_stdin_flag_stdout_matches_python_module() {
         .arg("-m")
         .arg("tensor_grep")
         .arg("classify")
+        .arg("--json")
         .arg("--stdin");
     configure_classify_env(&mut py);
     let py_output = run_with_stdin_timeout(py, content, Duration::from_secs(40));
@@ -858,6 +864,31 @@ fn assert_native_root_help_fallback(args: &[&str], timed_out: bool) {
         stdout.contains("Search code, follow symbols, and prepare a bounded edit."),
         "{stdout}"
     );
+    assert!(stdout.contains("Core workflow:"), "{stdout}");
+    assert!(stdout.contains("--help-all"), "{stdout}");
+    assert!(
+        stdout.lines().count() <= 45,
+        "concise --help fallback must be <= 45 lines, got {}:\n{stdout}",
+        stdout.lines().count()
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).trim().is_empty());
+}
+
+#[cfg(not(feature = "cuda"))]
+#[test]
+fn test_native_help_all_prints_full_grouped_command_list() {
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .current_dir(repo_root())
+        .arg("--help-all")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.starts_with("Usage: tg <COMMAND>"), "{stdout}");
     let positions: Vec<_> = [
         "Search and structure:",
         "Navigate:",
@@ -872,7 +903,6 @@ fn assert_native_root_help_fallback(args: &[&str], timed_out: bool) {
         positions.len() == 5 && positions.windows(2).all(|pair| pair[0] < pair[1]),
         "{stdout}"
     );
-    assert!(String::from_utf8_lossy(&output.stderr).trim().is_empty());
 }
 
 macro_rules! root_help_fallback_case {

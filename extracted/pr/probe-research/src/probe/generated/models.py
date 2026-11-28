@@ -108,6 +108,7 @@ from .enums import (  # noqa: F401 - re-exported
     EditState,
     EffortWindow,
     Ending,
+    EnrollmentTokenKind,
     DisabledFilter,
     EntitySortColumn,
     EntitySortDirection,
@@ -115,6 +116,8 @@ from .enums import (  # noqa: F401 - re-exported
     EpisodeGrouping,
     EpisodeState,
     EpisodeStatus,
+    ContentType,
+    State1,
     ExampleProfile,
     ExampleStage,
     Kind2,
@@ -132,6 +135,7 @@ from .enums import (  # noqa: F401 - re-exported
     GitHubIntegrationState,
     GitHubSetupFlow,
     GpuUnsupported,
+    GradeStatus,
     Grant,
     GrantLevel,
     GraphState,
@@ -174,6 +178,7 @@ from .enums import (  # noqa: F401 - re-exported
     MessageCode,
     MessageSource,
     MessageState,
+    ArgumentsType,
     MetricAgg,
     Origin,
     MetricCoverage,
@@ -322,7 +327,7 @@ from .enums import (  # noqa: F401 - re-exported
     Fn6,
     WorkKind,
     WorkloadKind,
-    State2,
+    State3,
     WorkspaceKind,
     WriteMode,
     Lease,
@@ -2217,6 +2222,7 @@ class EnrollmentTokenCreate(BaseModel):
     expires_in_seconds: int | None = Field(
         2592000, ge=60, le=31536000, title='Expires In Seconds'
     )
+    kind: EnrollmentTokenKind
     labels: dict[str, str] | None = Field(None, max_length=32, title='Labels')
     max_nodes: MaxNodes | None = Field(None, title='Max Nodes')
     name: str = Field(..., max_length=128, min_length=1, title='Name')
@@ -2228,11 +2234,14 @@ class EnrollmentTokenCreated(BaseModel):
     created_by: UUID | None = Field(..., title='Created By')
     expires_at: AwareDatetime = Field(..., title='Expires At')
     id: UUID = Field(..., title='Id')
+    kind: EnrollmentTokenKind
     labels: dict[str, str] = Field(..., title='Labels')
     last_used_at: AwareDatetime | None = Field(..., title='Last Used At')
     max_nodes: int | None = Field(..., title='Max Nodes')
     name: str = Field(..., title='Name')
     nodes_enrolled: int = Field(..., title='Nodes Enrolled')
+    redeemed_at: AwareDatetime | None = Field(..., title='Redeemed At')
+    redeemed_node_id: UUID | None = Field(..., title='Redeemed Node Id')
     revoked_at: AwareDatetime | None = Field(..., title='Revoked At')
     token: str = Field(..., title='Token')
     token_prefix: str = Field(..., title='Token Prefix')
@@ -2243,11 +2252,14 @@ class EnrollmentTokenOut(BaseModel):
     created_by: UUID | None = Field(..., title='Created By')
     expires_at: AwareDatetime = Field(..., title='Expires At')
     id: UUID = Field(..., title='Id')
+    kind: EnrollmentTokenKind
     labels: dict[str, str] = Field(..., title='Labels')
     last_used_at: AwareDatetime | None = Field(..., title='Last Used At')
     max_nodes: int | None = Field(..., title='Max Nodes')
     name: str = Field(..., title='Name')
     nodes_enrolled: int = Field(..., title='Nodes Enrolled')
+    redeemed_at: AwareDatetime | None = Field(..., title='Redeemed At')
+    redeemed_node_id: UUID | None = Field(..., title='Redeemed Node Id')
     revoked_at: AwareDatetime | None = Field(..., title='Revoked At')
     token_prefix: str = Field(..., title='Token Prefix')
 
@@ -2393,6 +2405,141 @@ class Evidence(BaseModel):
     ordinal: int = Field(..., title='Ordinal')
     raw_reference: str | None = Field(None, title='Raw Reference')
     resolution: str = Field(..., title='Resolution')
+
+
+class EvidenceMember(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    document_hash: str = Field(..., title='Document Hash')
+    inferred_trainer_sha256: str | None = Field(None, title='Inferred Trainer Sha256')
+    owner_hash: str = Field(..., title='Owner Hash')
+    sample_id: UUID = Field(..., title='Sample Id')
+    write_epoch: int = Field(..., ge=1, le=2147483647, title='Write Epoch')
+
+
+class DurationS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Duration S')
+
+
+class Error(RootModel[str]):
+    root: str = Field(..., max_length=8192, title='Error')
+
+
+class FinishReason1(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Finish Reason')
+
+
+class Model(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Model')
+
+
+class NodeId(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Node Id')
+
+
+class ParentId(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Parent Id')
+
+
+class ToolSet(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Tool Set')
+
+
+class UnpairedReason(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Unpaired Reason')
+
+
+class EvidenceSnapshot(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    generation: int = Field(..., ge=0, le=9223372036854776000, title='Generation')
+    revision: str | None = Field(..., title='Revision')
+    watermark: str = Field(..., title='Watermark')
+
+
+class Agent1(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Agent')
+
+
+class EnvironmentName(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Environment Name')
+
+
+class EnvironmentRef(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Environment Ref')
+
+
+class EnvironmentVersion1(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Environment Version')
+
+
+class PhaseSeconds(RootModel[float]):
+    root: float = Field(..., ge=0.0)
+
+
+class PolicyVersion(RootModel[int]):
+    root: int = Field(..., ge=0, title='Policy Version')
+
+
+class RetryNumber(RootModel[int]):
+    root: int = Field(..., ge=0, title='Retry Number')
+
+
+class StopReason(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Stop Reason')
+
+
+class TaskName(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Task Name')
+
+
+class CachedInputTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Cached Input Tokens')
+
+
+class CompletionTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Completion Tokens')
+
+
+class PromptTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Prompt Tokens')
+
+
+class ReasoningTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Reasoning Tokens')
+
+
+class TraceInputTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Trace Input Tokens')
+
+
+class TraceOutputTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Trace Output Tokens')
+
+
+class EvidenceUsage(BaseModel):
+    """
+    Provider and trace counters can have different bases. Every absent measurement stays absent.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    cached_input_tokens: CachedInputTokens | None = Field(
+        None, title='Cached Input Tokens'
+    )
+    completion_tokens: CompletionTokens | None = Field(None, title='Completion Tokens')
+    cost_usd: float | None = Field(None, title='Cost Usd')
+    prompt_tokens: PromptTokens | None = Field(None, title='Prompt Tokens')
+    reasoning_tokens: ReasoningTokens | None = Field(None, title='Reasoning Tokens')
+    trace_input_tokens: TraceInputTokens | None = Field(
+        None, title='Trace Input Tokens'
+    )
+    trace_output_tokens: TraceOutputTokens | None = Field(
+        None, title='Trace Output Tokens'
+    )
 
 
 class ExampleFacts(BaseModel):
@@ -2821,7 +2968,7 @@ class Code(RootModel[str]):
     root: str = Field(..., max_length=512, title='Code')
 
 
-class State1(RootModel[str]):
+class State2(RootModel[str]):
     root: str = Field(..., max_length=2048, title='State')
 
 
@@ -2844,7 +2991,7 @@ class GitHubInstallationClaim(BaseModel):
 
     code: Code | None = Field(None, title='Code')
     installation_id: int = Field(..., ge=1, title='Installation Id')
-    state: State1 | None = Field(None, title='State')
+    state: State2 | None = Field(None, title='State')
 
 
 class GitHubInstallationOut(BaseModel):
@@ -3411,6 +3558,20 @@ class KeyMetric(BaseModel):
     kind: str = Field(..., title='Kind')
 
 
+class KeyContain(RootModel[str]):
+    root: str = Field(..., max_length=64, min_length=1, pattern='^[^\\x00]+$')
+
+
+class KeyContains(RootModel[list[KeyContain]]):
+    root: list[KeyContain] = Field(
+        ...,
+        description='Keep keys containing any of these literal substrings, case-insensitively. Also applies when exact keys or a kind are supplied. Returned keys keep their spelling.',
+        max_length=8,
+        min_length=1,
+        title='Key Contains',
+    )
+
+
 class Keys(RootModel[list[str]]):
     root: list[str] = Field(..., max_length=200, title='Keys')
 
@@ -3432,6 +3593,11 @@ class LatestScalarsRequest(BaseModel):
     )
     chart_settings_for_project: UUID | None = Field(
         None, title='Chart Settings For Project'
+    )
+    key_contains: KeyContains | None = Field(
+        None,
+        description='Keep keys containing any of these literal substrings, case-insensitively. Also applies when exact keys or a kind are supplied. Returned keys keep their spelling.',
+        title='Key Contains',
     )
     keys: Keys | None = Field(None, title='Keys')
     kind: str | None = Field(None, title='Kind')
@@ -3759,6 +3925,10 @@ class Name4(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
+class ProviderToolCallId(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Provider Tool Call Id')
+
+
 class ResultTokens(RootModel[int]):
     root: int = Field(..., ge=0, title='Result Tokens')
 
@@ -3771,6 +3941,10 @@ class Id(RootModel[str]):
     root: str = Field(..., max_length=256, title='Id')
 
 
+class ProviderId(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Provider Id')
+
+
 class MessageToolCall(BaseModel):
     """
     One tool call an assistant message asked for, as the framework handed it to the tool. Its run's stats are
@@ -3778,8 +3952,10 @@ class MessageToolCall(BaseModel):
     """
 
     arguments: str | None = Field('', title='Arguments')
+    arguments_type: ArgumentsType | None = Field(None, title='Arguments Type')
     id: Id | None = Field(None, title='Id')
     name: str = Field(..., max_length=256, title='Name')
+    provider_id: ProviderId | None = Field(None, title='Provider Id')
 
 
 class Kind3(RootModel[str]):
@@ -4068,7 +4244,7 @@ class NodeUninstalledAck(BaseModel):
     node_state: NodeState
 
 
-class Error(RootModel[str]):
+class Error1(RootModel[str]):
     root: str = Field(..., max_length=1024, title='Error')
 
 
@@ -4081,7 +4257,7 @@ class NodeUninstalledIn(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
-    error: Error | None = Field(None, title='Error')
+    error: Error1 | None = Field(None, title='Error')
 
 
 class NoteVersionOut(BaseModel):
@@ -4399,6 +4575,15 @@ class OverviewVersionsOut(BaseModel):
 
     next_before: int | None = Field(None, title='Next Before')
     versions: list[OverviewVersionSummaryOut] = Field(..., title='Versions')
+
+
+class OwnerQuery(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    sample_ids: list[UUID] = Field(
+        ..., max_length=1000, min_length=1, title='Sample Ids'
+    )
 
 
 class OwnershipTransfer(BaseModel):
@@ -6367,6 +6552,15 @@ class PublicTrialOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
+class Publication(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    generation: int = Field(..., ge=0, le=9223372036854776000, title='Generation')
+    revision: str | None = Field(..., title='Revision')
+    written: bool = Field(..., title='Written')
+
+
 class PublishRequest(BaseModel):
     """
     Publish (or re-publish with new settings) a resource at its own URL.
@@ -6375,6 +6569,18 @@ class PublishRequest(BaseModel):
     allow_downloads: bool | None = Field(False, title='Allow Downloads')
     expires_at: AwareDatetime | None = Field(None, title='Expires At')
     include_children: bool | None = Field(True, title='Include Children')
+
+
+class PublishRevision(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    expected_generation: int = Field(
+        ..., ge=0, le=9223372036854776000, title='Expected Generation'
+    )
+    members: list[EvidenceMember] = Field(
+        ..., max_length=20000, min_length=1, title='Members'
+    )
 
 
 class PullRow(BaseModel):
@@ -6486,6 +6692,16 @@ class ReproduceCompleteness(BaseModel):
     advisories: list[str] | None = Field(None, title='Advisories')
     missing: list[str] | None = Field(None, title='Missing')
     state: str = Field(..., title='State')
+
+
+class RestoreRevision(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    expected_generation: int = Field(
+        ..., ge=0, le=9223372036854776000, title='Expected Generation'
+    )
+    revision: str | None = Field(..., title='Revision')
 
 
 class RetirementRequest(BaseModel):
@@ -7074,6 +7290,14 @@ class Turn1(RootModel[int]):
     root: int = Field(..., ge=0, title='Turn')
 
 
+class SourceEpisodeId(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Source Episode Id')
+
+
+class SourceRunId(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Source Run Id')
+
+
 class SampleExportPage(BaseModel):
     items: list[dict[str, Any]] | None = Field(None, title='Items')
     next_cursor: str | None = Field(None, title='Next Cursor')
@@ -7120,10 +7344,6 @@ class ConsumedVersion(RootModel[int]):
     root: int = Field(..., ge=0, title='Consumed Version')
 
 
-class DurationS(RootModel[float]):
-    root: float = Field(..., ge=0.0, title='Duration S')
-
-
 class EnvironmentType(RootModel[str]):
     root: str = Field(..., max_length=256, title='Environment Type')
 
@@ -7142,10 +7362,6 @@ class Host4(RootModel[str]):
 
 class Occurrence(RootModel[int]):
     root: int = Field(..., ge=1, title='Occurrence')
-
-
-class PromptTokens(RootModel[int]):
-    root: int = Field(..., ge=0, title='Prompt Tokens')
 
 
 class ResponseTokens(RootModel[int]):
@@ -7172,15 +7388,15 @@ class TurnCount(RootModel[int]):
     root: int = Field(..., ge=0, title='Turn Count')
 
 
-class Agent1(RootModel[str]):
+class Agent2(RootModel[str]):
     root: str = Field(..., max_length=256, title='Agent')
 
 
-class EnvironmentName(RootModel[str]):
+class EnvironmentName1(RootModel[str]):
     root: str = Field(..., max_length=256, title='Environment Name')
 
 
-class EnvironmentVersion1(RootModel[str]):
+class EnvironmentVersion2(RootModel[str]):
     root: str = Field(..., max_length=256, title='Environment Version')
 
 
@@ -8188,6 +8404,14 @@ class SpanUpsertResult(BaseModel):
     upserted: int = Field(..., title='Upserted')
 
 
+class StagedDocument(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    document_hash: str = Field(..., title='Document Hash')
+    sample_id: UUID = Field(..., title='Sample Id')
+
+
 class StaleClientOut(BaseModel):
     """
     One known, stale client included in the dashboard decision.
@@ -8988,6 +9212,20 @@ class TracesOut(BaseModel):
     )
 
 
+class TrainerReceipt(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    consumed_step: int | None = Field(None, title='Consumed Step')
+    consumed_until_step: int | None = Field(None, title='Consumed Until Step')
+    consumed_version: int | None = Field(None, title='Consumed Version')
+    group_key: str | None = Field(None, title='Group Key')
+    key: str = Field(..., title='Key')
+    producer: str = Field(..., title='Producer')
+    role: str | None = Field('trainer', title='Role')
+    sha256: str = Field(..., title='Sha256')
+
+
 class TrashCountOut(BaseModel):
     """
     How many of each thing a move to the trash takes. An experiment counts
@@ -9110,7 +9348,7 @@ class TurnToolCall(BaseModel):
     """
 
     duration_s: DurationS | None = Field(None, title='Duration S')
-    error: Error | None = Field(None, title='Error')
+    error: Error1 | None = Field(None, title='Error')
     id: Id | None = Field(None, title='Id')
     is_ok: bool | None = Field(None, title='Is Ok')
     name: str = Field(..., max_length=256, title='Name')
@@ -9827,7 +10065,7 @@ class WorkspaceDigestOut(BaseModel):
     model: str | None = Field(None, title='Model')
     prompt_version: str | None = Field(None, title='Prompt Version')
     skip_reason: str | None = Field(None, title='Skip Reason')
-    state: State2 = Field(..., title='State')
+    state: State3 = Field(..., title='State')
     workspace_id: UUID | None = Field(None, title='Workspace Id')
 
 
@@ -11237,6 +11475,75 @@ class EpisodeRow(BaseModel):
     turns: int | None = Field(None, title='Turns')
 
 
+class EvidenceModelCall(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    duration_s: DurationS | None = Field(None, title='Duration S')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    error: Error | None = Field(None, title='Error')
+    finish_reason: FinishReason1 | None = Field(None, title='Finish Reason')
+    id: str = Field(..., max_length=512, min_length=1, title='Id')
+    model: Model | None = Field(None, title='Model')
+    node_id: NodeId | None = Field(None, title='Node Id')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    usage: EvidenceUsage | None = None
+
+
+class EvidenceOwner(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    owner_hash: str = Field(..., title='Owner Hash')
+    sample_id: UUID = Field(..., title='Sample Id')
+    sample_key: str = Field(..., max_length=512, min_length=1, title='Sample Key')
+    trainer: TrainerReceipt | None = None
+    write_epoch: int = Field(..., ge=1, le=2147483647, title='Write Epoch')
+
+
+class EvidenceSummary(BaseModel):
+    """
+    The producer's compact, measured facts. Actual trainer and scorer writes keep their precedence.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    agent: Agent1 | None = Field(None, title='Agent')
+    diagnostics: dict[constr(min_length=1, max_length=512), Any] | None = Field(
+        None, title='Diagnostics'
+    )
+    environment_name: EnvironmentName | None = Field(None, title='Environment Name')
+    environment_ref: EnvironmentRef | None = Field(None, title='Environment Ref')
+    environment_version: EnvironmentVersion1 | None = Field(
+        None, title='Environment Version'
+    )
+    grade_passed: bool | None = Field(None, title='Grade Passed')
+    grade_status: GradeStatus | None = 'unknown'
+    metrics: dict[constr(min_length=1, max_length=512), float] | None = Field(
+        None, title='Metrics'
+    )
+    model: Model | None = Field(None, title='Model')
+    phase_seconds: dict[constr(min_length=1, max_length=512), PhaseSeconds] | None = (
+        Field(None, title='Phase Seconds')
+    )
+    policy_version: PolicyVersion | None = Field(None, title='Policy Version')
+    raw_reward: float | None = Field(None, title='Raw Reward')
+    retry_number: RetryNumber | None = Field(None, title='Retry Number')
+    reward_parts: dict[constr(min_length=1, max_length=512), float] | None = Field(
+        None, title='Reward Parts'
+    )
+    reward_weights: dict[constr(min_length=1, max_length=512), float] | None = Field(
+        None, title='Reward Weights'
+    )
+    split: SampleSplit | None = None
+    state: State1 | None = Field(None, title='State')
+    stop_reason: StopReason | None = Field(None, title='Stop Reason')
+    task_name: TaskName | None = Field(None, title='Task Name')
+    trainer_membership: bool | None = Field(None, title='Trainer Membership')
+    usage: EvidenceUsage | None = None
+
+
 class ExactHit(BaseModel):
     entity_type: SearchEntityType
     experiment_id: UUID | None = Field(None, title='Experiment Id')
@@ -11814,7 +12121,7 @@ class HintRecord(BaseModel):
     )
     source_kind: str | None = Field(
         None,
-        description='The Probe record the hint cites it as, which `<kind>:<id>` opens: `run`, `project` (an experiment or an Overview page too), `group`, `trial`, `artifact` (a file) or `session`; null for a record with no id Probe opens (GitHub, the team note, a Google doc, a paper).',
+        description='The Probe record the hint cites it as, which `<kind>:<id>` opens: `run`, `project` (an experiment or an Overview page too), `group`, `trial`, `artifact` (a file), `paper` (a saved paper) or `session`; null for a record with no id Probe opens (GitHub, the team note, a Google doc).',
         title='Source Kind',
     )
     title: str | None = Field(None, title='Title')
@@ -12176,6 +12483,9 @@ class Message(BaseModel):
     content: str | None = Field('', title='Content')
     is_trainable: bool | None = Field(False, title='Is Trainable')
     name: Name4 | None = Field(None, title='Name')
+    provider_tool_call_id: ProviderToolCallId | None = Field(
+        None, title='Provider Tool Call Id'
+    )
     reasoning: str | None = Field(None, title='Reasoning')
     result_tokens: ResultTokens | None = Field(None, title='Result Tokens')
     role: str = Field(..., max_length=64, title='Role')
@@ -14988,6 +15298,21 @@ class EpisodeTurn(BaseModel):
     turn: Turn
 
 
+class EvidenceNode(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    content_type: ContentType | None = Field(None, title='Content Type')
+    id: str = Field(..., max_length=512, min_length=1, title='Id')
+    message: Message
+    observed_at: AwareDatetime | None = Field(None, title='Observed At')
+    parent_id: ParentId | None = Field(None, title='Parent Id')
+    process_exit_code: int | None = Field(None, title='Process Exit Code')
+    sampled: bool | None = Field(None, title='Sampled')
+    tool_set: ToolSet | None = Field(None, title='Tool Set')
+    unpaired_reason: UnpairedReason | None = Field(None, title='Unpaired Reason')
+
+
 class Example(BaseModel):
     """
     The person's live example.
@@ -16026,6 +16351,31 @@ class SampleCompare(BaseModel):
     task: TaskDetail | None = None
 
 
+class SampleEvidence(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    adapter_version: str = Field(
+        ..., max_length=512, min_length=1, title='Adapter Version'
+    )
+    model_calls: list[EvidenceModelCall] | None = Field(
+        None, max_length=32768, title='Model Calls'
+    )
+    nodes: list[EvidenceNode] | None = Field(None, max_length=32768, title='Nodes')
+    schema_version: Literal[1] = Field(..., title='Schema Version')
+    scrub_version: Literal[1] = Field(..., title='Scrub Version')
+    source_episode_id: SourceEpisodeId | None = Field(None, title='Source Episode Id')
+    source_run_id: SourceRunId | None = Field(None, title='Source Run Id')
+    source_sha256: str = Field(..., title='Source Sha256')
+    source_trace_id: str = Field(
+        ..., max_length=512, min_length=1, title='Source Trace Id'
+    )
+    summary: EvidenceSummary
+    tools: dict[constr(min_length=1, max_length=512), list[ToolDefinition]] | None = (
+        Field(None, max_length=128, title='Tools')
+    )
+
+
 class SampleList(BaseModel):
     next_cursor: str | None = Field(None, title='Next Cursor')
     samples: list[SampleSummary] | None = Field(None, title='Samples')
@@ -16051,6 +16401,7 @@ class SampleOut(BaseModel):
     error_message: ErrorMessage | None = Field(None, title='Error Message')
     error_reason: SampleErrorReason | None = None
     events: list[SampleEvent] | None = Field(None, max_length=256, title='Events')
+    evidence_ref: str | None = Field(None, title='Evidence Ref')
     extras: dict[str, Any] | None = Field(None, title='Extras')
     failure_reason: FailureReason | None = Field(None, title='Failure Reason')
     finish_reason: FinishReasonModel | None = None
@@ -16119,7 +16470,7 @@ class SamplePartIn(BaseModel):
     One part on the wire. The server derives the sample id from `key` and the batch's write epoch.
     """
 
-    agent: Agent1 | None = Field(None, title='Agent')
+    agent: Agent2 | None = Field(None, title='Agent')
     attempt_key: AttemptKey | None = Field(None, title='Attempt Key')
     attempt_kind: AttemptKind | None = None
     branch_started_by: BranchCause | None = None
@@ -16134,15 +16485,16 @@ class SamplePartIn(BaseModel):
     engine: Engine | None = Field(None, title='Engine')
     engine_stats: EngineStats | None = None
     environment: EnvironmentLink | None = None
-    environment_name: EnvironmentName | None = Field(None, title='Environment Name')
+    environment_name: EnvironmentName1 | None = Field(None, title='Environment Name')
     environment_type: EnvironmentType | None = Field(None, title='Environment Type')
-    environment_version: EnvironmentVersion1 | None = Field(
+    environment_version: EnvironmentVersion2 | None = Field(
         None, title='Environment Version'
     )
     episode_key: EpisodeKey | None = Field(None, title='Episode Key')
     error_message: ErrorMessage | None = Field(None, title='Error Message')
     error_reason: SampleErrorReason | None = None
     events: list[SampleEvent] | None = Field(None, max_length=256, title='Events')
+    evidence_ref: str | None = Field(None, title='Evidence Ref')
     extras: dict[str, Any] | None = Field(None, title='Extras')
     failure_reason: FailureReason | None = Field(None, title='Failure Reason')
     finish_reason: FinishReasonModel | None = None
@@ -16268,6 +16620,15 @@ class SessionRowOut(BaseModel):
     summary: str | None = Field(None, title='Summary')
     title: str | None = Field(None, title='Title')
     work: list[SessionWorkItem] | None = Field(None, title='Work')
+
+
+class StageDocument(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    document: SampleEvidence
+    sample_key: str = Field(..., max_length=512, min_length=1, title='Sample Key')
+    write_epoch: int = Field(..., ge=1, le=2147483647, title='Write Epoch')
 
 
 class StepCapture(BaseModel):

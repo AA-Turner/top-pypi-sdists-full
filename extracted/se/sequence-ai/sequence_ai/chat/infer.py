@@ -57,6 +57,7 @@ def chat(
     top_logprobs: int | None = None,
     parallel_tool_calls: bool | None = None,
     verbosity: str | None = None,
+    options: list[str] | dict[str, str] | None = None,
     api_key: str | None = None,
     base_url: str | None = None,
     timeout_s: float | None = None,
@@ -106,6 +107,13 @@ def chat(
     (502 — retry once, then report) or is rate limited or unreachable (503 — `retry_after_s` when
     known). Neither is retried for you. Every call opens its own connection.
 
+    A decision model (one whose endpoint is "decide") answers here too: the whole conversation is what it
+    decides about, its last message - the user's - the question. It answers yes or no (`result.content` "yes" or
+    "no"), or, given `options` - a list of option names, or {option: description} - the one it picks;
+    `result.decision` holds its answer with its probabilities. It takes no stream, tools, temperature or other
+    generation parameter, and no image, and is billed at its own price, input tokens only. For several typed
+    questions at once, or a score on a rubric, use decide().
+
     `server` — the turn goes to a language-model server you choose instead of General Sequences:
     `server="openrouter"` with your own OpenRouter key (`api_key`, else $OPENROUTER_API_KEY), or the
     address of a server of your own with the OpenAI chat completions API
@@ -117,6 +125,8 @@ def chat(
     $SEQUENCES_API_KEY.
     """
     if server is not None:
+        if options is not None:
+            raise InvalidRequest("options is for a decision model on General Sequences; a server of your own takes none")
         return _at_server(server, model, messages, api_key=api_key, timeout_s=timeout_s, stream=stream, cache=cache,
                             max_tokens=max_tokens, temperature=temperature, tools=tools, tool_choice=tool_choice,
                             response_format=response_format, reasoning=reasoning,
@@ -127,10 +137,12 @@ def chat(
                             logit_bias=logit_bias, logprobs=logprobs, top_logprobs=top_logprobs,
                             parallel_tool_calls=parallel_tool_calls, verbosity=verbosity)
     m = _resolve(model, api_key, base_url, "chat")
-    if m.endpoint != "chat":
+
+
+    if m.endpoint not in ("chat", "decide"):
         raise InvalidRequest(
-            f"{m.short_id} is a {m.endpoint!r} model; chat() needs a chat model. "
-            f"See models(endpoint='chat')."
+            f"{m.short_id} is a {m.endpoint!r} model; chat() needs a chat model or a decision model. "
+            f"See models(endpoint='chat') and models(endpoint='decide')."
         )
     if not messages:
         raise InvalidRequest("chat() needs at least one message")
@@ -148,6 +160,8 @@ def chat(
         body["tool_choice"] = tool_choice
     if response_format is not None:
         body["response_format"] = response_format
+    if options is not None:
+        body["options"] = options
     if not cache:
         body["cache"] = False
     if stream:

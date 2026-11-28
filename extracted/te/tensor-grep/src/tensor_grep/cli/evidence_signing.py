@@ -153,15 +153,71 @@ def resolve_signing_key_path(flag: str | Path | None) -> Path:
     return _default_signing_key_path()
 
 
+def _looks_like_ed25519_public_b64(entry: str) -> bool:
+    if entry.endswith(".pub") or "\\" in entry:
+        return False
+    try:
+        raw = base64.b64decode(entry, validate=True)
+    except (ValueError, TypeError):
+        return False
+    return len(raw) == 32
+
+
+def _resolve_trusted_key_entry(entry: str) -> str:
+    if _looks_like_ed25519_public_b64(entry):
+        return entry
+    candidate = Path(entry).expanduser()
+    looks_like_path = entry.endswith(".pub") or "/" in entry or "\\" in entry or candidate.is_file()
+    if not looks_like_path:
+        return entry
+    import stat
+
+    from tensor_grep.io.root_probe import open_regular_nontraversing_fd
+
+    fd = open_regular_nontraversing_fd(candidate)
+    if fd is None:
+        raise EvidenceSigningError(f"Trusted public key file not found or not regular: {candidate}")
+    try:
+        with os.fdopen(fd, "rb") as handle:
+            st = os.fstat(handle.fileno())
+            if not stat.S_ISREG(st.st_mode):
+                raise EvidenceSigningError(f"Trusted public key file is not regular: {candidate}")
+            if st.st_size > 4096:
+                raise EvidenceSigningError(
+                    f"Trusted public key file exceeds 4096 byte limit: {candidate}"
+                )
+            raw = handle.read(4097)
+    except OSError as exc:
+        raise EvidenceSigningError(
+            f"Unable to read Trusted public key file {candidate}: {exc}"
+        ) from exc
+    if len(raw) > 4096:
+        raise EvidenceSigningError(f"Trusted public key file exceeds 4096 byte limit: {candidate}")
+    try:
+        key_text = raw.decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError as exc:
+        raise EvidenceSigningError(
+            f"Trusted public key file is not valid UTF-8: {candidate}"
+        ) from exc
+    if not key_text:
+        raise EvidenceSigningError(f"Trusted public key file is empty: {candidate}")
+    return key_text
+
+
 def resolve_trusted_public_keys(
     flag_values: list[str] | None, *, env_var: str = _TRUSTED_KEYS_ENV
 ) -> list[str]:
-    """Merge repeatable --trusted-key flag values with the comma-separated TG_EVIDENCE_TRUSTED_KEYS
-    env fallback into one ordered list of base64 Ed25519 public keys."""
-    values = list(flag_values) if flag_values else []
+    """Merge repeatable --trusted-key flag values (raw base64 or .pub file paths) with the
+    comma-separated TG_EVIDENCE_TRUSTED_KEYS env fallback into one ordered list of base64
+    Ed25519 public keys."""
+    values = [_resolve_trusted_key_entry(v) for v in flag_values] if flag_values else []
     env_value = os.environ.get(env_var)
     if env_value:
-        values.extend(part.strip() for part in env_value.split(",") if part.strip())
+        values.extend(
+            _resolve_trusted_key_entry(part.strip())
+            for part in env_value.split(",")
+            if part.strip()
+        )
     return values
 
 

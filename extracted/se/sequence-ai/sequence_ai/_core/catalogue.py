@@ -20,11 +20,11 @@ from typing import Any
 class Model:
     """One entry of `models()`: everything on the platform a user can start from, told apart by `kind`.
 
-    kind="model"    — a model the platform serves itself, called with a key (GET /v1/models): `endpoint` is "chat"
-                      or "decide", the rest of the row (pricing, supported_parameters, ...) is in `raw`.
-    kind="template" — a starting point for `seq init <name>` (GET /v1/templates): `template_kind` is "policy",
-                      "benchmark" or "adapter", `version` its one version, `usage` the command; it has no
-                      endpoint.
+    kind="model"    — a model the platform serves itself, called with a key (GET /v1/models): `endpoint` is "chat",
+                      "decide" or "speech" (text to speech), the rest of the row (pricing, supported_parameters, a
+                      speech model's voices and formats, ...) is in `raw`.
+    kind="template" — a starting point for `seq init <name>` (GET /v1/templates): `template_kind` is "policy"
+                      or "adapter", `version` its one version, `usage` the command; it has no endpoint.
 
     A robot policy has no entry: it runs as its own deployment, and what it reads and returns is its own, not a
     catalogue row.
@@ -47,8 +47,8 @@ class Model:
 
     @property
     def pricing(self) -> list[dict[str, Any]]:
-        """What this model costs, spelled as the console's Models page and the bill spell it: one {"amount", "unit"} a
-        line - [{"amount": "$10.5", "unit": "M in"}, {"amount": "$52.5", "unit": "M out"}] - or [] for a template or
+        """What this model costs, spelled as the console's Model APIs page and the bill spell it: one {"amount", "unit"}
+        a line - [{"amount": "$10.5", "unit": "M in"}, {"amount": "$52.5", "unit": "M out"}] - or [] for a template or
         a model not priced yet."""
         quote = self.raw.get("pricing") or {}
         rows = (quote.get("display") or {}).get("rows") or []

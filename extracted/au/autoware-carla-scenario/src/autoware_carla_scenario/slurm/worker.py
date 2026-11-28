@@ -63,7 +63,7 @@ from .ports import (
 from .ports import _env_domain_id as _env_domain_id
 from .ports import _take_domain as _take_domain
 from .same_files import SameFiles
-from .settings import SlurmSettings
+from .settings import SlurmSettings, launcher_type
 from .start_lock import _NO_FLOCK_ERRNOS as _NO_FLOCK_ERRNOS
 from .start_lock import _LockId as _LockId
 from .start_lock import _ServerClock as _ServerClock
@@ -624,9 +624,16 @@ def _batch_configs(
     """The configs of the cases *record* (the manifest's ``batch_settings``)
     names, by index: this task's own from *configs* (its cases, *chunk*), the
     others composed here as the task's own are, at this node's paths and on
-    this task's ports."""
+    this task's ports.
+
+    Of the others only the first case's are moved to the task's ROS domains
+    (*domains*): the queue's Autoware launcher is built from it, and is the
+    one the task's egos share only when it names the same domains as theirs.
+    The Rerun and canvas cases run nothing in a domain, so they take none,
+    which the task would otherwise hold for its whole life (#2601)."""
+    first = int(record.get("first_case", 0))
     wanted = {
-        int(record.get("first_case", 0)),
+        first,
         *map(int, record.get("rerun_cases", [])),
     }
     if record.get("canvas_case") is not None:
@@ -640,18 +647,24 @@ def _batch_configs(
         case = manifest["cases"][index]
         cfg = run._compose_config(case["scenario"], list(case["overrides"]))
         _check_same_config(case, cfg, manifest.get("cwd"))
-        worker_overrides(cfg, slot, domains)
+        worker_overrides(cfg, slot, domains if index == first else None)
         found[index] = cfg
     return found
 
 
-def repro_overrides(case: dict[str, Any]) -> list[str]:
+def repro_overrides(case: dict[str, Any], cfg: Any = None) -> list[str]:
     """What ``repro.sh`` of a crash report of *case* runs ``scenario`` with:
     its scenario and overrides, without the batch's launcher (``launcher=``,
     ``launcher.*``), so that it runs again here, as a single run (the
-    checked crash_report_settings.repro_overrides(), #2386)."""
+    checked crash_report_settings.repro_overrides(), #2386), and with
+    ``launcher=local`` when the case's composed config *cfg* selects
+    another launcher, which its scenario's config may (#2616)."""
+    try:
+        launcher = launcher_type(cfg)
+    except ValueError:
+        launcher = "local"  # refused before any case runs
     return settings_repro_overrides(
-        f"{case['scenario']}", [str(o) for o in case["overrides"]]
+        f"{case['scenario']}", [str(o) for o in case["overrides"]], launcher
     )
 
 
@@ -825,16 +838,15 @@ def run_task(manifest_path: Path, submission_index: int, task_index: int) -> int
             ],
             rerun=rerun,
         )
-        cooldown = run._cooldown_seconds(first_cfg)
 
         task.update(state="running")
         with queue:
+            # The queue cools down between consecutive cases, as a local
+            # batch's does: after it resets the world the case before left,
+            # in the next case's run_all() (#2584).
             for position, (case, cfg, timeout) in enumerate(
                 zip(cases, configs, timeouts)
             ):
-                if position > 0 and cooldown > 0:
-                    # Between consecutive cases, as a local batch's queue waits.
-                    time.sleep(cooldown)
                 index = int(case["index"])
                 stem = str(case["stem"])
                 layout.result(index).unlink(missing_ok=True)
@@ -859,7 +871,7 @@ def run_task(manifest_path: Path, submission_index: int, task_index: int) -> int
                 # A crash report of the case runs it again with `scenario`.
                 with crash_report.run_context(
                     batch_dir,
-                    overrides=repro_overrides(case),
+                    overrides=repro_overrides(case, cfg),
                     config_yaml=run.config_yaml(cfg),
                 ):
                     (result,) = queue.run_all(release=True, continue_on_error=True)

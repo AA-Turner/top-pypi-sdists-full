@@ -7710,6 +7710,112 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.create_nat_ip_cidr_with_options_async(request, runtime)
 
+    def create_nat_rate_limit_rule_with_options(
+        self,
+        request: main_models.CreateNatRateLimitRuleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.CreateNatRateLimitRuleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.bandwidth_limit):
+            query['BandwidthLimit'] = request.bandwidth_limit
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.match_type):
+            query['MatchType'] = request.match_type
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.rule_description):
+            query['RuleDescription'] = request.rule_description
+        if not DaraCore.is_null(request.rule_name):
+            query['RuleName'] = request.rule_name
+        if not DaraCore.is_null(request.source_cidrs):
+            query['SourceCIDRs'] = request.source_cidrs
+        if not DaraCore.is_null(request.tunnel_index):
+            query['TunnelIndex'] = request.tunnel_index
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'CreateNatRateLimitRule',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CreateNatRateLimitRuleResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def create_nat_rate_limit_rule_with_options_async(
+        self,
+        request: main_models.CreateNatRateLimitRuleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.CreateNatRateLimitRuleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.bandwidth_limit):
+            query['BandwidthLimit'] = request.bandwidth_limit
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.dry_run):
+            query['DryRun'] = request.dry_run
+        if not DaraCore.is_null(request.match_type):
+            query['MatchType'] = request.match_type
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.rule_description):
+            query['RuleDescription'] = request.rule_description
+        if not DaraCore.is_null(request.rule_name):
+            query['RuleName'] = request.rule_name
+        if not DaraCore.is_null(request.source_cidrs):
+            query['SourceCIDRs'] = request.source_cidrs
+        if not DaraCore.is_null(request.tunnel_index):
+            query['TunnelIndex'] = request.tunnel_index
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'CreateNatRateLimitRule',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CreateNatRateLimitRuleResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def create_nat_rate_limit_rule(
+        self,
+        request: main_models.CreateNatRateLimitRuleRequest,
+    ) -> main_models.CreateNatRateLimitRuleResponse:
+        runtime = RuntimeOptions()
+        return self.create_nat_rate_limit_rule_with_options(request, runtime)
+
+    async def create_nat_rate_limit_rule_async(
+        self,
+        request: main_models.CreateNatRateLimitRuleRequest,
+    ) -> main_models.CreateNatRateLimitRuleResponse:
+        runtime = RuntimeOptions()
+        return await self.create_nat_rate_limit_rule_with_options_async(request, runtime)
+
     def create_network_acl_with_options(
         self,
         request: main_models.CreateNetworkAclRequest,
@@ -29779,6 +29885,108 @@ class Client(OpenApiClient):
     ) -> main_models.ListNatIpsResponse:
         runtime = RuntimeOptions()
         return await self.list_nat_ips_with_options_async(request, runtime)
+
+    def list_nat_rate_limit_rules_with_options(
+        self,
+        request: main_models.ListNatRateLimitRulesRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ListNatRateLimitRulesResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.max_results):
+            query['MaxResults'] = request.max_results
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.next_token):
+            query['NextToken'] = request.next_token
+        if not DaraCore.is_null(request.owner_id):
+            query['OwnerId'] = request.owner_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.rule_ids):
+            query['RuleIds'] = request.rule_ids
+        if not DaraCore.is_null(request.rule_name):
+            query['RuleName'] = request.rule_name
+        if not DaraCore.is_null(request.source_cidr):
+            query['SourceCIDR'] = request.source_cidr
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListNatRateLimitRules',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListNatRateLimitRulesResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def list_nat_rate_limit_rules_with_options_async(
+        self,
+        request: main_models.ListNatRateLimitRulesRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ListNatRateLimitRulesResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.client_token):
+            query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.max_results):
+            query['MaxResults'] = request.max_results
+        if not DaraCore.is_null(request.nat_gateway_id):
+            query['NatGatewayId'] = request.nat_gateway_id
+        if not DaraCore.is_null(request.next_token):
+            query['NextToken'] = request.next_token
+        if not DaraCore.is_null(request.owner_id):
+            query['OwnerId'] = request.owner_id
+        if not DaraCore.is_null(request.region_id):
+            query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.rule_ids):
+            query['RuleIds'] = request.rule_ids
+        if not DaraCore.is_null(request.rule_name):
+            query['RuleName'] = request.rule_name
+        if not DaraCore.is_null(request.source_cidr):
+            query['SourceCIDR'] = request.source_cidr
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListNatRateLimitRules',
+            version = '2016-04-28',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListNatRateLimitRulesResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def list_nat_rate_limit_rules(
+        self,
+        request: main_models.ListNatRateLimitRulesRequest,
+    ) -> main_models.ListNatRateLimitRulesResponse:
+        runtime = RuntimeOptions()
+        return self.list_nat_rate_limit_rules_with_options(request, runtime)
+
+    async def list_nat_rate_limit_rules_async(
+        self,
+        request: main_models.ListNatRateLimitRulesRequest,
+    ) -> main_models.ListNatRateLimitRulesResponse:
+        runtime = RuntimeOptions()
+        return await self.list_nat_rate_limit_rules_with_options_async(request, runtime)
 
     def list_physical_connection_features_with_options(
         self,

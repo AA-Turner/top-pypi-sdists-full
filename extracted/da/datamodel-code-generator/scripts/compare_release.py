@@ -70,7 +70,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Mapping
@@ -78,6 +78,9 @@ if TYPE_CHECKING:
 
 Record = dict[str, Any]
 """A JSON object a worker job or reply carries."""
+Listing = Literal["path", "system"]
+"""The order a generation job lists directories in with `Path.rglob` (`Side.listing`): in path order, or the file
+system's."""
 DEFAULT_TYPES = (
     "pydantic_v2.BaseModel",
     "pydantic_v2.dataclass",
@@ -96,7 +99,7 @@ PROCESS_STATE_OPTIONS = frozenset({"--debug"})
 worker of such a run is closed after it, as after running out of memory, so later runs do not inherit it."""
 RECYCLE = 200
 """Jobs a worker runs before a new one takes its place, which bounds the memory and the state a worker gathers."""
-CACHE_FORMAT = 7
+CACHE_FORMAT = 9
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "datamodel_code_generator"
 RELEASE = re.compile(r"\d+(?:\.\d+)+")
@@ -1020,7 +1023,7 @@ def _generate_recorded(job: Record, main: Callable[[list[str]], object]) -> int:
         warnings.simplefilter("default", DeprecationWarning)
         warnings.filters.insert(0, ("always", None, Warning, recorder, 0))
         warnings.showwarning = recorder.show
-        with _memory_cap(job.get("memory_mb", 0)) as over_cap:
+        with _memory_cap(job.get("memory_mb", 0)) as over_cap, _listing(job["listing"]):
             code = OUT_OF_MEMORY if over_cap else _exit_code(main, job["args"])
         if over_cap:
             sys.stderr.write("MemoryError\n")  # what a run out of memory prints last
@@ -1034,6 +1037,31 @@ def _generate_recorded(job: Record, main: Callable[[list[str]], object]) -> int:
     partial.write_text(json.dumps(facts), encoding="utf-8")
     partial.replace(record)
     return code
+
+
+@contextlib.contextmanager
+def _listing(listing: Listing) -> Generator[None, None, None]:
+    """Make `Path.rglob` return its paths in path order while the block runs, where `listing` asks for it.
+
+    Every release lists a directory input with `Path.rglob`, in the order of the file system, and releases up to
+    0.103.0 keep that order for files of one name (#7552), so the numbered names of colliding models differ between
+    machines. Sorted, as `datamodel_code_generator._paths.files_under` sorts them since, a release reads the same files
+    in the same order everywhere. It replaces the `Path.rglob` the run finds, so one the package installed when it was
+    imported lists beneath it.
+    """
+    if listing != "path":
+        yield
+        return
+    rglob = Path.rglob
+
+    def in_path_order(self: Path, pattern: str, **kwargs: bool | None) -> Generator[Path, None, None]:
+        yield from sorted(rglob(self, pattern, **kwargs))
+
+    Path.rglob = in_path_order
+    try:
+        yield
+    finally:
+        Path.rglob = rglob
 
 
 @contextlib.contextmanager
@@ -1258,12 +1286,15 @@ class Worker:
 class Side:
     """One interpreter to generate with, and the directory its datamodel-code-generator must come from.
 
-    `package` is None for an interpreter whose own installation runs (`--base-python`).
+    `package` is None for an interpreter whose own installation runs (`--base-python`). `listing` is the order its runs
+    list a directory input in (`_listing`): path order, so that a release reads one on every machine as on any other, or
+    the file system's (`system`), which a head side keeps: it runs as it is.
     """
 
     name: str
     python: Path
     package: Path | None
+    listing: Listing
 
 
 FACTS = ("code", "tree", "warnings", "handled", "messages")
@@ -1589,7 +1620,13 @@ class Runner:
     """Runs one side of the matrix through per-thread warm workers, each replaced after `recycle` jobs."""
 
     def __init__(
-        self, side: Side, env: dict[str, str], *, import_check: bool, timeout: int, memory_mb: int = 0
+        self,
+        side: Side,
+        env: dict[str, str],
+        *,
+        import_check: bool,
+        timeout: int,
+        memory_mb: int = 0,
     ) -> None:
         """Prepare a runner; workers start lazily. `memory_mb` caps the data memory of a worker's run (0: no cap).
 
@@ -1645,6 +1682,7 @@ class Runner:
             "record": str(record),
             "timeout": self.timeout,
             "memory_mb": self.memory_mb,
+            "listing": self.side.listing,
             "args": [*args, "--output", str(out / "model.py")],
         }
         fresh = bool(PROCESS_STATE_OPTIONS.intersection(args))
@@ -1695,15 +1733,22 @@ class Runner:
             worker.close()
 
 
-def _hashed_files(path: Path) -> list[Path]:
-    """Return the files a hash covers: the file itself, or a directory's files outside hidden and cache dirs."""
+def _hashed_files(path: Path, *, hidden: bool = False) -> list[Path]:
+    """Return a file itself, or a directory's files outside cache dirs and, unless `hidden`, outside hidden dirs.
+
+    An input's cache key reads the files under hidden directories too (`hidden`): a directory input reads their text
+    files (`is_hidden_binary`), so adding, removing or changing one must change the key. A run's output tree does not:
+    a formatter leaves its cache there (`.ruff_cache`), which differs on every run.
+    """
     if not path.is_dir():
         return [path]
     return [
         file
         for file in sorted(path.rglob("*"))
         if file.is_file()
-        and not any(part.startswith(".") or part == "__pycache__" for part in file.relative_to(path).parts[:-1])
+        and not any(
+            part == "__pycache__" or (not hidden and part.startswith(".")) for part in file.relative_to(path).parts[:-1]
+        )
     ]
 
 
@@ -1712,7 +1757,7 @@ def _content_hash(path: Path) -> str | None:
     """Hash a file, or every file under a directory with its relative path; None when something is unreadable."""
     digest = hashlib.sha256()
     try:
-        for file in _hashed_files(path):
+        for file in _hashed_files(path, hidden=True):
             digest.update(file.relative_to(path).as_posix().encode() + b"\0" if file != path else b"")
             digest.update(hashlib.sha256(file.read_bytes()).digest())
     except OSError:
@@ -1755,7 +1800,9 @@ class OutputCache:
 
     The key covers every file under the input's directory, the local files the input references through `$ref`
     (transitively, also outside that directory), and every file or directory named by an absolute path argument,
-    such as `--aliases` or `--custom-template-dir`. Runs whose files cannot all be read are not cached.
+    such as `--aliases` or `--custom-template-dir`. A base lists a directory input in path order (`Side.listing`),
+    so its outcome depends on the files the key covers and not on the order a file system lists them in. Runs whose
+    files cannot all be read are not cached.
     """
 
     def __init__(self, root: Path | None, measured: str = "") -> None:
@@ -2174,9 +2221,9 @@ def main(argv: list[str] | None = None) -> int:
         else resolve_base(ns.base, candidate_python, ns.cache_dir.absolute())
     )
     cache_root = None if ns.no_cache else ns.cache_dir / "outputs" / resolved.cache_name
-    side = Side("base", resolved.python, resolved.package)
+    side = Side("base", resolved.python, resolved.package, "path")
     base = Runner(side, resolved.env(), import_check=ns.import_check, timeout=ns.timeout)
-    side = Side("cand", candidate_python, ROOT / "src")
+    side = Side("cand", candidate_python, ROOT / "src", "system")
     cand = Runner(side, run_environment(ROOT / "src"), import_check=ns.import_check, timeout=ns.timeout)
     units = changed_units(candidate_python, ROOT, resolved)
     if units is not None:

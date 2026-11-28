@@ -1204,7 +1204,11 @@ class ElementBase(object):
         # Check attribute values.
         for attribute in attributes:
             name, value = attribute.split('=')
-            if self[name] != value:
+            try:
+                if self[name] != value:
+                    return False
+            except InvalidJID:
+                log.warning("Couldn't match because of invalid JID. Attribute: '%s'. Stanza: '%s'", attribute, self)
                 return False
 
         # Check sub interfaces.

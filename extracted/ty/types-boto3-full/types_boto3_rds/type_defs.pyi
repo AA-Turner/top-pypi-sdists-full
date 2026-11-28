@@ -1029,6 +1029,7 @@ class DeleteDBClusterMessageTypeDef(TypedDict):
     SkipFinalSnapshot: NotRequired[bool]
     FinalDBSnapshotIdentifier: NotRequired[str]
     DeleteAutomatedBackups: NotRequired[bool]
+    DeleteDBInstances: NotRequired[bool]
 
 class DeleteDBClusterParameterGroupMessageTypeDef(TypedDict):
     DBClusterParameterGroupName: str

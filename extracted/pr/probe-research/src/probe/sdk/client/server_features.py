@@ -44,6 +44,7 @@ class ServerFeaturesMixin:
         the outbox worker's (I13), reused across its passes."""
         self._server_features_cache = None
         self._team_features_cache = None
+        self._has_stage_lookup_failed = False
 
     def supports_team_feature(self, name: str) -> bool:
         """Whether ``GET /v1/teams/features`` lists ``name`` for this client's team.

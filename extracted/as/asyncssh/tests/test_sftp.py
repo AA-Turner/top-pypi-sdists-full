@@ -22,9 +22,10 @@
 
 import asyncio
 import errno
+from fnmatch import fnmatchcase
 import functools
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import posixpath
 import shutil
 import stat
@@ -71,6 +72,8 @@ from asyncssh.misc import make_sparse_file
 
 from asyncssh.packet import SSHPacket, String, UInt32
 
+from asyncssh.scp import _get_name_patterns
+
 from asyncssh.sftp import SAFE_SFTP_READ_LEN, SAFE_SFTP_WRITE_LEN
 from asyncssh.sftp import LocalFile, SFTPHandler, SFTPLimits, SFTPServerHandler
 
@@ -81,15 +84,11 @@ from .util import asynctest
 def _getpwuid_error(uid):
     """Simulate not being able to resolve user name"""
 
-    # pylint: disable=unused-argument
-
     raise KeyError
 
 
 def _getgrgid_error(gid):
     """Simulate not being able to resolve group name"""
-
-    # pylint: disable=unused-argument
 
     raise KeyError
 
@@ -135,6 +134,27 @@ def remove(files):
                 os.remove(f)
         except OSError:
             pass
+
+
+def canonical_path(path):
+    """Return a fully resolved path, even if it is missing components
+
+       On Windows, realpath() doesn't normalize the part of a path ahead
+       of a missing component, such as the target of a dangling symlink,
+       which can leave 8.3 short names in it. To allow such paths to be
+       compared, the deepest existing directory is resolved again and the
+       remaining components are appended to it.
+
+    """
+
+    head = os.path.realpath(path)
+    tail = []
+
+    while not os.path.isdir(head):
+        head, name = os.path.split(head)
+        tail.append(name)
+
+    return os.path.join(os.path.realpath(head), *reversed(tail))
 
 
 def sftp_test(func):
@@ -368,8 +388,6 @@ class _LongnameSFTPServer(SFTPServer):
     def listdir(self, _path):
         """List the contents of a directory"""
 
-        # pylint: disable=no-self-use
-
         return list((b'.',
                      b'..',
                      SFTPName(b'.file'),
@@ -405,14 +423,10 @@ class _StatVFSSFTPServer(SFTPServer):
     def statvfs(self, path):
         """Get attributes of the file system containing a file"""
 
-        # pylint: disable=unused-argument
-
         return self.expected_statvfs
 
     def fstatvfs(self, file_obj):
         """Return attributes of the file system containing an open file"""
-
-        # pylint: disable=unused-argument
 
         return self.expected_statvfs
 
@@ -531,10 +545,63 @@ class _DuplicateSymlinkSFTPServer(SFTPServer):
                                                size=0))
 
 
+class _ScriptedSymlinkSFTPServer(SFTPServer):
+    """Return a scripted tree of directories, files, and symlinks
+
+       The tree maps the basename of each directory to the list of
+       entries it contains, given as (name, type) tuples. Entries may
+       be duplicated or ordered arbitrarily. The links dict maps the
+       basename of each symlink to its target. All regular files
+       return the contents of the local file 'srcdata'.
+    """
+
+    tree = {}
+    links = {}
+
+    _perms = {FILEXFER_TYPE_DIRECTORY: stat.S_IFDIR | 0o755,
+              FILEXFER_TYPE_REGULAR: stat.S_IFREG | 0o644,
+              FILEXFER_TYPE_SYMLINK: stat.S_IFLNK | 0o777}
+
+    def _attrs(self, filetype):
+        """Return attributes for an entry of the specified type"""
+
+        return SFTPAttrs(type=filetype, permissions=self._perms[filetype],
+                         size=os.path.getsize('srcdata'))
+
+    async def stat(self, path):
+        """Keep reporting symlinks as symlinks, even when following them"""
+
+        if posixpath.basename(path) in self.links:
+            return self._attrs(FILEXFER_TYPE_SYMLINK)
+        else:
+            return self._attrs(FILEXFER_TYPE_DIRECTORY)
+
+    async def lstat(self, path):
+        """Report every path as a directory"""
+
+        return self._attrs(FILEXFER_TYPE_DIRECTORY)
+
+    async def readlink(self, path):
+        """Return the scripted target of a symlink"""
+
+        return self.links[posixpath.basename(path)]
+
+    async def scandir(self, path):
+        """Return the scripted entries of a directory"""
+
+        for filename, filetype in self.tree.get(posixpath.basename(path), []):
+            yield SFTPName(filename, attrs=self._attrs(filetype))
+
+    def open(self, path, pflags, attrs):
+        """Return the contents of srcdata for all files"""
+
+        return super().open(b'srcdata', pflags, attrs)
+
+
 class _AsyncSFTPServer(SFTPServer):
     """Implement all SFTP callbacks as async methods"""
 
-    # pylint: disable=useless-super-delegation
+    # pylint: disable=useless-parent-delegation
 
     async def format_longname(self, name):
         """Format the long name associated with an SFTP name"""
@@ -2287,6 +2354,77 @@ class _TestSFTP(_CheckSFTP):
                 await sftp.symlink('file', 'link')
         finally:
             remove('file link')
+
+    @sftp_test
+    async def test_symlink_target_unchanged(self, sftp):
+        """Test a symlink target is stored as given when there is no root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('dir1')
+            os.mkdir('dir2')
+            os.symlink(os.path.join('..', 'dir1'), os.path.join('dir2', 'sub'))
+
+            # This target goes through a symlinked directory, so it would
+            # be rewritten if it were being resolved and made relative
+            await sftp.symlink('sub/file', 'dir2/link')
+
+            self.assertEqual(os.path.normpath(os.readlink('dir2/link')),
+                             os.path.normpath('sub/file'))
+        finally:
+            remove('dir1 dir2')
+
+    @sftp_test
+    async def test_symlink_absolute_target_unchanged(self, sftp):
+        """Test an absolute symlink target is stored as given with no root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        if sys.platform == 'win32': # pragma: no cover
+            raise unittest.SkipTest('absolute targets not checked on Windows')
+
+        try:
+            os.mkdir('dir1')
+            os.mkdir('dir2')
+            os.symlink(os.path.join('..', 'dir1'), os.path.join('dir2', 'sub'))
+
+            # This target goes through a symlinked directory, so it would
+            # be rewritten if it were being resolved
+            target = os.path.abspath('dir2/sub/file')
+            await sftp.symlink(target, 'dir2/link')
+
+            self.assertEqual(os.readlink('dir2/link'), target)
+        finally:
+            remove('dir1 dir2')
+
+    @sftp_test
+    async def test_rename_symlink_target_unchanged(self, sftp):
+        """Test renaming a symlink leaves its target alone with no root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('dir1')
+            os.mkdir('dir2')
+            os.symlink(os.path.join('..', 'dir1'), os.path.join('dir2', 'sub'))
+
+            for rename in (sftp.rename, sftp.posix_rename):
+                # Create the link directly, so only the rename is tested
+                os.symlink('sub/file', 'dir2/link')
+
+                await rename('dir2/link', 'link')
+
+                self.assertFalse(os.path.lexists('dir2/link'))
+                self.assertEqual(os.path.normpath(os.readlink('link')),
+                                 os.path.normpath('sub/file'))
+
+                remove('link')
+        finally:
+            remove('dir1 dir2 link')
 
     @sftp_test_v4
     async def test_symlink_v4(self, sftp):
@@ -4388,8 +4526,6 @@ class _TestSFTPCallable(_CheckSFTP):
     async def test_stat(self, sftp):
         """Test getting attributes on a file"""
 
-        # pylint: disable=no-self-use
-
         await sftp.stat('.')
 
 
@@ -4410,8 +4546,6 @@ class _TestSFTPCoroutine(_CheckSFTP):
     @sftp_test
     async def test_stat(self, sftp):
         """Test getting attributes on a file"""
-
-        # pylint: disable=no-self-use
 
         await sftp.stat('.')
 
@@ -4563,6 +4697,497 @@ class _TestSFTPChroot(_CheckSFTP):
             remove('chroot/link1 chroot/link2')
 
     @sftp_test
+    async def test_chroot_rename_symlink_outside(self, sftp):
+        """Test renaming a symlink pointing outside the root is refused"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            self._create_file('outside')
+            os.mkdir('chroot/dir1')
+
+            os.symlink('../../outside', 'chroot/dir1/rel')
+            os.symlink(os.path.abspath('outside'), 'chroot/dir1/abs')
+
+            for name in ('rel', 'abs'):
+                with self.assertRaises(SFTPNoSuchFile):
+                    await sftp.rename(f'dir1/{name}', name)
+
+                with self.assertRaises(SFTPNoSuchFile):
+                    await sftp.posix_rename(f'dir1/{name}', f'{name}2')
+
+                self.assertTrue(os.path.islink(f'chroot/dir1/{name}'))
+                self.assertFalse(os.path.lexists(f'chroot/{name}'))
+                self.assertFalse(os.path.lexists(f'chroot/{name}2'))
+        finally:
+            remove('outside chroot/dir1 chroot/rel chroot/abs '
+                   'chroot/rel2 chroot/abs2')
+
+    @sftp_test
+    async def test_chroot_rename_symlink_via_symlinked_dir(self, sftp):
+        """Test renaming a symlink into a symlinked directory in the root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.makedirs('chroot/d1/d2')
+
+            # A link to the chroot root itself is allowed, so the client
+            # can name a directory which is lexically three levels deep
+            # but resolves to the root
+            await sftp.symlink('/', 'd1/d2/esc')
+
+            for rename in (sftp.rename, sftp.posix_rename):
+                await sftp.symlink('file', 'link')
+                await rename('link', 'd1/d2/esc/moved')
+
+                # The link is really created in the root, so its target
+                # must not contain any ".." components
+                self.assertTrue(os.path.islink('chroot/moved'))
+                self.assertEqual(os.readlink('chroot/moved'), 'file')
+                self.assertFalse(os.path.lexists('chroot/link'))
+
+                remove('chroot/moved')
+        finally:
+            remove('chroot/d1 chroot/link chroot/moved')
+
+    @sftp_test
+    async def test_chroot_rename_symlink(self, sftp):
+        """Test renaming a symlink on an SFTP server with a changed root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('chroot/dir1')
+            os.mkdir('chroot/dir1/dir2')
+
+            await sftp.symlink('..', 'dir1/link1')
+            await sftp.symlink('../../file', 'dir1/dir2/link2')
+
+            await sftp.rename('dir1/link1', 'link1')
+            self._check_link('chroot/link1', '.')
+
+            await sftp.posix_rename('dir1/dir2/link2', 'dir1/link2')
+            self._check_link('chroot/dir1/link2', '../file')
+
+            await sftp.symlink('/file', 'dir1/link3')
+            await sftp.symlink('/file', 'dir1/link4')
+
+            await sftp.rename('dir1/link3', 'link3')
+            self._check_link('chroot/link3', os.path.abspath('chroot/file'))
+
+            await sftp.posix_rename('dir1/link4', 'link4')
+            self._check_link('chroot/link4', os.path.abspath('chroot/file'))
+
+            await sftp.symlink('../file2', 'dir1/dir2/link5')
+            await sftp.rename('dir1/dir2/link5', 'link5')
+            self._check_link('chroot/link5', 'dir1/file2')
+        finally:
+            remove('chroot/dir1 chroot/link1 chroot/link2 chroot/link3 '
+                   'chroot/link4 chroot/link5')
+
+    @sftp_test
+    async def test_chroot_symlink_via_symlinked_dir(self, sftp):
+        """Test symlinks can't escape the chroot via a symlinked directory"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        chroot = canonical_path('chroot')
+
+        try:
+            self._create_file('escaped')
+            os.makedirs('chroot/d1/d2')
+
+            # The link created below is dangling, which also checks that
+            # the server handles missing targets on Windows, where they
+            # can be left with 8.3 short names by realpath()
+            for newdir in ('esc', 'd1/esc', 'd1/d2/esc'):
+                depth = newdir.count('/') + 1
+                await sftp.symlink('/', newdir)
+                await sftp.symlink('../' * depth + 'escaped', newdir + '/pwn')
+
+                # The link is really created in the chroot root, so its
+                # target must stay inside the chroot
+                resolved = canonical_path('chroot/pwn')
+
+                self.assertTrue(resolved == chroot or
+                                resolved.startswith(chroot + os.sep),
+                                f'{newdir}: link escapes chroot: '
+                                f'{os.readlink("chroot/pwn")}')
+
+                self.assertEqual(os.readlink('chroot/pwn'), 'escaped')
+
+                remove('chroot/pwn')
+                remove(f'chroot/{newdir}')
+        finally:
+            remove('escaped chroot/d1 chroot/esc chroot/pwn')
+
+    @sftp_test
+    async def test_chroot_rename_symlink_failure(self, sftp):
+        """Test a failed symlink rename leaves things alone with a root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            self._create_file('chroot/exists')
+            await sftp.symlink('exists', 'link')
+
+            with self.assertRaises(SFTPNoSuchFile):
+                await sftp.rename('link', 'nodir/link')
+
+            with self.assertRaises(SFTPNoSuchFile):
+                await sftp.posix_rename('link', 'nodir/link')
+
+            with self.assertRaises(SFTPError):
+                await sftp.rename('link', 'exists')
+
+            # The original link is still in place and nothing else was
+            # created or changed
+            self._check_link('chroot/link', 'exists')
+            self.assertFalse(os.path.islink('chroot/exists'))
+            self.assertFalse(os.path.lexists('chroot/nodir'))
+        finally:
+            remove('chroot/link chroot/exists')
+
+    @sftp_test
+    async def test_chroot_rename_symlink_special(self, sftp):
+        """Test renaming dangling and directory symlinks with a root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.makedirs('chroot/dir1')
+            os.makedirs('chroot/real/sub')
+
+            await sftp.symlink('nonexistent/file', 'dir1/dangling')
+            await sftp.symlink('real/sub', 'dirlink')
+
+            # A dangling link keeps pointing at the same (missing) path
+            await sftp.rename('dir1/dangling', 'dangling')
+            self.assertEqual(os.path.normpath(os.readlink('chroot/dangling')),
+                             os.path.normpath('dir1/nonexistent/file'))
+
+            # A link to a directory still resolves to that directory
+            await sftp.posix_rename('dirlink', 'dir1/dirlink')
+            self.assertEqual(os.path.normpath(os.readlink('chroot/dir1/dirlink')),
+                             os.path.normpath('../real/sub'))
+            self.assertTrue(os.path.samefile('chroot/dir1/dirlink',
+                                             'chroot/real/sub'))
+        finally:
+            remove('chroot/dir1 chroot/real chroot/dangling chroot/dirlink')
+
+    @sftp_test
+    async def test_chroot_rename_symlink_replace(self, sftp):
+        """Test renaming a symlink over an existing path with a root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('chroot/dir1')
+            self._create_file('chroot/file')
+            self._create_file('chroot/other')
+
+            # A plain rename won't replace an existing path
+            await sftp.symlink('file', 'link1')
+
+            with self.assertRaises(SFTPError):
+                await sftp.rename('link1', 'file')
+
+            self._check_link('chroot/link1', 'file')
+
+            # A POSIX rename replaces an existing file...
+            await sftp.posix_rename('link1', 'file')
+            self._check_link('chroot/file', 'file')
+            self.assertFalse(os.path.lexists('chroot/link1'))
+
+            # ...or an existing symlink to a file. (Windows can't replace
+            # a directory symlink with a file symlink, just like os.replace)
+            await sftp.symlink('file', 'link2')
+            await sftp.symlink('other', 'link3')
+            self._check_link('chroot/link3', 'other')
+
+            await sftp.posix_rename('link2', 'link3')
+
+            self._check_link('chroot/link3', 'file')
+            self.assertFalse(os.path.lexists('chroot/link2'))
+
+            # ...but not an existing directory, and then nothing changes
+            await sftp.symlink('file', 'link4')
+
+            with self.assertRaises(SFTPError):
+                await sftp.posix_rename('link4', 'dir1')
+
+            self._check_link('chroot/link4', 'file')
+            self.assertTrue(os.path.isdir('chroot/dir1'))
+            self.assertFalse(os.path.islink('chroot/dir1'))
+
+            # Renaming a symlink to itself through a link to the root
+            # does nothing, rather than removing it
+            await sftp.symlink('/', 'esc')
+            await sftp.posix_rename('link4', 'esc/link4')
+            self._check_link('chroot/link4', 'file')
+
+            # No temporary links are left behind
+            self.assertEqual([name for name in os.listdir('chroot')
+                              if name.endswith('.tmp')], [])
+        finally:
+            remove('chroot/dir1 chroot/file chroot/other chroot/link1 '
+                   'chroot/link2 chroot/link3 chroot/link4 chroot/esc')
+
+    def _check_contained(self, root):
+        """Check that all symlinks under root resolve within the chroot"""
+
+        chroot = canonical_path('chroot')
+
+        for dirpath, dirnames, filenames in os.walk(root):
+            for name in dirnames + filenames:
+                path = os.path.join(dirpath, name)
+
+                if os.path.islink(path):
+                    resolved = canonical_path(path)
+
+                    self.assertTrue(resolved == chroot or
+                                    resolved.startswith(chroot + os.sep),
+                                    f'{path} escapes chroot: '
+                                    f'{os.readlink(path)}')
+
+    def _check_link_text(self, link, target):
+        """Check the exact target stored in a symlink"""
+
+        link = os.readlink(link)
+
+        if link.startswith('\\\\?\\'): # pragma: no cover
+            link = link[4:]
+
+        self.assertEqual(os.path.normpath(link), os.path.normpath(target))
+
+    @sftp_test
+    async def test_chroot_rename_dir_symlinks(self, sftp):
+        """Test symlinks in a directory moved within a changed root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.makedirs('chroot/a/b/c/sub')
+            self._create_file('chroot/file')
+            self._create_file('chroot/a/b/c/x')
+
+            await sftp.symlink('../../../file', 'a/b/c/rel')
+            await sftp.symlink('../../../../file', 'a/b/c/sub/rel')
+            await sftp.symlink('../x', 'a/b/c/sub/int')
+            await sftp.symlink('/file', 'a/b/c/abs')
+            await sftp.symlink('/a/b/c/x', 'a/b/c/absint')
+
+            self._check_link_text('chroot/a/b/c/rel', '../../../file')
+
+            # Moving the directory up must update links which point
+            # outside of it, so they don't escape the chroot
+            await sftp.rename('a/b/c', 'c')
+
+            self._check_contained('chroot')
+            self._check_link_text('chroot/c/rel', '../file')
+            self._check_link_text('chroot/c/sub/rel', '../../file')
+            self._check_link_text('chroot/c/sub/int', '../x')
+            self._check_link_text('chroot/c/abs',
+                                  os.path.realpath('chroot/file'))
+            self._check_link_text('chroot/c/absint',
+                                  os.path.realpath('chroot/c/x'))
+
+            for name in ('rel', 'sub/rel', 'abs'):
+                self.assertTrue(os.path.samefile(f'chroot/c/{name}',
+                                                 'chroot/file'))
+
+            for name in ('sub/int', 'absint'):
+                self.assertTrue(os.path.samefile(f'chroot/c/{name}',
+                                                 'chroot/c/x'))
+
+            # Moving it back down must update them again
+            await sftp.posix_rename('c', 'a/b/d')
+
+            self._check_contained('chroot')
+            self._check_link_text('chroot/a/b/d/rel', '../../../file')
+            self._check_link_text('chroot/a/b/d/sub/int', '../x')
+            self.assertTrue(os.path.samefile('chroot/a/b/d/sub/rel',
+                                             'chroot/file'))
+            self.assertTrue(os.path.samefile('chroot/a/b/d/absint',
+                                             'chroot/a/b/d/x'))
+
+            # Renaming within the same parent leaves links alone
+            await sftp.rename('a/b/d', 'a/b/e')
+            self._check_link_text('chroot/a/b/e/rel', '../../../file')
+        finally:
+            remove('chroot/a chroot/c chroot/file')
+
+    @sftp_test
+    async def test_chroot_rename_dir_root_symlink(self, sftp):
+        """Test a link to the root in a directory moved up in a changed root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            self._create_file('chroot/file', 'inside')
+
+            for rename in (sftp.rename, sftp.posix_rename):
+                with self.subTest(rename=rename.__name__):
+                    try:
+                        os.makedirs('chroot/d0/d1/d2/d3')
+
+                        # A link climbing exactly to the root is allowed,
+                        # but moving its directory up must not let it
+                        # climb past the root
+                        await sftp.symlink('../../../..', 'd0/d1/d2/d3/l')
+                        await rename('d0/d1/d2/d3', 'd3')
+
+                        self._check_contained('chroot')
+                        self._check_link_text('chroot/d3/l', '..')
+
+                        async with sftp.open('d3/l/file') as f:
+                            self.assertEqual(await f.read(), 'inside')
+                    finally:
+                        remove('chroot/d0 chroot/d3')
+        finally:
+            remove('chroot/d0 chroot/d3 chroot/file')
+
+    @sftp_test
+    async def test_chroot_rename_dir_symlink_chain(self, sftp):
+        """Test symlink chains in a directory moved within a changed root"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            # A pre-existing link whose target only stays within the
+            # chroot when resolved through another link must also be
+            # updated, even though it is lexically inside the directory.
+            # On POSIX, this resolves to a/file, but Windows resolves
+            # '..' lexically, making it resolve to a/b/file instead.
+            os.makedirs('chroot/a/b/c')
+            self._create_file('chroot/a/file')
+            self._create_file('chroot/a/b/file')
+            os.symlink('.', 'chroot/a/b/c/s')
+            os.symlink(os.path.join('s', '..', '..', 'file'),
+                       'chroot/a/b/c/chain')
+
+            target = os.path.realpath('chroot/a/b/c/chain')
+
+            await sftp.rename('a/b/c', 'c')
+
+            self._check_contained('chroot')
+            self.assertTrue(os.path.samefile('chroot/c/chain', target))
+        finally:
+            remove('chroot/a chroot/c')
+
+    @sftp_test
+    async def test_chroot_rename_dir_symlink_outside(self, sftp):
+        """Test moving a directory with a link outside the root is refused"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            self._create_file('outside')
+            os.makedirs('chroot/a/b')
+            os.symlink(os.path.join('..', '..', '..', 'outside'),
+                       'chroot/a/b/rel')
+
+            with self.assertRaises(SFTPNoSuchFile):
+                await sftp.rename('a/b', 'b')
+
+            with self.assertRaises(SFTPNoSuchFile):
+                await sftp.posix_rename('a/b', 'b')
+
+            self.assertTrue(os.path.islink('chroot/a/b/rel'))
+            self.assertFalse(os.path.lexists('chroot/b'))
+        finally:
+            remove('outside chroot/a chroot/b')
+
+    @unittest.skipIf(sys.platform == 'win32', 'skip chmod tests on Windows')
+    @sftp_test
+    async def test_chroot_rename_dir_permission_denied(self, sftp):
+        """Test moving a directory with links which can't be updated"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.makedirs('chroot/a/b/locked')
+            os.makedirs('chroot/a/b/hidden')
+            self._create_file('chroot/file')
+
+            await sftp.symlink('/file', 'a/b/locked/abs')
+            await sftp.symlink('../../../file', 'a/b/locked/rel')
+
+            for mode in (0o555, 0o000):
+                with self.subTest(mode=oct(mode)):
+                    # An unreadable directory can't be checked for links,
+                    # and a link in a read-only directory can't be updated
+                    os.chmod('chroot/a/b/locked', 0o755)
+                    os.chmod('chroot/a/b/hidden', 0o755)
+                    os.chmod('chroot/a/b/locked' if mode else
+                             'chroot/a/b/hidden', mode)
+
+                    with self.assertRaises(SFTPPermissionDenied):
+                        await sftp.rename('a/b', 'b')
+
+                    self.assertTrue(os.path.isdir('chroot/a/b'))
+                    self.assertFalse(os.path.lexists('chroot/b'))
+        finally:
+            os.chmod('chroot/a/b/locked', 0o755)
+            os.chmod('chroot/a/b/hidden', 0o755)
+            remove('chroot/a chroot/b chroot/file')
+
+    @sftp_test
+    async def test_chroot_rename_dir_update_failure(self, sftp):
+        """Test a failure updating links in a moved directory is undone"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        symlink = os.symlink
+        calls = []
+
+        def _fail_second(*args, **kwargs):
+            calls.append(args)
+
+            if len(calls) == 2:
+                raise OSError(errno.EIO, 'Simulated failure')
+
+            symlink(*args, **kwargs)
+
+        try:
+            os.makedirs('chroot/a/b/c')
+            self._create_file('chroot/file')
+
+            await sftp.symlink('../../../file', 'a/b/c/rel1')
+            await sftp.symlink('../../../file', 'a/b/c/rel2')
+
+            # Fail creating the second updated link, after the first
+            # has already been updated
+            with patch('os.symlink', side_effect=_fail_second):
+                with self.assertRaises(SFTPFailure):
+                    await sftp.rename('a/b/c', 'c')
+
+            # The directory and both links are back as they were, and
+            # no temporary links are left behind
+            self.assertFalse(os.path.lexists('chroot/c'))
+            self._check_link_text('chroot/a/b/c/rel1', '../../../file')
+            self._check_link_text('chroot/a/b/c/rel2', '../../../file')
+            self._check_contained('chroot')
+            self.assertEqual(sorted(os.listdir('chroot/a/b/c')),
+                             ['rel1', 'rel2'])
+        finally:
+            remove('chroot/a chroot/c chroot/file')
+
+    @sftp_test
     async def test_chroot_makedirs(self, sftp):
         """Test creating a directory path"""
 
@@ -4623,6 +5248,28 @@ class _TestSFTPChroot(_CheckSFTP):
                 await sftp.open(rb'/..\secret', 'r')
         finally:
             remove('secret')
+
+    @unittest.skipUnless(sys.platform == 'win32',
+                         'drive letter escape only applies on Windows')
+    @sftp_test_v6
+    async def test_chroot_symlink_drive(self, sftp): # pragma: cover only win32
+        """Symlink targets with a drive letter must be refused on Windows"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('chroot/sub')
+
+            for target in ('C:/Windows/win.ini', r'C:\Windows\win.ini',
+                           'C:x', 'x/C:/y'):
+                with self.subTest(target=target):
+                    with self.assertRaises(SFTPInvalidFilename):
+                        await sftp.symlink(target, 'sub/link')
+
+                    self.assertFalse(os.path.lexists('chroot/sub/link'))
+        finally:
+            remove('chroot/sub')
 
 
 class _TestSFTPReadEOFWithAttrs(_CheckSFTP):
@@ -4688,6 +5335,180 @@ class _TestSFTPOpenError(_CheckSFTP):
 
         with self.assertRaises(SFTPFailure):
             await sftp.open('ENXIO')
+
+
+class _TestSFTPCancelParallelIO(_CheckSFTP):
+    """Unit tests for cancellation of parallel SFTP requests"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SFTP server for the tests to use"""
+
+        return await cls.create_server(sftp_factory=True)
+
+    async def _check_cancel(self, sftp, operation):
+        """Cancel blocked requests, then reuse the file and connection"""
+
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        pending = set()
+        data = b'0123456789abcdef'
+        method = 'write' if operation == 'write' else 'read'
+        original = getattr(SFTPServer, method)
+
+        async def delayed_io(server, *args):
+            """Hold the response until the client cancels its requests"""
+
+            entered.set()
+            await release.wait()
+            return original(server, *args)
+
+        self._create_file('file', data)
+
+        try:
+            async with sftp.open('file', 'r+b', block_size=4,
+                                 max_requests=4) as file:
+                with patch.object(SFTPServer, method, delayed_io):
+                    if operation == 'write':
+                        request = file.write(data)
+                    elif operation == 'read_parallel':
+                        reader = await file.read_parallel(len(data))
+                        request = anext(reader)
+                    else:
+                        request = file.read(len(data))
+
+                    try:
+                        task = asyncio.ensure_future(request)
+                        await asyncio.wait_for(entered.wait(), 5)
+                        pending = {task for task in asyncio.all_tasks()
+                                   if getattr(task.get_coro(), '__qualname__', '') ==
+                                   '_SFTPParallelIO._start_task'}
+                        self.assertEqual(len(pending), 4)
+                        task.cancel()
+
+                        with self.assertRaises(asyncio.CancelledError):
+                            await task
+
+                        completed = all(task.done() for task in pending)
+                        release.set()
+                        self.assertTrue(completed)
+                    finally:
+                        release.set()
+
+                await file.seek(0)
+                self.assertEqual(await file.read(), data)
+        finally:
+            release.set()
+
+            for task in pending:
+                task.cancel()
+
+            await asyncio.gather(*pending, return_exceptions=True)
+            remove('file')
+
+    @sftp_test
+    async def test_read_cancel(self, sftp):
+        """Test cancelling a parallel file read"""
+
+        await self._check_cancel(sftp, 'read')
+
+    @sftp_test
+    async def test_write_cancel(self, sftp):
+        """Test cancelling a parallel file write"""
+
+        await self._check_cancel(sftp, 'write')
+
+    @sftp_test
+    async def test_read_parallel_cancel(self, sftp):
+        """Test cancelling an asynchronous iterator of file reads"""
+
+        await self._check_cancel(sftp, 'read_parallel')
+
+    async def _check_progress_error(self, sftp, method):
+        """Raise from a progress handler while copy requests are blocked"""
+
+        class _ProgressError(Exception):
+            """Exception raised by the progress handler"""
+
+        release = asyncio.Event()
+        pending = set()
+        in_flight_at_close = []
+        src_class = LocalFile if method == 'put' else asyncssh.SFTPClientFile
+        original_read = src_class.read
+        original_close = asyncssh.SFTPClientFile.close
+
+        def _start_tasks():
+            """Return the parallel I/O tasks which are still running"""
+
+            return {task for task in asyncio.all_tasks()
+                    if not task.done() and
+                    getattr(task.get_coro(), '__qualname__', '') ==
+                    '_SFTPParallelIO._start_task'}
+
+        async def delayed_read(file, size, offset):
+            """Let only the first block complete until files are closed"""
+
+            if offset:
+                await release.wait()
+
+            return await original_read(file, size, offset)
+
+        async def checked_close(file):
+            """Record whether requests are still running at file close"""
+
+            in_flight_at_close.append(bool(_start_tasks()))
+            release.set()
+            await original_close(file)
+
+        def _fail_progress(*_):
+            """Fail on the first progress report"""
+
+            pending.update(_start_tasks())
+            raise _ProgressError
+
+        self._create_file('src', 64 * 'a')
+
+        try:
+            with patch.object(src_class, 'read', delayed_read), \
+                    patch.object(asyncssh.SFTPClientFile, 'close',
+                                 checked_close), \
+                    patch.object(asyncssh.SFTPClient, 'supports_remote_copy',
+                                 False):
+                with self.assertRaises(_ProgressError):
+                    await asyncio.wait_for(
+                        getattr(sftp, method)(
+                            'src', 'dst', block_size=4, max_requests=4,
+                            progress_handler=_fail_progress), 5)
+
+            self.assertTrue(pending)
+            self.assertTrue(in_flight_at_close)
+            self.assertFalse(any(in_flight_at_close))
+        finally:
+            release.set()
+
+            for task in pending:
+                task.cancel()
+
+            await asyncio.gather(*pending, return_exceptions=True)
+            remove('src dst')
+
+    @sftp_test
+    async def test_get_progress_error(self, sftp):
+        """Test a progress handler error during a parallel get"""
+
+        await self._check_progress_error(sftp, 'get')
+
+    @sftp_test
+    async def test_put_progress_error(self, sftp):
+        """Test a progress handler error during a parallel put"""
+
+        await self._check_progress_error(sftp, 'put')
+
+    @sftp_test
+    async def test_copy_progress_error(self, sftp):
+        """Test a progress handler error during a parallel remote copy"""
+
+        await self._check_progress_error(sftp, 'copy')
 
 
 class _TestSFTPIOError(_CheckSFTP):
@@ -5916,6 +6737,89 @@ class _TestSCPIOError(_CheckSCP):
             remove('src dst')
 
 
+class _TestSCPNamePatterns(unittest.TestCase):
+    """Unit tests for matching names against a requested SCP path"""
+
+    def _matches(self, path, name):
+        """Return whether a name is accepted for a requested path"""
+
+        patterns = _get_name_patterns(path)
+
+        return any(fnmatchcase(name, pattern) for pattern in patterns)
+
+    def test_accepted(self):
+        """Test names which should be accepted"""
+
+        for path, name in ((b'report.txt', b'report.txt'),
+                           ('dir/report.txt', b'report.txt'),
+                           (PurePosixPath('dir/report.txt'), b'report.txt'),
+                           (b'dir/', b'dir'),
+                           (b'~/report.txt', b'report.txt'),
+                           (b'report*.txt', b'report1.txt'),
+                           (b'report?.txt', b'report1.txt'),
+                           (b'report[0-9].txt', b'report1.txt'),
+                           (b'{a,b}.txt', b'b.txt'),
+                           (b'{a,b{c,d}}.txt', b'bd.txt'),
+                           (b'{a,b}.txt', b'{a,b}.txt'),
+                           (b'{x}.txt', b'{x}.txt'),
+                           (b'{a.txt', b'{a.txt'),
+                           (b'a.txt b.txt', b'b.txt'),
+                           (b'a.txt  b.txt ', b'b.txt'),
+                           (b'report\\', b'report'),
+                           (b'C:\\dir\\*.txt', b'report.txt'),
+                           (b'my\\ file.txt', b'my file.txt'),
+                           (b'"my file.txt"', b'my file.txt'),
+                           (b"'my file.txt'", b'my file.txt'),
+                           (b'"a\\"b"', b'a"b'),
+                           (b"'a*b'", b'a*b'),
+                           (b'a\\*b', b'a*b'),
+                           (b'"a*b"', b'a*b'),
+                           (b"[a'b']", b'b'),
+                           (b'$HOME/report.txt', b'report.txt'),
+                           (b'${HOME}/report.txt', b'report.txt'),
+                           (b'"$HOME/report.txt"', b'report.txt'),
+                           (b'"${HOME}/my file.txt"', b'my file.txt'),
+                           (b"'a$b'", b'a$b'),
+                           (b'a\\$b', b'a$b'),
+                           (b'"a\\$b"', b'a$b'),
+                           (b'"a (1).txt"', b'a (1).txt'),
+                           (b'C:\\Users\\me\\report.txt', b'report.txt'),
+                           (b'"C:\\My Files\\report.txt"', b'report.txt')):
+            with self.subTest(path=path, name=name):
+                self.assertTrue(self._matches(path, name))
+
+    def test_rejected(self):
+        """Test names which should be rejected"""
+
+        for path, name in ((b'report.txt', b'.bashrc'),
+                           (b'dir/report.txt', b'dir'),
+                           (b'reports', b'.ssh'),
+                           (b'report*.txt', b'.bashrc'),
+                           (b'{a,b}.txt', b'c.txt'),
+                           (b"'a*b'", b'axb'),
+                           (b'"a*b"', b'axb'),
+                           (b'$HOME/report.txt', b'.bashrc'),
+                           (b'"$HOME/report.txt"', b'.bashrc'),
+                           (b'a\\*b', b'axc'),
+                           (b'a.txt b.txt', b'c.txt'),
+                           (b'C:\\Users\\report.txt', b'.bashrc')):
+            with self.subTest(path=path, name=name):
+                self.assertFalse(self._matches(path, name))
+
+    def test_undetermined(self):
+        """Test paths whose final name can't be determined"""
+
+        for path in (b'', b'.', b'..', b'/', b'dir/.', b'dir/..', b'~',
+                     b'~user', b'$HOME', b'"$HOME"', b'report$N.txt',
+                     b'${HOME}', b'`pwd`', b'"`pwd`"', b'`pwd`/a',
+                     b'$(pwd)/a', b'"$(pwd)/a"', b'${X:-a}/b', b'$1/a',
+                     b'a;b', b'#a', b'"a', b'{1..3}.txt', b'{a,{1..3}}',
+                     b'[^a]', b'[[:alpha:]]', b"[a'*']", b'a\\\nb',
+                     b'dir\\%NAME%', b'{a,~}'):
+            with self.subTest(path=path):
+                self.assertEqual(_get_name_patterns(path), [])
+
+
 class _TestSCPErrors(_CheckSCP):
     """Unit test for SCP returning error on startup"""
 
@@ -5939,10 +6843,21 @@ class _TestSCPErrors(_CheckSCP):
                     process.stdout.write('C0644 0 .\n')
                 elif command.endswith('get_dir_no_recurse'):
                     await process.stdin.read(1)
-                    process.stdout.write('D0755 0 src\n')
+                    process.stdout.write('D0755 0 get_dir_no_recurse\n')
+                elif command.endswith('get_unrequested_file'):
+                    await process.stdin.read(1)
+                    process.stdout.write('C0644 5 .bashrc\n')
+
+                    if await process.stdin.read(1) == '\0':
+                        process.stdout.write('data\n\0')
+                        await process.stdin.read(1)
+                elif command.endswith('get_unrequested_dir'):
+                    await process.stdin.read(1)
+                    process.stdout.write('D0755 0 .ssh\n')
+                    await process.stdin.read(1)
                 elif command.endswith('get_early_eof'):
                     await process.stdin.read(1)
-                    process.stdout.write('C0644 10 src\n')
+                    process.stdout.write('C0644 10 get_early_eof\n')
                     await process.stdin.read(1)
                 elif command.endswith('get_extra_e'):
                     await process.stdin.read(1)
@@ -6003,6 +6918,69 @@ class _TestSCPErrors(_CheckSCP):
                 await scp((self._scp_server, 'get_dir_no_recurse'), 'dst')
         finally:
             remove('dst')
+
+    @asynctest
+    async def test_get_unrequested_name(self):
+        """Test receiving top-level names which weren't requested"""
+
+        for name, kwargs in (('get_unrequested_file', {}),
+                             ('get_unrequested_dir', {'recurse': True})):
+            with self.subTest(name=name):
+                try:
+                    os.mkdir('dst')
+
+                    with self.assertRaises(SFTPBadMessage):
+                        await scp((self._scp_server, name), 'dst',
+                                  error_handler=lambda exc: None, **kwargs)
+
+                    self.assertEqual(os.listdir('dst'), [])
+                finally:
+                    remove('dst')
+
+    @asynctest
+    async def test_get_expanded_name(self):
+        """Test names which depend on an expansion by the remote shell"""
+
+        path = '$get_unrequested_file'
+
+        try:
+            os.mkdir('dst')
+
+            for kwargs in ({}, {'recurse': True}):
+                with self.subTest(**kwargs):
+                    with self.assertRaises(SFTPBadMessage):
+                        await scp((self._scp_server, path), 'dst', **kwargs)
+
+                    self.assertEqual(os.listdir('dst'), [])
+
+            await scp((self._scp_server, path), 'dst', recurse=True,
+                      check_names=False)
+
+            self.assertTrue(os.path.exists('dst/.bashrc'))
+        finally:
+            remove('dst')
+
+    @asynctest
+    async def test_get_unrequested_name_unchecked(self):
+        """Test disabling the check of names sent by the server"""
+
+        try:
+            os.mkdir('dst')
+
+            await scp((self._scp_server, 'get_unrequested_file'), 'dst',
+                      check_names=False)
+
+            self.assertTrue(os.path.exists('dst/.bashrc'))
+        finally:
+            remove('dst')
+
+    @asynctest
+    async def test_copy_unrequested_name(self):
+        """Test remote copy of a top-level name which wasn't requested"""
+
+        with self.assertRaises(SFTPBadMessage):
+            await scp((self._scp_server, 'get_unrequested_file'),
+                      (self._scp_server, 'recv_early_eof'))
 
     @asynctest
     async def test_get_early_eof(self):
@@ -6264,3 +7242,351 @@ class _TestSFTPDuplicateSymlink(_CheckSFTP):
             self.assertTrue(os.path.exists('dst/file1'))
         finally:
             remove('src dst')
+
+
+class _TestSFTPChainedSymlink(_CheckSFTP):
+    """Tests for symlinks chained through other downloaded symlinks
+
+       A symlink target which looks contained when resolved lexically
+       may escape the download directory when resolved through another
+       symlink created earlier in the same download, or created later
+       in the download than the symlink which references it.
+    """
+
+    @classmethod
+    async def start_server(cls):
+        """Start a server which returns a scripted symlink tree"""
+
+        return await cls.create_server(
+            sftp_factory=_ScriptedSymlinkSFTPServer)
+
+    async def _get_scripted(self, sftp, tree, links, dst='dst', **kwargs):
+        """Download a scripted tree, checking that nothing escapes"""
+
+        _ScriptedSymlinkSFTPServer.tree = tree
+        _ScriptedSymlinkSFTPServer.links = links
+
+        self._create_file('srcdata', 'attack')
+
+        try:
+            await sftp.get('src', dst, recurse=True, **kwargs)
+        finally:
+            root = canonical_path(dst)
+
+            for dirpath, dirnames, filenames in os.walk(dst):
+                for name in dirnames + filenames:
+                    path = os.path.join(dirpath, name)
+
+                    if os.path.islink(path):
+                        target = canonical_path(path)
+
+                        self.assertTrue(target == root or
+                                        target.startswith(root + os.sep))
+
+    @sftp_test
+    async def test_chained_symlink_escape(self, sftp):
+        """A symlink escaping through an earlier symlink must be rejected"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        tree = {b'src': [(b's', FILEXFER_TYPE_SYMLINK),
+                         (b'X', FILEXFER_TYPE_SYMLINK),
+                         (b'X', FILEXFER_TYPE_DIRECTORY)],
+                b'X': [(b'f', FILEXFER_TYPE_REGULAR)]}
+
+        links = {b's': b'.', b'X': b's/../X'}
+
+        try:
+            with self.assertRaises(SFTPBadMessage):
+                await self._get_scripted(sftp, tree, links)
+
+            self.assertTrue(os.path.islink('dst/s'))
+            self.assertFalse(os.path.lexists('dst/X'))
+            self.assertFalse(os.path.lexists('X'))
+        finally:
+            remove('srcdata dst X')
+
+    @sftp_test
+    async def test_chained_parent_symlink_escape(self, sftp):
+        """A symlink escaping through a link to the root must be rejected"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        tree = {b'src': [(b'up', FILEXFER_TYPE_SYMLINK),
+                         (b'x', FILEXFER_TYPE_SYMLINK),
+                         (b'x', FILEXFER_TYPE_DIRECTORY)],
+                b'x': [(b'f', FILEXFER_TYPE_REGULAR)]}
+
+        links = {b'up': b'..', b'x': b'up/..'}
+
+        try:
+            # With dst already present, the download lands in dst/src,
+            # so 'up' points at the download root.
+
+            os.mkdir('dst')
+
+            with self.assertRaises(SFTPBadMessage):
+                await self._get_scripted(sftp, tree, links)
+
+            self.assertTrue(os.path.islink('dst/src/up'))
+            self.assertFalse(os.path.lexists('dst/src/x'))
+            self.assertFalse(os.path.lexists('f'))
+        finally:
+            remove('srcdata dst f')
+
+    @sftp_test
+    async def test_reordered_symlink_escape(self, sftp):
+        """A symlink escaping through a later symlink must be rejected"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        tree = {b'src': [(b'X', FILEXFER_TYPE_SYMLINK),
+                         (b's', FILEXFER_TYPE_SYMLINK),
+                         (b'X', FILEXFER_TYPE_DIRECTORY)],
+                b'X': [(b'f', FILEXFER_TYPE_REGULAR)]}
+
+        links = {b's': b'.', b'X': b's/../X'}
+
+        try:
+            with self.assertRaises(SFTPBadMessage):
+                await self._get_scripted(sftp, tree, links)
+
+            self.assertFalse(os.path.lexists('dst/X'))
+            self.assertFalse(os.path.lexists('X'))
+        finally:
+            remove('srcdata dst X')
+
+    @sftp_test
+    async def test_dangling_symlink_escape(self, sftp):
+        """A symlink escaping through a dangling symlink must be rejected"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        # 'a' is dangling when 'X' is created, so a later link at 'b'
+        # can change where 'a/..' resolves
+        tree = {b'src': [(b'a', FILEXFER_TYPE_SYMLINK),
+                         (b'X', FILEXFER_TYPE_SYMLINK),
+                         (b'b', FILEXFER_TYPE_SYMLINK),
+                         (b'X', FILEXFER_TYPE_DIRECTORY)],
+                b'X': [(b'f', FILEXFER_TYPE_REGULAR)]}
+
+        links = {b'a': b'b', b'X': b'a/../X', b'b': b'.'}
+
+        # With follow_symlinks set, a malicious server can still report
+        # symlinks from stat, so they must be checked here as well
+        for follow_symlinks in (False, True):
+            with self.subTest(follow_symlinks=follow_symlinks):
+                try:
+                    with self.assertRaises(SFTPBadMessage):
+                        await self._get_scripted(
+                            sftp, tree, links,
+                            follow_symlinks=follow_symlinks)
+
+                    self.assertTrue(os.path.islink('dst/a'))
+                    self.assertFalse(os.path.lexists('dst/X'))
+                    self.assertFalse(os.path.lexists('X'))
+                finally:
+                    remove('srcdata dst X')
+
+    @sftp_test
+    async def test_multilevel_symlink_escape(self, sftp):
+        """A chain of symlinks climbing multiple levels must be rejected"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        tree = {b'src': [(b'l0', FILEXFER_TYPE_SYMLINK),
+                         (b'l1', FILEXFER_TYPE_SYMLINK),
+                         (b'l2', FILEXFER_TYPE_SYMLINK),
+                         (b'l2', FILEXFER_TYPE_DIRECTORY)],
+                b'l2': [(b'f', FILEXFER_TYPE_REGULAR)]}
+
+        links = {b'l0': b'.', b'l1': b'l0/..', b'l2': b'l1/..'}
+
+        try:
+            os.makedirs('a/b')
+
+            with self.assertRaises(SFTPBadMessage):
+                await self._get_scripted(sftp, tree, links, 'a/b/dst')
+
+            self.assertTrue(os.path.islink('a/b/dst/l0'))
+            self.assertFalse(os.path.lexists('a/b/dst/l1'))
+            self.assertFalse(os.path.lexists('a/f'))
+        finally:
+            remove('srcdata a')
+
+    @unittest.skipUnless(sys.platform == 'win32',
+                         'drive letter names only apply on Windows')
+    @sftp_test
+    async def test_drive_letter_name(self, sftp): # pragma: cover only win32
+        """Names with a colon must be refused on Windows"""
+
+        tree = {b'src': [(b'C:x', FILEXFER_TYPE_REGULAR)]}
+
+        try:
+            # As a name inside a directory being downloaded
+            with self.assertRaises(SFTPBadMessage):
+                await self._get_scripted(sftp, tree, {})
+
+            self.assertEqual(os.listdir('dst'), [])
+
+            # As a top-level name used directly as the local path
+            with self.assertRaises(SFTPBadMessage):
+                await sftp.mget('src/*')
+        finally:
+            remove('srcdata dst')
+
+    @sftp_test
+    async def test_chained_symlink_within_dir_allowed(self, sftp):
+        """Chained symlinks which stay within the download dir are allowed"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        tree = {b'src': [(b'sub', FILEXFER_TYPE_DIRECTORY),
+                         (b's', FILEXFER_TYPE_SYMLINK),
+                         (b't', FILEXFER_TYPE_SYMLINK)],
+                b'sub': [(b'f', FILEXFER_TYPE_REGULAR)]}
+
+        links = {b's': b'./sub', b't': b's/..//sub/f'}
+
+        try:
+            await self._get_scripted(sftp, tree, links)
+
+            with open('dst/t') as f:
+                self.assertEqual(f.read(), 'attack')
+        finally:
+            remove('srcdata dst')
+
+
+class _TestSFTPPreexistingSymlink(_CheckSFTP):
+    """Tests for downloads into a tree containing existing symlinks
+
+       Symlinks already present under the download directory which
+       point outside of it should never be followed for names chosen
+       by the server. They should only be followed for a path the
+       caller explicitly requested when follow_symlinks is set.
+    """
+
+    @classmethod
+    async def start_server(cls):
+        """Start a standard SFTP server for the tests to use"""
+
+        return await cls.create_server(sftp_factory=True)
+
+    def _setup(self):
+        """Create a source tree and a destination with outside links"""
+
+        os.makedirs('src/dir')
+        self._create_file('src/file', 'attack')
+        self._create_file('src/dir/file', 'attack')
+
+        os.makedirs('dst/src')
+        os.mkdir('outdir')
+        self._create_file('outfile', 'orig')
+        os.symlink(os.path.join('..', '..', 'outdir'), 'dst/src/dir')
+        os.symlink(os.path.join('..', '..', 'outfile'), 'dst/src/file')
+
+    @sftp_test
+    async def test_preexisting_symlink_not_followed(self, sftp):
+        """Existing symlinks outside the download dir must not be followed"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            self._setup()
+
+            for name in ('file', 'dir'):
+                with self.subTest(name=name):
+                    with self.assertRaises(SFTPBadMessage):
+                        await sftp.get('src/' + name, 'dst/src',
+                                       recurse=True)
+
+            with open('outfile') as f:
+                self.assertEqual(f.read(), 'orig')
+
+            self.assertFalse(os.path.lexists('outdir/file'))
+        finally:
+            remove('src dst outdir outfile')
+
+    def _check_not_written(self):
+        """Confirm nothing was written through the outside links"""
+
+        with open('outfile') as f:
+            self.assertEqual(f.read(), 'orig')
+
+        self.assertFalse(os.path.lexists('outdir/file'))
+
+    def _check_written(self):
+        """Confirm files were written through the outside links"""
+
+        with open('outfile') as f:
+            self.assertEqual(f.read(), 'attack')
+
+        with open('outdir/file') as f:
+            self.assertEqual(f.read(), 'attack')
+
+    @sftp_test
+    async def test_server_name_not_followed(self, sftp):
+        """Names from a recursive get aren't followed outside download dir"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            self._setup()
+
+            with self.assertRaises(SFTPBadMessage):
+                await sftp.get('src', 'dst', recurse=True,
+                               follow_symlinks=True)
+
+            self._check_not_written()
+        finally:
+            remove('src dst outdir outfile')
+
+    @sftp_test
+    async def test_glob_match_not_followed(self, sftp):
+        """Names matched by a wildcard aren't followed outside download dir"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            self._setup()
+
+            for pattern in ('src/fil*', 'src/di*'):
+                with self.subTest(pattern=pattern):
+                    with self.assertRaises(SFTPBadMessage):
+                        await sftp.mget(pattern, 'dst/src', recurse=True,
+                                        follow_symlinks=True)
+
+            self._check_not_written()
+        finally:
+            remove('src dst outdir outfile')
+
+    @sftp_test
+    async def test_requested_path_followed(self, sftp):
+        """Explicitly requested paths are followed with follow_symlinks"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        for method in ('get', 'mget'):
+            with self.subTest(method=method):
+                try:
+                    self._setup()
+
+                    copy = getattr(sftp, method)
+
+                    await copy('src/file', 'dst/src', follow_symlinks=True)
+                    await copy('src/dir', 'dst/src', recurse=True,
+                               follow_symlinks=True)
+
+                    self._check_written()
+                finally:
+                    remove('src dst outdir outfile')

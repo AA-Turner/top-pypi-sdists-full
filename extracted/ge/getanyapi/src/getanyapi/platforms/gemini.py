@@ -72,7 +72,7 @@ class GeminiNamespace:
         Ask Gemini a web-grounded question and receive its answer, with source
         citations when Gemini cites pages.
 
-        Price: $0.0025 per request.
+        Price: $0.002 per request.
 
         Example:
             res = client.gemini.search(prompt="What is AnyAPI at getanyapi.com, and what does it offer?")
@@ -100,7 +100,7 @@ class AsyncGeminiNamespace:
         Ask Gemini a web-grounded question and receive its answer, with source
         citations when Gemini cites pages.
 
-        Price: $0.0025 per request.
+        Price: $0.002 per request.
 
         Example:
             res = client.gemini.search(prompt="What is AnyAPI at getanyapi.com, and what does it offer?")

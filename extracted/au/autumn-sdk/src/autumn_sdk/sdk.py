@@ -509,6 +509,7 @@ class Autumn(BaseSDK):
         event_name: Optional[str] = None,
         value: Optional[float] = None,
         properties: Optional[Dict[str, Any]] = None,
+        idempotency_key: Optional[str] = None,
         timestamp: Optional[int] = None,
         overage_behavior: Optional[models.TrackOverageBehavior] = None,
         async_: Optional[bool] = None,
@@ -527,6 +528,7 @@ class Autumn(BaseSDK):
         :param event_name: Event name to track usage for. Use instead of feature_id when multiple features should be tracked from a single event.
         :param value: The amount of usage to record. Defaults to 1. Use negative values to credit balance (e.g., when removing a seat).
         :param properties: Additional properties to attach to this usage event.
+        :param idempotency_key: Deduplicates this track: a second track with the same key within 24 hours is ignored, and answered with a 409 `duplicate_idempotency_key`. The key is shared with the edge cache, so a track recorded there and resent to Autumn under the same key counts once.
         :param timestamp: Unix timestamp in milliseconds to use for the usage event. Defaults to the current time.
         :param overage_behavior: How to handle usage that exceeds the available balance. \"cap\" (default) deducts only what fits, stopping at zero. \"overflow\" deducts the full value: the balance can go negative and usage limits do not clamp the deduction, though spend limits still apply.
         :param async_: Defaults to true: the event is queued and the response is a 202 with balance: null. Set to false to apply the usage before responding with a 200 and the updated balance.
@@ -552,6 +554,7 @@ class Autumn(BaseSDK):
             event_name=event_name,
             value=value,
             properties=properties,
+            idempotency_key=idempotency_key,
             timestamp=timestamp,
             overage_behavior=overage_behavior,
             async_=async_,
@@ -627,6 +630,7 @@ class Autumn(BaseSDK):
         event_name: Optional[str] = None,
         value: Optional[float] = None,
         properties: Optional[Dict[str, Any]] = None,
+        idempotency_key: Optional[str] = None,
         timestamp: Optional[int] = None,
         overage_behavior: Optional[models.TrackOverageBehavior] = None,
         async_: Optional[bool] = None,
@@ -645,6 +649,7 @@ class Autumn(BaseSDK):
         :param event_name: Event name to track usage for. Use instead of feature_id when multiple features should be tracked from a single event.
         :param value: The amount of usage to record. Defaults to 1. Use negative values to credit balance (e.g., when removing a seat).
         :param properties: Additional properties to attach to this usage event.
+        :param idempotency_key: Deduplicates this track: a second track with the same key within 24 hours is ignored, and answered with a 409 `duplicate_idempotency_key`. The key is shared with the edge cache, so a track recorded there and resent to Autumn under the same key counts once.
         :param timestamp: Unix timestamp in milliseconds to use for the usage event. Defaults to the current time.
         :param overage_behavior: How to handle usage that exceeds the available balance. \"cap\" (default) deducts only what fits, stopping at zero. \"overflow\" deducts the full value: the balance can go negative and usage limits do not clamp the deduction, though spend limits still apply.
         :param async_: Defaults to true: the event is queued and the response is a 202 with balance: null. Set to false to apply the usage before responding with a 200 and the updated balance.
@@ -670,6 +675,7 @@ class Autumn(BaseSDK):
             event_name=event_name,
             value=value,
             properties=properties,
+            idempotency_key=idempotency_key,
             timestamp=timestamp,
             overage_behavior=overage_behavior,
             async_=async_,

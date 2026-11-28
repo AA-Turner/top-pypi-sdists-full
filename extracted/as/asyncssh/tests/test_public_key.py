@@ -35,16 +35,17 @@ import shutil
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 
 from cryptography.exceptions import UnsupportedAlgorithm
 
 import asyncssh
 
-from asyncssh.asn1 import der_encode, BitString, ObjectIdentifier
+from asyncssh.asn1 import der_encode, der_decode, BitString, ObjectIdentifier
 from asyncssh.asn1 import TaggedDERObject
 from asyncssh.crypto import chacha_available, ed25519_available, ed448_available
 from asyncssh.misc import write_file
-from asyncssh.packet import MPInt, String, UInt32
+from asyncssh.packet import Byte, MPInt, String, UInt32
 from asyncssh.pbe import pkcs1_decrypt
 from asyncssh.public_key import CERT_TYPE_USER, CERT_TYPE_HOST, SSHKey
 from asyncssh.public_key import SSHX509CertificateChain
@@ -72,6 +73,9 @@ except subprocess.CalledProcessError: # pragma: no cover
     _openssl_version = b''
 
 _openssl_available = _openssl_version != b''
+
+# A DER SEQUENCE containing a UTF8String with invalid UTF-8
+_BAD_UTF8_DER = b'\x30\x03\x0c\x01\xff'
 
 if _openssl_available: # pragma: no branch
     _openssl_curves = run('openssl ecparam -list_curves')
@@ -173,8 +177,6 @@ def select_passphrase(cipher, pbe_version=0):
 
 class _TestPublicKey(TempDirTestCase):
     """Unit tests for public key modules"""
-
-    # pylint: disable=too-many-public-methods
 
     keyclass = None
     base_format = None
@@ -337,7 +339,8 @@ class _TestPublicKey(TempDirTestCase):
             self.assertEqual(keypair.public_data, chain.public_data)
             self.assertIsNotNone(keypair.get_agent_private_key())
 
-            newkey.write_private_key('new_bundle', format_name, passphrase)
+            newkey.write_private_key('new_bundle', format_name, passphrase,
+                                     rounds=1, ignore_few_rounds=True)
             cert.append_certificate('new_bundle', 'pem')
 
             keypair = asyncssh.load_keypairs('new_bundle', passphrase)[0]
@@ -901,6 +904,7 @@ class _TestPublicKey(TempDirTestCase):
         private_errors = [
             ('Non-ASCII', '\xff'),
             ('Incomplete ASN.1', b''),
+            ('Invalid UTF-8 in ASN.1', _BAD_UTF8_DER),
             ('Invalid PKCS#1', der_encode(None)),
             ('Invalid PKCS#1 params',
              der_encode((1, b'', TaggedDERObject(0, b'')))),
@@ -913,6 +917,8 @@ class _TestPublicKey(TempDirTestCase):
              der_encode((0, (ObjectIdentifier('1.1'), None), b''))),
             ('Invalid PKCS#8 ASN.1',
              der_encode((0, (self.privkey.pkcs8_oid, None), b''))),
+            ('Invalid UTF-8 in PKCS#8 ASN.1',
+             der_encode((0, (self.privkey.pkcs8_oid, None), _BAD_UTF8_DER))),
             ('Invalid PKCS#8 params',
              der_encode((1, (self.privkey.pkcs8_oid, b''),
                          der_encode((1, b''))))),
@@ -922,6 +928,17 @@ class _TestPublicKey(TempDirTestCase):
              b'-----BEGIN XXX PRIVATE KEY-----\n' +
              binascii.b2a_base64(der_encode(None)) +
              b'-----END XXX PRIVATE KEY-----'),
+            ('Non-ASCII PEM key type',
+             b'-----BEGIN \xff PRIVATE KEY-----\n' +
+             binascii.b2a_base64(der_encode(None)) +
+             b'-----END \xff PRIVATE KEY-----'),
+            ('Regex metacharacters in PEM key type',
+             b'-----BEGIN ((( PRIVATE KEY-----\n' +
+             binascii.b2a_base64(der_encode(None)) +
+             b'-----END ((( PRIVATE KEY-----'),
+            ('Regex backtracking in PEM key type',
+             b'-----BEGIN ' + 22 * b'(a|a)*' + b'X PRIVATE KEY-----\n' +
+             b'-----END ' + 43 * b'a' + b' PRIVATE KEY-----'),
             ('Invalid PEM Base64',
              b'-----BEGIN PRIVATE KEY-----\n'
              b'X\n'
@@ -932,6 +949,10 @@ class _TestPublicKey(TempDirTestCase):
              b'-----END DSA PRIVATE KEY-----'),
             ('Incomplete PEM ASN.1',
              b'-----BEGIN PRIVATE KEY-----\n'
+             b'-----END PRIVATE KEY-----'),
+            ('Invalid UTF-8 in PEM ASN.1',
+             b'-----BEGIN PRIVATE KEY-----\n' +
+             binascii.b2a_base64(_BAD_UTF8_DER) +
              b'-----END PRIVATE KEY-----'),
             ('Missing PEM PKCS#8 passphrase',
              b'-----BEGIN ENCRYPTED PRIVATE KEY-----\n' +
@@ -1097,11 +1118,24 @@ class _TestPublicKey(TempDirTestCase):
                  (b'openssh-key-v1\0', String('xxx'), String(''), String(''),
                   UInt32(1), String(''), String('')))) +
              b'-----END OPENSSH PRIVATE KEY-----'),
+            ('Non-ASCII OpenSSH cipher',
+             b'-----BEGIN OPENSSH PRIVATE KEY-----\n' +
+             binascii.b2a_base64(b''.join(
+                 (b'openssh-key-v1\0', String(b'\xff'), String(''),
+                  String(''), UInt32(1), String(''), String('')))) +
+             b'-----END OPENSSH PRIVATE KEY-----'),
             ('Invalid OpenSSH kdf',
              b'-----BEGIN OPENSSH PRIVATE KEY-----\n' +
              binascii.b2a_base64(b''.join(
                  (b'openssh-key-v1\0', String('aes256-cbc'), String('xxx'),
                   String(''), UInt32(1), String(''), String('')))) +
+             b'-----END OPENSSH PRIVATE KEY-----'),
+            ('Non-ASCII OpenSSH kdf',
+             b'-----BEGIN OPENSSH PRIVATE KEY-----\n' +
+             binascii.b2a_base64(b''.join(
+                 (b'openssh-key-v1\0', String('aes256-cbc'),
+                  String(b'\xff'), String(''), UInt32(1), String(''),
+                  String('')))) +
              b'-----END OPENSSH PRIVATE KEY-----'),
             ('Invalid OpenSSH kdf data',
              b'-----BEGIN OPENSSH PRIVATE KEY-----\n' +
@@ -1135,6 +1169,7 @@ class _TestPublicKey(TempDirTestCase):
         public_errors = [
             ('Non-ASCII', '\xff'),
             ('Invalid ASN.1', b'\x30'),
+            ('Invalid UTF-8 in ASN.1', _BAD_UTF8_DER),
             ('Invalid PKCS#1', der_encode(None)),
             ('Invalid PKCS#8', der_encode(((self.pubkey.pkcs8_oid, ()),
                                            BitString(der_encode(None))))),
@@ -1142,18 +1177,36 @@ class _TestPublicKey(TempDirTestCase):
                                                       None), BitString(b'')))),
             ('Invalid PKCS#8 ASN.1', der_encode(((self.pubkey.pkcs8_oid,
                                                   None), BitString(b'')))),
+            ('Invalid UTF-8 in PKCS#8 ASN.1',
+             der_encode(((self.pubkey.pkcs8_oid, None),
+                         BitString(_BAD_UTF8_DER)))),
             ('Invalid PEM header', b'-----BEGIN XXX-----\n'),
             ('Missing PEM footer', b'-----BEGIN PUBLIC KEY-----\n'),
             ('Invalid PEM key type',
              b'-----BEGIN XXX PUBLIC KEY-----\n' +
              binascii.b2a_base64(der_encode(None)) +
              b'-----END XXX PUBLIC KEY-----'),
+            ('Non-ASCII PEM key type',
+             b'-----BEGIN \xff PUBLIC KEY-----\n' +
+             binascii.b2a_base64(der_encode(None)) +
+             b'-----END \xff PUBLIC KEY-----'),
+            ('Regex metacharacters in PEM key type',
+             b'-----BEGIN ((( PUBLIC KEY-----\n' +
+             binascii.b2a_base64(der_encode(None)) +
+             b'-----END ((( PUBLIC KEY-----'),
+            ('Regex backtracking in PEM key type',
+             b'-----BEGIN ' + 22 * b'(a|a)*' + b'X PUBLIC KEY-----\n' +
+             b'-----END ' + 43 * b'a' + b' PUBLIC KEY-----'),
             ('Invalid PEM Base64',
              b'-----BEGIN PUBLIC KEY-----\n'
              b'X\n'
              b'-----END PUBLIC KEY-----'),
             ('Incomplete PEM ASN.1',
              b'-----BEGIN PUBLIC KEY-----\n'
+             b'-----END PUBLIC KEY-----'),
+            ('Invalid UTF-8 in PEM ASN.1',
+             b'-----BEGIN PUBLIC KEY-----\n' +
+             binascii.b2a_base64(_BAD_UTF8_DER) +
              b'-----END PUBLIC KEY-----'),
             ('Invalid PKCS#1 ASN.1',
              b'-----BEGIN DSA PUBLIC KEY-----\n' +
@@ -1215,7 +1268,7 @@ class _TestPublicKey(TempDirTestCase):
                     asyncssh.import_private_key(data)
 
         for fmt, data in decrypt_errors:
-            with self.subTest('fDecrypt private ({fmt})'):
+            with self.subTest(f'Decrypt private ({fmt})'):
                 with self.assertRaises((asyncssh.KeyEncryptionError,
                                         asyncssh.KeyImportError)):
                     asyncssh.import_private_key(data, 'x')
@@ -1829,6 +1882,15 @@ class _TestPublicKey(TempDirTestCase):
                                          extensions={b'xxx': b''})
             self.assertIsNotNone(asyncssh.import_certificate(cert))
 
+        with self.subTest('Ignored certificate extension value'):
+            cert = self.make_certificate(cert_type, self.pubkey,
+                                         self.privca, ('name',),
+                                         extensions={
+                                             b'xxx': b'permit-pty',
+                                             b'': b''})
+            cert = asyncssh.import_certificate(cert)
+            self.assertNotIn('permit-pty', cert.options)
+
         with self.subTest('Invalid certificate signature'):
             with self.assertRaises(asyncssh.KeyImportError):
                 cert = self.make_certificate(cert_type, self.pubkey,
@@ -2239,6 +2301,29 @@ class TestSKEd25519(_TestPublicKey):
 del _TestPublicKey
 
 
+def _pem(pem_name, data):
+    """Return data wrapped in a PEM header and footer"""
+
+    return (b'-----BEGIN ' + pem_name + b'-----\n' +
+            binascii.b2a_base64(data) + b'-----END ' + pem_name + b'-----\n')
+
+
+def _openssh_public(alg, key_data):
+    """Return an OpenSSH public key with the specified key data"""
+
+    return alg + b' ' + binascii.b2a_base64(String(alg) + key_data)
+
+
+def _openssh_private(alg, key_data):
+    """Return an unencrypted OpenSSH private key with the specified key data"""
+
+    return _pem(b'OPENSSH PRIVATE KEY', b''.join((
+        b'openssh-key-v1\0', String('none'), String('none'), String(''),
+        UInt32(1), String(''),
+        String(b''.join((UInt32(1), UInt32(1), String(alg), key_data,
+                         String('')))))))
+
+
 class _TestPublicKeyTopLevel(TempDirTestCase):
     """Top-level public key module tests"""
 
@@ -2263,6 +2348,113 @@ class _TestPublicKeyTopLevel(TempDirTestCase):
 
         with self.assertRaises(asyncssh.KeyImportError):
             asyncssh.read_public_key_list('list')
+
+    def test_invalid_key_params(self):
+        """Test importing keys with invalid key parameters"""
+
+        curve_oid = ObjectIdentifier('1.2.840.10045.3.1.7')
+        dsa_oid = ObjectIdentifier('1.2.840.10040.4.1')
+        sk_ecdsa = b'sk-ecdsa-sha2-nistp256@openssh.com'
+        sk_ed25519 = b'sk-ssh-ed25519@openssh.com'
+
+        # Valid keys with one value made negative
+        rsa_priv = list(der_decode(
+            get_test_key('ssh-rsa').export_private_key('pkcs1-der')))
+        rsa_priv[3] = -1
+
+        dsa_pub = list(der_decode(
+            get_test_key('ssh-dss').export_public_key('pkcs1-der')))
+        dsa_pub[0] = -1
+        dsa_p, dsa_q, dsa_g = dsa_pub[1:]
+
+        def dsa_pkcs8(p, q, g, x):
+            """Return a PKCS#8 DSA private key with the specified values"""
+
+            return der_encode((0, (dsa_oid, (p, q, g)), der_encode(x)))
+
+        private_keys = [
+            ('RSA', _pem(b'RSA PRIVATE KEY', der_encode(9*(0,)))),
+            ('RSA negative private exponent',
+             _pem(b'RSA PRIVATE KEY', der_encode(tuple(rsa_priv)))),
+            ('DSA', _pem(b'DSA PRIVATE KEY', der_encode(6*(0,)))),
+            ('DSA zero modulus', dsa_pkcs8(0, 1, 2, 1)),
+            ('DSA oversized modulus',
+             dsa_pkcs8((1 << 16384) - 1, dsa_q, dsa_g, (1 << 16384) - 1)),
+            ('DSA negative subgroup order',
+             dsa_pkcs8(dsa_p, -dsa_q, dsa_g, 1)),
+            ('DSA oversized private value',
+             dsa_pkcs8(dsa_p, dsa_q, dsa_g, 1 << 100000)),
+            ('EC', _pem(b'EC PRIVATE KEY',
+                        der_encode((1, b'\0', TaggedDERObject(0, curve_oid))))),
+            ('U2F ECDSA',
+             _openssh_private(sk_ecdsa, b''.join((
+                 String('nistp256'), String(b''), String('ssh:'), Byte(0),
+                 String(b''), String(b'')))))
+        ]
+
+        public_keys = [
+            ('RSA', _pem(b'RSA PUBLIC KEY', der_encode((0, 3)))),
+            ('RSA negative modulus',
+             _pem(b'RSA PUBLIC KEY', der_encode((-1, 3)))),
+            ('DSA', _openssh_public(b'ssh-dss', 4*MPInt(0))),
+            ('DSA negative public value',
+             _pem(b'DSA PUBLIC KEY', der_encode(tuple(dsa_pub)))),
+            ('EC', _openssh_public(b'ecdsa-sha2-nistp256',
+                                   String('nistp256') + String(b''))),
+            ('U2F ECDSA', _openssh_public(sk_ecdsa, String('nistp256') +
+                                          String(b'') + String('ssh:')))
+        ]
+
+        if ed25519_available: # pragma: no branch
+            private_keys.append(
+                ('U2F Ed25519',
+                 _openssh_private(sk_ed25519, b''.join((
+                     String(b'\0'), String('ssh:'), Byte(0),
+                     String(b''), String(b''))))))
+
+            public_keys.append(
+                ('U2F Ed25519', _openssh_public(sk_ed25519, String(b'\0') +
+                                                String('ssh:'))))
+
+        for desc, data in private_keys:
+            with self.subTest(f'Import private key ({desc})'):
+                with self.assertRaises(asyncssh.KeyImportError):
+                    asyncssh.import_private_key(data)
+
+        for desc, data in public_keys:
+            with self.subTest(f'Import public key ({desc})'):
+                with self.assertRaises(asyncssh.KeyImportError):
+                    asyncssh.import_public_key(data)
+
+    def test_invalid_sk_application(self):
+        """Test importing security keys with invalid UTF-8 application"""
+
+        sk_ecdsa = b'sk-ecdsa-sha2-nistp256@openssh.com'
+        sk_ed25519 = b'sk-ssh-ed25519@openssh.com'
+        app = String(b'\xff')
+
+        private_keys = [_openssh_private(sk_ecdsa, b''.join((
+            String('nistp256'), String(b''), app, Byte(0),
+            String(b''), String(b''))))]
+
+        public_keys = [_openssh_public(sk_ecdsa, String('nistp256') +
+                                       String(b'') + app)]
+
+        if ed25519_available: # pragma: no branch
+            private_keys.append(_openssh_private(sk_ed25519, b''.join((
+                String(b''), app, Byte(0), String(b''), String(b'')))))
+
+            public_keys.append(_openssh_public(sk_ed25519, String(b'') + app))
+
+        for data in private_keys:
+            with self.subTest('Import private key', data=data):
+                with self.assertRaises(asyncssh.KeyImportError):
+                    asyncssh.import_private_key(data)
+
+        for data in public_keys:
+            with self.subTest('Import public key', data=data):
+                with self.assertRaises(asyncssh.KeyImportError):
+                    asyncssh.import_public_key(data)
 
     def test_pad_error(self):
         """Test for missing RFC 1423 padding on PBE decrypt"""
@@ -2336,10 +2528,9 @@ class _TestPublicKeyTopLevel(TempDirTestCase):
                                                   valid_after='now',
                                                   valid_before='-1m')
 
-        privca.x509_algorithms = None
-
-        with self.assertRaises(asyncssh.KeyGenerationError):
-            privca.generate_x509_user_certificate(pubkey, 'OU=user')
+        with patch.object(privca, 'x509_algorithms', None):
+            with self.assertRaises(asyncssh.KeyGenerationError):
+                privca.generate_x509_user_certificate(pubkey, 'OU=user')
 
     def test_rsa_encrypt_error(self):
         """Test RSA encryption error"""

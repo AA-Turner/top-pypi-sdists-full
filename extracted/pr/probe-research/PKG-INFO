@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.668.0
+Version: 0.682.0
 Summary: Probe: experiment tracking for ML teams and their coding agents (SDK, CLI, read-only MCP).
 Project-URL: Homepage, https://www.useprobe.ai
 Project-URL: Documentation, https://docs.prbe.ai
@@ -35,7 +35,7 @@ Requires-Dist: anyio>=4.5; extra == 'all'
 Requires-Dist: cryptography>=3.4; extra == 'all'
 Requires-Dist: mcp<2,>=1.30; extra == 'all'
 Requires-Dist: pillow>=10.3; extra == 'all'
-Requires-Dist: probe-research-cli==0.668.0; extra == 'all'
+Requires-Dist: probe-research-cli==0.682.0; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
 Requires-Dist: tomlkit>=0.12; extra == 'all'
@@ -44,13 +44,13 @@ Requires-Dist: zstandard>=0.23; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: cryptography>=3.4; extra == 'cli'
 Requires-Dist: pillow>=10.3; extra == 'cli'
-Requires-Dist: probe-research-cli==0.668.0; extra == 'cli'
+Requires-Dist: probe-research-cli==0.682.0; extra == 'cli'
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
 Requires-Dist: tomlkit>=0.12; extra == 'cli'
 Requires-Dist: typer<0.29,>=0.12; extra == 'cli'
 Requires-Dist: zstandard>=0.23; extra == 'cli'
 Provides-Extra: daemon
-Requires-Dist: probe-research-cli==0.668.0; extra == 'daemon'
+Requires-Dist: probe-research-cli==0.682.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-harness[skills]==0.59.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-skills==2.0.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-slim[mcp,openai]==2.59.0; extra == 'daemon'
@@ -75,7 +75,7 @@ Requires-Dist: safetensors>=0.4; extra == 'dev'
 Requires-Dist: zstandard>=0.23; extra == 'dev'
 Provides-Extra: harbor
 Requires-Dist: harbor<0.26,>=0.20; (python_version >= '3.12') and extra == 'harbor'
-Requires-Dist: probe-research-cli==0.668.0; extra == 'harbor'
+Requires-Dist: probe-research-cli==0.682.0; extra == 'harbor'
 Provides-Extra: huggingface
 Requires-Dist: transformers[torch]>=4.46; extra == 'huggingface'
 Provides-Extra: lightning
@@ -845,6 +845,7 @@ or UUID returned by browse/search; `team-note` addresses the shared team documen
 | session | `card` · `record` · `transcript` |
 | team note | `card` · `record` |
 | sub-note (`sub_note:<uuid>`) | `card` — the whole document |
+| saved paper (`paper:<uuid>`, its Probe id; a `find_papers` id is not one) | `card` — the row and its digest, each text capped |
 | dataset (`dataset:<name>[@<N>\|@latest]`, `dataset:<uuid>`) | `card` · `record` · `versions` · `lineage` |
 | checkpoint (`checkpoint:<uuid>`, `checkpoint:<run ref>@best[:<callback>]\|latest\|step<N>`) | `card` · `record` · `versions` (the run's other saves) · `lineage` |
 | source (`source:<uuid>`, `source:<canonical_key>[@<revision>]`) | `card` · `record` · `lineage` |

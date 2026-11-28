@@ -4,6 +4,7 @@
 #include "../keyboard_layout.hpp"
 #include "../low_level_hooks.hpp"
 #include "../syscall_utils.hpp"
+#include "../system_parameters.hpp"
 #include "../win32k_userconnect.hpp"
 #include "../window_destroy_orchestrator.hpp"
 #include "../window_hooks.hpp"
@@ -18,6 +19,10 @@
 
 namespace sogen
 {
+    namespace syscalls
+    {
+        BOOL erase_window_background(const syscall_context& c, const window& win, hdc dc);
+    }
 
     namespace
     {
@@ -71,7 +76,11 @@ namespace sogen
         constexpr uint32_t k_cbs_type_mask = 0x0003;
         constexpr uint32_t k_state_system_pressed = 0x00000008;
         constexpr uint32_t k_state_system_invisible = 0x00008000;
+        constexpr size_t k_sm_cxscreen_index = 0;
+        constexpr size_t k_sm_cyscreen_index = 1;
         constexpr size_t k_sm_cxvscroll_index = 2;
+        constexpr size_t k_sm_cxmintrack_index = 34;
+        constexpr size_t k_sm_cymintrack_index = 35;
 
         struct send_message_callback_info
         {
@@ -488,6 +497,109 @@ namespace sogen
             return {.left = insets.left, .top = insets.top, .right = insets.right, .bottom = insets.bottom};
         }
 
+        int32_t get_system_metric(const syscall_context& c, const size_t index)
+        {
+            return c.proc.user_handles.get_server_info().read().systemMetrics[index];
+        }
+
+        struct window_size
+        {
+            int width{};
+            int height{};
+        };
+
+        bool has_min_track_size(const window& win)
+        {
+            // Windows derives a frame based bound for tool windows instead of using the system metrics.
+            if ((win.ex_style & WS_EX_TOOLWINDOW) != 0)
+            {
+                return false;
+            }
+
+            const auto style = win.style;
+            const bool tiled = (style & (WS_POPUP | WS_CHILD)) == 0;
+            const bool sizable_with_border = (style & WS_THICKFRAME) != 0 && (style & (WS_BORDER | WS_DLGFRAME)) != 0;
+            return tiled || sizable_with_border;
+        }
+
+        window_size default_min_track_size(const syscall_context& c, const window& win)
+        {
+            if (!has_min_track_size(win))
+            {
+                return {};
+            }
+
+            return {.width = get_system_metric(c, k_sm_cxmintrack_index), .height = get_system_metric(c, k_sm_cymintrack_index)};
+        }
+
+        window_size clamp_to_min_track_size(const window_size& min_size, const int width, const int height)
+        {
+            return {.width = std::max(width, min_size.width), .height = std::max(height, min_size.height)};
+        }
+
+        int get_maximized_overhang(const window& win)
+        {
+            // The border of GetWindowBordersWithDpiAwareness: the 8 pixel sizing border at 100% DPI on Windows 11, plus the edge.
+            constexpr int sizing_border = 8;
+            constexpr int client_edge_width = 2;
+            constexpr int static_edge_width = 1;
+
+            if ((win.ex_style & WS_EX_CLIENTEDGE) != 0)
+            {
+                return sizing_border + client_edge_width;
+            }
+
+            return sizing_border + ((win.ex_style & WS_EX_STATICEDGE) != 0 ? static_edge_width : 0);
+        }
+
+        EMU_MINMAXINFO default_min_max_info(const syscall_context& c, const window& win)
+        {
+            constexpr int max_track_extra = 20;
+            const auto maximized_overhang = get_maximized_overhang(win);
+
+            const auto* parent = (win.style & WS_CHILD) != 0 ? c.proc.windows.get(win.parent_handle) : nullptr;
+            const auto area_width = parent ? parent->client_width() : get_system_metric(c, k_sm_cxscreen_index);
+            const auto area_height = parent ? parent->client_height() : get_system_metric(c, k_sm_cyscreen_index);
+            const auto min_size = default_min_track_size(c, win);
+
+            return {
+                .ptReserved = {.x = 0, .y = 0},
+                .ptMaxSize = {.x = area_width + (2 * maximized_overhang), .y = area_height + (2 * maximized_overhang)},
+                .ptMaxPosition = {.x = -maximized_overhang, .y = -maximized_overhang},
+                .ptMinTrackSize = {.x = min_size.width, .y = min_size.height},
+                .ptMaxTrackSize = {.x = get_system_metric(c, k_sm_cxscreen_index) + max_track_extra,
+                                   .y = get_system_metric(c, k_sm_cyscreen_index) + max_track_extra},
+            };
+        }
+
+        std::optional<window_size> read_min_track_size_callback_output(const syscall_context& c)
+        {
+            const auto& result = c.get_callback_result_object();
+            EMU_MINMAXINFO info{};
+            if (result.output == 0 || result.output_size < sizeof(info) ||
+                !c.win_emu.memory.try_read_memory(result.output, &info, sizeof(info)))
+            {
+                return std::nullopt;
+            }
+
+            return window_size{.width = info.ptMinTrackSize.x, .height = info.ptMinTrackSize.y};
+        }
+
+        void clamp_window_pos_to_min_track_size(const syscall_context& c, const window_size& min_size, const uint64_t window_pos_address)
+        {
+            EMU_WINDOWPOS position{};
+            if (window_pos_address == 0 || !c.win_emu.memory.try_read_memory(window_pos_address, &position, sizeof(position)) ||
+                (position.flags & SWP_NOSIZE) != 0)
+            {
+                return;
+            }
+
+            const auto size = clamp_to_min_track_size(min_size, position.cx, position.cy);
+            position.cx = size.width;
+            position.cy = size.height;
+            c.win_emu.memory.try_write_memory(window_pos_address, &position, sizeof(position));
+        }
+
         void update_window_geometry(const syscall_context& c, window& win, const int x, const int y, const int width, const int height,
                                     const bool repaint)
         {
@@ -560,6 +672,24 @@ namespace sogen
             return static_cast<uint64_t>(static_cast<uint16_t>(low)) | (static_cast<uint64_t>(static_cast<uint16_t>(high)) << 16);
         }
 
+        void refresh_geometry_messages(const window& win, std::vector<qmsg>& message_queue)
+        {
+            for (auto& message : message_queue)
+            {
+                switch (message.message)
+                {
+                case WM_MOVE:
+                    message.lParam = pack_message_lparam(win.client_x(), win.client_y());
+                    break;
+                case WM_SIZE:
+                    message.lParam = pack_message_lparam(win.client_width(), win.client_height());
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+
         void apply_window_position_change(const syscall_context& c, window& win, const EMU_WINDOWPOS& position,
                                           emulator_stack_allocation& changed_window_pos_alloc, std::vector<qmsg>& message_queue,
                                           const bool update_changed_window_position = true)
@@ -613,21 +743,13 @@ namespace sogen
 
             for (auto& message : message_queue)
             {
-                switch (message.message)
+                if (message.message == WM_WINDOWPOSCHANGED)
                 {
-                case WM_WINDOWPOSCHANGED:
                     message.lParam = changed_window_pos_alloc.address();
-                    break;
-                case WM_MOVE:
-                    message.lParam = pack_message_lparam(win.client_x(), win.client_y());
-                    break;
-                case WM_SIZE:
-                    message.lParam = pack_message_lparam(win.client_width(), win.client_height());
-                    break;
-                default:
-                    break;
                 }
             }
+
+            refresh_geometry_messages(win, message_queue);
         }
 
         EMU_WINDOWPOS resolve_window_position_callback(const syscall_context& c, const uint64_t window_pos_address)
@@ -943,10 +1065,17 @@ namespace sogen
                 return read_guest_window_text(c, win).size();
 
             case WM_ERASEBKGND:
-                return TRUE;
+                return syscalls::erase_window_background(c, win, static_cast<hdc>(w_param));
+
+            case WM_ICONERASEBKGND:
+                return (win.style & WS_CHILD) == 0 ? TRUE : FALSE;
 
             case WM_PAINT:
                 validate_window(win);
+                return FALSE;
+
+            case WM_WINDOWPOSCHANGING:
+                clamp_window_pos_to_min_track_size(c, default_min_track_size(c, win), l_param);
                 return FALSE;
 
             default:
@@ -3697,19 +3826,6 @@ namespace sogen
             return STATUS_SUCCESS;
         }
 
-        BOOL handle_NtUserMoveWindow(const syscall_context& c, const hwnd hwnd, const int x, const int y, const int width, const int height,
-                                     const BOOL repaint)
-        {
-            auto* win = c.proc.windows.get(hwnd);
-            if (!win)
-            {
-                return FALSE;
-            }
-
-            update_window_geometry(c, *win, x, y, width, height, repaint != FALSE);
-            return TRUE;
-        }
-
         uint64_t handle_NtUserGetProcessWindowStation(const syscall_context& c)
         {
             return c.proc.process_window_station;
@@ -4181,6 +4297,48 @@ namespace sogen
                    (c.proc.is_wow64_process && requested_uniqueness == 0);
         }
 
+        bool is_live_child_gui_thread(const syscall_context& c, const DWORD thread_id)
+        {
+            auto* manager = c.win_emu.processes();
+            if (!manager)
+            {
+                return false;
+            }
+
+            for (const auto& child : c.proc.managed_threads | std::views::values)
+            {
+                if (child.thread_id != thread_id)
+                {
+                    continue;
+                }
+
+                const auto exit = manager->exit_status(child.process);
+                if (!exit || exit.status.has_value())
+                {
+                    return false;
+                }
+
+                const auto information = manager->thread_information(child.process, thread_id);
+                if (!information || information.exited || information.teb == 0)
+                {
+                    return false;
+                }
+
+                const auto win32_thread_info =
+                    manager->read_memory(child.process, information.teb + offsetof(TEB64, Win32ThreadInfo), sizeof(uint64_t));
+                if (!win32_thread_info || win32_thread_info.data.size() != sizeof(uint64_t))
+                {
+                    return false;
+                }
+
+                uint64_t value{};
+                std::memcpy(&value, win32_thread_info.data.data(), sizeof(value));
+                return value != 0;
+            }
+
+            return false;
+        }
+
         uint64_t install_window_hook(const syscall_context& c, const hinstance instance, const DWORD thread_id, const int hook_id,
                                      const pointer proc, const BOOL ansi)
         {
@@ -4201,14 +4359,29 @@ namespace sogen
                 return 0;
             }
 
+            auto& thread = c.thread();
+
             const bool low_level = hook_id == k_wh_keyboard_ll || hook_id == k_wh_mouse_ll;
-            if ((low_level || hook_id == k_wh_sysmsgfilter) && thread_id != 0)
+            const bool global_only = low_level || hook_id == k_wh_sysmsgfilter;
+
+            emulator_thread* target = nullptr;
+            if (thread_id != 0)
+            {
+                target = c.proc.find_thread_by_id(thread_id);
+                const bool is_gui_thread = target && (target == &thread || target->win32k_thread_info != 0);
+                const bool is_local_gui_thread = is_gui_thread && !target->is_terminated();
+                if (!is_local_gui_thread && !(global_only && is_live_child_gui_thread(c, thread_id)))
+                {
+                    set_guest_last_error(c, 87); // ERROR_INVALID_PARAMETER
+                    return 0;
+                }
+            }
+
+            if (global_only && thread_id != 0)
             {
                 set_guest_last_error(c, k_error_global_only_hook);
                 return 0;
             }
-
-            auto& thread = c.thread();
 
             // Low-level hooks are global; they run on the installing thread while it retrieves messages.
             if (low_level)
@@ -4229,14 +4402,6 @@ namespace sogen
                 {
                     set_guest_last_error(c, k_error_hook_needs_hmod);
                 }
-                return 0;
-            }
-
-            auto* target = c.proc.find_thread_by_id(thread_id);
-            const bool is_gui_thread = target && (target == &thread || target->win32k_thread_info != 0);
-            if (!is_gui_thread || target->is_terminated())
-            {
-                set_guest_last_error(c, 87); // ERROR_INVALID_PARAMETER
                 return 0;
             }
 
@@ -4551,6 +4716,31 @@ namespace sogen
             return style;
         }
 
+        window_create_phase first_creation_message_phase(const window_create_state& state)
+        {
+            return state.message_queue.back().message == WM_GETMINMAXINFO ? window_create_phase::min_max_info
+                                                                          : window_create_phase::creation_messages;
+        }
+
+        void apply_created_window_min_track_size(const syscall_context& c, window& win, window_create_state& state)
+        {
+            if (!has_min_track_size(win))
+            {
+                return;
+            }
+
+            const auto min_size = read_min_track_size_callback_output(c).value_or(default_min_track_size(c, win));
+            const auto size = clamp_to_min_track_size(min_size, state.requested_width, state.requested_height);
+            if (size.width == win.width && size.height == win.height)
+            {
+                return;
+            }
+
+            update_window_geometry(c, win, win.x, win.y, size.width, size.height, (win.style & WS_VISIBLE) != 0);
+            refresh_geometry_messages(win, state.message_queue);
+            refresh_geometry_messages(win, state.show_data.message_queue);
+        }
+
         hwnd handle_NtUserCreateWindowEx(const syscall_context& c, const DWORD ex_style, const emulator_object<LARGE_STRING> class_name,
                                          const emulator_object<LARGE_STRING> class_version, const emulator_object<LARGE_STRING> window_name,
                                          const DWORD requested_style, int x, int y, int width, int height, const hwnd parent,
@@ -4651,11 +4841,12 @@ namespace sogen
             win.style = style;
             win.x = x;
             win.y = y;
-            win.width = width;
-            win.height = height;
             win.thread_id = c.thread().id;
             win.handle = handle.bits;
             win.message_only = is_message_only;
+            const auto outer_size = clamp_to_min_track_size(default_min_track_size(c, win), width, height);
+            win.width = outer_size.width;
+            win.height = outer_size.height;
             // Record the owning thread in the shared handle entry so client-side GetWindowThreadProcessId works.
             c.proc.user_handles.set_owner(static_cast<uint32_t>(handle.value.id), win.thread_id);
             if (!is_message_only)
@@ -4895,8 +5086,9 @@ namespace sogen
             RECT wr{};
             state.window_rect_alloc = c.emu.push_stack(wr);
 
-            EMU_MINMAXINFO mmi{};
-            state.min_max_info_alloc = c.emu.push_stack(mmi);
+            state.requested_width = width;
+            state.requested_height = height;
+            state.min_max_info_alloc = c.emu.push_stack(default_min_max_info(c, win));
 
             state.message_queue = {
                 {.message = WM_CREATE, .wParam = 0, .lParam = state.create_struct_alloc.address()},
@@ -4905,7 +5097,7 @@ namespace sogen
             };
             const bool notify_parent = has_child_parent && (ex_style & WS_EX_NOPARENTNOTIFY) == 0;
             const auto parent_notify_wparam = static_cast<uint64_t>(WM_CREATE) | (static_cast<uint64_t>(menu & 0xFFFF) << 16);
-            if (!has_child_parent)
+            if (!has_child_parent || has_min_track_size(win))
             {
                 state.message_queue.push_back({.message = WM_GETMINMAXINFO, .wParam = 0, .lParam = state.min_max_info_alloc.address()});
             }
@@ -4952,7 +5144,7 @@ namespace sogen
                 return {};
             }
 
-            state.phase = window_create_phase::creation_messages;
+            state.phase = first_creation_message_phase(state);
             dispatch_next_message(c, callback_id::NtUserCreateWindowEx, std::move(state), win, state.message_queue);
             return {};
         }
@@ -5002,9 +5194,15 @@ namespace sogen
                     return 0;
                 }
 
-                s.phase = window_create_phase::creation_messages;
+                s.phase = first_creation_message_phase(s);
                 dispatch_next_message(c, callback_id::NtUserCreateWindowEx, std::move(s), *win, s.message_queue);
                 return {};
+            }
+
+            if (s.phase == window_create_phase::min_max_info)
+            {
+                s.phase = window_create_phase::creation_messages;
+                apply_created_window_min_track_size(c, *win, s);
             }
 
             show_orchestrator.erase_background_completed(c.get_callback_result<uint64_t>());
@@ -5458,6 +5656,26 @@ namespace sogen
             return 0;
         }
 
+        bool dispatch_min_max_info_query(const syscall_context& c, const window& win, const uint64_t window_pos_address,
+                                         const uint64_t result_info)
+        {
+            EMU_WINDOWPOS position{};
+            if (!has_min_track_size(win) || window_pos_address == 0 ||
+                !c.win_emu.memory.try_read_memory(window_pos_address, &position, sizeof(position)) || (position.flags & SWP_NOSIZE) != 0)
+            {
+                return false;
+            }
+
+            message_call_state state{};
+            state.window = win.handle;
+            state.message = WM_WINDOWPOSCHANGING;
+            state.result_info = result_info;
+            state.min_max_info_alloc = c.emu.push_stack(default_min_max_info(c, win));
+            const auto min_max_info_address = state.min_max_info_alloc.address();
+            dispatch_window_message(c, callback_id::NtUserMessageCall, std::move(state), win, WM_GETMINMAXINFO, 0, min_max_info_address);
+            return true;
+        }
+
         uint64_t handle_NtUserMessageCall(const syscall_context& c, const hwnd hwnd, const UINT msg, const uint64_t w_param,
                                           const uint64_t l_param, const uint64_t result_info, const DWORD type, const BOOL ansi)
         {
@@ -5481,6 +5699,11 @@ namespace sogen
                     state.destroying_window = true;
                     window_destroy_orchestrator{state.destruction, c}.start(*win);
                     return advance_window_destroy(c, state, state.destruction, callback_id::NtUserMessageCall);
+                }
+
+                if (msg == WM_WINDOWPOSCHANGING && win->wnd_proc != 0 && dispatch_min_max_info_query(c, *win, l_param, result_info))
+                {
+                    return {};
                 }
 
                 const auto result = handle_default_window_proc_message(c, *win, msg, w_param, l_param, ansi);
@@ -5553,6 +5776,17 @@ namespace sogen
             {
                 complete_active_sent_window_message(c);
                 return continue_sent_message_wait(c, *c.thread().current_sent_message_wait());
+            }
+
+            if (state.min_max_info_alloc)
+            {
+                const auto reported_min_size = read_min_track_size_callback_output(c);
+                c.emu.pop_stack(state.min_max_info_alloc);
+                if (const auto* win = c.proc.windows.get(state.window))
+                {
+                    clamp_window_pos_to_min_track_size(c, reported_min_size.value_or(default_min_track_size(c, *win)), l_param);
+                }
+                return write_message_call_result(c, state.result_info, 0) ? TRUE : FALSE;
             }
 
             if (state.destroying_window)
@@ -5901,7 +6135,7 @@ namespace sogen
                 message.write(*pending_msg);
                 t.record_current_message(*pending_msg);
                 set_thread_window_context(c, pending_msg->window);
-                if (dispatch_get_message_hook(c, callback_id::NtUserPeekMessage, *pending_msg, should_remove ? PM_REMOVE : PM_NOREMOVE))
+                if (dispatch_get_message_hook(c, callback_id::NtUserPeekMessage, *pending_msg, remove_message))
                 {
                     return {};
                 }
@@ -6732,8 +6966,9 @@ namespace sogen
             return old_parent;
         }
 
-        BOOL handle_NtUserSetWindowPos(const syscall_context& c, const hwnd hWnd, const hwnd hwnd_insert_after, const int x, const int y,
-                                       const int cx, const int cy, const UINT flags)
+        BOOL begin_window_position_change(const syscall_context& c, const callback_id completion_id, const hwnd hWnd,
+                                          const hwnd hwnd_insert_after, const int x, const int y, const int cx, const int cy,
+                                          const UINT flags)
         {
             auto* win = c.proc.windows.get(hWnd);
             if (!win)
@@ -6757,8 +6992,7 @@ namespace sogen
             if ((flags & SWP_NOSENDCHANGING) == 0)
             {
                 const auto window_pos_address = state.window_pos_alloc.address();
-                dispatch_window_message(c, callback_id::NtUserSetWindowPos, std::move(state), *win, WM_WINDOWPOSCHANGING, 0,
-                                        window_pos_address);
+                dispatch_window_message(c, completion_id, std::move(state), *win, WM_WINDOWPOSCHANGING, 0, window_pos_address);
             }
             else
             {
@@ -6770,14 +7004,13 @@ namespace sogen
                     return TRUE;
                 }
 
-                dispatch_next_message(c, callback_id::NtUserSetWindowPos, std::move(state), *win, state.message_queue);
+                dispatch_next_message(c, completion_id, std::move(state), *win, state.message_queue);
             }
 
             return {};
         }
 
-        BOOL completion_NtUserSetWindowPos(const syscall_context& c, const hwnd hWnd, const hwnd /*hwnd_insert_after*/, const int /*x*/,
-                                           const int /*y*/, const int /*cx*/, const int /*cy*/, const UINT /*flags*/)
+        BOOL complete_window_position_change(const syscall_context& c, const callback_id completion_id, const hwnd hWnd)
         {
             auto& state = c.get_completion_state<window_position_state>();
             auto* win = c.proc.windows.get(hWnd);
@@ -6795,12 +7028,37 @@ namespace sogen
 
             if (!state.message_queue.empty())
             {
-                dispatch_next_message(c, callback_id::NtUserSetWindowPos, std::move(state), *win, state.message_queue);
+                dispatch_next_message(c, completion_id, std::move(state), *win, state.message_queue);
                 return {};
             }
 
             release_window_position_allocations(c, state);
             return TRUE;
+        }
+
+        BOOL handle_NtUserSetWindowPos(const syscall_context& c, const hwnd hWnd, const hwnd hwnd_insert_after, const int x, const int y,
+                                       const int cx, const int cy, const UINT flags)
+        {
+            return begin_window_position_change(c, callback_id::NtUserSetWindowPos, hWnd, hwnd_insert_after, x, y, cx, cy, flags);
+        }
+
+        BOOL completion_NtUserSetWindowPos(const syscall_context& c, const hwnd hWnd, const hwnd /*hwnd_insert_after*/, const int /*x*/,
+                                           const int /*y*/, const int /*cx*/, const int /*cy*/, const UINT /*flags*/)
+        {
+            return complete_window_position_change(c, callback_id::NtUserSetWindowPos, hWnd);
+        }
+
+        BOOL handle_NtUserMoveWindow(const syscall_context& c, const hwnd hwnd, const int x, const int y, const int width, const int height,
+                                     const BOOL repaint)
+        {
+            const UINT flags = SWP_NOZORDER | SWP_NOACTIVATE | (repaint != FALSE ? 0 : SWP_NOREDRAW);
+            return begin_window_position_change(c, callback_id::NtUserMoveWindow, hwnd, 0, x, y, width, height, flags);
+        }
+
+        BOOL completion_NtUserMoveWindow(const syscall_context& c, const hwnd hwnd, const int /*x*/, const int /*y*/, const int /*width*/,
+                                         const int /*height*/, const BOOL /*repaint*/)
+        {
+            return complete_window_position_change(c, callback_id::NtUserMoveWindow, hwnd);
         }
 
         uint64_t handle_NtUserBeginDeferWindowPos(const syscall_context& c, const int count)
@@ -8840,11 +9098,6 @@ namespace sogen
             return TRUE;
         }
 
-        int32_t get_system_metric(const syscall_context& c, const size_t index)
-        {
-            return c.proc.user_handles.get_server_info().read().systemMetrics[index];
-        }
-
         RECT get_title_bar_rect(const syscall_context& c, const window& win)
         {
             constexpr size_t sm_cycaption = 4;
@@ -9278,13 +9531,6 @@ namespace sogen
                 constexpr uint32_t getminimizedmetrics = 0x002B;
                 constexpr uint32_t geticonmetrics = 0x002D;
                 constexpr uint32_t getworkarea = 0x0030;
-                constexpr uint32_t getfilterkeys = 0x0032;
-                constexpr uint32_t gettogglekeys = 0x0034;
-                constexpr uint32_t getmousekeys = 0x0036;
-                constexpr uint32_t getstickykeys = 0x003A;
-                constexpr uint32_t getaccesstimeout = 0x003C;
-                constexpr uint32_t getsoundsentry = 0x0040;
-                constexpr uint32_t gethighcontrast = 0x0042;
                 constexpr uint32_t getanimation = 0x0048;
                 constexpr uint32_t getdeskwallpaper = 0x0073;
                 constexpr uint32_t getlogicaldpioverride = 0x009E;
@@ -9302,8 +9548,6 @@ namespace sogen
                 constexpr uint32_t getfasttaskswitch = 0x0023;
                 constexpr uint32_t getdragfullwindows = 0x0026;
                 constexpr uint32_t getkeyboardcues = 0x100A;
-                constexpr uint32_t getkeyboardpref = 0x0044;
-                constexpr uint32_t getscreenreader = 0x0046;
                 constexpr uint32_t getfontsmoothing = 0x004A;
                 constexpr uint32_t getlowpowertimeout = 0x004F;
                 constexpr uint32_t getpowerofftimeout = 0x0050;
@@ -9358,12 +9602,10 @@ namespace sogen
                 constexpr uint32_t getflatmenu = 0x1022;
                 constexpr uint32_t getdropshadow = 0x1024;
                 constexpr uint32_t getblocksendinputresets = 0x1026;
-                constexpr uint32_t getshowsounds = 0x0038;
                 constexpr uint32_t getserialkeys = 0x003E;
                 constexpr uint32_t getdefaultinputlang = 0x0059;
                 constexpr uint32_t getwindowsextension = 0x005C;
                 constexpr uint32_t getmousetrails = 0x005E;
-                constexpr uint32_t getaudiodescription = 0x0074;
                 constexpr uint32_t getscreensavesecure = 0x0076;
                 constexpr uint32_t gethungapptimeout = 0x0078;
                 constexpr uint32_t getwaittokilltimeout = 0x007A;
@@ -9408,8 +9650,6 @@ namespace sogen
                 {.action = spi_action::getfasttaskswitch, .value = 1},
                 {.action = spi_action::getdragfullwindows, .value = 1},
                 {.action = spi_action::getkeyboardcues, .value = 0},
-                {.action = spi_action::getkeyboardpref, .value = 0},
-                {.action = spi_action::getscreenreader, .value = 0},
                 {.action = spi_action::getfontsmoothing, .value = 1},
                 {.action = spi_action::getlowpowertimeout, .value = 0},
                 {.action = spi_action::getpowerofftimeout, .value = 0},
@@ -9464,7 +9704,6 @@ namespace sogen
                 {.action = spi_action::getflatmenu, .value = 1},
                 {.action = spi_action::getdropshadow, .value = 0},
                 {.action = spi_action::getblocksendinputresets, .value = 0},
-                {.action = spi_action::getshowsounds, .value = 0},
                 {.action = spi_action::getmousetrails, .value = 0},
                 {.action = spi_action::getscreensavesecure, .value = 0},
                 {.action = spi_action::gethungapptimeout, .value = 5000},
@@ -9518,7 +9757,6 @@ namespace sogen
 
             constexpr std::array<uint32_t, 3> k_mouse_acceleration{6, 10, 1};
             constexpr std::array<uint32_t, 5> k_minimized_metrics{20, 154, 0, 0, 0};
-            constexpr DWORD k_high_contrast_flags = 0x7E;
             constexpr uint32_t k_default_dpi = 96;
             constexpr DWORD k_error_success = 0;
             constexpr DWORD k_error_invalid_parameter = 87;
@@ -9530,7 +9768,12 @@ namespace sogen
             constexpr std::array<uint32_t, 3> k_touch_prediction_parameters{8, 8, 1};
             constexpr uint32_t k_max_wallpaper_chars = 260;
             constexpr uint32_t k_update_ini_file = 0x1;
-            constexpr uint32_t k_output_alignment = 4;
+
+            using system_parameters::fail_with;
+            using system_parameters::is_misaligned_output;
+            using system_parameters::probe_output_struct_size;
+            using system_parameters::write_output;
+            using system_parameters::write_zeroed_output;
 
             constexpr bool rejects_non_zero_param(const uint32_t action)
             {
@@ -9553,48 +9796,6 @@ namespace sogen
                 default:
                     return false;
                 }
-            }
-
-            BOOL fail_with(const syscall_context& c, const DWORD error)
-            {
-                set_guest_last_error(c, error);
-                return FALSE;
-            }
-
-            // win32kbase probes these outputs at 4 bytes (1 for a WOW64 caller), also the 8-byte HKL.
-            bool is_misaligned_output(const syscall_context& c, const emulator_pointer value)
-            {
-                return !c.proc.is_wow64_process && value % k_output_alignment != 0;
-            }
-
-            BOOL write_output(const syscall_context& c, const emulator_pointer value, const void* data, const size_t size)
-            {
-                if (!is_writable_range(c.win_emu, value, size) || !c.win_emu.memory.try_write_memory(value, data, size))
-                {
-                    return fail_with(c, k_error_noaccess);
-                }
-
-                return TRUE;
-            }
-
-            std::optional<uint32_t> probe_output_struct_size(const syscall_context& c, const emulator_pointer value, const size_t size)
-            {
-                uint32_t struct_size{};
-                if (!is_writable_range(c.win_emu, value, size) ||
-                    !c.win_emu.memory.try_read_memory(value, &struct_size, sizeof(struct_size)))
-                {
-                    return std::nullopt;
-                }
-
-                return struct_size;
-            }
-
-            // Windows copies its zeroed output buffer back even though the call fails.
-            bool write_zeroed_output(const syscall_context& c, const emulator_pointer value, const size_t size, const uint32_t struct_size)
-            {
-                std::vector<std::byte> zeroed(size);
-                std::memcpy(zeroed.data(), &struct_size, sizeof(struct_size));
-                return c.win_emu.memory.try_write_memory(value, zeroed.data(), zeroed.size());
             }
 
             DWORD check_for_dpi_output(const syscall_context& c, const emulator_pointer value, const uint32_t param, const size_t size,
@@ -9712,26 +9913,6 @@ namespace sogen
                 return size_matches ? TRUE : FALSE;
             }
 
-            BOOL get_high_contrast(const syscall_context& c, const emulator_pointer value)
-            {
-                return write_output(c, value + offsetof(EMU_HIGHCONTRAST, dwFlags), &k_high_contrast_flags, sizeof(k_high_contrast_flags));
-            }
-
-            const std::unordered_map<uint32_t, std::vector<uint32_t>>& sized_struct_gets()
-            {
-                static const std::unordered_map<uint32_t, std::vector<uint32_t>> structs{
-                    {spi_action::getfilterkeys, {24, 0x7E, 1000, 1000, 500, 0}},
-                    {spi_action::gettogglekeys, {8, 0x3E}},
-                    {spi_action::getmousekeys, {28, 0x1000003E, 80, 3000, 0, 0, 0}},
-                    {spi_action::getstickykeys, {8, 0x1FE}},
-                    {spi_action::getaccesstimeout, {12, 2, 300000}},
-                    {spi_action::getsoundsentry, {56, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0}},
-                    {spi_action::getaudiodescription, {12, 0, 0}},
-                };
-
-                return structs;
-            }
-
             BOOL get_desk_wallpaper(const syscall_context& c, const uint32_t param, const emulator_pointer value)
             {
                 if (!is_writable_range(c.win_emu, value, uint64_t{param} * sizeof(char16_t)))
@@ -9781,24 +9962,6 @@ namespace sogen
                     }
                 }
 
-                const auto& structs = sized_struct_gets();
-                if (const auto entry = structs.find(action); entry != structs.end())
-                {
-                    const auto size = entry->second.size() * sizeof(uint32_t);
-                    const auto struct_size = probe_output_struct_size(c, value, size);
-                    if (!struct_size)
-                    {
-                        return fail_with(c, k_error_noaccess);
-                    }
-
-                    if (*struct_size == size && (param == 0 || param == size))
-                    {
-                        return write_output(c, value, entry->second.data(), size);
-                    }
-
-                    return write_zeroed_output(c, value, size, *struct_size) ? FALSE : fail_with(c, k_error_noaccess);
-                }
-
                 c.win_emu.log.error("Unimplemented NtUserSystemParametersInfo action: 0x%X\n", action);
                 return fail_with(c, k_error_invalid_parameter);
             }
@@ -9843,6 +10006,12 @@ namespace sogen
         BOOL handle_NtUserSystemParametersInfo(const syscall_context& c, const uint32_t action, const uint32_t param,
                                                const emulator_pointer value, const uint32_t win_ini)
         {
+            if (const auto handled =
+                    system_parameters::handle_accessibility_action(c, action, param, value, (win_ini & k_update_ini_file) != 0))
+            {
+                return *handled;
+            }
+
             switch (action)
             {
             case spi_action::getworkarea:
@@ -9858,8 +10027,6 @@ namespace sogen
             }
             case spi_action::getanimation:
                 return get_animation(c, param, value);
-            case spi_action::gethighcontrast:
-                return get_high_contrast(c, value);
             case spi_action::getminimizedmetrics:
                 return write_output(c, value, k_minimized_metrics.data(), sizeof(k_minimized_metrics));
             case spi_action::getmouse:
@@ -9881,13 +10048,6 @@ namespace sogen
 
                 return write_output(c, value, &input_language, sizeof(input_language));
             }
-            case spi_action::getaudiodescription:
-                if (is_misaligned_output(c, value))
-                {
-                    return fail_with(c, k_error_noaccess);
-                }
-
-                return get_setting(c, action, param, value, win_ini);
             case spi_action::gettouchpredictionparameters:
                 return get_touch_prediction_parameters(c, param, value);
             case spi_action::getserialkeys:

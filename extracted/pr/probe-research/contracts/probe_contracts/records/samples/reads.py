@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, JsonValue
 
 from ...compat import StrEnum
 from ..artifact import Artifact
+from .evidence import SampleEvidence
 from .outcome import SampleSplit
 from .samples import EPISODE_FIELDS, Sample, TrialFile
 from .task import Task
@@ -68,13 +69,15 @@ SUMMARY_FIELDS = (
     "staleness_min", "staleness_max", "is_over_limit", "reward", "normalized_reward", "reward_parts",
     "result", "error_reason", "error_message", "outcome", "drop_reason", "is_rewound", "finish_reason",
     "response_tokens", "host", "worker", "engine", "sandbox_id", "last_heartbeat_at", "response", "attempt_key",
-    "duration_s",
+    "duration_s", "task_name", "grade_status", "evidence_summary",
 )
 
 
 # The episode labels are the episode reads' alone: today's sample routes keep their shape (dashboard-redesign D13).
 class SampleOut(Sample.project(*(name for name in Sample.model_fields if name not in EPISODE_FIELDS))):
     """`GET /v1/samples/{id}`: the whole merged sample, text uncut."""
+
+    evidence: SampleEvidence | None = None
 
 
 class SampleSummary(Sample.project(*SUMMARY_FIELDS, response=(str | None, None))):

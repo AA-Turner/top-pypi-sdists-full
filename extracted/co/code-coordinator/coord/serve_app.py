@@ -6462,6 +6462,28 @@ def _board_digest_check_result(check: dict) -> dict:
     return {k: v for k, v in check.items() if k not in ("headroom", "values")}
 
 
+def _apply_drive_queue_intervention_display(
+    entries: list[dict[str, Any]], now: float,
+) -> None:
+    """Overwrite each row's wire ``last_reason`` with its #4216 intervention
+    text when one is active, mutating *entries* in place.
+
+    The SAME ``coord.drive_queue.format_intervention_reason`` `coord
+    drive-queue list`'s CLI rendering calls — so coord-tui and the
+    dashboard, neither of which re-implements "is this row held", render
+    the identical sentence a human reading `coord drive-queue list` sees
+    (#2096's "one question, one answer"). The underlying DB row (and its
+    own ``last_reason`` column) is untouched; this only changes what THIS
+    response ships.
+    """
+    from coord.drive_queue import format_intervention_reason  # noqa: PLC0415
+
+    for entry in entries:
+        overridden = format_intervention_reason(entry.get("intervention_json"), now)
+        if overridden is not None:
+            entry["last_reason"] = overridden
+
+
 def build_app(
     store: CoordStore,
     config: Config,
@@ -6909,6 +6931,17 @@ def build_app(
                 projection = store.board_projection()
             except Exception as e:  # noqa: BLE001
                 raise _BoardReadError(str(e)) from e
+            # #4216: same intervention-record override `GET /drive-queue`
+            # applies, so `/board`'s `drive_queue` entries (coord-tui, the
+            # dashboard) show the identical "held: ..." sentence `coord
+            # drive-queue list` does, without either re-implementing the
+            # question. Deliberately `_time.time()`, NOT `_built_at` above
+            # (a `_time.monotonic()` snapshot-order stamp with no relation
+            # to the wall-clock `at` an intervention record stores its own
+            # timestamp in).
+            _apply_drive_queue_intervention_display(
+                projection.get("drive_queue") or [], _time.time(),
+            )
 
             # #776/#778/#550: inject server-side merge plan (ordered, gate-
             # annotated), staging section, and per-issue stage/gate projection
@@ -9796,6 +9829,9 @@ def build_app(
                 {"error": "drive-queue read failed", "detail": str(e)},
                 status_code=503,
             )
+        import time as _time  # noqa: PLC0415
+
+        _apply_drive_queue_intervention_display(entries, _time.time())
         return JSONResponse({"entries": entries})
 
     async def post_drive_queue(request: Request) -> Response:
@@ -11652,6 +11688,7 @@ def build_app(
             from coord.reconcile import (  # noqa: PLC0415
                 reconcile_completed_assignments,
                 reconcile_late_agent_reports,
+                reconcile_rescued_blocked_rows,
             )
             from coord import merge_queue as _mq  # noqa: PLC0415
 
@@ -11738,6 +11775,30 @@ def build_app(
                     _time.monotonic() - last_notify_drain >= notify_drain_interval
                 ):
                     last_notify_drain = _time.monotonic()
+                    # Step 1b-rescue: #4217 — detect/record an out-of-band
+                    # push to a `blocked` drive-queue row and, once a
+                    # rescued row's PR checks read CI-green, reset its
+                    # Test/Review verdicts. Rides the SAME clock as the
+                    # drain just below (rather than the tick loop's own
+                    # faster `interval`) because both do live per-row
+                    # GitHub reads, and runs immediately BEFORE it so a
+                    # verdict this reset clears is picked back up by
+                    # `dispatch_pending_smoke`/`dispatch_pending_reviews`
+                    # in THIS same tick rather than a whole drain cycle
+                    # later. Independent try/except, same reasoning as
+                    # every other step here.
+                    try:
+                        rescued = await run_in_threadpool(
+                            reconcile_rescued_blocked_rows, config
+                        )
+                        if rescued:
+                            log.info(
+                                "rescue-resume (#4217): %d drive-queue "
+                                "row(s) touched (%s)",
+                                len(rescued), ", ".join(rescued),
+                            )
+                    except Exception:  # noqa: BLE001 — a tick must never crash the daemon
+                        log.warning("rescue-resume tick failed", exc_info=True)
                     try:
                         drained = await run_in_threadpool(
                             _notify_drain_tick, config

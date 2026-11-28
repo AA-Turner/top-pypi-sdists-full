@@ -90,7 +90,7 @@ TPLINK_KELVIN = {
     "KL135": ColorTempRange(2500, 9000),
     r"KL120\(EU\)": ColorTempRange(2700, 6500),
     r"KL120\(US\)": ColorTempRange(2700, 5000),
-    r"KL400L5": ColorTempRange(2500, 9000),
+    r"KL400": ColorTempRange(2500, 9000),
     r"KL420": ColorTempRange(2500, 9000),
     r"KL430": ColorTempRange(2500, 9000),
 }
@@ -539,8 +539,3 @@ class IotBulb(IotDevice):
         return await self._query_helper(
             "smartlife.iot.common.system", "set_dev_alias", {"alias": alias}
         )
-
-    @property
-    def max_device_response_size(self) -> int:
-        """Returns the maximum response size the device can safely construct."""
-        return 4096

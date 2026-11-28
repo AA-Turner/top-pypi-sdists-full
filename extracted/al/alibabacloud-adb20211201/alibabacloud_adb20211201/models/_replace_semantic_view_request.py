@@ -12,7 +12,7 @@ class ReplaceSemanticViewRequest(DaraModel):
         schema_name: str = None,
         view_name: str = None,
     ):
-        # The ID of the AnalyticDB for MySQL cluster.
+        # The ID of the ADB cluster.
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id

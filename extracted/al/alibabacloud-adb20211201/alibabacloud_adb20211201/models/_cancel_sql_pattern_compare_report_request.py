@@ -11,7 +11,7 @@ class CancelSqlPatternCompareReportRequest(DaraModel):
         region_id: str = None,
         report_id: int = None,
     ):
-        # The AnalyticDB for MySQL instance ID.
+        # The ID of the AnalyticDB for MySQL cluster.
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id
@@ -19,7 +19,7 @@ class CancelSqlPatternCompareReportRequest(DaraModel):
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The SQL Pattern comparison report ID.
+        # The ID of the SQL pattern comparison report.
         # 
         # This parameter is required.
         self.report_id = report_id

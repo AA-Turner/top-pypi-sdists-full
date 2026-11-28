@@ -66,6 +66,34 @@ class _TestConfig(TempDirTestCase):
         config = self._parse_config('\n#Port 22')
         self.assertIsNone(config.get('Port'))
 
+    def test_tokenize(self):
+        """Test splitting config lines into arguments"""
+
+        for line, result in (
+                ('a b\tc', ['a', 'b', 'c']),
+                ('a #b c', ['a']),
+                ('a#b', ['a#b']),
+                ('a"b c"d', ['ab cd']),
+                ("'a b' \"c d\"", ['a b', 'c d']),
+                ('"" x', ['', 'x']),
+                ('C:\\Users\\me', ['C:\\Users\\me']),
+                ('a\\\\b', ['a\\b']),
+                ('a\\ b', ['a b']),
+                ('"a\\ b"', ['a\\ b']),
+                ('"a\\"b"', ['a"b']),
+                ('"a\\\'b"', ["a'b"]),
+                ("'a\\'b'", ["a'b"]),
+                ('a\\', ['a\\'])):
+            with self.subTest(line=line):
+                config = self._parse_config(f'CanonicalDomains {line}')
+                self.assertEqual(config.get('CanonicalDomains'), result)
+
+    def test_trailing_comment(self):
+        """Test comment at the end of a config line"""
+
+        config = self._parse_config('Port 22 # comment')
+        self.assertEqual(config.get('Port'), 22)
+
     def test_set_bool(self):
         """Test boolean config option"""
 
@@ -202,6 +230,71 @@ class _TestConfig(TempDirTestCase):
         config = self._parse_config('Include config.d/*')
         self.assertEqual(config.get('Port'), 2222)
 
+    def test_glob_skips_hidden_and_sorts(self):
+        """Test that a glob skips hidden files and sorts the files it matches"""
+
+        os.mkdir('.ssh/hidden.d')
+
+        with open('.ssh/hidden.d/.DS_Store', 'wb') as f:
+            f.write(b'\x00\x80')
+
+        for name, port in (('b', 2223), ('a', 2222)):
+            with open(f'.ssh/hidden.d/{name}', 'w') as f:
+                f.write(f'Port {port}\n')
+
+        config = self._parse_config('Include hidden.d/*')
+        self.assertEqual(config.get('Port'), 2222)
+
+    def test_glob_skips_hidden_dir(self):
+        """Test that a glob skips files in a hidden directory"""
+
+        os.makedirs('.ssh/.git')
+        os.makedirs('.ssh/visible')
+
+        with open('.ssh/.git/config', 'w') as f:
+            f.write('Port 2223\nAddressFamily inet\n')
+
+        with open('.ssh/visible/config', 'w') as f:
+            f.write('Port 2222\n')
+
+        config = self._parse_config('Include */config')
+        self.assertEqual(config.get('Port'), 2222)
+        self.assertIsNone(config.get('AddressFamily'))
+
+    def test_include_hidden_explicit(self):
+        """Test including hidden files named explicitly in the pattern"""
+
+        os.makedirs('.ssh/.hidden.d')
+
+        with open('.ssh/.hidden', 'w') as f:
+            f.write('Port 2222\n')
+
+        with open('.ssh/.hidden.d/.conf', 'w') as f:
+            f.write('AddressFamily inet\n')
+
+        config = self._parse_config('Include .hidden .hidden.d/.*')
+        self.assertEqual(config.get('Port'), 2222)
+        self.assertEqual(config.get('AddressFamily'), socket.AF_INET)
+
+    def test_glob_recursive(self):
+        """Test a '**' glob matching files at any depth"""
+
+        os.makedirs('.ssh/recurse.d/sub1/sub2')
+        os.makedirs('.ssh/recurse.d/.hidden')
+
+        with open('.ssh/recurse.d/.hidden/conf', 'w') as f:
+            f.write('Port 2223\nAddressFamily inet6\n')
+
+        with open('.ssh/recurse.d/sub1/sub2/conf', 'w') as f:
+            f.write('Port 2222\n')
+
+        with open('.ssh/recurse.d/top', 'w') as f:
+            f.write('Port 2224\nAddressFamily inet\n')
+
+        config = self._parse_config('Include recurse.d/**')
+        self.assertEqual(config.get('Port'), 2222)
+        self.assertEqual(config.get('AddressFamily'), socket.AF_INET)
+
     def test_match_all(self):
         """Test a match block which always matches"""
 
@@ -273,6 +366,8 @@ class _TestConfig(TempDirTestCase):
         for desc, config_data in (
                 ('Missing value', 'AddressFamily'),
                 ('Unbalanced quotes', 'BindAddress "foo'),
+                ('Unbalanced single quotes', "BindAddress 'foo"),
+                ('Missing value before comment', 'Port # 22'),
                 ('Extra data at end', 'BindAddress foo bar'),
                 ('Invalid address family', 'AddressFamily xxx'),
                 ('Invalid canonicalization option',
@@ -292,8 +387,6 @@ class _TestClientConfig(_TestConfig):
                      canonical=False, final=False, local_user='user',
                      user=(), host='host', port=()):
         """Load a client configuration"""
-
-        # pylint: disable=arguments-differ
 
         return SSHClientConfig.load(last_config, config, reload, canonical,
                                     final, local_user, user, host, port)
@@ -336,11 +429,55 @@ class _TestClientConfig(_TestConfig):
         config = self._parse_config('SendEnv foo\nSendEnv bar baz')
         self.assertEqual(config.get('SendEnv'), ['foo', 'bar', 'baz'])
 
+    def test_send_env_remove(self):
+        """Test removing SendEnv patterns with a '-' prefix"""
+
+        for config_data, result in (
+                ('SendEnv A B C\nSendEnv -B', ['A', 'C']),
+                ('SendEnv LANG LC_ALL LC_CTYPE\nSendEnv -LC_*', ['LANG']),
+                ('SendEnv LANG LC_*\nSendEnv -LC_*', ['LANG']),
+                ('SendEnv LC_*\nSendEnv -LC_ALL', ['LC_*']),
+                ('SendEnv foo\nSendEnv -FOO', ['foo']),
+                ('SendEnv A -A', []),
+                ('SendEnv -A A', ['A']),
+                ('SendEnv -A', []),
+                ('SendEnv A B\nSendEnv -*', []),
+                ('SendEnv A\nSendEnv -* B', ['B'])):
+            with self.subTest(config=config_data):
+                config = self._parse_config(config_data)
+                self.assertEqual(config.get('SendEnv'), result)
+
+    def test_send_env_last_config(self):
+        """Test SendEnv changes not modifying a previous config"""
+
+        config1 = self._parse_config('SendEnv A B')
+
+        for config_data, result in (('SendEnv C', ['A', 'B', 'C']),
+                                    ('SendEnv -A', ['B']),
+                                    ('SendEnv -*', [])):
+            with self.subTest(config=config_data):
+                config2 = self._parse_config(config_data,
+                                             last_config=config1)
+
+                self.assertEqual(config2.get('SendEnv'), result)
+                self.assertEqual(config1.get('SendEnv'), ['A', 'B'])
+
     def test_set_environment(self):
         """Test setting environment with equals-separated key/value pairs"""
 
         config = self._parse_config('SetEnv A=1 B= C=D=2\nSetEnv E=3')
         self.assertEqual(config.get('SetEnv'), ['A=1', 'B=', 'C=D=2'])
+
+        config = self._parse_config('SetEnv A=1 a=2 A=3 B=4 B=5')
+        self.assertEqual(config.get('SetEnv'), ['A=1', 'a=2', 'B=4'])
+
+    def test_set_environment_invalid(self):
+        """Test setting environment with a value missing an equals sign"""
+
+        for config in ('SetEnv A=1 B', 'SetEnv A=1\nSetEnv B', 'SetEnv none'):
+            with self.subTest(config=config):
+                with self.assertRaises(asyncssh.ConfigParseError):
+                    self._parse_config(config)
 
     def test_set_remote_command(self):
         """Test setting a remote command"""
@@ -559,6 +696,91 @@ class _TestClientConfig(_TestConfig):
         with self.assertRaises(asyncssh.ConfigParseError):
             self._parse_config('RemoteCommand ${XXX}')
 
+    def test_expanded_value_not_reexpanded(self):
+        """Test substituted values aren't expanded a second time"""
+
+        os.environ['ASYNCSSH_TEST_TOKEN'] = '%h'
+
+        try:
+            config = self._parse_config(
+                'IdentityAgent %h${ASYNCSSH_TEST_TOKEN}', host='${HOME}%p')
+        finally:
+            del os.environ['ASYNCSSH_TEST_TOKEN']
+
+        self.assertEqual(config.get('IdentityAgent'), '${HOME}%p%h')
+
+    def test_remote_command_unsafe_tokens(self):
+        """Test unsafe host and user names in remote command expansion"""
+
+        for desc, config_data, kwargs in (
+                ('Shell metacharacter in host', 'RemoteCommand echo %h',
+                 {'host': 'x;id'}),
+                ('Whitespace in host', 'RemoteCommand echo %n',
+                 {'host': 'x y'}),
+                ('Leading dash in host', 'RemoteCommand echo %n',
+                 {'host': '-oX'}),
+                ('Command substitution in hostname option',
+                 'Hostname x$(id)\nRemoteCommand echo %h', {}),
+                ('Shell metacharacter in user', 'RemoteCommand echo %r',
+                 {'user': 'u|id'}),
+                ('Newline in user', 'RemoteCommand echo %r',
+                 {'user': 'u\nid'}),
+                ('Option after whitespace in user', 'RemoteCommand echo %r',
+                 {'user': 'u -x'})):
+            with self.subTest(desc):
+                with self.assertRaises(asyncssh.ConfigParseError):
+                    self._parse_config(config_data, **kwargs)
+
+    def test_remote_command_safe_tokens(self):
+        """Test host and user names allowed in remote command expansion"""
+
+        config = self._parse_config('RemoteCommand echo %h %n %r',
+                                    host='fe80::1%en0', user='First Last')
+
+        self.assertEqual(config.get('RemoteCommand'),
+                         'echo fe80::1%en0 fe80::1%en0 First Last')
+
+    def test_unsafe_tokens_outside_remote_command(self):
+        """Test unsafe host and user names allowed outside remote command"""
+
+        config = self._parse_config('ProxyCommand prog %h %r',
+                                    host='x;id', user='u -x')
+
+        self.assertEqual(config.get('ProxyCommand'), ['prog', 'x;id', 'u -x'])
+
+    def test_proxy_command(self):
+        """Test proxy command being split before expansion"""
+
+        config = self._parse_config(
+            'ProxyCommand prog --target %h --login %r "a b"',
+            host='x --opt y', user='u "v w"')
+
+        self.assertEqual(config.get('ProxyCommand'),
+                         ['prog', '--target', 'x --opt y',
+                          '--login', 'u "v w"', 'a b'])
+
+    def test_proxy_command_invalid_quotes(self):
+        """Test proxy command with invalid quoting"""
+
+        with self.assertRaises(asyncssh.ConfigParseError):
+            self._parse_config("ProxyCommand prog 'a\\'b'")
+
+    def test_proxy_command_none(self):
+        """Test proxy command set to none"""
+
+        config = self._parse_config('ProxyCommand none\nProxyCommand cmd')
+        self.assertIsNone(config.get('ProxyCommand', ()))
+
+    def test_equals_no_split(self):
+        """Test no-split config option with equals instead of space"""
+
+        for delimiter in ('=', ' =', '= ', ' = '):
+            config = self._parse_config(f'ProxyCommand{delimiter}cmd arg')
+            self.assertEqual(config.get('ProxyCommand'), ['cmd', 'arg'])
+
+            config = self._parse_config(f'RemoteCommand{delimiter}cmd arg')
+            self.assertEqual(config.get('RemoteCommand'), 'cmd arg')
+
 
 class _TestServerConfig(_TestConfig):
     """Unit tests for server config objects"""
@@ -568,8 +790,6 @@ class _TestServerConfig(_TestConfig):
                      local_addr='127.0.0.1', local_port=22,
                      user='user', host=None, addr='127.0.0.1'):
         """Load a server configuration"""
-
-        # pylint: disable=arguments-differ
 
         return SSHServerConfig.load(last_config, config, reload, canonical,
                                     final, local_addr, local_port, user,
@@ -600,15 +820,68 @@ class _TestServerConfig(_TestConfig):
         config = self._parse_config('Match address 127.0.0.0/8\nPermitTTY no')
         self.assertEqual(config.get('PermitTTY'), False)
 
+    def test_accept_env(self):
+        """Test appending multiple AcceptEnv options to a list"""
+
+        config = self._parse_config('AcceptEnv foo\nAcceptEnv bar baz')
+        self.assertEqual(config.get('AcceptEnv'), ['foo', 'bar', 'baz'])
+
+    def test_accept_env_remove(self):
+        """Test removing AcceptEnv patterns with a '-' prefix"""
+
+        for config_data, result in (
+                ('AcceptEnv -*', []),
+                ('AcceptEnv foo bar\nAcceptEnv -*', []),
+                ('AcceptEnv foo\nAcceptEnv -* bar', ['bar']),
+                ('AcceptEnv LANG LC_*\nAcceptEnv -LC_*', ['LANG']),
+                ('AcceptEnv foo -foo', []),
+                ('AcceptEnv foo\nAcceptEnv -FOO', ['foo'])):
+            with self.subTest(config=config_data):
+                config = self._parse_config(config_data)
+                self.assertEqual(config.get('AcceptEnv'), result)
+
+    def test_accept_env_last_config(self):
+        """Test AcceptEnv changes not modifying a previous config"""
+
+        config1 = self._parse_config('AcceptEnv A')
+        config2 = self._parse_config('AcceptEnv B', last_config=config1)
+
+        self.assertEqual(config2.get('AcceptEnv'), ['A', 'B'])
+        self.assertEqual(config1.get('AcceptEnv'), ['A'])
+
+    def test_server_set_environment(self):
+        """Test setting server environment with key/value pairs"""
+
+        config = self._parse_config('SetEnv A=1 "B=x y" C=D=2\nSetEnv E=3')
+        self.assertEqual(config.get('SetEnv'), ['A=1', 'B=x y', 'C=D=2'])
+
+        config = self._parse_config('SetEnv A=1 A=2 "B=x y" B=z')
+        self.assertEqual(config.get('SetEnv'), ['A=1', 'B=x y'])
+
+        with self.assertRaises(asyncssh.ConfigParseError):
+            self._parse_config('SetEnv A=1 B')
+
     def test_unsafe_user(self):
         """Test unsafe characters in username"""
 
         for user in ('xxx..yyy', 'xxx~yyy', 'Cxxx:'):
             self._parse_config('AuthorizedKeysFile %u', user=user)
 
-        for user in ('', '..', '~xxx', 'C:xxx', '/xxx', '\\xxx', '${xxx}'):
+        for user in ('..', '~xxx', 'C:xxx', '/xxx', '\\xxx', '${xxx}'):
             with self.assertRaises(asyncssh.IllegalUserName):
                 self._parse_config('AuthorizedKeysFile %u', user=user)
+
+    def test_empty_user(self):
+        """Test empty username on initial load and reload"""
+
+        config = self._parse_config('AuthorizedKeysFile %u', user='')
+        self.assertEqual(config.get('AuthorizedKeysFile'), [''])
+
+        config = self._parse_config('AuthorizedKeysFile %u', reload=True)
+        self.assertEqual(config.get('AuthorizedKeysFile'), ['user'])
+
+        with self.assertRaises(asyncssh.IllegalUserName):
+            self._parse_config('AuthorizedKeysFile %u', reload=True, user='')
 
     def test_reload(self):
         """Test update of match options"""
@@ -650,6 +923,30 @@ class _TestOptions(TempDirTestCase):
 
         self.assertEqual(options.keepalive_interval, 1)
         self.assertEqual(options.keepalive_count_max, 3)
+
+    def test_server_env_options(self):
+        """Test server environment options"""
+
+        with open('config', 'w') as f:
+            f.write('SetEnv A=1 B=2\n')
+
+        options = asyncssh.SSHServerConnectionOptions(config='config')
+        self.assertEqual(options.env, {b'A': b'1', b'B': b'2'})
+
+        options = asyncssh.SSHServerConnectionOptions(
+            env={'A': 'x', b'B\xff': b'\xfe', 'a': '\xe9'}, config='config')
+        self.assertEqual(options.env, {b'A': b'x', b'B\xff': b'\xfe',
+                                       b'a': b'\xc3\xa9'})
+
+        options = asyncssh.SSHServerConnectionOptions(env=None,
+                                                      config='config')
+        self.assertEqual(options.env, {})
+
+        options = asyncssh.SSHServerConnectionOptions()
+        self.assertEqual(options.env, {})
+
+        with self.assertRaises(ValueError):
+            asyncssh.SSHServerConnectionOptions(env=['XXX'])
 
     def test_server_options(self):
         """Test server connection options"""

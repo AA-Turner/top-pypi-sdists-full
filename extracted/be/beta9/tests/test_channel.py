@@ -249,6 +249,84 @@ def test_http_transport_preserves_vm_capability_from_gateway(supported):
         service._gateway.export_workspace_config.assert_called_once()
 
 
+def test_gateway_https_shares_one_verified_context(monkeypatch):
+    import ssl
+
+    import requests
+
+    client = GatewayHTTP("https://gateway.example", "workspace", "test-token")
+    adapter = client._session.get_adapter("https://gateway.example/")
+    assert adapter._context.verify_mode == ssl.CERT_REQUIRED and adapter._context.check_hostname
+    assert adapter.poolmanager.connection_pool_kw["ssl_context"] is adapter._context
+
+    calls = []
+    monkeypatch.setattr(
+        requests.adapters.HTTPAdapter, "send", lambda self, request, *args: calls.append(self)
+    )
+    request = requests.Request("GET", "https://gateway.example/x").prepare()
+    adapter.send(request)
+    adapter.send(request, verify=False)
+    adapter.send(request, verify="/custom/ca.pem")
+    adapter.send(request, cert=("client.pem", "client.key"))
+    adapter.send(request, proxies={"https": "http://proxy.example:3128"})
+    assert [sender is adapter for sender in calls] == [True, False, False, False, False]
+    client.close()
+
+
+def test_http_transport_is_resolved_once_per_profile():
+    from beta9.clients.gateway import ExportWorkspaceConfigResponse
+    from beta9.config import ConfigContext
+
+    gateway = Mock()
+    gateway.export_workspace_config.return_value = ExportWorkspaceConfigResponse(
+        workspace_id="workspace", gateway_http_host="gateway.example", gateway_http_port=443
+    )
+
+    def client(token="test-token"):
+        service = ServiceClient(ConfigContext(token=token))
+        service._gateway = gateway
+        return service
+
+    first, second, other = client(), client(), client("other-token")
+    with ThreadPoolExecutor(8) as pool:
+        resolved = list(pool.map(lambda service: service.http, [first, second] * 4))
+    assert all(http is first.http for http in resolved)
+    assert other.http is not first.http
+    assert gateway.export_workspace_config.call_count == 2
+
+    shared_session = first.http._session
+    shared_session.close = Mock()
+    first.close()
+    second.close()
+    shared_session.close.assert_not_called()
+    other.close()
+
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "fork"), reason="requires fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
+def test_forked_child_resolves_its_own_http_transport():
+    import os
+
+    from beta9 import channel
+    from beta9.clients.gateway import ExportWorkspaceConfigResponse
+    from beta9.config import ConfigContext
+
+    service = ServiceClient(ConfigContext(token="test-token"))
+    service._gateway = Mock()
+    service._gateway.export_workspace_config.return_value = ExportWorkspaceConfigResponse(
+        workspace_id="workspace", gateway_http_host="gateway.example", gateway_http_port=443
+    )
+    assert service.http and channel._shared_http
+
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0 if not channel._shared_http else 1)
+    _, status = os.waitpid(pid, 0)
+    assert os.waitstatus_to_exitcode(status) == 0
+    assert channel._shared_http
+    service.close()
+
+
 def test_direct_vm_transport_requires_api_for_another_gateway():
     from beta9.config import ConfigContext
 
@@ -259,8 +337,150 @@ def test_direct_vm_transport_requires_api_for_another_gateway():
             token="test-token", gateway_host="custom.example", api_url="https://custom.example/"
         )
     ) as service:
-        assert service.vm_http.base_url == "https://custom.example"
-        assert service.vm_http.workspace_id == "self"
+        assert service.vm_http is service.http
+        assert service.vm_http.url("/api/v1/vm/{ws}") == "https://custom.example/api/v1/vm/self"
+
+
+def test_vm_routes_need_no_workspace_discovery():
+    from beta9.clients.gateway import ExportWorkspaceConfigResponse
+    from beta9.config import ConfigContext
+
+    gateway = Mock()
+    gateway.export_workspace_config.return_value = ExportWorkspaceConfigResponse(
+        workspace_id="workspace", persistent_vms=True
+    )
+
+    def client():
+        service = ServiceClient(ConfigContext(token="test-token", api_url="https://api.example"))
+        service._gateway = gateway
+        return service
+
+    first, second = client(), client()
+    http = first.http
+    assert second.vm_http is http
+    assert http.url("/api/v1/vm/{ws}/vm-1") == "https://api.example/api/v1/vm/self/vm-1"
+    gateway.export_workspace_config.assert_not_called()
+
+    with ThreadPoolExecutor(8) as pool:
+        assert set(pool.map(lambda _: http.workspace_id, range(16))) == {"workspace"}
+    assert http.persistent_vms is True
+    assert http.url("/api/v1/vm/{ws}/vm-1") == "https://api.example/api/v1/vm/workspace/vm-1"
+    assert http.url("/api/v1/volume/{ws}") == "https://api.example/api/v1/volume/workspace"
+    gateway.export_workspace_config.assert_called_once()
+    first.close()
+    second.close()
+
+
+def test_other_routes_resolve_the_workspace_first():
+    from beta9.clients.gateway import ExportWorkspaceConfigResponse
+    from beta9.config import ConfigContext
+
+    with ServiceClient(ConfigContext(token="test-token", api_url="https://api.example")) as service:
+        service._gateway = Mock()
+        service._gateway.export_workspace_config.return_value = ExportWorkspaceConfigResponse(
+            workspace_id="workspace"
+        )
+        assert service.http.url("/api/v1/app/{ws}") == "https://api.example/api/v1/app/workspace"
+        service._gateway.export_workspace_config.assert_called_once()
+
+
+@pytest.mark.parametrize("status", [401, 404])
+def test_gateway_without_self_alias_is_retried_with_workspace(status):
+    from beta9.clients.gateway import ExportWorkspaceConfigResponse
+    from beta9.config import ConfigContext
+
+    paths = []
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers["Content-Length"]))
+            paths.append(self.path)
+            ok = "/self" not in self.path
+            body = b"{}" if ok else b'{"message":"Unauthorized"}'
+            self.send_response(200 if ok else status)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    api_url = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with ServiceClient(ConfigContext(token="test-token", api_url=api_url)) as service:
+            service._gateway = Mock()
+            service._gateway.export_workspace_config.return_value = ExportWorkspaceConfigResponse(
+                workspace_id="workspace"
+            )
+            assert service.http.json("POST", "/api/v1/vm/{ws}", json={"name": "a"}) == {}
+            assert service.http.json("POST", "/api/v1/vm/{ws}", json={"name": "b"}) == {}
+            assert paths == ["/api/v1/vm/self", "/api/v1/vm/workspace", "/api/v1/vm/workspace"]
+            service._gateway.export_workspace_config.assert_called_once()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_closed_client_drops_its_stubs():
+    from beta9.config import ConfigContext
+
+    service = ServiceClient(ConfigContext(token="test-token"))
+    service._channel = channel = Mock(shared=False)
+    service._gateway = Mock()
+    service.close()
+    channel.close.assert_called_once()
+    assert service._channel is None and service._gateway is None
+
+
+def test_clients_of_a_profile_share_one_grpc_channel():
+    from beta9.config import ConfigContext
+
+    def client(token="test-token"):
+        return ServiceClient(ConfigContext(token=token, gateway_host="gateway.example"))
+
+    clients = [client() for _ in range(8)]
+    with ThreadPoolExecutor(8) as pool:
+        channels = list(pool.map(lambda service: service.channel, clients))
+    assert all(channel is channels[0] for channel in channels)
+    other = client("other-token")
+    assert other.channel is not channels[0]
+
+    shared_close = channels[0].close
+    channels[0].close = Mock()
+    for service in clients:
+        service.close()
+    channels[0].close.assert_not_called()
+    assert client().channel is channels[0]
+    channels[0].close = shared_close
+    other.close()
+
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "fork"), reason="requires fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
+def test_forked_child_opens_its_own_grpc_channel(monkeypatch):
+    import os
+
+    from beta9 import channel
+    from beta9.config import ConfigContext
+
+    # Forking with a live gRPC channel stalls in gRPC's fork handlers.
+    monkeypatch.setattr(channel, "get_channel", lambda profile: Mock(shared=False))
+    service = ServiceClient(ConfigContext(token="test-token", gateway_host="gateway.example"))
+    assert service.channel and channel._shared_channels
+
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0 if not channel._shared_channels else 1)
+    _, status = os.waitpid(pid, 0)
+    assert os.waitstatus_to_exitcode(status) == 0
+    assert channel._shared_channels
+    service.close()
 
 
 class Unavailable(grpc.RpcError):
@@ -631,3 +851,14 @@ def test_function_result_cache_replays_identical_payload_with_deadline(monkeypat
     finally:
         channel.close()
         server.stop(0).wait()
+
+
+def test_gateway_http_mounts_64_connection_pool():
+    client = GatewayHTTP("https://gateway.example", "ws-1", "tok")
+    try:
+        for scheme in ("https://", "http://"):
+            adapter = client._session.get_adapter(scheme)
+            assert adapter._pool_connections == 64
+            assert adapter._pool_maxsize == 64
+    finally:
+        client.close()

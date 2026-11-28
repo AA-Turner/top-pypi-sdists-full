@@ -112,7 +112,10 @@ class _Search:
         for lanelet in sorted(
             self.features.map.laneletLayer, key=lambda ll: int(ll.id)
         ):
-            if not self.features.is_road(lanelet):
+            if not self.features.is_road(lanelet) or not self.features.routable(
+                lanelet
+            ):
+                # Not a road, or one the routing graph leaves out.
                 continue
             junction = self.features.is_junction(lanelet)
             if first.kind == "lane" and junction:
@@ -155,7 +158,9 @@ class _Search:
         return [
             ll
             for ll in self.features.following(path[-1])
-            if int(ll.id) not in on and self.features.is_road(ll)
+            if int(ll.id) not in on
+            and self.features.is_road(ll)
+            and self.features.routable(ll)
         ]
 
     def _extend_lane(

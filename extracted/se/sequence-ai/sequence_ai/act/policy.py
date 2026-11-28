@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import atexit
 import sys
+import math
 import threading
 import time
 import uuid
@@ -188,7 +189,8 @@ class Policy(_Waits):
         self._model = model
 
 
-        self._latency = LatencyStats(counters=["acts", "observations"], latencies=["act_us"])
+
+        self._latency = LatencyStats(counters=["acts", "observations"], latencies=["act_us", "worker_us", "network_us"])
 
 
         self._late = LateAnswers(on_run=self._report_run)
@@ -248,6 +250,7 @@ class Policy(_Waits):
 
         self._episode: str | None = None
         self._episode_lock = threading.Lock()
+
 
 
 
@@ -328,9 +331,9 @@ class Policy(_Waits):
             rep.record(metrics.to_report())
 
     def label(self, success: bool, notes: str = "", *, episode_id: str | None = None) -> str:
-        """Record how an episode went — the last act()'s, unless `episode_id` names another — with what this robot's
-        Record keeps (`seq robot set <name> record=on`), so `seq policy data export` carries it as that episode's success
-        label.
+        """Say how an episode went — the last act()'s, unless `episode_id` names another. The platform keeps nothing of
+        it: your recorder (`seq robot record <name>` or `sequence_ai.record()`, the robot's Record on: `seq robot set
+        <name> record=on`) gets it as a `label` item, and `seq data export` writes it as that episode's success label.
         Returns the episode id it labelled - after a reset, the new one it went on under (end_episode).
 
             policy.act(episode_id="e1")
@@ -446,9 +449,10 @@ class Policy(_Waits):
         billed from the moment its machine has its GPU, its start included.
 
         Poll it every few seconds - as `wait_until_ready()` does (`poll_s`, 5 s). Each poll is one request on your key's
-        requests a minute (600 on Starter, 2,400 on Team), which every robot on the key shares, with its connects and
-        keepalives; acts go to the worker and do not count. A robot polling every 0.5 s spends 120 of them a minute:
-        five such robots fill Starter's, and the key's requests are refused (429) until the minute rolls on.
+        requests a minute (600 on Starter; the other plans: https://generalsequences.com/pricing/), which every robot on
+        the key shares, with its connects and keepalives; acts go to the worker and do not count. A robot polling every
+        0.5 s spends 120 of them a minute: five such robots fill Starter's, and the key's requests are refused (429)
+        until the minute rolls on.
 
         `eta_seconds` counts down to when the worker coming up is expected to serve, by what it is
         doing, from the deployment's own measured start; a typical cold
@@ -858,8 +862,11 @@ class Policy(_Waits):
         return body.get("outputs")
 
     def stats(self) -> dict:
-        """The acts and observations so far, and each act's time from its call to its answer - its p50, p95 and p99 once
-        there are enough (latency_us.act_us). Connected by lines (connect(lines=)), "lines" too: each line's interface,
+        """The acts and observations so far, and each act's time from its call to its answer (latency_us.act_us) - and,
+        where its worker says its own time, that time (latency_us.worker_us, its answer's handler_ms) and the rest of
+        the round trip (latency_us.network_us: the network both ways, and this machine) - each with its p50, p95 and p99
+        once there are enough. A wait before an act's answered try - a worker starting, a line - is in act_us alone.
+        Connected by lines (connect(lines=)), "lines" too: each line's interface,
         whether it is open, the acts sent on it, how many it answered first, its failed requests, and how much later
         than the first its other answers came (lines_stream.LinesStream.stats)."""
         out = self._latency.snapshot()
@@ -936,6 +943,17 @@ class Policy(_Waits):
         (_predict_raw)."""
         self._last_perf = body.get("perf") if isinstance(body.get("perf"), dict) else {}
 
+    def _split(self, metrics: CallMetrics) -> None:
+        """An answered act's time split for stats(): its worker's own (its answer's handler_ms, from the act's last byte
+        to its answer) and the rest of that try's round trip - the network both ways, and this machine - where the
+        worker says its time as a number of 0 or more; a try before it, and the wait for it, are in neither."""
+        handler = metrics.perf.get("handler_ms") if isinstance(metrics.perf, dict) else None
+        if (metrics.total_ms is None or isinstance(handler, bool) or not isinstance(handler, (int, float))
+                or not math.isfinite(handler) or handler < 0):
+            return
+        self._latency.sample("worker_us", handler * 1000.0)
+        self._latency.sample("network_us", max(0.0, metrics.total_ms - handler) * 1000.0)
+
     def _note_outside(self, metrics: CallMetrics) -> None:
         """What an act its worker answered spent outside the worker - its time here less the worker's handler_ms - into
         its connection's window, which each next act tells the worker (X-Seq-Outside-Ms): the worker holds an act for
@@ -999,6 +1017,7 @@ class Policy(_Waits):
                                   left_ms=metrics.chunk_left_ms)
                 metrics.finalize()
                 self._note_outside(metrics)
+                self._split(metrics)
 
 
 

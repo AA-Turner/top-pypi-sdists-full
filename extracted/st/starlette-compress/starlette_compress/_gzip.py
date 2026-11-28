@@ -4,6 +4,10 @@ import gzip
 import zlib
 
 from starlette_compress._responder import CompressionResponder
+from starlette_compress._utils import (
+    DEFAULT_CONTENT_TYPES,
+    DEFAULT_STREAMING_CONTENT_TYPES,
+)
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -16,7 +20,7 @@ class _GzipStreamEncoder:
     __slots__ = ('_obj',)
 
     def __init__(self, level: int) -> None:
-        self._obj = zlib.compressobj(level, zlib.DEFLATED, 31)
+        self._obj = zlib.compressobj(level, zlib.DEFLATED, zlib.MAX_WBITS | 16)
 
     def feed(self, data: bytes, flush: bool) -> Iterable[bytes]:
         out = self._obj.compress(data)
@@ -32,11 +36,26 @@ class _GzipStreamEncoder:
 class GZipResponder(CompressionResponder):
     __slots__ = ()
 
-    def __init__(self, app: ASGIApp, minimum_size: int, level: int) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        minimum_size: int,
+        level: int,
+        content_types: frozenset[str] = DEFAULT_CONTENT_TYPES,
+        streaming_content_types: frozenset[str] = DEFAULT_STREAMING_CONTENT_TYPES,
+    ) -> None:
         def oneshot(body: bytes) -> bytes:
             return gzip.compress(body, compresslevel=level)
 
         def create_encoder(content_length: int) -> _GzipStreamEncoder:
             return _GzipStreamEncoder(level)
 
-        super().__init__(app, minimum_size, 'gzip', oneshot, create_encoder)
+        super().__init__(
+            app,
+            minimum_size,
+            'gzip',
+            oneshot,
+            create_encoder,
+            content_types,
+            streaming_content_types,
+        )

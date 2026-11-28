@@ -1,12 +1,13 @@
 """Integration tests for runs CRUD operations"""
 
-from typing import Any
+from typing import Any, get_args
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from aegra_api.core.orm import Run as RunORM
+from aegra_api.models.runs import RunSelectField
 from tests.fixtures.clients import create_test_app, make_client
 from tests.fixtures.database import DummyScalarResult, DummySessionBase
 from tests.fixtures.session_fixtures import BasicSession, override_session_dependency
@@ -590,6 +591,53 @@ class TestRunWithInput:
 
         # Should not be a validation error
         assert resp.status_code != 422
+
+
+class TestListRunsSelect:
+    """GET /threads/{thread_id}/runs?select=..."""
+
+    def _client(self) -> TestClient:
+        app = create_test_app(include_runs=True, include_threads=False)
+        runs = [_run_row("run-1", status="success", output_data={"messages": ["big"]})]
+
+        class Session(DummySessionBase):
+            async def scalars(self, _stmt: Any) -> Any:
+                class Result:
+                    def all(self) -> list[Any]:
+                        return runs
+
+                return Result()
+
+        override_session_dependency(app, Session)
+        return make_client(app)
+
+    def test_select_returns_only_the_requested_fields(self) -> None:
+        resp = self._client().get("/threads/test-thread-123/runs?select=run_id&select=status")
+
+        assert resp.status_code == 200
+        assert resp.json() == [{"run_id": "run-1", "status": "success"}]
+
+    def test_without_select_rows_keep_every_field(self) -> None:
+        resp = self._client().get("/threads/test-thread-123/runs")
+
+        assert resp.status_code == 200
+        assert resp.json()[0]["output"] == {"messages": ["big"]}
+
+    @pytest.mark.parametrize("field", ["kwargs", "metadata", "not_a_field", ""])
+    def test_unknown_select_field_returns_422(self, field: str) -> None:
+        resp = self._client().get(f"/threads/test-thread-123/runs?select=run_id&select={field}")
+
+        assert resp.status_code == 422
+
+    def test_list_schema_requires_no_field_but_run_keeps_its_required_fields(self) -> None:
+        schema = self._client().get("/openapi.json").json()
+
+        ok = schema["paths"]["/threads/{thread_id}/runs"]["get"]["responses"]["200"]
+        item_ref = ok["content"]["application/json"]["schema"]["items"]["$ref"]
+        item = schema["components"]["schemas"][item_ref.rsplit("/", 1)[-1]]
+        assert "required" not in item
+        assert set(item["properties"]) == set(get_args(RunSelectField))
+        assert {"run_id", "thread_id"} <= set(schema["components"]["schemas"]["Run"]["required"])
 
 
 class TestRunStatuses:

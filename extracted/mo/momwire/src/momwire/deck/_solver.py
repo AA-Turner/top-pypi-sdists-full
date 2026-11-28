@@ -1,0 +1,1483 @@
+"""``build_solver`` — a parsed deck, on a momwire solver.
+
+This is the deck front end's last step and its only public verb besides
+:func:`~momwire.deck.parse`.  It takes a :class:`~momwire.deck.model.DeckModel`
+and one choice — which basis to solve in — and returns a constructed solver
+plus the :class:`PortPlan` that says what its ports MEAN.
+
+**Why a plan and not just a solver.**  A solver's ports are its own: gap feeds
+in the order the structure met them, then junction ports, then node ports.  A
+deck's ports are the deck's: ``EX`` cards in discovery order, then ``LD``
+cards.  Neither ordering can be imposed on the other without lying to
+somebody — the solver's comes out of the mesh, the deck's out of the card
+sequence, and a load stamped on a driven segment is ONE solver port answering
+to two deck cards.  So the plan is the bridge, and it carries the three things
+a consumer cannot recover from the solver alone: which port is which model
+feed or load, what each load's :class:`~momwire.deck.model.LoadSpec` is, and
+the drive vector each execute group applies over the port set.
+
+**What stays out.**  Stamping a load is port algebra — ``V_gap = (1 + Z·Y)⁻¹
+V_source``, an impedance in the port's own current path — and it belongs to
+whoever owns the answer, not to the deck reader.  ``momwire.deck`` puts the
+load's gap in the matrix (a zero-voltage, zero-impedance port is a shorted gap
+and costs nothing) and hands the ``LoadSpec`` over.  A consumer that wants
+NEC's loaded impedance stamps it; a consumer that wants the bare structure
+ignores it; neither has to re-derive where the gap went.
+
+**One exception: razor.**  ``RazorSolver`` (momwire#432) refuses the
+port-algebra route's zero-volt gap and serves a load through its own
+``lumped_loads`` kwarg instead, so for that one family ``build_solver`` bakes
+the ``LoadSpec`` into the fill itself rather than leaving it on the plan for
+a consumer to stamp — :attr:`PortPlan.loaded_ports` still names the site (the
+plan does not change shape by basis), but nothing further needs doing with
+it when the basis is ``"razor2p"``.
+
+**One geometry, every group.**  The port set is the union over every execute
+group, so a deck with two ``XQ`` cards under two different ``EX`` sets is one
+fill and two drive vectors — :attr:`PortPlan.voltages` is those vectors.  Only
+the frequency, the extended-kernel flag and the environment can force a second
+solver, which is why all three are :func:`build_solver` arguments rather than
+plan entries.
+
+**Translate once, fill many times.**  Nothing above depends on the operating
+point: the port set, the chaining into polylines and the plan's numbering are
+the STRUCTURE's, and a sweep rebuilds them at every step for nothing.
+:func:`prepare_mesh` freezes them into a :class:`PreparedMesh` that
+``build_solver(model, mesh=…)`` replays, handing every solver the same
+polyline arrays rather than a fresh rounding of the same walk.
+"""
+
+from __future__ import annotations
+
+import inspect
+import os
+import warnings
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
+from types import MappingProxyType
+from typing import Any
+
+import numpy as np
+
+from .._basis_names import canonical_basis, retired_refusal
+from .._below_interface import ExtendedKernelAboveGround
+from .._constants import C_LIGHT
+from .._ground_spec import ground_touch_tol
+from .._identity_memo import freeze
+from ..array_block import ArrayBlockSolver
+from ..bspline import BSplineSolver
+from ..harrington import HarringtonSolver
+from ..hmatrix import HMatrixSolver
+from ..razor import RazorSolver
+from ..sinusoidal import SinusoidalSolver
+from ..sinusoidal_galerkin import SinusoidalGalerkinSolver
+from ._networks import network_endpoints
+from ._polylines import Mesh, to_polylines
+from .model import DeckModel, Environment, LoadSpec
+
+__all__ = [
+    "ExtendedKernelAboveGround",
+    "ExtendedKernelDefault",
+    "extended_kernel_partial",
+    "extended_kernel_default_refusal",
+    "BuiltSolver",
+    "PortPlan",
+    "PortSite",
+    "PreparedMesh",
+    "build_solver",
+    "construct_solver",
+    "prepare_mesh",
+    "BASES",
+]
+
+_C_LIGHT = C_LIGHT  # momwire#456: one owner, in `momwire._constants`
+
+# The basis roster: six solver FAMILIES, eight entries, the extra two a
+# degree and a quadrature rule rather than new code paths.  It was nine until momwire#654 collapsed the two
+# Galerkin spellings into one — the third extra was a FEED MODEL, and a menu
+# with two spellings of one dish is what that issue was about.  "bs2" is
+# the degree-2 B-spline — the default here as it is there.
+#
+# Canonical names only (momwire#2091): the spellings that shipped before it
+# (`bspline`, `bspline-d1`, `sinusoidal-galerkin`, `razor-2p`)
+# are `momwire._basis_names.BASIS_ALIASES`, which :func:`basis_entry` and
+# every front end resolve at entry, so a name read from this mapping is
+# never an alias.
+#
+# `razor2p` (momwire#432) is RazorSolver — the tent basis with razor-blade
+# testing, the formulation NEC-5 identifies with; the measurements retreated
+# from calling it a twin (momwire#785) — see ``docs/razor-solver.md``. It is
+# `nec5_quadrature=True` on that class (momwire#316), the same "one class,
+# one extra kwarg" shape `bs1` set for a degree axis. Plain `razor` —
+# the Gauss-Legendre testing-path lane of the same class — retired from this
+# roster at momwire#753; it is still reached by constructing
+# `RazorSolver(...)` directly, whose `nec5_quadrature` kwarg defaults to
+# `False`. RazorSolver's translation differs from every sibling's in two ways
+# both dialect front ends have to know about (`port_kwargs`): it is given no
+# `junctions` spec, and it serves a lumped load as its own `lumped_loads`
+# kwarg rather than as a deck-level port-algebra site, which is why it is
+# keyed by CLASS in `_NATIVE_LOADING` rather than threaded through
+# `basis_kwargs` here — a future razor variant inherits the translation for
+# free.
+BASES = MappingProxyType(
+    {
+        # bs2 asks for the exact ring kernel where a segment is fat for its
+        # length (momwire#1428): "auto" resolves True only when some segment
+        # has h/a < `EXACT_KERNEL_AUTO_H_OVER_A` (3, `_exact_kernel_seam`), so every
+        # mesh above that builds the call it always did, bit for bit. It is
+        # bound HERE, on the roster name, so every front end that reads
+        # `bs2` -- the NEC-5 and NEC-4.2 seams (`momwire.dropin.nec5`, SimNEC's
+        # and EZNEC's `momwire-nec5-bs2`), the nec2 portal and
+        # `build_solver` -- solves the deck antennaknobs' bs2 solves
+        # (antennaknobs#1965 passes "auto" there by default). Not on
+        # `bs1`, whose degree the exact kernel was never gated at, nor
+        # on the H-matrix / array-block subclasses, which do not serve it.
+        "bs2": (BSplineSolver, MappingProxyType({"exact_kernel": "auto"})),
+        "bs1": (BSplineSolver, MappingProxyType({"degree": 1})),
+        "hmatrix": (HMatrixSolver, MappingProxyType({})),
+        "arrayblock": (ArrayBlockSolver, MappingProxyType({})),
+        "sinusoidal": (SinusoidalSolver, MappingProxyType({})),
+        # ONE Galerkin name (momwire#654). It used to be two, differing only
+        # in `feed_model`, which is a choice a portal user has no way to make
+        # and no reason to be handed: the point gap is better on every axis
+        # that was measured, and it is now this class's default, so the plain
+        # name binds nothing and means it. The flag survives for the callers
+        # who genuinely choose — antennaknobs' web panel renders it, and the
+        # payoff gates name `"segment"` as their matched control — but a
+        # roster entry is a menu item, and this menu had two spellings of one
+        # dish with no way to tell them apart from the outside.
+        "sg": (SinusoidalGalerkinSolver, MappingProxyType({})),
+        # `razor2p` takes NEC-5's identified two-point trapezoid at the wing
+        # centroids (momwire#316); `_path_nodes_per_wing` names the rule. The
+        # other lane `RazorSolver` can take — `n_qp_path` Gauss-Legendre
+        # nodes per wing along the same testing path — was this roster's
+        # plain `razor` entry until momwire#753 retired it: the SAME class
+        # differing only in that sampling choice, measured at 20x the wall
+        # time (20.2 s vs 0.97 s at N=1600 free space) for a 0.001 ohm
+        # difference from `razor2p` — not worth ordering, on momwire#654's
+        # rule that a roster entry is a menu item. It stays reachable for
+        # convergence and certification work by constructing
+        # `RazorSolver(...)` directly, whose `nec5_quadrature` kwarg
+        # defaults to `False`.
+        #
+        # It binds `exact_kernel="auto"` (momwire#1433), on the
+        # bs2 entry's terms: it engages only where some segment is under 3
+        # radii, so every mesh above that builds the call it always did, bit
+        # for bit. Below it, razor2p's extended kernel leaves NEC-5's ladder
+        # (#1378, #1422), and the exact ring kernel puts it back on it: on
+        # Dan's tapered dipole at 2000 segs/lambda razor2p reads X 0.355 ohm
+        # from NEC-5 and razor2p exact 0.036 (scratch/1433, the PR's tables).
+        "razor2p": (
+            RazorSolver,
+            MappingProxyType({"nec5_quadrature": True, "exact_kernel": "auto"}),
+        ),
+        # The pulse family, and ONE name for it (momwire#564), on momwire#654's
+        # rule: a roster entry is a menu item, so it should be the dish worth
+        # ordering. `HarringtonSolver` and `PulseSolver` are the same basis and
+        # the same testing differing in one ingredient — where the charge
+        # lives — and that ingredient is the whole difference between O(1/N)
+        # convergence and an error governed by Delta/a. `PulseSolver`'s own
+        # docstring says "reach for HarringtonSolver for anything but that
+        # study"; a portal user picking from a dialog is not doing the study,
+        # and has no way to say which they meant. The pair stays reachable as
+        # a library import, which is where the study lives.
+        "pulse": (HarringtonSolver, MappingProxyType({})),
+    }
+)
+
+# The subset of `BASES` the `nec2` dialect serves (momwire#821).
+#
+# `Nec2Structure.resolve` addresses segment CENTRES — every `EX` card names
+# ``(element + 0.5) * length / n_seg`` — and the parser refuses a deck with no
+# `EX` card at all, so every nec2 deck that reaches `build_solver` carries a
+# centre-named feed. A family whose `capabilities.centre_feeds` is False
+# cannot place a gap there: `RazorSolver._snap_to_knot` moves it half a cell,
+# silently, and momwire#673 declared the cell so that #821 could refuse on it.
+# `build_solver` raises for such a family whenever ``model.feeds`` is
+# non-empty, which for this dialect is always; this mapping is the same fact
+# read at CONFIGURE time, so the nec2 portal and its thin client can refuse
+# the name at the `-version` probe rather than on every deck. The NEC-5
+# dialect addresses nodes and reads `BASES` itself — razor is served there.
+NEC2_BASES = MappingProxyType(
+    {name: entry for name, entry in BASES.items() if entry[0].capabilities.centre_feeds}
+)
+
+# Solver classes that take a lumped load as their own kwarg instead of the
+# deck-level port-algebra route every other family shares (momwire#432).
+# `build_solver` reads this to decide how to spell `feeds` / a load's
+# translation; nothing else in the ROSTER keys off it.
+#
+# One consumer outside this module: the portal's power budget (momwire#433).
+# "the fill already carries Z_L" and "the port algebra must not stamp Z_L" are
+# the same fact asked from two directions, so the budget reads this tuple
+# rather than keeping its own list of which bases load natively — a second
+# list is a second thing to forget when a family is added here.
+_NATIVE_LOADING = (RazorSolver,)
+
+
+class ExtendedKernelDefault(UserWarning):
+    """A dialect's default extended kernel fell back to the reduced kernel
+    (momwire#1326), or was served on part of the deck only (momwire#1170
+    stage 0: a B-spline basis extends the above-ground pairs of a deck with
+    buried wires and keeps the reduced kernel on the buried ones).
+
+    NEC-4 and NEC-5 decks solve with the extended kernel by default, because
+    both engines' thin-wire models behave as EK-on (NEC-5 has no ``EK`` card;
+    NEC-4.2 prints that its ``EK`` card has no effect).  Where the basis or
+    the deck cannot take it — a basis without the kernel, singular
+    enrichment, a wire below the ground plane, a radius step at a junction —
+    the solve uses the reduced kernel and says so with this warning, rather
+    than refusing a deck for a choice the deck never made.
+    """
+
+
+def extended_kernel_default_refusal(
+    solver_class: type,
+    basis_kwargs: Mapping[str, Any],
+    polylines: Sequence[Any],
+    radii: Sequence[float],
+    junctions: Sequence[Sequence[tuple[int, str]]],
+    ground_z: float | None,
+) -> str | None:
+    """Why ``solver_class`` cannot take the extended kernel AS A DEFAULT on
+    this geometry, in the solver's own declared words, or ``None``.
+
+    Asked before construction rather than caught from it, because two of the
+    refusals fire inside the fill (a buried wire) or not at all on some
+    families: the declaration is the one place every family states them
+    (`Capabilities.refusal`).  The same four cases antennaknobs asks of its
+    own engine (antennaknobs#1891): the basis itself, singular enrichment, a
+    wire below the ground plane, and a radius step at a junction.
+    """
+    caps = solver_class.capabilities
+    reason = caps.refusal("extended_kernel")
+    if reason is None and basis_kwargs.get("use_singular_enrichment"):
+        reason = caps.refusal("extended_kernel", "singular_enrichment")
+    if reason is None and _wires_below(polylines, ground_z):
+        reason = caps.refusal("buried", "extended_kernel")
+    if reason is None and len(set(radii)) > 1:
+        if any(len({radii[w] for w, _end in members}) > 1 for members in junctions):
+            reason = caps.refusal("extended_kernel", "stepped_radius_junction")
+    return reason
+
+
+def _wires_below(polylines: Sequence[Any], ground_z: float | None) -> list[int]:
+    """Indices of the polylines with a point below the ground plane, by the
+    rule :func:`extended_kernel_default_refusal` asks its buried question."""
+    if ground_z is None:
+        return []
+    return [
+        i
+        for i, pl in enumerate(polylines)
+        if float(np.asarray(pl, dtype=float)[:, 2].min())
+        < ground_z - ground_touch_tol(np.asarray(pl, dtype=float))
+    ]
+
+
+def extended_kernel_partial(
+    solver_class: type, polylines: Sequence[Any], ground_z: float | None
+) -> tuple[str, list[int]] | None:
+    """``(declared sentence, buried wire indices)`` when ``solver_class``
+    serves the extended kernel on this geometry IN PART, else ``None``
+    (momwire#1170 stage 0).
+
+    The one such case: a deck with wires below the ground plane on a family
+    that declares ``partials["buried+extended_kernel"]``.  The extended
+    kernel then acts on the above-ground pairs and the buried wires keep the
+    reduced kernel, and the front end says so instead of falling back.
+    """
+    declared = solver_class.capabilities.partials.get("buried+extended_kernel")
+    if declared is None:
+        return None
+    below = _wires_below(polylines, ground_z)
+    return (declared, below) if below else None
+
+
+def _warn_kernel_partial(
+    basis: str,
+    below: Sequence[int],
+    n_wires: int,
+    *,
+    default: bool,
+    stacklevel: int = 3,
+) -> str:
+    asked = (
+        "this deck's dialect solves with the extended kernel by default"
+        if default
+        else "this deck asks for the extended kernel"
+    )
+    message = (
+        f"basis {basis!r}: {asked}, and it has wires below the ground plane. "
+        f"The above-ground wires solved with the extended kernel; the "
+        f"{len(below)} of {n_wires} wires below the plane kept the reduced "
+        f"kernel, on every pair that touches them, because the extended "
+        f"kernel is not derived for the lower medium yet (momwire#1170)"
+    )
+    warnings.warn(
+        message,
+        ExtendedKernelDefault if default else ExtendedKernelAboveGround,
+        stacklevel=stacklevel,
+    )
+    return message
+
+
+def _warn_kernel_fallback(basis: str, reason: str, stacklevel: int = 3) -> str:
+    message = (
+        f"basis {basis!r}: this deck's dialect solves with the extended kernel "
+        f"by default, which this basis cannot serve here, so it solved with "
+        f"the reduced kernel: {reason} (momwire#1326)"
+    )
+    warnings.warn(message, ExtendedKernelDefault, stacklevel=stacklevel)
+    return message
+
+
+# momwire#1644: the junction rule a deck's point-matched sinusoidal solve
+# takes is its dialect's default (`DeckModel.junction_rule`: "nec42" on the
+# nec4 dialect, "nec2" on every other) unless this variable names one. It is
+# the one channel every launcher shares -- EZNEC's NEC-4.2 slot passes two
+# file names and nothing else -- so the NEC-2 launchers, the NEC-4.2 ones and
+# the C++ `momwire-nec42-sinusoidal` all read it; the thin clients carry it in
+# their warm server's identity, so a server started under one rule never
+# answers for the other.
+JUNCTION_RULE_ENV = "MOMWIRE_JUNCTION_RULE"
+JUNCTION_RULES = ("nec2", "nec42")
+
+
+def junction_rule(model: DeckModel) -> str:
+    """The junction rule a deck's point-matched sinusoidal solve takes: the
+    `MOMWIRE_JUNCTION_RULE` override when it is set, else the dialect's
+    default. An unknown value is a ValueError naming the variable."""
+    value = os.environ.get(JUNCTION_RULE_ENV)
+    if value is None or value == "":
+        return model.junction_rule
+    if value not in JUNCTION_RULES:
+        raise ValueError(
+            f"{JUNCTION_RULE_ENV}={value!r} names no junction rule; "
+            f"known rules: {', '.join(repr(r) for r in JUNCTION_RULES)} "
+            "(momwire#1644)"
+        )
+    return value
+
+
+def basis_entry(basis: str) -> tuple[type, Mapping[str, Any]]:
+    """:data:`BASES`\\ ``[basis]``, or a ``ValueError`` that lists what is known.
+
+    Both dialect front ends resolve a ``--basis`` name and both owe the same
+    sentence when it is not one; this is that one place (momwire#603 U3).
+    A deprecated spelling (`BASIS_ALIASES`) answers as its canonical name,
+    with a ``DeprecationWarning`` at the caller's caller (momwire#2091); a
+    retired one (`RETIRED_BASES`) is a ``ValueError`` saying what to use.
+    """
+    retired = retired_refusal(basis)
+    if retired is not None:
+        raise ValueError(retired)
+    try:
+        return BASES[canonical_basis(basis, stacklevel=3)]
+    except KeyError:
+        known = ", ".join(repr(name) for name in BASES)
+        raise ValueError(f"unknown basis {basis!r}; known bases: {known}") from None
+
+
+def basis_from_program_name(
+    prog: str, marker: str, *, consumed: str | None = None
+) -> str | None:
+    """The basis a copy/symlink NAME selects, or ``None`` when it names none.
+
+    ``<anything><marker><basis>`` — everything after ``marker`` in the
+    program's basename, with a Windows ``.exe`` stripped first.  ``None`` —
+    "this name asks for nothing, serve the default" — is returned for a name
+    without the marker at all: ``python -m momwire.dropin.nec2c``, a pytest runner,
+    a bare ``momwire-nec2c``.
+
+    ``consumed`` is a program's own trailing segment (``"engine"`` for the
+    frozen ``momwire-eznec-engine``), swallowed when it is the whole suffix
+    and stripped when it leads one, so the program's plain name selects
+    nothing and a renamed copy still names its basis.  The thin clients'
+    stdlib-only copy (`momwire_serve_client.filename_basis`) spelt this
+    first, for ``momwire-nec2c-shared``; one rule, restated at the owner.
+
+    CASEFOLDED, marker and suffix together, because the names this reads are
+    Windows FILENAMES: ``Momwire-Eznec-Razor-Nec5.exe`` is the same file as
+    the lowercase spelling there, both front ends invite the user to copy and
+    rename, and a marker that only matched one casing would hand that copy
+    ``None`` and serve the default under a name that asked for the twin —
+    momwire#628's failure reached by a rename.  ``marker`` must therefore be
+    given casefolded; every basis in :data:`BASES` is lowercase already.
+
+    A name ending AT the marker (``momwire-eznec-``) returns the empty string,
+    not ``None``: it asked for a basis and supplied none, which is a typo to
+    be refused by name, not a request for the default.  ``basis_entry`` is
+    what says so, at each front end's own refusal channel.
+
+    Validation is deliberately NOT done here.  The two front ends fail an
+    unknown suffix in different places — the nec2c side at its `-version`
+    probe, the EZNEC side as a printed refusal, because EZNEC reads the file
+    and nothing else — and both want the sentence :func:`basis_entry` gives.
+
+    One owner because there are now two markers (momwire#528 spelled
+    ``nec2c-``, momwire#593 adds ``eznec-``) and the rule is not "what does
+    each front end feel like doing", it is one rule about executable names.
+    A second copy is the thing that drifts: momwire#628 was a basis resolved
+    by one route and keyed by another, and the symptom was an engine silently
+    answering as a formulation nobody asked for.
+    """
+    name = prog.replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    if name.endswith(".exe"):
+        name = name[:-4]
+    if marker not in name:
+        return None
+    suffix = name.split(marker, 1)[1]
+    if consumed is not None:
+        if suffix == consumed:
+            return None
+        if suffix.startswith(f"{consumed}-"):
+            suffix = suffix[len(consumed) + 1 :]
+    return suffix
+
+
+# The program-name marker that selects the nec4 dialect (momwire#1295): EZNEC's
+# External NEC-4.2 slot passes two file paths and nothing else, so the
+# executable's NAME is the only signal, as it already is for the basis.
+NEC4_MARKER = "nec4"
+
+# The marker the shipped launchers carry (momwire#1443): SimNEC recognises an
+# engine by `nec42` in its path, so `momwire-nec42[-<basis>]` is the name, and
+# the basis is read past `nec42` when the name carries it.  A name carrying
+# only `nec4` (a renamed copy) still reads past `nec4`, as it did before.
+NEC42_MARKER = "nec42"
+
+# The marker of the NEC-2 engines (momwire#2059): `momwire-nec2c[-<basis>]`,
+# the pip console scripts' names, which SimNEC recognises by `nec2c` in the
+# engine path.  The basis is read past `nec2c-`, by the rule
+# `momwire.dropin.nec2c` reads it (`basis_from_program_name(prog, "nec2c-")`).
+NEC2C_MARKER = "nec2c"
+
+# The marker of the NEC-2D engines (momwire#2138): `momwire-nec2d[-<basis>]`,
+# the same NEC-2 deck dialect and solve as `nec2c`, printing LLNL's Fortran
+# NEC-2 (NEC-2D) layout that 4nec2's `nec2dxs` engines write.  `nec2d` does
+# not contain `nec2c`, so SimNEC never takes one for its NEC-2 engine.
+NEC2D_MARKER = "nec2d"
+
+
+def _program_stem(prog: str) -> str:
+    """``prog``'s basename, casefolded, a Windows ``.exe`` stripped — the
+    name :func:`basis_from_program_name` reads, for the same reasons."""
+    name = prog.replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    return name[:-4] if name.endswith(".exe") else name
+
+
+def dialect_from_program_name(prog: str) -> str:
+    """``"nec2"`` when the program's name carries :data:`NEC2C_MARKER` or
+    :data:`NEC2D_MARKER` (momwire#2138: the NEC-2D launchers read NEC-2 decks
+    and differ only in the printout), else ``"nec4"`` when it carries
+    :data:`NEC4_MARKER`, else ``"nec5"``.
+
+    A substring test, casefolded, so a renamed copy (``My-NEC4-engine.exe``)
+    still answers the slot its name claims; the NEC-5 names
+    (``momwire-eznec*``, ``momwire-nec5*``) can never carry either marker.
+
+    ``nec2c`` is read FIRST, in SimNEC's own order (``nec2c``, then ``nec5``,
+    momwire#1239): a name carrying it is the NEC-2 engine whatever else it
+    carries (momwire#2059).  Before that marker existed a copy of the frozen
+    engine named ``momwire-nec2c-sinusoidal.exe`` answered as NEC-5, which is
+    momwire#628's failure reached by a rename.
+    """
+    stem = _program_stem(prog)
+    if NEC2C_MARKER in stem or NEC2D_MARKER in stem:
+        return "nec2"
+    return "nec4" if NEC4_MARKER in stem else "nec5"
+
+
+def nec2_layout_from_program_name(prog: str) -> str:
+    """The printout layout a NEC-2 program name selects (momwire#2138):
+    ``"nec2d"`` when it carries :data:`NEC2D_MARKER` and not
+    :data:`NEC2C_MARKER`, else ``"nec2c"``.
+
+    ``nec2c`` wins a name carrying both, as it wins every other marker
+    (:func:`dialect_from_program_name`): SimNEC picks its NEC-2 engine by
+    that substring, and the printout SimNEC reads is the nec2c one.  A name
+    carrying neither (``python -m momwire.dropin.nec2c``) is the nec2c one,
+    as it always was.
+    """
+    stem = _program_stem(prog)
+    if NEC2D_MARKER in stem and NEC2C_MARKER not in stem:
+        return "nec2d"
+    return "nec2c"
+
+
+def nec4_basis_from_program_name(prog: str) -> str | None:
+    """The basis a nec4 program name selects, or ``None`` for the default.
+
+    The marker is :data:`NEC42_MARKER` when the name carries it, else
+    :data:`NEC4_MARKER` (momwire#1443).  ``<anything>nec42`` ends the name:
+    the default.  ``<anything>nec42-<basis>`` names ``<basis>``, and
+    ``<anything>nec42-`` names the empty basis, which
+    :func:`basis_from_program_name` already treats as a typo to refuse rather
+    than as the default.  Any other continuation is returned whole as the
+    suffix — ``momwire-nec42x`` names the basis ``"x"`` — so it reaches the
+    refusal by name: an unknown suffix never falls back silently (momwire#628).
+    A name carrying ``nec4`` but not ``nec42`` reads the same way past
+    ``nec4``.  A name without either marker returns ``None``; the caller has
+    already decided the dialect with :func:`dialect_from_program_name`.
+    """
+    name = _program_stem(prog)
+    if NEC4_MARKER not in name:
+        return None
+    marker = NEC42_MARKER if NEC42_MARKER in name else NEC4_MARKER
+    rest = name.split(marker, 1)[1]
+    if rest == "":
+        return None
+    return rest[1:] if rest.startswith("-") else rest
+
+
+def port_kwargs(
+    solver_class: type,
+    *,
+    junctions: Any = None,
+    node_gaps: Any = None,
+    lumped_loads: Any = None,
+) -> dict[str, Any]:
+    """The port and topology kwargs ``solver_class`` takes, and only those.
+
+    One owner for a rule the nec2 front end and the NEC-5 one both need and
+    neither should keep a copy of (momwire#603 U3).  Every entry is a refusal
+    by PRESENCE and not by value — ``HarringtonSolver`` raises
+    ``NotImplementedError`` on a ``node_gaps=`` it was handed even when what
+    it was handed is ``None``, and ``SinusoidalSolver`` answers the same
+    spelling with a ``TypeError`` — so what this decides is which KEYS exist,
+    never what they hold.  ``RazorSolver`` was the example here until
+    momwire#603 gave it the node port; it declares ``node_gaps`` now and
+    takes ``None`` without complaint.
+
+    ``junctions`` is withheld from a :data:`_NATIVE_LOADING` family, and the
+    reason is not that the constructor cannot take one: razor and harrington
+    have both accepted a spec since momwire#590 step 3b — razor as a declared
+    parameter, harrington by intercepting it out of ``**kwargs``.  It is that
+    a DECLARED spec replaces geometric detection wholesale, and neither front
+    end's list is the whole truth about the geometry.  Both filter to groups
+    of two or more ends — ``_polylines`` at its ``len(ends) >= 2``, the NEC-5
+    seam at its own — so both leave out the one-member group at a LONE
+    GROUNDED wire end, which detection keeps as that end's own contact tent.
+    Hand either list over and a base-fed monopole silently loses its ground.
+    """
+    kwargs: dict[str, Any] = {}
+    if node_gaps:
+        kwargs["node_gaps"] = node_gaps
+    if lumped_loads:
+        kwargs["lumped_loads"] = lumped_loads
+    if not issubclass(solver_class, _NATIVE_LOADING):
+        kwargs["junctions"] = junctions or None
+    return kwargs
+
+
+@dataclass(frozen=True)
+class PortSite:
+    """One gap in the structure, and what the deck put there.
+
+    A site is a POSITION, not a card: a load stamped on a driven segment
+    shares its feed's site, so ``feed`` and ``load`` are both set and the
+    solver has one port for the two cards.  ``wire``/``arclength`` are in the
+    MODEL's terms (an index into :attr:`DeckModel.wires`), not the mesh's —
+    the mesh's polyline numbering is an implementation detail of the fill.
+    """
+
+    wire: int
+    arclength: float
+    feed: int | None = None
+    load: int | None = None
+    load_spec: LoadSpec | None = None
+    # Whether a ``TL``/``NT`` endpoint landed here.  A network attaches to a
+    # SEGMENT, and the admittance NEC's own network solve reads at that
+    # segment is the one seen across a gap in it — so an endpoint cuts a gap
+    # exactly the way a feed does, and shares the site when a feed or a load
+    # already cut one there.  Last in the field order because the class is
+    # public API.
+    network: bool = False
+
+
+@dataclass(frozen=True)
+class PortPlan:
+    """The map between a deck's ports and a solver's.
+
+    Indices into :attr:`sites` ARE solver port indices: the same order
+    ``compute_port_solution().y`` is in, and the same order the constructed
+    solver's ``feeds`` list is in.  Node gaps follow the sites, which is
+    momwire's own port order ([gap feeds…, junction ports…, node ports…]);
+    :attr:`node_gap_ports` names those rows so a consumer never has to
+    reconstruct the offset.
+
+    That first sentence is a CLAIM, and :func:`prepare_mesh` cannot make it
+    true on its own: it builds one plan per structure, before a basis has been
+    chosen, and a :data:`_NATIVE_LOADING` basis gives a load-only site no row
+    of its own.  :func:`in_solver_ports` is what makes it true — every plan
+    reachable from a :class:`BuiltSolver` has been through it.  The plan
+    :attr:`PreparedMesh.ports` hands out is the DECK's, where a site is a site
+    whatever the basis turns out to be.
+    """
+
+    sites: tuple[PortSite, ...]
+    # Solver port index per model feed / load / node gap, parallel to
+    # DeckModel.feeds, .loads and .node_gaps.  A load entry is None when the
+    # basis carries that load on the fill instead of at a port, which is the
+    # one case a model card has no row behind it at all (momwire#588).
+    feed_ports: tuple[int, ...]
+    load_ports: tuple[int | None, ...]
+    node_gap_ports: tuple[int, ...]
+    # One drive vector over the full port set per execute group, None where
+    # the model's group is None (an execute card that ran nothing).
+    voltages: tuple[tuple[complex, ...] | None, ...]
+    # ``(port a, port b)`` per DeckModel.networks entry, parallel to it: the
+    # two solver ports one ``TL``/``NT`` card spans.  Empty for the ordinary
+    # antenna-only deck, and defaulted (and last) so a positional construction
+    # written against an earlier release keeps meaning what it meant.
+    network_ports: tuple[tuple[int, int], ...] = ()
+
+    @property
+    def n_ports(self) -> int:
+        """Rows in ``compute_port_solution().y``."""
+        return len(self.sites) + len(self.node_gap_ports)
+
+    def loaded_ports(self) -> tuple[tuple[int, LoadSpec], ...]:
+        """``(solver port, spec)`` for every port carrying a load.
+
+        The stamping consumer's whole input: everything else it needs is the
+        admittance matrix those port indices address.
+        """
+        return tuple(
+            (index, site.load_spec)
+            for index, site in enumerate(self.sites)
+            if site.load_spec is not None
+        )
+
+
+def in_solver_ports(plan: PortPlan, has_port: Sequence[bool]) -> PortPlan:
+    """``plan`` renumbered onto the rows the SOLVER actually built.
+
+    ``has_port[k]`` says whether plan site ``k`` became a row of the solver's
+    own matrix.  It is False in exactly one case — a load-only site on a
+    :data:`_NATIVE_LOADING` basis, whose ``LD`` the fill carries through
+    ``lumped_loads`` instead — and True everywhere else, where this returns
+    ``plan`` UNTOUCHED and costs nothing but the ``all()``.
+
+    Renumbering rather than leaving the caller to translate is deliberate.
+    A deck port index and a solver port index are the same integer for eight
+    of the nine families in :data:`BASES` and differ for the ninth, so a
+    consumer that mixes the two spaces is right on every deck it is likely to
+    be tested against and wrong on the one that matters (momwire#439's
+    ``IndexError``, momwire#588's dimension mismatch).  There is no way to
+    read the difference off an index, so the fix is to stop having two kinds
+    of index in circulation: past this function there is one space, the
+    solver's, and :class:`PortPlan`'s docstring is true by construction.
+
+    Node gaps keep their place after the sites — that is momwire's port order,
+    not a choice made here — but the offset shrinks with the sites ahead of
+    them.  A feed and a network endpoint always have a row (they are what
+    ``has_port`` is built from), so only :attr:`PortPlan.load_ports` can come
+    back carrying ``None``.
+    """
+    if all(has_port):
+        return plan
+    bridge: list[int | None] = []
+    kept: list[int] = []
+    for index, flag in enumerate(has_port):
+        if flag:
+            bridge.append(len(kept))
+            kept.append(index)
+        else:
+            bridge.append(None)
+    n_gaps = len(plan.node_gap_ports)
+
+    def _feed(port: int) -> int:
+        mapped = bridge[port]
+        if mapped is None:  # pragma: no cover - has_port is built from these
+            raise AssertionError(f"port {port} drives but has no solver row")
+        return mapped
+
+    return replace(
+        plan,
+        sites=tuple(plan.sites[index] for index in kept),
+        feed_ports=tuple(_feed(port) for port in plan.feed_ports),
+        load_ports=tuple(bridge[port] for port in plan.load_ports),
+        node_gap_ports=tuple(len(kept) + k for k in range(n_gaps)),
+        voltages=tuple(
+            None
+            if drive is None
+            else tuple([drive[index] for index in kept] + list(drive[len(bridge) :]))
+            for drive in plan.voltages
+        ),
+        network_ports=tuple(
+            (_feed(port_a), _feed(port_b)) for port_a, port_b in plan.network_ports
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class BuiltSolver:
+    """A constructed solver and the plan that reads its ports.
+
+    Returned rather than a bare solver because the ports are useless without
+    the plan and the plan is meaningless without the solver: handing back one
+    object keeps a consumer from pairing a plan with a solver built for a
+    different frequency or basis, which would be silent and wrong.  The
+    remaining fields are the choices this instance froze, recorded so a
+    caller can key a cache on them without re-deriving them from the model.
+    """
+
+    solver: Any
+    # The plan in the SOLVER's port space — `ports.n_ports` is the number of
+    # rows `compute_port_solution().y` has, and every index in it addresses
+    # one. This is `deck_ports` put through `in_solver_ports`, and it is the
+    # plan every consumer of a built solver wants.
+    ports: PortPlan
+    # The plan in the DECK's, where a site is a site whatever basis reads it:
+    # one entry per position the cards cut a gap at, which is what a message
+    # about the deck has to count. The two are the same object for every
+    # family but the natively-loading one (momwire#588).
+    deck_ports: PortPlan
+    # Solver port index per DECK site, or None where the site has no port in
+    # the solver's own matrix — the bridge between the two plans above, built
+    # beside the `feeds` comprehension it has to agree with rather than
+    # re-derived by a consumer.
+    site_to_solver_port: tuple[int | None, ...]
+    basis: str
+    frequency_mhz: float
+    wavelength: float
+    group: int | None
+    extended_kernel: bool
+    # What the build said that is not a refusal (momwire#1326): today the one
+    # entry is the extended-kernel fallback, also raised as an
+    # `ExtendedKernelDefault` warning. Last and defaulted for the reason
+    # `PortPlan.network_ports` gives.
+    advisories: tuple[str, ...] = ()
+
+
+def _first_armed_group(model: DeckModel) -> int | None:
+    for index, group in enumerate(model.groups):
+        if group is not None:
+            return index
+    return None
+
+
+def _sites(model: DeckModel) -> tuple[list[PortSite], list[int], list[int]]:
+    """The union port set: every feed, every load not already on one, and
+    every network endpoint not already on either.
+
+    Coincidence is decided on the model's own ``(wire, arclength)`` — the
+    dialect front end resolved all three cards through the same addressing, so
+    a load on a driven segment produces the SAME float, not a nearby one, and
+    an equality test is the honest comparison rather than a tolerance whose
+    width nothing would justify.  A network endpoint that lands on a driven or
+    loaded segment SHARES that gap, first claimant naming it, which is the
+    composition NEC itself performs: an ``LD`` sits inside the segment and an
+    ``NT`` hangs off the same connection point.
+    """
+    sites: list[PortSite] = []
+    at: dict[tuple[int, float], int] = {}
+    feed_ports: list[int] = []
+    load_ports: list[int] = []
+    # Two loads at one position share its gap.  Never in force together
+    # (one before an `LD -1`, one after, momwire#1069) the gap is stamped
+    # differently per group; in force together (a stacked pair, momwire#1807)
+    # the per-group stamp ADDS them, which is what NEC-4.2 and nec2c do.
+
+    for index, (wire, arclength, _volts) in enumerate(model.feeds):
+        key = (wire, arclength)
+        if key in at:
+            raise ValueError(
+                f"feed {index} shares its position with feed "
+                f"{sites[at[key]].feed} — one gap cannot carry two sources"
+            )
+        at[key] = len(sites)
+        feed_ports.append(len(sites))
+        sites.append(PortSite(wire=wire, arclength=arclength, feed=index))
+
+    for index, (wire, arclength, spec) in enumerate(model.loads):
+        key = (wire, arclength)
+        existing = at.get(key)
+        if existing is None:
+            at[key] = len(sites)
+            load_ports.append(len(sites))
+            sites.append(
+                PortSite(wire=wire, arclength=arclength, load=index, load_spec=spec)
+            )
+            continue
+        site = sites[existing]
+        if site.load is not None:
+            # The site keeps its first load's spec: `PortSite.load_spec` is
+            # what `loaded_ports` reads, and a per-group consumer (and
+            # `_lumped_loads`) reads every spec off `DeckModel.loads` instead.
+            load_ports.append(existing)
+            continue
+        load_ports.append(existing)
+        sites[existing] = PortSite(
+            wire=site.wire,
+            arclength=site.arclength,
+            feed=site.feed,
+            load=index,
+            load_spec=spec,
+        )
+
+    for key in network_endpoints(model):
+        existing = at.get(key)
+        if existing is None:
+            at[key] = len(sites)
+            sites.append(PortSite(wire=key[0], arclength=key[1], network=True))
+            continue
+        site = sites[existing]
+        sites[existing] = PortSite(
+            wire=site.wire,
+            arclength=site.arclength,
+            feed=site.feed,
+            load=site.load,
+            load_spec=site.load_spec,
+            network=True,
+        )
+    return sites, feed_ports, load_ports
+
+
+def group_loads(model: DeckModel) -> tuple[tuple[int, ...], ...]:
+    """Per execute group that ran, the indices into ``model.loads`` in force
+    there (momwire#1069); a group whose :attr:`ExecuteGroup.loads` is
+    ``None`` has every load.  A model with no group at all answers one entry,
+    every load, which is what :func:`build_solver` solves it with."""
+    every = tuple(range(len(model.loads)))
+    ran = [group for group in model.groups if group is not None]
+    if not ran:
+        return (every,)
+    return tuple(every if group.loads is None else group.loads for group in ran)
+
+
+def _wire_loading(materials) -> dict[str, object]:
+    """The per-wire conductivity / insulation / per-metre-RLC a solver takes
+    (and the jacket's loss tangent, momwire#765, when one is named).
+
+    momwire's per-wire convention is one entry per wire with ``NaN`` for "not
+    this one", and an array is only passed when SOMETHING in it is finite —
+    an all-NaN array and no argument at all describe the same bare wire, and
+    the second is what every solver was built against.  ``distributed_rlc``
+    (``LD 2`` / ``LD 3``, momwire#1088) follows the same rule with ``None``
+    in the entry's place, since its entry is an object rather than a float.
+    """
+    nan = float("nan")
+    conductivity = np.array(
+        [
+            m.conductivity if m is not None and m.conductivity is not None else nan
+            for m in materials
+        ]
+    )
+    radius = np.array(
+        [
+            m.insulation_radius
+            if m is not None and m.insulation_radius is not None
+            else nan
+            for m in materials
+        ]
+    )
+    eps_r = np.array(
+        [
+            m.insulation_eps_r
+            if m is not None and m.insulation_radius is not None
+            else nan
+            for m in materials
+        ]
+    )
+    loss_tangent = np.array(
+        [
+            m.insulation_loss_tangent
+            if m is not None
+            and m.insulation_radius is not None
+            and m.insulation_loss_tangent is not None
+            else nan
+            for m in materials
+        ]
+    )
+    distributed = [m.distributed_rlc if m is not None else None for m in materials]
+    kwargs: dict[str, object] = {}
+    if np.isfinite(conductivity).any():
+        kwargs["wire_conductivity"] = conductivity
+    if np.isfinite(radius).any():
+        kwargs["insulation_radius"] = radius
+        kwargs["insulation_eps_r"] = eps_r
+        # Only when some jacket names one, so a lossless deck builds with
+        # exactly the kwargs it always did (momwire#765).
+        if np.isfinite(loss_tangent).any():
+            kwargs["insulation_loss_tangent"] = loss_tangent
+    if any(entry is not None for entry in distributed):
+        kwargs["distributed_rlc"] = distributed
+    return kwargs
+
+
+def _lumped_loads(
+    model: DeckModel,
+    plan: PortPlan,
+    ports: tuple[tuple[int, float], ...],
+    freq_hz: float,
+) -> list[tuple[int, float, complex]]:
+    """``lumped_loads=[(wire, arclength, Z)]`` for a solver in
+    :data:`_NATIVE_LOADING` (momwire#432).
+
+    ``sites`` and ``ports`` are :attr:`PortPlan.sites` and
+    ``Mesh.ports`` — parallel, both in SOLVER port order — so a load's
+    position is read off the exact knot the mesh already placed for it,
+    the same one the port-algebra siblings would load: ``to_polylines``
+    forced a vertex there for every site (feed or load) before any basis
+    saw the geometry, so there is no separate snapping to get wrong.  ``Z``
+    is evaluated at ``freq_hz`` here rather than left symbolic because
+    ``lumped_loads`` takes one impedance and a sweep already calls
+    :func:`build_solver` once per step (see the module docstring's
+    "translate once, fill many times" — an OPERATING POINT, unlike the
+    geometry, is not reused across steps), so evaluating per call already
+    is the swept behaviour, not an approximation of it.
+
+    One entry per SITE, carrying the sum of every load in force there: two
+    loads stacked on one segment (momwire#1807) are in series, as NEC adds
+    them, and a card written twice counts twice.  The caller has checked
+    that every group carries the same loads, so the first group's are all
+    of them; ``plan.load_ports`` is parallel to ``model.loads``.
+    """
+    total: dict[int, complex] = {}
+    for index in group_loads(model)[0]:
+        port = plan.load_ports[index]
+        total[port] = total.get(port, 0j) + model.loads[index][2].impedance(freq_hz)
+    return [
+        (polyline, arclength, total[index])
+        for index, (site, (polyline, arclength)) in enumerate(
+            zip(plan.sites, ports, strict=True)
+        )
+        if site.load_spec is not None
+    ]
+
+
+def _ground(environment: Environment) -> dict[str, Any]:
+    """``ground_z`` / ``ground_eps`` / ``ground_model`` for one environment.
+
+    Free space passes ``ground_z=None`` rather than omitting it: a solver
+    reads "no plane" off that argument, and ``0.0`` would be a plane at the
+    origin.  ``"finite-fast"`` passes no ``ground_model`` at all — the
+    reflection-coefficient model is every solver's default, and a solve that
+    names it must stay bit-identical to one that does not.
+
+    The environment's second medium is not read here and never will be: it
+    reaches an answer through a far-field request's cliff modes alone, and
+    the moment method never sees it.
+    """
+    ground = environment.ground
+    if ground is None:
+        return {"ground_z": None}
+    kwargs: dict[str, Any] = {"ground_z": float(environment.ground_z)}
+    if ground == "pec":
+        return kwargs
+    if (
+        isinstance(ground, tuple)
+        and len(ground) == 3
+        and ground[0]
+        in (
+            "finite",
+            "finite-fast",
+        )
+    ):
+        kwargs["ground_eps"] = (float(ground[1]), float(ground[2]))
+        if ground[0] == "finite":
+            kwargs["ground_model"] = "sommerfeld"
+        return kwargs
+    raise ValueError(f"unrecognised ground spec: {ground!r}")
+
+
+@dataclass(frozen=True)
+class PreparedMesh:
+    """A model's geometry, translated once and replayable.
+
+    Everything :func:`build_solver` does that depends on the GEOMETRY alone —
+    the union port set, the chaining into polylines, the renumbering of the
+    plan onto the mesh's port order — and nothing that depends on the
+    operating point.  A sweep translates once and fills many times:
+    ``build_solver(model, mesh=prepare_mesh(model), frequency_mhz=f)`` per
+    step, where the unprepared call redoes the whole walk at every frequency.
+
+    The reuse is by IDENTITY, not by equality: the polyline arrays a prepared
+    mesh hands a solver are the same ``ndarray`` objects every time (no
+    solver writes to them), so two solvers built from one handle see bitwise
+    the same coordinates rather than two roundings of one computation.
+
+    :attr:`model` is the model the handle was built from, kept so
+    :func:`build_solver` can refuse a handle prepared for a different
+    structure instead of silently answering the wrong deck.
+    """
+
+    model: DeckModel
+    mesh: Mesh
+    ports: PortPlan
+
+
+def prepare_mesh(model: DeckModel) -> PreparedMesh:
+    """Translate ``model``'s geometry once, for repeated :func:`build_solver`.
+
+    The frequency, the kernel and the environment are all operating-point
+    choices and none of them appears here; what the handle freezes is the
+    structure, which no operating point can move.
+    """
+    sites, feed_ports, load_ports = _sites(model)
+    mesh = to_polylines(model, tuple((site.wire, site.arclength) for site in sites))
+    # Read-only from here on (momwire#1943): the handle's whole contract is
+    # that every solver sees these very arrays and none writes to them, and a
+    # frozen array is what the constructors' per-structure memos
+    # (`momwire._identity_memo`) may recognise by identity.
+    freeze(mesh.polylines)
+
+    # The mesh decided the solver's port order; renumber the plan onto it so
+    # a plan index and a Y row are the same integer.
+    ordered = [sites[model_port] for model_port in mesh.port_order]
+    solver_of_model = {model_port: i for i, model_port in enumerate(mesh.port_order)}
+    feed_ports = [solver_of_model[p] for p in feed_ports]
+    load_ports = [solver_of_model[p] for p in load_ports]
+    node_gap_ports = [len(ordered) + k for k in range(len(model.node_gaps))]
+
+    voltages: list[tuple[complex, ...] | None] = []
+    for entry in model.groups:
+        if entry is None:
+            voltages.append(None)
+            continue
+        drive = [0j] * len(ordered)
+        for feed_index, volts in enumerate(entry.voltages):
+            drive[feed_ports[feed_index]] = volts
+        drive += [complex(v) for _w, _v0, v in model.node_gaps]
+        voltages.append(tuple(drive))
+
+    at = {(site.wire, site.arclength): index for index, site in enumerate(ordered)}
+    network_ports = tuple((at[card.end_a], at[card.end_b]) for card in model.networks)
+
+    return PreparedMesh(
+        model=model,
+        mesh=mesh,
+        ports=PortPlan(
+            sites=tuple(ordered),
+            feed_ports=tuple(feed_ports),
+            load_ports=tuple(load_ports),
+            node_gap_ports=tuple(node_gap_ports),
+            voltages=tuple(voltages),
+            network_ports=network_ports,
+        ),
+    )
+
+
+def construct_solver(
+    solver_class: type,
+    basis_kwargs: Mapping[str, Any],
+    *,
+    polylines: Sequence[Any],
+    edge_elements: Sequence[Sequence[int]],
+    feeds: list[tuple[int, float, complex]],
+    radii: Sequence[float],
+    wavelength: float,
+    junctions: Any = None,
+    node_gaps: Any = None,
+    lumped_loads: Any = None,
+    loading: Mapping[str, object] | None = None,
+    ground: Mapping[str, object],
+    extended_kernel: bool = False,
+    extended_kernel_default: bool = False,
+    basis: str = "",
+    advisories: list[str] | None = None,
+    before_construct: Callable[[], None] | None = None,
+    warn_depth: int = 1,
+    cancel: Any = None,
+    wire_labels: Sequence[Sequence[int] | None] | None = None,
+) -> tuple[Any, bool]:
+    """One roster solver, constructed from a mesh a dialect already built.
+
+    The second half of :func:`build_solver`, and the whole of it for a
+    dialect that meshes its own way: the NEC-5 seam addresses NODES and cuts
+    its own pieces (``momwire.dropin.nec5._serve.build_mesh``), so it cannot use
+    :func:`prepare_mesh`, but it constructs exactly this solver (momwire#1336
+    — it kept its own copy of this call until then).  Every front end hands
+    over polylines, element counts, ports, a wavelength, wire loading and
+    the ground kwargs; what this owns is how those become a constructor
+    call:
+
+    * which port and topology KEYS the family takes (:func:`port_kwargs`);
+    * the radius spelling — one scalar for a uniform census, the per-wire
+      list otherwise, which is what every family was built against;
+    * ``extended_kernel`` passed only when asked, so a reduced-kernel solve
+      is the call every family was gated with;
+    * the extended kernel AS A DIALECT DEFAULT (momwire#1326): with
+      ``extended_kernel_default`` set, an ``extended_kernel`` request this
+      basis or geometry cannot take (:func:`extended_kernel_default_refusal`)
+      falls back to the reduced kernel with an ``ExtendedKernelDefault``
+      advisory, appended to ``advisories`` — never a refusal;
+    * the extended kernel SERVED IN PART (momwire#1170 stage 0): on a deck
+      with wires below the ground plane, a family that declares
+      ``partials["buried+extended_kernel"]`` keeps the extended kernel on
+      the above-ground pairs, and the advisory says the buried wires kept
+      the reduced kernel (:func:`extended_kernel_partial`).
+
+    Returns ``(solver, extended_kernel)``, the second being the kernel the
+    solver was actually built with.  ``before_construct`` is a front end's
+    hook for a refusal it owes AFTER the kernel is resolved and before the
+    fill (the nec2 front end's wire-loading sentence); ``warn_depth`` is how
+    many frames sit between this function and the caller the advisory should
+    name (1 for :func:`build_solver`).
+
+    ``ground`` is the caller's because the DIALECTS read grounds differently
+    (nec2's ``GN 0`` is a reflection-coefficient solve, NEC-5's is
+    Sommerfeld); ``loading`` likewise, because the cards that set it differ.
+    Neither is refused here: each front end asks the capability row first
+    and refuses in its own card vocabulary.
+    """
+    kwargs = port_kwargs(
+        solver_class,
+        junctions=junctions,
+        node_gaps=node_gaps,
+        lumped_loads=lumped_loads,
+    )
+    radii = list(radii)
+    if extended_kernel and extended_kernel_default:
+        reason = extended_kernel_default_refusal(
+            solver_class,
+            basis_kwargs,
+            polylines,
+            radii,
+            junctions or (),
+            ground.get("ground_z"),
+        )
+        if reason is not None:
+            extended_kernel = False
+            advisory = _warn_kernel_fallback(basis, reason, stacklevel=3 + warn_depth)
+            if advisories is not None:
+                advisories.append(advisory)
+    partial = None
+    if extended_kernel:
+        # momwire#1170 stage 0: served in part on a buried deck, asked for
+        # or defaulted. Said here, in deck words, and the solver's own
+        # once-per-solver advisory is then marked as already given.
+        partial = extended_kernel_partial(
+            solver_class, polylines, ground.get("ground_z")
+        )
+        n_wires = len(list(polylines))
+        if (
+            partial is not None
+            and extended_kernel_default
+            and len(partial[1]) == n_wires
+        ):
+            # Every wire is below the plane, so the extended kernel would act
+            # on no pair at all: the default is the reduced kernel, as it was.
+            partial = None
+            extended_kernel = False
+            advisory = _warn_kernel_fallback(
+                basis,
+                "every wire of this deck is below the ground plane, where "
+                "the extended kernel is not derived yet (momwire#1170)",
+                stacklevel=3 + warn_depth,
+            )
+            if advisories is not None:
+                advisories.append(advisory)
+        elif partial is not None:
+            advisory = _warn_kernel_partial(
+                basis,
+                partial[1],
+                n_wires,
+                default=extended_kernel_default,
+                stacklevel=3 + warn_depth,
+            )
+            if advisories is not None:
+                advisories.append(advisory)
+    if extended_kernel:
+        kwargs["extended_kernel"] = True
+    if (
+        wire_labels is not None
+        and "wire_labels" in inspect.signature(solver_class.__init__).parameters
+    ):
+        # momwire#2088: the deck's own names for the solver's wires, for the
+        # constructor's advisories. Only a family that takes them is handed
+        # them, the way `port_kwargs` filters the port keys.
+        kwargs["wire_labels"] = [
+            None if label is None else list(label) for label in wire_labels
+        ]
+    if before_construct is not None:
+        before_construct()
+    solver = solver_class(
+        wires=list(polylines),
+        n_per_edge_per_wire=[list(counts) for counts in edge_elements],
+        feeds=feeds,
+        wavelength=wavelength,
+        wire_radius=radii[0] if len(set(radii)) == 1 else radii,
+        cancel=cancel,
+        **kwargs,
+        **(loading or {}),
+        **ground,
+        **basis_kwargs,
+    )
+    if partial is not None:
+        solver._warned_ek_above = True
+    return solver, bool(extended_kernel)
+
+
+def _wire_labels(
+    wire_names: Sequence[int | None] | None, mesh: Any
+) -> list[tuple[int, ...] | None] | None:
+    """The deck's own wire names behind each solver wire (momwire#2088).
+
+    ``wire_names`` is one name per MODEL wire, from the dialect front end that
+    knows them (the model itself stays free of NEC vocabulary): the nec2
+    portal passes each wire's ``GW`` tag.  ``None`` means the caller has no
+    names, and the solver then advises in its own wire indices.
+
+    One entry per polyline: the sorted distinct tags of the model wires it
+    was chained from, so a card the importer split into several solver wires
+    names that one tag from each, and a solver wire that merged several cards
+    names all of them.  ``None`` when any of its model wires carries no tag
+    (a dialect that has none to give), which sends the advisory back to the
+    solver's own index.
+    """
+    if wire_names is None:
+        return None
+    labels: list[tuple[int, ...] | None] = []
+    for origin in mesh.wire_origin:
+        names = {wire_names[w] for w in origin}
+        labels.append(
+            None if None in names else tuple(sorted(n for n in names if n is not None))
+        )
+    return labels
+
+
+def build_solver(
+    model: DeckModel,
+    *,
+    basis: str = "bs2",
+    group: int | None = None,
+    frequency_mhz: float | None = None,
+    extended_kernel: bool | None = None,
+    environment: Environment | None = None,
+    mesh: PreparedMesh | None = None,
+    cancel: Any = None,
+    wire_names: Sequence[int | None] | None = None,
+) -> BuiltSolver:
+    """Construct a solver for ``model`` and return it with its port plan.
+
+    ``basis`` is one of :data:`BASES`, or a deprecated spelling of one
+    (`momwire._basis_names.BASIS_ALIASES`), which answers as its canonical
+    name with a ``DeprecationWarning``.
+
+    ``group`` selects which execute group's frequency, extended-kernel
+    setting and ENVIRONMENT the solver is built for; the default is the
+    deck's first group that ran, and a model with no group at all falls back
+    to :attr:`DeckModel.environment`.  ``frequency_mhz``, ``extended_kernel``
+    and ``environment`` override that group's, which is what a sweep does —
+    one plan, one geometry, a solver per frequency.
+
+    ``mesh`` is a :func:`prepare_mesh` handle: pass one and the geometry
+    translation is not repeated, which is the whole of the per-operating-point
+    cost that does not belong to the fill.  Passing a handle prepared for a
+    different model raises.
+
+    ``wire_names`` (momwire#2088) is the deck's own name for each of the
+    model's wires, in model order: the nec2 front end passes the ``GW`` tags,
+    so an advisory about a wire says "wire 5" where the deck says GW 5. A
+    caller without names leaves it None and the advisory says "wire indices".
+
+    Raises ``ValueError`` for an unknown basis, a model with no wires, a
+    port set the geometry cannot host, and -- this being the `nec2` seam,
+    whose dialect addresses segment CENTRES -- a fed model under a basis
+    whose `capabilities.centre_feeds` is False (momwire#673, landed at
+    momwire#821). `RazorSolver` is that basis: `_snap_to_knot` would move a
+    centre-named gap half a cell and answer for a different antenna, so the
+    seam declines by name instead, with the family's own declared reason.
+    Every parsed nec2 deck carries feeds (the parser refuses a deck with no
+    EX card), so this retires razor from the nec2 front door outright --
+    :data:`NEC2_BASES` is the roster that remains -- and that was a decision
+    taken, not a side effect: nobody wants razor on a nec2 deck, and the
+    NEC-5 dialect, which addresses the knots razor lives on, serves it.
+    """
+    solver_class, basis_kwargs = basis_entry(basis)
+    if getattr(solver_class, "takes_junction_rule", False):
+        # momwire#1644: the dialect's junction rule, or the override. Passed
+        # only when it is not the class default, so a "nec2" solve is built
+        # with exactly the kwargs it always was.
+        rule = junction_rule(model)
+        if rule != "nec2":
+            basis_kwargs = MappingProxyType({**basis_kwargs, "junction_rule": rule})
+    if getattr(model, "interaction_range", None) is not None:
+        # A KH card, read because `nec2_far_approx` was on when the deck was
+        # parsed (`momwire._nec2_far_approx`): its range reaches the one
+        # family that honours the feature, and any other basis refuses it
+        # rather than solving without the approximation the deck asked for.
+        from .. import _features
+
+        family = getattr(solver_class, "FEATURE_SOLVER", "")
+        if not _features.honours("nec2_far_approx", family):
+            raise ValueError(
+                f"KH sets NEC-2's interaction approximation (nec2_far_approx), "
+                f"which basis {basis!r} does not serve; the sinusoidal basis "
+                f"does"
+            )
+        basis_kwargs = MappingProxyType(
+            {
+                **basis_kwargs,
+                "nec2_far_approx": True,
+                "nec2_far_approx_range": float(model.interaction_range),
+            }
+        )
+
+    if model.feeds and not solver_class.capabilities.centre_feeds:
+        wire, arclength, _v = model.feeds[0]
+        raise ValueError(
+            f"a feed at arclength {arclength:g} on wire {wire} names a segment "
+            f"CENTRE, and basis {basis!r} does not place a gap there: "
+            f"{solver_class.capabilities.refusal('centre_feeds')}"
+        )
+
+    if group is None:
+        group = _first_armed_group(model)
+    if group is not None:
+        armed = model.groups[group]
+        if armed is None:
+            raise ValueError(f"execute group {group} ran nothing")
+    else:
+        armed = None
+
+    if frequency_mhz is None:
+        frequency_mhz = armed.frequencies[0] if armed and armed.frequencies else 0.0
+    if frequency_mhz <= 0.0:
+        raise ValueError(f"frequency must be > 0 MHz, got {frequency_mhz}")
+    if extended_kernel is None:
+        extended_kernel = bool(armed.extended_kernel) if armed else False
+    if environment is None:
+        environment = armed.environment if armed else model.environment
+
+    if mesh is None:
+        prepared = prepare_mesh(model)
+    elif mesh.model is model or mesh.model == model:
+        prepared = mesh
+    else:
+        raise ValueError(
+            "the prepared mesh was built for a different model — a handle "
+            "describes one structure and cannot be replayed onto another"
+        )
+    plan = prepared.ports
+    built_mesh = prepared.mesh
+
+    # The gap voltages the solver is CONSTRUCTED with are the selected
+    # group's: a Y-matrix readout ignores them entirely (it enumerates ports),
+    # and a direct solve wants exactly this group's drive.
+    drive = plan.voltages[group] if group is not None else None
+
+    def _voltage(index: int) -> complex:
+        return complex(drive[index]) if drive is not None else 0j
+
+    node_gaps = [
+        (polyline, end, complex(volts))
+        for (polyline, end), (_w, _v, volts) in zip(
+            built_mesh.node_gap_members, model.node_gaps
+        )
+    ]
+    loads = None
+    if issubclass(solver_class, _NATIVE_LOADING):
+        lives = group_loads(model)
+        if any(
+            live != lives[0] or set(live) != set(range(len(model.loads)))
+            for live in lives
+        ):
+            # The fill carries every load; per-group scoping (momwire#1069)
+            # is port algebra this family does not do.
+            raise ValueError(
+                f"basis {basis!r} carries a deck's loads inside the fill, so "
+                f"it cannot answer a deck whose loads change between execute "
+                f"cards (momwire#1069)"
+            )
+        # A load-only site needs no port of its own here: the fill carries
+        # the Z_s bump directly through `lumped_loads`, at the exact knot
+        # `_lumped_loads` reads off the mesh, so only genuine EX sites
+        # become `feeds` — a load-only site would otherwise be a spurious
+        # zero-volt source with no row to add.
+        _has_port = [
+            plan.sites[index].feed is not None or plan.sites[index].network
+            for index in range(len(built_mesh.ports))
+        ]
+        loads = _lumped_loads(model, plan, built_mesh.ports, frequency_mhz * 1e6)
+    else:
+        _has_port = [True] * len(built_mesh.ports)
+    feeds = [
+        (polyline, arclength, _voltage(index))
+        for index, (polyline, arclength) in enumerate(built_mesh.ports)
+        if _has_port[index]
+    ]
+
+    loading_kwargs = _wire_loading(built_mesh.materials)
+
+    def _refuse_wire_loading() -> None:
+        # Asked after the kernel resolution and before construction, which is
+        # the order momwire#1326 put the two in.
+        if loading_kwargs and not solver_class.capabilities.wire_loading:
+            # Asked of the CAPABILITY rather than left to the constructor
+            # (momwire#1087, the nec2 seam's half of #1086): a family with no
+            # `wire_conductivity` parameter at all dies with a bare `TypeError`
+            # from the constructor, and one that happens to catch it its own way
+            # names itself rather than this deck's card. `refusal("wire_loading")`
+            # is asked of the ROW for the same reason `centre_feeds` is above.
+            cards = []
+            if "wire_conductivity" in loading_kwargs:
+                cards.append("LD 5")
+            if "insulation_radius" in loading_kwargs:
+                cards.append("IS")
+            if "distributed_rlc" in loading_kwargs:
+                # Named per KIND, not as one entry: `LD 2` and `LD 3` are
+                # different cards and a deck carrying only one of them should
+                # hear its own back (momwire#1088).
+                kinds = {
+                    entry.kind
+                    for entry in loading_kwargs["distributed_rlc"]
+                    if entry is not None
+                }
+                cards += sorted(
+                    "LD 2" if kind == "series" else "LD 3" for kind in kinds
+                )
+            names = " and ".join(cards)
+            raise ValueError(
+                f"{names} set{'s' if len(cards) == 1 else ''} wire loading on this "
+                f"deck and basis {basis!r} does not serve it: "
+                f"{solver_class.capabilities.refusal('wire_loading')}"
+            )
+
+    advisories: list[str] = []
+    solver, extended_kernel = construct_solver(
+        solver_class,
+        basis_kwargs,
+        polylines=built_mesh.polylines,
+        edge_elements=built_mesh.edge_elements,
+        feeds=feeds,
+        radii=built_mesh.radii,
+        wavelength=_C_LIGHT / (frequency_mhz * 1e6),
+        junctions=[list(entry) for entry in built_mesh.junctions],
+        node_gaps=node_gaps,
+        lumped_loads=loads,
+        loading=loading_kwargs,
+        ground=_ground(environment),
+        extended_kernel=extended_kernel,
+        extended_kernel_default=model.extended_kernel_default,
+        basis=basis,
+        advisories=advisories,
+        before_construct=_refuse_wire_loading,
+        cancel=cancel,
+        wire_labels=_wire_labels(wire_names, built_mesh),
+    )
+    # Renumber onto the rows that were just built, from the same flags the
+    # `feeds` list was filtered by, so the plan cannot drift from the matrix
+    # it describes.
+    solver_plan = in_solver_ports(plan, _has_port)
+    bridge: list[int | None] = []
+    next_port = 0
+    for flag in _has_port:
+        bridge.append(next_port if flag else None)
+        next_port += int(flag)
+
+    return BuiltSolver(
+        solver=solver,
+        ports=solver_plan,
+        deck_ports=plan,
+        site_to_solver_port=tuple(bridge),
+        basis=basis,
+        frequency_mhz=float(frequency_mhz),
+        wavelength=_C_LIGHT / (frequency_mhz * 1e6),
+        group=group,
+        extended_kernel=bool(extended_kernel),
+        advisories=tuple(advisories),
+    )

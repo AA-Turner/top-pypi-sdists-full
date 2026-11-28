@@ -51,6 +51,7 @@ from .edit import (
 from .experiment import Experiment
 from .lineage import LineageEntityType, LineageRelation
 from .metric_point import MetricNonFinite, MetricPoint
+from .plan import PLAN_STAGE_KEY_PATTERN, PlanStageStatus
 from .project import Project, ProjectKind
 from .records import Record
 from .run import LIVE_RUN_STATUSES, ParentRelation, Run, RunCounts, RunStatus, RunType
@@ -61,6 +62,7 @@ __all__ = [
     "COMMAND_ARGS",
     "EDIT_OP_ARGS",
     "LIVE_RUN_STATUSES",
+    "PLAN_STAGE_KEY_PATTERN",
     "RUN_KINDS",
     "SAMPLE_KINDS",
     "WATCH_SECONDS",
@@ -97,6 +99,7 @@ __all__ = [
     "MoveSeriesArgs",
     "ParentRelation",
     "PauseArgs",
+    "PlanStageStatus",
     "Project",
     "ProjectKind",
     "Record",

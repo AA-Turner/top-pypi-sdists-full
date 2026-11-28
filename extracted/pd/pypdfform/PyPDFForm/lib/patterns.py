@@ -263,29 +263,30 @@ def get_radio_value(annot: DictionaryObject) -> bool:
 
 
 def update_dropdown_value(
-    annot: DictionaryObject, widget: Dropdown, need_appearances: bool
+    annot: DictionaryObject, widget: Dropdown, generate_appearance_streams: bool
 ) -> None:
     """
     Updates the value of a dropdown annotation, selecting an option from the list.
 
     This function sets the field's value (V) to the selected option's export
-    value and its selected index (I), and sets the annotation's appearance (AP)
-    to the option's displayed text. Child annotations write V and I to their
-    parent field dictionary. Appearance updates are skipped when
-    `need_appearances` is enabled.
+    value and its selected index (I), and removes the annotation's appearance
+    (AP), as `remove_appearance` describes, unless appearance streams are
+    generated. Child annotations write V and I to their parent field
+    dictionary.
 
     Args:
         annot (DictionaryObject): The dropdown annotation dictionary.
         widget (Dropdown): The Dropdown widget object containing the selected value.
-        need_appearances (bool): If True, skips updating the appearance stream (AP) to
-            maintain compatibility with Adobe Reader's behavior for certain fields.
+        generate_appearance_streams (bool): If True, keeps the appearance,
+            which the generator then draws the value in, keeping its border
+            and background.
     """
     option = widget.options[widget.value]
     field = get_widget_field(annot)
     field[NameObject(V)] = TextStringObject(option.export)
     field[NameObject(I)] = ArrayObject([NumberObject(widget.value)])
-    if not need_appearances:
-        annot[NameObject(AP)] = TextStringObject(option.display)
+    if not generate_appearance_streams:
+        remove_appearance(annot)
 
 
 def get_dropdown_value(annot: DictionaryObject, widget: Dropdown) -> None:
@@ -308,31 +309,170 @@ def get_dropdown_value(annot: DictionaryObject, widget: Dropdown) -> None:
         widget (Dropdown): The Dropdown widget object to update with the retrieved value.
     """
     field = get_widget_field(annot)
-    value = _get_inherited_value(field, V)
+    value = get_field_value(field)
     indices = get_entry(field, I)
     index = widget.get_selected_index(value, indices)
     if index is not None:
         widget.value = index
 
 
+def get_field_value(field: DictionaryObject) -> Any:
+    """
+    Reads the value (V) of a field, its own or inherited from the fields above it.
+
+    A `/Parent` cycle before a value is found reads as no value, as
+    `_get_inherited_value` describes.
+
+    Args:
+        field (DictionaryObject): The field, as `get_widget_field` returns it.
+
+    Returns:
+        Any: The value, or None when no field sets it.
+    """
+    return _get_inherited_value(field, V)
+
+
+def read_dropdown(annot: DictionaryObject) -> Dropdown:
+    """
+    Reads the options and the selection of a dropdown annotation.
+
+    They are read as `build_widgets` reads them, with `get_dropdown_choices`
+    and `get_dropdown_value`, so `/I` chooses among options with the same
+    value.
+
+    Args:
+        annot (DictionaryObject): The dropdown annotation dictionary.
+
+    Returns:
+        Dropdown: A dropdown with the annotation's choices and selected index.
+    """
+    dropdown = Dropdown("")
+    dropdown.__dict__["choices"] = get_dropdown_choices(annot)
+    get_dropdown_value(annot, dropdown)
+
+    return dropdown
+
+
+def get_selected_option(annot: DictionaryObject) -> Optional[DropdownOption]:
+    """
+    Gets the option that a dropdown annotation selects, as `read_dropdown` reads it.
+
+    Args:
+        annot (DictionaryObject): The dropdown annotation dictionary.
+
+    Returns:
+        Optional[DropdownOption]: The selected option, or None when no option
+            matches the value.
+    """
+    dropdown = read_dropdown(annot)
+
+    return None if dropdown.value is None else dropdown.options[dropdown.value]
+
+
 def update_text_value(
-    annot: DictionaryObject, widget: Text, need_appearances: bool
+    annot: DictionaryObject, widget: Text, generate_appearance_streams: bool
 ) -> None:
     """
     Updates the value of a text annotation, setting the text content.
 
-    This function modifies the value (V) and appearance (AP) of the text
-    annotation to reflect the new text content.
+    This function sets the value (V) of the field the widget belongs to, as
+    `get_widget_field` describes, and removes the annotation's appearance
+    (AP), as `remove_appearance` describes, unless appearance streams are
+    generated.
 
     Args:
         annot (DictionaryObject): The text annotation dictionary.
         widget (Text): The Text widget object containing the text value.
-        need_appearances (bool): If True, skips updating the appearance stream (AP) to
-            maintain compatibility with Adobe Reader's behavior for certain fields.
+        generate_appearance_streams (bool): If True, keeps the appearance,
+            which the generator then draws the value in, keeping its border
+            and background.
     """
     get_widget_field(annot)[NameObject(V)] = TextStringObject(widget.value)
-    if not need_appearances:
-        annot[NameObject(AP)] = TextStringObject(widget.value)
+    if not generate_appearance_streams:
+        remove_appearance(annot)
+
+
+def remove_appearance(annot: DictionaryObject) -> None:
+    """
+    Removes the appearance (AP) of a text field or dropdown annotation.
+
+    An appearance draws the value and style the field had when it was made,
+    so it is removed when they change. PDF viewers then draw the field from
+    its value (V) and default appearance (DA). `/NeedAppearances` isn't set,
+    since it makes viewers draw every field again. With
+    `generate_appearance_streams`, the generator draws a new appearance
+    without the border and background of the old one, so it is removed only
+    when the widget's size changes, since the generator would keep the old
+    size.
+
+    Args:
+        annot (DictionaryObject): The widget annotation.
+    """
+    if AP in annot:
+        del annot[AP]
+
+
+def _get_fill_state(widget: Checkbox | Text | Dropdown, value: Any) -> Any:
+    """
+    Gets what filling writes for a value of a checkbox, text field, or dropdown.
+
+    This is the value, and for a dropdown selection also the option at its
+    index, since filling writes that option's export value, so a dropdown
+    whose selected option moved or was renamed by new choices is written
+    again.
+
+    Args:
+        widget (Checkbox | Text | Dropdown): The widget.
+        value (Any): The value, such as the widget's.
+
+    Returns:
+        Any: The value, or for a dropdown selection its index and option.
+    """
+    if isinstance(widget, Dropdown) and value is not None:
+        return value, widget.options[value]
+
+    return value
+
+
+def record_pdf_value(widget: Any, value: Any = ...) -> None:
+    """
+    Records the value the PDF holds for a checkbox, text field, or dropdown.
+
+    `build_widgets` records the value it reads, `PdfWrapper.fill` the value
+    it writes, and `PdfWrapper` the selection a dropdown has after new
+    choices, as `_pdf_value`, which `is_unchanged` compares with. Other
+    widgets, including radio groups, record nothing.
+
+    Args:
+        widget (Any): The middleware widget.
+        value (Any): The value the PDF holds, when it isn't the widget's.
+    """
+    if type(widget) in (Checkbox, Text, Dropdown):
+        widget.__dict__["_pdf_value"] = _get_fill_state(
+            widget, widget.value if value is ... else value
+        )
+
+
+def is_unchanged(widget: Any) -> bool:
+    """
+    Checks whether a widget still has the value the PDF holds.
+
+    Filling doesn't write such a widget again unless its value is supplied,
+    so it keeps its appearance, and other widgets its key names keep values
+    that read differently, such as the widgets of a checkbox field with
+    different on states.
+
+    Args:
+        widget (Any): The middleware widget.
+
+    Returns:
+        bool: True if the widget is a checkbox, not a radio group, a text
+            field, or a dropdown whose value, and for a dropdown its option,
+            is the one `record_pdf_value` recorded.
+    """
+    return "_pdf_value" in widget.__dict__ and widget.__dict__[
+        "_pdf_value"
+    ] == _get_fill_state(widget, widget.value)
 
 
 def get_text_value(annot: DictionaryObject, widget: Text) -> None:

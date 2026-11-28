@@ -191,13 +191,13 @@ class ItemsMetricValuesValueSum(DaraModel):
         self.time_1value = time_1value
         # The display string of the sum of metric values across active query minute buckets for Time 1, with the unit included.
         self.time_1display_value = time_1display_value
-        # The percentage of this Pattern\\"s Time 1 sum of metric values across active query minute buckets relative to the sum of the corresponding statistics for all results before dimension filtering in the current report. A value of 10 indicates 10%.
+        # The percentage of this Pattern\"s Time 1 sum of metric values across active query minute buckets relative to the sum of the corresponding statistics for all results before dimension filtering in the current report. A value of 10 indicates 10%.
         self.time_1ratio_percent = time_1ratio_percent
         # The sum of metric values across active query minute buckets for Time 2. The unit depends on MetricCode: count for QUERY_COUNT, seconds for CPU_COST, and GB (1 GB = 1024³ bytes) for SHUFFLE_SIZE, PEAK_MEMORY, and SCAN_SIZE.
         self.time_2value = time_2value
         # The display string of the sum of metric values across active query minute buckets for Time 2, with the unit included.
         self.time_2display_value = time_2display_value
-        # The percentage of this Pattern\\"s Time 2 sum of metric values across active query minute buckets relative to the sum of the corresponding statistics for all results before dimension filtering in the current report. A value of 10 indicates 10%.
+        # The percentage of this Pattern\"s Time 2 sum of metric values across active query minute buckets relative to the sum of the corresponding statistics for all results before dimension filtering in the current report. A value of 10 indicates 10%.
         self.time_2ratio_percent = time_2ratio_percent
 
     def validate(self):
@@ -273,13 +273,13 @@ class ItemsMetricValuesValueAvg(DaraModel):
         self.time_1value = time_1value
         # The display string of the average value across active query minute buckets for Time 1, with the unit included.
         self.time_1display_value = time_1display_value
-        # The percentage of this Pattern\\"s Time 1 average value across active query minute buckets relative to the sum of the corresponding statistics for all results before dimension filtering in the current report. A value of 10 indicates 10%.
+        # The percentage of this Pattern\"s Time 1 average value across active query minute buckets relative to the sum of the corresponding statistics for all results before dimension filtering in the current report. A value of 10 indicates 10%.
         self.time_1ratio_percent = time_1ratio_percent
         # The average value across active query minute buckets for Time 2. The unit depends on MetricCode: count for QUERY_COUNT, seconds for CPU_COST, and GB (1 GB = 1024³ bytes) for SHUFFLE_SIZE, PEAK_MEMORY, and SCAN_SIZE.
         self.time_2value = time_2value
         # The display string of the average value across active query minute buckets for Time 2, with the unit included.
         self.time_2display_value = time_2display_value
-        # The percentage of this Pattern\\"s Time 2 average value across active query minute buckets relative to the sum of the corresponding statistics for all results before dimension filtering in the current report. A value of 10 indicates 10%.
+        # The percentage of this Pattern\"s Time 2 average value across active query minute buckets relative to the sum of the corresponding statistics for all results before dimension filtering in the current report. A value of 10 indicates 10%.
         self.time_2ratio_percent = time_2ratio_percent
 
     def validate(self):
@@ -362,9 +362,9 @@ class ItemsMetricValuesValueTime2(DaraModel):
         self.max_value = max_value
         # The display string of the peak value in a single minute bucket for Time 2, with the unit included.
         self.max_display_value = max_display_value
-        # The percentage of this Pattern\\"s Time 2 total sum relative to the total sum of all results before dimension filtering in the current report. A value of 10 indicates 10%.
+        # The percentage of this Pattern\"s Time 2 total sum relative to the total sum of all results before dimension filtering in the current report. A value of 10 indicates 10%.
         self.sum_ratio_percent = sum_ratio_percent
-        # The percentage of this Pattern\\"s Time 2 average value relative to the sum of average values across all Patterns before dimension filtering in the current report. A value of 10 indicates 10%.
+        # The percentage of this Pattern\"s Time 2 average value relative to the sum of average values across all Patterns before dimension filtering in the current report. A value of 10 indicates 10%.
         self.avg_ratio_percent = avg_ratio_percent
 
     def validate(self):

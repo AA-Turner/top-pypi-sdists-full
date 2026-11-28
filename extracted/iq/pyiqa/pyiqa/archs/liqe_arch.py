@@ -87,6 +87,17 @@ class LIQE(nn.Module):
         pretrained_model_path=None,
         mtl=False,
     ) -> None:
+        """Initialize the liqe and configure its layers, parameters, and optional pretrained state.
+
+        Args:
+            model_type: Registered model variant or task configuration.
+            backbone: Feature-extractor backbone identifier or module.
+            step: Sampling interval or step size for patch/crop extraction.
+            num_patch: Number of sampled patches used to form the image representation.
+            pretrained: Whether to initialize or load pretrained weights.
+            pretrained_model_path: Optional local checkpoint path; ``None`` selects the implementation default.
+            mtl: Whether to use the multi-task learning configuration.
+        """
         super().__init__()
         assert backbone == 'ViT-B/32', 'Only support ViT-B/32 now'
         self.backbone = backbone
@@ -143,7 +154,8 @@ class LIQE(nn.Module):
 
     def get_text_features(self, x):
         """Encode and normalize text features for prompt set."""
-        text_features = self.clip_model.encode_text(self.joint_texts.to(x.device))
+        device = next(self.clip_model.parameters()).device
+        text_features = self.clip_model.encode_text(x.to(device))
         text_features = text_features / text_features.norm(dim=1, keepdim=True)
         return text_features
 

@@ -996,7 +996,14 @@ export type SkillLinks = {
 export type SkillRow = {
   name: string;
   dcc_type: string;
+  dcc_types: string[];
+  load_state: SkillLoadState;
   loaded: boolean;
+  loaded_instance_count: number;
+  unloaded_instance_count: number;
+  catalog_only: boolean;
+  catalog_dcc_types: string[];
+  dcc_states: SkillDccState[];
   action_count: number;
   instance_count: number;
   instances: string[];
@@ -1016,13 +1023,25 @@ export type SkillInstanceRef = {
   id: string;
   prefix: string;
   dcc_type?: string;
+  loaded?: boolean;
 };
+
+export type SkillDccState = {
+  dcc_type: string;
+  load_state: SkillLoadState;
+  loaded_instance_count: number;
+  unloaded_instance_count: number;
+  catalog_available: boolean;
+};
+
+export type SkillLoadState = 'loaded' | 'partial' | 'unloaded' | 'catalog_only' | 'unknown';
 
 export type SkillPayload = {
   skills?: unknown[];
   total?: number;
   loaded?: number;
   unloaded?: number;
+  partial?: number;
   action_count?: number;
   adoption_scope?: 'gateway_routed';
   health?: {
@@ -1085,7 +1104,31 @@ export function normalizeSkillInstanceRef(raw: unknown, fallbackPrefix = '', fal
     id,
     prefix,
     dcc_type: String(o?.dcc_type ?? fallbackDcc),
+    loaded: o?.loaded == null ? undefined : o.loaded === true,
   };
+}
+
+function normalizeSkillLoadState(raw: unknown, catalogOnly: boolean, legacyLoaded?: unknown): SkillLoadState {
+  if (catalogOnly || raw === 'catalog_only') return 'catalog_only';
+  if (raw === 'loaded' || raw === 'partial' || raw === 'unloaded' || raw === 'unknown') return raw;
+  if (legacyLoaded === true) return 'loaded';
+  if (legacyLoaded === false) return 'unloaded';
+  return 'unknown';
+}
+
+export function normalizeSkillDccState(raw: unknown): SkillDccState[] {
+  const o = recordOrNull(raw);
+  if (!o) return [];
+  const loaded = Number(o.loaded_instance_count ?? 0);
+  const unloaded = Number(o.unloaded_instance_count ?? 0);
+  const loadState = normalizeSkillLoadState(o.load_state, o.catalog_available === true && loaded + unloaded === 0);
+  return [{
+    dcc_type: String(o.dcc_type ?? ''),
+    load_state: loadState,
+    loaded_instance_count: loaded,
+    unloaded_instance_count: unloaded,
+    catalog_available: o.catalog_available === true,
+  }];
 }
 
 export function defaultSkillAdoption(): SkillAdoptionMetrics {
@@ -1170,7 +1213,14 @@ export function normalizeSkillRow(raw: unknown): SkillRow {
     return {
       name: '',
       dcc_type: '',
+      dcc_types: [],
+      load_state: 'unknown',
       loaded: false,
+      loaded_instance_count: 0,
+      unloaded_instance_count: 0,
+      catalog_only: false,
+      catalog_dcc_types: [],
+      dcc_states: [],
       action_count: 0,
       instance_count: 0,
       instances: [],
@@ -1184,17 +1234,34 @@ export function normalizeSkillRow(raw: unknown): SkillRow {
   const instances = stringList(o.instances);
   const instanceIds = stringList(o.instance_ids);
   const dccType = String(o.dcc_type ?? o.dcc ?? '');
+  const dccTypes = stringList(o.dcc_types);
+  if (dccTypes.length === 0 && dccType) dccTypes.push(dccType);
+  const loadState = normalizeSkillLoadState(o.load_state, o.catalog_only === true, o.loaded);
   const explicitDetails = Array.isArray(o.instance_details)
     ? o.instance_details.map((item, index) => normalizeSkillInstanceRef(item, instances[index], dccType))
     : [];
   const instanceDetails = explicitDetails.length > 0
     ? explicitDetails
-    : instances.map((prefix, index) => ({ id: instanceIds[index] ?? prefix, prefix, dcc_type: dccType }));
+    : instances.map((prefix, index) => ({
+      id: instanceIds[index] ?? prefix,
+      prefix,
+      dcc_type: dccType,
+      loaded: undefined,
+    }));
   const tools = stringList(o.tools);
   return {
     name: String(o.name ?? ''),
     dcc_type: dccType,
-    loaded: o.loaded === true,
+    dcc_types: dccTypes,
+    load_state: loadState,
+    loaded: loadState === 'loaded',
+    loaded_instance_count: Number(o.loaded_instance_count ?? instanceDetails.filter((instance) => instance.loaded === true).length),
+    unloaded_instance_count: Number(o.unloaded_instance_count ?? instanceDetails.filter((instance) => instance.loaded === false).length),
+    catalog_only: o.catalog_only === true,
+    catalog_dcc_types: stringList(o.catalog_dcc_types),
+    dcc_states: Array.isArray(o.dcc_states)
+      ? o.dcc_states.flatMap((item) => normalizeSkillDccState(item))
+      : [],
     action_count: Number(o.action_count ?? tools.length ?? 0),
     instance_count: Number(o.instance_count ?? instances.length ?? 0),
     instances,
@@ -1352,6 +1419,7 @@ export type MarketplaceInstallResult = {
   path: string;
   skill_search_path: string;
   install_type: string;
+  superseded?: string[];
   reload_required: boolean;
 };
 

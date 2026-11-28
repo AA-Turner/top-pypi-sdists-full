@@ -32,10 +32,10 @@ GATED SKILLS (A24, compute-backend-gaps T14) sit in the plugin's `gated-skills/`
 names, so no agent reads them from the plugin. One is copied only when the server's per-user
 answer, kept on disk (`get_gated_cache_path`), names it; no answer, an unreadable or stale one, or a skill
 it leaves out means the skill is absent, and a copy of ours already there is pruned. Claude Code gets it
-with its root skills (`apply`); Codex, which reads the rest from the plugin by manifest, gets ONLY the gated
-copies in its own `skills/` (`apply_gated`), each marked gated so nothing else of ours there is touched. The CLI
-also runs `apply_gated` on both folders each time it keeps an answer (`gated_skills.apply_gated_copies`): a
-sign-in during a chat starts no session.
+with its root skills (`apply`); Codex, pi, Kimi Code and Cursor, which read the rest from the plugin or package
+by manifest, get ONLY the gated copies in their own `skills/` (`apply_gated`), each marked gated so nothing else
+of ours there is touched. The CLI also runs `apply_gated` on every agent's folder each time it keeps an answer
+(`gated_skills.apply_gated_copies`): a sign-in during a chat starts no session, and pi runs no Python hook.
 
 WE NEVER TOUCH A FOLDER WE CANNOT PROVE IS OURS. `probe`, `track-work` and
 `edit-notes` are generic names in a namespace someone else may already use
@@ -115,8 +115,13 @@ def _same(src: Path, dst: Path) -> bool:
     Compares the file list and the bytes. The session-start hook runs this on
     every start, and rewriting a folder a session may be reading from is both
     pointless and a way to hand a half-written SKILL.md to a live agent.
+
+    The marker's kind counts too: a gated copy of a skill that has since left the gated set (an older CLI's
+    `compute-setup`) holds the same bytes, but kept as is, `apply_gated` would prune it as gated. Rewritten, its
+    marker says what it is now.
     """
-    return is_ours(dst) and _content_matches(src, dst)
+    is_gated_source = src.parent.name == GATED_SKILLS_DIR
+    return is_ours(dst) and is_gated_copy(dst) == is_gated_source and _content_matches(src, dst)
 
 
 def is_current(src: Path, dst: Path) -> bool:

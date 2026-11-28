@@ -42,6 +42,7 @@ class ExecuteMixin:
         finalize: bool = True,
         outputs: str | os.PathLike | None = None,
         capture_outputs: bool | None = None,
+        venv: str | None = None,
     ) -> subprocess.CompletedProcess:
         """Run a local command with deterministic run/process correlation.
 
@@ -77,7 +78,7 @@ class ExecuteMixin:
         # decision 2026-08-06) -- it only ever warns.
         if os.environ.get("PROBE_AUTO_SNAPSHOT", "1") != "0":
             try:
-                self.snapshot(cwd=cwd, detect_venv=True, argv=argv)
+                self.snapshot(cwd=cwd, venv=venv, detect_venv=True, argv=argv)
             except Exception as exc:
                 warnings.warn(
                     f"auto-snapshot failed; run continues uncaptured: {exc}",

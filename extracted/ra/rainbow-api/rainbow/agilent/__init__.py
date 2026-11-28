@@ -1,8 +1,10 @@
 import os
 
+import numpy as np
+
 from rainbow._arguments import (reject_removed_arguments, validate_bin_width,
                                 validate_display_precision)
-from rainbow.agilent import chemstation
+from rainbow.agilent import chemstation, method
 from rainbow.datadirectory import DataDirectory
 from rainbow.datasequence import DataSequence
 
@@ -11,10 +13,10 @@ def read(path, display_precision='auto', hrms=False, requested_files=None,
          telemetry=False, centroid=False, bin_width=None, peaks=False,
          _labels_only=False, **removed):
     """
-    Reads an Agilent .D directory or .dx archive.
+    Reads an Agilent .D directory, .dx archive, or OpenLab .sirslt folder.
 
     Args:
-        path (str): Path of the directory or .dx file.
+        path (str): Path of the directory, .dx file, or .sirslt folder.
         display_precision (int or 'auto', optional): Decimals for the displayed
             m/z labels (cosmetic). ``'auto'`` picks per file: 4 for the
             high-resolution MassHunter profile and TOF centroids, and 0 (whole
@@ -25,7 +27,10 @@ def read(path, display_precision='auto', hrms=False, requested_files=None,
         telemetry (bool, optional): Flag for parsing instrument telemetry
             traces, in a .dx archive or alongside a MassHunter DAD's signals.
         centroid (bool, optional): Flag for parsing the MassHunter centroid
-            spectrum (MSPeak.bin).
+            spectrum (MSPeak.bin). Where the .D's own MSD ChemStation .ms
+            files hold the same scans (a MassHunter GC/MS acquisition writes
+            both), the recording is returned once: from AcqData when its scans
+            are read under this flag or ``hrms``, else from the .ms files.
         bin_width (float, optional): m/z bin width in daltons, the lossy binning
             control. For regular MS the default is nominal mass (1 Da); for the
             HRMS profile, omit it (the default) to keep the per-scan
@@ -62,6 +67,12 @@ def read(path, display_precision='auto', hrms=False, requested_files=None,
             datadir.peaks = []
         return datadir
 
+    from rainbow.agilent import sirslt
+    if sirslt.is_sirslt(path):
+        return sirslt.read(
+            path, display_precision, hrms, requested_files, telemetry,
+            centroid, bin_width, peaks, _labels_only)
+
     datafiles = []
     datafiles.extend(chemstation.parse_allfiles(
         path, display_precision, bin_width, requested_files, _labels_only))
@@ -69,28 +80,30 @@ def read(path, display_precision='auto', hrms=False, requested_files=None,
     # hold DAD data, which is parsed unconditionally the way the Chemstation UV
     # formats are. The MS parsing inside stays gated on hrms/centroid.
     from rainbow.agilent import masshunter
-    datafiles.extend(masshunter.parse_allfiles(
+    acquired = masshunter.parse_allfiles(
         path, display_precision, hrms, centroid, bin_width, telemetry,
-        requested_files, _labels_only))
-
+        requested_files, _labels_only)
+    datafiles.extend(acquired)
+    # The run's date, method and instrument come from every ChemStation file
+    # read, the .ms copies dropped below among them.
     metadata = chemstation.parse_metadata(path, datafiles)
 
-    # Enrich with the per-injection method and sample sidecars (acq.macaml,
-    # SAMPLE.XML), filling gaps without overriding the values above.
-    from rainbow.agilent import method
-    for key, value in method.parse_injection_metadata(path).items():
-        metadata.setdefault(key, value)
+    # A .D written by MassHunter may hold one MS recording twice, in AcqData
+    # and as MSD ChemStation .ms files; where AcqData's scans were read, the
+    # .ms files holding the same scans are that recording again, unless the
+    # caller asked for them by name.
+    named = {name.lower() for name in requested_files or ()}
+    acq_times = [f.xlabels for f in acquired if f.detector == 'MS']
+    if acq_times:
+        acq_times = np.concatenate(acq_times)
+        datafiles = [f for f in datafiles
+                     if f.name.lower() in named
+                     or not _same_recording(_ms_milliseconds(f), acq_times)]
 
-    # Tag each MS channel SIM or Scan from the acquisition method, so a SIM run
-    # (its monitored ions) is distinguishable from a full scan.
-    method.tag_acquisition_modes(path, datafiles)
-
-    # Record the separation technique the method declares (gas vs liquid
-    # chromatography), so an export routes by what the instrument says rather
-    # than guessing from the detectors.
-    technique = method.acquisition_technique(path)
-    if technique:
-        metadata.setdefault('technique', technique)
+    # The method and sample sidecars, and each MS file's acquisition mode and
+    # method signal, filling gaps without overriding the values above: the
+    # step a .sirslt goes through too (sirslt.read).
+    method.state_run(path, datafiles, metadata)
 
     # Surface unread MassHunter profile/centroid data so the hrms and centroid
     # flags are discoverable: a .D with MSProfile.bin holds a profile spectrum
@@ -120,10 +133,9 @@ def injection_peaks(path):
     sits in, matched by the .D's folder name, or failing that from the .D's
     own ``sequence.acam_``.
 
-    Each call parses the whole result document, which for a sequence holds
-    every injection's results. To read the peaks of many injections of one
-    sequence, ``read_sequence(path, peaks=True)`` parses it once for all of
-    them and is the efficient path.
+    The result document of a sequence holds every injection's results. It is
+    parsed once while it is unchanged, so reading the injections of one
+    sequence one at a time parses it once; each call gets its own copy.
 
     Args:
         path (str): Path of the .D directory.
@@ -142,9 +154,7 @@ def injection_peaks(path):
     sequence_acaml = sequence.find(os.path.dirname(path) or os.curdir)
     groups = None
     if sequence_acaml is not None:
-        groups = {injection.lower(): found for injection, found
-                  in sequence.parse_peaks(sequence_acaml).items()
-                  }.get(name.lower())
+        groups = sequence.injection_groups(sequence_acaml, name)
     if not groups:
         groups = _own_peaks(name, path)
     return groups or []
@@ -258,15 +268,10 @@ def _attach_peaks(injections, injection_paths, sequence_acaml):
     per-injection sequence.acam_ inside its own .D.
     """
     from rainbow.agilent import sequence
-    if sequence_acaml is not None:
-        by_injection = sequence.parse_peaks(sequence_acaml)
-        folded = {name.lower(): groups
-                  for name, groups in by_injection.items()}
-    else:
-        folded = {}
-
     for injection, injection_path in zip(injections, injection_paths):
-        groups = folded.get(injection.name.lower())
+        groups = None
+        if sequence_acaml is not None:
+            groups = sequence.injection_groups(sequence_acaml, injection.name)
         if not groups:
             groups = _own_peaks(injection.name, injection_path)
         injection.peaks = _with_channels(injection, groups or [])
@@ -316,15 +321,8 @@ def _own_peaks(injection_name, injection_path):
     document = sequence.find_result_document(injection_path)
     if document is None:
         return None
-    by_injection = sequence.parse_peaks(document)
-    if not by_injection:
-        return None
-    folded = {name.lower(): groups for name, groups in by_injection.items()}
-    groups = folded.get(injection_name.lower())
-    if groups is None and len(by_injection) == 1:
-        # A per-injection document holds exactly this injection's peaks.
-        groups = next(iter(by_injection.values()))
-    return groups
+    # A per-injection document holds exactly this injection's peaks.
+    return sequence.injection_groups(document, injection_name, sole=True)
 
 
 def read_metadata(path):
@@ -335,15 +333,28 @@ def read_metadata(path):
         path (str): Path of the directory.
 
     Returns:
-        Dictionary containing a list of datafiles and the metadata.
+        Dictionary containing a list of datafiles and the metadata. Where the
+        .D holds its MS scans twice (AcqData and .ms files, see :func:`read`),
+        the .ms files are listed and ``copies`` names, for each AcqData file
+        the ``centroid`` or ``hrms`` flag reads, the .ms files it takes the
+        place of: ``{'MSPeak.bin': ['data.ms', 'dataSim.ms']}``.
 
     """
     if os.path.splitext(path)[1].lower() == '.dx':
         from rainbow.agilent import openlab
         return openlab.read_metadata(path)
 
-    datafiles = []
-    metadata = chemstation.parse_metadata(path, datafiles)
+    from rainbow.agilent import sirslt
+    if sirslt.is_sirslt(path):
+        return sirslt.read_metadata(path)
+
+    # The date and vial position come from the Chemstation files' headers,
+    # read without their data, so they are what read() states.
+    metadata = chemstation.parse_header_metadata(path)
+    # read() parses the .D's own Chemstation files in every run, AcqData or
+    # not, so they are listed in every run, ahead of the MassHunter files as
+    # read() returns them.
+    chemstation_files = chemstation.datafile_names(path)
 
     # MassHunter acquisitions (a .D with an AcqData subfolder) keep their data
     # in MSProfile.bin (profile/HRMS) and/or MSPeak.bin (centroid), which the
@@ -356,6 +367,8 @@ def read_metadata(path):
         from rainbow.agilent import masshunter
         acqdata_files = set(os.listdir(acqdata_path))
         mh_datafiles = []
+        held = []
+        said = {}
         # A diode-array detector writes its chromatograms and spectra here too,
         # and read() returns those with no flag needed - so a run holding them
         # must not be reported as MS-only.
@@ -365,14 +378,33 @@ def read_metadata(path):
                     and stem[:3].upper() in masshunter._DAD_DEVICES):
                 mh_datafiles.append(name)
         if {"MSScan.xsd", "MSScan.bin"} <= acqdata_files:
+            # The scans' one recording is listed once: where the .D's own .ms
+            # files hold AcqData's scans, by them, as read() returns it
+            # without a flag (the flags read it from AcqData instead).
+            ms_names = [name for name in chemstation_files
+                        if name.lower().endswith('.ms')]
+            if ms_names:
+                times = masshunter.scan_times(acqdata_path)
+                held = [name for name in ms_names
+                        if _same_recording(chemstation.ms_scan_times(
+                            os.path.join(path, name)), times)]
             if "MSProfile.bin" in acqdata_files:
-                mh_datafiles.append("MSProfile.bin")
+                if not held:
+                    mh_datafiles.append("MSProfile.bin")
                 metadata['hrms_available'] = True
             if "MSPeak.bin" in acqdata_files:
-                mh_datafiles.append("MSPeak.bin")
+                if not held:
+                    mh_datafiles.append("MSPeak.bin")
                 metadata['centroid_available'] = True
-        if mh_datafiles:
-            return {'datafiles': mh_datafiles, 'metadata': metadata}
+        if held:
+            # What the flags read instead: each AcqData file with the .ms
+            # files holding its scans.
+            said['copies'] = {
+                name: held for name in ("MSPeak.bin", "MSProfile.bin")
+                if name in acqdata_files}
+        if mh_datafiles or held:
+            return {**said, 'datafiles': chemstation_files + mh_datafiles,
+                    'metadata': method.state_run(path, [], metadata)}
 
     if len(metadata) == 1:
         datadir = read(path)
@@ -380,5 +412,39 @@ def read_metadata(path):
             return {'datafiles': datadir.datafiles + datadir.analog, 'metadata': datadir.metadata}
         return None
     # Masshunter datafiles are not located.
-    datafiles = [fn for fn in os.listdir(path) if fn[-3:].lower() in ('.uv', '.ch', '.ms')]
-    return {'datafiles': datafiles, 'metadata': metadata}
+    return {'datafiles': chemstation_files,
+            'metadata': method.state_run(path, [], metadata)}
+
+
+def _ms_milliseconds(datafile):
+    """A ChemStation .ms DataFile's scan times in the integer milliseconds the
+    file stores them in, or None for any other file."""
+    if datafile.detector != 'MS' or not datafile.name.lower().endswith('.ms'):
+        return None
+    return np.round(np.asarray(datafile.xlabels) * 60000).astype(np.int64)
+
+
+def _same_recording(ms_times, acq_times):
+    """
+    Whether an MSD ChemStation .ms file holds scans MassHunter's AcqData
+    recorded: every scan time it stores is one of AcqData's scan times, at the
+    millisecond the .ms format stores times to. A MassHunter GC/MS acquisition
+    writes its scans to AcqData (MSScan.bin with MSPeak.bin) and the same scans
+    again as data.ms (Scan) and dataSim.ms (SIM), so these are one recording.
+
+    Args:
+        ms_times (numpy.ndarray): The .ms file's scan times, in milliseconds
+            (:obj:`chemstation.ms_scan_times`), or None.
+        acq_times (numpy.ndarray): AcqData's scan times, in minutes, or None.
+
+    Returns:
+        bool
+
+    """
+    if ms_times is None or acq_times is None:
+        return False
+    ms_times = np.asarray(ms_times)
+    if not ms_times.size:
+        return False
+    acq_ms = np.round(np.asarray(acq_times, dtype=np.float64) * 60000)
+    return bool(np.isin(ms_times, acq_ms.astype(np.int64)).all())

@@ -24,6 +24,16 @@ from pydantic_ai_harness import Skills
 # Whether the installed harness reads skills at the start of each run (0.52+).
 HARNESS_DISCOVERS_PER_RUN = 'workspace' in inspect.signature(Skills.__init__).parameters
 
+# Whether the installed harness skips a missing/unreadable library path by default instead
+# of failing the run. harness 0.56 added `missing_directories`, defaulting to `'error'`;
+# 0.77 flipped the default to `'skip'`. This package doesn't pin its own default (it
+# inherits harness's behavior except where it breaks this package's own code), so tests
+# that exercise this path assert on whichever default is actually installed.
+_missing_directories_param = inspect.signature(Skills.__init__).parameters.get('missing_directories')
+HARNESS_SKIPS_MISSING_DIRECTORIES_BY_DEFAULT = (
+    _missing_directories_param is not None and _missing_directories_param.default == 'skip'
+)
+
 
 def run_context() -> RunContext[None]:
     """A bare run context, enough for a capability's `for_run`."""

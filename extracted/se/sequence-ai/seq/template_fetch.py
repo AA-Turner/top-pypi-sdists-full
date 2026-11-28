@@ -45,11 +45,22 @@ _NUMBERED = re.compile(r"v([1-9][0-9]*)")
 _CHECK_TIMEOUT_S = 300.0
 
 
-KINDS = ("policy", "benchmark", "adapter")
+
+
+
+
+KINDS = ("policy", "adapter")
 ENTRIES = {"policy": "policy.py", "benchmark": "benchmark.py", "adapter": "adapter.py"}
+
+
+
+BENCHMARK_NEXT = ("nothing to build: seq benchmark tasks lists every task by its id, and seq eval run <policy> --task "
+                  "<id> ... runs any of them")
+
+
 def lines_by_kind(rows: list[dict]) -> list[str]:
-    """The templates of GET /v1/templates (its `data`), one heading per kind — policy, benchmark, adapter, then any kind
-    the platform names that this SDK does not know — each template on a line of its own with its one version. What
+    """The templates of GET /v1/templates (its `data`), one heading per kind — policy, adapter, then any kind the
+    platform names that this SDK does not know — each template on a line of its own with its one version. What
     `seq init --list` prints."""
     kind_of = lambda r: r.get("kind") or "other"
     kinds = list(KINDS) + sorted({kind_of(r) for r in rows} - set(KINDS))
@@ -109,6 +120,21 @@ def weights_from_gs(dest: Path, entry: str) -> bool:
 def entry_of(dest: Path) -> str | None:
     """The entry file an unpacked template has: policy.py, benchmark.py or adapter.py (None: none of them)."""
     return next((f for f in ENTRIES.values() if (dest / f).exists()), None)
+
+
+def entry_in(archive: bytes) -> str | None:
+    """The entry file a template's archive holds at its top, as entry_of reads an unpacked one - read before anything
+    is written."""
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tf:
+        top = {m.name.removeprefix("./") for m in tf.getmembers() if m.isfile()}
+    return next((f for f in ENTRIES.values() if f in top), None)
+
+
+def benchmark_refused(name: str) -> InvalidRequest:
+    """`seq init` of a benchmark's template a platform of before sends the code of: refused before anything is written,
+    in the words today's platform refuses its name with, then what to do instead (BENCHMARK_NEXT)."""
+    return InvalidRequest(f"{name} is a benchmark: the platform provides the benchmarks ready to run, so there is none "
+                          "to start from a template - evaluate a deployed policy on it instead", hint=BENCHMARK_NEXT)
 
 
 def entry_name(dest: Path, entry: str) -> str | None:
@@ -187,7 +213,16 @@ def fetch(name: str, ref: str | None = None, base_url: str | None = None) -> tup
         detail = (r.json() if r.headers.get("content-type", "").startswith("application/json") else {}).get("detail", "")
         if "no template" in str(detail):
             return None
-    raise_for(r)
+    try:
+        raise_for(r)
+    except InvalidRequest as exc:
+
+
+
+
+        if exc.details.get("kind") == "benchmark":
+            exc.hint = BENCHMARK_NEXT + (f"; {exc.hint}" if exc.hint else "")
+        raise
     version = r.headers.get("X-Template-Version") or ref
     if not version:
         raise InternalError(f"the platform sent {name}'s code without saying which version it is")

@@ -1,18 +1,23 @@
 """
-Stanza interfaces for XEP-0513: Explicit Mentions
+Stanza interfaces for XEP-0513: Intentional Mention Markup (v0.1.1)
 
 Basic usage:
 
 >>> register_plugin()  # automatically done if you use this plugin
 >>> msg = Message()
 >>> msg["body"] = "Hello, Alice!"
->>> msg["mention"]["begin"] = 7
->>> msg["mention"]["end"] = 12
->>> msg["mention"]["occupantid"] = "alice@occupant-id"
+>>> msg["markup"]["span"]["start"] = 7
+>>> msg["markup"]["span"]["end"] = 12
+>>> msg["markup"]["span"]["mention"]["type"] = "occupant"
+>>> msg["markup"]["span"]["mention"]["target"] = "alice@occupant-id"
 >>> msg.pretty_print()
 <message xmlns="jabber:client">
   <body>Hello, Alice!</body>
-  <mention xmlns="urn:xmpp:mentions:0" begin="7" end="12" occupantid="alice@occupant-id" />
+  <markup xmlns="urn:xmpp:markup:0">
+    <span start="7" end="12">
+      <mention xmlns="urn:xmpp:mentions:0" type="urn:xmpp:mentions:0#occupant" target="alice@occupant-id" />
+    </span>
+  </markup>
 </message>
 """
 
@@ -22,23 +27,24 @@ Basic usage:
 # See the file LICENSE for copying permission.
 
 import logging
-from typing import Literal
+from typing import ClassVar, Literal
 
-from slixmpp.jid import JID, InvalidJID
+import slixmpp.plugins.xep_0394.stanza
+from slixmpp.jid import JID
 from slixmpp.stanza.message import Message
 from slixmpp.xmlstream import ElementBase, register_stanza_plugin
 
-GroupMentionLiteral = Literal[
+MentionTypeLiteral = Literal[
+    "occupant",
     "channel",
-    "space",
-    "server",
     "moderators",
     "participants",
     "visitors",
-    "owner",
-    "admin",
-    "member",
+    "owners",
+    "admins",
+    "members",
     "none",
+    "hats",
 ]
 
 
@@ -50,71 +56,37 @@ class Mention(ElementBase):
     namespace = NAMESPACE
     plugin_attrib = "mention"
     plugin_multi_attrib = "mentions"
-    interfaces = {
-        "begin",
-        "end",
-        "occupantid",
-        "jid",
-        "mentions",
-        "uri",
-    }
+    interfaces: ClassVar[set[str]] = {"type", "target", "active"}
 
-    def set_begin(self, begin: int) -> None:
-        self._set_attr("begin", str(begin))
-
-    def get_begin(self) -> int | None:
-        return _int_or_none(self._get_attr("begin"))
-
-    def set_end(self, end: int) -> None:
-        self._set_attr("end", str(end))
-
-    def get_end(self) -> int | None:
-        return _int_or_none(self._get_attr("end"))
-
-    def mention_group(self, who: GroupMentionLiteral) -> None:
+    def set_type(self, value: MentionTypeLiteral | str) -> None:
         """
-        Mention a group of participants, see section 3.2 of the XEP.
+        Short names ("occupant") expand to the full type URI.
+
+        :param value:
         """
-        self._set_attr("mentions", f"{self.namespace}#{who}")
+        if "#" not in value and ":" not in value:
+            value = f"{self.namespace}#{value}"
+        self._set_attr("type", value)
 
-    def set_jid(self, jid: JID | str) -> None:
-        self._set_attr("jid", str(jid))
+    def get_type(self) -> str | None:
+        return self._get_attr("type") or None
 
-    def get_jid(self) -> JID | None:
-        jid_str = self._get_attr("jid")
-        if not jid_str:
-            return None
-        try:
-            return JID(jid_str)
-        except InvalidJID:
-            log.warning("Failed to parse %s as a JID", jid_str)
-            return None
+    def set_target(self, target: JID | str) -> None:
+        self._set_attr("target", str(target))
 
+    def get_target(self) -> str | None:
+        return self._get_attr("target") or None
 
-class Active(ElementBase):
-    namespace = NAMESPACE
-    name = plugin_attrib = "active"
+    def set_active(self, active: bool) -> None:
+        self._set_attr("active", "true" if active else None)
 
-
-class NoPing(ElementBase):
-    namespace = NAMESPACE
-    name = plugin_attrib = "noping"
-
-
-def _int_or_none(v: str | None) -> int | None:
-    if not v:
-        return None
-    try:
-        return int(v)
-    except ValueError:
-        log.warning("Failed to parse %s as an integer", v)
-        return None
+    def get_active(self) -> bool:
+        return self._get_attr("active") in ("true", "1")
 
 
 def register_plugin() -> None:
-    register_stanza_plugin(Message, Mention, iterable=True)
-    register_stanza_plugin(Mention, NoPing, iterable=True)
-    register_stanza_plugin(Mention, Active, iterable=True)
+    register_stanza_plugin(Message, slixmpp.plugins.xep_0394.stanza.Markup)
+    register_stanza_plugin(slixmpp.plugins.xep_0394.stanza.Span, Mention, iterable=True)
 
 
 log = logging.getLogger(__name__)

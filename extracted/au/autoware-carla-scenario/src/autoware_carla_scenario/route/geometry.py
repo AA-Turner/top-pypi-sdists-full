@@ -8,9 +8,12 @@ asks the same lanelet the same question once per candidate route through it.
 The definitions are the ones ``docs/logical_scenarios.md`` states:
 
 * a **junction lanelet** carries a ``turn_direction`` tag;
-* the **lanes beside** a lanelet are its routing-graph neighbours of the same
-  direction, lane-changeable or not (``left()`` / ``adjacentLeft()``), counted
-  outwards;
+* the **lanes beside** a lanelet are its same-direction neighbours, counted
+  outwards: its routing-graph neighbour (``left()`` / ``adjacentLeft()``,
+  lane-changeable or not), else -- on a map whose lanes have bounds of their
+  own, unrelated in the graph -- the non-junction road lanelet just beyond
+  the outer bound (probed as the opposite lane is) heading within
+  :data:`BESIDE_MAX_TURN_DEG` of it;
 * the **opposite lane** abreast of a point is a lanelet running the other way
   (heading difference over :data:`OPPOSITE_MIN_TURN_DEG`) next to the
   outermost same-direction lane on either side, there: one sharing that
@@ -72,6 +75,7 @@ if TYPE_CHECKING:
 __all__ = [
     "APPROACH_OPPOSITE_MIN_DEG",
     "APPROACH_SAME_MAX_DEG",
+    "BESIDE_MAX_TURN_DEG",
     "CROSSWALK_WINDOW_M",
     "Crosswalk",
     "JUNCTION_RADIUS_M",
@@ -109,6 +113,17 @@ MERGE_WINDOW_M = 100.0
 OPPOSITE_SEARCH_M = 4.0
 #: The least heading difference (deg) of a lanelet running the other way.
 OPPOSITE_MIN_TURN_DEG = 150.0
+#: The most heading difference (deg) of a lane found beside another by where
+#: it is, not through the routing graph.
+BESIDE_MAX_TURN_DEG = 30.0
+#: How far (m) the centreline of a lane found so must be from the other's, on
+#: that side: less is the lane ahead or behind, not one beside.
+_BESIDE_MIN_OFFSET_M = 1.0
+#: How far (m) beyond a bound it is probed for the lanelet past it.
+_PROBE_M = 1.0
+#: The linestring types that part a road from what is beyond: a lane found
+#: beside another by where it is is not one across one of these.
+_BARRIER_TYPES = {"road_border", "curbstone", "fence", "guard_rail", "wall"}
 #: The most same-direction lanes counted on one side.
 _MAX_LANES = 12
 #: The most lanelets :meth:`MapFeatures.abreast` walks along a lane.
@@ -178,6 +193,12 @@ class Crosswalk:
     u: float
     point: tuple[float, float]
     heading: float
+
+
+def _is_barrier(line: ConstLineString3d) -> bool:
+    """Whether *line* parts a road from what is beyond: its type is one of
+    :data:`_BARRIER_TYPES`."""
+    return "type" in line.attributes and str(line.attributes["type"]) in _BARRIER_TYPES
 
 
 def _segment_intersection(
@@ -271,6 +292,10 @@ class MapFeatures:
     _conflicting: dict[int, list[ConstLanelet]]
     _stops: dict[int, list[tuple[float, int]]]
     _merges: dict[tuple[int, str], bool]
+    _routable: set[int]
+    _routable_known: bool
+    _barriers: list[tuple[float, float, float, float, list[tuple[float, float]]]]
+    _barriers_known: bool
 
     def __init__(self, lanelet_map: LaneletMap, routing_graph: RoutingGraph) -> None:
         self.map = lanelet_map
@@ -282,6 +307,10 @@ class MapFeatures:
         self._conflicting = {}
         self._stops = {}
         self._merges = {}
+        self._routable = set()
+        self._routable_known = False
+        self._barriers = []
+        self._barriers_known = False
 
     # -- lanelets ------------------------------------------------------------
 
@@ -332,6 +361,15 @@ class MapFeatures:
         if "subtype" not in lanelet.attributes:
             return True
         return str(lanelet.attributes["subtype"]) not in _NOT_ROADS
+
+    def routable(self, lanelet: ConstLanelet) -> bool:
+        """Whether the routing graph has it: not one its traffic rules refuse
+        (``participant:vehicle=no``, say), which has no neighbours at all."""
+        if not self._routable_known:
+            passable = self.graph.passableLaneletSubmap()
+            self._routable = {int(ll.id) for ll in passable.laneletLayer}
+            self._routable_known = True
+        return int(lanelet.id) in self._routable
 
     def following(self, lanelet: ConstLanelet) -> list[ConstLanelet]:
         """The lanelets following it, by id."""
@@ -465,40 +503,158 @@ class MapFeatures:
     # -- lanes beside --------------------------------------------------------
 
     def neighbour(self, lanelet: ConstLanelet, side: str) -> Optional[ConstLanelet]:
-        """The same-direction lane on *side*, lane-changeable or not."""
+        """The same-direction lane on *side* in the routing graph,
+        lane-changeable or not."""
         return _neighbour(self.graph, lanelet, side == "left")
 
+    def beside(
+        self, lanelet: ConstLanelet, side: str, x: float, y: float
+    ) -> Optional[ConstLanelet]:
+        """The same-direction lane on *side*, abreast of ``(x, y)``.
+
+        Its routing-graph neighbour (:meth:`neighbour`), else the lanelet
+        :meth:`beside_by_position` finds.
+        """
+        found = self.neighbour(lanelet, side)
+        if found is not None:
+            return found
+        return self.beside_by_position(lanelet, side, x, y)
+
+    def beside_by_position(
+        self, lanelet: ConstLanelet, side: str, x: float, y: float
+    ) -> Optional[ConstLanelet]:
+        """The same-direction lane just beyond *lanelet*'s *side* bound,
+        abreast of ``(x, y)``, that the routing graph does not relate to it.
+
+        Probed as :meth:`_opposite_of_edge` probes for the opposite lane:
+        :data:`_PROBE_M` past the bound's point nearest the point abreast,
+        within :data:`OPPOSITE_SEARCH_M` of that.  The nearest road lanelet
+        there that is not a junction lanelet, nor *lanelet*'s own lane ahead
+        or behind, is the one -- if it heads within
+        :data:`BESIDE_MAX_TURN_DEG` of *lanelet* and no road border (nor
+        kerb, fence, guard rail or wall) parts them: neither bound facing
+        the other is one, nor does one cross the gap between those bounds; one
+        running the other way there means there is none.  ``None`` for a
+        junction lanelet.
+        """
+        if self.is_junction(lanelet):
+            return None
+        points = _centreline(lanelet)
+        along, _t = _arc(lanelet, x, y)
+        mx, my = _point_at(points, along)
+        heading = _heading_at(points, along)
+        hx, hy = math.cos(heading), math.sin(heading)
+        sign = 1.0 if side == "left" else -1.0
+        bound = lanelet.leftBound if side == "left" else lanelet.rightBound
+        px, py = self._probe_beyond(bound, mx, my)
+        best: Optional[tuple[float, int, ConstLanelet, bool]] = None
+        for distance, near in lanelet2.geometry.findNearest(
+            self.map.laneletLayer, lanelet2.core.BasicPoint2d(px, py), 6
+        ):
+            nearby: ConstLanelet = near
+            gap = float(distance)
+            if gap > OPPOSITE_SEARCH_M or int(nearby.id) == int(lanelet.id):
+                continue
+            if not self.is_road(nearby) or self.is_junction(nearby):
+                continue
+            other_points = _centreline(nearby)
+            s, _t = _arc(nearby, mx, my)
+            cx, cy = _point_at(other_points, s)
+            if sign * (hx * (cy - my) - hy * (cx - mx)) < _BESIDE_MIN_OFFSET_M:
+                continue
+            turn = math.degrees(_turn(heading, _heading_at(other_points, s)))
+            facing = nearby.rightBound if side == "left" else nearby.leftBound
+            beside = (
+                turn <= BESIDE_MAX_TURN_DEG
+                and not _is_barrier(bound)
+                and not _is_barrier(facing)
+                and not self._parted(
+                    self.nearest_on(bound, mx, my), self.nearest_on(facing, mx, my)
+                )
+            )
+            key = (gap, int(nearby.id))
+            if best is None or key < best[:2]:
+                best = (gap, int(nearby.id), nearby, beside)
+        if best is None or not best[3]:
+            return None
+        return best[2]
+
+    def _parted(self, a: tuple[float, float], b: tuple[float, float]) -> bool:
+        """Whether a linestring of :data:`_BARRIER_TYPES` crosses the
+        segment from *a* to *b* (never, when they are one point)."""
+        if math.hypot(b[0] - a[0], b[1] - a[1]) < 1e-6:
+            return False
+        if not self._barriers_known:
+            for line in self.map.lineStringLayer:
+                if "type" not in line.attributes:
+                    continue
+                if str(line.attributes["type"]) not in _BARRIER_TYPES:
+                    continue
+                points = [(float(p.x), float(p.y)) for p in line]
+                if len(points) < 2:
+                    continue
+                xs = [p[0] for p in points]
+                ys = [p[1] for p in points]
+                self._barriers.append((min(xs), min(ys), max(xs), max(ys), points))
+            self._barriers_known = True
+        lo_x, hi_x = min(a[0], b[0]), max(a[0], b[0])
+        lo_y, hi_y = min(a[1], b[1]), max(a[1], b[1])
+        for x0, y0, x1, y1, points in self._barriers:
+            if x1 < lo_x or x0 > hi_x or y1 < lo_y or y0 > hi_y:
+                continue
+            for q0, q1 in zip(points, points[1:]):
+                if _segment_intersection(a, b, q0, q1) is not None:
+                    return True
+        return False
+
     def lanes_beside(self, lanelet: ConstLanelet, side: str) -> int:
-        """How many same-direction lanes lie on its *side*."""
+        """How many same-direction lanes lie on its *side*, abreast of its
+        middle."""
         key = (int(lanelet.id), side)
         known = self._lanes.get(key)
         if known is not None:
             return known
-        found, _outer = self._walk_beside(lanelet, side)
+        x, y = _point_at(_centreline(lanelet), self.length(lanelet) / 2.0)
+        found, _outer = self._walk_beside(lanelet, side, x, y)
         self._lanes[key] = found
         return found
 
-    def outermost(self, lanelet: ConstLanelet, side: str) -> ConstLanelet:
-        """The last same-direction lane on its *side* (itself if none)."""
-        _found, outer = self._walk_beside(lanelet, side)
+    def outermost(
+        self, lanelet: ConstLanelet, side: str, x: float, y: float
+    ) -> ConstLanelet:
+        """The last same-direction lane on its *side*, abreast of ``(x, y)``
+        (itself if none)."""
+        _found, outer = self._walk_beside(lanelet, side, x, y)
         return outer
 
     def _walk_beside(
-        self, lanelet: ConstLanelet, side: str
+        self, lanelet: ConstLanelet, side: str, x: float, y: float
     ) -> tuple[int, ConstLanelet]:
         """``(count, last)`` of the same-direction lanes on its *side*:
         how many there are (at most :data:`_MAX_LANES`) and the outermost
-        (itself if none)."""
+        (itself if none).
+
+        Each step takes the routing-graph neighbour, else the lane
+        :meth:`beside_by_position` finds beyond the current lane's lanelet
+        abreast of ``(x, y)``.
+        """
         found = 0
         current: ConstLanelet = lanelet
         seen = {int(lanelet.id)}
         for _step in range(_MAX_LANES):
             beside = self.neighbour(current, side)
-            if beside is None or int(beside.id) in seen:
+            if beside is None:
+                beside = self.beside_by_position(
+                    self.abreast(current, x, y), side, x, y
+                )
+            if beside is None:
                 break
-            seen.add(int(beside.id))
+            step: ConstLanelet = beside
+            if int(step.id) in seen:
+                break
+            seen.add(int(step.id))
             found += 1
-            current = beside
+            current = step
         return found, current
 
     def _ends_into(self, lanelet: ConstLanelet, side: str) -> bool:
@@ -578,7 +734,7 @@ class MapFeatures:
         """
         best: Optional[tuple[float, int, ConstLanelet, str]] = None
         for side in ("left", "right"):
-            edge = self.abreast(self.outermost(lanelet, side), x, y)
+            edge = self.abreast(self.outermost(lanelet, side, x, y), x, y)
             found = self._opposite_of_edge(edge, side, x, y)
             if found is None:
                 continue
@@ -652,12 +808,9 @@ class MapFeatures:
                 candidates.append((0.0, other))
         if not candidates:
             # Not connected through a shared bound: look just beyond it.
-            bx, by = self.nearest_on(bound, mx, my)
-            nx, ny = bx - mx, by - my
-            norm = math.hypot(nx, ny) or 1.0
-            probe = (bx + nx / norm * 1.0, by + ny / norm * 1.0)
+            px, py = self._probe_beyond(bound, mx, my)
             for distance, near in lanelet2.geometry.findNearest(
-                self.map.laneletLayer, lanelet2.core.BasicPoint2d(*probe), 6
+                self.map.laneletLayer, lanelet2.core.BasicPoint2d(px, py), 6
             ):
                 nearby: ConstLanelet = near
                 if float(distance) > OPPOSITE_SEARCH_M:
@@ -671,6 +824,16 @@ class MapFeatures:
         if not candidates:
             return None
         return min(candidates, key=lambda item: (item[0], int(item[1].id)))
+
+    def _probe_beyond(
+        self, bound: ConstLineString3d, x: float, y: float
+    ) -> tuple[float, float]:
+        """The point :data:`_PROBE_M` beyond *bound*, seen from ``(x, y)``
+        on the lane's centreline."""
+        bx, by = self.nearest_on(bound, x, y)
+        nx, ny = bx - x, by - y
+        norm = math.hypot(nx, ny) or 1.0
+        return bx + nx / norm * _PROBE_M, by + ny / norm * _PROBE_M
 
     def _runs_opposite(
         self, other: ConstLanelet, x: float, y: float, heading: float

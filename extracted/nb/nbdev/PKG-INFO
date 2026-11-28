@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nbdev
-Version: 3.3.31
+Version: 3.3.33
 Summary: Create delightful software with Jupyter Notebooks
 Author-email: "Jeremy Howard and the fast.ai community" <j@fast.ai>
 License-Expression: Apache-2.0
@@ -15,8 +15,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fastcore>=2.2.45
-Requires-Dist: execnb>=0.3.3
+Requires-Dist: fastcore>=2.3.1
 Requires-Dist: astunparse
 Requires-Dist: ghapi>=2.0.2
 Requires-Dist: watchdog
@@ -25,7 +24,11 @@ Requires-Dist: setuptools
 Requires-Dist: build
 Requires-Dist: fastgit>=0.0.7
 Requires-Dist: pyyaml
+Requires-Dist: pyskills>=0.0.37
+Provides-Extra: exec
+Requires-Dist: execnb>=0.3.3; extra == "exec"
 Provides-Extra: dev
+Requires-Dist: nbdev[exec]; extra == "dev"
 Requires-Dist: ipywidgets; extra == "dev"
 Requires-Dist: nbdev-numpy; extra == "dev"
 Requires-Dist: nbdev-stdlib; extra == "dev"
@@ -34,7 +37,6 @@ Requires-Dist: matplotlib; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: svg.py; extra == "dev"
 Requires-Dist: pysym2md>=0.0.6; extra == "dev"
-Requires-Dist: llms-txt; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: plum-dispatch; extra == "dev"
 Requires-Dist: nbclient; extra == "dev"
@@ -74,8 +76,10 @@ nbdev works on macOS, Linux, and most Unix-style operating systems. It works on 
 You can install nbdev with pip:
 
 ``` sh
-pip install nbdev
+pip install 'nbdev[exec]'
 ```
+
+Install bare `pip install nbdev` if you only need export, clean, merge, diff, or release tools without notebook execution (`nbdev-test` and Python `nbdev-docs`).
 
 Note that `nbdev` must be installed into the same Python environment that you use for both Jupyter and your project.
 

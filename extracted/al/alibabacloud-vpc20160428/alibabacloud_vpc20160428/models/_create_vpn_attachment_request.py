@@ -68,10 +68,18 @@ class CreateVpnAttachmentRequest(DaraModel):
         # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request is different.
         self.client_token = client_token
         # The customer gateway ID.
+        # 
+        # > This parameter must be specified only when you create an IPsec-VPN connection in single-tunnel mode.
         self.customer_gateway_id = customer_gateway_id
         # Specifies whether to perform a dry run. Valid values:
+        # 
+        # - **true**: sends a check request and does not create the IPsec connection. The system checks whether required parameters are specified, whether the request format is valid, and whether business limits are exceeded. If the check fails, the corresponding error is returned. If the check succeeds, the error code `DryRunOperation` is returned.
+        # - **false** (default): sends a normal request. After the check succeeds, the system directly creates the IPsec connection.
         self.dry_run = dry_run
         # Specifies whether the configuration of the IPsec-VPN connection takes effect immediately. Valid values:
+        # 
+        # - **true**: yes. After the configuration is complete, the system immediately starts IPsec negotiation.
+        # - **false** (default): no. The system starts IPsec negotiation only after traffic flows in.
         self.effect_immediately = effect_immediately
         # This parameter is supported when you create an IPsec-VPN connection in single-tunnel mode.
         # 
@@ -90,8 +98,29 @@ class CreateVpnAttachmentRequest(DaraModel):
         # - **false**: Disables NAT traversal.
         self.enable_nat_traversal = enable_nat_traversal
         # This parameter is supported when you create a dual-tunnel IPsec-VPN connection.
+        # 
+        # Specifies whether to enable BGP for the tunnel. Valid values: **true** and **false** (default).
+        # 
+        # > Before you add BGP configurations, we recommend that you understand the working mechanism and usage limits of BGP dynamic routing. For more information, see [Configure BGP dynamic routing](https://help.aliyun.com/document_detail/445767.html).
         self.enable_tunnels_bgp = enable_tunnels_bgp
         # This parameter is supported when you create a single-tunnel IPsec-VPN connection.
+        # 
+        # Health check configurations:
+        # 
+        # - **HealthCheckConfig.enable**: specifies whether to enable health checks. Valid values: **true** and **false** (default).
+        # 
+        # - **HealthCheckConfig.dip**: the destination IP address of health checks. Enter the IP address of the on-premises data center that can be accessed from the VPC side over the IPsec connection.
+        # 
+        # - **HealthCheckConfig.sip**: the source IP address of health checks. Enter the IP address on the VPC side that can be accessed from the on-premises data center over the IPsec connection.
+        # 
+        # - **HealthCheckConfig.interval**: the interval at which health check retries are performed. Unit: seconds. Default value: **3**.
+        # 
+        # - **HealthCheckConfig.retry**: the number of packets that are retransmitted for health checks. Default value: **3**.
+        # 
+        # - **HealthCheckConfig.Policy**: specifies whether to revoke the published routes if a health check fails. Valid values:
+        # 
+        #      - **revoke_route** (default): revokes the published routes.
+        #      - **reserve_route**: does not revoke the published routes.
         self.health_check_config = health_check_config
         # This parameter is supported when you create an IPsec-VPN connection in single-tunnel mode.
         # 
@@ -144,8 +173,12 @@ class CreateVpnAttachmentRequest(DaraModel):
         # This parameter is required.
         self.local_subnet = local_subnet
         # The name of the IPsec-VPN connection.
+        # 
+        # The name must be 1 to 100 characters in length and cannot start with `http://` or `https://`.
         self.name = name
         # The network type of the IPsec-VPN connection. Valid values:
+        # - **public** (default): public network. The IPsec connection establishes an encrypted communication channel over the public network.
+        # - **private**: private network. The IPsec connection establishes an encrypted communication channel over a private network.
         self.network_type = network_type
         self.owner_account = owner_account
         # The region ID of the IPsec-VPN connection.
@@ -175,8 +208,12 @@ class CreateVpnAttachmentRequest(DaraModel):
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
         # The list of tags to add to the IPsec-VPN connection.
+        # 
+        # You can add up to 20 tags to an IPsec connection at a time.
         self.tags = tags
         # The bandwidth specification of a single VPN tunnel. Valid values:
+        # Standard (default): Standard type. Default bandwidth: 1 Gbps
+        # Large: Large type. Default bandwidth: 3 Gbps
         self.tunnel_bandwidth = tunnel_bandwidth
         # Configures tunnels.
         # 
@@ -377,6 +414,8 @@ class CreateVpnAttachmentRequestTunnelOptionsSpecification(DaraModel):
         tunnel_ipsec_config: main_models.CreateVpnAttachmentRequestTunnelOptionsSpecificationTunnelIpsecConfig = None,
     ):
         # The ID of the customer gateway associated with the tunnel.
+        # 
+        # > This parameter is required when you create an IPsec-VPN connection in dual-tunnel mode.
         self.customer_gateway_id = customer_gateway_id
         # Specifies whether to enable the Dead Peer Detection (DPD) feature for the tunnel. Valid values:
         # 

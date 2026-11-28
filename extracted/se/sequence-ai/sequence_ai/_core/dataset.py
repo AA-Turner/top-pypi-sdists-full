@@ -373,12 +373,21 @@ def _marked():
     try:
         marked = _codec()
         import av
-        import zstandard
+        if not _zstd_here():
+            raise ImportError("no zstd here", name="zstandard")
     except (ImportError, MissingPackage) as exc:
         raise MissingPackage(f"this dataset's steps hold Video, Depth or Tactile items, and decoding them needs "
                              f"what is missing here ({getattr(exc, 'name', None) or exc})",
                              hint="pip install -U sequence-ai, on Python 3.10 or later") from None
     return marked
+
+
+def _zstd_here() -> bool:
+    """Whether this machine has zstd for an item's bytes: Python 3.14's compression.zstd, else zstandard installed - the
+    robot's posts' own (compress._codec)."""
+    from sequence_ai._core.compress import _codec as _posts
+
+    return _posts()[0] == "zstd"
 
 
 def _untagged(value: Any) -> Any:

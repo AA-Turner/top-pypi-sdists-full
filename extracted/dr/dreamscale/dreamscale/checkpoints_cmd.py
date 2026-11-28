@@ -412,7 +412,7 @@ _WARM_STATES = {
     "in_use": "in use",
     "replacing": "replacing its server with a fresh one",
     "waiting_for_capacity": "waiting for a server in its region",
-    "waiting_for_gpu": "waiting for a GPU",
+    "waiting_for_gpu": "waiting for a server",
     "failed": "could not keep a server warm",
 }
 # An autoscaling deployment's robots kept ready, by what its capacity is doing now (ready
@@ -421,8 +421,8 @@ _HELD_STATES = {
     "warm": None,
     "in_use": None,
     "warming": "starting",
-    # Capacity waits read the same everywhere: "waiting for a GPU".
-    "waiting_for_gpu": "waiting for a GPU",
+    # A capacity wait reads as on the deployment's own line: "waiting for a server".
+    "waiting_for_gpu": "waiting for a server",
     "off": "none running now",
 }
 
@@ -1398,7 +1398,7 @@ def run_keep_warm(
 
 # What a deployment warming up now is doing, while the CLI waits (warm.state).
 _WARMING_LINES = {
-    "waiting_for_gpu": "Waiting for a GPU",
+    "waiting_for_gpu": "Waiting for a server",
     "waiting_for_capacity": "Waiting for a server in its region",
 }
 _WARM_READY = ("warm", "in_use")

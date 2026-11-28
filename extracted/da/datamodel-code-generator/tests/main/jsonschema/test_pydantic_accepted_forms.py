@@ -665,6 +665,446 @@ def test_inherited_unicode_property_is_redeclared_in_the_module_of_its_base(
 
 
 @pytest.mark.parametrize(
+    ("output_model_type", "extra_args"),
+    [
+        pytest.param("pydantic_v2.dataclass", [], id="dataclass"),
+        pytest.param("pydantic_v2.dataclass", ["--field-constraints"], id="field_constraints"),
+        pytest.param("pydantic_v2.dataclass", ["--use-annotated"], id="use_annotated"),
+        pytest.param("pydantic_v2.dataclass", ["--target-pydantic-version", "2.11"], id="target_2_11"),
+        pytest.param("pydantic_v2.BaseModel", [], id="base_model"),
+    ],
+)
+def test_inherited_alias_pattern_python_re_rejects_is_left_out_of_the_subclass(
+    output_file: Path, recwarn: pytest.WarningsRecorder, output_model_type: str, extra_args: list[str]
+) -> None:
+    r"""Write a type alias whose ``\p{L}`` the subclass's ``python-re`` builds as its body without it (#7487).
+
+    ``Both`` selects ``python-re`` for the lookahead of ``Coded``, and builds the aliases its own field and the fields
+    of ``Named`` name with it, which failed at import. Its fields write the alias body without the pattern Python's
+    ``re`` rejects, keeping the other constraints of the alias (``maxLength``, and ``minItems`` and ``maxItems`` beside
+    a pattern of the items) and the members of its type (``Maybe`` stays a nullable ``str``), and warn; ``Named`` and
+    the aliases keep their output and still reject what they rejected. A model merges the configs of its bases and
+    marks every alias it builds, so it keeps its output.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "python_engine_beside_rejected_in_an_alias.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            output_model_type,
+            *extra_args,
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    outcomes = "".join(f"{warning.message}\n" for warning in recwarn if "regex engine" in str(warning.message))
+    payloads = {
+        "Named": {
+            "valid": {"name": "Zo\u00eb", "maybe": None},
+            "digits": {"name": "12"},
+            "long": {"short": "abcdefghij"},
+            "no items": {"bounded": []},
+        },
+        "Both": {
+            "valid": {
+                "name": "12",
+                "names": ["12"],
+                "nick": "12",
+                "short": "ab",
+                "bounded": ["12"],
+                "maybe": None,
+                "code": "ab",
+            },
+            "maybe": {"maybe": "12"},
+            "short maybe": {"maybe": "a"},
+            "long": {"short": "abcdefghij"},
+            "no items": {"bounded": []},
+            "four items": {"bounded": ["a", "b", "c", "d"]},
+            "lookahead": {"code": "xa"},
+        },
+    }
+    for model_name, cases in payloads.items():
+        with _generated_model(output_file, "python_engine_beside_rejected_in_an_alias", model_name) as model:
+            outcomes += f"{model_name}\n{_outcomes(model, cases)}"
+    assert_output(outcomes, name="outcomes")
+
+
+@pytest.mark.parametrize("taken_alias_generator", [False, True], ids=["plain", "alias_generator"])
+def test_inherited_unicode_property_is_redeclared_in_another_module(
+    output_dir: Path, tmp_path: Path, recwarn: pytest.WarningsRecorder, *, taken_alias_generator: bool
+) -> None:
+    r"""Redeclare the ``\p{L}`` fields of a base in another module where the subclass selects ``python-re`` (#7487).
+
+    ``c.Both`` builds the lookahead of ``b.Coded``, so it redeclares the fields of ``a.Named`` without the pattern
+    Python's ``re`` rejects, which failed at import: its copies name ``a.Color`` and a field ``date`` that hides the
+    ``date`` its own field ``when`` names, so ``c`` imports both, under a name that no
+    redeclared field (``date_aliased``) takes. ``c.Shut`` takes the config of ``a.Closed``; with an ``alias_generator``
+    in it, ``c`` imports the generator too, which failed with ``NameError`` (#7548). ``a`` and ``b`` keep their output
+    and reject what they rejected.
+    """
+    extra_args = []
+    if taken_alias_generator:
+        extra_template_data = tmp_path / "extra-template-data.json"
+        config = {"config": {"alias_generator": "to_camel"}}
+        extra_template_data.write_text(
+            json.dumps({"a.Closed": config, "#/components/schemas/a.Closed": config}), encoding="utf-8"
+        )
+        extra_args = ["--extra-template-data", str(extra_template_data)]
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "python_engine_beside_rejected_in_other_modules.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            *extra_args,
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    outcomes = "".join(f"{warning.message}\n" for warning in recwarn if "regex engine" in str(warning.message))
+    named = {"valid": {"name": "Zo\u00eb"}, "digits": {"name": "12"}}
+    with _generated_package_module(output_dir, "a") as generated:
+        outcomes += f"Named\n{_outcomes(generated.Named, named)}"
+    user_name = "userName" if taken_alias_generator else "user_name"
+    payloads = {
+        "Both": {
+            "valid": {
+                "name": "12",
+                "tint": "12",
+                "nickname": "12",
+                "date": "12",
+                "date_aliased": "12",
+                "when": "2020-01-01",
+                "code": "ab",
+            },
+            "color": {"tint": "red"},
+            "lookahead": {"code": "xa"},
+        },
+        "Shut": {"valid": {user_name: "u", "code": "ab"}, "extra": {"other": 1}},
+    }
+    with _generated_package_module(output_dir, "c") as generated:
+        for model_name, cases in payloads.items():
+            outcomes += f"{model_name}\n{_outcomes(getattr(generated, model_name), cases)}"
+    assert_output(outcomes, name="outcomes")
+
+
+KEEP_INHERITED_DATACLASS_CONFIG = "--keep-inherited-dataclass-config"
+INHERITED_DATACLASS_CONFIG = OPEN_API_DATA_PATH / "inherited_dataclass_config" / "schema.yaml"
+INHERITED_DATACLASS_CONFIG_ENGINES = JSON_SCHEMA_DATA_PATH / "inherited_dataclass_config_engines.json"
+EXTRA_KEY = {"other": 1}
+SURROGATE_TAKER_SCHEMA = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+        "Marked": {"type": "object", "properties": {"mark": {"type": "string", "pattern": "^a\ud800b$"}}},
+        "Tailed": {
+            "allOf": [
+                {"$ref": "#/$defs/Marked"},
+                {"type": "object", "properties": {"tail": {"type": "string", "pattern": "^[a-z]+$"}}},
+            ]
+        },
+    },
+}
+"""Written here, as a YAML parser rejects the escape of a lone surrogate."""
+
+
+@pytest.mark.cli_doc(
+    options=[KEEP_INHERITED_DATACLASS_CONFIG],
+    option_description="""Keep the config items of the first base in a Pydantic dataclass with a config of its own.
+
+A Pydantic dataclass with no config of its own applies the config of its first dataclass base, such as
+`extra='forbid'` from `additionalProperties: false`. Once it writes a config of its own, for example
+`populate_by_name=True` for `--allow-population-by-field-name` or `regex_engine="python-re"` for a lookaround in
+its own patterns, Pydantic applies that config alone: without this option the dataclass accepts the extra keys its
+base rejects and drops the `--extra-template-data` items of its base, as 0.103.0 writes it. With it the config of
+the dataclass also writes the items of its base that it does not set itself, base items first, as a Pydantic model
+merges the config of every base (`ConfigDict(extra='forbid', regex_engine="python-re")`); an item the dataclass sets
+itself wins.
+
+The kept items can also select the base's `python-re` regex engine for the patterns of the dataclass: there `$`
+also accepts a trailing newline, and a pattern Python's `re` rejects, such as `\\p{L}`, is left out with a warning,
+as for a dataclass that takes the config of its base. A base the dataclass builds with that engine can change too: a
+second base leaves out a pattern Python's `re` rejects, and a base with a lone surrogate in a pattern keeps the default
+engine. A configured base class from `--base-class` that the
+generator does not read gives no items. Pydantic model output is the same either way.""",
+    input_schema="openapi/inherited_dataclass_config/schema.yaml",
+    cli_args=["--output-model-type", "pydantic_v2.dataclass", KEEP_INHERITED_DATACLASS_CONFIG],
+    golden_output="main/jsonschema/pydantic_accepted_forms/dataclass_config_keeps_the_items_of_its_first_base[engine].option/",
+    comparison_output="main/jsonschema/pydantic_accepted_forms/dataclass_config_keeps_the_items_of_its_first_base[engine].default/",
+    related_options=["--output-model-type", "--allow-population-by-field-name", "--extra-template-data"],
+)
+@pytest.mark.parametrize(
+    ("schema", "extra_args", "template_data", "payloads", "values"),
+    [
+        pytest.param(
+            INHERITED_DATACLASS_CONFIG,
+            [],
+            {},
+            {
+                "a": {
+                    "Code": {"valid": {"id": 1, "code": "ab"}, "extra": EXTRA_KEY, "lookahead": {"code": "xa"}},
+                    "Plain": {"valid": {"code": "ab"}, "extra": EXTRA_KEY},
+                    "Tagged": {"valid": {"tag": "ab"}, "extra": EXTRA_KEY},
+                    "Guard": {"valid": {"pin": "1", "code": "ab"}, "extra": EXTRA_KEY},
+                    "Mid": {"valid": {"note": "n"}, "extra": EXTRA_KEY},
+                    "Deep": {"valid": {"note": "n", "code": "ab"}, "extra": EXTRA_KEY},
+                    "Leaf": {"valid": {"code": "ab", "tag": "ab"}, "extra": EXTRA_KEY, "lookahead": {"tag": "ya"}},
+                    "Two": {"valid": {"two": "ab"}, "extra": EXTRA_KEY},
+                },
+                "b": {
+                    "Remote": {"valid": {"code": "ab"}, "extra": EXTRA_KEY},
+                    "Worded": {"valid": {"word": "ab"}, "extra": EXTRA_KEY, "lookahead": {"word": "xa"}},
+                },
+            },
+            {},
+            id="engine",
+        ),
+        pytest.param(
+            INHERITED_DATACLASS_CONFIG,
+            ["--allow-population-by-field-name"],
+            {},
+            {
+                "a": {"Mid": {"valid": {"note": "n"}, "extra": EXTRA_KEY}, "Code": {"extra": EXTRA_KEY}},
+                "b": {"Remote": {"valid": {"code": "ab"}, "extra": EXTRA_KEY}},
+            },
+            {},
+            id="population",
+        ),
+        pytest.param(
+            INHERITED_DATACLASS_CONFIG,
+            [],
+            {"a.Code": {"extra": "'allow'"}},
+            {"a": {"Code": {"extra": EXTRA_KEY}, "Leaf": {"extra": EXTRA_KEY}}},
+            {},
+            id="own-wins",
+        ),
+        pytest.param(
+            INHERITED_DATACLASS_CONFIG,
+            ["--extra-fields", "allow"],
+            {},
+            {"a": {"Code": {"extra": EXTRA_KEY}}, "b": {"Remote": {"extra": EXTRA_KEY}}},
+            {},
+            id="extra-fields",
+        ),
+        pytest.param(
+            INHERITED_DATACLASS_CONFIG,
+            [],
+            {"a.Closed": {"alias_generator": "to_camel"}},
+            {"b": {"Remote": {"camel": {"userName": "u", "code": "ab"}, "extra": EXTRA_KEY}}},
+            {"b": {"Remote": ({"userName": "u", "code": "ab"}, "user_name")}},
+            id="alias-generator",
+        ),
+        pytest.param(
+            INHERITED_DATACLASS_CONFIG,
+            ["--extra-fields", "forbid", "--use-generic-base-class"],
+            {},
+            {"a": {"Code": {"extra": EXTRA_KEY}, "Mid": {"extra": EXTRA_KEY}}},
+            {},
+            id="generic-base",
+        ),
+        pytest.param(
+            INHERITED_DATACLASS_CONFIG_ENGINES,
+            ["--allow-population-by-field-name"],
+            {},
+            {
+                "model": {
+                    "Named": {
+                        "valid": {"name": "Zo\u00eb", "tail": "ab"},
+                        "digits": {"name": "12"},
+                        "newline": {"tail": "ab\n"},
+                    },
+                    "Lettered": {"valid": {"letters": "Zo\u00eb"}, "digits": {"letters": "12"}},
+                    "Both": {"valid": {"count": 1, "letters": "Zo\u00eb"}, "extra": EXTRA_KEY},
+                }
+            },
+            {},
+            id="engines",
+        ),
+        pytest.param(
+            INHERITED_DATACLASS_CONFIG_ENGINES,
+            ["--base-class", "mypkg.Base"],
+            {},
+            {},
+            {},
+            id="opaque-base",
+        ),
+        pytest.param(
+            SURROGATE_TAKER_SCHEMA,
+            ["--allow-population-by-field-name"],
+            {},
+            {
+                "model": {
+                    "Marked": {"replacements": {"mark": "a\ufffd\ufffd\ufffdb"}},
+                    "Tailed": {"newline": {"tail": "ab\n"}},
+                }
+            },
+            {},
+            id="surrogate-taker",
+        ),
+        pytest.param(
+            SURROGATE_TAKER_SCHEMA,
+            ["--allow-population-by-field-name"],
+            {"Tailed": {"regex_engine": '"python-re"'}},
+            {
+                "model": {
+                    "Marked": {"replacements": {"mark": "a\ufffd\ufffd\ufffdb"}},
+                    "Tailed": {"newline": {"tail": "ab\n"}},
+                }
+            },
+            {},
+            id="surrogate-taker-names-engine",
+        ),
+    ],
+)
+def test_dataclass_config_keeps_the_items_of_its_first_base(
+    tmp_path: Path,
+    recwarn: pytest.WarningsRecorder,
+    monkeypatch: pytest.MonkeyPatch,
+    schema: Path | dict[str, object],
+    extra_args: list[str],
+    template_data: dict[str, dict[str, str]],
+    payloads: dict[str, dict[str, dict[str, object]]],
+    values: dict[str, dict[str, tuple[dict[str, object], str]]],
+) -> None:
+    r"""Keep the config items of the first dataclass base with ``--keep-inherited-dataclass-config`` (#7497, #7560).
+
+    Each case generates without the option (``default``) and with it (``option``). ``engine``: each subclass of
+    ``a.Closed`` and ``a.Open`` selects ``python-re`` for its own lookaround or the type alias ``b.Word`` and writes
+    a config of its own, which drops ``extra`` of its base; with the option ``a.Deep`` keeps the one ``a.Mid`` takes
+    from ``a.Closed``, ``a.Leaf`` the one of ``a.Code``, ``a.Two`` that of ``a.Open``, its first base, and ``b.Remote``
+    and ``b.Worded`` that of another module. ``population``: ``a.Mid`` has a config of its own only for
+    ``--allow-population-by-field-name`` (#7560). ``own-wins`` and ``extra-fields``: an item the subclass sets itself
+    stays. ``alias-generator``: ``b.Remote`` keeps the ``alias_generator`` of ``a.Closed`` and imports it, so
+    ``userName`` fills ``user_name``. ``generic-base``: the generic base class of a dataclass holds no config, so no
+    subclass has one to keep. ``engines``: ``Named`` takes the ``python-re`` that ``Labelled`` selects for a model it
+    reaches, so its own ``\p{L}`` is left out with a warning and ``$`` accepts a trailing newline; ``Both`` takes the
+    engine of ``Sealed``, its first base, and builds the ``\p{L}`` of ``Lettered`` with it, so ``Lettered`` leaves
+    it out too, as for a subclass with no config of its own. ``opaque-base``: a configured base class the generator
+    does not read gives no item. ``surrogate-taker``: ``Tailed`` applies the config of ``Marked``, so its default
+    engine pattern keeps ``Marked`` on the default engine, which reads the lone surrogate as U+FFFD, with a warning.
+    ``surrogate-taker-names-engine``: a ``Tailed`` that names ``python-re`` itself keeps it whatever ``Marked`` selects,
+    so it does not keep ``Marked`` on the default engine.
+    """
+    monkeypatch.delenv("DATAMODEL_CODE_GENERATOR_CHECK_BUILTIN_FORMATTER_PARITY", raising=False)
+    if isinstance(schema, dict):
+        input_path = tmp_path / "surrogate_taker.json"
+        input_path.write_text(json.dumps(schema), encoding="utf-8")
+    else:
+        input_path = schema
+    input_file_type = "openapi" if input_path.suffix == ".yaml" else "jsonschema"
+    if template_data:
+        template_data_path = tmp_path / "extra-template-data.json"
+        configs = {name: {"config": config} for name, config in template_data.items()}
+        template_data_path.write_text(
+            json.dumps({**configs, **{f"#/components/schemas/{name}": config for name, config in configs.items()}}),
+            encoding="utf-8",
+        )
+        extra_args = [*extra_args, "--extra-template-data", str(template_data_path)]
+    outcomes = ""
+    for name, option_args in (("default", []), ("option", [KEEP_INHERITED_DATACLASS_CONFIG])):
+        package = tmp_path / f"{name}_models"
+        recwarn.clear()
+        run_main_and_assert(
+            input_path=input_path,
+            output_path=package if input_file_type == "openapi" else package / "model.py",
+            input_file_type=input_file_type,
+            extra_args=[
+                "--output-model-type",
+                "pydantic_v2.dataclass",
+                *extra_args,
+                *option_args,
+                "--formatters",
+                "builtin",
+                "--disable-timestamp",
+            ],
+            force_exec_validation=bool(payloads),
+            skip_code_validation=not payloads,
+            name=name,
+        )
+        outcomes += f"{name}\n"
+        outcomes += "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(warning.message) for warning in recwarn)
+            if "regex" in message
+        )
+        for module, models in payloads.items():
+            with _generated_package_module(package, module) as generated:
+                for model_name, cases in models.items():
+                    outcomes += f"{model_name}\n{_outcomes(getattr(generated, model_name), cases)}"
+                for model_name, (payload, attribute) in values.get(module, {}).items():
+                    parsed = _model_json_validator(getattr(generated, model_name))(json.dumps(payload))
+                    outcomes += f"{model_name}.{attribute}: {getattr(parsed, attribute)!r}\n"
+    assert_output(outcomes, name="outcomes")
+
+
+@pytest.mark.parametrize(
+    ("document", "payloads"),
+    [
+        pytest.param(
+            "python_engine_beside_rejected_alias_in_other_modules",
+            {
+                "valid": {
+                    "name": "12",
+                    "nick": "12",
+                    "label": {"hex": "1"},
+                    "labels": [{"hex": "2"}, "12"],
+                    "by_key": {"k": {"hex": "3"}},
+                    "either": {"hex": "4"},
+                    "tag": {"code": 5},
+                    "own": {"hex": "6"},
+                    "mine": {"rgb": 7},
+                    "short": "12",
+                    "count": 8,
+                    "code": "ab",
+                },
+                "long": {"short": "abcdefg"},
+                "lookahead": {"code": "xa"},
+            },
+            id="other_modules",
+        ),
+        pytest.param(
+            "python_engine_beside_rejected_alias_in_a_builtin_named_module",
+            {
+                "valid": {"name": "12", "nick": "12", "label": {"hex": "1"}, "own": {"count": 2}, "code": "ab"},
+                "lookahead": {"code": "xa"},
+            },
+            id="builtin_named_module",
+        ),
+    ],
+)
+def test_inherited_alias_of_another_module_names_its_models_from_the_subclass(
+    output_dir: Path, recwarn: pytest.WarningsRecorder, document: str, payloads: Mapping[str, object]
+) -> None:
+    r"""Import the models that a type alias of another module names where a subclass writes its body (#7487).
+
+    ``c.Both`` builds the lookahead of ``b.Coded`` with ``python-re``, so its fields write the bodies of the aliases of
+    ``a`` without their ``\p{L}``: in items, values and unions, in an inherited field and in its own. The bodies name
+    ``a.Color``, ``d.Color`` and the alias ``a.Hex``, which ``c`` did not import (``NameError``), and ``c`` has a
+    ``Color`` and a ``Hex`` of its own, which the bare names bound; ``c`` now imports ``a`` and ``d`` and names them
+    from there, so ``Hex`` keeps its ``maxLength``. A module named ``str`` is
+    imported under another name once the hints write the builtin, and the own field, whose plan is rebuilt then, takes
+    that name too. The parsed value shows the class each member is validated as.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / f"{document}.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=["--output-model-type", "pydantic_v2.dataclass", "--formatters", "builtin", "--disable-timestamp"],
+        force_exec_validation=True,
+    )
+    outcomes = "".join(f"{warning.message}\n" for warning in recwarn if "regex engine" in str(warning.message))
+    with _generated_package_module(output_dir, "c") as generated:
+        outcomes += _outcomes(generated.Both, payloads)
+        outcomes += f"value: {_model_json_validator(generated.Both)(json.dumps(payloads['valid']))!r}\n"
+    assert_output(outcomes, name="outcomes")
+
+
+@pytest.mark.parametrize(
     "extra_args",
     [
         pytest.param([], id="constr"),

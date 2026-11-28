@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tox-uv-bare
-Version: 1.37.9
+Version: 1.37.10
 Import-Name: tox_uv
 Summary: Integration of uv with tox (bare package, bring your own uv).
 Project-URL: Changelog, https://github.com/tox-dev/tox-uv/blob/main/CHANGELOG.md
@@ -148,8 +148,8 @@ This package will provide the following new tox environments:
 - `uv-venv-lock-runner` is the ID for the tox environments [runner](https://tox.wiki/en/4.12.1/config.html#runner) for
   environments using `uv.lock` (note we can’t detect the presence of the `uv.lock` file to enable this because that
   would break environments not using the lock file - such as your linter).
-- `uv-venv-pep-723` is the ID for the [PEP 723](https://peps.python.org/pep-0723/) inline script metadata runner. When
-  `tox-uv` is installed, `virtualenv-pep-723` is also transparently backed by uv.
+- `uv-venv-pep-723` is the ID for the [PEP 723](https://peps.python.org/pep-0723/) inline script metadata runner. See
+  [how to select it](#pep-723-inline-script-metadata).
 - `uv-venv-pep-517` is the ID for the PEP-517 packaging environment.
 - `uv-venv-cmd-builder` is the ID for the external cmd builder.
 
@@ -180,10 +180,11 @@ runner = virtualenv-pep-723
 script = tools/check.py
 ```
 
-When `tox-uv` is installed, `virtualenv-pep-723` is transparently backed by uv. You can also use
-`runner = uv-venv-pep-723` to explicitly request the uv-backed runner regardless of plugin installation.
+With the tox-uv plugin installed, `virtualenv-pep-723` uses uv by default. Set `TOX_UV_NO_PEP723=1` to use tox's
+built-in virtualenv and pip implementation for this runner.
 
-To disable the automatic promotion and use tox's built-in virtualenv+pip implementation, set `TOX_UV_NO_PEP723=1`.
+Use `runner = uv-venv-pep-723` to select uv explicitly, even when `TOX_UV_NO_PEP723=1`. Install the plugin in tox's
+environment with either `tox-uv` or `tox-uv-bare` (see [installation options](#installation-options)).
 
 Run with `tox r -e check`. Positional arguments are forwarded: `tox r -e check -- --verbose`.
 
@@ -330,6 +331,12 @@ We use `uv venv` to create virtual environments. This process can be configured 
 Use `py313d` to request a debug CPython build or `py313td` to request a free-threaded debug build. A matching
 interpreter must be available to [uv](https://docs.astral.sh/uv/concepts/python-versions/#requesting-a-version).
 
+With several `base_python` entries, tox-uv uses the first one `uv` finds installed under the
+[`uv_python_preference`](#uv_python_preference) setting. When none is installed, it picks the first entry, skipping
+absolute paths that are not interpreters, and `uv` may download it as a managed interpreter. The check reads tox's own
+environment variables, not the `set_env` and `pass_env` view `uv venv` gets, so an interpreter location such as
+`UV_PYTHON_INSTALL_DIR` or `XDG_DATA_HOME` set differently in the two can change which entry is picked.
+
 ### `uv_seed`
 
 This flag, set on a tox environment level, controls if the created virtual environment injects `pip`, `setuptools` and
@@ -366,7 +373,9 @@ This flag, set on a tox environment level, informs `uv` of the desired [resoluti
   **latest** compatible versions for all **transitive** dependencies.
 
 This is an `uv` specific feature that may be used as an alternative to frozen constraints for test environments if the
-intention is to validate the lower bounds of your dependencies during test executions.
+intention is to validate the lower bounds of your dependencies during test executions. In environments that install with
+`uv pip`, changing the strategy recreates the environment, as described in
+[Cache invalidation for `UV_*` environment variables](#cache-invalidation-for-uv_-environment-variables).
 
 **Note**: When using `uv_resolution` with `dependency_groups`, all dependencies from both `deps` and `dependency_groups`
 are combined into a single install operation. This ensures the resolution strategy applies correctly across all
@@ -378,15 +387,20 @@ with `dependency_groups`.
 
 ### Cache invalidation for `UV_*` environment variables
 
-tox-uv includes a curated set of `UV_*` environment variables in the install cache key. When any of these variables
-change via `set_env`, the cached environment is invalidated and packages are reinstalled so that uv can re-resolve with
-the new settings. The tracked variables are:
+tox-uv records a curated set of `UV_*` environment variables, `uv_resolution`, and `pip_pre` with the environment. When
+any of them changes, via `set_env` or in the environment tox passes through, the environment is recreated so that uv
+resolves with the new settings; `uv pip install` keeps installed versions that still satisfy the requirements.
+Credentials in index URLs are ignored, so a rotated token does not recreate the environment. The tracked variables are:
 
 `UV_CONSTRAINT`, `UV_DEFAULT_INDEX`, `UV_EXCLUDE`, `UV_EXCLUDE_NEWER`, `UV_EXTRA_INDEX_URL`, `UV_FIND_LINKS`,
 `UV_FORK_STRATEGY`, `UV_INDEX`, `UV_INDEX_STRATEGY`, `UV_INDEX_URL`, `UV_KEYRING_PROVIDER`, `UV_NO_INDEX`,
 `UV_NO_SOURCES`, `UV_OFFLINE`, `UV_OVERRIDE`, `UV_PRERELEASE`, `UV_REQUIRE_HASHES`, `UV_RESOLUTION`, `UV_TORCH_BACKEND`.
 
+`UV_KEYRING_PROVIDER`, `UV_OFFLINE` and `UV_REQUIRE_HASHES` only change how packages are fetched or checked, so changing
+them does not recreate the environment, and going offline keeps a working one. Installing a package with `--installpkg`
+under `uv-venv-lock-runner` does not recreate either, as `uv sync` installs from the lock file.
+
 Variables that do not affect resolution (e.g. `UV_CONCURRENT_DOWNLOADS`, `UV_NO_PROGRESS`, `UV_CACHE_DIR`) are not
-tracked and changing them will not trigger a reinstall.
+tracked and changing them will not recreate the environment.
 
 [resolution strategy]: https://github.com/astral-sh/uv/blob/0.1.20/README.md#resolution-strategy

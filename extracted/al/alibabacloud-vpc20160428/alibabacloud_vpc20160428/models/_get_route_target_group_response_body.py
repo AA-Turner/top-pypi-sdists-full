@@ -26,13 +26,15 @@ class GetRouteTargetGroupResponseBody(DaraModel):
     ):
         # The configuration mode of the route target group. Valid values:
         # 
-        # - **Active-Standby**: Active/standby mode.
+        # - **Active-Standby**: active/standby mode.
         self.config_mode = config_mode
         # The time when the route target group was created. The time is displayed in UTC and follows the ISO 8601 standard in the YYYY-MM-DDThh:mm:ssZ format.
         self.create_time = create_time
+        # The IP version.
+        # 
         # This parameter is required.
         self.ip_version = ip_version
-        # The ID of the region where the VPC to which the route target group belongs is deployed. You can call the DescribeRegions operation to query the region ID.
+        # The ID of the region where the VPC to which the route target group belongs is deployed. You can call the DescribeRegions operation to query region IDs.
         self.region_id = region_id
         # The request ID.
         self.request_id = request_id
@@ -40,22 +42,22 @@ class GetRouteTargetGroupResponseBody(DaraModel):
         self.resource_group_id = resource_group_id
         # The description of the route target group.
         self.route_target_group_description = route_target_group_description
-        # The routing target group instance ID.
+        # The ID of the route target group.
         self.route_target_group_id = route_target_group_id
         # The name of the route target group.
         self.route_target_group_name = route_target_group_name
         # The members of the route target group.
         self.route_target_member_list = route_target_member_list
-        # The status of the routing target group. Valid values:
+        # The status of the route target group. Valid values:
         # 
-        # - **Recovering**: The system is switching back to the primary instance.
-        # - **Switched**: The active/standby switchover is completed.
-        # - **Available**: The routing target group is available.
-        # - **Abnormal**: Secondary instance failures.
-        # - **Pending**: The routing target group is being created.
-        # - **Switching**: An active/standby switchover is in progress.
-        # - **Deleting**: The routing target group is being deleted.
-        # - **Unavailable**: Both primary and secondary instances have instance failures.
+        # - **Recovering**: Switching back to the primary instance.
+        # - **Switched**: Primary and secondary instances switched.
+        # - **Available**: Active.
+        # - **Abnormal**: The secondary instance is abnormal.
+        # - **Pending**: Creating.
+        # - **Switching**: Switching between primary and secondary instances.
+        # - **Deleting**: Delete in progress.
+        # - **Unavailable**: Both primary and secondary instances are abnormal.
         self.status = status
         # The tags of the route target group.
         self.tags = tags
@@ -222,18 +224,20 @@ class GetRouteTargetGroupResponseBodyRouteTargetMemberList(DaraModel):
         # - **Enable**: Enabled.
         # - **Disable**: Disabled.
         # 
-        # You can replace only a disabled route target group member with another instance. You cannot modify an enabled route target group member.
+        # Only disabled route target group members can be replaced with other instances. Enabled route target group members cannot be modified.
         self.enable_status = enable_status
         # The health check status of the route target group member. Valid values:
         # 
         # - **Normal**: Normal.
         # - **Abnormal**: Abnormal.
         self.health_check_status = health_check_status
-        # The routing target group member instance ID.
+        # The instance ID of the route target group member.
         self.member_id = member_id
-        # The type of the route target group member. Valid values:
+        # The type of the route target group member.
         # 
-        # - **GatewayLoadBalancerEndpoint**: Gateway load balancer endpoint.
+        # Currently supported types:
+        # 
+        # - **GatewayLoadBalancerEndpoint**
         self.member_type = member_type
         # The weight of the route target group member. Valid values:
         # 

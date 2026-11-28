@@ -56,9 +56,9 @@ class RemoveKnowledgeUploadUserResponseBodyData(DaraModel):
         self.file_location = file_location
         # The message.
         self.message = message
-        # The number of successfully deleted users.
+        # The number of users that were successfully removed.
         self.removed = removed
-        # Indicates whether the request is successful. Valid values:
+        # Indicates whether the request was successful. Valid values:
         # - **true**: Successful.
         # - **false**: Failed.
         self.success = success

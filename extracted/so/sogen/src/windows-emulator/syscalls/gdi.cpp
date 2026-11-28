@@ -4,6 +4,7 @@
 #include "../emulator_utils.hpp"
 #include "../gdi_clip.hpp"
 #include "../gdi_font_signature.hpp"
+#include "../gdi_mapping.hpp"
 #include "../syscall_utils.hpp"
 
 #include <array>
@@ -34,7 +35,7 @@ namespace sogen
             constexpr int32_t k_gdi_dc_object_brush = 0x100000;
             constexpr int32_t k_gdi_dc_object_pen = 0x300000;
 
-            constexpr uint32_t k_gdi_dc_attr_size = 0x130;
+            constexpr uint32_t k_gdi_dc_attr_size = 0x1C0;
             constexpr uint32_t k_gdi_brush_attr_size = 0x20;
             constexpr uint32_t k_gdi_pen_attr_size = 0x20;
             constexpr uint32_t k_gdi_bitmap_attr_size = 0x20;
@@ -63,6 +64,16 @@ namespace sogen
             constexpr uint32_t k_gdi_dc_attr_pt_current_offset = 0xD8;
             constexpr uint32_t k_gdi_dc_attr_text_align_offset = 0x110; // DC_ATTR.lTextAlign (SetTextAlign)
             constexpr uint32_t k_gdi_dc_attr_font_offset = 0x128;
+            constexpr uint32_t k_gdi_dc_attr_world_to_device_offset = 0x20;
+            constexpr uint32_t k_gdi_dc_attr_device_to_world_offset = 0x44;
+            constexpr uint32_t k_gdi_dc_attr_map_mode_offset = 0x68;
+            constexpr uint32_t k_gdi_dc_attr_window_org_x_offset = 0x130;
+            constexpr uint32_t k_gdi_dc_attr_window_org_y_offset = 0x138;
+            constexpr uint32_t k_gdi_dc_attr_window_ext_offset = 0x13C;
+            constexpr uint32_t k_gdi_dc_attr_viewport_org_offset = 0x144;
+            constexpr uint32_t k_gdi_dc_attr_viewport_ext_offset = 0x14C;
+            constexpr uint32_t k_gdi_dc_attr_xform_flags_offset = 0x154;
+            constexpr uint32_t k_gdi_xform_page_translation_changed = 0x2000;
 
             constexpr uint32_t k_error_invalid_handle = 6;
             constexpr uint8_t k_r2_copypen = 13;
@@ -86,8 +97,9 @@ namespace sogen
                           "client drawing brush index must be inside server info brush table");
 
             constexpr uint32_t k_logfontw_size = 0x5C;
-            constexpr uint32_t k_logbrush_size = 0x0C;
+            constexpr uint32_t k_logbrush_size = 0x10;
             constexpr uint32_t k_logpen_size = 0x10;
+            constexpr uint32_t k_extlogpen_size = 0x20;
             constexpr uint32_t k_bitmap_size = 0x18;
 
             constexpr uint32_t k_textmetric_size = 0x3C;
@@ -132,6 +144,14 @@ namespace sogen
             constexpr int16_t k_gdi_batch_cmd_delete_region = 8;
             constexpr uint32_t k_gdibs_no_rect = 0x80000000u;
             constexpr uint32_t k_ps_solid = 0;
+            constexpr uint32_t k_ps_null = 5;
+            constexpr uint32_t k_bs_solid = 0;
+            constexpr uint32_t k_bs_null = 1;
+            constexpr uint32_t k_bs_pattern = 3;
+            constexpr uint64_t k_gdi_brush_attr_style_offset = 0x08;
+            constexpr uint64_t k_gdi_brush_attr_hatch_offset = 0x10;
+            constexpr uint64_t k_gdi_pen_attr_style_offset = 0x08;
+            constexpr uint64_t k_gdi_pen_attr_width_offset = 0x0C;
             constexpr size_t k_gdi_poly_pat_blt_rect_offset = 0x30;
             constexpr size_t k_gdi_pat_rect_size = 0x18;
 
@@ -1364,6 +1384,52 @@ namespace sogen
                 return true;
             }
 
+            struct gdi_brush_attr
+            {
+                uint32_t style{};
+                uint32_t color{};
+                uint64_t hatch{};
+            };
+
+            gdi_brush_attr read_gdi_brush_attr(const syscall_context& c, const uint64_t attr)
+            {
+                gdi_brush_attr brush{};
+                brush.color = c.win_emu.memory.read_memory<uint32_t>(attr + sizeof(uint32_t));
+                brush.style = c.win_emu.memory.read_memory<uint32_t>(attr + k_gdi_brush_attr_style_offset);
+                brush.hatch = c.win_emu.memory.read_memory<uint64_t>(attr + k_gdi_brush_attr_hatch_offset);
+                return brush;
+            }
+
+            void write_gdi_brush_attr(const syscall_context& c, const uint64_t attr, const gdi_brush_attr& brush)
+            {
+                c.win_emu.memory.write_memory(attr + sizeof(uint32_t), brush.color);
+                c.win_emu.memory.write_memory(attr + k_gdi_brush_attr_style_offset, brush.style);
+                c.win_emu.memory.write_memory(attr + k_gdi_brush_attr_hatch_offset, brush.hatch);
+            }
+
+            struct gdi_pen_attr
+            {
+                uint32_t style{};
+                uint32_t width{};
+                uint32_t color{};
+            };
+
+            gdi_pen_attr read_gdi_pen_attr(const syscall_context& c, const uint64_t attr)
+            {
+                gdi_pen_attr pen{};
+                pen.color = c.win_emu.memory.read_memory<uint32_t>(attr + sizeof(uint32_t));
+                pen.style = c.win_emu.memory.read_memory<uint32_t>(attr + k_gdi_pen_attr_style_offset);
+                pen.width = c.win_emu.memory.read_memory<uint32_t>(attr + k_gdi_pen_attr_width_offset);
+                return pen;
+            }
+
+            void write_gdi_pen_attr(const syscall_context& c, const uint64_t attr, const gdi_pen_attr& pen)
+            {
+                c.win_emu.memory.write_memory(attr + sizeof(uint32_t), pen.color);
+                c.win_emu.memory.write_memory(attr + k_gdi_pen_attr_style_offset, pen.style);
+                c.win_emu.memory.write_memory(attr + k_gdi_pen_attr_width_offset, pen.width);
+            }
+
             uint32_t read_dc_attr_colorref(const syscall_context& c, const uint64_t address)
             {
                 uint32_t colorref = 0;
@@ -2223,14 +2289,29 @@ namespace sogen
 
                     const uint64_t handle64 = handle;
                     write_gdi_object_slot(c, seed.index, handle64);
-                    if (seed.type == k_gdi_brush_type)
+                    uint64_t attr = 0;
+                    if (seed.type == k_gdi_brush_type && get_gdi_object_address(c, handle, k_gdi_brush_type, attr))
                     {
-                        set_gdi_object_color(c, handle, k_gdi_brush_type, stock_brush_color(seed.index));
+                        if (seed.index == k_stock_null_brush_index)
+                        {
+                            write_gdi_brush_attr(c, attr, {.style = k_bs_null, .color = 0, .hatch = 0});
+                        }
+                        else
+                        {
+                            write_gdi_brush_attr(c, attr, {.style = k_bs_solid, .color = stock_brush_color(seed.index), .hatch = 0});
+                        }
                     }
-                    else if (seed.type == k_gdi_pen_type)
+                    else if (seed.type == k_gdi_pen_type && get_gdi_object_address(c, handle, k_gdi_pen_type, attr))
                     {
-                        const uint32_t color = seed.index == k_stock_white_pen_index ? 0x00FFFFFFu : 0x00000000u;
-                        set_gdi_object_color(c, handle, k_gdi_pen_type, color);
+                        if (seed.index == k_stock_null_pen_index)
+                        {
+                            write_gdi_pen_attr(c, attr, {.style = k_ps_null, .width = 1, .color = 0});
+                        }
+                        else
+                        {
+                            const uint32_t color = seed.index == k_stock_white_pen_index ? 0x00FFFFFFu : 0x00000000u;
+                            write_gdi_pen_attr(c, attr, {.style = k_ps_solid, .width = 0, .color = color});
+                        }
                     }
                     else if (seed.type == k_gdi_font_type)
                     {
@@ -2259,10 +2340,92 @@ namespace sogen
                 seed_user_system_color_brushes(c);
             }
 
+            struct gdi_cached_matrix
+            {
+                float m11{1.0f};
+                float m12{};
+                float m21{};
+                float m22{1.0f};
+                float dx{};
+                float dy{};
+                int32_t fixed_dx{};
+                int32_t fixed_dy{};
+                uint32_t flags{0x42};
+            };
+
+            static_assert(sizeof(gdi_cached_matrix) == k_gdi_dc_attr_device_to_world_offset - k_gdi_dc_attr_world_to_device_offset);
+
+            std::optional<uint64_t> find_mapping_dc_attr(const syscall_context& c, const hdc dc)
+            {
+                uint64_t dc_attr{};
+                if (!c.proc.gdi_dc_states.contains(static_cast<uint32_t>(dc)) ||
+                    !get_gdi_object_address(c, static_cast<uint32_t>(dc), k_gdi_dc_type, dc_attr))
+                {
+                    return std::nullopt;
+                }
+
+                return dc_attr;
+            }
+
+            gdi::display_metrics display_metrics_of(const process_context& proc)
+            {
+                return {.width = proc.display_width, .height = proc.display_height, .dpi = k_default_dpi};
+            }
+
+            std::optional<gdi::dc_mapping> load_dc_mapping(const syscall_context& c, const uint64_t dc_attr)
+            {
+                gdi::dc_mapping mapping{};
+                auto& memory = c.win_emu.memory;
+                if (!memory.try_read_memory(dc_attr + k_gdi_dc_attr_map_mode_offset, &mapping.map_mode, sizeof(mapping.map_mode)) ||
+                    !memory.try_read_memory(dc_attr + k_gdi_dc_attr_window_org_x_offset, &mapping.window_org.x, sizeof(int32_t)) ||
+                    !memory.try_read_memory(dc_attr + k_gdi_dc_attr_window_org_y_offset, &mapping.window_org.y, sizeof(int32_t)) ||
+                    !memory.try_read_memory(dc_attr + k_gdi_dc_attr_window_ext_offset, &mapping.window_ext, sizeof(mapping.window_ext)) ||
+                    !memory.try_read_memory(dc_attr + k_gdi_dc_attr_viewport_org_offset, &mapping.viewport_org,
+                                            sizeof(mapping.viewport_org)) ||
+                    !memory.try_read_memory(dc_attr + k_gdi_dc_attr_viewport_ext_offset, &mapping.viewport_ext,
+                                            sizeof(mapping.viewport_ext)))
+                {
+                    return std::nullopt;
+                }
+
+                gdi::fit_isotropic_viewport(mapping);
+                return mapping;
+            }
+
+            // gdi32 trusts its cached matrices whenever flXform is clean, so a change made here has to stay dirty.
+            bool store_dc_mapping(const syscall_context& c, const uint64_t dc_attr, const gdi::dc_mapping& mapping)
+            {
+                uint32_t xform_flags{};
+                if (!c.win_emu.memory.try_read_memory(dc_attr + k_gdi_dc_attr_xform_flags_offset, &xform_flags, sizeof(xform_flags)))
+                {
+                    return false;
+                }
+
+                xform_flags |= k_gdi_xform_page_translation_changed;
+                return c.emu.try_write_memory(dc_attr + k_gdi_dc_attr_map_mode_offset, &mapping.map_mode, sizeof(mapping.map_mode)) &&
+                       c.emu.try_write_memory(dc_attr + k_gdi_dc_attr_window_ext_offset, &mapping.window_ext, sizeof(mapping.window_ext)) &&
+                       c.emu.try_write_memory(dc_attr + k_gdi_dc_attr_viewport_ext_offset, &mapping.viewport_ext,
+                                              sizeof(mapping.viewport_ext)) &&
+                       c.emu.try_write_memory(dc_attr + k_gdi_dc_attr_xform_flags_offset, &xform_flags, sizeof(xform_flags));
+            }
+
+            void initialize_dc_mapping(const syscall_context& c, const uint64_t dc_attr)
+            {
+                const gdi::dc_mapping mapping{};
+                c.emu.write_memory(dc_attr + k_gdi_dc_attr_map_mode_offset, &mapping.map_mode, sizeof(mapping.map_mode));
+                c.emu.write_memory(dc_attr + k_gdi_dc_attr_window_ext_offset, &mapping.window_ext, sizeof(mapping.window_ext));
+                c.emu.write_memory(dc_attr + k_gdi_dc_attr_viewport_ext_offset, &mapping.viewport_ext, sizeof(mapping.viewport_ext));
+
+                const gdi_cached_matrix identity{};
+                c.emu.write_memory(dc_attr + k_gdi_dc_attr_world_to_device_offset, &identity, sizeof(identity));
+                c.emu.write_memory(dc_attr + k_gdi_dc_attr_device_to_world_offset, &identity, sizeof(identity));
+            }
+
             void initialize_dc_attr(const syscall_context& c, const uint64_t dc_attr)
             {
                 std::array<uint8_t, k_gdi_dc_attr_size> zeroed{};
                 c.emu.write_memory(dc_attr, zeroed.data(), zeroed.size());
+                initialize_dc_mapping(c, dc_attr);
                 c.emu.write_memory(dc_attr + k_gdi_dc_attr_rop2_offset, &k_r2_copypen, sizeof(k_r2_copypen));
 
                 constexpr uint32_t white = 0x00FFFFFFu;
@@ -2486,10 +2649,6 @@ namespace sogen
                 {
                 case k_gdi_palette_type:
                     return k_palette_object_size;
-                case k_gdi_brush_type:
-                    return k_logbrush_size;
-                case k_gdi_pen_type:
-                    return k_logpen_size;
                 case k_gdi_font_type:
                     return k_logfontw_size;
                 case k_gdi_bitmap_type:
@@ -3042,20 +3201,39 @@ namespace sogen
             return handle;
         }
 
-        uint64_t handle_NtGdiCreatePatternBrushInternal(const syscall_context& c, const handle /*bitmap*/, const uint32_t /*unused*/)
+        uint64_t handle_NtGdiCreatePatternBrushInternal(const syscall_context& c, const handle bitmap, const uint32_t /*unused*/)
         {
-            return allocate_gdi_object(c, k_gdi_brush_type, k_gdi_brush_attr_size, false);
+            const auto handle_value = allocate_gdi_object(c, k_gdi_brush_type, k_gdi_brush_attr_size, false);
+            uint64_t brush_attr = 0;
+            if (handle_value != 0 && get_gdi_object_address(c, handle_value, k_gdi_brush_type, brush_attr))
+            {
+                write_gdi_brush_attr(c, brush_attr, {.style = k_bs_pattern, .color = 0, .hatch = bitmap.bits});
+            }
+            return handle_value;
         }
 
         uint64_t handle_NtGdiCreatePen(const syscall_context& c, const uint32_t style, const uint32_t width, const uint32_t color)
         {
+            if (style == k_ps_null)
+            {
+                auto null_pen = read_gdi_object_slot(c, k_stock_null_pen_index);
+                if (null_pen == 0 && ensure_gdi_shared_table(c) != 0)
+                {
+                    seed_gdi_stock_objects(c);
+                    null_pen = read_gdi_object_slot(c, k_stock_null_pen_index);
+                }
+
+                return null_pen;
+            }
+
             // On Windows only solid pens of width 0, the pens gdi32 can cache, have a user attribute. gdi32 deletes the
             // others at once instead of queueing the delete in the GDI batch.
             const auto handle = allocate_gdi_object(c, k_gdi_pen_type, k_gdi_pen_attr_size, style == k_ps_solid && width == 0);
             uint64_t pen_attr = 0;
             if (handle != 0 && get_gdi_object_address(c, static_cast<uint32_t>(handle), k_gdi_pen_type, pen_attr))
             {
-                c.emu.write_memory(pen_attr + sizeof(uint32_t), &color, sizeof(color));
+                const auto absolute_width = static_cast<int32_t>(width) < 0 ? 0u - width : width;
+                write_gdi_pen_attr(c, pen_attr, {.style = style, .width = absolute_width, .color = color});
             }
             return handle;
         }
@@ -4000,7 +4178,9 @@ namespace sogen
         {
             constexpr uint32_t redirected_dc_flag = 0x40;
             constexpr uint32_t get_dc_origin = 0x20;
-            if ((index & ~redirected_dc_flag) != get_dc_origin || result == 0)
+            constexpr uint32_t get_viewport_extent = 1;
+            const auto point_kind = index & ~redirected_dc_flag;
+            if ((point_kind != get_dc_origin && point_kind != get_viewport_extent) || result == 0)
             {
                 return FALSE;
             }
@@ -4010,6 +4190,15 @@ namespace sogen
             if (state == c.proc.gdi_dc_states.end() || !get_gdi_object_address(c, static_cast<uint32_t>(dc), k_gdi_dc_type, dc_attr))
             {
                 return FALSE;
+            }
+
+            if (point_kind == get_viewport_extent)
+            {
+                const auto mapping = load_dc_mapping(c, dc_attr);
+                return mapping && store_dc_mapping(c, dc_attr, *mapping) &&
+                               c.emu.try_write_memory(result, &mapping->viewport_ext, sizeof(mapping->viewport_ext))
+                           ? TRUE
+                           : FALSE;
             }
 
             POINT origin{};
@@ -4068,6 +4257,64 @@ namespace sogen
             return handle;
         }
 
+        namespace
+        {
+            bool is_word_aligned(const emulator_pointer address)
+            {
+                return (address & 1) == 0;
+            }
+
+            uint32_t get_brush_object(const syscall_context& c, const uint64_t attr, const uint32_t size, const emulator_pointer buffer)
+            {
+                if (buffer == 0)
+                {
+                    return k_logbrush_size;
+                }
+
+                if (size == 0 || !is_word_aligned(buffer))
+                {
+                    return 0;
+                }
+
+                const auto brush = read_gdi_brush_attr(c, attr);
+                std::array<uint8_t, k_logbrush_size> object{};
+                std::memcpy(object.data(), &brush.style, sizeof(brush.style));
+                std::memcpy(object.data() + sizeof(uint32_t), &brush.color, sizeof(brush.color));
+                std::memcpy(object.data() + (2 * sizeof(uint32_t)), &brush.hatch, sizeof(brush.hatch));
+
+                return c.emu.try_write_memory(buffer, object.data(), std::min(size, k_logbrush_size)) ? k_logbrush_size : 0;
+            }
+
+            uint32_t get_pen_object(const syscall_context& c, const uint64_t attr, const uint32_t size, const emulator_pointer buffer)
+            {
+                if (buffer == 0)
+                {
+                    return k_logpen_size;
+                }
+
+                if (!is_word_aligned(buffer))
+                {
+                    return 0;
+                }
+
+                const auto pen = read_gdi_pen_attr(c, attr);
+                if (pen.style == k_ps_null && size == k_extlogpen_size)
+                {
+                    std::array<uint8_t, k_extlogpen_size> ext_object{};
+                    std::memcpy(ext_object.data(), &pen.style, sizeof(pen.style));
+                    return c.emu.try_write_memory(buffer, ext_object.data(), ext_object.size()) ? k_extlogpen_size : 0;
+                }
+
+                if (size < k_logpen_size)
+                {
+                    return 0;
+                }
+
+                const std::array<uint32_t, 4> object{pen.style, pen.width, 0, pen.color};
+                return c.emu.try_write_memory(buffer, object.data(), sizeof(object)) ? k_logpen_size : 0;
+            }
+        }
+
         uint32_t handle_NtGdiExtGetObjectW(const syscall_context& c, const uint32_t handle_value, const uint32_t size,
                                            const emulator_pointer buffer)
         {
@@ -4079,6 +4326,16 @@ namespace sogen
             }
 
             const auto object_type = gdi_object_type(entry);
+            if (object_type == k_gdi_brush_type)
+            {
+                return get_brush_object(c, entry.Object, size, buffer);
+            }
+
+            if (object_type == k_gdi_pen_type)
+            {
+                return get_pen_object(c, entry.Object, size, buffer);
+            }
+
             const uint32_t object_size = get_gdi_object_size(object_type);
             if (object_size == 0)
             {
@@ -5495,6 +5752,68 @@ namespace sogen
                                           row[px] = apply_rop3(rop3, 0, row[px], pattern) | 0xFF000000u;
                                       }
                                   });
+            return TRUE;
+        }
+
+        BOOL erase_window_background(const syscall_context& c, const window& win, const hdc dc)
+        {
+            uint64_t background = 0;
+            uint32_t class_style = 0;
+            if (const auto it = c.proc.classes.find(win.class_key); it != c.proc.classes.end())
+            {
+                background = it->second.wnd_class.hbrBackground;
+                class_style = it->second.wnd_class.style;
+            }
+
+            if (background == 0)
+            {
+                return FALSE;
+            }
+
+            if (!c.proc.gdi_dc_states.contains(static_cast<uint32_t>(dc)))
+            {
+                set_guest_last_error(c, k_error_invalid_handle);
+                return TRUE;
+            }
+
+            std::optional<uint32_t> color{};
+            if (background <= USER_NUM_SYSCOLORS)
+            {
+                color = colorref_to_bgra(k_default_system_colors[static_cast<size_t>(background - 1)]);
+            }
+            else if (uint64_t brush_attr = 0; get_gdi_object_address(c, static_cast<uint32_t>(background), k_gdi_brush_type, brush_attr))
+            {
+                color = get_brush_color_in_dc(c, dc, static_cast<uint32_t>(background));
+            }
+            else
+            {
+                color = get_dc_brush_color(c, dc);
+            }
+
+            gdi_dc_state* dc_state = nullptr;
+            gdi_bitmap_surface* surface = nullptr;
+            int32_t origin_x = 0;
+            int32_t origin_y = 0;
+            gdi::clip_region visible{};
+            uint32_t present_handle = 0;
+            if (color && get_dc_state_and_draw_target(c, dc, dc_state, surface, origin_x, origin_y, visible, &present_handle))
+            {
+                int64_t left = 0;
+                int64_t top = 0;
+                int64_t right = surface->width;
+                int64_t bottom = surface->height;
+                if ((class_style & CS_PARENTDC) != 0)
+                {
+                    left = origin_x;
+                    top = origin_y;
+                    right = left + win.client_width();
+                    bottom = top + win.client_height();
+                }
+
+                fill_rect(*surface, visible, left, top, right, bottom, *color);
+                present_win_surface(c, present_handle, surface);
+            }
+
             return TRUE;
         }
 
@@ -7160,16 +7479,142 @@ namespace sogen
         BOOL handle_NtGdiGetAndSetDCDword(const syscall_context& c, const hdc dc, const uint32_t method, const uint32_t value,
                                           const emulator_pointer result)
         {
-            constexpr uint32_t set_map_mode = 8;
-            constexpr uint32_t text_map_mode = 1;
+            constexpr uint32_t set_map_mode_method = 8;
 
-            if (dc == 0 || result == 0 || method != set_map_mode || value != text_map_mode)
+            if (dc == 0 || result == 0 || method != set_map_mode_method)
             {
                 return FALSE;
             }
 
-            c.emu.write_memory(result, &text_map_mode, sizeof(text_map_mode));
-            return TRUE;
+            const auto dc_attr = find_mapping_dc_attr(c, dc);
+            auto mapping = dc_attr ? load_dc_mapping(c, *dc_attr) : std::nullopt;
+            if (!mapping)
+            {
+                return FALSE;
+            }
+
+            const auto previous = gdi::set_map_mode(*mapping, static_cast<int32_t>(value), display_metrics_of(c.proc));
+            const auto previous_value = static_cast<uint32_t>(previous.value_or(0));
+            if (!c.emu.try_write_memory(result, &previous_value, sizeof(previous_value)))
+            {
+                return FALSE;
+            }
+
+            return previous && !store_dc_mapping(c, *dc_attr, *mapping) ? FALSE : TRUE;
+        }
+
+        BOOL handle_NtGdiTransformPoints(const syscall_context& c, const hdc dc, const emulator_pointer source,
+                                         const emulator_pointer destination, const int32_t count, const uint32_t mode)
+        {
+            constexpr size_t chunk_size = 256;
+            constexpr uint32_t mode_mask = 0x7FFFFFFF;
+            constexpr uint32_t logical_to_device_mode = 1;
+            constexpr uint32_t logical_to_device_fixed_point_mode = 2;
+
+            const auto dc_attr = find_mapping_dc_attr(c, dc);
+            auto mapping = dc_attr ? load_dc_mapping(c, *dc_attr) : std::nullopt;
+            if (!mapping)
+            {
+                return FALSE;
+            }
+
+            const auto conversion = mode & mode_mask;
+            if (conversion > logical_to_device_fixed_point_mode)
+            {
+                return FALSE;
+            }
+
+            if (count <= 0)
+            {
+                return TRUE;
+            }
+
+            const auto convert = [&](const gdi::mapping_vec& point) {
+                switch (conversion)
+                {
+                case logical_to_device_mode:
+                    return gdi::logical_to_device(*mapping, point);
+                case logical_to_device_fixed_point_mode:
+                    return gdi::logical_to_device_fixed_point(*mapping, point);
+                default:
+                    return gdi::device_to_logical(*mapping, point);
+                }
+            };
+            if (source == 0 || destination == 0 || !convert({}))
+            {
+                return FALSE;
+            }
+
+            std::array<gdi::mapping_vec, chunk_size> points{};
+            for (size_t done = 0; done < static_cast<size_t>(count); done += chunk_size)
+            {
+                const auto chunk = std::min(chunk_size, static_cast<size_t>(count) - done);
+                const auto bytes = chunk * sizeof(gdi::mapping_vec);
+                if (!c.win_emu.memory.try_read_memory(source + done * sizeof(gdi::mapping_vec), points.data(), bytes))
+                {
+                    return FALSE;
+                }
+
+                for (size_t i = 0; i < chunk; ++i)
+                {
+                    points[i] = *convert(points[i]);
+                }
+
+                if (!c.emu.try_write_memory(destination + done * sizeof(gdi::mapping_vec), points.data(), bytes))
+                {
+                    return FALSE;
+                }
+            }
+
+            return store_dc_mapping(c, *dc_attr, *mapping) ? TRUE : FALSE;
+        }
+
+        BOOL handle_NtGdiScaleWindowExtEx(const syscall_context& c, const hdc dc, const int32_t x_numerator, const int32_t x_denominator,
+                                          const int32_t y_numerator, const int32_t y_denominator, const emulator_pointer previous_extent)
+        {
+            const auto dc_attr = find_mapping_dc_attr(c, dc);
+            auto mapping = dc_attr ? load_dc_mapping(c, *dc_attr) : std::nullopt;
+            if (!mapping)
+            {
+                return FALSE;
+            }
+
+            const auto previous = mapping->window_ext;
+            if (!gdi::scale_window_extent(*mapping, x_numerator, x_denominator, y_numerator, y_denominator))
+            {
+                return FALSE;
+            }
+
+            if (previous_extent != 0 && !c.emu.try_write_memory(previous_extent, &previous, sizeof(previous)))
+            {
+                return FALSE;
+            }
+
+            return store_dc_mapping(c, *dc_attr, *mapping) ? TRUE : FALSE;
+        }
+
+        BOOL handle_NtGdiScaleViewportExtEx(const syscall_context& c, const hdc dc, const int32_t x_numerator, const int32_t x_denominator,
+                                            const int32_t y_numerator, const int32_t y_denominator, const emulator_pointer previous_extent)
+        {
+            const auto dc_attr = find_mapping_dc_attr(c, dc);
+            auto mapping = dc_attr ? load_dc_mapping(c, *dc_attr) : std::nullopt;
+            if (!mapping)
+            {
+                return FALSE;
+            }
+
+            const auto previous = mapping->viewport_ext;
+            if (previous_extent != 0 && !c.emu.try_write_memory(previous_extent, &previous, sizeof(previous)))
+            {
+                return FALSE;
+            }
+
+            if (!gdi::scale_viewport_extent(*mapping, x_numerator, x_denominator, y_numerator, y_denominator))
+            {
+                return FALSE;
+            }
+
+            return store_dc_mapping(c, *dc_attr, *mapping) ? TRUE : FALSE;
         }
 
         uint32_t handle_NtGdiGetGlyphIndicesW(const syscall_context& c, const hdc dc, const emulator_pointer text, const int32_t char_count,

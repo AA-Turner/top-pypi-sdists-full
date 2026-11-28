@@ -438,3 +438,49 @@ def test_score_all_single_pass_parity_and_no_subgraph_allocations(monkeypatch):
         cid: cohesion_score(G, nodes) for cid, nodes in overlapping.items()
     }
     assert score_all(G, {}) == {}
+
+
+def test_cohesion_score_avoids_subgraph_allocation_across_graph_types(monkeypatch):
+    import pytest
+
+    for cls in (nx.Graph, nx.DiGraph, nx.MultiGraph):
+        G = cls()
+        G.add_edge("a", "b")
+        G.add_edge("a", "a")  # self-loop must be excluded
+        G.add_edge("b", "c")
+        G.add_edge("c", "external")
+        if cls is nx.DiGraph:
+            G.add_edge("b", "a")  # reciprocal edge
+        elif cls is nx.MultiGraph:
+            G.add_edge("a", "b")  # parallel edge
+
+        def _forbid_subgraph(_nodes):
+            raise AssertionError("cohesion_score must not allocate SubGraphView")
+
+        monkeypatch.setattr(G, "subgraph", _forbid_subgraph)
+        # 2 unique pairs ({a,b}, {b,c}) out of 3 possible in {a, b, c}
+        assert cohesion_score(G, ["a", "b", "c"]) == pytest.approx(2 / 3)
+        assert cohesion_score(G, ["a", "b", "missing"]) == pytest.approx(1 / 3)
+def test_ambiguous_scale_does_not_mutate_graph_and_subgraph_uses_native_fast_path():
+    from graphify.cluster import _native_leiden, _sorted_native_edges, _stable_partition_graph
+
+    G = nx.Graph()
+    G.add_edge("a", "b", weight=2.0, confidence="AMBIGUOUS")
+    G.add_edge("b", "c", weight=2.0, confidence="EXTRACTED")
+
+    edges = _sorted_native_edges(G, ambiguous_scale=0.25)
+    assert edges == [("a", "b", 0.5), ("b", "c", 2.0)]
+    assert G["a"]["b"]["weight"] == 2.0
+
+    stable = _stable_partition_graph(G, ambiguous_scale=0.25)
+    assert stable["a"]["b"]["weight"] == 0.5
+    assert stable["b"]["c"]["weight"] == 2.0
+    assert G["a"]["b"]["weight"] == 2.0
+
+    sub = G.subgraph(["a", "b", "c"])
+
+    def _forbid_stable():
+        raise AssertionError("undirected SubGraphView should use _sorted_native_edges fast path")
+
+    res = _native_leiden(sub, 1.0, stable_graph=_forbid_stable, ambiguous_scale=0.25)
+    assert res is None or set(res) == {"a", "b", "c"}

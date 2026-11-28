@@ -6,7 +6,7 @@ members = ["crates/dcc-mcp-naming", "crates/dcc-mcp-models", "crates/dcc-mcp-act
 resolver = "2"
 
 [workspace.package]
-version = "0.20.55" # x-release-please-version
+version = "0.22.2" # x-release-please-version
 edition = "2024"
 rust-version = "1.95"
 authors = ["Hal Long <hal.long@outlook.com>"]
@@ -22,6 +22,7 @@ dcc-mcp-skills = { path = "crates/dcc-mcp-skills" }
 dcc-mcp-skills-bench = { path = "crates/dcc-mcp-skills-bench" }
 dcc-mcp-protocols = { path = "crates/dcc-mcp-protocols" }
 dcc-mcp-jsonrpc = { path = "crates/dcc-mcp-jsonrpc" }
+dcc-mcp-client = { path = "crates/dcc-mcp-client" }
 dcc-mcp-wire = { path = "crates/dcc-mcp-wire" }
 dcc-mcp-job = { path = "crates/dcc-mcp-job" }
 dcc-mcp-skill-rest = { path = "crates/dcc-mcp-skill-rest" }
@@ -40,7 +41,6 @@ dcc-mcp-http = { path = "crates/dcc-mcp-http" }
 dcc-mcp-http-types = { path = "crates/dcc-mcp-http-types" }
 dcc-mcp-http-server = { path = "crates/dcc-mcp-http-server" }
 dcc-mcp-http-py = { path = "crates/dcc-mcp-http-py" }
-dcc-mcp-cli = { path = "crates/dcc-mcp-cli" }
 dcc-mcp-server = { path = "crates/dcc-mcp-server" }
 dcc-mcp-sidecar = { path = "crates/dcc-mcp-sidecar" }
 dcc-mcp-workflow = { path = "crates/dcc-mcp-workflow" }
@@ -128,7 +128,7 @@ jsonwebtoken = { version = "10.3", default-features = false, features = ["rust_c
 
 # Official Rust MCP SDK (issue #985). Provides MCP Streamable HTTP transport
 # via modelcontextprotocol/rust-sdk.
-rmcp = { version = "1.6", features = ["transport-streamable-http-server"] }
+rmcp = { version = "3.4.1", features = ["transport-streamable-http-server"] }
 
 # Type-stub generation (opt-in via `stub-gen` feature). Used only by the
 # `stub_gen` binary target — never pulled into wheels or library consumers.

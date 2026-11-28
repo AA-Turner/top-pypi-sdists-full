@@ -1,6 +1,6 @@
 [project]
 name = "python-bcb"
-version = "0.4.2"
+version = "0.5.0"
 description = "Interface Python para APIs de dados abertos do Banco Central do Brasil."
 authors = [{ name = "wilsonfreitas", email = "wilson.freitas@gmail.com" }]
 readme = "README.md"
@@ -58,13 +58,10 @@ test = [
     "pytest-httpx >= 0.30.0",
 ]
 docs = [
-    "Sphinx >= 6,<7",
-    "pydata-sphinx-theme >= 0.16,<0.17",
     "matplotlib >= 3.5.3",
-    "ipython >= 8.14.0",
-    "furo >= 2024,<2025",
-    "pickleshare >= 0.7.5,<0.8",
-    "pygments >= 2.7",
+    "mkdocs-jupyter>=0.26.3",
+    "mkdocs-material>=9.7.7",
+    "mkdocstrings[python]>=1.0.6",
 ]
 dev = [
     "ruff >= 0.9.0",
@@ -81,6 +78,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["bcb"]
 
+[tool.hatch.build.targets.sdist]
+# Local Claude Code settings and plans are ignored only by a global gitignore,
+# which hatchling does not read; keep them out of the published sdist.
+exclude = [".claude", "**/.claude"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
@@ -90,10 +92,11 @@ markers = [
 [tool.coverage.run]
 source = ["bcb"]
 omit = ["tests/*"]
+branch = true
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 80
+fail_under = 90
 
 [tool.mypy]
 python_version = "3.10"

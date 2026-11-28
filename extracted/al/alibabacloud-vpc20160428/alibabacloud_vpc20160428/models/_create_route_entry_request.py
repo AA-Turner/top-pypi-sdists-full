@@ -27,7 +27,7 @@ class CreateRouteEntryRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # You can use the client to generate the value, but you must ensure that it is unique among different requests. The client token can contain only ASCII characters.
+        # You can use the client to generate the value, but you must make sure that the value is unique among different requests. The client token can contain only ASCII characters.
         # 
         # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request is unique.
         self.client_token = client_token
@@ -37,17 +37,17 @@ class CreateRouteEntryRequest(DaraModel):
         self.description = description
         # The destination CIDR block of the custom route entry. IPv4 CIDR blocks, IPv6 CIDR blocks, destination CIDR blocks of prefix lists, and prefix list instance IDs are supported. The destination CIDR block must meet the following requirements:
         #           
-        # - The destination CIDR block cannot point to `100.64.0.0/10` or be contained by `100.64.0.0/10`.  
+        # - The destination CIDR block cannot point to 100.64.0.0/10 or be contained by 100.64.0.0/10.  
         #  
-        # - Different route entries in the same route table cannot have the same destination CIDR block.
+        # - Route entries in the same route table cannot have the same destination CIDR block.
         # 
         # This parameter is required.
         self.destination_cidr_block = destination_cidr_block
-        # Specifies whether to precheck only this request. Valid values:
-        # - **true**: performs a precheck and does not create the route entry. The system checks whether required parameters are specified, the request format is valid, and the service limits are met. If the request fails the precheck, the corresponding error code is returned. If the request passes the precheck, the `DryRunOperation` error code is returned.
-        # - **false** (default): performs a precheck. If the request passes the precheck, a 2xx HTTP status code is returned and the operation is performed.
+        # Specifies whether to only precheck the request. Valid values:
+        # - **true**: The system prechecks the request without creating the route entry. The system checks whether the required parameters are specified, the request format is valid, and the service limits are met. If the request fails the precheck, the corresponding error is returned. If the request passes the precheck, the `DryRunOperation` error code is returned.
+        # - **false** (default): The system sends a regular request. If the request passes the precheck, an HTTP 2xx status code is returned and the operation is performed.
         self.dry_run = dry_run
-        # The ID of the next hop for the custom route entry.
+        # The ID of the next hop instance for the custom route entry.
         # > If you set NextHopType to ECR, you can call the [DescribeExpressConnectRouterAssociation](https://help.aliyun.com/document_detail/2712069.html) operation to obtain the AssociationId as the next hop ID.
         # > -
         self.next_hop_id = next_hop_id
@@ -61,7 +61,7 @@ class CreateRouteEntryRequest(DaraModel):
         # 
         # - **RouterInterface**: a vRouter interface.
         # 
-        # - **NetworkInterface**: an elastic network interface controller (NIC).
+        # - **NetworkInterface**: an elastic network interface (ENI).
         # 
         # - **VpnGateway**: a VPN gateway.
         # 
@@ -80,13 +80,13 @@ class CreateRouteEntryRequest(DaraModel):
         self.next_hop_type = next_hop_type
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The ID of the region to which the route table belongs.
+        # The region ID of the route table.
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the most recent region list.
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The name of the custom route entry that you want to add.
+        # The name of the custom route entry to be added.
         # 
         # The name must be 1 to 128 characters in length, and cannot start with `http://` or `https://`.
         self.route_entry_name = route_entry_name
@@ -208,9 +208,9 @@ class CreateRouteEntryRequestNextHopList(DaraModel):
         next_hop_type: str = None,
         weight: int = None,
     ):
-        # The ID of the next hop for the ECMP route.
+        # The ID of the next hop instance for the ECMP route.
         self.next_hop_id = next_hop_id
-        # The type of the next hop for the ECMP route. Set the value to **RouterInterface** (router interface).
+        # The type of the next hop for the ECMP route. Valid value: **RouterInterface** (router interface).
         self.next_hop_type = next_hop_type
         # The route weight of the next hop for the ECMP route.
         self.weight = weight

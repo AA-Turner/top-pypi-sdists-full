@@ -15,9 +15,9 @@ class TriggerKnowledgeFileParseRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id
-        # The ID of the knowledge base file. You must specify either this parameter or FileLocation, but not both.
+        # The ID of the knowledge base file. You must specify either this parameter or FileLocation.
         self.file_id = file_id
-        # The URL of a single knowledge base file. You must specify either this parameter or FileId, but not both. You cannot specify a directory. The URL must uniquely point to an existing file.
+        # The path to a single file in the knowledge base. You must specify either this parameter or FileId. You cannot specify a directory. The path must uniquely identify an existing file.
         self.file_location = file_location
 
     def validate(self):

@@ -312,6 +312,23 @@ class Transport:
             metrics.rid_echo = r.headers.get(RID_HEADER)
         return self._answer(r)
 
+    def post_raw(self, path: str, payload: dict[str, Any], timeout_s: float | None = None) -> httpx.Response:
+        """POST for an answer that is not JSON - POST /v1/audio/speech's audio, its facts in its headers: the 2xx
+        response as it came, its bytes and its headers; any other answer the typed error `post()` raises for it
+        (`_answer`), the same exception whichever call meets it.
+"""
+        kwargs: dict[str, Any] = {} if timeout_s is None else {"timeout": timeout_s}
+        try:
+            r = self._past_strangers(lambda: self._client.post(path, json=payload, **kwargs))
+        except httpx.TimeoutException as exc:
+            raise Unavailable(f"request timed out after {timeout_s or self._client.timeout.read}s") from exc
+        except httpx.TransportError as exc:
+            raise Unavailable(f"could not reach {self._base}: {exc}") from exc
+        if r.status_code >= 300 or _a_strangers(r):
+            self._answer(r)
+        self.answered = True
+        return r
+
     def get(self, path: str) -> dict[str, Any]:
         """GET `path`: its JSON, or its typed error. A read the platform's database did not answer in time, or its key
         over its requests a minute (read_again_wait), is asked again here, up to BUSY_TRIES tries - in a robot's process;

@@ -256,6 +256,7 @@ HEKI_RULES = {
     "async-def-as-sync-callback": "EFF115",
     "generator-never-iterated": "EFF116",
     "unlocked-write-of-guarded-state": "EFF117",
+    "unshielded-cleanup-checkpoint": "EFF118",
     "unretained-async-task": "EFF107",
     "effect-boundary-violation": "EFF201",
     "import-cycle": "IMP101",
@@ -349,7 +350,6 @@ ALLOWLISTS = (
         }),
     ),
     ("tests/generated_import_closure_allowlist.py", frozenset({"UNBOUND_NAME_VIOLATIONS"})),
-    ("scripts/check_architecture_boundaries.py", frozenset({"DEFAULT_ALLOWLIST"})),
     ("tests/test_checks_are_run.py", frozenset({"UNREACHED"})),
 )
 PLAIN_COMMENT_AREAS = frozenset({"src"})

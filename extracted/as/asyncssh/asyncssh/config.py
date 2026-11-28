@@ -20,9 +20,10 @@
 
 """Parser for OpenSSH config files"""
 
+import fnmatch
+import glob
 import os
 import re
-import shlex
 import socket
 import subprocess
 
@@ -35,6 +36,7 @@ from typing import Sequence, Set, Tuple, Union, cast
 from .constants import DEFAULT_PORT
 from .logging import logger
 from .misc import DefTuple, FilePath, IllegalUserName, ip_address
+from .misc import split_args
 from .pattern import HostPatternList, WildcardPatternList
 
 try:
@@ -47,9 +49,75 @@ except ImportError: # pragma: no cover
 ConfigPaths = Union[None, FilePath, Sequence[FilePath]]
 
 
-_token_pattern = re.compile(r'%(.)')
-_env_pattern = re.compile(r'\${(.*?)}')
+_expand_pattern = re.compile(r'%(.)|\${(.*?)}')
 _unsafe_user_pattern = re.compile(r'^\.\.$|^~|^[A-Za-z]:|[/\\]|\$\{.*?\}')
+
+# Host and user names which aren't safe to substitute into a shell
+# command: a leading '-', shell metacharacters, or control characters,
+# plus any whitespace in host names or whitespace before a '-' in user names
+_shell_metachars = r'\'`"$\\;&<>|(){}\x00-\x1f\x7f'
+_unsafe_shell_host_pattern = re.compile(rf'^-|[{_shell_metachars}\s]')
+_unsafe_shell_user_pattern = re.compile(rf'^-|[{_shell_metachars}]|\s-')
+
+
+def _split_config_line(line: str) -> List[str]:
+    """Split a config file line into arguments
+
+       This follows the rules OpenSSH uses when parsing config files.
+       Arguments are separated by spaces or tabs, and a '#' at the
+       start of an argument begins a comment. Single or double quotes
+       can appear anywhere in an argument to include whitespace. A
+       backslash escapes a following quote or backslash, or a space
+       outside of quotes, and is otherwise kept as is, so Windows
+       paths don't need to be quoted.
+
+    """
+
+    args: List[str] = []
+    linelen = len(line)
+    i = 0
+
+    while i < linelen:
+        ch = line[i]
+
+        if ch in ' \t':
+            i += 1
+            continue
+
+        if ch == '#':
+            break
+
+        arg: List[str] = []
+        quote = ''
+
+        while i < linelen:
+            ch = line[i]
+
+            if ch == '\\':
+                next_ch = line[i+1:i+2]
+
+                if next_ch in ('"', "'", '\\') or \
+                        (next_ch == ' ' and not quote):
+                    i += 1
+
+                arg.append(line[i])
+            elif not quote and ch in ' \t':
+                break
+            elif not quote and ch in '"\'':
+                quote = ch
+            elif ch == quote:
+                quote = ''
+            else:
+                arg.append(ch)
+
+            i += 1
+
+        if quote:
+            raise ValueError('Invalid quotes')
+
+        args.append(''.join(arg))
+
+    return args
 
 
 def _exec(cmd: str) -> bool:
@@ -81,6 +149,8 @@ class SSHConfig:
     _conditionals = {'match'}
     _no_split: Set[str] = set()
     _percent_expand = {'AuthorizedKeysFile'}
+    _shell_expand: Set[str] = set()
+    _shell_unsafe: Dict[str, 're.Pattern[str]'] = {}
     _handlers: Dict[str, Tuple[str, Callable]] = {}
 
     def __init__(self, last_config: Optional['SSHConfig'], reload: bool,
@@ -116,11 +186,10 @@ class SSHConfig:
 
         raise NotImplementedError
 
-    def _expand_token(self, match):
+    def _expand_token(self, token: str) -> str:
         """Expand a percent token reference"""
 
         try:
-            token = match.group(1)
             return self._tokens[token]
         except KeyError:
             if token == 'd':
@@ -135,21 +204,44 @@ class SSHConfig:
                                        token) from None
 
     @staticmethod
-    def _expand_env(match):
+    def _expand_env(var: str) -> str:
         """Expand an environment variable reference"""
 
         try:
-            var = match.group(1)
             return os.environ[var]
         except KeyError:
             raise ConfigParseError('Invalid environment expansion: ' +
                                    var) from None
 
-    def _expand_val(self, value: str) -> str:
-        """Perform percent token and environment expansion on a string"""
+    def _expand_val(self, value: str, shell: bool = False) -> str:
+        """Perform percent token and environment expansion on a string
 
-        return _env_pattern.sub(self._expand_env,
-                                _token_pattern.sub(self._expand_token, value))
+           Both kinds of expansion are done in a single pass, so values
+           which are substituted in are never expanded again.
+
+           If shell is set, the result will be parsed by a shell, and
+           token values containing shell metacharacters are rejected.
+
+        """
+
+        def _expand(match: 're.Match[str]') -> str:
+            token, var = match.groups()
+
+            if token is not None:
+                result = self._expand_token(token)
+
+                if shell:
+                    pattern = self._shell_unsafe.get(token)
+
+                    if pattern and pattern.search(result):
+                        raise ConfigParseError(
+                            f'Unsafe %{token} substitution in shell command')
+
+                return result
+            else:
+                return self._expand_env(var)
+
+        return _expand_pattern.sub(_expand, value)
 
     def _include(self, option: str, args: List[str]) -> None:
         """Read config from a list of other config files"""
@@ -168,7 +260,14 @@ class SSHConfig:
             else:
                 path = self._default_path
 
-            paths = list(p for p in path.glob(pattern) if p.is_file())
+            # Like OpenSSH, skip hidden files unless the pattern names
+            # them explicitly and sort the result, but also allow '**'
+            # to match files at any depth as an extension
+            paths = [file_path for file_path in
+                     (path / name for name in
+                      sorted(glob.glob(pattern, root_dir=path,
+                                       recursive=True)))
+                     if file_path.is_file()]
 
             if not paths:
                 logger.debug1(f'Config pattern "{pattern}" matched no files')
@@ -329,13 +428,52 @@ class SSHConfig:
 
         args.clear()
 
-    def _append_string_list(self, option: str, args: List[str]) -> None:
-        """Append whitespace-separated string config options to a list"""
+    def _append_env_patterns(self, option: str, args: List[str]) -> None:
+        """Append environment variable name patterns to a list
 
-        if option in self._options:
-            cast(List[str], self._options[option]).extend(args)
-        else:
-            self._options[option] = args[:]
+           A pattern beginning with '-' removes any previously listed
+           patterns matching the rest of the value, so '-*' can be
+           used to clear the list. OpenSSH supports this in SendEnv,
+           and AsyncSSH extends it to AcceptEnv.
+
+        """
+
+        patterns = list(cast(List[str], self._options.get(option, [])))
+
+        for arg in args:
+            if arg.startswith('-'):
+                patterns = [pattern for pattern in patterns
+                            if not fnmatch.fnmatchcase(pattern, arg[1:])]
+            else:
+                patterns.append(arg)
+
+        self._options[option] = patterns
+        args.clear()
+
+    def _set_env(self, option: str, args: List[str]) -> None:
+        """Set environment variables from equals-separated key/value pairs
+
+           As in OpenSSH, only the first setting of each variable name
+           is kept, and an error is reported for any value without an
+           equals sign, even when the option was already set.
+
+        """
+
+        env: List[str] = []
+        names: Set[str] = set()
+
+        for arg in args:
+            name, sep, _ = arg.partition('=')
+
+            if not sep:
+                self._error(f'Invalid {option} value: {arg}')
+
+            if name not in names:
+                names.add(name)
+                env.append(arg)
+
+        if option not in self._options:
+            self._options[option] = env
 
         args.clear()
 
@@ -416,7 +554,7 @@ class SSHConfig:
                     continue
 
                 try:
-                    split_args = shlex.split(line)
+                    line_args = _split_config_line(line)
                 except ValueError as exc:
                     self._error(str(exc))
 
@@ -424,12 +562,12 @@ class SSHConfig:
                 loption = ''
                 allow_equal = True
 
-                for i, arg in enumerate(split_args, 1):
+                for i, arg in enumerate(line_args, 1):
                     if arg.startswith('='):
                         if len(arg) > 1:
                             args.append(arg[1:])
                     elif not allow_equal:
-                        args.extend(split_args[i-1:])
+                        args.extend(line_args[i-1:])
                         break
                     elif arg.endswith('='):
                         args.append(arg[:-1])
@@ -445,7 +583,13 @@ class SSHConfig:
                         allow_equal = loption in self._conditionals
 
                 if loption in self._no_split:
-                    args = [line.lstrip()[len(loption):].strip()]
+                    rest = line[len(loption):].lstrip()
+
+                    if rest.startswith('='):
+                        rest = rest[1:].lstrip()
+
+                    args = [rest]
+
 
                 if not self._matching and loption not in self._conditionals:
                     continue
@@ -471,10 +615,12 @@ class SSHConfig:
             except KeyError:
                 pass
             else:
+                shell = option in self._shell_expand
+
                 if isinstance(value, list):
-                    value = [self._expand_val(item) for item in value]
+                    value = [self._expand_val(item, shell) for item in value]
                 elif isinstance(value, str):
-                    value = self._expand_val(value)
+                    value = self._expand_val(value, shell)
 
                 self._options[option] = value
 
@@ -529,6 +675,10 @@ class SSHClientConfig(SSHConfig):
     _no_split = {'proxycommand', 'remotecommand'}
     _percent_expand = {'CertificateFile', 'ForwardAgent', 'IdentityAgent',
                        'IdentityFile', 'ProxyCommand', 'RemoteCommand'}
+    _shell_expand = {'RemoteCommand'}
+    _shell_unsafe = {'h': _unsafe_shell_host_pattern,
+                     'n': _unsafe_shell_host_pattern,
+                     'r': _unsafe_shell_user_pattern}
 
     def __init__(self, last_config: 'SSHConfig', reload: bool,
                  canonical: bool, final: bool, local_user: str,
@@ -594,6 +744,27 @@ class SSHClientConfig(SSHConfig):
             value = value_str
         else:
             self._error(f'Invalid {option} value: {value_str}')
+
+        if option not in self._options:
+            self._options[option] = value
+
+    def _set_command(self, option: str, args: List[str]) -> None:
+        """Set a local command option, split into arguments
+
+           The command is split before percent and environment expansion
+           are performed, so values substituted in can't add arguments.
+
+        """
+
+        value_str = args.pop(0)
+
+        if value_str.lower() == 'none':
+            value: Optional[List[str]] = None
+        else:
+            try:
+                value = list(split_args(value_str))
+            except ValueError as exc:
+                self._error(str(exc))
 
         if option not in self._options:
             self._options[option] = value
@@ -668,16 +839,16 @@ class SSHClientConfig(SSHConfig):
         ('PKCS11Provider',                  SSHConfig._set_string),
         ('PreferredAuthentications',        SSHConfig._set_string),
         ('Port',                            SSHConfig._set_int),
-        ('ProxyCommand',                    SSHConfig._set_string),
+        ('ProxyCommand',                    _set_command),
         ('ProxyJump',                       SSHConfig._set_string),
         ('PubkeyAuthentication',            SSHConfig._set_bool),
         ('RekeyLimit',                      SSHConfig._set_rekey_limits),
         ('RemoteCommand',                   SSHConfig._set_string),
         ('RequestTTY',                      _set_request_tty),
-        ('SendEnv',                         SSHConfig._append_string_list),
+        ('SendEnv',                         SSHConfig._append_env_patterns),
         ('ServerAliveCountMax',             SSHConfig._set_int),
         ('ServerAliveInterval',             SSHConfig._set_int),
-        ('SetEnv',                          SSHConfig._set_string_list),
+        ('SetEnv',                          SSHConfig._set_env),
         ('Tag',                             SSHConfig._set_string),
         ('TCPKeepAlive',                    SSHConfig._set_bool),
         ('User',                            SSHConfig._set_string),
@@ -693,6 +864,7 @@ class SSHServerConfig(SSHConfig):
                  local_port: int, user: str, host: str, addr: str) -> None:
         super().__init__(last_config, reload, canonical, final)
 
+        self._reload = reload
         self._local_addr = local_addr
         self._local_port = local_port
         self._user = user
@@ -726,8 +898,10 @@ class SSHServerConfig(SSHConfig):
                - a username containing forward or backward slashes
                - a username containing an env substitution like "${...}"
 
-           A username of empty string is allowed here, but will later be
-           rejected if used as a substitution value.
+           A username of empty string is allowed when a server first loads
+           its config, before a username is known. When the config is
+           reloaded for a user, an empty username is allowed here, but will
+           later be rejected if used as a substitution value.
 
            Note: this code assumes that saslprep has already been performed
            on the username before it is accessed here.
@@ -737,13 +911,14 @@ class SSHServerConfig(SSHConfig):
         if _unsafe_user_pattern.search(self._user):
             raise IllegalUserName('Unsafe username substitution')
 
-        if self._user:
+        if self._user or not self._reload:
             self._tokens.update({'u': self._user})
 
     _handlers = {option.lower(): (option, handler) for option, handler in (
         ('Match',                           SSHConfig._match),
         ('Include',                         SSHConfig._include),
 
+        ('AcceptEnv',                       SSHConfig._append_env_patterns),
         ('AddressFamily',                   SSHConfig._set_address_family),
         ('AuthorizedKeysFile',              SSHConfig._set_string_list),
         ('AllowAgentForwarding',            SSHConfig._set_bool),
@@ -773,6 +948,7 @@ class SSHServerConfig(SSHConfig):
         ('Port',                            SSHConfig._set_int),
         ('PubkeyAuthentication',            SSHConfig._set_bool),
         ('RekeyLimit',                      SSHConfig._set_rekey_limits),
+        ('SetEnv',                          SSHConfig._set_env),
         ('TCPKeepAlive',                    SSHConfig._set_bool),
         ('UseDNS',                          SSHConfig._set_bool)
     )}

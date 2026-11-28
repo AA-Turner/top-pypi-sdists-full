@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, FiniteFloat
 
@@ -40,6 +40,9 @@ class TurnsSource(StrEnum):
     DECODED = "decoded"  # Probe rebuilt them from token ids (no structured messages were held)
 
 
+SourceValueType = Literal["string", "object", "array", "null", "boolean", "number", "missing"]
+
+
 class MessageToolCall(BaseModel):
     """One tool call an assistant message asked for, as the framework handed it to the tool. Its run's stats are
     the `TurnToolCall` with the same `id`."""
@@ -48,10 +51,13 @@ class MessageToolCall(BaseModel):
 
     #: As the framework named it; `probe-<turn>-<i>` when Probe numbered it (the plan declares `tool_call_ids`).
     id: str | None = Field(default=None, max_length=256)
+    #: The sender's ID if it differs from the unique occurrence used to join a result.
+    provider_id: str | None = Field(default=None, max_length=256)
     name: str = Field(max_length=256)
     #: The arguments as the framework handed them to the tool (JSON text), credentials scrubbed by value; the model's
     #: exact bytes stay in the token bundle.
     arguments: str = ""
+    arguments_type: SourceValueType | None = None
 
 
 class Message(BaseModel):
@@ -63,6 +69,7 @@ class Message(BaseModel):
     content: str = ""
     name: str | None = Field(default=None, max_length=256)
     tool_call_id: str | None = Field(default=None, max_length=256)
+    provider_tool_call_id: str | None = Field(default=None, max_length=256)
     #: The model's reasoning, apart from `content`, only where the model or engine gives it (None, never "").
     reasoning: str | None = None
     tool_calls: list[MessageToolCall] = Field(default_factory=list)

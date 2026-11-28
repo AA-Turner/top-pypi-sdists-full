@@ -138,7 +138,9 @@ from datamodel_code_generator.model.base import (
     DataModelFieldBase,
     _bind_bare_loads,
     _build_for_target,
+    _class_body_fields,
     _has_root_field_constraints,
+    _keep_inherited_dataclass_config,
     _model_of_reference,
     _model_package_class,
     _set_nested_model_default_factory_order,
@@ -231,7 +233,6 @@ from datamodel_code_generator.parser._passes.imports import (
     _FUTURE_IMPORTS,
     builtin_name_bindings,
     reject_unimportable_imports,
-    render_module_models,
 )
 from datamodel_code_generator.parser._pipeline import PARSE_CALLER, Runner, parse_caller
 from datamodel_code_generator.parser._schema_graph import SCHEMA_GRAPH
@@ -495,8 +496,8 @@ def dump_templates(templates: list[DataModel]) -> str:
 
 
 def _hint_data_types(model: DataModel) -> Iterator[tuple[DataModelFieldBase, DataType]]:
-    """Yield each field of a model with the type its hint writes (``DataModelFieldBase._hint_data_type``)."""
-    for field in model.fields:
+    """Yield each field the class body of a model writes with the type its hint writes (``_hint_data_type``)."""
+    for field in _class_body_fields(model):
         yield field, field._hint_data_type()  # noqa: SLF001
 
 
@@ -1300,6 +1301,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.data_model_type.configure_dataclass_arguments(
             self.extra_template_data, keep_false_dataclass_arguments=config.keep_false_dataclass_arguments
         )
+        if config.keep_inherited_dataclass_config:
+            _keep_inherited_dataclass_config(self.extra_template_data)
 
         self.use_generic_base_class: bool = config.use_generic_base_class
         self.keep_bases_beside_generic_base_class: bool = config.keep_bases_beside_generic_base_class
@@ -2538,7 +2541,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         unused_models: list[DataModel],
         model_to_module_models: dict[DataModel, tuple[ModulePath, list[DataModel]]],
         module_to_import: dict[ModulePath, Imports],
-        forwarder_modules: Collection[ModulePath],
+        forwarder_map: ForwarderMap,
         *,
         with_import: bool,
         config: ParseConfig,
@@ -2555,7 +2558,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             unused_models,
             model_to_module_models,
             module_to_import,
-            forwarder_modules,
+            forwarder_map,
             with_import,
             config,
             internal_modules,
@@ -2614,12 +2617,14 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         require_update: Collection[ModelKey],
         future_imports_str: str,
         shared_imports_str: str,
+        texts: Sequence[str],
     ) -> Result | None:
         """Generate output for a single module.
 
         Its header names the input file of its first model, which a module that --rename-submodules-hidden-by-classes
         renamed keeps (``_renamed_module_inputs``). ``shared_imports_str`` is what every module writes of the imports
-        all modules share (``ModuleImportLedger.rendered``).
+        all modules share (``ModuleImportLedger.rendered``). ``texts`` are the rendered models of the module
+        (``_decide_module_texts``).
         """
         result: list[str] = []
         export_imports: Imports | None = None
@@ -2631,14 +2636,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             )
 
         if ctx.models:
-            texts = render_module_models(
-                ctx.models,
-                ctx.imports,
-                self.imports,
-                self._import_ledger,
-                self.target_python_version.version_key,
-                self._import_overrides,
-            )
             if config.with_import:
                 module_imports = self._import_ledger.rendered(ctx.imports)
                 self._reject_unimportable_imports(ctx.module, module_imports, is_init=ctx.is_init)

@@ -1,4 +1,6 @@
 import os
+import uuid
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -38,6 +40,29 @@ def test_get_filename():
     )
 
 
+@pytest.mark.parametrize("basename", ["Document#1", "Document?1"])
+def test_get_filename_with_url_characters_in_local_path(basename):
+    filename = f"{basename}.txt"
+    path = f"/root/a/b/c/{filename}"
+    dirpath = os.path.normpath("/root/a/b/c")
+    assert fsutil.get_filename(path) == filename
+    assert fsutil.get_filename(Path(path)) == filename
+    assert fsutil.get_filename(f"C:/a/b/c/{filename}") == filename
+    assert fsutil.get_file_basename(path) == basename
+    assert fsutil.get_file_extension(path) == "txt"
+    assert fsutil.split_filename(path) == (basename, "txt")
+    assert fsutil.split_filepath(path) == (dirpath, filename)
+
+
+def test_get_filename_with_url_query_and_fragment():
+    url = "https://domain-name.com/a/Document.txt?version=1.2#section"
+    assert fsutil.get_filename(url) == "Document.txt"
+    assert fsutil.get_file_basename(url) == "Document"
+    assert fsutil.get_file_extension(url) == "txt"
+    assert fsutil.split_filename(url) == ("Document", "txt")
+    assert fsutil.split_filepath(url)[1] == "Document.txt"
+
+
 def test_get_parent_dir():
     s = "/root/a/b/c/Document.txt"
     assert fsutil.get_parent_dir(s) == os.path.normpath("/root/a/b/c")
@@ -66,13 +91,32 @@ def test_get_unique_name(temp_path):
     assert extension == "txt"
 
 
+def test_get_unique_name_with_collision(temp_path):
+    path = temp_path("a/b/c")
+    uids = [uuid.uuid4(), uuid.uuid4()]
+    fsutil.create_file(fsutil.join_path(path, f"prefix_{uids[0]}_suffix.txt"))
+    with patch("uuid.uuid4", side_effect=uids):
+        name = fsutil.get_unique_name(
+            path, prefix="prefix", suffix="suffix", extension="TXT", separator="_"
+        )
+    assert name == f"prefix_{uids[1]}_suffix.txt"
+
+
 def test_join_filename():
     assert fsutil.join_filename("Document", "txt") == "Document.txt"
     assert fsutil.join_filename("Document", ".txt") == "Document.txt"
     assert fsutil.join_filename(" Document ", " txt ") == "Document.txt"
     assert fsutil.join_filename("Document", " .txt ") == "Document.txt"
+    assert fsutil.join_filename("Document", "txt.") == "Document.txt"
     assert fsutil.join_filename("Document", "") == "Document"
     assert fsutil.join_filename("", "txt") == "txt"
+
+
+def test_join_filename_with_multi_dot_extension():
+    assert fsutil.join_filename("archive", "tar.gz") == "archive.tar.gz"
+    assert fsutil.join_filename("archive", ".tar.gz") == "archive.tar.gz"
+    assert fsutil.join_filename("archive", " .tar.gz ") == "archive.tar.gz"
+    assert fsutil.join_filename("archive", "tar.gz.") == "archive.tar.gz"
 
 
 def test_join_filepath():

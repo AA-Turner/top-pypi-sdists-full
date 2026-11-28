@@ -172,7 +172,7 @@ def axis_fix(axis, ndim):
         assert type(axis) is int, 'type(axis) should be integer'
         axis = (axis,)
     
-    axis = tuple(ax if ax>=0 else ndim+ax for ax in axis)
+    axis = tuple(ax % ndim for ax in axis)
     return axis
 
 

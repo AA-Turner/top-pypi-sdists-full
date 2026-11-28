@@ -274,21 +274,24 @@ class BaseXMPP(XMLStream):
             load_plugin(plugin, module)
         self.plugin.enable(plugin, pconfig)  # type: ignore
 
-    def register_plugins(self):
+    def register_plugins(self, exclude: set[str] | None = None) -> None:
         """Register and initialize all built-in plugins.
 
         Optionally, the list of plugins loaded may be limited to those
         contained in :attr:`plugin_whitelist`.
 
         Plugin configurations stored in :attr:`plugin_config` will be used.
+
+        :param exclude: set of plugin names to exclude from the loading.
         """
+        exclude = exclude or set()
         if self.plugin_whitelist:
             plugin_list = self.plugin_whitelist
         else:
             plugin_list = plugins.PLUGINS
 
         for plugin in plugin_list:
-            if plugin in plugins.PLUGINS:
+            if plugin in plugins.PLUGINS and plugin not in exclude:
                 self.register_plugin(plugin)
             else:
                 raise NameError("Plugin %s not in plugins.PLUGINS." % plugin)
@@ -724,12 +727,22 @@ class BaseXMPP(XMLStream):
         self.event('stream_error', error)
 
         if error['condition'] == 'see-other-host':
+            # RFC 6122 says that we MAY only follow see-other-host if the
+            # connection has been authenticated, while servers SHOULD NOT
+            # use it if the stream is not protected.
+            # There is therefore no known reason to try an untrusted redirect.
+            # Having an "ssl_object" attribute is a convoluted but practical
+            # way of checking that we are currently in a TLS session.
+            has_tls = self.transport.get_extra_info("ssl_object", default=None)
+            if not has_tls:
+                return
+
             other_host = error['see_other_host']
             if not other_host:
                 log.warning("No other host specified.")
                 return
 
-            if self._redirect_attempts > self.max_redirects:
+            if self._redirect_attempts + 1 > self.max_redirects:
                 log.error("Exceeded maximum number of redirection attempts.")
                 return
 
@@ -747,8 +760,7 @@ class BaseXMPP(XMLStream):
             if ':' in port_sec:
                 port = int(port_sec.split(':')[1])
 
-            self.address = (host, port)
-            self.default_domain = host
+            self.custom_address = (host, port)
             self.dns_records = None
             self.reconnect()
 

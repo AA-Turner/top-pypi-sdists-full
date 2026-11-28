@@ -20,16 +20,11 @@
 
 """SSH compression handlers"""
 
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 import zlib
 
 _cmp_algs: List[bytes] = []
 _default_cmp_algs: List[bytes] = []
-
-_cmp_params = {}
-
-_cmp_compressors = {}
-_cmp_decompressors = {}
 
 
 class Compressor:
@@ -44,8 +39,8 @@ class Compressor:
 class Decompressor:
     """Base class for data decompressor"""
 
-    def decompress(self, data: bytes) -> Optional[bytes]:
-        """Decompress data"""
+    def decompress(self, data: bytes, max_length: int) -> Optional[bytes]:
+        """Decompress data, returning None if it exceeds max_length"""
 
         raise NotImplementedError
 
@@ -82,13 +77,20 @@ class _ZLibDecompress(Decompressor):
     def __init__(self) -> None:
         self._decomp = zlib.decompressobj()
 
-    def decompress(self, data: bytes) -> Optional[bytes]:
-        """Decompress data using zlib compression"""
+    def decompress(self, data: bytes, max_length: int) -> Optional[bytes]:
+        """Decompress data using zlib compression, enforcing a max length"""
 
         try:
-            return self._decomp.decompress(data)
+            result = self._decomp.decompress(data, max_length + 1)
         except zlib.error: # pragma: no cover
             return None
+
+        return None if len(result) > max_length else result
+
+
+_cmp_params: Dict[bytes, bool] = {}
+_cmp_compressors: Dict[bytes, _CompressorType] = {}
+_cmp_decompressors: Dict[bytes, _DecompressorType] = {}
 
 
 def register_compression_alg(alg: bytes, compressor: _CompressorType,

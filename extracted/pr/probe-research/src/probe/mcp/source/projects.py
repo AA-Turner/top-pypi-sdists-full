@@ -62,6 +62,10 @@ class ProjectReadsMixin:
         last (each with its HTML) and a project's canvas preview (None for an experiment)."""
         return self.client.read_pane_list(project_id)
 
+    def fetch_plan(self, project_id: str) -> dict:
+        """``GET /v1/projects/{P}/plan``: ``{plan, stages}``, the project's plan stages in order."""
+        return self.client.get_plan(project_id)
+
     def fetch_decisions(self, scope_id: str | None = None, **filters: Any) -> Any:
         """One page of decisions, oldest first (`Client.list_decisions`): a project's or experiment's, or the
         team's with no `scope_id`; `filters` are its keyword filters. A `DecisionPage`."""

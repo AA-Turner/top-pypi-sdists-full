@@ -28,6 +28,9 @@ class CreateVpnAttachmentResponseBody(DaraModel):
         # The request ID.
         self.request_id = request_id
         # Indicates whether the current task is successfully executed.
+        # 
+        # - **true**: The task is successfully executed.
+        # - **false**: The task fails to be executed.
         self.success = success
         # The IPsec-VPN connection ID.
         self.vpn_connection_id = vpn_connection_id

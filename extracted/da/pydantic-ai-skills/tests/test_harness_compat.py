@@ -28,9 +28,9 @@ from pydantic_ai_harness import Skills
 from pydantic_ai_skills._parsing import validate_skill_name
 from tests._harness import (
     HARNESS_DISCOVERS_PER_RUN,
+    HARNESS_SKIPS_MISSING_DIRECTORIES_BY_DEFAULT,
     harness_leaves,
     harness_names,
-    harness_skills,
     instruction_parts,
     run_context,
 )
@@ -174,11 +174,22 @@ def test_a_missing_name_key_is_derived_from_the_directory(tmp_path: Path) -> Non
 
 
 def test_a_library_that_is_itself_a_skill_is_rejected(tmp_path: Path) -> None:
-    """Registries must return the parent of the skill packages, not a package."""
+    """Registries must return the parent of the skill packages, not a package.
+
+    harness 0.77 flipped `missing_directories`'s default from `'error'` to `'skip'`, so a
+    library path that is itself a skill package is now skipped with a warning by default
+    instead of failing the run. This package doesn't override that default -- it inherits
+    whatever harness does here -- so the test asserts on the installed behavior rather than
+    pinning one of the two.
+    """
     (tmp_path / 'SKILL.md').write_text('---\nname: whoops\ndescription: A skill.\n---\n\nBody.\n')
 
-    with pytest.raises(ValueError, match='points to a skill package'):
-        harness_leaves(tmp_path)
+    if HARNESS_SKIPS_MISSING_DIRECTORIES_BY_DEFAULT:
+        with pytest.warns(UserWarning, match='it is a skill package'):
+            assert harness_leaves(tmp_path) == []
+    else:
+        with pytest.raises(ValueError, match='points to a skill package'):
+            harness_leaves(tmp_path)
 
 
 def test_bundled_files_are_not_loaded(tmp_path: Path) -> None:
@@ -239,8 +250,13 @@ def leaves_of(capability: AbstractCapability[Any]) -> list[Any]:
 
 
 @pytest.mark.skipif(not HARNESS_DISCOVERS_PER_RUN, reason='harness <0.52 scans libraries during construction')
-async def test_for_run_returns_skills_itself_when_nothing_is_selected(library: Path) -> None:
-    """`SkillsCapability._harness_leaves` filters this out rather than re-emitting it as a skill."""
-    skills = harness_skills(library, include=[])
+def test_for_run_returns_no_leaves_when_nothing_is_selected(library: Path) -> None:
+    """`SkillsCapability._harness_leaves` ends up with nothing to re-emit as a skill.
 
-    assert await skills.for_run(run_context()) is skills
+    Before harness 0.70, `for_run` returned `Skills` itself unchanged here; from 0.70 it
+    returns an empty `CombinedCapability` instead. `harness_leaves` filters out a bare
+    `Skills` leaf the same way `SkillsCapability._harness_leaves` does, so this passes
+    under either harness version — including the older one CI's Python 3.10 job resolves
+    for its "latest" dependency set, since newer harness releases require Python >=3.11.
+    """
+    assert harness_leaves(library, include=[]) == []

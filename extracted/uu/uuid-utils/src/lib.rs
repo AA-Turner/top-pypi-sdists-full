@@ -322,7 +322,14 @@ impl UUID {
 #[pyo3(signature = (node=None, clock_seq=None))]
 fn uuid1(node: Option<u64>, clock_seq: Option<u64>) -> PyResult<UUID> {
     let node = match node {
-        Some(node) => node.to_be_bytes(),
+        Some(node) => {
+            if node >= (1 << 48) {
+                return Err(PyValueError::new_err(
+                    "field 6 out of range (need a 48-bit value)",
+                ));
+            }
+            node.to_be_bytes()
+        }
         None => _getnode().to_be_bytes(),
     };
     let node: &[u8; 6] = node[2..8].try_into().unwrap();
@@ -340,14 +347,34 @@ fn uuid1(node: Option<u64>, clock_seq: Option<u64>) -> PyResult<UUID> {
     Ok(UUID { uuid })
 }
 
+fn extract_namespace(namespace: &Bound<'_, PyAny>) -> PyResult<Uuid> {
+    if let Ok(namespace) = namespace.extract::<PyRef<'_, UUID>>() {
+        return Ok(namespace.uuid);
+    }
+
+    let stdlib_uuid = PyModule::import(namespace.py(), "uuid")?.getattr("UUID")?;
+    if !namespace.is_instance(&stdlib_uuid)? {
+        return Err(PyTypeError::new_err(
+            "namespace must be a uuid_utils.UUID or uuid.UUID",
+        ));
+    }
+
+    namespace
+        .getattr("int")
+        .and_then(|int| int.extract::<u128>())
+        .map(Uuid::from_u128)
+        .map_err(|_| PyTypeError::new_err("namespace must be a uuid_utils.UUID or uuid.UUID"))
+}
+
 #[pyfunction]
-fn uuid3(namespace: &UUID, name: StringOrBytes) -> PyResult<UUID> {
+fn uuid3(namespace: &Bound<'_, PyAny>, name: StringOrBytes) -> PyResult<UUID> {
+    let namespace = extract_namespace(namespace)?;
     match name {
         StringOrBytes::String(name) => Ok(UUID {
-            uuid: Uuid::new_v3(&namespace.uuid, name.as_bytes()),
+            uuid: Uuid::new_v3(&namespace, name.as_bytes()),
         }),
         StringOrBytes::Bytes(name) => Ok(UUID {
-            uuid: Uuid::new_v3(&namespace.uuid, &name),
+            uuid: Uuid::new_v3(&namespace, &name),
         }),
     }
 }
@@ -366,13 +393,14 @@ fn uuid4() -> PyResult<UUID> {
 }
 
 #[pyfunction]
-fn uuid5(namespace: &UUID, name: StringOrBytes) -> PyResult<UUID> {
+fn uuid5(namespace: &Bound<'_, PyAny>, name: StringOrBytes) -> PyResult<UUID> {
+    let namespace = extract_namespace(namespace)?;
     match name {
         StringOrBytes::String(name) => Ok(UUID {
-            uuid: Uuid::new_v5(&namespace.uuid, name.as_bytes()),
+            uuid: Uuid::new_v5(&namespace, name.as_bytes()),
         }),
         StringOrBytes::Bytes(name) => Ok(UUID {
-            uuid: Uuid::new_v5(&namespace.uuid, &name),
+            uuid: Uuid::new_v5(&namespace, &name),
         }),
     }
 }

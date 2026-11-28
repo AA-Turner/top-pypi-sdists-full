@@ -21,9 +21,9 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from starlette_compress import (
+    DEFAULT_CONTENT_TYPES,
+    DEFAULT_STREAMING_CONTENT_TYPES,
     CompressMiddleware,
-    add_compress_type,
-    remove_compress_type,
 )
 from starlette_compress._responder import CompressionResponder
 from starlette_compress._utils import classify_start_message, parse_accept_encoding
@@ -266,41 +266,41 @@ def test_compress_ignored_for_missing_content_type(
         assert 'Vary' not in response.headers
 
 
-def test_compress_registered_content_type(test_client_factory: TestClientFactory):
+def test_compress_custom_content_types_are_per_middleware(
+    test_client_factory: TestClientFactory,
+):
     def homepage(request: Request) -> Response:
         return Response('x' * 4000, media_type='test/test')
 
-    app = Starlette(
+    default_app = Starlette(
         routes=[Route('/', endpoint=homepage)],
         middleware=[Middleware(CompressMiddleware)],
     )
+    custom_app = Starlette(
+        routes=[Route('/', endpoint=homepage)],
+        middleware=[
+            Middleware(
+                CompressMiddleware,
+                content_types=DEFAULT_CONTENT_TYPES | {'TEST/TEST'},
+            )
+        ],
+    )
 
-    client = test_client_factory(app)
+    default_client = test_client_factory(default_app)
+    custom_client = test_client_factory(custom_app)
 
     for encoding in ('gzip', 'br', 'zstd'):
-        response = client.get('/', headers={'accept-encoding': encoding})
+        response = default_client.get('/', headers={'accept-encoding': encoding})
         assert response.status_code == 200
         assert 'Content-Encoding' not in response.headers
         assert int(response.headers['Content-Length']) == 4000
         assert 'Vary' not in response.headers
 
-    add_compress_type('test/test')
-
-    for encoding in ('gzip', 'br', 'zstd'):
-        response = client.get('/', headers={'accept-encoding': encoding})
+        response = custom_client.get('/', headers={'accept-encoding': encoding})
         assert response.status_code == 200
         assert response.headers['Content-Encoding'] == encoding
         assert int(response.headers['Content-Length']) < 4000
         assert response.headers['Vary'] == 'Accept-Encoding'
-
-    remove_compress_type('test/test')
-
-    for encoding in ('gzip', 'br', 'zstd'):
-        response = client.get('/', headers={'accept-encoding': encoding})
-        assert response.status_code == 200
-        assert 'Content-Encoding' not in response.headers
-        assert int(response.headers['Content-Length']) == 4000
-        assert 'Vary' not in response.headers
 
 
 def test_parse_accept_encoding():
@@ -909,7 +909,7 @@ def test_sse_empty_continuations_identity():
     assert bodies[-1].get('more_body', False) is False
 
 
-def test_registry_lifecycle_streaming():
+def test_per_middleware_streaming_and_inspectable_content_types():
     ctype = 'application/x-test-sse-lifecycle'
 
     async def app(scope, receive, send):
@@ -920,9 +920,7 @@ def test_registry_lifecycle_streaming():
         })
         await send({'type': 'http.response.body', 'body': b'hello'})
 
-    middleware = CompressMiddleware(app, minimum_size=500)
-
-    def response_is_compressed():
+    def response_is_compressed(middleware: CompressMiddleware) -> bool:
         sent = asyncio.run(run_asgi(middleware, accept_encoding='gzip'))
         headers = dict(sent[0]['headers'])
         wire = b''.join(m.get('body', b'') for m in sent[1:])
@@ -935,22 +933,44 @@ def test_registry_lifecycle_streaming():
         assert wire == b'hello'
         return False
 
-    assert not response_is_compressed()
-    try:
-        add_compress_type(ctype.upper())
-        assert not response_is_compressed()
-        add_compress_type(ctype, streaming=True)
-        assert response_is_compressed()
-        add_compress_type(ctype)
-        assert response_is_compressed()
-        add_compress_type(ctype, streaming=True)
-        assert response_is_compressed()
-        remove_compress_type(ctype.upper())
-        assert not response_is_compressed()
-        add_compress_type(ctype)
-        assert not response_is_compressed()
-    finally:
-        remove_compress_type(ctype)
+    default_mw = CompressMiddleware(app, minimum_size=500)
+    assert default_mw.content_types == DEFAULT_CONTENT_TYPES
+    assert default_mw.streaming_content_types == DEFAULT_STREAMING_CONTENT_TYPES
+    assert default_mw.minimum_size == 500
+    assert not response_is_compressed(default_mw)
+
+    # Ordinary buffered content type respects minimum_size (5 bytes < 500).
+    buffered_mw = CompressMiddleware(
+        app, minimum_size=500, content_types=[ctype.upper()]
+    )
+    assert buffered_mw.content_types == frozenset({ctype})
+    assert buffered_mw.streaming_content_types == frozenset()
+    assert not response_is_compressed(buffered_mw)
+
+    # Explicit streaming content type auto-includes in content_types and bypasses minimum_size.
+    streaming_mw = CompressMiddleware(
+        app,
+        minimum_size=500,
+        streaming_content_types=[f' {ctype.upper()} '],
+    )
+    assert ctype in streaming_mw.content_types
+    assert streaming_mw.streaming_content_types == frozenset({ctype})
+    assert response_is_compressed(streaming_mw)
+
+    # Disabling streaming for text/event-stream leaves it compressible if in content_types.
+    no_streaming_mw = CompressMiddleware(app, streaming_content_types=())
+    assert 'text/event-stream' in no_streaming_mw.content_types
+    assert no_streaming_mw.streaming_content_types == frozenset()
+
+    # Invalid content_types / streaming_content_types inputs fail eagerly.
+    with pytest.raises(TypeError, match='iterable of media-type strings'):
+        CompressMiddleware(app, content_types='text/plain')
+    with pytest.raises(TypeError, match='iterable of media-type strings'):
+        CompressMiddleware(app, streaming_content_types='text/event-stream')
+    with pytest.raises(TypeError, match='entries must be strings'):
+        CompressMiddleware(app, content_types=[123])  # pyright: ignore[reportArgumentType]
+    with pytest.raises(ValueError, match='must not be empty'):
+        CompressMiddleware(app, content_types=['   '])
 
 
 @pytest.mark.parametrize('encoding', ['gzip', 'br', 'zstd'])
@@ -1271,6 +1291,41 @@ def test_repeated_start_raises_runtime_error_and_preserves_response(
     ('setting', 'value', 'error_type', 'message'),
     [
         pytest.param(
+            'minimum_size',
+            -1,
+            ValueError,
+            'minimum_size must be nonnegative, got -1',
+            id='minimum-size-negative',
+        ),
+        pytest.param(
+            'minimum_size',
+            1.5,
+            TypeError,
+            'minimum_size must be an integer, got float',
+            id='minimum-size-wrong-type',
+        ),
+        pytest.param(
+            'zstd_level',
+            -131073,
+            ValueError,
+            'zstd_level must be between -131072 and 22, got -131073',
+            id='zstd-too-low',
+        ),
+        pytest.param(
+            'zstd_level',
+            23,
+            ValueError,
+            'zstd_level must be between -131072 and 22, got 23',
+            id='zstd-too-high',
+        ),
+        pytest.param(
+            'zstd_level',
+            '4',
+            TypeError,
+            'zstd_level must be an integer, got str',
+            id='zstd-wrong-type',
+        ),
+        pytest.param(
             'brotli_quality',
             -1,
             ValueError,
@@ -1320,8 +1375,18 @@ def test_enabled_codec_levels_are_validated_at_setup(
     async def app(scope, receive, send):
         return None
 
-    options = {'zstd': False, 'brotli': False, 'gzip': False, setting: value}
-    options['brotli' if setting == 'brotli_quality' else 'gzip'] = True
+    options: dict[str, Any] = {
+        'zstd': False,
+        'brotli': False,
+        'gzip': False,
+        setting: value,
+    }
+    if setting == 'zstd_level':
+        options['zstd'] = True
+    elif setting == 'brotli_quality':
+        options['brotli'] = True
+    elif setting == 'gzip_level':
+        options['gzip'] = True
 
     with pytest.raises(error_type) as caught:
         CompressMiddleware(app, **options)
@@ -1332,6 +1397,8 @@ def test_enabled_codec_levels_are_validated_at_setup(
 @pytest.mark.parametrize(
     ('setting', 'value', 'encoding'),
     [
+        pytest.param('zstd_level', -1, 'zstd', id='zstd-fast-negative'),
+        pytest.param('zstd_level', 22, 'zstd', id='zstd-best'),
         pytest.param('brotli_quality', 0, 'br', id='brotli-fastest'),
         pytest.param('brotli_quality', 11, 'br', id='brotli-best'),
         pytest.param('gzip_level', 0, 'gzip', id='gzip-fastest'),
@@ -1347,11 +1414,21 @@ def test_enabled_codec_level_boundaries_reach_the_provider(setting, value, encod
         })
         await send({'type': 'http.response.body', 'body': b'x' * 1000})
 
-    options = {'zstd': False, 'brotli': False, 'gzip': False, setting: value}
-    options['brotli' if setting == 'brotli_quality' else 'gzip'] = True
+    options: dict[str, Any] = {
+        'zstd': False,
+        'brotli': False,
+        'gzip': False,
+        setting: value,
+    }
+    if setting == 'zstd_level':
+        options['zstd'] = True
+    elif setting == 'brotli_quality':
+        options['brotli'] = True
+    else:
+        options['gzip'] = True
     sent = asyncio.run(
         run_asgi(
-            CompressMiddleware(app, minimum_size=1, **options),
+            CompressMiddleware(app, minimum_size=0, **options),
             accept_encoding=encoding,
         )
     )
@@ -1368,6 +1445,7 @@ def test_disabled_codec_levels_are_not_validated():
     middleware = CompressMiddleware(
         app,
         zstd=False,
+        zstd_level=999,
         brotli=False,
         brotli_quality=12,
         gzip=False,

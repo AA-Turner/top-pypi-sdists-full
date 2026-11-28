@@ -1,3 +1,4 @@
+import json
 import time
 from typing import Dict, Optional, Union
 
@@ -52,6 +53,68 @@ def is_read_the_edge_refused(request: httpx.Request, response: httpx.Response) -
     return is_read and edge_refused
 
 
+TRACK_PATH = "/v1/balances.track"
+
+IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
+
+# On a track's request, the `idempotency_key` this SDK made for its body (IdempotencyKeyHook). An httpx extension, so
+# it is never sent: it only tells the edge clients the key is the SDK's own.
+SDK_TRACK_KEY_EXTENSION = "autumn_sdk_track_key"
+
+DUPLICATE_KEY_CODE = "duplicate_idempotency_key"
+DEFAULT_TRACK_VALUE = 1
+
+
+def is_track_with_caller_key_header(operation_id: str, request: httpx.Request) -> bool:
+    """A track the caller keyed with an Idempotency-Key header. The Autumn API claims that header; the edge reads only a
+    track's body key, so such a track stays with Autumn, where a repeat of the caller's key is refused as it always was."""
+    return operation_id == "track" and IDEMPOTENCY_KEY_HEADER in request.headers
+
+
+def is_track_an_older_edge_lacks(request: httpx.Request, response: httpx.Response) -> bool:
+    """An edge from before it served this path answers a track with a 404 of its own, having recorded nothing. No other
+    reply the edge gave itself sends a track on: the edge may have acted on it."""
+    return (
+        request.url.path.endswith(TRACK_PATH)
+        and response.status_code == 404
+        and FORWARDED_HEADER not in response.headers
+    )
+
+
+def _asks_autumn(request: httpx.Request, reply: httpx.Response) -> bool:
+    return (
+        is_edge_down(reply)
+        or is_read_the_edge_refused(request, reply)
+        or is_track_an_older_edge_lacks(request, reply)
+    )
+
+
+def _is_sdk_keyed_track(request: httpx.Request) -> bool:
+    return SDK_TRACK_KEY_EXTENSION in request.extensions
+
+
+def _recorded_track_reply(request: httpx.Request, reply: httpx.Response) -> httpx.Response:
+    """`reply`, already read, unless it refuses the SDK's own key as a duplicate. That key was made for this one call,
+    so a duplicate can only mean an earlier attempt of the same call already landed: the edge recorded it before its
+    reply was given up on, or a retry followed a reply that was lost. The usage is counted once, so the caller gets the
+    answer a queued track gets, not an error for a track that worked."""
+    if reply.status_code != 409:
+        return reply
+    try:
+        answer = json.loads(reply.content or b"{}")
+        sent = json.loads(request.content or b"{}")
+    except (ValueError, UnicodeDecodeError):
+        return reply
+    if not isinstance(answer, dict) or answer.get("code") != DUPLICATE_KEY_CODE or not isinstance(sent, dict):
+        return reply
+    recorded = {
+        "customer_id": sent.get("customer_id"),
+        "value": sent.get("value", DEFAULT_TRACK_VALUE),
+        "balance": None,
+    }
+    return httpx.Response(202, json=recorded, request=reply.request)
+
+
 def is_edge_down(response: httpx.Response) -> bool:
     """A 5xx the edge answered itself, or fail-open's 503 for no reply: the Autumn API never saw the call."""
     return response.status_code >= 500 and FORWARDED_HEADER not in response.headers
@@ -96,13 +159,21 @@ class _EdgeLegs:
 
 
 class EdgeSyncClient:
-    """Sends calls addressed to the edge edge-first, falling back to the Autumn API when it's down."""
+    """Sends calls addressed to the edge edge-first, falling back to the Autumn API when it's down, refuses a read, or is
+    too old to serve a track."""
 
     def __init__(self, inner: HttpClient, bases: EdgeBases):
         self._inner = inner
         self._bases = bases
 
     def send(self, request: httpx.Request, **kwargs) -> httpx.Response:
+        reply = self._send_edge_first(request, **kwargs)
+        if not _is_sdk_keyed_track(request) or reply.status_code != 409:
+            return reply
+        reply.read()
+        return _recorded_track_reply(request, reply)
+
+    def _send_edge_first(self, request: httpx.Request, **kwargs) -> httpx.Response:
         legs = _EdgeLegs(request, self._bases)
         if legs.autumn_url is None:
             return self._inner.send(request, **kwargs)
@@ -113,8 +184,7 @@ class EdgeSyncClient:
             if fallback is None:
                 raise
             return self._inner.send(fallback, **kwargs)
-        asks_autumn = is_edge_down(reply) or is_read_the_edge_refused(request, reply)
-        fallback = legs.fallback() if asks_autumn else None
+        fallback = legs.fallback() if _asks_autumn(request, reply) else None
         if fallback is None:
             return reply
         reply.close()
@@ -138,6 +208,13 @@ class EdgeAsyncClient:
         self._bases = bases
 
     async def send(self, request: httpx.Request, **kwargs) -> httpx.Response:
+        reply = await self._send_edge_first(request, **kwargs)
+        if not _is_sdk_keyed_track(request) or reply.status_code != 409:
+            return reply
+        await reply.aread()
+        return _recorded_track_reply(request, reply)
+
+    async def _send_edge_first(self, request: httpx.Request, **kwargs) -> httpx.Response:
         legs = _EdgeLegs(request, self._bases)
         if legs.autumn_url is None:
             return await self._inner.send(request, **kwargs)
@@ -148,8 +225,7 @@ class EdgeAsyncClient:
             if fallback is None:
                 raise
             return await self._inner.send(fallback, **kwargs)
-        asks_autumn = is_edge_down(reply) or is_read_the_edge_refused(request, reply)
-        fallback = legs.fallback() if asks_autumn else None
+        fallback = legs.fallback() if _asks_autumn(request, reply) else None
         if fallback is None:
             return reply
         await reply.aclose()

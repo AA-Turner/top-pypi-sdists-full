@@ -170,6 +170,7 @@ class RunsMixin:
         run_type: str | None = None,
         total_steps: int | None = None,
         key_metrics: Sequence[str] | None = None,
+        stage: str | None = None,
         **run_kw,
     ) -> Run:
         """Open a run — full resolution/creation/``on_conflict`` semantics in
@@ -189,7 +190,9 @@ class RunsMixin:
         node-local leader. Best-effort by contract: a broken collector never
         touches the run (agent/src/probe/sdk/hardware/DESIGN.md). ``snapshot``
         controls the open-time auto-snapshot: ``None`` follows
-        ``PROBE_AUTO_SNAPSHOT`` (default on), ``False`` skips, ``True`` forces.
+        ``PROBE_AUTO_SNAPSHOT`` (default on), ``False`` skips, ``True`` forces. ``stage`` is the key of the
+        project plan's step this run serves (``probe plan show``); an experiment this call creates gets it as its
+        default. It never stops the run opening: an unknown key or an older server warns once.
 
         Output capture (D17, :mod:`probe.sdk.capture.outputs`): a run this process owns
         captures what it writes to the working directory -- or to ``outputs``,
@@ -245,6 +248,8 @@ class RunsMixin:
         if total_steps is not None:
             run_kw["total_steps"] = to_total_steps(total_steps)
         pinned = to_key_metrics(key_metrics) if key_metrics is not None else None
+        if stage is not None:
+            run_kw["stage"] = stage
         if ignore is not None:
             # Checked before the run exists, so a bad value opens nothing.
             from ....recording_rules import recording_rules as _ignore
@@ -431,6 +436,7 @@ class RunsMixin:
                 question=question,
                 project_id=project_id,
                 authored_by=run_kw.get("authored_by"),  # inherits the run's authorship
+                stage=run_kw.get("stage"),  # a fresh experiment's default stage (R9)
             )
         else:
             exp = self.resolve_or_raise("experiment", experiment, project_id=project_id)

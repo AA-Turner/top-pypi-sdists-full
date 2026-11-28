@@ -27,7 +27,7 @@ from ..or_condition import OrCondition
 from ..persistent import PersistentCondition
 from .base import CompositionCondition
 from .entity_lane_position import EntityLanePositionCondition
-from .speed import SpeedCondition
+from .speed import STANDSTILL_SPEED_MPS, SpeedCondition
 
 if TYPE_CHECKING:
     import typesafe_carla.carla as carla
@@ -90,7 +90,7 @@ class TemporaryStopCondition(CompositionCondition):
         entity_name: Union[EntityRole, str],
         stop_positions: Sequence[AnyPose],
         s_margin: float = 5.0,
-        speed_threshold: float = 0.1,
+        speed_threshold: float = STANDSTILL_SPEED_MPS,
         stop_duration: float = 1.0,
         *,
         label: str,

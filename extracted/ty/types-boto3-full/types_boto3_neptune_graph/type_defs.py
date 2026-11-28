@@ -51,6 +51,7 @@ __all__ = (
     "CancelImportTaskInputTypeDef",
     "CancelImportTaskOutputTypeDef",
     "CancelQueryInputTypeDef",
+    "ComputeConfigurationTypeDef",
     "CreateGraphInputTypeDef",
     "CreateGraphOutputTypeDef",
     "CreateGraphSnapshotInputTypeDef",
@@ -103,6 +104,7 @@ __all__ = (
     "GetQueryInputTypeDef",
     "GetQueryOutputTypeDef",
     "GraphDataSummaryTypeDef",
+    "GraphSessionConfigurationTypeDef",
     "GraphSnapshotSummaryTypeDef",
     "GraphSummaryTypeDef",
     "ImportOptionsTypeDef",
@@ -131,6 +133,7 @@ __all__ = (
     "NodeStructureTypeDef",
     "PaginatorConfigTypeDef",
     "PrivateGraphEndpointSummaryTypeDef",
+    "ProvisionedGraphConfigurationTypeDef",
     "QuerySummaryTypeDef",
     "ResetGraphInputTypeDef",
     "ResetGraphOutputTypeDef",
@@ -173,6 +176,14 @@ class CancelImportTaskInputTypeDef(TypedDict):
 class CancelQueryInputTypeDef(TypedDict):
     graphIdentifier: str
     queryId: str
+
+
+class GraphSessionConfigurationTypeDef(TypedDict):
+    minMemory: NotRequired[int]
+
+
+class ProvisionedGraphConfigurationTypeDef(TypedDict):
+    memory: int
 
 
 class VectorSearchConfigurationTypeDef(TypedDict):
@@ -316,21 +327,6 @@ GraphSnapshotSummaryTypeDef = TypedDict(
         "kmsKeyIdentifier": NotRequired[str],
     },
 )
-GraphSummaryTypeDef = TypedDict(
-    "GraphSummaryTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": NotRequired[GraphStatusType],
-        "provisionedMemory": NotRequired[int],
-        "publicConnectivity": NotRequired[bool],
-        "endpoint": NotRequired[str],
-        "replicaCount": NotRequired[int],
-        "kmsKeyIdentifier": NotRequired[str],
-        "deletionProtection": NotRequired[bool],
-    },
-)
 
 
 class NeptuneImportOptionsTypeDef(TypedDict):
@@ -423,16 +419,6 @@ class ResetGraphInputTypeDef(TypedDict):
     skipSnapshot: bool
 
 
-class RestoreGraphFromSnapshotInputTypeDef(TypedDict):
-    snapshotIdentifier: str
-    graphName: str
-    provisionedMemory: NotRequired[int]
-    deletionProtection: NotRequired[bool]
-    tags: NotRequired[Mapping[str, str]]
-    replicaCount: NotRequired[int]
-    publicConnectivity: NotRequired[bool]
-
-
 class StartGraphInputTypeDef(TypedDict):
     graphIdentifier: str
 
@@ -449,13 +435,6 @@ class TagResourceInputTypeDef(TypedDict):
 class UntagResourceInputTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
-
-
-class UpdateGraphInputTypeDef(TypedDict):
-    graphIdentifier: str
-    publicConnectivity: NotRequired[bool]
-    provisionedMemory: NotRequired[int]
-    deletionProtection: NotRequired[bool]
 
 
 CancelExportTaskOutputTypeDef = TypedDict(
@@ -582,185 +561,9 @@ class ListTagsForResourceOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateGraphInputTypeDef(TypedDict):
-    graphName: str
-    provisionedMemory: int
-    tags: NotRequired[Mapping[str, str]]
-    publicConnectivity: NotRequired[bool]
-    kmsKeyIdentifier: NotRequired[str]
-    vectorSearchConfiguration: NotRequired[VectorSearchConfigurationTypeDef]
-    replicaCount: NotRequired[int]
-    deletionProtection: NotRequired[bool]
-
-
-CreateGraphOutputTypeDef = TypedDict(
-    "CreateGraphOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": GraphStatusType,
-        "statusReason": str,
-        "createTime": datetime,
-        "provisionedMemory": int,
-        "endpoint": str,
-        "publicConnectivity": bool,
-        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
-        "replicaCount": int,
-        "kmsKeyIdentifier": str,
-        "sourceSnapshotId": str,
-        "deletionProtection": bool,
-        "buildNumber": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-DeleteGraphOutputTypeDef = TypedDict(
-    "DeleteGraphOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": GraphStatusType,
-        "statusReason": str,
-        "createTime": datetime,
-        "provisionedMemory": int,
-        "endpoint": str,
-        "publicConnectivity": bool,
-        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
-        "replicaCount": int,
-        "kmsKeyIdentifier": str,
-        "sourceSnapshotId": str,
-        "deletionProtection": bool,
-        "buildNumber": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-GetGraphOutputTypeDef = TypedDict(
-    "GetGraphOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": GraphStatusType,
-        "statusReason": str,
-        "createTime": datetime,
-        "provisionedMemory": int,
-        "endpoint": str,
-        "publicConnectivity": bool,
-        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
-        "replicaCount": int,
-        "kmsKeyIdentifier": str,
-        "sourceSnapshotId": str,
-        "deletionProtection": bool,
-        "buildNumber": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-ResetGraphOutputTypeDef = TypedDict(
-    "ResetGraphOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": GraphStatusType,
-        "statusReason": str,
-        "createTime": datetime,
-        "provisionedMemory": int,
-        "endpoint": str,
-        "publicConnectivity": bool,
-        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
-        "replicaCount": int,
-        "kmsKeyIdentifier": str,
-        "sourceSnapshotId": str,
-        "deletionProtection": bool,
-        "buildNumber": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-RestoreGraphFromSnapshotOutputTypeDef = TypedDict(
-    "RestoreGraphFromSnapshotOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": GraphStatusType,
-        "statusReason": str,
-        "createTime": datetime,
-        "provisionedMemory": int,
-        "endpoint": str,
-        "publicConnectivity": bool,
-        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
-        "replicaCount": int,
-        "kmsKeyIdentifier": str,
-        "sourceSnapshotId": str,
-        "deletionProtection": bool,
-        "buildNumber": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-StartGraphOutputTypeDef = TypedDict(
-    "StartGraphOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": GraphStatusType,
-        "statusReason": str,
-        "createTime": datetime,
-        "provisionedMemory": int,
-        "endpoint": str,
-        "publicConnectivity": bool,
-        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
-        "replicaCount": int,
-        "kmsKeyIdentifier": str,
-        "sourceSnapshotId": str,
-        "deletionProtection": bool,
-        "buildNumber": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-StopGraphOutputTypeDef = TypedDict(
-    "StopGraphOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": GraphStatusType,
-        "statusReason": str,
-        "createTime": datetime,
-        "provisionedMemory": int,
-        "endpoint": str,
-        "publicConnectivity": bool,
-        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
-        "replicaCount": int,
-        "kmsKeyIdentifier": str,
-        "sourceSnapshotId": str,
-        "deletionProtection": bool,
-        "buildNumber": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-UpdateGraphOutputTypeDef = TypedDict(
-    "UpdateGraphOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": GraphStatusType,
-        "statusReason": str,
-        "createTime": datetime,
-        "provisionedMemory": int,
-        "endpoint": str,
-        "publicConnectivity": bool,
-        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
-        "replicaCount": int,
-        "kmsKeyIdentifier": str,
-        "sourceSnapshotId": str,
-        "deletionProtection": bool,
-        "buildNumber": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
+class ComputeConfigurationTypeDef(TypedDict):
+    provisionedGraph: NotRequired[ProvisionedGraphConfigurationTypeDef]
+    graphSession: NotRequired[GraphSessionConfigurationTypeDef]
 
 
 class ExportFilterElementOutputTypeDef(TypedDict):
@@ -857,12 +660,6 @@ class ListGraphSnapshotsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class ListGraphsOutputTypeDef(TypedDict):
-    graphs: list[GraphSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
 class ImportOptionsTypeDef(TypedDict):
     neptune: NotRequired[NeptuneImportOptionsTypeDef]
 
@@ -906,6 +703,235 @@ class ListPrivateGraphEndpointsOutputTypeDef(TypedDict):
 class ListQueriesOutputTypeDef(TypedDict):
     queries: list[QuerySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateGraphInputTypeDef(TypedDict):
+    graphName: str
+    tags: NotRequired[Mapping[str, str]]
+    publicConnectivity: NotRequired[bool]
+    kmsKeyIdentifier: NotRequired[str]
+    vectorSearchConfiguration: NotRequired[VectorSearchConfigurationTypeDef]
+    replicaCount: NotRequired[int]
+    deletionProtection: NotRequired[bool]
+    provisionedMemory: NotRequired[int]
+    computeConfiguration: NotRequired[ComputeConfigurationTypeDef]
+
+
+CreateGraphOutputTypeDef = TypedDict(
+    "CreateGraphOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": GraphStatusType,
+        "statusReason": str,
+        "createTime": datetime,
+        "provisionedMemory": int,
+        "computeConfiguration": ComputeConfigurationTypeDef,
+        "endpoint": str,
+        "publicConnectivity": bool,
+        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
+        "replicaCount": int,
+        "kmsKeyIdentifier": str,
+        "sourceSnapshotId": str,
+        "deletionProtection": bool,
+        "buildNumber": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DeleteGraphOutputTypeDef = TypedDict(
+    "DeleteGraphOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": GraphStatusType,
+        "statusReason": str,
+        "createTime": datetime,
+        "provisionedMemory": int,
+        "computeConfiguration": ComputeConfigurationTypeDef,
+        "endpoint": str,
+        "publicConnectivity": bool,
+        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
+        "replicaCount": int,
+        "kmsKeyIdentifier": str,
+        "sourceSnapshotId": str,
+        "deletionProtection": bool,
+        "buildNumber": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetGraphOutputTypeDef = TypedDict(
+    "GetGraphOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": GraphStatusType,
+        "statusReason": str,
+        "createTime": datetime,
+        "provisionedMemory": int,
+        "computeConfiguration": ComputeConfigurationTypeDef,
+        "endpoint": str,
+        "publicConnectivity": bool,
+        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
+        "replicaCount": int,
+        "kmsKeyIdentifier": str,
+        "sourceSnapshotId": str,
+        "deletionProtection": bool,
+        "buildNumber": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GraphSummaryTypeDef = TypedDict(
+    "GraphSummaryTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": NotRequired[GraphStatusType],
+        "provisionedMemory": NotRequired[int],
+        "publicConnectivity": NotRequired[bool],
+        "endpoint": NotRequired[str],
+        "replicaCount": NotRequired[int],
+        "kmsKeyIdentifier": NotRequired[str],
+        "deletionProtection": NotRequired[bool],
+        "computeConfiguration": NotRequired[ComputeConfigurationTypeDef],
+    },
+)
+ResetGraphOutputTypeDef = TypedDict(
+    "ResetGraphOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": GraphStatusType,
+        "statusReason": str,
+        "createTime": datetime,
+        "provisionedMemory": int,
+        "computeConfiguration": ComputeConfigurationTypeDef,
+        "endpoint": str,
+        "publicConnectivity": bool,
+        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
+        "replicaCount": int,
+        "kmsKeyIdentifier": str,
+        "sourceSnapshotId": str,
+        "deletionProtection": bool,
+        "buildNumber": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
+class RestoreGraphFromSnapshotInputTypeDef(TypedDict):
+    snapshotIdentifier: str
+    graphName: str
+    provisionedMemory: NotRequired[int]
+    computeConfiguration: NotRequired[ComputeConfigurationTypeDef]
+    deletionProtection: NotRequired[bool]
+    tags: NotRequired[Mapping[str, str]]
+    replicaCount: NotRequired[int]
+    publicConnectivity: NotRequired[bool]
+
+
+RestoreGraphFromSnapshotOutputTypeDef = TypedDict(
+    "RestoreGraphFromSnapshotOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": GraphStatusType,
+        "statusReason": str,
+        "createTime": datetime,
+        "provisionedMemory": int,
+        "computeConfiguration": ComputeConfigurationTypeDef,
+        "endpoint": str,
+        "publicConnectivity": bool,
+        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
+        "replicaCount": int,
+        "kmsKeyIdentifier": str,
+        "sourceSnapshotId": str,
+        "deletionProtection": bool,
+        "buildNumber": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StartGraphOutputTypeDef = TypedDict(
+    "StartGraphOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": GraphStatusType,
+        "statusReason": str,
+        "createTime": datetime,
+        "provisionedMemory": int,
+        "computeConfiguration": ComputeConfigurationTypeDef,
+        "endpoint": str,
+        "publicConnectivity": bool,
+        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
+        "replicaCount": int,
+        "kmsKeyIdentifier": str,
+        "sourceSnapshotId": str,
+        "deletionProtection": bool,
+        "buildNumber": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StopGraphOutputTypeDef = TypedDict(
+    "StopGraphOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": GraphStatusType,
+        "statusReason": str,
+        "createTime": datetime,
+        "provisionedMemory": int,
+        "computeConfiguration": ComputeConfigurationTypeDef,
+        "endpoint": str,
+        "publicConnectivity": bool,
+        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
+        "replicaCount": int,
+        "kmsKeyIdentifier": str,
+        "sourceSnapshotId": str,
+        "deletionProtection": bool,
+        "buildNumber": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
+class UpdateGraphInputTypeDef(TypedDict):
+    graphIdentifier: str
+    publicConnectivity: NotRequired[bool]
+    provisionedMemory: NotRequired[int]
+    computeConfiguration: NotRequired[ComputeConfigurationTypeDef]
+    deletionProtection: NotRequired[bool]
+
+
+UpdateGraphOutputTypeDef = TypedDict(
+    "UpdateGraphOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": GraphStatusType,
+        "statusReason": str,
+        "createTime": datetime,
+        "provisionedMemory": int,
+        "computeConfiguration": ComputeConfigurationTypeDef,
+        "endpoint": str,
+        "publicConnectivity": bool,
+        "vectorSearchConfiguration": VectorSearchConfigurationTypeDef,
+        "replicaCount": int,
+        "kmsKeyIdentifier": str,
+        "sourceSnapshotId": str,
+        "deletionProtection": bool,
+        "buildNumber": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class ExportFilterOutputTypeDef(TypedDict):
@@ -1004,6 +1030,14 @@ StartImportTaskOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class ListGraphsOutputTypeDef(TypedDict):
+    graphs: list[GraphSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 GetExportTaskOutputTypeDef = TypedDict(
     "GetExportTaskOutputTypeDef",
     {

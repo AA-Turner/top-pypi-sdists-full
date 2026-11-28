@@ -25,7 +25,7 @@ import ctypes
 from hashlib import sha256
 import hmac
 import time
-from typing import Callable, List, Mapping, NoReturn, Optional
+from typing import Any, Callable, List, Mapping, Optional
 from typing import Sequence, Tuple, TypeVar, cast
 
 
@@ -101,7 +101,8 @@ def _ctap2_enroll(dev: 'CtapHidDevice', alg: int, application: str,
 
     rp = {'id': application, 'name': application}
     user_cred = {'id': user.encode('utf-8'), 'name': user}
-    key_params = [{'type': 'public-key', 'alg': alg}]
+    key_params: List[Mapping[str, object]] = \
+        [{'type': 'public-key', 'alg': alg}]
     options = {'rk': resident}
 
     pin_protocol: Optional[PinProtocolV1]
@@ -120,8 +121,8 @@ def _ctap2_enroll(dev: 'CtapHidDevice', alg: int, application: str,
                                  options=options, pin_uv_param=pin_auth,
                                  pin_uv_protocol=pin_version)
     cdata = cred.auth_data.credential_data
+    assert cdata is not None
 
-    # pylint: disable=no-member
     return _decode_public_key(alg, cdata.public_key), cdata.credential_id
 
 
@@ -142,7 +143,6 @@ def _win_enroll(alg: int, application: str, user: str) -> Tuple[bytes, bytes]:
     response = result.response
     cdata = response.attestation_object.auth_data.credential_data
 
-    # pylint: disable=no-member
     return _decode_public_key(alg, cdata.public_key), cdata.credential_id
 
 
@@ -344,7 +344,7 @@ try:
 except (ImportError, OSError, AttributeError): # pragma: no cover
     sk_available = False
 
-    def _sk_not_available(*args: object, **kwargs: object) -> NoReturn:
+    def _sk_not_available(*args: object, **kwargs: object) -> Any:
         """Report that security key support is unavailable"""
 
         raise ValueError('Security key support not available')

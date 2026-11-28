@@ -32,7 +32,7 @@ from dreamscale_transport.websocket_client import (
 )
 
 from dreamscale import errors, region_hint, wire
-from dreamscale.config import warn_engine_ignored
+from dreamscale.config import warn_engine_ignored, warn_provider_deprecated
 from dreamscale.model_names import internal_model, public_model
 from dreamscale.policy import latency_report
 from dreamscale.policy.calibration_cache import (
@@ -2299,6 +2299,7 @@ async def aconnect(
     steady_send: bool | int | None = None,
 ) -> AsyncRemotePolicy:
     warn_engine_ignored(engine)
+    warn_provider_deprecated(provider)
     return await _aconnect(
         model,
         acceleration=acceleration,
@@ -2350,10 +2351,12 @@ def connect(
     steady_send: bool | int | None = None,
 ) -> RemotePolicy:
     warn_engine_ignored(engine)
+    warn_provider_deprecated(provider)
     runner = _LoopRunner()
     try:
+        # _aconnect, as aconnect would warn this caller a second time.
         async_policy = runner.run(
-            aconnect(
+            _aconnect(
                 model,
                 acceleration=acceleration,
                 control=control,

@@ -11,6 +11,7 @@ from ... import errors
 from ...models.error import Error
 from ...models.forge import Forge
 from ...models.issue_details import IssueDetails
+from ...models.rate_limited_error import RateLimitedError
 from typing import cast
 
 
@@ -50,7 +51,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Error | IssueDetails | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Error | IssueDetails | RateLimitedError | None:
     if response.status_code == 200:
         response_200 = IssueDetails.from_dict(response.json())
 
@@ -87,7 +88,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
         return response_404
 
     if response.status_code == 429:
-        response_429 = Error.from_dict(response.json())
+        response_429 = RateLimitedError.from_dict(response.json())
 
 
 
@@ -106,7 +107,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Re
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Error | IssueDetails]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Error | IssueDetails | RateLimitedError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -122,7 +123,7 @@ def sync_detailed(
     full_name: str,
     number: int,
 
-) -> Response[Error | IssueDetails]:
+) -> Response[Error | IssueDetails | RateLimitedError]:
     """ Read an issue's description, comments and reactions, on demand
 
      What the issue dialog shows: the description, the conversation in
@@ -171,7 +172,7 @@ def sync_detailed(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | IssueDetails]
+        Response[Error | IssueDetails | RateLimitedError]
      """
 
 
@@ -195,7 +196,7 @@ def sync(
     full_name: str,
     number: int,
 
-) -> Error | IssueDetails | None:
+) -> Error | IssueDetails | RateLimitedError | None:
     """ Read an issue's description, comments and reactions, on demand
 
      What the issue dialog shows: the description, the conversation in
@@ -244,7 +245,7 @@ def sync(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | IssueDetails
+        Error | IssueDetails | RateLimitedError
      """
 
 
@@ -263,7 +264,7 @@ async def asyncio_detailed(
     full_name: str,
     number: int,
 
-) -> Response[Error | IssueDetails]:
+) -> Response[Error | IssueDetails | RateLimitedError]:
     """ Read an issue's description, comments and reactions, on demand
 
      What the issue dialog shows: the description, the conversation in
@@ -312,7 +313,7 @@ async def asyncio_detailed(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | IssueDetails]
+        Response[Error | IssueDetails | RateLimitedError]
      """
 
 
@@ -336,7 +337,7 @@ async def asyncio(
     full_name: str,
     number: int,
 
-) -> Error | IssueDetails | None:
+) -> Error | IssueDetails | RateLimitedError | None:
     """ Read an issue's description, comments and reactions, on demand
 
      What the issue dialog shows: the description, the conversation in
@@ -385,7 +386,7 @@ async def asyncio(
         httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | IssueDetails
+        Error | IssueDetails | RateLimitedError
      """
 
 

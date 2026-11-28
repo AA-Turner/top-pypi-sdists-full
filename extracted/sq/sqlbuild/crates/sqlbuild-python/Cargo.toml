@@ -1,6 +1,6 @@
 [package]
 name = "sqlbuild-python"
-version = "0.262.0"
+version = "0.264.0"
 description = "The sqlbuild._native Python extension module."
 edition.workspace = true
 license.workspace = true
@@ -16,6 +16,7 @@ default = []
 extension-module = ["pyo3/extension-module"]
 
 [dependencies]
+sqlbuild-python-load.workspace = true
 chrono.workspace = true
 fensu-policy.workspace = true
 pyo3.workspace = true

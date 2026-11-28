@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from .filters import _ltrim, _rtrim, _trim
+from .timestamps import normalize_dates
 
 default_kwargs: Dict[str, Any] = {
     "start_date": None,
@@ -42,16 +43,26 @@ default_kwargs: Dict[str, Any] = {
 }
 
 
+def _normalize_bound(dt: Any) -> pd.Timestamp:
+    """Normalize a start/end date bound to a tz-naive, date-only Timestamp."""
+    ts = pd.Timestamp(dt)
+    if ts.tzinfo is not None:
+        ts = ts.tz_localize(None)
+    return ts.normalize()
+
+
 def _trim_dates(
     data: pd.DataFrame, start_date: Optional[str], end_date: Optional[str]
 ) -> pd.DataFrame:
-    """Filter dataframe by date range."""
-    if start_date is not None and end_date is not None:
-        return _trim(data, "expiration", start_date, end_date)
-    elif start_date is None and end_date is not None:
-        return _rtrim(data, "expiration", end_date)
-    elif start_date is not None and end_date is None:
-        return _ltrim(data, "expiration", start_date)
+    """Filter dataframe by date range (inclusive on normalized dates)."""
+    start_ts = _normalize_bound(start_date) if start_date is not None else None
+    end_ts = _normalize_bound(end_date) if end_date is not None else None
+    if start_ts is not None and end_ts is not None:
+        return _trim(data, "expiration", start_ts, end_ts)
+    elif start_ts is None and end_ts is not None:
+        return _rtrim(data, "expiration", end_ts)
+    elif start_ts is not None and end_ts is None:
+        return _ltrim(data, "expiration", start_ts)
     else:
         return data
 
@@ -78,10 +89,11 @@ def _standardize_cols(
 
 
 def _infer_date_cols(data: pd.DataFrame) -> pd.DataFrame:
-    """Convert date columns to datetime format."""
-    data["expiration"] = pd.to_datetime(data.expiration)
-    data["quote_date"] = pd.to_datetime(data.quote_date)
-    return data
+    """Convert date columns to tz-naive, date-only datetime without mutating the caller's DataFrame."""
+    return data.assign(
+        expiration=normalize_dates(pd.to_datetime(data["expiration"])),
+        quote_date=normalize_dates(pd.to_datetime(data["quote_date"])),
+    )
 
 
 def csv_data(
@@ -182,6 +194,23 @@ def csv_data(
         col_idx = params.get(col)
         if col_idx is not None:
             column_mapping.append((int(col_idx), col))
+
+    # Two labels claiming the same CSV column collide silently in the rename
+    # below: the last label wins and the earlier one is dropped, leaving a
+    # column that is missing entirely and another holding the wrong values.
+    # Fail loudly instead.
+    claimed: Dict[int, str] = {}
+    for idx, label in column_mapping:
+        if idx is None:
+            continue
+        if idx in claimed:
+            raise ValueError(
+                f"Column index {idx} is mapped to both '{claimed[idx]}' and "
+                f"'{label}'. Each column index must map to exactly one field. "
+                f"Note that bid, ask and delta default to indices 5, 6 and 7, "
+                f"so pass them explicitly if your CSV uses a different layout."
+            )
+        claimed[idx] = label
 
     try:
         # Only read the columns we need from the CSV to save memory and I/O
@@ -298,6 +327,7 @@ def load_cached_options(
         "ask",
     ]
     optional = [
+        "underlying_price",
         "delta",
         "gamma",
         "theta",
@@ -370,14 +400,14 @@ def load_cached_stocks(
     if "quote_date" not in df.columns and "date" in df.columns:
         df = df.rename(columns={"date": "quote_date"})
 
-    # Ensure quote_date is datetime
+    # Ensure quote_date is tz-naive date-only datetime so start/end comparisons work
     if "quote_date" in df.columns:
-        df["quote_date"] = pd.to_datetime(df["quote_date"])
+        df["quote_date"] = normalize_dates(pd.to_datetime(df["quote_date"]))
 
     # Apply date filtering on quote_date
     if start_date is not None:
-        df = df[df["quote_date"] >= pd.to_datetime(start_date)]
+        df = df[df["quote_date"] >= _normalize_bound(start_date)]
     if end_date is not None:
-        df = df[df["quote_date"] <= pd.to_datetime(end_date)]
+        df = df[df["quote_date"] <= _normalize_bound(end_date)]
 
     return df

@@ -114,26 +114,14 @@ def _validate_session_records(records: list[Any]) -> list[Any]:
 def _load_session_index(root: Path, floor: Path | None) -> list[Any]:
     from tensor_grep.cli import session_store
     from tensor_grep.cli._index_lock import record_from_entry
+    from tensor_grep.cli.symbols_cache_io import read_confined
 
     index_path = session_store._index_path(root)
     if not index_path.exists():
         return []
-    if floor is None:
-        try:
-            raw_payload = json.loads(index_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-            raise ValueError("session index is not valid JSON") from exc
-        if not isinstance(raw_payload, list):
-            raise ValueError("session index is not a JSON array")
-        try:
-            return _validate_session_records(session_store._load_index(root))
-        except (AttributeError, TypeError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-            raise ValueError("invalid session index entry") from exc
-    anchor = floor.resolve()
-    if not root.resolve().is_relative_to(anchor):
+    anchor = floor.resolve() if floor is not None else root.resolve()
+    if floor is not None and not root.resolve().is_relative_to(anchor):
         return []
-    from tensor_grep.cli.symbols_cache_io import read_confined
-
     try:
         raw = read_confined(anchor, index_path, _SESSION_INDEX_LIMIT)
     except OSError as exc:
@@ -198,36 +186,42 @@ def _session_entries(
 
 
 def _ast_cache_entries(root: Path, floor: Path | None = None) -> dict[str, tuple[str, float]]:
-    cache_path = root / ".tg_cache" / "symbols_v1" / "metadata.sqlite3"
+    from tensor_grep.cli import repo_map, session_daemon_trust, symbols_cache, symbols_cache_auth
+    from tensor_grep.cli.repo_map_fast_cache import resolve_canonical_cache_root
+
+    cache_root = resolve_canonical_cache_root(root)
+    if floor is not None and not _under_confinement(cache_root, floor):
+        return {}
+    cache_path = cache_root / ".tg_cache" / "symbols_v1" / "metadata.sqlite3"
     if not cache_path.is_file():
         return {}
-    from tensor_grep.cli import repo_map, session_daemon_trust, symbols_cache, symbols_cache_auth
 
     key_path = symbols_cache_auth._machine_key_path()
-    if key_path.is_relative_to(root) or key_path.resolve().is_relative_to(root):
+    if key_path.is_relative_to(cache_root) or key_path.resolve().is_relative_to(cache_root):
         return {}
     secret = session_daemon_trust._read_user_secret(key_path)
     if secret is None:
         return {}
-    cache_root = repo_map._infer_project_root(root)
     max_bytes = repo_map._max_parse_bytes()
     ignore_policy = sorted(repo_map._SKIP_DIR_NAMES)
-    connection = symbols_cache._database(root, cache_path)
+    connection = symbols_cache._database(cache_root, cache_path)
     try:
         deadline = time.monotonic() + 0.25
         connection.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
         generation = connection.execute(
-            "SELECT id, created, complete FROM generations WHERE scope=? ORDER BY created DESC LIMIT 1",
-            (str(root),),
+            "SELECT id, created, complete, scope FROM generations "
+            "WHERE scope IN (?, ?) ORDER BY created DESC LIMIT 1",
+            (str(root), str(cache_root)),
         ).fetchone()
         if generation is None or not generation[2]:
             return {}
         cache_stamp = float(generation[1])
+        gen_scope = Path(str(generation[3]))
         rows = connection.execute(
             "SELECT f.path, f.content, f.entry_key, e.payload, e.receipt "
             "FROM files AS f LEFT JOIN entries AS e ON e.key=f.entry_key "
             "AND e.generation=f.generation WHERE f.scope=? AND f.generation=? LIMIT 8193",
-            (str(root), int(generation[0])),
+            (str(gen_scope), int(generation[0])),
         ).fetchall()
         if len(rows) > 8192:
             raise sqlite3.DatabaseError("symbol cache file count exceeds limit")
@@ -242,7 +236,7 @@ def _ast_cache_entries(root: Path, floor: Path | None = None) -> dict[str, tuple
                 cache_root,
                 candidate,
                 str(digest),
-                scope=root,
+                scope=gen_scope,
                 max_bytes=max_bytes,
                 ignore_policy=ignore_policy,
             )
@@ -253,6 +247,66 @@ def _ast_cache_entries(root: Path, floor: Path | None = None) -> dict[str, tuple
         return entries
     finally:
         connection.close()
+
+
+def _unified_manifest_covers_scope(
+    scope: Path,
+    cache_root: Path,
+    files: list[Path],
+    floor: Path | None,
+    *,
+    is_directory: bool = True,
+) -> tuple[bool, bool]:
+    if floor is not None and not _under_confinement(cache_root, floor):
+        return False, False
+    from tensor_grep.cli import repo_map
+    from tensor_grep.cli.unified_cache import (
+        MANIFEST_REL_PATH,
+        check_view_freshness,
+        compute_generation_merkle_root,
+        load_unified_manifest,
+    )
+
+    manifest_path = cache_root / MANIFEST_REL_PATH
+    if not manifest_path.is_file():
+        return False, False
+    manifest = load_unified_manifest(cache_root)
+    if manifest is None:
+        return True, False
+    raw_views = manifest.get("views")
+    if not isinstance(raw_views, dict):
+        return True, False
+    ready_views = [
+        str(name)
+        for name, entry in raw_views.items()
+        if isinstance(entry, dict) and entry.get("ready") is True
+    ]
+    if "symbols_v1" not in ready_views:
+        return True, False
+
+    if scope == cache_root and is_directory:
+        scope_files = files
+    else:
+        cap = repo_map.DEFAULT_AGENT_REPO_MAP_LIMIT
+        walked_all = repo_map._iter_repo_files(cache_root, max_files=cap + 1)
+        if len(walked_all) > cap:
+            return True, False
+        walked = walked_all[:cap]
+        scope_files = [item for item in walked if repo_map._is_repo_context_file(item, cache_root)]
+        if floor is not None:
+            scope_files = [item for item in scope_files if _under_confinement(item, floor)]
+
+    code_files = [item for item in scope_files if not _is_non_code_file(item)]
+    merkle_code = compute_generation_merkle_root(cache_root, code_files)
+    matched_merkle: str | None = merkle_code if merkle_code == manifest.get("merkle_root") else None
+    if matched_merkle is None:
+        merkle_all = compute_generation_merkle_root(cache_root, scope_files)
+        if merkle_all == manifest.get("merkle_root"):
+            matched_merkle = merkle_all
+    if matched_merkle is None:
+        return True, False
+    fresh_map = check_view_freshness(manifest, matched_merkle, ready_views, repo_root=cache_root)
+    return True, all(fresh_map.values())
 
 
 def _unparsed_files(files: list[Path], root: Path) -> tuple[list[dict[str, str]], list[str]]:
@@ -332,6 +386,17 @@ def check_coverage(path: Path, *, confinement_root: Path | None = None) -> dict[
 
     unparsed, non_code_skipped = _unparsed_files(files, scope)
     non_code_set = set(non_code_skipped)
+    from tensor_grep.cli.repo_map_fast_cache import resolve_canonical_cache_root
+
+    try:
+        cache_root = resolve_canonical_cache_root(scope, floor=floor)
+    except ValueError:
+        cache_root = scope
+    manifest_exists, manifest_fresh = _unified_manifest_covers_scope(
+        scope, cache_root, files, floor, is_directory=is_directory
+    )
+    if manifest_exists and not manifest_fresh:
+        warnings.append("unified cache manifest .tg_cache/manifest_v1.json failed verification")
     stale: list[dict[str, str]] = []
     unindexed: list[str] = []
     has_index = bool(receipts)
@@ -340,6 +405,8 @@ def check_coverage(path: Path, *, confinement_root: Path | None = None) -> dict[
         old_digest = receipts.get(str(current.resolve()), (None, 0.0))[0]
         if old_digest is None:
             if name not in non_code_set:
+                if manifest_fresh:
+                    continue
                 unindexed.append(name)
                 if has_index:
                     stale.append({"path": name, "reason": "added"})
@@ -363,7 +430,13 @@ def check_coverage(path: Path, *, confinement_root: Path | None = None) -> dict[
     caps = ["max_repo_files"] if cap_hit else []
     if unreadable.hit:
         caps.append("unreadable_paths")
-    complete = not stale and not unindexed and not unparsed and not caps
+    complete = (
+        not stale
+        and not unindexed
+        and not unparsed
+        and not caps
+        and not (manifest_exists and not manifest_fresh)
+    )
     payload_out: dict[str, Any] = {
         "path": str(root),
         "files_total": len(files),

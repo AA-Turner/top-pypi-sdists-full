@@ -61,6 +61,12 @@ from graphify.extractors.apex import extract_apex  # noqa: F401
 from graphify.extractors.bash import extract_bash  # noqa: F401
 from graphify.extractors.blade import extract_blade  # noqa: F401
 from graphify.extractors.cobol import extract_cobol, resolve_cobol_copybook_performs  # noqa: F401
+from graphify.extractors.liquid import extract_liquid  # noqa: F401
+from graphify.extractors.css import extract_css  # noqa: F401
+from graphify.extractors.shopify_theme_json import (  # noqa: F401
+    extract_shopify_theme_json,
+    is_shopify_theme_json_path,
+)
 from graphify.extractors.csharp import (
     CsharpNameResolver,
     _is_cs_file,
@@ -3658,8 +3664,41 @@ _CPP_EXPORT_MACRO_RE = re.compile(
 )
 
 
+# Export macro leading a free-function or variable declaration (#5550):
+# ``MYLIB_EXPORT uint64_t f(int);``, ``extern FOO_API int n;``. tree-sitter-cpp
+# reads the macro as the return type and the real type as an ERROR, so the
+# file reports a syntax error and a definition gains a phantom type node.
+# The parse tree cannot tell which of two adjacent words is the macro
+# (``DWORD WINAPI run()`` has the same shape the other way round), so only
+# the conventional spellings are matched: a name ending in ``EXPORT`` or
+# ``_API`` with a non-empty prefix, followed by another identifier.
+_CPP_EXPORT_DECL_MACRO_RE = re.compile(
+    rb"(?<![A-Za-z0-9_])[A-Z][A-Z0-9_]*(?:EXPORT|_API)(?![A-Za-z0-9_])"
+    rb"(?=[ \t\r\n]+[A-Za-z_:])"
+)
+
+
+_CPP_ELABORATED_KEYWORD_TAIL_RE = re.compile(
+    rb"\b(?:class|struct|union|enum)[ \t\r\n]+\Z"
+)
+
+
+def _blank_cpp_export_decl_macro(source: bytes, m: re.Match[bytes]) -> bytes:
+    line_start = source.rfind(b"\n", 0, m.start()) + 1
+    if source[line_start : m.start()].lstrip(b" \t").startswith(b"#"):
+        return m.group(0)  # keep ``#define MYLIB_API ...`` intact
+    if _CPP_ELABORATED_KEYWORD_TAIL_RE.search(
+        source, max(0, m.start() - 64), m.start()
+    ):
+        # ``class MODULE_API var{1};`` names a type; the class/struct rule
+        # already decided whether that word is a macro.
+        return m.group(0)
+    return b" " * len(m.group(0))
+
+
 def _normalize_cpp_export_macros(source: bytes) -> bytes:
-    """Blank an export macro between ``class``/``struct`` and the type name.
+    """Blank an export macro between ``class``/``struct`` and the type name,
+    and one leading a function or variable declaration (#5550).
 
     Single ALL-CAPS identifier macros (and stacked ones) are handled.
     Note: paren-attribute macros like ``__declspec(dllexport)`` and
@@ -3697,7 +3736,10 @@ def _normalize_cpp_export_macros(source: bytes) -> bytes:
 
         return m.group(1) + bytes(blanked_macro) + m.group(3) + m.group(4)
 
-    return _CPP_EXPORT_MACRO_RE.sub(repl, source)
+    source = _CPP_EXPORT_MACRO_RE.sub(repl, source)
+    return _CPP_EXPORT_DECL_MACRO_RE.sub(
+        lambda m: _blank_cpp_export_decl_macro(source, m), source
+    )
 
 
 _CPP_CONDITIONAL_TOKEN_RE = re.compile(
@@ -3719,6 +3761,61 @@ def _cpp_conditional_tokens(source: bytes):
             end = source.find(b")" + match.group(1) + b'"', pos)
             pos = len(source) if end == -1 else end + len(match.group(1)) + 2
         yield match, pos
+
+
+_CPP_DIRECTIVE_COMMENT_RE = re.compile(
+    rb'(?:u8|u|U|L)?R"(?P<delimiter>[^ ()\\\t\v\f\r\n]{0,16})\('
+    rb'[\s\S]*?\)(?P=delimiter)"'
+    rb'|(?:u8|u|U|L)?"(?:\\[\s\S]|[^"\\])*"'
+    rb"|\b[0-9](?:[A-Za-z_0-9.]|'[A-Za-z_0-9])*"
+    rb"|(?:u8|u|U|L)?'(?:\\[\s\S]|[^'\\])*'"
+    rb"|//(?:\\\r?\n|[^\r\n])*"
+    rb"|(?P<comment>/\*[\s\S]*?\*/)"
+)
+
+
+def _blank_cpp_comment_keeping_splices(comment: bytes) -> bytes:
+    """Blank a comment while preserving newlines and line-splice backslashes."""
+    out = bytearray(comment)
+    for index, byte in enumerate(out):
+        if byte in b"\r\n":
+            continue
+        if byte == ord(b"\\") and comment[index + 1:index + 2] == b"\n":
+            continue
+        if byte == ord(b"\\") and comment[index + 1:index + 3] == b"\r\n":
+            continue
+        out[index] = ord(b" ")
+    return bytes(out)
+
+
+def _normalize_cpp_directive_comments(source: bytes) -> bytes:
+    """Blank closed block comments inside ``define`` directive spans.
+
+    Unterminated comments and comments spanning an unspliced newline are left
+    unchanged.
+    """
+    if b"/*" not in source:
+        return source
+    out: bytearray | None = None
+    for directive, _ in _cpp_conditional_tokens(source):
+        if directive.group(2) != b"define":
+            continue
+        if source[max(0, directive.start() - 3):directive.start()].endswith(
+            (b"\\\n", b"\\\r\n")
+        ):
+            continue
+        text = directive.group()
+        if b"/*" not in text:
+            continue
+        for token in _CPP_DIRECTIVE_COMMENT_RE.finditer(text):
+            if token.group("comment") is None:
+                continue
+            if out is None:
+                out = bytearray(source)
+            start = directive.start() + token.start()
+            end = directive.start() + token.end()
+            out[start:end] = _blank_cpp_comment_keeping_splices(token.group())
+    return bytes(out) if out is not None else source
 
 
 def _cpp_conditional_groups(source: bytes) -> tuple[list[dict], str | None]:
@@ -4033,6 +4130,7 @@ def extract_cpp(path: Path) -> dict:
         return _augment_cpp_string_tests(path, _extract_generic(path, _CPP_CONFIG))
     source_override = _normalize_cpp_cli(source) or source
     source_override = _normalize_cpp_export_macros(source_override)
+    source_override = _normalize_cpp_directive_comments(source_override)
     result = _extract_generic(
         path, _CPP_CONFIG, source_override=source_override
     )
@@ -4888,6 +4986,7 @@ _LANG_FAMILY_BY_EXT: dict[str, str] = {
     ".go": "go",
     ".rs": "rust",
     ".cbl": "cobol", ".cob": "cobol", ".cobol": "cobol", ".cpy": "cobol",
+    ".liquid": "liquid",
     ".r": "r",
     ".sol": "solidity",
     ".erl": "erlang", ".hrl": "erlang", ".escript": "erlang",
@@ -6783,7 +6882,11 @@ def _resolve_typescript_member_calls(
         for static, attr in ((False, "_ts_fields"), (True, "_ts_static_fields")):
             for fname, ftype in (n.get(attr) or {}).items():
                 ts_fields_by_id.setdefault((str(n.get("id")), static), {}).setdefault(fname, ftype)
-    if not type_table_by_file and not ts_fields_by_id:
+    has_legacy_receiver_evidence = bool(type_table_by_file or ts_fields_by_id)
+    if not has_legacy_receiver_evidence and not any(
+        call.get("_ts_property_receiver")
+        for result in per_file for call in result.get("raw_calls", ())
+    ):
         return
 
     contained = {e.get("target") for e in all_edges if e.get("relation") == "contains"}
@@ -6836,13 +6939,17 @@ def _resolve_typescript_member_calls(
             owner_file = file_of_node.get(e.get("source"))
             if owner_file is not None:
                 file_of_node.setdefault(e.get("target"), owner_file)
-    # ``imports`` targets are the imported symbol nodes; ``imports_from`` targets
-    # are module file nodes. A symbol id never collides with a file id, so one
-    # set serves both origin checks below.
+    # A property alias requires an exact type binding. Keep named symbol
+    # imports distinct from the weaker module-import evidence used elsewhere.
     imported_by_filenode: dict[str, set[str]] = {}
+    symbol_imports_by_filenode: dict[str, set[str]] = {}
     for e in all_edges:
         if e.get("relation") in ("imports", "imports_from"):
             imported_by_filenode.setdefault(e.get("source"), set()).add(e.get("target"))
+        if e.get("relation") == "imports":
+            source, target = e.get("source"), e.get("target")
+            if isinstance(source, str) and isinstance(target, str):
+                symbol_imports_by_filenode.setdefault(source, set()).add(target)
 
     # `class B extends A`: a field A declares is B's too. Bases are matched by
     # their node, else by a unique class of that label carrying fields.
@@ -6886,8 +6993,14 @@ def _resolve_typescript_member_calls(
         caller = rc.get("caller_nid")
         if not receiver or not callee or not caller:
             continue
+        property_receiver = rc.get("_ts_property_receiver")
+        if property_receiver is None and not has_legacy_receiver_evidence:
+            continue
         declaring_nid: str | None = None
-        if receiver[:1].isupper():
+        if property_receiver is not None:
+            type_name, property_type_imported = property_receiver
+            type_qualified = False
+        elif receiver[:1].isupper():
             type_name = receiver
             type_qualified = True  # the receiver names the type in source
         else:
@@ -6917,7 +7030,8 @@ def _resolve_typescript_member_calls(
             # Table-typed only: an uppercase receiver also matches namespace aliases and
             # default imports, and node_modules is unscanned, so those are npm names.
             # The caller's family stands in for the `lang` tag TS raw_calls do not carry.
-            if not type_qualified and _lang_family(rc.get("source_file")) == "jsts":
+            if (property_receiver is None and not type_qualified
+                    and _lang_family(rc.get("source_file")) == "jsts"):
                 _park_unresolved_member_call(
                     node_by_id.get(caller), callee, type_name, "typescript", rc,
                 )
@@ -6943,13 +7057,28 @@ def _resolve_typescript_member_calls(
                 or (type_file is not None and type_file in imported)
             )
 
-        visible = [nid for nid in type_defs if _visible(nid)]
+        if property_receiver is not None:
+            # Nested functions have a `contains` edge from their lexical
+            # owner. Imports belong to the outermost file node.
+            enclosing: set[str] = set()
+            while caller_file in file_of_node and caller_file not in enclosing:
+                enclosing.add(caller_file)
+                caller_file = file_of_node[caller_file]
+            if caller_file is None:
+                continue
+            visible = [nid for nid in type_defs if node_by_id[nid].get("label") == type_name and (
+                nid in symbol_imports_by_filenode.get(caller_file, ()) if property_type_imported
+                else file_of_node.get(nid) == caller_file
+            )]
+        else:
+            visible = [nid for nid in type_defs if _visible(nid)]
         if len(visible) != 1:
             continue
         type_nid = visible[0]
         method_nid = method_exact.get((type_nid, str(callee)))
         exact = method_nid is not None
-        if not exact and (type_nid, _key(callee)) not in method_key_ambiguous:
+        if (property_receiver is None and not exact
+                and (type_nid, _key(callee)) not in method_key_ambiguous):
             method_nid = method_index.get((type_nid, _key(callee)))
         if not method_nid:
             # Receiver typed, but the type has no such method. The old fallback
@@ -11771,6 +11900,8 @@ _DISPATCH: dict[str, Any] = {
     ".cob": extract_cobol,
     ".cobol": extract_cobol,
     ".cpy": extract_cobol,
+    ".liquid": extract_liquid,
+    ".css": extract_css,
     ".vb": extract_vbnet,
     ".kt": extract_kotlin,
     ".kts": extract_kotlin,
@@ -12019,6 +12150,11 @@ def _get_extractor(path: Path, *, sniff_headers: bool = True) -> Any | None:
     # (servers, commands, packages, env vars) instead of opaque JSON keys.
     if is_mcp_config_path(path):
         return extract_mcp_config
+    # Shopify theme templates, section groups and settings_schema.json (inside a
+    # theme root) place sections; routed before generic .json so a `$schema` key
+    # does not send them to the config walker.
+    if is_shopify_theme_json_path(path):
+        return extract_shopify_theme_json
     # Package manifests (apm.yml, pyproject.toml, go.mod, pom.xml) → a canonical
     # package node + depends_on edges, by filename before generic suffix dispatch
     # (#1377). apm.yml would otherwise be a .yml document handled by the LLM.
@@ -12086,7 +12222,7 @@ def _worker_init(language_overrides: dict[str, str]) -> None:
     set_language_overrides(language_overrides)
 
 
-def _extract_single_file(args: tuple) -> tuple[int, dict]:
+def _extract_single_file(args: tuple, *, refresh_astro_cache: bool = False) -> tuple[int, dict]:
     """Worker function for parallel extraction. Runs in a subprocess.
 
     Must be at module level (not a closure) so it can be pickled by
@@ -12110,10 +12246,11 @@ def _extract_single_file(args: tuple) -> tuple[int, dict]:
     root = Path(root_str)
     cache_location = Path(cache_location_str)
     _raise_recursion_limit()
-    bypass_cache = effective_suffix(path) in _JS_CACHE_BYPASS_SUFFIXES
+    suffix = effective_suffix(path)
+    bypass_cache = suffix in _JS_CACHE_BYPASS_SUFFIXES
 
     # Check cache first (avoid re-extraction)
-    if not bypass_cache:
+    if not bypass_cache and not (refresh_astro_cache and suffix == ".astro"):
         cached = load_cached(path, root, cache_root=cache_location, salt=cache_salt(path))
         if cached is not None:
             return idx, cached
@@ -12217,6 +12354,8 @@ def _extract_parallel(
     max_workers: int | None,
     total_files: int,
     cache_location: Path | None = None,
+    *,
+    refresh_astro_cache: bool = False,
 ) -> bool:
     """Extract uncached files in parallel using ProcessPoolExecutor.
 
@@ -12252,6 +12391,10 @@ def _extract_parallel(
     root_str = str(root)
     cache_loc_str = str(cache_location if cache_location is not None else root)
     work_items = [(idx, str(path), root_str, cache_loc_str) for idx, path in uncached_work]
+    extract_file: Callable[[tuple], tuple[int, dict]] = _extract_single_file
+    if refresh_astro_cache:
+        from functools import partial
+        extract_file = partial(_extract_single_file, refresh_astro_cache=True)
 
     done_count = 0
     failed: list[int] = []  # positions into uncached_work whose future failed
@@ -12263,7 +12406,7 @@ def _extract_parallel(
             initargs=(get_language_overrides(),),
         ) as pool:
             futures = {
-                pool.submit(_extract_single_file, item): pos
+                pool.submit(extract_file, item): pos
                 for pos, item in enumerate(work_items)
             }
             for future in concurrent.futures.as_completed(futures):
@@ -12392,6 +12535,7 @@ def extract(
     resolution_context_nodes: list[dict] | None = None,
     resolution_context_edges: list[dict] | None = None,
     release_parse_memo: bool = False,
+    refresh_astro_cache: bool = False,
 ) -> dict:
     """Extract AST nodes and edges from a list of code files.
 
@@ -12435,6 +12579,8 @@ def extract(
         release_parse_memo: no effect; kept so existing callers still work.
             Python resolution no longer memoizes parsed trees, so there is
             nothing to release.
+        refresh_astro_cache: reparse Astro files after a JS/TS resolver input
+            changes. Fresh results replace the ordinary per-file AST cache.
     """
     paths = [Path(p) for p in paths]
     if resolution_context_nodes:
@@ -12551,8 +12697,8 @@ def extract(
             per_file[i] = {"nodes": [], "edges": []}
             no_extractor += 1
             continue
-        bypass_cache = effective_suffix(path) in _JS_CACHE_BYPASS_SUFFIXES
-        if not bypass_cache:
+        suffix = effective_suffix(path)
+        if suffix not in _JS_CACHE_BYPASS_SUFFIXES and not (refresh_astro_cache and suffix == ".astro"):
             cached = load_cached(path, root, cache_root=cache_location, salt=cache_salt(path))
             if cached is not None:
                 per_file[i] = cached
@@ -12595,8 +12741,9 @@ def extract(
             parallel = False
         ran_parallel = False
         if parallel and len(uncached_work) >= _PARALLEL_THRESHOLD:
+            refresh_options = {"refresh_astro_cache": True} if refresh_astro_cache else {}
             ran_parallel = _extract_parallel(
-                uncached_work, per_file, root, max_workers, total, cache_location
+                uncached_work, per_file, root, max_workers, total, cache_location, **refresh_options
             )
         if not ran_parallel:
             # #2444: only re-extract what the pool didn't finish. A pool that

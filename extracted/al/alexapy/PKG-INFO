@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: AlexaPy
-Version: 1.38.0
+Version: 1.39.0
 Summary: Python API to control Amazon Echo Devices Programmatically.
 License: Apache-2.0
 License-File: AUTHORS.md
@@ -78,9 +78,12 @@ Additional scaffolding from [simplisafe-python](https://github.com/bachya/simpli
 ## Smart-home device metadata
 
 `await AlexaAPI.get_devices_gql(login)` returns the full smart-home endpoint
-records. Each record can include `model` (`type` and `value.text`/`value.locale`),
-`dmsIdentifier` (`deviceType` and `dsn`), and `legacyAppliance`, including its
-`additionalApplianceDetails` JSON value.
+records. Each record can include `id`, `friendlyName`, `model` (`type` and
+`value.text`/`value.locale`), `dmsIdentifier` (`deviceType` and `dsn`), and
+`legacyAppliance`, including its `additionalApplianceDetails` JSON value.
+
+`friendlyName` is the name the Alexa app shows. `legacyAppliance.friendlyName` can
+differ from it, for example after the device was renamed in the app.
 
 Match the DMS device type and serial number to the REST device list's `deviceType`
 and `serialNumber`. Model metadata may be null or sealed; only use `PLAIN` values

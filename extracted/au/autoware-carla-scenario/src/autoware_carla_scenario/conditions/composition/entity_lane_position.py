@@ -443,6 +443,24 @@ def beside_lane_id(lane_id: int, side: str, traffic_rule: str = "RHT") -> int:
     return beside + step if beside == 0 else beside
 
 
+def _road_has_lane(road_id: str, lane_id: int) -> bool:
+    """Whether OpenDRIVE road *road_id* has a lane *lane_id* in any section.
+
+    Raises:
+        KeyError: If the loaded road network has no road *road_id*.
+        RuntimeError: If :class:`MapManager` is not initialized.
+    """
+    road = MapManager.get_instance().road_network.road_ids_to_object[road_id]
+    for section in road.lane_sections:
+        for lane in section.left_lanes:
+            if lane.id == lane_id:
+                return True
+        for lane in section.right_lanes:
+            if lane.id == lane_id:
+                return True
+    return False
+
+
 class EntityLaneOfCondition(EntityLanePositionCondition):
     """The entity is on the lane of a position, beside it, or on its road.
 
@@ -466,7 +484,10 @@ class EntityLaneOfCondition(EntityLanePositionCondition):
       lane beside the one under the position, on the same road
       (:func:`beside_lane_id`, by the road's traffic rule).  An OpenDRIVE map
       may build a carriageway as one road per lane, with the lane beside on
-      another road, which is why a lanelet is not resolved that way (#1085).
+      another road, which is why a lanelet is not resolved that way (#1085);
+      where the road has no lane there, the condition could never hold, and
+      it is refused at construction -- name the position as a
+      :class:`Lanelet2Pose` instead (#2639).
     * ``any``: any lane of the road under the position
       (:meth:`EntityLanePositionCondition.anywhere_on_road`).
 
@@ -477,7 +498,9 @@ class EntityLaneOfCondition(EntityLanePositionCondition):
         label: Human-readable name for the condition.
 
     Raises:
-        ValueError: If *lane* is not one of :data:`LANE_RELATIONS`.
+        ValueError: If *lane* is not one of :data:`LANE_RELATIONS`, or is
+            ``"left"`` / ``"right"`` of an :class:`OpenDrivePose` or a
+            :class:`CarlaWorldPose` whose road has no lane on that side.
     """
 
     # Declared for the static check (docs/typecheck.md).
@@ -514,6 +537,14 @@ class EntityLaneOfCondition(EntityLanePositionCondition):
                 beside = beside_lane_id(
                     address.lane_id, lane, road_traffic_rule(address.road_id)
                 )
+                if not _road_has_lane(address.road_id, beside):
+                    raise ValueError(
+                        f"road {address.road_id} has no lane {lane} of lane"
+                        f" {address.lane_id} (lane {beside} does not exist), so"
+                        " the condition could never hold; the lane beside may"
+                        " be on another road -- give the position as a"
+                        " Lanelet2Pose to resolve it in the Lanelet2 frame"
+                    )
                 address = replace(address, lane_id=beside)
             super().__init__(entity_name, address, label=label)
         self._relation = lane

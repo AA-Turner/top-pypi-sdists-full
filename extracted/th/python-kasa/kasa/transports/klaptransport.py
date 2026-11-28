@@ -46,6 +46,7 @@ import asyncio
 import base64
 import datetime
 import hashlib
+import hmac
 import logging
 import secrets
 import struct
@@ -116,8 +117,6 @@ class KlapTransport(BaseTransport):
             self._local_auth_owner = self.generate_owner_hash(self._credentials).hex()
         else:
             self._local_auth_hash = base64.b64decode(self._credentials_hash.encode())  # type: ignore[union-attr]
-        self._default_credentials_auth_hash: dict[str, bytes] = {}
-        self._blank_auth_hash: bytes | None = None
         self._handshake_lock = asyncio.Lock()
         self._query_lock = asyncio.Lock()
         self._handshake_done: bool = False
@@ -229,48 +228,21 @@ class KlapTransport(BaseTransport):
             _LOGGER.debug("handshake1 hashes match with expected credentials")
             return local_seed, remote_seed, self._local_auth_hash  # type: ignore
 
-        # Now check against the default setup credentials
-        for key, value in DEFAULT_CREDENTIALS.items():
-            if key not in self._default_credentials_auth_hash:
-                default_credentials = get_default_credentials(value)
-                self._default_credentials_auth_hash[key] = self.generate_auth_hash(
-                    default_credentials
-                )
-
-            default_credentials_seed_auth_hash = self.handshake1_seed_auth_hash(
-                local_seed,
-                remote_seed,
-                self._default_credentials_auth_hash[key],  # type: ignore
-            )
-
-            if default_credentials_seed_auth_hash == server_hash:
-                _LOGGER.debug(
-                    "Device response did not match our expected hash on ip %s,"
-                    "but an authentication with %s default credentials worked",
-                    self._host,
-                    key,
-                )
-                return local_seed, remote_seed, self._default_credentials_auth_hash[key]  # type: ignore
-
-        # Finally check against blank credentials if not already blank
-        blank_creds = Credentials()
-        if self._credentials != blank_creds:
-            if not self._blank_auth_hash:
-                self._blank_auth_hash = self.generate_auth_hash(blank_creds)
-
-            blank_seed_auth_hash = self.handshake1_seed_auth_hash(
-                local_seed,
-                remote_seed,
-                self._blank_auth_hash,  # type: ignore
-            )
-
-            if blank_seed_auth_hash == server_hash:
+        for description, auth_hash, save_hash in self._fallback_auth_hashes():
+            if (
+                self.handshake1_seed_auth_hash(local_seed, remote_seed, auth_hash)
+                == server_hash
+            ):
                 _LOGGER.debug(
                     "Device response did not match our expected hash on ip %s, "
-                    "but an authentication with blank credentials worked",
+                    "but %s worked",
                     self._host,
+                    description,
                 )
-                return local_seed, remote_seed, self._blank_auth_hash  # type: ignore
+                if save_hash:
+                    # A stored hash has no e-mail to rebuild this one from
+                    self._local_auth_hash = auth_hash
+                return local_seed, remote_seed, auth_hash
 
         msg = (
             f"Device response did not match our challenge on ip {self._host}, "
@@ -278,6 +250,32 @@ class KlapTransport(BaseTransport):
         )
         _LOGGER.debug(msg)
         raise AuthenticationError(msg)
+
+    def _fallback_auth_hashes(self) -> list[tuple[str, bytes, bool]]:
+        """Return fallback descriptions, auth hashes and whether to save the hash."""
+        username = self._credentials.username if self._credentials else ""
+        setup_password = get_default_credentials(DEFAULT_CREDENTIALS["KASA"]).password
+        # The Kasa app uses this pair, with the e-mail trimmed and lowercased,
+        # when the discovery reply has ANS
+        fallbacks = [
+            (
+                "the account e-mail with the setup password",
+                Credentials(name, setup_password),
+                True,
+            )
+            for name in dict.fromkeys([username, username.strip().lower()])
+            if name
+        ]
+        fallbacks += [
+            (f"the {key} default credentials", get_default_credentials(value), False)
+            for key, value in DEFAULT_CREDENTIALS.items()
+        ]
+        fallbacks.append(("blank credentials", Credentials(), False))
+        return [
+            (description, self.generate_auth_hash(credentials), save_hash)
+            for description, credentials, save_hash in fallbacks
+            if credentials != self._credentials
+        ]
 
     async def perform_handshake2(
         self, local_seed: bytes, remote_seed: bytes, auth_hash: bytes
@@ -396,6 +394,18 @@ class KlapTransport(BaseTransport):
             if TYPE_CHECKING:
                 assert self._encryption_session
                 assert isinstance(response_data, bytes)
+            # A message is a 32 byte signature followed by whole AES blocks.
+            # Some devices answer with a plain html page instead.
+            if len(response_data) < 48 or (len(response_data) - 32) % 16:
+                raise KasaException(
+                    f"Device {self._host} sent a response that is not a KLAP "
+                    f"message ({len(response_data)} bytes): {response_data[:64]!r}"
+                )
+            if not self._encryption_session.is_signed(response_data, seq):
+                raise KasaException(
+                    f"Device {self._host} sent a response with an invalid "
+                    f"signature for request with seq {seq}"
+                )
             try:
                 decrypted_response = self._encryption_session.decrypt(response_data)
             except Exception as ex:
@@ -534,6 +544,11 @@ class KlapEncryptionSession:
             self._sig + PACK_SIGNED_LONG(self._seq) + ciphertext
         ).digest()
         return (signature + ciphertext, self._seq)
+
+    def is_signed(self, msg: bytes, seq: int) -> bool:
+        """Return whether the message is signed for the request with seq."""
+        signature = _sha256(self._sig + PACK_SIGNED_LONG(seq) + msg[32:])
+        return hmac.compare_digest(msg[:32], signature)
 
     def decrypt(self, msg: bytes) -> str:
         """Decrypt the data."""

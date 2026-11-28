@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvips-binary
-Version: 8.18.7
+Version: 8.18.8
 Summary: Binary distribution of libvips and dependencies for use with pyvips
 Author-email: Kleis Auke Wolthuizen <info@kleisauke.nl>
 License: LGPL-3.0-or-later
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown

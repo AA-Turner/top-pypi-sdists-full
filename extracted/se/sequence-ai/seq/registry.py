@@ -752,8 +752,8 @@ def _ref_kept(cls: type, applied: tuple[str, dict] | None = None) -> str:
     """`cls`'s handler_ref, for a @seq.policy, @seq.benchmark or @seq.adapter class -
     and, for one no other process can import (written in a script run as `python file.py` or in a notebook, __main__;
     inside a function; in a module that cannot be imported), its module:qualname as written, the refusal kept on the
-    class (_UNIMPORTABLE_ATTR) and raised where the platform needs the import (importable: seq deploy and its dry run,
-    seq adapter push). Where the class is written it runs as it did before the decorator: its methods are its author's.
+    class (_UNIMPORTABLE_ATTR) and raised where the platform needs the import (importable: seq deploy and its dry run).
+    Where the class is written it runs as it did before the decorator: its methods are its author's.
     
 
 """
@@ -768,7 +768,7 @@ def _ref_kept(cls: type, applied: tuple[str, dict] | None = None) -> str:
 def importable(cls: type) -> None:
     """Raise why another process cannot import `cls`, when its decorator kept a reason (_ref_kept): asked where its
     handler_ref is put to use - seq.deploy.deployment_request (`seq deploy`, its dry run, seq.deploy()), a
-    benchmark's benchmark_request and an adapter's registration_body (`seq adapter push`). A class `seq deploy`
+    benchmark's benchmark_request and an adapter's registration_body. A class `seq deploy`
     imports from its file is that file's module, never __main__."""
     why = cls.__dict__.get(_UNIMPORTABLE_ATTR)
     if why is not None:

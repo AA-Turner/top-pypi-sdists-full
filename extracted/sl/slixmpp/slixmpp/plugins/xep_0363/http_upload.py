@@ -237,6 +237,7 @@ class XEP_0363(BasePlugin):
         purpose: PurposeLiteral | None = None,
         callback: Callable | None = None,
         timeout: float | None = None,
+        ifrom: JID | None = None,
     ) -> str:
         """Helper function which does all of the uploading discovery and
         process.
@@ -313,6 +314,7 @@ class XEP_0363(BasePlugin):
             purpose=purpose,
             timeout=timeout,
             callback=callback,
+            ifrom=ifrom,
         )
         slot = slot_iq["http_upload_slot"]
 

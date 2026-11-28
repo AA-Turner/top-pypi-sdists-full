@@ -89,6 +89,16 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
     if not run_id:
         return None
     from_token = run_id != named or (bool(named) and named == _EXPORTED_RUN_ID)
+    if kw.get("stage") is not None:
+        # The run's stage is the launcher's to set (R34): named on its own, not in the generic list below.
+        kw = {k: v for k, v in kw.items() if k != "stage"}
+        from ...foundation.safe_warn import safe_warn  # never raises, even under `-W error`
+
+        safe_warn.warn(
+            f"probe.init() ignored stage= while attaching to PROBE_RUN_ID={run_id}: "
+            "the launcher sets the stage: probe exec --stage",
+            stacklevel=3,
+        )
     if kw.get("project") is FROM_ENV:
         kw = {k: v for k, v in kw.items() if k != "project"}
     choosing = {k: kw[k] for k in _CHOOSING_KWARGS if kw.get(k) is not None}

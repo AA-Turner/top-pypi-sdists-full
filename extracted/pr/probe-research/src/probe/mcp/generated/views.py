@@ -62,6 +62,7 @@ class View(StrEnum):
     COMMANDS = "commands"
     PANES = "panes"
     DECISIONS = "decisions"
+    PLAN = "plan"
 
 
 #: What a view MEANS on a kind -- the union across both agent
@@ -108,6 +109,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.PANES,
             View.PAPERS,
             View.PICKS,
+            View.PLAN,
             View.README,
             View.RECORD,
             View.SESSIONS,
@@ -169,6 +171,7 @@ VIEW_PURPOSE: dict[View, str] = {
     View.PANES: "the visuals an agent wrote on its page: slug, title, place, what each reads; no HTML",
     View.PAPERS: "the literature attached to this project",
     View.PICKS: "the best pick's history, newest first: who picked or cleared what, and why",
+    View.PLAN: "the plan's stages in order: key, title, done-when, status, and the runs and experiments behind each",
     View.README: "the repository's README at this grain",
     View.RECORD: "the raw source record, pageable; one field via view_options.field",
     View.REPRODUCE: "everything needed to run it again, plus a completeness verdict",

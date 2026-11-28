@@ -56,8 +56,6 @@ class _AuthConnectionStub(ConnectionStub):
     def _get_userauth_request_packet(self, method, args):
         """Get packet data for a user authentication request"""
 
-        # pylint: disable=no-self-use
-
         return b''.join((Byte(MSG_USERAUTH_REQUEST), String('user'),
                          String('service'), String(method)) + args)
 
@@ -427,11 +425,16 @@ class _AuthServerStub(_AuthConnectionStub):
 class _SuspendedServerAuth(ServerAuth):
     """Keep an authentication handler alive until its request is replaced"""
 
+    def __init__(self, conn, username, method, packet):
+        self.started = asyncio.Event()
+        super().__init__(conn, username, method, packet)
+
     @classmethod
     def supported(cls, conn):
         return True # pragma: no cover
 
     async def _start(self, packet):
+        self.started.set()
         await asyncio.Future()
 
 
@@ -735,11 +738,6 @@ class _TestAuth(AsyncTestCase):
 class TestAuthenticationGenerationRegression(unittest.IsolatedAsyncioTestCase):
     """Stale authentication handlers must have no protocol side effects."""
 
-    # Pylint doesn't like mixed case method names, but this was chosen to
-    # match the convention used in the unittest module.
-
-    # pylint: disable=invalid-name
-
     async def asyncSetUp(self):
         """Set up auth sessions for the tests to use"""
 
@@ -748,7 +746,7 @@ class TestAuthenticationGenerationRegression(unittest.IsolatedAsyncioTestCase):
         self.stale = _SuspendedServerAuth(self.conn, 'alice', b'publickey',
                                           SSHPacket(b''))
         self.conn.auth = self.stale
-        await asyncio.sleep(0)
+        await asyncio.wait_for(self.stale.started.wait(), 1)
 
         self.stale.cancel()
         self.conn.auth = object()

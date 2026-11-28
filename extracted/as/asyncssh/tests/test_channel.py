@@ -120,14 +120,10 @@ class _ClientSession(asyncssh.SSHClientSession):
     def exit_status_received(self, status):
         """Handle remote exit status"""
 
-        # pylint: disable=unused-argument
-
         self.exit_status = status
 
     def exit_signal_received(self, signal, core_dumped, msg, lang):
         """Handle remote exit signal"""
-
-        # pylint: disable=unused-argument
 
         self.exit_signal_msg = msg
 
@@ -316,8 +312,8 @@ class _ChannelServer(Server):
                 stdout.channel.exit(1)
         elif action == 'rejected_session':
             chan = _ServerChannel(self._conn, asyncio.get_event_loop(),
-                                  False, False, False, 0, 1024, None,
-                                  'strict', 1, 32768)
+                                  False, [], {}, False, False, 0, 1024,
+                                  None, 'strict', 1, 32768)
 
             try:
                 await chan.open_session()
@@ -388,7 +384,7 @@ class _ChannelServer(Server):
                 stdin.channel.exit(1)
         elif action == 'invalid_open_confirm':
             stdin.channel.send_packet(MSG_CHANNEL_OPEN_CONFIRMATION,
-                                      UInt32(0), UInt32(1), UInt32(1))
+                                      UInt32(0), UInt32(1), UInt32(32768))
         elif action == 'invalid_open_failure':
             stdin.channel.send_packet(MSG_CHANNEL_OPEN_FAILURE,
                                       UInt32(0), String(''), String(''))
@@ -405,6 +401,19 @@ class _ChannelServer(Server):
             value1 = stdin.channel.get_environment().get('TEST', '')
             value2 = stdin.channel.get_environment().get('TEST', '')
             stdout.write(value1 + value2 + '\n')
+        elif action == 'env_key_opt':
+            env = stdin.channel.get_environment()
+            stdout.write(env.get('TEST', '') + ',' +
+                         env.get('TEST2', '') + '\n')
+        elif action == 'env_dump':
+            env = stdin.channel.get_environment_bytes()
+            stdout.write(b','.join(k + b'=' + v for k, v in
+                                   sorted(env.items())).decode(
+                                       'utf-8', 'backslashreplace') + '\n')
+        elif action == 'env_late':
+            await stdin.readline()
+            value = stdin.channel.get_environment().get('TEST', '')
+            stdout.write(value + '\n')
         elif action == 'env_non_string_key':
             value = stdin.channel.get_environment().get('1', '')
             stdout.write(value + '\n')
@@ -550,8 +559,6 @@ class _ChannelServer(Server):
 
 class _TestChannel(ServerTestCase):
     """Unit tests for AsyncSSH channel API"""
-
-    # pylint: disable=too-many-public-methods
 
     @classmethod
     async def start_server(cls):
@@ -784,9 +791,19 @@ class _TestChannel(ServerTestCase):
     async def test_invalid_open_max_pktsize(self):
         """Test sending an open with invalid max packet size"""
 
+        for max_pktsize in (0, 1, 1023):
+            with self.subTest(max_pktsize=max_pktsize):
+                async with self.connect() as conn:
+                    with self.assertRaises(asyncssh.ChannelOpenError):
+                        await _create_session(conn, 'echo',
+                                              max_pktsize=max_pktsize)
+
+    @asynctest
+    async def test_min_open_max_pktsize(self):
+        """Test sending an open with the minimum accepted max packet size"""
+
         async with self.connect() as conn:
-            with self.assertRaises(asyncssh.ChannelOpenError):
-                await _create_session(conn, 'echo', max_pktsize=0)
+            await self._check_session(conn, 'echo', max_pktsize=1024)
 
     @asynctest
     async def test_invalid_open_confirmation(self):
@@ -1872,21 +1889,61 @@ class _TestChannel(ServerTestCase):
 
 
 class _TestInvalidMaxPktsizeServer(ServerTestCase):
-    """Unit tests for testing a server responding with max_pktsuze of 0"""
+    """Unit tests for testing a server responding with max_pktsize of 0"""
+
+    max_pktsize = 0
 
     @classmethod
     async def start_server(cls):
         """Start an SSH server to connect to"""
 
-        return await cls.create_server(_ChannelServer, max_pktsize=0)
+        return await cls.create_server(_ChannelServer,
+                                       max_pktsize=cls.max_pktsize)
 
     @asynctest
     async def test_invalid_max_pktsize_server(self):
-        """Test connecting to a server which sends max_pktsize of 0"""
+        """Test connecting to a server which sends an invalid max_pktsize"""
 
         async with self.connect() as conn:
             with self.assertRaises(asyncssh.ChannelOpenError):
                 await _create_session(conn, 'echo')
+
+
+class _TestTinyMaxPktsizeServer(_TestInvalidMaxPktsizeServer):
+    """Unit tests for testing a server responding with max_pktsize of 1"""
+
+    max_pktsize = 1
+
+
+class _TestSmallMaxPktsizeServer(_TestInvalidMaxPktsizeServer):
+    """Unit tests for testing a server responding with max_pktsize of 1023"""
+
+    max_pktsize = 1023
+
+
+class _TestMinMaxPktsizeServer(ServerTestCase):
+    """Unit tests for testing a server responding with max_pktsize of 1024"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server to connect to"""
+
+        return await cls.create_server(_ChannelServer, max_pktsize=1024)
+
+    @asynctest
+    async def test_min_max_pktsize_server(self):
+        """Test connecting to a server which sends the minimum max_pktsize"""
+
+        async with self.connect() as conn:
+            chan, session = await _create_session(conn, 'echo')
+
+            chan.write('test')
+            chan.write_eof()
+
+            await chan.wait_closed()
+
+            for buf in session.recv_buf.values():
+                self.assertEqual(''.join(buf), 'test')
 
 
 class _TestChannelNoPTY(ServerTestCase):
@@ -1938,6 +1995,291 @@ class _TestChannelNoPTY(ServerTestCase):
         async with self.connect() as conn:
             await conn.run('echo', term_type='ansi', request_pty='auto',
                            stdin=asyncssh.DEVNULL)
+
+
+class _TestChannelKeyOptEnv(ServerTestCase):
+    """Unit tests for environment options set in authorized_keys"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server with environment set in authorized_keys"""
+
+        auth_keys_str = ''
+
+        for pubkey in ('ckey.pub', 'ckey_ecdsa.pub'):
+            with open(pubkey) as f:
+                auth_keys_str += 'environment="TEST=keyopt" ' + f.read()
+
+        auth_keys = asyncssh.import_authorized_keys(auth_keys_str)
+        return await cls.create_server(_ChannelServer,
+                                       authorized_client_keys=auth_keys)
+
+    @asynctest
+    async def test_env_key_opt(self):
+        """Test environment set in authorized_keys"""
+
+        async with self.connect(username='ckey') as conn:
+            chan, session = await _create_session(conn, 'env_key_opt')
+
+            await chan.wait_closed()
+
+            result = ''.join(session.recv_buf[None])
+            self.assertEqual(result, 'keyopt,\n')
+
+    @asynctest
+    async def test_env_key_opt_override(self):
+        """Test authorized_keys environment overriding client env"""
+
+        async with self.connect(username='ckey') as conn:
+            chan, session = await _create_session(
+                conn, 'env_key_opt', env={'TEST': 'client', 'TEST2': 'client'})
+
+            await chan.wait_closed()
+
+            result = ''.join(session.recv_buf[None])
+            self.assertEqual(result, 'keyopt,client\n')
+
+    @asynctest
+    async def test_env_after_session_start(self):
+        """Test env request after session start being rejected"""
+
+        async with self.connect(username='ckey') as conn:
+            chan, session = await _create_session(conn, 'env_late')
+
+            # pylint: disable-next=protected-access
+            result = await chan._make_request(b'env', String('TEST'),
+                                              String('late'))
+            self.assertFalse(result)
+
+            chan.write('\n')
+            await chan.wait_closed()
+
+            result = ''.join(session.recv_buf[None])
+            self.assertEqual(result, 'keyopt\n')
+
+
+class _TestChannelAcceptEnv(ServerTestCase):
+    """Unit tests for filtering client environment with accept_env"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server with an environment filter"""
+
+        return await cls.create_server(
+            _ChannelServer, authorized_client_keys='authorized_keys',
+            accept_env=['TEST', b'X?', 'T\xc9ST*', b'B\xff'])
+
+    async def _get_env(self, env):
+        """Return the environment the server saw for a new session"""
+
+        async with self.connect() as conn:
+            chan, session = await _create_session(conn, 'env_dump', env=env)
+
+            await chan.wait_closed()
+
+            return ''.join(session.recv_buf[None])
+
+    @asynctest
+    async def test_accept_env(self):
+        """Test client environment filtered by accept_env"""
+
+        result = await self._get_env({'TEST': '1', 'TEST2': '2', 'XY': '3',
+                                      'XYZ': '4', 'OTHER': '5'})
+        self.assertEqual(result, 'TEST=1,XY=3\n')
+
+    @asynctest
+    async def test_accept_env_case_sensitive(self):
+        """Test case-sensitive matching of accept_env patterns"""
+
+        result = await self._get_env({'test': '1', 'xy': '2', 'XY': '3'})
+        self.assertEqual(result, 'XY=3\n')
+
+    @asynctest
+    async def test_accept_env_utf8(self):
+        """Test matching of UTF-8 str patterns against client names"""
+
+        result = await self._get_env({'T\xc9ST1': '\xe9', 'T\xe9ST': '2',
+                                      b'T\xc3\x89ST2': b'\xff'})
+        self.assertEqual(result, 'T\xc9ST1=\xe9,T\xc9ST2=\\xff\n')
+
+    @asynctest
+    async def test_accept_env_binary(self):
+        """Test matching of binary patterns against client names"""
+
+        result = await self._get_env({b'B\xff': b'1', b'B\xfe': b'2'})
+        self.assertEqual(result, 'B\\xff=1\n')
+
+
+class _TestChannelAcceptEnvConfig(ServerTestCase):
+    """Unit tests for filtering client environment with AcceptEnv config"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server with an environment filter in its config"""
+
+        with open('config_accept_env', 'w') as f:
+            f.write('AcceptEnv LANG LC_*\nAcceptEnv TEST?\n')
+
+        return await cls.create_server(
+            _ChannelServer, authorized_client_keys='authorized_keys',
+            config='config_accept_env')
+
+    @asynctest
+    async def test_accept_env_config(self):
+        """Test client environment filtered by AcceptEnv config"""
+
+        async with self.connect() as conn:
+            chan, session = await _create_session(
+                conn, 'env_dump', env={'LANG': '1', 'LC_ALL': '2',
+                                       'TEST': '3', 'TEST2': '4'})
+
+            await chan.wait_closed()
+
+            result = ''.join(session.recv_buf[None])
+            self.assertEqual(result, 'LANG=1,LC_ALL=2,TEST2=4\n')
+
+
+class _TestChannelAcceptEnvNone(ServerTestCase):
+    """Unit tests for rejecting all client environment variables"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server which accepts no client environment"""
+
+        return await cls.create_server(
+            _ChannelServer, authorized_client_keys='authorized_keys',
+            accept_env=None)
+
+    @asynctest
+    async def test_accept_env_none(self):
+        """Test all client environment variables being rejected"""
+
+        async with self.connect() as conn:
+            chan, session = await _create_session(
+                conn, 'env_dump', env={'TEST': '1'})
+
+            await chan.wait_closed()
+
+            result = ''.join(session.recv_buf[None])
+            self.assertEqual(result, '\n')
+
+
+class _TestChannelAcceptEnvConfigClear(ServerTestCase):
+    """Unit tests for rejecting all client environment via config"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server with "AcceptEnv -*" in its config"""
+
+        with open('config_accept_env_clear', 'w') as f:
+            f.write('AcceptEnv -*\n')
+
+        return await cls.create_server(
+            _ChannelServer, authorized_client_keys='authorized_keys',
+            config='config_accept_env_clear')
+
+    @asynctest
+    async def test_accept_env_config_clear(self):
+        """Test all client environment rejected by AcceptEnv -*"""
+
+        async with self.connect() as conn:
+            chan, session = await _create_session(
+                conn, 'env_dump', env={'TEST': '1'})
+
+            await chan.wait_closed()
+
+            result = ''.join(session.recv_buf[None])
+            self.assertEqual(result, '\n')
+
+
+class _TestChannelAcceptEnvStr(ServerTestCase):
+    """Unit tests for accept_env specified as a single string"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server with a single string environment filter"""
+
+        return await cls.create_server(
+            _ChannelServer, authorized_client_keys='authorized_keys',
+            accept_env='TEST*')
+
+    @asynctest
+    async def test_accept_env_str(self):
+        """Test accept_env specified as a single string"""
+
+        async with self.connect() as conn:
+            chan, session = await _create_session(
+                conn, 'env_dump', env={'TEST': '1', 'TEST2': '2',
+                                       'OTHER': '3'})
+
+            await chan.wait_closed()
+
+            result = ''.join(session.recv_buf[None])
+            self.assertEqual(result, 'TEST=1,TEST2=2\n')
+
+
+class _TestChannelServerSetEnv(ServerTestCase):
+    """Unit tests for environment set by the server"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server which sets environment variables"""
+
+        auth_keys_str = ''
+
+        for pubkey in ('ckey.pub', 'ckey_ecdsa.pub'):
+            with open(pubkey) as f:
+                auth_keys_str += ('environment="TEST=keyopt",'
+                                  'environment="TEST2=keyopt" ' + f.read())
+
+        auth_keys = asyncssh.import_authorized_keys(auth_keys_str)
+
+        return await cls.create_server(
+            _ChannelServer, authorized_client_keys=auth_keys,
+            env={'TEST': 'server', 'test': 'lower', b'B\xff': b'\xfe'})
+
+    @asynctest
+    async def test_set_env(self):
+        """Test server environment taking precedence over other sources"""
+
+        async with self.connect(username='ckey') as conn:
+            chan, session = await _create_session(
+                conn, 'env_dump', env={'TEST': 'client', 'TEST2': 'client',
+                                       'TEST3': 'client'})
+
+            await chan.wait_closed()
+
+            result = ''.join(session.recv_buf[None])
+            self.assertEqual(result, 'B\\xff=\\xfe,TEST=server,'
+                             'TEST2=keyopt,TEST3=client,test=lower\n')
+
+
+class _TestChannelServerSetEnvConfig(ServerTestCase):
+    """Unit tests for environment set by SetEnv in the server config"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server with SetEnv in its config"""
+
+        with open('config_set_env', 'w') as f:
+            f.write('SetEnv TEST=config "TEST2=a b"\nSetEnv TEST3=ignored\n')
+
+        return await cls.create_server(
+            _ChannelServer, authorized_client_keys='authorized_keys',
+            config='config_set_env')
+
+    @asynctest
+    async def test_set_env_config(self):
+        """Test server environment set by SetEnv in the server config"""
+
+        async with self.connect() as conn:
+            chan, session = await _create_session(
+                conn, 'env_dump', env={'TEST': 'client'})
+
+            await chan.wait_closed()
+
+            result = ''.join(session.recv_buf[None])
+            self.assertEqual(result, 'TEST=config,TEST2=a b\n')
 
 
 class _TestChannelNoAgentForwarding(ServerTestCase):

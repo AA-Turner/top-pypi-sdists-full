@@ -48,6 +48,26 @@ def canonical_symbol_cache_root(
     return cache_root
 
 
+def resolve_canonical_cache_root(scope: Path, *, floor: Path | None = None) -> Path:
+    """Resolve ``scope`` to its canonical project cache root via ``_infer_project_root``."""
+    from tensor_grep.cli import repo_map as _repo_map
+    from tensor_grep.cli.symbols_cache import authenticated_content_root
+
+    resolved_scope = Path(scope).expanduser().resolve()
+    if floor is not None:
+        floor_path = Path(floor).expanduser().resolve()
+        if not resolved_scope.is_relative_to(floor_path):
+            raise ValueError(f"path escapes confinement floor: {resolved_scope}")
+        effective_floor: Path | None = floor_path
+    else:
+        effective_floor = authenticated_content_root()
+    return canonical_symbol_cache_root(
+        resolved_scope,
+        _repo_map._infer_project_root,
+        effective_floor,
+    ).resolve()
+
+
 _IMPORT_SUMMARY_CACHE: dict[str, _ImportSummary | None] = {}
 _IMPORT_SUMMARY_CACHE_MAX = 512
 

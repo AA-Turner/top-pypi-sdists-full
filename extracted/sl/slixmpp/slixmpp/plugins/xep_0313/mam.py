@@ -107,6 +107,7 @@ class XEP_0313(BasePlugin):
 
         def post_cb(result: Iq) -> None:
             results = cb_data['collector'].stop()
+            self.xmpp.remove_handler(cb_data['collector'])
             if result['type'] == 'result':
                 result['mam']['results'] = results
                 result['mam_fin']['results'] = results
@@ -125,6 +126,7 @@ class XEP_0313(BasePlugin):
 
         def wrapped_cb(iq: Iq) -> None:
             results = collector.stop()
+            self.xmpp.remove_handler(collector)
             if iq['type'] == 'result':
                 iq['mam']['results'] = results
             if callback:
@@ -183,6 +185,7 @@ class XEP_0313(BasePlugin):
 
         def post_cb(result: Iq) -> None:
             results = cb_data['collector'].stop()
+            self.xmpp.remove_handler(cb_data['collector'])
             if result['type'] == 'result':
                 result['mam']['results'] = results
                 result['mam_fin']['results'] = results

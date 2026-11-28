@@ -57,10 +57,10 @@ with teleop("http://<that machine>:8200", token=...) or the page it serves. Need
 
 ── On GS's platform ──────────────────────────────────────────────────
 A deployment by its name - connect("my_policy_user") - a robot paired through the platform by its key
-(connect("teleop"), teleop(key=...)), the platform's recorder, models, your account, GPUs, billing and usage are
-sequence-cloud's, GS's client for its platform, which adds them here once installed, with your key in
-SEQUENCES_API_KEY:
-pip install sequence-cloud --extra-index-url "https://$SEQUENCES_API_KEY@api.generalsequences.com/simple"
+(connect("teleop"), teleop(key=...)), the platform's recorder, models - its text to speech among them, speech() -
+your account, GPUs, billing and usage are
+sequence-cloud's, GS's client for its platform, which `pip install sequence-ai` installs with it on Python 3.10 or
+later, your key in SEQUENCES_API_KEY.
 """
 
 from __future__ import annotations
@@ -152,6 +152,7 @@ __all__ = [
 
 _CLOUD_NAMES = frozenset((
         "record", "models", "account", "gpu", "gpus", "billing", "usage", "fleet", "decide", "DecideResult", "Model",
+        "speech", "SpeechResult",
         "GpuBadRequest", "GpuOverLimit", "GpuNoCard", "DEFAULT_BASE_URL", "Transport",
 ))
 
@@ -230,9 +231,8 @@ def connect(
     follow, base_url
                 a GPU rented on GS's platform: its follow token and the platform's address (sequence-cloud's)
     *more, api_key, on_queue
-                a deployment on GS's platform by its name, connect("my_policy_user"), and its options: with
-                sequence-cloud installed (sequence_cloud.api.by_name says them all); without it, a name raises
-                MissingPackage, its hint how to install it
+                a deployment on GS's platform by its name, connect("my_policy_user"), and its options: sequence-cloud's,
+                which comes with sequence-ai on Python 3.10 or later (sequence_cloud.api.by_name says them all)
 
     Use it as a context manager: a Policy that is never closed leaks a socket.
 
@@ -330,7 +330,7 @@ def _own_server(url: str, more: tuple, timeout_s: float | None, token: str | Non
         raise MissingPackage("follow= lets this robot into a GPU rented on GS's platform: sequence-cloud's, "
                              "GS's client for its platform", hint=INSTALL)
     on_reconnect = api.follow(follow, url, base_url, lines) if api is not None else None
-    name = _name_of(url)
+    name = _named(pinged) or _name_of(url)
     gateway = OwnGateway(url, token=token, on_reconnect=on_reconnect, pinged=pinged)
     return Policy(DirectConnection(gateway, model=name, timeout_s=timeout_s, lines=lines, pictures=pictures),
                   model=name, startup_timeout_s=startup_timeout_s, on_warming=on_warming, on_stale=on_stale,
@@ -493,8 +493,22 @@ def _lines_of(lines: Any, *, address: bool) -> list[str] | dict[str, str]:
     return names
 
 
+def _named(pinged: Any) -> str | None:
+    """The policy a server of one's own names on its /ping (serve()'s "policy": seq serve's class and act function), as a
+    name is written - the name its Policy goes by; None where its /ping did not answer 200, or named none."""
+    try:
+        said = pinged.json() if pinged is not None and pinged.status_code == 200 else None
+    except ValueError:
+        return None
+    policy = said.get("policy") if isinstance(said, dict) else None
+    if not isinstance(policy, str):
+        return None
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", policy).strip("-._")[:64] or None
+
+
 def _name_of(url: str) -> str:
-    """The name a Policy on a server of one's own goes by: its host and port, as a name is written ("10.0.0.5-8000")."""
+    """The name a Policy on a server of one's own goes by where its /ping names no policy: its host and port, as a name
+    is written ("10.0.0.5-8000")."""
     from urllib.parse import urlsplit
 
     parts = urlsplit(url)

@@ -329,11 +329,12 @@ def _read(
     request: str | Request,
     *,
     reserve: int = 0,
+    is_batch: bool = False,
 ) -> dict:
     # `request` rides along so a source that sizes its page around a stand-in
     # cursor encodes that stand-in exactly as delivery will encode the real one;
     # `reserve`, so one that fits exactly leaves room for a batch's wrapper.
-    with delivery_context(state.get("source_snapshot"), request, reserve) as delivery:
+    with delivery_context(state.get("source_snapshot"), request, reserve, is_batch) as delivery:
         payload = call(arguments)
     if delivery.snapshot is not None:
         state["source_snapshot"] = delivery.snapshot
@@ -750,7 +751,7 @@ def _batch(
         reserve = count_tokens(
             serialize({"rows": [{"ref": one}], "missing": [], "next_cursor": next_ref})
         )
-        result = _read(call, one_args, state, request, reserve=reserve)
+        result = _read(call, one_args, state, request, reserve=reserve, is_batch=True)
         is_missing = isinstance(result.get("missing"), list) and not result.get("rows")
         item_state = {**state, "index": index}
 

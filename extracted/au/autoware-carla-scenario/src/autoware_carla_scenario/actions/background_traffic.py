@@ -35,7 +35,9 @@ import math
 import random
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
-from ..conditions import BaseCondition, ScenarioResult
+from ..action_state import ActionState
+from ..conditions import BaseCondition
+from ..conditions.always_true import NeverCondition
 from ..kinematics.walker_motion import simulated_seconds
 from ..seed import check_seed, check_whole_number, resolve_seed
 from ..traffic.base import check_background_speed
@@ -218,19 +220,6 @@ class LaneletRegion:
         )
 
 
-class _Never(BaseCondition):
-    """Never fires: a source or sink with no ``until`` runs for the whole run."""
-
-    def __init__(self) -> None:
-        super().__init__(label="until_the_run_ends")
-
-    def check(self, world: "carla.World", elapsed: float) -> Optional[ScenarioResult]:
-        # Through a typed local: Codon 0.19 cannot type a bare `return None`
-        # that is a function's only return.
-        never: Optional[ScenarioResult] = None
-        return never
-
-
 class _BackendAction(BaseAction):
     """An action that acts through the run's traffic backend.
 
@@ -252,7 +241,7 @@ class _BackendAction(BaseAction):
         if until is not None:
             stop = until
         else:
-            stop = _Never()
+            stop = NeverCondition()
         super().__init__(label, until=stop, **kwargs)
         self._backend: Optional["TrafficBackend"] = None
 
@@ -286,9 +275,13 @@ class TrafficSourceAction(_BackendAction):
             drive on: crosswalks, walkways, road shoulders and the like are
             never picked (:class:`LaneletRegion`).
         initial_vehicles: Vehicles placed at once on the first tick the action
-            runs.
+            runs -- of its first run only: a later run of a ``once=False``
+            source places none (the next run of the scenario, after
+            :meth:`reset`, places them again).
         vehicles_per_minute: Then, the rate at which more are added while it
             runs, in simulated time.  ``0`` places only the initial ones.
+            Only the time a run lasts counts: a ``once=False`` source starting
+            another run owes nothing for the time it was idle in between.
         max_vehicles: The most background vehicles on the road at once -- this
             source's and any other's -- past which it adds none; ``None`` for
             no limit.
@@ -418,6 +411,13 @@ class TrafficSourceAction(_BackendAction):
             self._started = True
             self._last_time = now
             due = self._initial
+        elif self._lifecycle is ActionState.STANDBY:
+            # The trigger's call of a later run of a repeating source: the
+            # rate counts from now, not from the end of the last run -- the
+            # time it was idle in between is owed nothing (#2597).
+            self._last_time = now
+            self._owed = 0.0
+            due = 0
         else:
             if self._last_time is not None and now is not None:
                 self._owed += self._rate * max(now - self._last_time, 0.0)

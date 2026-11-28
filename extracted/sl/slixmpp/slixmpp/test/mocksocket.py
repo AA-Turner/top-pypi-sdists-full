@@ -166,6 +166,10 @@ class TestTransport(object):
     def __init__(self, xmpp):
         self.xmpp = xmpp
         self.socket = TestSocket()
+        self.secure = False
+
+    def make_secure(self):
+        self.secure = True
     # ------------------------------------------------------------------
     # Testing Interface
 
@@ -195,7 +199,7 @@ class TestTransport(object):
         Arguments:
             Placeholders. Same as for socket.Socket.recv.
         """
-        return 
+        return
 
     def write(self, data):
         """
@@ -235,6 +239,8 @@ class TestTransport(object):
         info = {
             'socket': self.socket
         }
+        if self.secure:
+            info['ssl_object'] = True
         return info.get(name, default)
 
     def abort(self, *args, **kwargs):

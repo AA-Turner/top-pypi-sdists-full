@@ -52,11 +52,11 @@ class RemoveKnowledgeTagsResponseBodyData(DaraModel):
         removed: int = None,
         success: bool = None,
     ):
-        # The knowledge base file location.
+        # The location of the knowledge base file.
         self.file_location = file_location
-        # The API message.
+        # The message returned by the API.
         self.message = message
-        # The number of tags successfully deleted.
+        # The number of successfully deleted tags.
         self.removed = removed
         # Indicates whether the request is successful. Valid values:
         # - **true**: Successful.

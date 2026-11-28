@@ -1,0 +1,799 @@
+"""Line 2 of every printout says which engine answered it.
+
+In the captured printouts line 2 is the licensed engine's own build tag, which
+makes it the one line in the header where an engine identity already lives.
+This engine writes its own there — ``momwire <version> <basis> <variant>`` —
+and nothing else in the printout moves: the departure is one line wide, and
+the gate below measures exactly that.
+
+Why those three fields and not fewer: three things move a printed number, and
+a tester mailing back a ``NEC5.OUT`` cannot be asked to remember any of them.
+The RELEASE is the version.  The BASIS is which formulation answered, which on
+a deployed bundle is chosen by the launcher's filename (momwire#593) and is
+therefore invisible in the file otherwise.  The VARIANT is which compiled
+accelerator loaded, and ``none`` there is the whole of momwire#737 read off a
+printout instead of off a daemon log.
+
+Two things this file is careful NOT to claim:
+
+* **The stamp is not evidence about the solver.**  It is threaded from the
+  same string the solve is, so a route that resolved the wrong basis stamps
+  the wrong basis too and reads perfectly consistent.  What catches that is
+  the byte comparison against a module run in the named basis
+  (``scripts/eznec_freeze/smoke.py`` gate 4, ``tests/test_eznec_client_c.py``).
+* **The byte gates elsewhere mask line 2, so they assert nothing about it.**
+  That is what makes this file load-bearing rather than duplicative, and it
+  is why :func:`test_the_stamp_gate_rejects_the_licensed_build_tag` exists:
+  a gate that could not fail on the OLD line 2 would be measuring nothing.
+"""
+
+from __future__ import annotations
+
+import importlib.metadata
+import importlib.util
+import io
+import socket
+import sys
+import threading
+import types
+from pathlib import Path
+
+import momwire_serve_client as mech
+import pytest
+
+import momwire
+from momwire import _accel
+from momwire.dropin.nec5 import _printout, _resident, _serve, _shell
+from momwire.dropin.nec5._printout import engine_stamp, render_header
+from test_eznec_printout import (
+    _ENGINE_STAMP_INDEX,
+    FIXTURE_DIR,
+    GATED_IDS,
+    capture,
+    deck_text,
+)
+from test_eznec_shell import header_prefix
+
+# The closed set of variant labels, taken from the module that owns them plus
+# the stamp's own word for "no extension loaded".  Read out of `_accel` rather
+# than transcribed: a fourth build variant would otherwise pass this file
+# while the stamp printed a label nothing here had ever seen.
+VARIANT_LABELS = frozenset(
+    {label for label, _ in (_accel._AVX2, _accel._SSE2, _accel._LEGACY)}
+    | {_printout._STAMP_NO_VARIANT}
+)
+
+# The refusal every gate here uses, and it is a REAL one: 0022 asks for a near
+# field over a `GN 0` earth, which this seam refuses by name (the standing
+# refusal `scripts/eznec_freeze/smoke.py` uses too).  A refusal is the printout
+# most likely to be the one a user writes in about, so it has to be stamped.
+REFUSAL_ID = "0022"
+
+# A deck the DIALECT front end refuses, which is a different path to the same
+# frame (`_shell.render`'s gate 1 against its gate 2) and reaches
+# `render_refusal` from a DeckError rather than a ServeRefusal.
+NOT_NEC5_DECK = (
+    "CM Stamp probe\nCM\nCE\n"
+    "SP 0,1,0.,0.,0.,0.,0.,1.\n"
+    "GW 1,10,0.,0.,0.,0.,0.,10.3,.02\n"
+    "GE 1,-1\nFR 0,1,0,0,7.\nEX 4,1,-1,0,1.414214,0.\nEN\n"
+)
+
+
+def stamp_line(text: str) -> str:
+    """Line 2 of ``text``, by position, CR tolerated.
+
+    Positional and never searched for: a stamp that vanished and a stamp that
+    landed on the wrong line are both regressions, and a search would call the
+    second one a pass.  The CR strip is so a caller can hand over the bytes a
+    printout was WRITTEN as (CRLF, `_shell.write_printout`) without first
+    normalizing them — the endings are gated in ``test_eznec_shell.py``.
+    """
+    lines = text.split("\n")
+    return lines[_ENGINE_STAMP_INDEX].rstrip("\r") if len(lines) > 1 else ""
+
+
+def assert_stamped(text: str, *, basis: str) -> None:
+    """The assertion the frozen bundle's smoke gate makes, in Python.
+
+    Kept as a helper with one owner because four gates below and the smoke
+    script have to agree on what a good stamp IS; the smoke script's copy is
+    separate on purpose (it may not import momwire's own answer to a question
+    it is gating), and ``scripts/eznec_freeze/smoke.py::_gate_stamp`` says so.
+    """
+    line = stamp_line(text)
+    assert line.startswith(_printout._STAMP_PREFIX), line
+    fields = line.split()
+    assert len(fields) == 4, line
+    _, version, stamped, variant = fields
+    assert version != _printout._STAMP_UNKNOWN_VERSION, line
+    assert stamped == basis, line
+    assert variant in VARIANT_LABELS, line
+    assert len(line) < 80, line
+
+
+@pytest.fixture(autouse=True)
+def _fresh_version_cache():
+    """The stamp reads the version once per process (momwire#1445); every gate
+    here that fakes it needs that one read to happen inside the fake."""
+    _printout._momwire_version.cache_clear()
+    yield
+    _printout._momwire_version.cache_clear()
+
+
+def _metadata_says(monkeypatch, answer) -> None:
+    """Make the installed metadata answer ``answer`` (a ``version`` stand-in).
+
+    The fast scan (momwire#1445) reads the real install before
+    ``importlib.metadata`` is ever asked, so a fake of the latter alone would
+    be a fake nothing consults.  The scan is made to defer instead, which is
+    the route every non-plain layout takes.
+    """
+
+    def defer():
+        raise mech._NotPlain("faked")
+
+    monkeypatch.setattr(mech, "_scan_metadata_version", defer)
+    monkeypatch.setattr(importlib.metadata, "version", answer)
+
+
+# --------------------------------------------------------------------------
+# the stamp text itself
+# --------------------------------------------------------------------------
+
+
+def test_the_default_stamp_is_the_four_fields_in_order():
+    line = engine_stamp(_serve.BASIS)
+    assert line == (
+        f" momwire {importlib.metadata.version('momwire')} "
+        f"{_serve.BASIS} {momwire.accelerator_variant or 'none'}"
+    )
+    assert_stamped("1\n" + line + "\n", basis=_serve.BASIS)
+
+
+def test_the_basis_field_is_the_canonical_name_that_was_threaded():
+    """A canonical name stamps itself; a deprecated spelling stamps its
+    canonical name and names itself at the end of the line (momwire#2091),
+    so a bug report still says which file answered."""
+    for basis in ("bs2", "razor2p", "hmatrix"):
+        assert engine_stamp(basis).split()[2] == basis
+    line = engine_stamp("razor-2p")
+    assert line.split()[2] == "razor2p"
+    assert line.endswith(" (renamed from razor-2p)")
+
+
+def test_a_missing_package_version_stamps_unknown_rather_than_raising(monkeypatch):
+    """The metadata probe is the one field that can fail, and a printout is
+    worth more than a stamp: a source tree with no ``.dist-info``, or a frozen
+    bundle built without ``--copy-metadata``, still gets a printout."""
+
+    def boom(name):
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    _metadata_says(monkeypatch, boom)
+    assert engine_stamp("bs2") == (
+        f" momwire unknown bs2 {momwire.accelerator_variant or 'none'}"
+    )
+
+
+def test_any_metadata_failure_is_caught_not_just_the_documented_one(monkeypatch):
+    """A half-written ``dist-info`` raises from inside the reader rather than
+    as ``PackageNotFoundError``, so the handler is deliberately blanket."""
+    _metadata_says(monkeypatch, lambda name: (_ for _ in ()).throw(OSError("x")))
+    assert engine_stamp("bs2").split()[1] == "unknown"
+
+
+@pytest.mark.parametrize("label", ["avx2", "sse2", "legacy"])
+def test_the_variant_field_is_whatever_this_process_loaded(monkeypatch, label):
+    monkeypatch.setattr(momwire, "accelerator_variant", label)
+    assert engine_stamp("bs2").split()[3] == label
+
+
+def test_no_extension_loaded_stamps_none(monkeypatch):
+    """``momwire.accelerator_variant`` is ``None`` when nothing imported, and
+    ``none`` is the printable spelling of it.  This is momwire#737's failure
+    made visible in the file EZNEC shows the user: every solve in such a
+    process is the pure-Python one, and the fallback warning goes to a stream
+    EZNEC never displays."""
+    monkeypatch.setattr(momwire, "accelerator_variant", None)
+    assert engine_stamp("bs2").split()[3] == "none"
+
+
+def test_an_unnamed_basis_still_stamps_four_fields():
+    """The empty launcher suffix is reachable — ``momwire-nec5-.exe`` is a
+    copy a user can make, and it travels verbatim so the deck refuses by name
+    rather than being rounded off to the default (``entry.py::basis_for``).
+    A blank field there would silently make the stamp a three-field line."""
+    assert engine_stamp("") == engine_stamp(" \t ") != engine_stamp("bs2")
+    assert engine_stamp("").split()[2] == "-"
+
+
+def test_the_stamp_stays_under_eighty_columns_whatever_the_filename_said():
+    """The basis is USER text: it is the launcher filename's suffix, so its
+    length and its characters are not this engine's to assume.  A long name
+    loses its tail; it never wraps one printout line into two."""
+    for basis in ("x" * 200, "razor 2p", "a b c d e f " * 20):
+        line = engine_stamp(basis)
+        assert len(line) < 80, line
+        assert len(line.split()) == 4, line
+    assert engine_stamp("razor 2p").split()[2] == "razor_2p"
+
+
+# --------------------------------------------------------------------------
+# the departure is one line wide
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("cid", GATED_IDS)
+def test_the_stamp_is_the_only_header_line_that_left_the_captures(cid):
+    """The in-test form of the diff proof, on all 75 printout-carrying
+    captures: the rendered header and the captured one have the same line
+    count and differ at exactly one index, and that index is the stamp's.
+
+    This is what the masks in ``test_eznec_printout.py`` /
+    ``test_eznec_serve.py`` / ``test_eznec_shell.py`` are allowed to assume,
+    and it is asserted here rather than there so a second departure cannot
+    hide behind a mask that was widened to accommodate it.
+    """
+    ours = render_header(deck_text(cid)).split("\n")
+    theirs = header_prefix(cid).split("\n")
+    assert len(ours) == len(theirs)
+    differ = [i for i, (a, b) in enumerate(zip(ours, theirs)) if a != b]
+    assert differ == [_ENGINE_STAMP_INDEX]
+    assert_stamped(
+        header_prefix(cid).replace(theirs[1], ours[1], 1), basis=_serve.BASIS
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("cid", GATED_IDS)
+def test_the_stamp_gate_rejects_the_licensed_build_tag(cid):
+    """The gate is not vacuous: the captured line 2 FAILS :func:`assert_stamped`.
+
+    Taken off the fixture rather than typed in, so nothing here transcribes
+    the licensed engine's build tag — and so this stays true if a future
+    capture session ships a printout from a different build.
+    """
+    with pytest.raises(AssertionError):
+        assert_stamped(header_prefix(cid), basis=_serve.BASIS)
+
+
+# --------------------------------------------------------------------------
+# every route stamps, and stamps the basis IT was given
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("basis", [_serve.BASIS, "razor2p"])
+def test_the_one_shot_route_stamps_the_basis_it_was_launched_as(tmp_path, basis):
+    """``_shell.main(..., basis=...)`` — the frozen exe's own path, where the
+    basis came from the launcher's filename before argv was read."""
+    out = tmp_path / "NEC5.OUT"
+    assert (
+        _shell.main([str(FIXTURE_DIR / capture("0010")["deck"]), str(out)], basis=basis)
+        == 0
+    )
+    written = out.read_bytes().decode("latin-1")
+    assert "ANTENNA INPUT PARAMETERS" in written
+    assert_stamped(written, basis=basis)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("basis", [_serve.BASIS, "razor2p"])
+def test_the_resident_route_stamps_the_same_basis_the_flag_named(monkeypatch, basis):
+    """``--serve --basis <name>``, from the flag down to the bytes on the wire.
+
+    Driven through :func:`momwire.dropin.nec5._resident.serve_main` rather than
+    around it, because the flag's own parse is half the claim: the socket name
+    hashes the engine identity client-side, so ``--basis`` is the ONLY thing
+    that tells a warm server which formulation it is (``_resident``'s module
+    docstring), and a route that stamped the default while serving the twin
+    would be invisible in the answer.
+    """
+    captured = {}
+
+    def fake_serve_forever(
+        path, idle_raw, log_path, connection, *, configure, pool_factory=None
+    ):
+        captured["connection"] = connection
+        captured["pool_factory"] = pool_factory
+        return 0
+
+    monkeypatch.setattr(_resident, "serve_forever", fake_serve_forever)
+    monkeypatch.delenv("MOMWIRE_SERVE_WORKERS", raising=False)
+    assert (
+        _resident.serve_main(["--serve", "--socket", "unused.sock", "--basis", basis])
+        == 0
+    )
+
+    server, client = socket.socketpair()
+    log = io.StringIO()
+    # The daemon's own route since momwire#1418: the deck is solved in a
+    # worker process the pool builds from the SAME --basis, so the stamp is
+    # read off a printout that crossed that process boundary.
+    pool = captured["pool_factory"](log, 900.0)
+    assert pool is not None
+    assert pool.spec["kwargs"]["basis"] == basis
+    pool.start()
+
+    def work():
+        try:
+            captured["connection"](server, 1, log, None, pool=pool)
+        finally:
+            # The connection's own file objects hold dups; closing the socket
+            # too is what ends the client's read, and without it the recv
+            # below waits for a write end that is never going to close.
+            server.close()
+
+    worker = threading.Thread(target=work)
+    worker.start()
+    try:
+        client.settimeout(120)
+        client.sendall(deck_text("0010").encode("latin-1"))
+        client.shutdown(socket.SHUT_WR)
+        chunks = []
+        while True:
+            chunk = client.recv(65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+    finally:
+        worker.join(timeout=120)
+        client.close()
+        pool.close()
+
+    answer = b"".join(chunks).decode("latin-1")
+    assert "ANTENNA INPUT PARAMETERS" in answer
+    assert_stamped(answer, basis=basis)
+    assert "pool: worker pid=" in log.getvalue()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("basis", [_serve.BASIS, "razor2p"])
+def test_a_refused_deck_is_stamped_too_and_the_frame_is_untouched(basis):
+    """A refusal has to say which engine refused.  The frame is the contract
+    and this checks it survived the extra field: the comment echo intact (or
+    EZNEC discards the file as stale and no message reaches anyone), then the
+    ``NEC ERROR`` line AFTER it."""
+    text = _shell.render(deck_text(REFUSAL_ID), basis=basis)
+    assert_stamped(text, basis=basis)
+    # The separator eats the ONE blank line `render_refusal` puts between the
+    # header and the error, so what is left is the header exactly — trailing
+    # newline and all.
+    header, _, tail = text.partition("\n ***** NEC ERROR - ")
+    assert tail, text[-200:]
+    assert "Vertical over real ground" in header
+    assert header == render_header(deck_text(REFUSAL_ID), basis=basis)
+
+
+@pytest.mark.integration
+def test_the_dialect_refusal_path_is_stamped_as_well():
+    """``_shell.render``'s first gate, which reaches ``render_refusal`` from a
+    ``DeckError`` rather than from a ``ServeRefusal`` — a different call site
+    with the same obligation."""
+    text = _shell.render(NOT_NEC5_DECK, basis="razor2p")
+    assert "NEC ERROR" in text
+    assert_stamped(text, basis="razor2p")
+
+
+@pytest.mark.integration
+def test_an_unreadable_deck_is_stamped_although_it_has_no_echo(tmp_path):
+    """The one printout with no comment box at all (``render_header(None)``).
+    It cannot pass EZNEC's belongs-to-this-run check whatever it says, but it
+    is still written, and it still names the engine that could not read."""
+    out = tmp_path / "NEC5.OUT"
+    _shell.run(tmp_path / "does-not-exist.nec", out, basis="razor2p")
+    written = out.read_bytes().decode("latin-1")
+    assert "UNABLE TO READ INPUT FILE" in written
+    assert_stamped(written, basis="razor2p")
+
+
+@pytest.mark.integration
+def test_the_last_ditch_internal_error_printout_is_stamped(monkeypatch, tmp_path):
+    """``main``'s process-level catch re-reads the deck to keep the echo; the
+    basis has to reach it too, or the one printout written by a failure
+    nobody foresaw is the one that cannot say what produced it."""
+    out = tmp_path / "NEC5.OUT"
+
+    def boom(deck_path, printout_path, **kwargs):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(_shell, "run", boom)
+    deck = FIXTURE_DIR / capture("0010")["deck"]
+    assert _shell.main([str(deck), str(out)], basis="razor2p") == 0
+    written = out.read_bytes().decode("latin-1")
+    assert "INTERNAL ERROR IN MOMWIRE ENGINE" in written
+    assert_stamped(written, basis="razor2p")
+
+
+@pytest.mark.integration
+def test_the_seams_own_last_line_of_defence_is_stamped(monkeypatch):
+    """The resident transport's twin of the gate above: ``seam().answer`` must
+    never raise, and the printout it substitutes carries the stamp."""
+
+    def boom(text, *, basis, dialect):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(_shell, "render", boom)
+    text, err = _shell.seam(basis="razor2p").answer(deck_text("0010"), "")
+    assert err == ""
+    assert "INTERNAL ERROR IN MOMWIRE ENGINE" in text
+    assert_stamped(text, basis="razor2p")
+
+
+# --------------------------------------------------------------------------
+# where the version comes from (momwire#1277)
+# --------------------------------------------------------------------------
+#
+# A tester extracted the 0.68.0 zip over a 0.66.0 install; the old
+# `momwire-0.66.0.dist-info` stayed in `_internal` beside the new one, Windows
+# listed it first, and `importlib.metadata` stamped 0.68.0 code as 0.66.0.  So
+# a frozen bundle now carries its version BAKED at freeze time
+# (`scripts/eznec_freeze/build.py`), the metadata is only the fallback, and an
+# overlaid folder says so on line 2.  `sys.frozen` / `sys._MEIPASS` are what
+# PyInstaller sets; patching them is how these gates stand inside a bundle.
+
+REPO = Path(__file__).resolve().parent.parent
+BUILD_PY = REPO / "scripts" / "eznec_freeze" / "build.py"
+
+
+def _freeze(monkeypatch, bundle: Path, baked: str | None) -> None:
+    """Make this process look like a frozen bundle rooted at ``bundle``."""
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
+    if baked is None:
+        monkeypatch.delitem(sys.modules, mech.BUILD_VERSION_MODULE, raising=False)
+    else:
+        module = types.ModuleType(mech.BUILD_VERSION_MODULE)
+        module.VERSION = baked
+        monkeypatch.setitem(sys.modules, mech.BUILD_VERSION_MODULE, module)
+
+
+def _plant(bundle: Path, *versions: str) -> None:
+    for v in versions:
+        info = bundle / f"momwire-{v}.dist-info"
+        info.mkdir()
+        (info / "METADATA").write_text(
+            f"Metadata-Version: 2.1\nName: momwire\nVersion: {v}\n", encoding="utf-8"
+        )
+
+
+def test_the_baked_version_wins_over_the_metadata_in_a_frozen_bundle(
+    monkeypatch, tmp_path
+):
+    _metadata_says(monkeypatch, lambda name: "0.66.0")
+    _freeze(monkeypatch, tmp_path, baked="9.8.7")
+    assert mech.momwire_version() == "9.8.7"
+    assert engine_stamp("bs2").split()[1] == "9.8.7"
+    assert mech.dist_version() == ("9", "8")
+
+
+def test_the_metadata_is_the_fallback_when_a_bundle_has_nothing_baked(
+    monkeypatch, tmp_path
+):
+    """A bundle frozen before momwire#1277 (or with the bake lost) still stamps
+    a version — the metadata's, which is what every bundle did before."""
+    _metadata_says(monkeypatch, lambda name: "0.66.0")
+    _freeze(monkeypatch, tmp_path, baked=None)
+    assert importlib.util.find_spec(mech.BUILD_VERSION_MODULE) is None
+    assert mech.momwire_version() == "0.66.0"
+    assert engine_stamp("bs2").split()[1] == "0.66.0"
+
+
+@pytest.mark.parametrize("baked", ["", "   ", None])
+def test_an_empty_or_missing_baked_value_is_not_a_version(monkeypatch, tmp_path, baked):
+    _metadata_says(monkeypatch, lambda name: "0.66.0")
+    _freeze(monkeypatch, tmp_path, baked="x")
+    sys.modules[mech.BUILD_VERSION_MODULE].VERSION = baked
+    assert mech.momwire_version() == "0.66.0"
+
+
+def test_a_source_install_never_reads_a_baked_module_even_one_on_the_path(
+    monkeypatch,
+):
+    """The baked constant is consulted ONLY under ``sys.frozen``: a stray
+    generated file reachable from a source checkout or a pip install cannot
+    outvote the metadata there."""
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    module = types.ModuleType(mech.BUILD_VERSION_MODULE)
+    module.VERSION = "9.8.7"
+    monkeypatch.setitem(sys.modules, mech.BUILD_VERSION_MODULE, module)
+    assert mech.momwire_version() == importlib.metadata.version("momwire")
+    assert engine_stamp("bs2").split()[1] == importlib.metadata.version("momwire")
+
+
+def test_a_clean_tree_carries_no_baked_file_and_the_metadata_answers():
+    """The generated module is never committed and never lives in the tree:
+    gitignored, absent from ``src/``, unimportable here — so in this checkout
+    the fallback is in charge, and the stamp is the installed metadata's."""
+    name = f"{mech.BUILD_VERSION_MODULE}.py"
+    assert name in (REPO / ".gitignore").read_text().splitlines()
+    assert not list((REPO / "src").rglob(name))
+    assert not (REPO / name).exists()
+    assert importlib.util.find_spec(mech.BUILD_VERSION_MODULE) is None
+    assert not getattr(sys, "frozen", False)
+    assert mech.momwire_version() == importlib.metadata.version("momwire")
+    assert mech.stale_versions(mech.momwire_version()) == []
+
+
+def test_build_py_bakes_what_the_readers_import(monkeypatch, tmp_path):
+    """``build.py`` restates the module name (it must not import the runtime
+    it freezes), so the two spellings are held equal here, and the file it
+    writes is imported back to prove it carries the version it was given."""
+    spec = importlib.util.spec_from_file_location("eznec_freeze_build_1277", BUILD_PY)
+    build = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build)
+    assert build.BUILD_VERSION_MODULE == mech.BUILD_VERSION_MODULE
+    monkeypatch.chdir(tmp_path)
+    where = build._bake_version("1.2.3")
+    baked = where / f"{mech.BUILD_VERSION_MODULE}.py"
+    assert baked.resolve().is_relative_to(tmp_path.resolve() / "build")
+    namespace: dict = {}
+    exec(baked.read_text(encoding="utf-8"), namespace)
+    assert namespace["VERSION"] == "1.2.3"
+
+
+def test_a_clean_bundle_stamps_no_overlay_marker(monkeypatch, tmp_path):
+    _plant(tmp_path, "0.68.0")
+    _freeze(monkeypatch, tmp_path, baked="0.68.0")
+    line = engine_stamp("bs2")
+    assert "stale" not in line
+    assert_stamped("1\n" + line + "\n", basis="bs2")
+
+
+def test_an_overlaid_bundle_keeps_its_version_and_says_it_is_mixed(
+    monkeypatch, tmp_path
+):
+    """The field report's exact shape: the stale 0.66.0 dist-info sorts first,
+    so the metadata answers 0.66.0 — and the stamp must not."""
+    _plant(tmp_path, "0.66.0", "0.68.0")
+    _freeze(monkeypatch, tmp_path, baked="0.68.0")
+    assert mech.bundle_dist_versions() == ["0.66.0", "0.68.0"]
+    line = engine_stamp("bs2")
+    assert line == (
+        f" momwire 0.68.0 bs2 {momwire.accelerator_variant or 'none'} (stale: 0.66.0)"
+    )
+    marker = " (stale: 0.66.0)"
+    assert_stamped("1\n" + line[: -len(marker)] + "\n", basis="bs2")
+
+
+def test_the_overlay_marker_survives_a_long_launcher_name(monkeypatch, tmp_path):
+    """The marker's room is reserved before the basis is cut: the user's
+    filename loses its tail, the warning does not."""
+    _plant(tmp_path, "0.66.0", "0.68.0")
+    _freeze(monkeypatch, tmp_path, baked="0.68.0")
+    line = engine_stamp("x" * 200)
+    assert len(line) < 80, line
+    assert line.endswith(" (stale: 0.66.0)"), line
+
+
+def test_many_stale_releases_are_counted_rather_than_listed(monkeypatch, tmp_path):
+    _plant(tmp_path, "0.60.0", "0.61.0", "0.62.0", "0.63.0", "0.68.0")
+    _freeze(monkeypatch, tmp_path, baked="0.68.0")
+    line = engine_stamp("bs2")
+    assert line.endswith(" (stale: 4 versions)"), line
+    assert len(line) < 80, line
+
+
+def test_overlay_detection_never_audits_a_non_frozen_install(tmp_path):
+    """Outside a bundle there is no ``_internal`` to audit and nothing to say;
+    an explicit ``base`` is still read, which is what the gates above use."""
+    _plant(tmp_path, "0.66.0", "0.68.0")
+    assert not getattr(sys, "frozen", False)
+    assert mech.bundle_dist_versions() == []
+    assert mech.bundle_dist_versions(str(tmp_path)) == ["0.66.0", "0.68.0"]
+    assert mech.stale_versions("0.68.0", str(tmp_path)) == ["0.66.0"]
+
+
+def test_an_unreadable_bundle_dir_detects_nothing_and_never_raises(
+    monkeypatch, tmp_path
+):
+    _freeze(monkeypatch, tmp_path / "does-not-exist", baked="0.68.0")
+    assert mech.bundle_dist_versions() == []
+    assert "stale" not in engine_stamp("bs2")
+
+
+def test_the_clients_version_probes_read_the_baked_version(monkeypatch, tmp_path):
+    """Both thin clients and the stamp have one owner for the number, so the
+    SimNEC ``-version`` lines move with the bake as well."""
+    import momwire_eznec_client
+    import momwire_nec2c_client
+
+    _metadata_says(monkeypatch, lambda name: "0.66.0")
+    _freeze(monkeypatch, tmp_path, baked="9.8.7")
+    assert momwire_nec2c_client.probe_version() == "NEC2 momwire-nec2c [sb] 9.8.7"
+    assert momwire_eznec_client.probe_version() == "NEC5 momwire-nec5 [sb] 9.8.7"
+
+
+# --------------------------------------------------------------------------
+# the metadata read without importing importlib.metadata (momwire#1445)
+# --------------------------------------------------------------------------
+#
+# A thin client is one call long, and `import importlib.metadata` was most of
+# it.  The scan in `momwire_serve_client` answers the plain layout itself and
+# defers everything else to the real reader, so the gates below hold two
+# things: on every plain layout the scan ANSWERS (it did not just defer, which
+# would make the equality the old reader compared with itself), and its answer
+# is the real reader's.  Each layout is its own `sys.path`.
+
+
+def _info(root: Path, dirname: str, filename: str, text: str) -> Path:
+    info = root / dirname
+    info.mkdir(parents=True, exist_ok=True)
+    (info / filename).write_text(text, encoding="utf-8", newline="")
+    return root
+
+
+def _meta(version: str, name: str = "momwire") -> str:
+    return f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n\nbody\n"
+
+
+def _both_readers(monkeypatch, entries: list[Path]) -> tuple[str, str]:
+    monkeypatch.setattr(sys, "path", [str(e) for e in entries])
+    importlib.invalidate_caches()
+    return mech._scan_metadata_version(), importlib.metadata.version("momwire")
+
+
+PLAIN_LAYOUTS = {
+    "one dist-info": lambda t: [
+        _info(t, "momwire-1.2.3.dist-info", "METADATA", _meta("1.2.3"))
+    ],
+    "first path entry wins": lambda t: [
+        _info(t / "a", "momwire-2.0.0.dist-info", "METADATA", _meta("2.0.0")),
+        _info(t / "b", "momwire-1.0.0.dist-info", "METADATA", _meta("1.0.0")),
+    ],
+    "a missing entry is skipped": lambda t: [
+        t / "absent",
+        _info(t / "b", "momwire-1.0.0.dist-info", "METADATA", _meta("1.0.0")),
+    ],
+    "the name is case-folded": lambda t: [
+        _info(t, "MomWire-3.1.0.dist-info", "METADATA", _meta("3.1.0", "MomWire"))
+    ],
+    "an egg-info answers from PKG-INFO": lambda t: [
+        _info(t, "momwire.egg-info", "PKG-INFO", _meta("0.9.1"))
+    ],
+    "another project's metadata is not momwire's": lambda t: [
+        _info(
+            t / "a",
+            "momwire_extra-9.0.0.dist-info",
+            "METADATA",
+            _meta("9.0.0", "momwire_extra"),
+        ),
+        _info(t / "a", "momwirex-8.0.0.dist-info", "METADATA", _meta("8.0.0", "x")),
+        _info(t / "b", "momwire-1.5.0.dist-info", "METADATA", _meta("1.5.0")),
+    ],
+    "the header name is case-insensitive": lambda t: [
+        _info(
+            t,
+            "momwire-4.0.0.dist-info",
+            "METADATA",
+            "Name: momwire\nVERSION:  4.0rc1\n",
+        )
+    ],
+    "CRLF endings": lambda t: [
+        _info(
+            t,
+            "momwire-5.0.0.dist-info",
+            "METADATA",
+            "Name: momwire\r\nVersion: 5.0.0\r\n\r\n",
+        )
+    ],
+}
+
+
+@pytest.mark.parametrize("layout", sorted(PLAIN_LAYOUTS))
+def test_the_scan_answers_plain_layouts_as_the_real_reader_does(
+    monkeypatch, tmp_path, layout
+):
+    scanned, real = _both_readers(monkeypatch, PLAIN_LAYOUTS[layout](tmp_path))
+    assert scanned == real
+
+
+def test_the_scan_follows_the_directory_listing_order_within_one_entry(
+    monkeypatch, tmp_path
+):
+    """The overlay case (momwire#1277) outside a bundle: two dist-infos in ONE
+    directory, and the real reader takes the first in ``os.listdir`` order,
+    unsorted.  Whichever that is, the scan must agree."""
+    for v in ("0.66.0", "0.68.0"):
+        _info(tmp_path, f"momwire-{v}.dist-info", "METADATA", _meta(v))
+    scanned, real = _both_readers(monkeypatch, [tmp_path])
+    assert scanned == real
+
+
+NOT_PLAIN_LAYOUTS = {
+    "a folded Version header": lambda t: [
+        _info(
+            t, "momwire-1.0.0.dist-info", "METADATA", "Name: momwire\nVersion: 1\n x\n"
+        )
+    ],
+    "no Version header": lambda t: [
+        _info(t, "momwire-1.0.0.dist-info", "METADATA", "Name: momwire\n\nVersion: 1\n")
+    ],
+    "no METADATA or PKG-INFO": lambda t: [
+        _info(t, "momwire-1.0.0.dist-info", "RECORD", "")
+    ],
+    "nothing installed": lambda t: [t],
+}
+
+
+@pytest.mark.parametrize("layout", sorted(NOT_PLAIN_LAYOUTS))
+def test_the_scan_defers_what_it_cannot_read_with_certainty(
+    monkeypatch, tmp_path, layout
+):
+    entries = NOT_PLAIN_LAYOUTS[layout](tmp_path)
+    monkeypatch.setattr(sys, "path", [str(e) for e in entries])
+    with pytest.raises(mech._NotPlain):
+        mech._scan_metadata_version()
+
+
+def test_a_zip_or_an_egg_on_the_path_is_left_to_the_real_reader(monkeypatch, tmp_path):
+    """Both are searched through ``zipfile``, which is the import the scan
+    exists to avoid — so it does not search them at all, and defers."""
+    archive = tmp_path / "bundle.zip"
+    archive.write_bytes(b"PK\x05\x06" + b"\0" * 18)
+    egg = tmp_path / "momwire-1.0.0-py3.egg"
+    egg.mkdir()
+    for entry in (archive, egg):
+        monkeypatch.setattr(sys, "path", [str(entry)])
+        with pytest.raises(mech._NotPlain):
+            mech._scan_metadata_version()
+
+
+def test_a_finder_that_answers_for_distributions_is_left_to_the_real_reader(
+    monkeypatch, tmp_path
+):
+    class Finder:
+        @staticmethod
+        def find_distributions(context=None):
+            return iter(())
+
+    root = _info(tmp_path, "momwire-1.0.0.dist-info", "METADATA", _meta("1.0.0"))
+    monkeypatch.setattr(sys, "meta_path", [Finder, *sys.meta_path])
+    monkeypatch.setattr(sys, "path", [str(root)])
+    with pytest.raises(mech._NotPlain):
+        mech._scan_metadata_version()
+
+
+def test_a_deferred_scan_still_gets_the_real_readers_answer(monkeypatch, tmp_path):
+    entries = NOT_PLAIN_LAYOUTS["a folded Version header"](tmp_path)
+    monkeypatch.setattr(sys, "path", [str(e) for e in entries])
+    importlib.invalidate_caches()
+    assert mech.momwire_version() == importlib.metadata.version("momwire")
+
+
+def test_this_install_is_answered_by_the_scan_itself():
+    """The suite's own install is the plain shape, so here the fast path is
+    the one that runs — not a deferral that happens to agree."""
+    assert mech._scan_metadata_version() == importlib.metadata.version("momwire")
+
+
+def test_a_thin_client_keys_its_server_without_importing_importlib_metadata():
+    """The point of the scan: each client's whole hot path — ``config_key``,
+    which is ``dist_version`` plus a digest — never loads the module."""
+    import subprocess
+
+    probe = (
+        "import sys, momwire_eznec_client as c, momwire_nec2c_client as n;"
+        "c.config_key(None, 900.0); n.config_key(['x'], 900.0);"
+        "print('importlib.metadata' in sys.modules)"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+    assert out.stdout.strip() == "False", out.stderr
+
+
+def test_the_stamp_reads_the_version_once_per_process(monkeypatch):
+    calls = []
+
+    def counted():
+        calls.append(1)
+        return "1.2.3"
+
+    monkeypatch.setattr(mech, "momwire_version", counted)
+    first = engine_stamp("bs2")
+    second = engine_stamp("razor2p")
+    assert first.split()[1] == second.split()[1] == "1.2.3"
+    assert len(calls) == 1

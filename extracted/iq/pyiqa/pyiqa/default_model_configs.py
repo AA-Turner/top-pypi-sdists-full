@@ -1,3 +1,5 @@
+"""Default architecture options and score metadata for supported metrics."""
+
 from collections import OrderedDict
 
 # IMPORTANT NOTES !!!
@@ -88,6 +90,24 @@ DEFAULT_CONFIGS = OrderedDict(
             'metric_mode': 'FR',
             'lower_better': True,
             'score_range': '0, 1',
+        },
+        'jld': {
+            'metric_opts': {
+                'type': 'JLD',
+                'variant': 'full',
+            },
+            'metric_mode': 'FR',
+            'lower_better': True,
+            'score_range': '0, +inf',
+        },
+        'jld_fast': {
+            'metric_opts': {
+                'type': 'JLD',
+                'variant': 'fast',
+            },
+            'metric_mode': 'FR',
+            'lower_better': True,
+            'score_range': '0, +inf',
         },
         'deepdc': {
             'metric_opts': {

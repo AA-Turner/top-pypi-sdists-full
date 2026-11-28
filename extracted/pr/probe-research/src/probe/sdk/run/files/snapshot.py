@@ -201,7 +201,7 @@ class SnapshotMixin:
                 f"{os.path.abspath(cwd or os.getcwd())}, and the interpreter "
                 f"({env_provenance.get('python_executable')}) is outside it. "
                 "Recording its packages would describe the launcher, not the "
-                "run. Pass venv=... (CLI: --venv PATH), or activate the "
+                "run. Pass --venv PATH (SDK: venv=...), or activate the "
                 "environment the code runs in.",
                 stacklevel=3,
             )

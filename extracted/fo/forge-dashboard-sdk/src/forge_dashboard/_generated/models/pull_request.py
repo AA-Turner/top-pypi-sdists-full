@@ -92,6 +92,10 @@ class PullRequest:
                 have counts of their own, `cancelled` and `held`, and are never in
                 `failed`: a push or a concurrency group superseded a cancelled run, and
                 the overall state does not read it as a failure while others still run.
+                On a GitHub pull request, a cancelled run is in no count and not in the
+                pipeline's list when a later run of the same workflow, started by the
+                same event, has a check of the same name that passed, failed or is not
+                finished.
                 A held run is also said by `awaitingWorkflowApproval`. Every check the
                 pipeline lists is in exactly one count, so the counts add up to the
                 jobs the pipeline lists, on a pull request and a default branch alike.
@@ -370,9 +374,9 @@ class PullRequest:
                 dashboard's `queuedActions`.
             pending_checks (list[str] | Unset): The checks the pull request waits on that no job in its pipeline
                 shows, by name: a pending commit status from an external CI, or a
-                check the base branch requires that nothing has reported yet. A
-                required check nothing has reported counts as `waiting` in
-                `checks`, and `ci` reads `pending` for it. A client that says why
+                check the base branch requires that nothing has reported yet. `ci`
+                reads `pending` for such a required check, and on Forgejo it also
+                counts as `waiting` in `checks`. A client that says why
                 Merge is locked can name them. A fact only; the client decides how
                 to say it. Absent when there are none, or when the forge can't say
                 (Forgejo needs admin on the repository to read its branch rules).
@@ -380,8 +384,9 @@ class PullRequest:
                 the status-check patterns of the branch rule that no status
                 matches, only for a pull request whose statuses all passed. On
                 GitHub they are the required contexts the head commit hasn't
-                reported, when the rollup says success while the pull request is
-                blocked.
+                reported, while the pull request is blocked and either the rollup
+                says success or the commit has no check at all, as just after a
+                push.
             last_comment_at (datetime.datetime | Unset): When the newest comment on the pull request was written (RFC
                 3339), its creation time: an edit is not new activity. It covers
                 conversation comments and review comments alike. Absent when

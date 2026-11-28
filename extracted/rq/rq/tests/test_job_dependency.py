@@ -22,8 +22,11 @@ class TestJobDependency(RQTestCase):
         dep_job = Job.create(func=fixtures.say_hello, connection=self.connection)
         # raise error on empty jobs
         self.assertRaises(ValueError, Dependency, jobs=[])
-        # raise error on non-str/Job value in jobs iterable
-        self.assertRaises(ValueError, Dependency, jobs=[dep_job, 1])
+        # raise error on non-str/Job value in jobs iterable, naming the bad type
+        self.assertRaisesRegex(ValueError, "not <class 'int'>", Dependency, jobs=[dep_job, 1])
+        # None is invalid too, and is reported before later invalid items
+        self.assertRaisesRegex(ValueError, "not <class 'NoneType'>", Dependency, jobs=[None])
+        self.assertRaisesRegex(ValueError, "not <class 'NoneType'>", Dependency, jobs=[None, 1])
 
     def test_multiple_dependencies_are_accepted_and_persisted(self):
         """Ensure job._dependency_ids accepts different input formats, and
@@ -79,7 +82,7 @@ class TestJobDependency(RQTestCase):
 
     def test_job_with_dependents_delete_parent(self):
         """job.delete() deletes itself from Redis but not dependents.
-        Wthout a save, the dependent job is never saved into redis. The delete
+        Without a save, the dependent job is never saved into redis. The delete
         method will get and pass a NoSuchJobError.
         """
         queue = Queue(connection=self.connection, serializer=JSONSerializer)
@@ -139,7 +142,7 @@ class TestJobDependency(RQTestCase):
 
     def test_job_with_dependents_delete_all_with_saved(self):
         """job.delete() deletes itself from Redis. Dependents need to be
-        deleted explictely. Without a save, the dependent job is never saved
+        deleted explicitly. Without a save, the dependent job is never saved
         into redis. The delete method will get and pass a NoSuchJobError.
         """
         queue = Queue(connection=self.connection, serializer=JSONSerializer)

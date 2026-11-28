@@ -13,6 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from probe.foundation.compat.compat import StrEnum
+from ..evidence import CompactEvidence, GradeStatus, SampleEvidence
 from ..outcome import SampleOutcome, SampleSplit
 from ..provenance import Scorer
 from ..samples import BranchCause, EnvironmentLink, FinishReason, Timing, TrialFile
@@ -42,6 +43,21 @@ class EpisodeReward(BaseModel):
     count: int = 0
 
 
+class EpisodeRewardPoint(BaseModel):
+    step: int
+    reward: float | None
+    total: int
+    reported: int
+    graded: int
+    ungraded: int
+    unknown: int
+
+
+class EpisodeRewardCurve(BaseModel):
+    points: list[EpisodeRewardPoint]
+    evidence_snapshot: str
+
+
 class EpisodeLabels(BaseModel):
     """What every row of one episode shares."""
 
@@ -51,6 +67,7 @@ class EpisodeLabels(BaseModel):
     step: int | None = None
     task_id: UUID
     task_key: str
+    task_name: str | None = None
     #: The Part column.
     split: SampleSplit
     environment_name: str | None = None
@@ -66,6 +83,10 @@ class EpisodeRow(EpisodeLabels):
     """One row of the Episodes tab: the drawn columns, then the Display popover's extras."""
 
     rollouts: int
+    grade_status: GradeStatus = GradeStatus.UNKNOWN
+    #: The explicit grader verdict when every included sample agrees. Mixed or absent evidence has no verdict.
+    grade_passed: bool | None = None
+    recorded_reward: EpisodeReward | None = None
     state: EpisodeState
     status: EpisodeStatus
     #: The exact reason behind the state (an error reason, finish reason, drop or live phase).
@@ -82,6 +103,9 @@ class RolloutRow(EpisodeLabels):
     """One rollout, for the `recent_rollouts` grouping (newest first, not piled into episodes)."""
 
     attempt_key: str
+    grade_status: GradeStatus = GradeStatus.UNKNOWN
+    #: The explicit grader verdict when every included sample agrees. Mixed or absent evidence has no verdict.
+    grade_passed: bool | None = None
     #: '' or None reads "Agent".
     agent: str | None = None
     is_trained: bool | None = None
@@ -110,6 +134,7 @@ class EpisodeList(BaseModel):
     #: Every step that has episodes, ascending, and the newest of them (the bar's "Latest").
     steps: list[int] = Field(default_factory=list)
     latest_step: int | None = None
+    evidence_snapshot: str | None = None
     group_by: EpisodeGrouping = EpisodeGrouping.EPISODE
     episodes: list[EpisodeRow] = Field(default_factory=list)
     #: The `recent_rollouts` grouping's rows (empty otherwise).
@@ -124,6 +149,7 @@ class TurnState(StrEnum):
     """A turn's colour on the timeline: ended normally, a tool call in it failed, or it ended the rollout with an error."""
 
     OK = "ok"
+    UNKNOWN = "unknown"
     TOOL_FAILED = "tool_failed"
     ENDED_WITH_ERROR = "ended_with_error"
 
@@ -151,6 +177,8 @@ class EpisodeBranch(BaseModel):
 
     index: int
     sample_id: UUID
+    #: One graph per original sample. Shared prefixes are transmitted once.
+    evidence: SampleEvidence | None = None
     key: str
     started_by: BranchCause | None = None
     parent_branch: int | None = None
@@ -173,7 +201,7 @@ class RolloutActivity(BaseModel):
 
     turns: int = 0
     tool_calls: int = 0
-    tool_errors: int = 0
+    tool_errors: int | None = None
     branches: int = 1
 
 
@@ -202,6 +230,7 @@ class EpisodeRollout(BaseModel):
     JSON the script and environment wrote (`timing`, `metrics`, `extras`)."""
 
     attempt_key: str
+    evidence_summary: CompactEvidence | None = None
     agent: str | None = None
     is_trained: bool | None = None
     state: EpisodeState

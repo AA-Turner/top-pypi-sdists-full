@@ -182,6 +182,9 @@ class EntityType(StrEnum):
     # One titled SUB-NOTE (0146) by its own UUID, `sub_note:<id>` (the id a `notes` view row carries); its
     # card IS the document. Before, `view="notes"` showed a 700-char excerpt and pointed at the dashboard.
     SUB_NOTE = "sub_note"
+    # A SAVED paper (0152) by its Probe UUID, `paper:<id>`: its card is the row plus its digest. A public
+    # literature id from `find_papers` (`arxiv:...`) is NOT one: those are named by their link.
+    PAPER = "paper"
     # The data catalog (C3/C4), by PREFIX only, never a bare id: `dataset:<name>[@<N>|@latest]` /
     # `dataset:<uuid>`, `source:<uuid>` / `source:<canonical_key>[@<revision>]`, `checkpoint:<uuid>` /
     # `checkpoint:<run ref>@best[:<callback>]|latest|step<N>`. The server resolves every form

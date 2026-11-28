@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: texttable
-Version: 1.7.3
+Version: 1.7.4
 Summary: module to create simple ASCII tables
 Home-page: https://github.com/foutaise/texttable/
-Download-URL: https://github.com/foutaise/texttable/archive/v1.7.3.tar.gz
+Download-URL: https://github.com/foutaise/texttable/archive/v1.7.4.tar.gz
 Author: Gerome Fournier
 Author-email: jef@foutaise.org
 License: MIT
@@ -22,11 +22,18 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
 Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: author
@@ -263,10 +270,10 @@ DATA
     __author__ = 'Gerome Fournier <jef(at)foutaise.org>'
     __credits__ = 'Jeff Kowalczyk:\n    - textwrap improved import\n ...at...
     __license__ = 'MIT'
-    __version__ = '1.7.3'
+    __version__ = '1.7.4'
 
 VERSION
-    1.7.3
+    1.7.4
 
 AUTHOR
     Gerome Fournier <jef(at)foutaise.org>

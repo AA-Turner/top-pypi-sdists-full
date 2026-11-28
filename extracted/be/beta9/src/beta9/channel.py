@@ -3,6 +3,7 @@ import functools
 import hashlib
 import os
 from importlib.metadata import PackageNotFoundError, version
+import ssl
 import sys
 import threading
 import time
@@ -49,6 +50,22 @@ _deadline = ContextVar("beta9_rpc_deadline", default=None)
 request_metadata = ContextVar("beta9_request_metadata", default=())
 _acks = OrderedDict()
 _ack_lock = threading.Lock()
+# A token always resolves to the same workspace, so clients built from the same
+# profile share one resolved REST client and its warm connection pool, and one
+# gRPC channel, which would otherwise pay its own TLS handshake per client. A
+# forked child must not reuse the parent's sockets.
+_shared_http: dict = {}
+_shared_http_lock = threading.Lock()
+_shared_channels: dict = {}
+
+
+def _reset_shared_http() -> None:
+    global _shared_http, _shared_http_lock, _shared_channels
+    _shared_http, _shared_http_lock, _shared_channels = {}, threading.Lock(), {}
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_shared_http)
 RECOVERY_TIMEOUT = 120.0
 RECOVERY_INITIAL_DELAY = 0.2
 RECOVERY_BACKOFF_MULTIPLIER = 1.5
@@ -196,6 +213,7 @@ class Channel(InterceptorChannel):
         super().__init__(channel=channel, interceptor=interceptor)
         # Channels to the same gateway with the same token share caches keyed on this.
         self.cache_key = hashlib.sha256(f"{addr}\n{token or ''}".encode()).hexdigest()
+        self.shared = False
         _channels.add(self)
 
     def close(self) -> None:
@@ -514,7 +532,6 @@ class ServiceClient:
         self._disk: Optional[DiskServiceStub] = None
         self._secret: Optional[SecretServiceStub] = None
         self._http: Optional["GatewayHTTP"] = None
-        self._vm_http: Optional["GatewayHTTP"] = None
 
     def __enter__(self) -> "ServiceClient":
         return self
@@ -531,7 +548,7 @@ class ServiceClient:
     @property
     def channel(self) -> Channel:
         if not self._channel:
-            self._channel = get_channel(self._config)
+            self._channel = self._shared_channel()
         return self._channel
 
     @channel.setter
@@ -540,37 +557,79 @@ class ServiceClient:
             raise ValueError("Invalid channel")
         self._channel = value
 
+    def _shared_channel(self) -> Channel:
+        profile = self._config
+        if not profile or not profile.token:
+            return get_channel(profile)
+        key = (profile.gateway_host, int(profile.gateway_port or 0), profile.token)
+        with _shared_http_lock:
+            channel = _shared_channels.get(key)
+            if channel is None:
+                channel = get_channel(profile)
+                channel.shared = True
+                _shared_channels[key] = channel
+        return channel
+
     @property
     def http(self) -> "GatewayHTTP":
-        """REST access to the same gateway, resolved once per client."""
-        if not self._http:
-            config = self.gateway.export_workspace_config(ExportWorkspaceConfigRequest())
-            scheme = "https" if config.gateway_http_tls else "http"
-            base_url = self._config.api_url if self._config and self._config.api_url else None
-            self._http = GatewayHTTP(
-                base_url=(
-                    base_url or f"{scheme}://{config.gateway_http_host}:{config.gateway_http_port}"
-                ).rstrip("/"),
-                workspace_id=config.workspace_id,
-                token=(self._config.token if self._config else "") or self.channel.config.token,
-                persistent_vms=config.persistent_vms,
-            )
+        """REST access to the same gateway, resolved once per profile in this process."""
+        if self._http:
+            return self._http
+        profile = self._config
+        if not profile or not profile.token:
+            self._http = self._resolve_http()
+            return self._http
+        key = (profile.gateway_host, int(profile.gateway_port or 0), profile.api_url, profile.token)
+        with _shared_http_lock:
+            entry = _shared_http.setdefault(key, [threading.Lock(), None])
+        with entry[0]:
+            if entry[1] is None:
+                base_url = self._known_api_url()
+                if base_url:
+                    # VM routes need no discovery; the workspace is resolved
+                    # when something else needs it.
+                    entry[1] = GatewayHTTP(
+                        base_url, None, profile.token, resolve=self._resolve_workspace
+                    )
+                else:
+                    entry[1] = self._resolve_http()
+                entry[1].shared = True
+        self._http = entry[1]
         return self._http
+
+    def _known_api_url(self) -> Optional[str]:
+        config, settings = self._config, get_settings()
+        base_url = config.api_url
+        if not base_url and (config.gateway_host, int(config.gateway_port or 0)) == (
+            settings.gateway_host,
+            int(settings.gateway_port),
+        ):
+            base_url = settings.api_url
+        return base_url.rstrip("/") if base_url else None
+
+    def _resolve_workspace(self) -> Tuple[str, bool]:
+        config = self.gateway.export_workspace_config(ExportWorkspaceConfigRequest())
+        return config.workspace_id, config.persistent_vms
+
+    def _resolve_http(self) -> "GatewayHTTP":
+        config = self.gateway.export_workspace_config(ExportWorkspaceConfigRequest())
+        scheme = "https" if config.gateway_http_tls else "http"
+        base_url = self._config.api_url if self._config and self._config.api_url else None
+        return GatewayHTTP(
+            base_url=(
+                base_url or f"{scheme}://{config.gateway_http_host}:{config.gateway_http_port}"
+            ).rstrip("/"),
+            workspace_id=config.workspace_id,
+            token=(self._config.token if self._config else "") or self.channel.config.token,
+            persistent_vms=config.persistent_vms,
+        )
 
     @property
     def vm_http(self) -> Optional["GatewayHTTP"]:
-        """Direct VM REST access when this profile already identifies the API."""
-        if self._vm_http is None and self._config:
-            config, settings = self._config, get_settings()
-            base_url = config.api_url
-            if not base_url and (config.gateway_host, int(config.gateway_port or 0)) == (
-                settings.gateway_host,
-                int(settings.gateway_port),
-            ):
-                base_url = settings.api_url
-            if base_url and config.token:
-                self._vm_http = GatewayHTTP(base_url.rstrip("/"), "self", config.token)
-        return self._vm_http
+        """VM REST access without discovery, when this profile already identifies the API."""
+        if self._config and self._config.token and self._known_api_url():
+            return self.http
+        return None
 
     @property
     def gateway(self) -> GatewayServiceStub:
@@ -597,12 +656,44 @@ class ServiceClient:
         return self._secret
 
     def close(self) -> None:
-        if self._vm_http:
-            self._vm_http.close()
-        if self._http:
+        if self._http and not self._http.shared:
             self._http.close()
-        if self._channel:
+        if self._channel and not self._channel.shared:
             self._channel.close()
+        # A shared REST client may still resolve its workspace through this
+        # client, which then opens a new channel.
+        self._channel = self._gateway = self._volume = self._disk = self._secret = None
+
+
+class _VerifiedHTTPSAdapter(requests.adapters.HTTPAdapter):
+    """
+    requests reloads the CA bundle into every new connection, and concurrent
+    reloads serialize on OpenSSL's certificate store: twenty threads opening
+    connections at once take seconds. This loads it once. urllib3 sets
+    verify_mode on the context it is given, so only default verification uses
+    the shared context; other settings get a standard adapter.
+    """
+
+    def __init__(self, **kwargs):
+        self._context = ssl.create_default_context(cafile=requests.utils.DEFAULT_CA_BUNDLE_PATH)
+        self._standard = requests.adapters.HTTPAdapter(**kwargs)
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        kwargs["ssl_context"] = self._context
+        return super().init_poolmanager(*args, **kwargs)
+
+    def cert_verify(self, conn, url, verify, cert):
+        pass
+
+    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):
+        if verify is not True or cert or proxies:
+            return self._standard.send(request, stream, timeout, verify, cert, proxies)
+        return super().send(request, stream, timeout, verify, cert, proxies)
+
+    def close(self):
+        self._standard.close()
+        super().close()
 
 
 class GatewayHTTP:
@@ -612,20 +703,68 @@ class GatewayHTTP:
     actions are attributed like gRPC calls.
     """
 
-    def __init__(self, base_url: str, workspace_id: str, token: str, *, persistent_vms=False):
+    def __init__(
+        self,
+        base_url: str,
+        workspace_id: Optional[str],
+        token: str,
+        *,
+        persistent_vms=False,
+        resolve: Optional[Callable[[], Tuple[str, bool]]] = None,
+    ):
         self.base_url = base_url
-        self.workspace_id = workspace_id
-        self.persistent_vms = persistent_vms
+        self._workspace_id = workspace_id
+        self._persistent_vms = persistent_vms
+        self._resolve = resolve
+        self._resolve_lock = threading.Lock()
+        self.shared = False
         self.headers = {"Authorization": f"Bearer {token}", **dict(caller_metadata())}
         self._session = requests.Session()
+        self._session.mount("https://", _VerifiedHTTPSAdapter(pool_connections=64, pool_maxsize=64))
+        self._session.mount(
+            "http://", requests.adapters.HTTPAdapter(pool_connections=64, pool_maxsize=64)
+        )
+
+    @property
+    def workspace_id(self) -> str:
+        self._resolve_workspace()
+        return self._workspace_id
+
+    @property
+    def persistent_vms(self) -> bool:
+        self._resolve_workspace()
+        return self._persistent_vms
+
+    def _resolve_workspace(self) -> None:
+        if self._resolve is None:
+            return
+        with self._resolve_lock:
+            if self._resolve is not None:
+                self._workspace_id, self._persistent_vms = self._resolve()
+                self._resolve = None
+
+    def _aliased(self, path: str) -> bool:
+        # VM routes accept "self" for the token's workspace (gateway #2018).
+        return self._resolve is not None and path.startswith("/api/v1/vm/{ws}")
 
     def url(self, path: str) -> str:
+        if self._aliased(path):
+            return self.base_url + path.replace("{ws}", "self", 1)
         return self.base_url + path.replace("{ws}", self.workspace_id)
 
     def request(self, method: str, path: str, timeout: float = 60, **kwargs):
-        return self._session.request(
+        aliased = self._aliased(path)
+        response = self._session.request(
             method, self.url(path), headers=self.headers, timeout=timeout, **kwargs
         )
+        # Older gateways take "self" for a workspace id the token doesn't own.
+        if aliased and response.status_code in (401, 404):
+            self._resolve_workspace()
+            response.close()
+            response = self._session.request(
+                method, self.url(path), headers=self.headers, timeout=timeout, **kwargs
+            )
+        return response
 
     def close(self):
         self._session.close()

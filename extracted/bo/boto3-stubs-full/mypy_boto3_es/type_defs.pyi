@@ -102,6 +102,9 @@ __all__ = (
     "CancelElasticsearchServiceSoftwareUpdateRequestTypeDef",
     "CancelElasticsearchServiceSoftwareUpdateResponseTypeDef",
     "CancelledChangePropertyTypeDef",
+    "CatalogConfigurationTypeDef",
+    "CatalogOptionsStatusTypeDef",
+    "CatalogOptionsTypeDef",
     "ChangeProgressDetailsTypeDef",
     "ChangeProgressStageTypeDef",
     "ChangeProgressStatusDetailsTypeDef",
@@ -242,10 +245,12 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RetentionOptionsTypeDef",
     "RevokeVpcEndpointAccessRequestTypeDef",
+    "S3TablesEncryptionConfigurationTypeDef",
     "SAMLIdpTypeDef",
     "SAMLOptionsInputTypeDef",
     "SAMLOptionsOutputTypeDef",
     "ScheduledAutoTuneDetailsTypeDef",
+    "ServiceManagedS3TablesCatalogTypeDef",
     "ServiceSoftwareOptionsTypeDef",
     "SnapshotOptionsStatusTypeDef",
     "SnapshotOptionsTypeDef",
@@ -660,6 +665,10 @@ class RevokeVpcEndpointAccessRequestTypeDef(TypedDict):
     DomainName: str
     Account: str
 
+class S3TablesEncryptionConfigurationTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    KmsKeyArn: NotRequired[str]
+
 class SAMLIdpTypeDef(TypedDict):
     MetadataContent: str
     EntityId: str
@@ -1008,6 +1017,9 @@ class ReservedElasticsearchInstanceTypeDef(TypedDict):
     PaymentOption: NotRequired[ReservedElasticsearchInstancePaymentOptionType]
     RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
 
+class ServiceManagedS3TablesCatalogTypeDef(TypedDict):
+    EncryptionConfiguration: NotRequired[S3TablesEncryptionConfigurationTypeDef]
+
 class SAMLOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     Idp: NotRequired[SAMLIdpTypeDef]
@@ -1172,6 +1184,9 @@ class DescribeReservedElasticsearchInstancesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class CatalogConfigurationTypeDef(TypedDict):
+    ServiceManagedS3Tables: NotRequired[ServiceManagedS3TablesCatalogTypeDef]
+
 class AdvancedSecurityOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     InternalUserDatabaseEnabled: NotRequired[bool]
@@ -1229,9 +1244,44 @@ class DescribeDomainChangeProgressResponseTypeDef(TypedDict):
     ChangeProgressStatus: ChangeProgressStatusDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CatalogOptionsTypeDef(TypedDict):
+    Enabled: bool
+    Catalog: NotRequired[CatalogConfigurationTypeDef]
+
 class AdvancedSecurityOptionsStatusTypeDef(TypedDict):
     Options: AdvancedSecurityOptionsTypeDef
     Status: OptionStatusTypeDef
+
+class DescribeElasticsearchInstanceTypeLimitsResponseTypeDef(TypedDict):
+    LimitsByRole: dict[str, LimitsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CatalogOptionsStatusTypeDef(TypedDict):
+    Options: NotRequired[CatalogOptionsTypeDef]
+    Status: NotRequired[OptionStatusTypeDef]
+
+class CreateElasticsearchDomainRequestTypeDef(TypedDict):
+    DomainName: str
+    ElasticsearchVersion: NotRequired[str]
+    ElasticsearchClusterConfig: NotRequired[ElasticsearchClusterConfigTypeDef]
+    EBSOptions: NotRequired[EBSOptionsTypeDef]
+    AccessPolicies: NotRequired[str]
+    SnapshotOptions: NotRequired[SnapshotOptionsTypeDef]
+    VPCOptions: NotRequired[VPCOptionsTypeDef]
+    CognitoOptions: NotRequired[CognitoOptionsTypeDef]
+    EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
+    NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
+    AdvancedOptions: NotRequired[Mapping[str, str]]
+    LogPublishingOptions: NotRequired[Mapping[LogTypeType, LogPublishingOptionTypeDef]]
+    CatalogOptions: NotRequired[CatalogOptionsTypeDef]
+    DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
+    AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsInputTypeDef]
+    AutoTuneOptions: NotRequired[AutoTuneOptionsInputTypeDef]
+    TagList: NotRequired[Sequence[TagTypeDef]]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
+    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[DomainEngineModeType]
 
 class ElasticsearchDomainStatusTypeDef(TypedDict):
     DomainId: str
@@ -1254,6 +1304,7 @@ class ElasticsearchDomainStatusTypeDef(TypedDict):
     NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
     AdvancedOptions: NotRequired[dict[str, str]]
     LogPublishingOptions: NotRequired[dict[LogTypeType, LogPublishingOptionTypeDef]]
+    CatalogOptions: NotRequired[CatalogOptionsTypeDef]
     ServiceSoftwareOptions: NotRequired[ServiceSoftwareOptionsTypeDef]
     DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
     AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsTypeDef]
@@ -1263,32 +1314,6 @@ class ElasticsearchDomainStatusTypeDef(TypedDict):
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsTypeDef]
-    UseCase: NotRequired[DomainUseCaseType]
-    EngineMode: NotRequired[DomainEngineModeType]
-
-class DescribeElasticsearchInstanceTypeLimitsResponseTypeDef(TypedDict):
-    LimitsByRole: dict[str, LimitsTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateElasticsearchDomainRequestTypeDef(TypedDict):
-    DomainName: str
-    ElasticsearchVersion: NotRequired[str]
-    ElasticsearchClusterConfig: NotRequired[ElasticsearchClusterConfigTypeDef]
-    EBSOptions: NotRequired[EBSOptionsTypeDef]
-    AccessPolicies: NotRequired[str]
-    SnapshotOptions: NotRequired[SnapshotOptionsTypeDef]
-    VPCOptions: NotRequired[VPCOptionsTypeDef]
-    CognitoOptions: NotRequired[CognitoOptionsTypeDef]
-    EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
-    NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
-    AdvancedOptions: NotRequired[Mapping[str, str]]
-    LogPublishingOptions: NotRequired[Mapping[LogTypeType, LogPublishingOptionTypeDef]]
-    DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
-    AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsInputTypeDef]
-    AutoTuneOptions: NotRequired[AutoTuneOptionsInputTypeDef]
-    TagList: NotRequired[Sequence[TagTypeDef]]
-    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
-    AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
     UseCase: NotRequired[DomainUseCaseType]
     EngineMode: NotRequired[DomainEngineModeType]
 
@@ -1302,6 +1327,7 @@ class UpdateElasticsearchDomainConfigRequestTypeDef(TypedDict):
     AdvancedOptions: NotRequired[Mapping[str, str]]
     AccessPolicies: NotRequired[str]
     LogPublishingOptions: NotRequired[Mapping[LogTypeType, LogPublishingOptionTypeDef]]
+    CatalogOptions: NotRequired[CatalogOptionsTypeDef]
     DomainEndpointOptions: NotRequired[DomainEndpointOptionsTypeDef]
     AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsInputTypeDef]
     NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsTypeDef]
@@ -1325,6 +1351,7 @@ class ElasticsearchDomainConfigTypeDef(TypedDict):
     NodeToNodeEncryptionOptions: NotRequired[NodeToNodeEncryptionOptionsStatusTypeDef]
     AdvancedOptions: NotRequired[AdvancedOptionsStatusTypeDef]
     LogPublishingOptions: NotRequired[LogPublishingOptionsStatusTypeDef]
+    CatalogOptions: NotRequired[CatalogOptionsStatusTypeDef]
     DomainEndpointOptions: NotRequired[DomainEndpointOptionsStatusTypeDef]
     AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsStatusTypeDef]
     AutoTuneOptions: NotRequired[AutoTuneOptionsStatusTypeDef]

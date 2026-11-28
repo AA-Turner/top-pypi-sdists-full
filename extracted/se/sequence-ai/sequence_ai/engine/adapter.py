@@ -501,7 +501,7 @@ class RegisteredAdapter:
         self._primed.pop(episode_id, None)
 
     def robot_view(self, episode_id: str) -> dict | None:
-        """What this copy holds of an episode now, for the Machines page: its newest step, each
+        """What this copy holds of an episode now, for `seq robot show` and the robot's page: its newest step, each
         camera's newest frame as a small JPEG, and its plans - None for an episode it holds nothing of. Made only while
         someone looks, off any act's path."""
         try:

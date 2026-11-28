@@ -17,6 +17,7 @@ namespace sogen
     struct process_context;
     struct vcpu_context;
     struct windows_arch_abi;
+    class object_wait_list;
 
     // A raw-input payload is keyed by the HRAWINPUT token posted in WM_INPUT's lParam.
     struct raw_input_payload
@@ -299,6 +300,30 @@ namespace sogen
         uint64_t generation{};
     };
 
+    struct stepped_instruction
+    {
+        uint64_t address{};
+        std::array<uint8_t, 16> bytes{};
+        uint8_t length{};
+        bool is_32bit{};
+
+        void serialize(utils::buffer_serializer& buffer) const
+        {
+            buffer.write(this->address);
+            buffer.write(this->bytes);
+            buffer.write(this->length);
+            buffer.write(this->is_32bit);
+        }
+
+        void deserialize(utils::buffer_deserializer& buffer)
+        {
+            buffer.read(this->address);
+            buffer.read(this->bytes);
+            buffer.read(this->length);
+            buffer.read(this->is_32bit);
+        }
+    };
+
     struct pending_io_completion_wait
     {
         object_reference io_completion{};
@@ -424,6 +449,7 @@ namespace sogen
         NtUserFillWindow,
         NtUserCallNextHookEx,
         NtUserCallMsgFilter,
+        NtUserMoveWindow,
     };
 
     struct callback_frame
@@ -588,6 +614,7 @@ namespace sogen
 
         ~emulator_thread() override
         {
+            this->unlink_object_wait();
             this->release();
         }
 
@@ -620,6 +647,8 @@ namespace sogen
         std::vector<object_reference> await_objects{};
         // await_objects' objects as last looked up, one per reference. Not serialized; a restored thread looks them up again.
         std::vector<cached_wait_object> await_object_cache{};
+        // Not serialized: the objects keep their lists' order.
+        std::vector<object_wait_list*> await_object_lists{};
         bool await_any{false};
         bool waiting_for_alert{false};
         // Set while a vCPU moves this thread's registers in or out with the kernel lock released. The thread must not
@@ -694,6 +723,8 @@ namespace sogen
         // Set while the thread has not run since it was created or a context was written to it: what KxContextToKframes
         // left in its trap frame, which its context shows until it returns to user mode.
         std::optional<trap_frame_registers> trap_frame{};
+        bool steps_on_branches{};
+        std::optional<stepped_instruction> next_branch_step{};
 
         bool debugger_hide{false};
 
@@ -798,6 +829,7 @@ namespace sogen
             if (this->is_in_alertable_wait())
             {
                 this->user_apc_ended_wait = true;
+                this->unlink_object_wait();
             }
         }
 
@@ -843,9 +875,13 @@ namespace sogen
         bool is_terminated() const;
 
         bool is_thread_ready(windows_emulator& win_emu);
-        // Whether the scheduler can pass this thread by without is_thread_ready: it waits for its alert, a delay or an I/O
-        // completion port, and at now nothing has come that could end the wait (alert, APC, packet, port closed, due time).
         bool is_parked(std::chrono::steady_clock::time_point now, const process_context& process) const;
+
+        void link_object_wait(windows_emulator& win_emu);
+        void unlink_object_wait();
+        void satisfy_object_wait(uint32_t index, bool abandoned);
+        // KiResumeThread: the wait goes back to the tails of its objects' lists.
+        void resume_object_wait(windows_emulator& win_emu);
 
         void save(cpu_interface& emu)
         {
@@ -941,6 +977,8 @@ namespace sogen
 
             buffer.write_vector(this->last_registers);
             buffer.write_optional(this->trap_frame);
+            buffer.write(this->steps_on_branches);
+            buffer.write_optional(this->next_branch_step);
 
             buffer.write(this->debugger_hide);
 
@@ -1040,6 +1078,8 @@ namespace sogen
 
             buffer.read_vector(this->last_registers);
             buffer.read_optional(this->trap_frame);
+            buffer.read(this->steps_on_branches);
+            buffer.read_optional(this->next_branch_step);
 
             buffer.read(this->debugger_hide);
 

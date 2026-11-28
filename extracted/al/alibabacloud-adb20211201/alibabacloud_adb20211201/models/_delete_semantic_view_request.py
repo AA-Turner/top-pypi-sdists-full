@@ -11,15 +11,15 @@ class DeleteSemanticViewRequest(DaraModel):
         schema_name: str = None,
         view_name: str = None,
     ):
-        # The ID of the ADB cluster.
+        # The ADB cluster ID.
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id
-        # The name of the schema.
+        # The schema name.
         # 
         # This parameter is required.
         self.schema_name = schema_name
-        # The name of the semantic view.
+        # The semantic view name.
         # 
         # This parameter is required.
         self.view_name = view_name

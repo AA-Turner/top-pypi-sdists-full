@@ -904,6 +904,138 @@ def test_integration_surfaces_missing_check(tmp_path: Path) -> None:
         load(p)
 
 
+# ── tranche (#4129/#4199) ────────────────────────────────────────────────────
+
+
+def test_tranche_enabled_defaults_to_false(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n    github: a/a\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    cfg = load(p)
+    assert cfg.repo("api").tranche.enabled is False
+
+
+def test_tranche_enabled_true_parsed(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    tranche:\n"
+        "      enabled: true\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    cfg = load(p)
+    assert cfg.repo("api").tranche.enabled is True
+
+
+def test_tranche_not_a_mapping(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    tranche: nope\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="repos\\[0\\].tranche must be a mapping"):
+        load(p)
+
+
+def test_tranche_enabled_rejects_non_bool(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    tranche:\n"
+        "      enabled: yes-please\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="repos\\[0\\].tranche.enabled must be a boolean"):
+        load(p)
+
+
+def test_tranche_unknown_key_rejected(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    tranche:\n"
+        "      enabled: true\n"
+        "      extra: nope\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="repos\\[0\\].tranche has unknown key"):
+        load(p)
+
+
+def test_parse_tranche_repo_config_none_returns_default() -> None:
+    cfg = coord_config._parse_tranche_repo_config(None, 0)
+    assert cfg.enabled is False
+    assert cfg.auto is False
+
+
+# ── tranche.auto (#4226) ─────────────────────────────────────────────────────
+
+
+def test_tranche_auto_defaults_to_false(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    tranche:\n"
+        "      enabled: true\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    cfg = load(p)
+    assert cfg.repo("api").tranche.auto is False
+
+
+def test_tranche_auto_true_parsed(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    tranche:\n"
+        "      enabled: true\n"
+        "      auto: true\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    cfg = load(p)
+    assert cfg.repo("api").tranche.enabled is True
+    assert cfg.repo("api").tranche.auto is True
+
+
+def test_tranche_auto_rejects_non_bool(tmp_path: Path) -> None:
+    p = tmp_path / "coordinator.yml"
+    p.write_text(
+        "repos:\n"
+        "  - name: api\n"
+        "    github: a/a\n"
+        "    tranche:\n"
+        "      enabled: true\n"
+        "      auto: yes-please\n"
+        "machines:\n"
+        "  - name: m\n    host: h\n    repos: [api]\n"
+    )
+    with pytest.raises(ConfigError, match="repos\\[0\\].tranche.auto must be a boolean"):
+        load(p)
+
+
 # ── requires (#3351) ─────────────────────────────────────────────────────────
 
 

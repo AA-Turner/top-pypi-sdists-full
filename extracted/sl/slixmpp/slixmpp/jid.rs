@@ -9,6 +9,12 @@ fn to_exc(err: jid::Error) -> PyErr {
 }
 
 #[pyfunction]
+fn escape_node(node: &str) -> PyResult<String> {
+    let node = jid::NodePart::from_unescaped(node).map_err(to_exc)?;
+    Ok(node.to_string())
+}
+
+#[pyfunction]
 fn unescape_node(node: &str) -> PyResult<String> {
     let node = jid::NodePart::new(node).map_err(to_exc)?;
     node.unescape().map(Into::into).map_err(to_exc)
@@ -338,6 +344,9 @@ impl PyJid {
 mod module {
     #[pymodule_export]
     use super::PyJid;
+
+    #[pymodule_export]
+    use super::escape_node;
 
     #[pymodule_export]
     use super::unescape_node;

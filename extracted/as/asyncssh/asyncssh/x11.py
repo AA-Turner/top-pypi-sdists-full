@@ -26,7 +26,7 @@ from pathlib import Path
 import socket
 import time
 from typing import TYPE_CHECKING, Callable, Dict, Iterable
-from typing import NamedTuple, Optional, Sequence, Set, Tuple
+from typing import NamedTuple, Optional, Sequence, Set, Tuple, cast
 
 from .constants import OPEN_CONNECT_FAILED
 from .forward import SSHForwarder, SSHForwarderCoro
@@ -101,7 +101,7 @@ async def _lookup_host(loop: asyncio.AbstractEventLoop, host: str,
     except socket.gaierror:
         return []
 
-    return [ai[4][0] for ai in addrinfo]
+    return [cast(str, ai[4][0]) for ai in addrinfo]
 
 
 class SSHXAuthorityEntry(NamedTuple):
@@ -228,6 +228,7 @@ class SSHX11ClientForwarder(SSHForwarder):
                 pass
 
             self._inpbuf = b''
+            self.close()
         else:
             self._inpbuf = (self._prefix + self._auth_proto +
                             self._auth_proto_pad + self._auth_data +
@@ -350,10 +351,7 @@ class SSHX11ServerListener:
     def detach(self, chan: 'SSHChannel') -> bool:
         """Detach a channel from this listener"""
 
-        try:
-            self._channels.remove(chan)
-        except KeyError:
-            pass
+        self._channels.discard(chan)
 
         if not self._channels:
             self._tcp_listener.close()

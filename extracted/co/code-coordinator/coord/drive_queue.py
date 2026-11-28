@@ -125,6 +125,8 @@ from coord.models import (
     DEFAULT_ISSUE_RESOLUTION,
     SEALED_PATH_AUTHOR_TYPES,
     WORK_LIKE_TYPES,
+    TrancheChild,
+    TrancheRow,
     is_merge_landed_reason,
     is_needs_decomposition_reason,
     is_policy_refusal_reason,
@@ -2467,6 +2469,17 @@ class QueueEntry:
     # predating this column, which reproduces the pre-#3463
     # `work_leg_count - 1` formula exactly for that row.
     legs_at_enqueue: int = 0
+    # #4216: an operator/agent's own record of an out-of-band rescue (a hand
+    # push, a fix to a red base, a CI rerun) — `None` when nothing is
+    # recorded, otherwise ``{"by", "did", "next", "sha", "at",
+    # "stale_after"}`` (see `coord/db.py`'s CREATE TABLE comment for the
+    # exact shape). Written by `coord drive-queue note`
+    # (`coord.state.set_drive_queue_intervention`) for an operator/agent's
+    # own record, and by `coord.reconcile.reconcile_rescued_blocked_rows`'s
+    # #4217 tick for a record it auto-detects (`RESCUE_INTERVENTION_BY`) —
+    # see `format_intervention_reason` for how it overrides this row's
+    # displayed reason while active.
+    intervention: dict | None = None
 
     @property
     def key(self) -> str:
@@ -2568,7 +2581,28 @@ class QueueEntry:
                 else float(row.get("apply_verdict_at"))
             ),
             legs_at_enqueue=int(row.get("legs_at_enqueue") or 0),
+            intervention=cls._parse_intervention(row.get("intervention_json")),
         )
+
+    @staticmethod
+    def _parse_intervention(raw: Any) -> dict | None:
+        """``row["intervention_json"]`` -> a `dict`, or `None`.
+
+        Accepts a real `dict` (the `/board`/`/drive-queue` wire shape,
+        already JSON-decoded) or a JSON string (reading the table
+        directly) — same dual acceptance `from_row`'s `after_json` handling
+        gives above. An empty string, `None`, or unparseable/non-object
+        JSON all degrade to `None` ("nothing recorded") rather than raising.
+        """
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, str) and raw:
+            try:
+                decoded = json.loads(raw)
+            except (TypeError, ValueError):
+                return None
+            return decoded if isinstance(decoded, dict) else None
+        return None
 
 
 def entries_from_rows(rows: Iterable[Mapping[str, Any]]) -> list[QueueEntry]:
@@ -2794,6 +2828,7 @@ def _after_satisfied(
     entry: QueueEntry,
     all_entries: Sequence[QueueEntry],
     prereq_truth: Mapping[str, "EntryTruth"] | None = None,
+    tranche_members: Mapping[str, str] | None = None,
 ) -> bool:
     """Is *entry*'s `after=` list satisfied by the queue it sits in?
 
@@ -2822,8 +2857,20 @@ def _after_satisfied(
     what a live truth says about it — `mark_done` on a `done` row whose
     gate has since fired is a real, later fact a `reconcile_entry` call
     taken before the gate fired cannot see, so the gate always wins.
+
+    *tranche_members* (#4227) maps a pre-req key to the master key of the
+    in-flight tranche row that will close it (:func:`tranche_prereq_
+    members`). It is the one exception to the "absent from *all_entries*
+    means satisfied" rule above, and it has to be: a pre-req a tranche
+    row has claimed is absent from the queue BECAUSE it is mid-flight, so
+    the "it may have landed long ago" reading is exactly inverted for it.
+    Checked first, before the gate and live-truth readings, since neither
+    has a row to read for a key with no `QueueEntry` at all. A key absent
+    here (or the mapping being ``None``) is the pre-#4227 behaviour.
     """
     for key in entry.after:
+        if (tranche_members or {}).get(key) is not None:
+            return False
         if any(other.key == key and _entry_is_holding(other) for other in all_entries):
             return False
         truth = (prereq_truth or {}).get(key)
@@ -2878,16 +2925,30 @@ class DriveQueueSummary:
 def summarize_drive_queue(
     entries: Sequence[QueueEntry],
     prereq_truth: Mapping[str, "EntryTruth"] | None = None,
+    tranche_members: Mapping[str, str] | None = None,
 ) -> DriveQueueSummary:
     """Summarise *entries* — pure, no clock, no DB. See :class:`DriveQueueSummary`.
 
     *prereq_truth* (#3934) is passed straight through to :func:`_after_satisfied`
     — see its own docstring.
+
+    *tranche_members* (#4227) is passed straight through to
+    :func:`_after_satisfied` too — a `waiting` row whose pre-req is riding
+    an in-flight tranche is NOT `eligible`, since a tick would refuse to
+    launch it (:func:`_resolve_prereqs`' matching check). Such a row does
+    NOT make the queue read `"stalled"` either: see `tranche_deferred`
+    below for why a tranche in flight is work moving, not a stall.
     """
     pending = sum(1 for e in entries if _entry_is_pending(e))
     held = sum(1 for e in entries if _entry_is_holding(e))
     fleet_held = sum(1 for e in entries if _entry_stops_fleet(e))
     running = waiting = blocked = eligible = 0
+    # #4227: `waiting` rows held back ONLY because a pre-req is riding an
+    # in-flight tranche. Not `eligible` (a tick would refuse to launch
+    # them), but not a stall either — the tranche row IS the work they are
+    # waiting on, and it is moving, it just isn't a `QueueEntry` this
+    # summary can count under `running`.
+    tranche_deferred = 0
     for e in entries:
         if not _entry_is_pending(e):
             continue
@@ -2897,8 +2958,10 @@ def summarize_drive_queue(
             blocked += 1
         elif e.state == STATE_WAITING:
             waiting += 1
-            if _after_satisfied(e, entries, prereq_truth):
+            if _after_satisfied(e, entries, prereq_truth, tranche_members):
                 eligible += 1
+            elif any((tranche_members or {}).get(dep) for dep in e.after):
+                tranche_deferred += 1
         # An unrecognised state from a newer daemon: counted in `pending`
         # above (it is not `done`) but never as waiting/eligible/running/
         # blocked, so it can neither trigger nor mask a stall.
@@ -2912,8 +2975,10 @@ def summarize_drive_queue(
         # real one — "3 waiting, none eligible" is a symptom here, and "you
         # have a deploy to do" is the cause.
         level = "held"
-    elif waiting > 0 and eligible == 0 and running == 0:
-        # Nothing running AND nothing that could start.
+    elif waiting > 0 and eligible == 0 and running == 0 and tranche_deferred == 0:
+        # Nothing running AND nothing that could start. #4227: a row
+        # deferred behind an in-flight tranche counts as something moving
+        # — see `tranche_deferred` above.
         level = "stalled"
     elif running > 0 or waiting > 0:
         level = "normal"
@@ -3252,8 +3317,8 @@ def _merge_landed_state(
     equivalent live-confirmed-merge reading) into a terminal write can't
     drift from each other (#2096: one question, one answer) — two in
     `_reconcile_running`, plus the `_capacity_for` STATE_PARKED/BLOCKED/
-    FAILED sweep, `_cordon_reason`, and the retroactive `done` ->
-    `merged-partial` self-heal pass (#3863), five in total.
+    FAILED/MERGED_PARTIAL sweep, `_cordon_reason`, and the retroactive
+    `done` -> `merged-partial` self-heal pass (#3863), six in total.
 
     *confirmed_merged* (#3863): set by a caller that already has evidence
     of the MERGE itself STRONGER than the cached board — specifically the
@@ -4537,6 +4602,8 @@ def _resolve_prereqs(
     live_prereq_terminal: Mapping[str, bool] | None = None,
     dep_reasons: Mapping[str, str] | None = None,
     prereq_truth: Mapping[str, "EntryTruth"] | None = None,
+    dep_interventions: Mapping[str, Mapping[str, Any]] | None = None,
+    tranche_members: Mapping[str, str] | None = None,
 ) -> _Verdict:
     """Decide whether *entry* may launch now.
 
@@ -4620,6 +4687,41 @@ def _resolve_prereqs(
     unchanged pre-#3934 reasoning — the production default today, since
     nothing yet wires a live `reconcile_entry` call into the shell that
     builds this mapping.
+
+    *dep_interventions* (#4216) maps a dep key to its own active `coord
+    drive-queue note` record, when one exists — the same "prefer this
+    tick's fresh write" map `plan_tick` builds alongside `dep_reasons`.
+    Consulted in the SAME `dep_state in (STATE_BLOCKED, STATE_FAILED)`
+    branch *dep_reasons* is: a dep a human/agent has already recorded a
+    rescue against is, by that record's own claim, being worked outside the
+    queue — rendering the dependent's verdict as "it will never satisfy"
+    would contradict the operator's own note. This instead returns an
+    ordinary deferral naming who holds it, so the dependent keeps its
+    position and re-derives a fresh verdict next tick, same as the
+    *dep_reasons* #3368 case. A key ABSENT here (no active record, or one
+    that was never recorded) keeps the pre-#4216 "it will never satisfy"
+    verdict unchanged.
+
+    *tranche_members* (#4227) maps a dep key to the master key of the
+    in-flight tranche row whose single closing PR will close it — exactly
+    :func:`tranche_prereq_members`, built by the shell from this tick's
+    `tranche_rows`. A dep in that mapping is neither queued nor landed: it
+    is riding a tranche (or is the tranche's own master issue), so every
+    reading below would get it wrong — "open, not queued" at best, and
+    "it will never satisfy"/"not queued, not merged and not open" for a
+    dep with a stale `blocked`/`failed` row or one the `issues` cache has
+    not synced. That is why this is checked BEFORE all of them, and
+    returns an ordinary deferral naming the tranche instead.
+
+    It is checked AFTER every positive, confirmed-landed signal above
+    (*held_gates*, `facts.landed`/`already_done`, `dep_state in
+    STATE_DONE_LIKE`) and is itself overridden by *live_prereq_terminal*,
+    for one reason: the closing PR merging is precisely what those signals
+    report, and a row still listing the dep is the staler witness of the
+    two. So this holds a dependent for exactly as long as the tranche has
+    a closing PR outstanding, and not one tick longer. A key ABSENT here
+    (or the mapping being ``None`` — the shape every caller that has no
+    tranche rows to read passes) is the pre-#4227 behaviour exactly.
     """
     if entry.key in cycle_keys:
         return _Verdict(False, True, cycle_keys[entry.key])
@@ -4718,6 +4820,14 @@ def _resolve_prereqs(
             # a `STATE_MERGED_PARTIAL` dep that reaches here is one whose
             # issue is already closed.)
             continue
+        tranche_master = (tranche_members or {}).get(dep)
+        if tranche_master is not None and not (live_prereq_terminal or {}).get(dep):
+            # #4227: *dep* is riding an in-flight tranche row (or is one's
+            # own master issue), so it has no queue row and no landed fact
+            # of its own yet — see this function's docstring for why this
+            # outranks every remaining reading below, and why a live
+            # terminal re-check still wins over it.
+            return _Verdict(False, False, tranche_prereq_reason(dep, tranche_master))
         dep_truth = (prereq_truth or {}).get(dep)
         if dep_truth is not None:
             truth_verdict = _prereq_truth_verdict(dep, dep_truth)
@@ -4759,6 +4869,19 @@ def _resolve_prereqs(
                         "reading is an unconfirmed probe failure, not a "
                         "confirmed-still-shut gate — retrying, not blocked "
                         "permanently, #3368)",
+                    )
+                dep_intervention = (dep_interventions or {}).get(dep)
+                if dep_intervention:
+                    # #4216: an operator/agent has already recorded a
+                    # rescue against *dep* — see this function's own
+                    # docstring. Naming who holds it (never the raw record)
+                    # keeps this a single sentence, consistent with every
+                    # other deferral reason this branch returns.
+                    held_by = str(dep_intervention.get("by") or "operator")
+                    return _Verdict(
+                        False,
+                        False,
+                        f"waiting on {dep} (held by {held_by} — #4216)",
                     )
                 return _Verdict(
                     False,
@@ -4828,6 +4951,8 @@ def diagnose_blocked_after(
     live_prereq_terminal: Mapping[str, bool] | None = None,
     dep_reasons: Mapping[str, str] | None = None,
     prereq_truth: Mapping[str, "EntryTruth"] | None = None,
+    dep_interventions: Mapping[str, Mapping[str, Any]] | None = None,
+    tranche_members: Mapping[str, str] | None = None,
 ) -> BlockedAfterDiagnosis:
     """Re-check a `blocked`/`failed` row's `after=` graph against the CURRENT
     board, fresh on every render (#2183).
@@ -4891,6 +5016,22 @@ def diagnose_blocked_after(
     show a dep as still-pending once a live truth says otherwise, the exact
     #2096 "one question, one answer" this issue exists to enforce against
     the dep's own possibly-stale queue-row ``state``.
+
+    *dep_interventions* (#4216) is passed straight through to
+    :func:`_resolve_prereqs` — see its own docstring. Threading it through
+    here is what lets `coord drive-queue list`/`status` show a dependent as
+    "waiting on ... (held by ...)" instead of "it will never satisfy" the
+    moment an operator/agent records a rescue against the named pre-req,
+    without waiting on a real tick to re-derive the same verdict.
+
+    *tranche_members* (#4227) is passed straight through to
+    :func:`_resolve_prereqs` — see its own docstring. Threading it through
+    here is what lets :func:`_reconcile_blocked_after` resume a dependent
+    that was blocked "not queued, not merged and not open" because its
+    named pre-req had just been claimed by a tranche row: that verdict
+    becomes an ordinary tranche deferral, which is not unsatisfiable, so
+    the row returns to `waiting` instead of needing an operator
+    remove+add.
     """
     live_terminal = live_prereq_terminal or {}
     truth_map = prereq_truth or {}
@@ -4910,6 +5051,8 @@ def diagnose_blocked_after(
         live_prereq_terminal=live_prereq_terminal,
         dep_reasons=dep_reasons,
         prereq_truth=prereq_truth,
+        dep_interventions=dep_interventions,
+        tranche_members=tranche_members,
     )
     return BlockedAfterDiagnosis(
         unsatisfied,
@@ -5289,6 +5432,174 @@ def format_coarse_duration(delta_seconds: float) -> str:
     return f"{int(delta_seconds // 86400)}d"
 
 
+# #4216: the default window after which a `coord drive-queue note` record
+# reads as stale (:func:`intervention_is_stale`) — six hours, this issue's
+# own acceptance bar. A record overrides it per-call via `--stale-after`
+# (`coord.state.set_drive_queue_intervention`'s `stale_after_seconds`),
+# stored on the record itself rather than in `coordinator.yml`: this is a
+# per-rescue judgment call ("how long should THIS fix be trusted without a
+# follow-up"), not fleet topology.
+INTERVENTION_DEFAULT_STALE_SECONDS = 6 * 3600
+
+
+def intervention_is_stale(intervention: Mapping[str, Any] | None, now: float) -> bool:
+    """True once *intervention*'s own ``at`` timestamp is older than its
+    ``stale_after`` window (:data:`INTERVENTION_DEFAULT_STALE_SECONDS` when
+    the record didn't override it).
+
+    ``False`` for ``None`` (no record at all) or a record whose ``at`` is
+    missing/unparseable — nothing to measure staleness against, so this
+    reads as fresh rather than guessing stale.
+    """
+    if not intervention:
+        return False
+    at = intervention.get("at")
+    if not isinstance(at, (int, float)):
+        return False
+    stale_after = intervention.get("stale_after")
+    if not isinstance(stale_after, (int, float)) or stale_after <= 0:
+        stale_after = INTERVENTION_DEFAULT_STALE_SECONDS
+    return (now - at) > stale_after
+
+
+def format_intervention_reason(
+    intervention: Mapping[str, Any] | None, now: float,
+) -> str | None:
+    """The row's displayed reason while a `coord drive-queue note` record is
+    active, or ``None`` when there is none to show (#4216).
+
+    `coord drive-queue list`'s CLI rendering and `coord/serve_app.py`'s
+    `/board`/`/drive-queue` projections (which is how coord-tui and the
+    dashboard see it) both call this SAME function rather than each
+    composing their own sentence from the raw record — #2096/#2085's "one
+    question, one answer": the question here is "what should this held row
+    say right now".
+
+    ``held: <by> — <did>; next: <next>``, plus the SHA when one was given,
+    ordinarily. Once the record is older than its own staleness window
+    (:func:`intervention_is_stale`) the sentence is prefixed ``STALE`` and
+    says how long ago it was recorded — the same #2133 rationale
+    (`reason_at`) applied to a tick's own `last_reason`: a stale
+    observation must say so rather than silently keep reading as current.
+    """
+    if not intervention:
+        return None
+    by = str(intervention.get("by") or "operator")
+    did = str(intervention.get("did") or "")
+    next_step = str(intervention.get("next") or "")
+    sha = intervention.get("sha")
+    text = f"held: {by} — {did}; next: {next_step}"
+    if sha:
+        text = f"{text} (sha {sha})"
+    if intervention_is_stale(intervention, now):
+        age = format_coarse_duration(max(0.0, now - float(intervention["at"])))
+        text = f"STALE {text} (recorded {age} ago — may no longer hold)"
+    return text
+
+
+def fresh_interventions(
+    interventions: Mapping[str, Mapping[str, Any]], now: float | None,
+) -> Mapping[str, Mapping[str, Any]]:
+    """*interventions* with every entry :func:`intervention_is_stale` of
+    *now* dropped.
+
+    Both callers that build a dep-keyed intervention map for
+    `_resolve_prereqs`/`diagnose_blocked_after` — `plan_tick`'s
+    `effective_interventions` and `coord.commands.drive_queue`'s
+    `dep_interventions` — run this before handing the map through, so a
+    dependent's "held by ..." verdict (and the `unsatisfiable=False` it
+    drives in `diagnose_blocked_after`/`_reconcile_blocked_after`) can never
+    outlive the SAME record `format_intervention_reason` already renders
+    ``STALE`` on the held row itself. Without this a month-old record kept
+    both deferring the dependent forever and disagreeing with the row it
+    names, the opposite of what the staleness window exists to do.
+
+    ``now is None`` (a pure-logic caller with no clock) returns
+    *interventions* unfiltered — nothing to measure staleness against, same
+    posture :func:`intervention_is_stale` itself takes for an unparseable
+    record.
+    """
+    if now is None:
+        return interventions
+    return {
+        key: rec
+        for key, rec in interventions.items()
+        if not intervention_is_stale(rec, now)
+    }
+
+
+# ── #4217 out-of-band rescue detection + auto-resume (board truth 2/3) ──────
+#
+# Builds directly on #4216's `intervention_json` storage/rendering above: a
+# `blocked` row whose branch moves to a commit no coord leg pushed gets the
+# SAME record a human's `coord drive-queue note` would write, just authored
+# by the sweep itself rather than an operator — see `RESCUE_INTERVENTION_BY`/
+# `describe_out_of_band_push` below. A row that is *already* `blocked` on the
+# #2972 fix-round ceiling, or carries a non-stale intervention of either
+# kind, and whose rescued head's PR checks read CI-green, gets its Test/
+# Review verdicts reset instead of needing an operator's `remove && add` —
+# see :func:`is_rescue_resume_eligible` and
+# `coord.reconcile.reconcile_rescued_blocked_rows` (the live-I/O side; this
+# module stays pure).
+
+#: The `by` this sweep stamps on an auto-detected rescue record — distinct
+#: from any human `--by` an operator's own `coord drive-queue note` would
+#: supply, so `coord drive-queue list`'s "held by ..." text stays honest
+#: about who actually recorded it.
+RESCUE_INTERVENTION_BY = "coord (auto-detected)"
+
+#: The `next` text stamped alongside an auto-detected rescue — the sweep's
+#: own plan (wait for CI, then dispatch Test/Review itself), not an
+#: operator's.
+RESCUE_INTERVENTION_NEXT = (
+    "auto-resume once CI is green on the new head — Test, then review; "
+    "no operator action needed unless it reblocks"
+)
+
+
+def describe_out_of_band_push(sha: str) -> str:
+    """The `did` text for an auto-detected rescue at *sha* (#4217).
+
+    One function so `coord.reconcile.reconcile_rescued_blocked_rows`'s
+    detection and any future reader of the record agree on the exact
+    wording — #2096, "one question, one answer".
+    """
+    return f"out-of-band push {sha}"
+
+
+def is_rescue_resume_eligible(
+    state: str | None,
+    last_reason: str | None,
+    intervention: Mapping[str, Any] | None,
+    *,
+    now: float,
+) -> bool:
+    """Is this `blocked` row a candidate for #4217's auto-resume sweep?
+
+    `True` only for `state == STATE_BLOCKED` AND (the #2972 fix-round
+    ceiling — :func:`is_fix_round_ceiling_reason` — OR a non-stale #4216
+    intervention record — :func:`intervention_is_stale` — whether that
+    record is human-authored or this same sweep's own). A `blocked` cause
+    with neither a ceiling reason nor ANY intervention record (#1844/#2019/
+    #3522/#4133/#4177, or a plain unconfirmed gate block) is left alone —
+    #2230's own gate-based resume already owns those, and widening this
+    sweep to them would relaunch a row for a reason the ceiling/held shape
+    was never meant to cover. This does NOT, by itself, guarantee one of
+    those other causes stays ineligible forever: `coord.reconcile.
+    reconcile_rescued_blocked_rows`'s own detection writes a fresh #4216
+    record for ANY blocked row whose branch moves (not only a ceiling/held
+    one), and that record alone makes this predicate return `True` on the
+    very next check — i.e. a plain-blocked row (e.g. "no capable machine")
+    whose branch gets pushed to and reads CI-green WILL get auto-resumed
+    too, via the record the detection half of that same sweep just wrote.
+    """
+    if state != STATE_BLOCKED:
+        return False
+    if is_fix_round_ceiling_reason(last_reason):
+        return True
+    return intervention is not None and not intervention_is_stale(intervention, now)
+
+
 def is_unreachable_wait(
     entry: QueueEntry,
     *,
@@ -5472,6 +5783,8 @@ def _reconcile_blocked_after(
     live_prereq_terminal: Mapping[str, bool] | None = None,
     dep_reasons: Mapping[str, str] | None = None,
     prereq_truth: Mapping[str, "EntryTruth"] | None = None,
+    dep_interventions: Mapping[str, Mapping[str, Any]] | None = None,
+    tranche_members: Mapping[str, str] | None = None,
 ) -> Reconcile | None:
     """#2362: resume a `blocked` entry whose ONLY cause was an unsatisfiable
     `after=` pre-req, once every named pre-req has since landed. #2756:
@@ -5542,6 +5855,14 @@ def _reconcile_blocked_after(
     *live_prereq_terminal* already does, without waiting on the dep's own
     queue row to repaint itself.
 
+    *tranche_members* (#4227) is threaded through the same way, and
+    resumes this row for a different reason: a dep a tranche row has
+    claimed is still in flight, so an "it will never satisfy"/"not queued,
+    not merged and not open" block naming it was never true. The resume
+    lands the row back in `waiting` with #2756's live reason — the tranche
+    deferral itself — rather than leaving it terminal behind a tranche
+    that is going to close that dep.
+
     On resume: `state` flips to `waiting`, `attempts` resets to 0 (a fresh
     start, exactly like #2230's gate-cleared resume — nothing about being
     blocked on a now-landed pre-req should cost this entry its launch
@@ -5559,7 +5880,7 @@ def _reconcile_blocked_after(
         return None
     diagnosis = diagnose_blocked_after(
         entry, board, states, cycle_keys, live_prereq_terminal, dep_reasons,
-        prereq_truth,
+        prereq_truth, dep_interventions, tranche_members,
     )
     if diagnosis.unsatisfiable:
         return None
@@ -8934,6 +9255,367 @@ def _hold_alert(hold: Hold) -> QueueAlert:
     )
 
 
+# ── native tranche rows: which ones a tick should dispatch (#4129/#4200) ────
+#
+# `TrancheRow` (#4199) isn't a `QueueEntry` — a tranche row fans out to N
+# children instead of driving one issue, so it doesn't go through
+# `plan_tick`'s one-launch-per-tick walk above. This is the equivalent
+# PURE decision for a tranche row: which of a tick's known rows are ready
+# for `coord.dispatch.dispatch_tranche_row_children` to fan out. The I/O
+# (loading rows, calling the dispatcher, persisting the result) stays with
+# the shell, same separation `plan_tick` itself keeps.
+
+
+def tranche_rows_ready_to_dispatch(rows: Sequence[TrancheRow]) -> list[TrancheRow]:
+    """Filter *rows* down to the ones a tick should dispatch now (#4200).
+
+    Ready means `state == "pending"` AND at least one child: a freshly
+    decomposed row with no children yet has nothing to fan out, and
+    `coord.dispatch.dispatch_tranche_row_children` already refuses
+    (`ValueError`) rather than silently no-op on that case — this filter
+    keeps the shell from ever reaching that refusal for a row that was
+    simply never finished being built, instead of treating it as ready.
+    """
+    return [row for row in rows if row.state == "pending" and row.children]
+
+
+# The states a row still has somewhere left to go: its children are out,
+# so every remaining step (integrate, Test, review, PR) is
+# `coord.drive.advance_tranche_row`'s to take. `"pending"` is excluded
+# because it belongs to `tranche_rows_ready_to_dispatch` above, and
+# `"failed"` because nothing advances a failed row.
+TRANCHE_ADVANCEABLE_STATES: tuple[str, ...] = ("dispatched", "integrating", "done")
+
+
+def tranche_rows_ready_to_advance(rows: Sequence[TrancheRow]) -> list[TrancheRow]:
+    """Filter *rows* down to the ones a tick should advance now (#4202) —
+    the Test/review/PR sibling of :func:`tranche_rows_ready_to_dispatch`.
+
+    Ready means `state` is one of :data:`TRANCHE_ADVANCEABLE_STATES` AND
+    the row has an id (an unsaved row has no integration branch name or
+    review sentinel to key its legs on, and `coord.drive.
+    advance_tranche_row` already refuses rather than silently no-op on
+    that case — same reason the dispatch filter above screens out a row
+    with no children).
+
+    Order is preserved, so the shell walks rows oldest-id first exactly as
+    `coord.state` handed them over.
+    """
+    return [
+        row for row in rows
+        if row.id is not None and row.state in TRANCHE_ADVANCEABLE_STATES
+    ]
+
+
+# ── native tranche rows: pipeline presentation (#4227) ──────────────────────
+#
+# A `TrancheRow` (#4199) is not a `QueueEntry`, so it never appears in
+# `coord drive-queue list`/`status`'s ordinary per-entry walk at all — an
+# operator watching a tranche in flight sees nothing for it, and nothing
+# for the children it claimed either. This section is the pure
+# presentation layer #4227 adds on top of the frozen `TrancheRow`/
+# `TrancheChild` shape (#4199) and the dispatch/merge/review machinery
+# #4200-#4202 already built against it: one MASTER row per tranche,
+# carrying the row's own coarse Work -> Test -> Review -> Merge progress,
+# with every child rendered as "riding" that master instead of a stage
+# row of its own — it never gets one, since `coord.dispatch.
+# dispatch_tranche_row_children` deliberately never records a child's
+# agent assignment on the board (see that function's own module comment),
+# and no `QueueEntry` is ever enqueued for it either (#4226's
+# `propose_tranche` only ever reads a candidate off the epic's `## Work
+# order`, never off the drive queue).
+
+
+def tranche_master_key(row: TrancheRow) -> str:
+    """The `entry_key`-shaped identity of *row*'s own tranche issue —
+    `row.repo_name`#`row.issue_number`, the tracking issue it decomposed
+    (#4199's `issue_number`/`issue_title` pair), not `row.id` (this row's
+    own DB primary key, meaningless to an operator reading the queue).
+    Every rendering in this module keys a tranche row on this, the same
+    `repo#N` shape every ordinary `QueueEntry.key` already uses.
+    """
+    return entry_key(row.repo_name, row.issue_number)
+
+
+def tranche_child_key(child: TrancheChild) -> str:
+    """The `entry_key`-shaped identity of one `TrancheChild` — its own
+    `repo_name`#`issue_number`, independent of whichever row it rides in.
+    """
+    return entry_key(child.repo_name, child.issue_number)
+
+
+def tranche_riding_members(rows: Sequence[TrancheRow]) -> dict[str, str]:
+    """Map every child's own key (:func:`tranche_child_key`) to the master
+    key (:func:`tranche_master_key`) of the tranche row it rides in, across
+    every row in *rows* that still has a closing PR ahead of it.
+
+    The one place "is this issue actually riding inside a tranche right
+    now" is answered (#2096) — any renderer or caller that needs that
+    membership reads it from here rather than re-deriving it from
+    `row.state`/`row.children` a second way.
+
+    A `"failed"` row's children are deliberately EXCLUDED: #4227's own
+    `tranche_requeue_plan` is what gives them a disposition once a row
+    reaches that state (an ordinary queue row, not a rider), so by the
+    time a row is `"failed"` nothing is riding it anymore. Every other
+    state still has an open closing PR ahead of it, so every child is
+    still riding.
+    """
+    riding: dict[str, str] = {}
+    for row in rows:
+        if row.state == "failed":
+            continue
+        master_key = tranche_master_key(row)
+        for child in row.children:
+            riding[tranche_child_key(child)] = master_key
+    return riding
+
+
+# ── native tranche rows: `after=` edges that name a rider (#4227) ───────────
+#
+# A tranche lands as ONE closing PR, and that PR is what closes every child
+# it claimed — so until it merges, nothing a child did exists on the base
+# branch an `after=` dependent would build on. But a riding child is not a
+# `QueueEntry` (see the presentation section's module comment), so a
+# dependent declaring `after=<child>` reaches the "pre-req absent from the
+# queue" tail of `_after_satisfied`/`_resolve_prereqs`, whose rule is that
+# an absent pre-req "may have landed long ago" — satisfied. That reads a
+# tranche's claim on a child as the child's own completion, which is the
+# opposite of true: the claim is what guarantees it has NOT landed yet.
+#
+# :func:`tranche_prereq_members` is the membership answer both checks
+# consult so such an edge defers instead, and releases on the dep's own
+# confirmed landing (`facts.landed`, a `done` queue row, or a live terminal
+# re-check) — which is exactly when the closing PR has merged.
+
+
+def tranche_prereq_members(rows: Sequence[TrancheRow]) -> dict[str, str]:
+    """Map every issue key an in-flight tranche row's closing PR will
+    close to the :func:`tranche_master_key` of the row that will close it:
+    :func:`tranche_riding_members`' children, PLUS each of those rows' own
+    master issue (the tracking issue the same PR closes alongside them).
+
+    Keyed the same `repo#N` way `QueueEntry.key`/`entry.after` already
+    are, so a caller holding an `after=` list looks a dep up directly.
+
+    A `"failed"` row contributes nothing, exactly as in
+    :func:`tranche_riding_members` — its children are heading back to the
+    ordinary queue (:func:`tranche_requeue_plan`), where they answer for
+    themselves as rows again. Neither does a row with no children: it has
+    claimed nothing, so it is not standing between a dependent and
+    anything.
+    """
+    members = tranche_riding_members(rows)
+    for row in rows:
+        if row.state == "failed" or not row.children:
+            continue
+        master_key = tranche_master_key(row)
+        members.setdefault(master_key, master_key)
+    return members
+
+
+def tranche_prereq_reason(dep: str, master_key: str) -> str:
+    """The deferral text for an `after=` edge naming *dep* while *dep* is
+    still part of the tranche whose master is *master_key* (#4227).
+
+    Two shapes, because a dependent's operator needs to know which one
+    they are reading: *dep* IS the master (its own closing PR is the one
+    outstanding), or *dep* is one of the children riding it (the thing
+    being waited on will be closed by a PR opened against a different
+    issue entirely — unguessable from the dependent's own row).
+
+    Deliberately phrased as an ordinary deferral, with none of
+    :func:`_is_unsatisfiable_prereq_reason`'s marker text: a tranche in
+    flight is the most plausibly-clearing pre-req there is, so a
+    dependent on one keeps its queue position rather than blocking.
+    """
+    if dep == master_key:
+        return (
+            f"waiting on {dep} (tranche master — its closing PR has not "
+            "merged yet)"
+        )
+    return (
+        f"waiting on {dep} (riding in tranche {master_key} — resolved when "
+        "that tranche's closing PR merges)"
+    )
+
+
+# `TrancheRow.state` (#4199) is the only field the frozen row shape carries
+# for its ENTIRE remaining tail once children are dispatched — nothing
+# here distinguishes "the Test leg is running" from "all three review legs
+# already approved the integrated tree", because that distinction lives in
+# assignments `coord.dispatch`/`coord.review` track on the board (type=
+# "smoke"/"review"), never on this dataclass (#4199 froze its shape). This
+# module reports exactly the granularity the row itself can confirm — never
+# a specific Test/Review/Merge reading it has no way to back up (#2096: an
+# unconfirmed stage is not a stage).
+_TRANCHE_ROW_WORK_STATES: frozenset[str] = frozenset(
+    {"pending", "dispatched", "integrating"}
+)
+
+
+def tranche_row_pipeline_label(row: TrancheRow) -> str:
+    """Render *row*'s own coarse position in Work -> Test -> Review ->
+    Merge (#4227), bracketing whichever segment(s) `row.state` can
+    actually confirm it is in:
+
+    - `"pending"`/`"dispatched"`/`"integrating"` — still turning the
+      children's own work into one integrated tree:
+      ``"[Work] -> Test -> Review -> Merge"``.
+    - `"done"` — the mechanical merge succeeded; everything from here is
+      `coord.drive.advance_tranche_row`'s Test/review/PR tail, which this
+      row's own state cannot further distinguish:
+      ``"Work -> [Test -> Review -> Merge]"``.
+    - `"failed"` — ``"[Work: FAILED]"``; there is no tail to show.
+    """
+    if row.state == "failed":
+        return "[Work: FAILED]"
+    if row.state in _TRANCHE_ROW_WORK_STATES:
+        return "[Work] -> Test -> Review -> Merge"
+    return "Work -> [Test -> Review -> Merge]"
+
+
+def render_tranche_row(row: TrancheRow) -> list[str]:
+    """The `coord drive-queue list`/`status` rendering for one tranche row
+    (#4227): one MASTER line carrying :func:`tranche_row_pipeline_label`,
+    followed by one "riding" line per child instead of a stage row each —
+    a child never gets one of its own (see this section's module
+    comment), so this is the only place its progress is visible at all.
+
+    `[]` for a row with no children — nothing to show (mirrors
+    `tranche_rows_ready_to_dispatch`'s own "nothing to fan out" screen).
+    """
+    if not row.children:
+        return []
+    master_key = tranche_master_key(row)
+    label = tranche_row_pipeline_label(row)
+    title_suffix = f"  ({row.issue_title})" if row.issue_title else ""
+    lines = [f"{master_key}  TRANCHE {label}{title_suffix}"]
+    for child in sorted(row.children, key=lambda c: c.issue_number):
+        child_title = f"  ({child.title})" if child.title else ""
+        lines.append(
+            f"  {tranche_child_key(child)}  riding in tranche {master_key}"
+            f"{child_title}"
+        )
+    return lines
+
+
+def render_tranche_rows(rows: Sequence[TrancheRow]) -> list[str]:
+    """:func:`render_tranche_row` across every row in *rows*, in the order
+    given — the whole tranche block `coord drive-queue list`/`status`
+    prints alongside its ordinary per-`QueueEntry` lines (#4227).
+    """
+    lines: list[str] = []
+    for row in rows:
+        lines.extend(render_tranche_row(row))
+    return lines
+
+
+# ── native tranche rows: dropping unfinished children back to the queue
+# (#4227) ─────────────────────────────────────────────────────────────────
+#
+# `coord.merge_queue.merge_tranche_children` declines the WHOLE merge the
+# moment any one child is `"failed"` (that function's own docstring: "a
+# tranche's children can consume each other's new APIs, so a partial merge
+# of only the survivors is not attempted"), and `coord.drive.
+# integrate_tranche_row` then sets `row.state = "failed"` with nothing left
+# to advance (`advance_tranche_row`'s own `state == "failed"` branch: "has
+# failed; nothing to advance"). Nothing upstream of this gives those
+# children anywhere else to go — this is that disposition: every child of
+# a failed row becomes an ordinary queue row again, with the drop-back
+# itself recorded in plain text for whoever reads it.
+
+
+@dataclass(frozen=True)
+class TrancheRequeuePlan:
+    """What a `"failed"` tranche row (#4227) hands back to the ordinary
+    queue, and the human-readable record of what didn't make it into a
+    closing PR.
+
+    `requeue` is EVERY child of the row, not just the failed one(s): per
+    this section's module comment, a `"failed"` row never opened a closing
+    PR for any child, including ones that themselves reported `"done"` —
+    none of them rode a PR to closure, so none of them are riding anything
+    anymore either.
+    """
+
+    row_id: int | None
+    master_key: str
+    requeue: tuple[TrancheChild, ...]
+    remainder_note: str
+
+
+def tranche_rows_ready_to_requeue(rows: Sequence[TrancheRow]) -> list[TrancheRow]:
+    """Filter *rows* down to the ones a tick should hand back to the
+    ordinary queue now (#4227) — the "it didn't make it" sibling of
+    :func:`tranche_rows_ready_to_dispatch`/:func:`tranche_rows_ready_to_advance`.
+
+    Ready means `state == "failed"` AND at least one child AND the row has
+    an id — a row that failed with no children ever assigned has nothing
+    to hand back (mirroring the "nothing to act on" screen both sibling
+    filters already apply), and an unsaved row has nothing for
+    :func:`coord.state.delete_tranche_row` to delete once its children are
+    handed back, the same "no id, no action" screen
+    :func:`tranche_rows_ready_to_advance` already applies.
+
+    `"failed"` never clears on its own — nothing transitions a row out of
+    it — so the bound that keeps this from re-selecting the SAME row every
+    tick forever is not in this predicate at all: it is the shell's job
+    (mirroring `tranche_rows_ready_to_dispatch`/`tranche_rows_ready_to_advance`,
+    whose own bound is the state write their shells make after acting) to
+    delete the row via `coord.state.delete_tranche_row` once it has handed
+    the children back, so the row itself stops existing rather than
+    lingering in `"failed"` for this filter to pick up a second time.
+    """
+    return [
+        row for row in rows
+        if row.id is not None and row.state == "failed" and row.children
+    ]
+
+
+def tranche_requeue_plan(row: TrancheRow) -> TrancheRequeuePlan:
+    """Decide what *row* hands back to the ordinary queue (#4227).
+
+    Every child in `row.children` is handed back, sorted by issue number —
+    see :class:`TrancheRequeuePlan`'s docstring for why this is never a
+    subset. `remainder_note` is the operator-facing record of the drop-
+    back: which children, off which failed tranche row, naming the master
+    key the operator would otherwise have to cross-reference by hand.
+
+    Raises `ValueError` if `row.state != "failed"` or `row.children` is
+    empty — the caller's job is to select only ready rows first
+    (:func:`tranche_rows_ready_to_requeue`, which already screens both),
+    the same precondition-on-the-caller contract `coord.drive.
+    integrate_tranche_row`/`advance_tranche_row` already use for their own
+    state checks. A childless row has nothing to hand back, so there is no
+    note worth writing about it either — refusing it here keeps
+    `remainder_note` from ever reading as a note about nothing.
+    """
+    if row.state != "failed":
+        raise ValueError(
+            f"tranche_requeue_plan: row {row.id} is {row.state!r}, not "
+            "'failed' — nothing to hand back to the ordinary queue"
+        )
+    if not row.children:
+        raise ValueError(
+            f"tranche_requeue_plan: row {row.id} has no children — "
+            "nothing to hand back to the ordinary queue"
+        )
+    master_key = tranche_master_key(row)
+    requeue = tuple(sorted(row.children, key=lambda c: c.issue_number))
+    names = ", ".join(f"#{c.issue_number}" for c in requeue)
+    remainder_note = (
+        f"tranche row {row.id} ({master_key}) failed before its closing "
+        f"PR — {names} dropped back to the queue as ordinary row(s)"
+    )
+    return TrancheRequeuePlan(
+        row_id=row.id,
+        master_key=master_key,
+        requeue=requeue,
+        remainder_note=remainder_note,
+    )
+
+
 # ── the tick ─────────────────────────────────────────────────────────────────
 
 
@@ -8974,6 +9656,7 @@ def plan_tick(
     live_credential_routing_clear: Mapping[str, bool] | None = None,
     live_credential_routing_reason: Mapping[str, str] | None = None,
     prereq_truth: Mapping[str, "EntryTruth"] | None = None,
+    tranche_members: Mapping[str, str] | None = None,
 ) -> TickPlan:
     """Decide one tick.  Pure; the caller executes the returned plan.
 
@@ -9184,13 +9867,18 @@ def plan_tick(
     to today's behaviour, never to a wrongly-skipped relaunch.
 
     The algorithm, from #1754, plus #1757's step 2, #1891's step 1b, #2055's
-    extension of it, #2230's further extension for `blocked`, and #2362's
-    narrower extension of THAT:
+    extension of it, #2230's further extension for `blocked`, #2362's
+    narrower extension of THAT, and #4218's extension to `merged-partial`:
 
     1. Reconcile every ``running`` entry (:func:`_reconcile_running`).
-    1b. Re-check every ``parked``/``blocked``/``failed`` entry against the
-        CURRENT board: landed ⇒ ``done`` (#1891 for ``parked``, #2055 for
-        ``blocked``/``failed``). Not-yet-landed then also checks the gate,
+    1b. Re-check every ``parked``/``blocked``/``failed``/``merged-partial``
+        entry against the CURRENT board: landed ⇒ ``done`` (#1891 for
+        ``parked``, #2055 for ``blocked``/``failed``). A ``merged-partial``
+        entry is ALWAYS already landed (its own PR merged) so it gets a
+        narrower question instead (#4218): its issue closing specifically
+        ⇒ ``done``; still open ⇒ untouched, same "no write, nothing to
+        report" posture as the others below. Not-yet-landed then also
+        checks the gate,
         for ``parked`` and (#2230) for RE-EVALUABLE ``blocked`` entries
         alike: cleared ⇒ ``waiting`` (falls into step 4 on this SAME tick,
         `blocked`'s `attempts` reset to 0 — see :func:`_reconcile_blocked`);
@@ -9316,6 +10004,18 @@ def plan_tick(
     computed a live truth for that dep this tick — true of every production
     caller today) leaves both call sites to their pre-#3934 behaviour.
 
+    *tranche_members* (#4227) maps an issue key to the master key of the
+    in-flight tranche row whose single closing PR will close it
+    (:func:`tranche_prereq_members`, built by the shell from this tick's
+    `tranche_rows`). Threaded to the same `after=` checks
+    *live_prereq_terminal* reaches — the launch walk's
+    :func:`_resolve_prereqs` calls and the `blocked`-row sweep's
+    :func:`_reconcile_blocked_after` — so an `after=` edge naming a
+    riding child defers on the tranche instead of reading as satisfied
+    (or dead) for want of a `QueueEntry` of its own. ``None``/empty is
+    the pre-#4227 behaviour, and is what a tick with no tranche rows
+    passes.
+
     *fix_round_config_default* (#2972) is ``pipeline.max_fix_rounds`` — the
     SAME value the shell also hands ``_launch_argv`` to compute the actual
     ``coord drive --max-fix-rounds`` this tick launches. Threaded straight
@@ -9422,6 +10122,18 @@ def plan_tick(
     # recorded — instead of the `own_reason`-based text `reconcile.reason`
     # carries fresh, right below.
     effective_last_reason: dict[str, str] = {e.key: e.last_reason for e in ordered}
+    # #4216: a dep key's own active `coord drive-queue note` record, when
+    # one exists — threaded to `_resolve_prereqs`/`diagnose_blocked_after`/
+    # `_reconcile_blocked_after` the same way `effective_last_reason` above
+    # is, so the launch walk's "it will never satisfy" verdict for a
+    # dependent can read "held by ..." instead the SAME tick a rescue is
+    # recorded, without waiting on a stale snapshot. Run through
+    # `fresh_interventions` so a record old enough to render `STALE` on its
+    # own held row drops out here too, instead of deferring the dependent
+    # forever on a claim the row itself no longer stands behind.
+    effective_interventions: Mapping[str, Mapping[str, Any]] = fresh_interventions(
+        {e.key: e.intervention for e in ordered if e.intervention}, now,
+    )
 
     def _refresh_only(reason: str, current: str) -> dict[str, Any]:
         """``{}`` unless *reason* is non-empty and differs from *current*.
@@ -9621,7 +10333,66 @@ def plan_tick(
     # question ("has this key's issue actually landed?"), one answer,
     # whether asked on behalf of the row itself or a dependent chained
     # `--after` it.
+    #
+    # #4218 widens this to `merged-partial`: that row's own issue stays OPEN
+    # until board-doctor follow-through (or an operator by hand) files the
+    # remainder and closes it, and nothing before this re-checked that row
+    # once it went `merged-partial` — it sat stale forever, even after its
+    # issue closed. The check CANNOT simply join the `facts.landed`
+    # condition the loop below uses for `parked`/`blocked`/`failed`: a
+    # `merged-partial` row is `facts.landed` ALREADY (its own PR merged —
+    # that is how it got this state in the first place), so that condition
+    # is true on every tick whether or not the issue has since closed, and
+    # writing its generic "done — issue already merged ..." text over a row
+    # that is NOT actually settling to `done` would be exactly the stale,
+    # misleading line this issue exists to stop showing. The question this
+    # branch asks is narrower and different: not "has it landed" (already
+    # true) but "has its issue since CLOSED" — so it checks `facts.closed`
+    # directly, and only ever writes when that is true. Deliberately NOT
+    # widened with a `live_prereq_terminal` fast path the way the
+    # `parked`/`blocked`/`failed` sweep below is: a live confirmation can
+    # land ahead of the cache that the `#3863` pass right below reads from,
+    # which would write this row `done` on one tick and have `#3863` read
+    # the still-stale cache back to `merged-partial` on the very next one —
+    # two passes answering the same "done or merged-partial?" question
+    # from two different readings of the facts. Resting on `facts.closed`
+    # alone means both passes always agree, at the cost of settling on the
+    # board's own refresh cadence rather than this exact tick — still
+    # within the one-tick bar once the board itself shows the close. A
+    # `merged-partial` row whose issue is still open (an operator declined
+    # the follow-through plan, or it simply has not run yet) is left
+    # untouched here, same as every other branch below leaves a
+    # not-yet-resolved row alone — whatever reason is already on it (the
+    # decline, or the original merge note) keeps showing instead of being
+    # overwritten.
     for entry in ordered:
+        if entry.state == STATE_MERGED_PARTIAL:
+            facts = board.facts(entry.key)
+            if not facts.closed:
+                continue
+            # `_merge_landed_state` already encodes "closed wins outright,
+            # regardless of `merge_resolution`" (`IssueFacts.merged_partial`'s
+            # own docstring) — the cached board itself shows this, so asking
+            # it is both correct and the one answer every other call site
+            # shares, and the same reading the `#3863` pass below re-derives
+            # on every later tick, so the two can never disagree.
+            state, _witness = _merge_landed_state(facts)
+            reason = f"done — issue closed while {entry.state} (#4218)"
+            reconciles.append(
+                Reconcile(
+                    entry.key,
+                    "done",
+                    reason,
+                    occupies=False,
+                    updates={
+                        "state": state,
+                        "last_reason": reason,
+                        "session_name": None,
+                    },
+                )
+            )
+            states[entry.key] = state
+            continue
         if entry.state not in (STATE_PARKED, STATE_BLOCKED, STATE_FAILED):
             continue
         facts = board.facts(entry.key)
@@ -9690,6 +10461,8 @@ def plan_tick(
                 live_prereq_terminal,
                 effective_last_reason,
                 prereq_truth,
+                effective_interventions,
+                tranche_members,
             )
             if blocked_reconcile is None:
                 # #3695: re-check a Test-stage routing dead end (no
@@ -10402,6 +11175,8 @@ def plan_tick(
                 live_prereq_terminal,
                 effective_last_reason,
                 prereq_truth,
+                effective_interventions,
+                tranche_members,
             )
             updates = _refresh_only(verdict.reason, entry.last_reason)
             if not updates:
@@ -10625,6 +11400,8 @@ def plan_tick(
                 live_prereq_terminal,
                 effective_last_reason,
                 prereq_truth,
+                effective_interventions,
+                tranche_members,
             )
             if not verdict.satisfied:
                 deferrals.append(
@@ -10745,6 +11522,8 @@ def plan_tick(
             live_prereq_terminal,
             effective_last_reason,
             prereq_truth,
+            effective_interventions,
+            tranche_members,
         )
         if verdict.unsatisfiable:
             blocked.append(

@@ -27,9 +27,11 @@ from dreamscale import tables
 from .benchmarks import BENCHMARK_LABELS as LOCAL_LABELS
 from .benchmarks import robocasa_tasks
 
-# The benchmarks `dreamscale sim` runs on this computer, then RoboLab, which runs on
-# Dreamscale's simulators.
-BENCHMARK_LABELS = {**LOCAL_LABELS, "robolab": "RoboLab (hosted)"}
+# The benchmarks `dreamscale sim` runs on this computer, then RoboLab and RoboTwin, which run on
+# Dreamscale's simulators. RoboTwin runs but is unlisted until its release.
+BENCHMARK_LABELS = {**LOCAL_LABELS, "robolab": "RoboLab (hosted)",
+                    "robotwin": "RoboTwin (hosted)"}
+UNLISTED = frozenset({"robotwin"})
 
 
 @dataclass(frozen=True)
@@ -207,6 +209,19 @@ def _abc_tasks(suite: str) -> list[Task]:
     raise ValueError("ABC has no suites: --task-id is one of its tasks, or use --all.")
 
 
+# --- RoboTwin (hosted): 50 tasks, no suites.
+
+
+def _robotwin_tasks(suite: str) -> list[Task]:
+    raise ValueError("RoboTwin has no suites: --task-id is one of its tasks, or use --all.")
+
+
+def _robotwin_all() -> list[Task]:
+    from .robotwin_catalog import ROBOTWIN_TASKS
+
+    return [Task(name, _words(name)) for name in ROBOTWIN_TASKS]
+
+
 def _abc_all() -> list[Task]:
     from .abc_catalog import TASKS
 
@@ -216,12 +231,12 @@ def _abc_all() -> list[Task]:
 _SUITES: dict[str, Callable[[], list[Suite]]] = {
     "libero": _libero_suites, "robocasa365": _robocasa_suites,
     "molmospaces": _molmospaces_suites, "roboeval": _roboeval_suites, "abc": _abc_suites,
-    "robolab": _robolab_suites,
+    "robolab": _robolab_suites, "robotwin": list,
 }
 _TASKS: dict[str, Callable[[str], list[Task]]] = {
     "libero": _libero_tasks, "robocasa365": _robocasa_tasks,
     "molmospaces": _molmospaces_tasks, "roboeval": _roboeval_tasks, "abc": _abc_tasks,
-    "robolab": _robolab_tasks,
+    "robolab": _robolab_tasks, "robotwin": _robotwin_tasks,
 }
 # What each benchmark's --task-id is, for the suite list's footer.
 _TASK_ID = {
@@ -231,6 +246,7 @@ _TASK_ID = {
     "roboeval": "a variant's name",
     "abc": "a task's name",
     "robolab": "a task's name",
+    "robotwin": "a task's name",
 }
 
 
@@ -248,6 +264,8 @@ def all_tasks(benchmark: str) -> list[Task]:
     TasksUnavailable for a benchmark whose episodes aren't downloaded yet."""
     if benchmark == "abc":
         return _abc_all()
+    if benchmark == "robotwin":
+        return _robotwin_all()
     if benchmark == "robolab":
         from .robolab_catalog import ROBOLAB_TASKS
 
@@ -270,6 +288,8 @@ def _count(suite: Suite) -> str | None:
 def render_benchmarks(*, color: bool | None = None, width: int | None = None) -> list[str]:
     rows = []
     for benchmark, label in BENCHMARK_LABELS.items():
+        if benchmark in UNLISTED:
+            continue
         rows.append([benchmark, label, str(len(suites(benchmark)))])
     columns = [tables.Column("Benchmark"), tables.Column("Name"),
                tables.Column("Suites", justify="right")]
@@ -325,7 +345,7 @@ def run_list(benchmark: str | None, suite: str | None, *, json_output: bool = Fa
         if json_output:
             print_fn(json.dumps({"benchmarks": [
                 {"benchmark": b, "name": label, "suites": [asdict(s) for s in suites(b)]}
-                for b, label in BENCHMARK_LABELS.items()]}, indent=2))
+                for b, label in BENCHMARK_LABELS.items() if b not in UNLISTED]}, indent=2))
             return
         for line in render_benchmarks():
             print_fn(line)

@@ -26,9 +26,11 @@ import math
 import os
 import threading
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
+from queue import Empty, Queue
+from typing import TypeVar
 
 _log = logging.getLogger(__name__)
 
@@ -388,6 +390,26 @@ def capped(seconds: float) -> Iterator[None]:
         yield
 
 
+@contextmanager
+def bound_to(seconds: float | None) -> Iterator[RequestBudget]:
+    """Run under the call's budget, cut to end `seconds` from now when that is nearer; `None` cuts nothing.
+
+    For work whose own limit is shorter than the request's, such as a hold of the vault's boundary that a waiting
+    writer is refused for once it is overdue. The cut budget is the bound one, so a reader that this work calls
+    (`find`, a lexical read, a wait for a build) obeys it too. A call with no budget, such as the import filer's,
+    gets a fresh one of the usual length. Skips and truncations are recorded on the parent too.
+    """
+    parent = current()
+    if parent is not None and (seconds is None or seconds >= parent.remaining()):
+        yield parent
+        return
+    parent = parent or RequestBudget(seconds=budget_seconds())
+    now = time.monotonic()
+    deadline = parent.deadline if seconds is None else min(parent.deadline, now + max(0.0, seconds))
+    with _running_until(parent, deadline, now):
+        yield current()
+
+
 class ReadBudgetExhausted(BaseException):
     """Stop owned read work without converting interruption into a fallback scan."""
 
@@ -400,20 +422,76 @@ _READ_CHECKPOINT: ContextVar[ReadCheckpoint | None] = ContextVar(
 class ReadCheckpoint:
     """The same allowance on the caller and its accepted read batches."""
 
-    def __init__(self, budget: RequestBudget, *, bound_disclosure: bool = False) -> None:
+    def __init__(self, budget: RequestBudget, *, bound_disclosure: bool = False,
+                 bound_store_reads: bool = False, store_sql_steps: int | None = None) -> None:
         self.budget = budget
         self.bound_disclosure = bound_disclosure
+        self.bound_store_reads = bound_store_reads
+        self._store_sql_steps = store_sql_steps
 
     def remaining(self) -> float:
         return self.budget.remaining()
 
     def __call__(self) -> None:
-        if self.remaining() <= 0:
+        if self.remaining() <= 0 or (self._store_sql_steps is not None and self._store_sql_steps <= 0):
             raise ReadBudgetExhausted()
+
+    def store_sql_progress(self, steps: int) -> None:
+        if self._store_sql_steps is not None:
+            self._store_sql_steps -= steps
+
+
+_Result = TypeVar("_Result")
+
+
+def bounded_blocking_call(
+    operation: Callable[[], _Result], *, remaining: Callable[[], float],
+    slots: threading.Semaphore, wait_for_slot: bool = True,
+) -> _Result:
+    """Limit the caller's wait and keep a slot until blocking I/O actually ends."""
+    seconds = remaining()
+    if seconds <= 0 or not slots.acquire(timeout=seconds if wait_for_slot else 0):
+        raise TimeoutError()
+    result: Queue[_Result | BaseException] = Queue(maxsize=1)
+
+    def run() -> None:
+        value: _Result | BaseException
+        try:
+            value = operation()
+        except BaseException as error:  # noqa: BLE001 - deliver worker failure to the waiting caller
+            value = error
+        finally:
+            slots.release()
+        result.put(value)
+
+    try:
+        threading.Thread(target=run, daemon=True).start()
+    except BaseException:
+        slots.release()
+        raise
+    try:
+        value = result.get(timeout=max(0, remaining()))
+    except Empty as error:
+        raise TimeoutError() from error
+    if remaining() <= 0:
+        raise TimeoutError()
+    if isinstance(value, BaseException):
+        raise value
+    return value
 
 
 def current_checkpoint() -> ReadCheckpoint | None:
     return _READ_CHECKPOINT.get()
+
+
+def store_read_checkpoint() -> ReadCheckpoint | None:
+    check = current_checkpoint()
+    return check if check is not None and check.bound_store_reads else None
+
+
+def store_read_lock(lock):
+    """Keep passive store reads within their allowance when a lock is held."""
+    return locked(lock) if store_read_checkpoint() is not None else lock
 
 
 def checkpoint() -> None:

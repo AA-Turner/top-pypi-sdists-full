@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semhash
-Version: 0.5.0
+Version: 0.6.0
 Summary: Fast Multimodal Semantic Deduplication & Filtering
 Author-email: Thomas van Dongen <thomasvdongen@proton.me>, Stéphan Tulkens <stephantul@gmail.com>
 License: MIT License
@@ -41,7 +41,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Natural Language :: English
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: model2vec>=0.3.4
+Requires-Dist: model2vec<0.12.0,>=0.11.0
 Requires-Dist: vicinity[usearch]>=0.4.6
 Requires-Dist: frozendict
 Requires-Dist: pyversity
@@ -420,7 +420,7 @@ from semhash import SemHash
 texts = load_dataset("ag_news", split="train")["text"]
 
 # Load an embedding model (in this example, a multilingual model)
-model = StaticModel.from_pretrained("minishlab/potion-multilingual-128M")
+model = StaticModel.from_pretrained("minishlab/blink-multilingual-64M-int8")
 
 # Initialize a SemHash with the model and custom encoder
 semhash = SemHash.from_records(records=texts, model=model)
@@ -525,7 +525,7 @@ from semhash import SemHash
 texts = load_dataset("ag_news", split="train")["text"]
 
 # Load an embedding model
-model = StaticModel.from_pretrained("minishlab/potion-base-8M")
+model = StaticModel.from_pretrained("minishlab/blink-8M-int8")
 
 # Create embeddings
 embeddings = model.encode(texts)
@@ -583,7 +583,7 @@ deduplicated_records = semhash.self_deduplicate().selected
 
 ## Benchmarks
 
-SemHash is extremely fast and scales to large datasets with millions of records. We've benchmarked both text and image deduplication across a variety of datasets. For example, deduplicating text 1.8M records takes only ~74 seconds on CPU.
+SemHash is extremely fast and scales to large datasets with millions of records. We've benchmarked both text and image deduplication across a variety of datasets. For example, deduplicating text 1.8M records takes only ~67 seconds on CPU.
 
 For detailed benchmark results and analysis, see the [benchmarks directory](benchmarks/README.md).
 

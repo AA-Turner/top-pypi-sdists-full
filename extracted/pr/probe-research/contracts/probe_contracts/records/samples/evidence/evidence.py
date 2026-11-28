@@ -1,0 +1,188 @@
+"""A captured rollout as physical observations. Paths share nodes and replies identify command occurrences."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, JsonValue, model_validator
+
+from ....compat import StrEnum
+from ..outcome import SampleSplit
+from ..provenance import Sha256
+from ..turns import Message, SourceValueType, ToolDefinition, check_tools
+
+EvidenceKey = Annotated[str, Field(min_length=1, max_length=512)]
+Count = Annotated[int, Field(ge=0)]
+Seconds = Annotated[FiniteFloat, Field(ge=0)]
+MAX_EVIDENCE_BYTES = 8 * 1024 * 1024
+MAX_EVIDENCE_NODES = 32_768
+
+
+class EvidenceFields(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+
+class GradeStatus(StrEnum):
+    GRADED = "graded"
+    UNGRADED = "ungraded"
+    UNKNOWN = "unknown"
+
+
+class EvidenceUsage(EvidenceFields):
+    """Provider and trace counters can have different bases. Every absent measurement stays absent."""
+
+    prompt_tokens: Count | None = None
+    completion_tokens: Count | None = None
+    cached_input_tokens: Count | None = None
+    reasoning_tokens: Count | None = None
+    trace_input_tokens: Count | None = None
+    trace_output_tokens: Count | None = None
+    cost_usd: FiniteFloat | None = None
+
+
+class EvidenceSummary(EvidenceFields):
+    """The producer's compact, measured facts. Actual trainer and scorer writes keep their precedence."""
+
+    task_name: EvidenceKey | None = None
+    environment_name: EvidenceKey | None = None
+    environment_version: EvidenceKey | None = None
+    environment_ref: EvidenceKey | None = None
+    agent: EvidenceKey | None = None
+    model: EvidenceKey | None = None
+    policy_version: Count | None = None
+    split: SampleSplit | None = None
+    retry_number: Count | None = None
+    state: Literal["queued", "running", "scoring", "completed", "cut_off", "timed_out", "error", "cancelled"] | None = None
+    stop_reason: EvidenceKey | None = None
+    grade_status: GradeStatus = GradeStatus.UNKNOWN
+    grade_passed: bool | None = None
+    raw_reward: FiniteFloat | None = None
+    reward_parts: dict[EvidenceKey, FiniteFloat] = Field(default_factory=dict)
+    reward_weights: dict[EvidenceKey, FiniteFloat] = Field(default_factory=dict)
+    metrics: dict[EvidenceKey, FiniteFloat] = Field(default_factory=dict)
+    diagnostics: dict[EvidenceKey, JsonValue] = Field(default_factory=dict)
+    phase_seconds: dict[EvidenceKey, Seconds] = Field(default_factory=dict)
+    usage: EvidenceUsage = Field(default_factory=EvidenceUsage)
+    trainer_membership: bool | None = None
+
+    @model_validator(mode="after")
+    def check_grade(self) -> EvidenceSummary:
+        if self.grade_passed is not None and self.grade_status != GradeStatus.GRADED:
+            raise ValueError("a verdict requires an observed grade")
+        return self
+
+
+class CompactEvidence(EvidenceSummary):
+    #: A historical receipt explicitly superseded by an activated repair.
+    inferred_trainer_sha256: Sha256 | None = None
+    branch_count: Count
+    turn_count: Count
+    model_calls: Count
+    tool_calls: Count
+    tool_results: Count
+
+
+class EvidenceNode(EvidenceFields):
+    id: EvidenceKey
+    parent_id: EvidenceKey | None = None
+    message: Message
+    content_type: SourceValueType | None = None
+    observed_at: datetime | None = None
+    sampled: bool | None = None
+    tool_set: EvidenceKey | None = None
+    process_exit_code: int | None = None
+    unpaired_reason: EvidenceKey | None = None
+
+
+class EvidenceModelCall(EvidenceFields):
+    id: EvidenceKey
+    node_id: EvidenceKey | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    duration_s: Seconds | None = None
+    model: EvidenceKey | None = None
+    finish_reason: EvidenceKey | None = None
+    error: str | None = Field(default=None, max_length=8192)
+    usage: EvidenceUsage | None = None
+
+
+def _get_ancestry(children: dict[str | None, list[str]]) -> dict[str, tuple[int, int]]:
+    """Two positions per node allow a constant-time ancestor check even on a deep shared prefix."""
+    times: dict[str, tuple[int, int]] = {}
+    clock = 0
+    pending = [(node, False) for node in children.get(None, ())]
+    while pending:
+        node, closing = pending.pop()
+        clock += 1
+        if closing:
+            times[node] = (times[node][0], clock)
+        else:
+            times[node] = (clock, clock)
+            pending.append((node, True))
+            pending.extend((child, False) for child in children.get(node, ()))
+    return times
+
+
+class SampleEvidence(EvidenceFields):
+    schema_version: Literal[1]
+    scrub_version: Literal[1]
+    adapter_version: EvidenceKey
+    source_sha256: Sha256
+    source_run_id: EvidenceKey | None = None
+    source_trace_id: EvidenceKey
+    source_episode_id: EvidenceKey | None = None
+    summary: EvidenceSummary
+    nodes: list[EvidenceNode] = Field(default_factory=list, max_length=MAX_EVIDENCE_NODES)
+    model_calls: list[EvidenceModelCall] = Field(default_factory=list, max_length=MAX_EVIDENCE_NODES)
+    tools: dict[EvidenceKey, list[ToolDefinition]] = Field(default_factory=dict, max_length=128)
+
+    @model_validator(mode="after")
+    def check_graph(self) -> SampleEvidence:
+        seen: set[str] = set()
+        commands: dict[str, str] = {}
+        children: dict[str | None, list[str]] = {}
+        for definitions in self.tools.values():
+            check_tools(definitions)
+        for node in self.nodes:
+            if node.id in seen or (node.parent_id is not None and node.parent_id not in seen):
+                raise ValueError("nodes must have unique keys and follow their parent")
+            if node.tool_set is not None and node.tool_set not in self.tools:
+                raise ValueError("node refers to an unknown tool definition set")
+            children.setdefault(node.parent_id, []).append(node.id)
+            seen.add(node.id)
+            for call in node.message.tool_calls:
+                if not call.id or call.id in commands:
+                    raise ValueError("each command needs a unique occurrence key")
+                commands[call.id] = node.id
+        spans = _get_ancestry(children)
+        for node in self.nodes:
+            target = node.message.tool_call_id
+            if target is not None:
+                source = commands.get(target)
+                if source is None or not (spans[source][0] < spans[node.id][0] < spans[source][1]):
+                    raise ValueError("a linked reply must identify a command on its own ancestor path")
+        if len({call.id for call in self.model_calls}) != len(self.model_calls):
+            raise ValueError("model calls must have unique occurrence keys")
+        if any(call.node_id is not None and call.node_id not in seen for call in self.model_calls):
+            raise ValueError("model call refers to a missing observation")
+        if len(self.to_canonical_bytes()) > MAX_EVIDENCE_BYTES:
+            raise ValueError("trace evidence exceeds the document size limit")
+        if len(self.summary.model_dump_json().encode()) > 64 * 1024:
+            raise ValueError("trace summary exceeds 64 KiB")
+        return self
+
+    def to_canonical_bytes(self) -> bytes:
+        return json.dumps(self.model_dump(mode="json", exclude_none=True), sort_keys=True, ensure_ascii=False,
+                          separators=(",", ":"), allow_nan=False).encode("utf-8")
+
+    def to_compact_summary(self) -> CompactEvidence:
+        parents = {node.parent_id for node in self.nodes}
+        # A displayed turn ends with a model message, or a trailing leaf observation.
+        turns = sum(node.message.role == "assistant" or node.id not in parents for node in self.nodes)
+        return CompactEvidence(**self.summary.model_dump(), branch_count=sum(n.id not in parents for n in self.nodes),
+                               turn_count=turns, model_calls=len(self.model_calls),
+                               tool_calls=sum(len(n.message.tool_calls) for n in self.nodes),
+                               tool_results=sum(n.message.role == "tool" for n in self.nodes))
+

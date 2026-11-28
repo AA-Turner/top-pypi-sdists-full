@@ -173,7 +173,17 @@ def _region_option():
 
 
 def _provider_option():
-    return typer.Option(None, "--provider", help="Advanced: aws or modal.")
+    """`--provider`, from scripts that pin a server: hidden, still passed on, with a note
+    (``_note_provider_deprecated``)."""
+    return typer.Option(None, "--provider", hidden=True)
+
+
+def _note_provider_deprecated(provider: str | None) -> None:
+    """One line on stderr when a script still passes --provider; its value is still sent."""
+    from dreamscale.config import PROVIDER_DEPRECATED
+
+    if provider is not None:
+        typer.echo(f"Note: --provider {PROVIDER_DEPRECATED}.", err=True)
 
 
 def _speed_option():
@@ -617,12 +627,14 @@ def _sim_list(benchmark: str | None, task_suite: str | None, *, json_output: boo
               every: bool = False) -> None:
     """`dreamscale sim [<benchmark>] [--task-suite <suite> | --all] --list`: offline."""
     from dreamscale.sim.benchmarks import BENCHMARK_MODELS
+    from dreamscale.sim.hosted import HOSTED_BENCHMARKS
     from dreamscale.sim.task_list import run_list
 
     if benchmark is None and task_suite is not None:
         raise typer.BadParameter("--task-suite needs a benchmark: dreamscale sim <benchmark> "
                                  "--task-suite <suite> --list", param_hint="--task-suite")
-    if benchmark is not None and benchmark not in BENCHMARK_MODELS and benchmark != "robolab":
+    if benchmark is not None and benchmark not in BENCHMARK_MODELS \
+            and benchmark not in HOSTED_BENCHMARKS:
         raise typer.BadParameter(
             "choose a benchmark: dreamscale sim libero, robocasa365, molmospaces, roboeval, "
             "abc or robolab",
@@ -641,8 +653,9 @@ def _sim_list(benchmark: str | None, task_suite: str | None, *, json_output: boo
 def _sim_hosted(benchmark: str, *, model: str | None, task_id: str | None,
                 task_suite: str | None, episodes: int | None, max_units: int | None,
                 json_output: bool, artifacts: Path | None, local_only: list[str],
-                no_view: bool) -> None:
-    """`dreamscale sim robolab`: a run on Dreamscale's simulators, nothing installed here."""
+                no_view: bool, task_ids: list[str] | None = None) -> None:
+    """`dreamscale sim robolab` or `robotwin`: a run on Dreamscale's simulators, nothing
+    installed here."""
     import importlib.util
 
     from dreamscale import errors
@@ -652,6 +665,9 @@ def _sim_hosted(benchmark: str, *, model: str | None, task_id: str | None,
     if local_only:
         raise typer.BadParameter(f"{', '.join(local_only)} only applies to a simulator run on "
                                  "this computer")
+    cap = hosted.EPISODES_MAX[benchmark]
+    if episodes is not None and not 1 <= episodes <= cap:
+        raise typer.BadParameter(f"{benchmark}: --episodes is 1-{cap}", param_hint="--episodes")
     interactive = sys.stdout.isatty() and not json_output
     progress = ProgressPrinter(show_header=False) if interactive else None
     view = interactive and not no_view and (max_units or 1) == 1 and _sim_view(False)
@@ -661,7 +677,7 @@ def _sim_hosted(benchmark: str, *, model: str | None, task_id: str | None,
     try:
         code = hosted.run_hosted(
             benchmark=benchmark, model=model, task_id=task_id, task_suite=task_suite,
-            episodes=episodes or hosted.DEFAULT_EPISODES,
+            task_ids=task_ids, episodes=episodes or hosted.DEFAULT_EPISODES,
             max_units=max_units or hosted.DEFAULT_MAX_UNITS,
             json_output=json_output, artifacts=artifacts,
             print_fn=progress or typer.echo, err_fn=lambda line: typer.echo(line, err=True),
@@ -766,13 +782,13 @@ def sim(
     # RoboLab's options (dreamscale.sim.hosted). --json and --artifacts are older spellings of
     # --non-interactive and --output-root.
     episodes: int | None = typer.Option(
-        None, "--episodes", min=1, max=50, metavar="N",
-        help="robolab: episodes per task, 1-50 (default 4).",
+        None, "--episodes", min=1, metavar="N",
+        help="Hosted runs: episodes per task (default 4; robolab allows 1-50).",
     ),
-    no_view: bool = typer.Option(False, "--no-view", help="robolab: don't open the live view."),
+    no_view: bool = typer.Option(False, "--no-view", help="Hosted runs: don't open the live view."),
     max_units: int | None = typer.Option(
         None, "--max-units", min=1, max=4, metavar="N",
-        help="robolab: simulators to run tasks on at once, 1-4 (default 1).",
+        help="Hosted runs: simulators to run tasks on at once, 1-4 (default 1).",
     ),
     json_flag: bool = typer.Option(False, "--json", hidden=True),
     artifacts: Annotated[Path | None, typer.Option("--artifacts", hidden=True)] = None,
@@ -821,6 +837,7 @@ def sim(
                 ("--max-duration", max_duration is not None),
                 ("--transport", transport != SimTransport.auto), ("--region", region is not None),
                 ("--steady-send", steady_send or steady_send_ms is not None),
+                ("--mode", sim_mode is not None),
             ) if given
         ]
         if model is None:
@@ -831,14 +848,16 @@ def sim(
                 param_hint="'--model'",
                 param_type="option",
             )
-        (pick,) = _sim_picks(benchmark, every=every, task_suite=task_suite, task_id=task_id,
-                             random_task=random_task)
+        picks = _sim_picks(benchmark, every=every, task_suite=task_suite, task_id=task_id,
+                           random_task=random_task)
         if random_task and not non_interactive:
-            typer.echo(f"Random task: {pick.id}")
+            typer.echo(f"Random task: {picks[0].id}")
+        whole = len(picks) == 1 and picks[0].task == "all"  # RoboLab: a suite
         _sim_hosted(
             benchmark, model=model,
-            task_id=None if pick.task == "all" else pick.id,
-            task_suite=pick.suite if pick.task == "all" else None,
+            task_id=picks[0].id if len(picks) == 1 and not whole else None,
+            task_suite=picks[0].suite if whole else None,
+            task_ids=[p.id for p in picks] if len(picks) > 1 else None,
             episodes=episodes, max_units=max_units, json_output=non_interactive,
             artifacts=output_root, local_only=local_only, no_view=no_view,
         )
@@ -2411,7 +2430,7 @@ def _robot_run_command(embodiment):
         ("region_fallback", bool | None, typer.Option(
             None, "--region-fallback/--no-region-fallback",
             help="Allow a shared-model session to start in the next supported region if "
-            "its preferred region has no GPU. An explicit --region is strict by default.",
+            "its preferred region is full. An explicit --region is strict by default.",
         )),
         ("provider", str | None, _provider_option()),
         ("speed", str, _speed_option()),
@@ -2527,14 +2546,12 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
     region_fallback = options.pop("region_fallback", None)
     _note_engine_ignored(options.pop("engine", None))
     session_options = {"region_fallback": region_fallback} if region_fallback is not None else {}
-    connect_options = {}
-    if session_options:
-        from dreamscale.policy.remote import aconnect
+    from dreamscale.policy.remote import _aconnect
 
-        async def session_connect(*args, **kwargs):
-            return await aconnect(*args, **session_options, **kwargs)
-
-        connect_options["connect"] = session_connect
+    async def session_connect(*args, **kwargs):
+        # _aconnect: the CLI notes a deprecated --provider on stderr once, where aconnect's
+        # warning would name the runner's line and abort the run under -W error.
+        return await _aconnect(*args, **session_options, **kwargs)
     model, options["checkpoint"] = _model_or_deployment(model, options.get("checkpoint"))
     model = _deployment_model(embodiment, model, options.get("checkpoint"))
     if model is None:
@@ -2590,6 +2607,7 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
         return
     if effort is not None or max_cost is not None:
         raise typer.BadParameter("--effort and --max-cost apply only to LLM models.")
+    _note_provider_deprecated(options["provider"])
     _ensure_extras(
         [
             *extras, *(["trace"] if options["trace_dir"] else []), *(["hud"] if hud else []),
@@ -2615,7 +2633,7 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
             )
         _run_robot_command(
             embodiment.load(embodiment.run_policy),
-            **connect_options,
+            connect=session_connect,
             model=model,
             instruction=instruction,
             **({"config_path": config} if config is not None else {}),

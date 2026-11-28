@@ -44,17 +44,18 @@ from asyncssh.compression import get_compression_algs
 from asyncssh.crypto.cipher import GCMCipher
 from asyncssh.encryption import get_encryption_algs
 from asyncssh.kex import get_kex_algs
-from asyncssh.kex_dh import MSG_KEX_ECDH_REPLY
+from asyncssh.kex_dh import MSG_KEX_ECDH_INIT, MSG_KEX_ECDH_REPLY
 from asyncssh.mac import _HMAC, _mac_handler, get_mac_algs
-from asyncssh.packet import SSHPacket, Boolean, NameList, String, UInt32
+from asyncssh.packet import SSHPacket, Boolean, Byte, NameList, String
+from asyncssh.packet import UInt32
 from asyncssh.public_key import get_default_public_key_algs
 from asyncssh.public_key import get_default_certificate_algs
 from asyncssh.public_key import get_default_x509_certificate_algs
 
 from .server import Server, ServerTestCase
 
-from .util import asynctest, patch_extra_kex, patch_getaddrinfo
-from .util import patch_getnameinfo, patch_gss
+from .util import AsyncTestCase, asynctest, patch_extra_kex, patch_getaddrinfo
+from .util import patch_getnameinfo, patch_gss, patch_rdns
 from .util import gss_available, nc_available, x509_available
 
 
@@ -210,6 +211,17 @@ def _failing_get_mac(alg, key):
     return _FailingMAC(key, hash_size, *args)
 
 
+def _feed_packet_data(conn, data):
+    """Feed data directly into a connection's packet receive handlers"""
+
+    # pylint: disable=protected-access
+
+    conn._inpbuf += data
+
+    while conn._inpbuf and conn._recv_handler():
+        pass
+
+
 async def _slow_connect(*_args, **_kwargs):
     """Simulate a really slow connect that ends up timing out"""
 
@@ -237,14 +249,10 @@ class _ValidateHostKeyClient(asyncssh.SSHClient):
     def validate_host_public_key(self, host, addr, port, key):
         """Return whether key is an authorized key for this host"""
 
-        # pylint: disable=unused-argument
-
         return key == self._host_key
 
     def validate_host_ca_key(self, host, addr, port, key):
         """Return whether key is an authorized CA key for this host"""
-
-        # pylint: disable=unused-argument
 
         return key == self._ca_key
 
@@ -277,8 +285,6 @@ class _InternalErrorClient(asyncssh.SSHClient):
     def connection_made(self, conn):
         """Raise an error when a new connection is opened"""
 
-        # pylint: disable=unused-argument
-
         raise RuntimeError('Exception handler test')
 
 
@@ -288,9 +294,19 @@ class _ClientCleanupError(asyncssh.SSHClient):
     def connection_lost(self, exc):
         """Raise an error when a client is cleaned up"""
 
-        # pylint: disable=unused-argument
-
         raise RuntimeError('Exception in cleanup test')
+
+
+class _ExcRecordingClient(asyncssh.SSHClient):
+    """Client which records the exception which closed the connection"""
+
+    def __init__(self):
+        self.exc = None
+
+    def connection_lost(self, exc):
+        """Record the exception which closed the connection"""
+
+        self.exc = exc
 
 
 class _TunnelServer(Server):
@@ -323,8 +339,6 @@ class _CloseDuringAuthServer(Server):
     async def validate_password(self, username, password):
         """Delay validating password"""
 
-        # pylint: disable=unused-argument
-
         await asyncio.sleep(1)
         return False # pragma: no cover - closed before we get here
 
@@ -334,8 +348,6 @@ class _InternalErrorServer(Server):
 
     def debug_msg_received(self, msg, lang, always_display):
         """Process a debug message"""
-
-        # pylint: disable=unused-argument
 
         raise RuntimeError('Exception handler test')
 
@@ -377,8 +389,6 @@ class _VersionReportingServer(Server):
 @patch('asyncssh.connection.SSHClientConnection', _CheckAlgsClientConnection)
 class _TestConnection(ServerTestCase):
     """Unit tests for AsyncSSH connection API"""
-
-    # pylint: disable=too-many-public-methods
 
     @classmethod
     async def start_server(cls):
@@ -632,6 +642,35 @@ class _TestConnection(ServerTestCase):
             pass
 
     @asynctest
+    async def test_server_host_key_signature_alg_per_connection(self):
+        """Test connections on a listener using different RSA signature algs"""
+
+        server_conns = []
+
+        class _RecordingServer(Server):
+            """Server which records its connections"""
+
+            def connection_made(self, conn):
+                """Record the server connection"""
+
+                super().connection_made(conn)
+                server_conns.append(conn)
+
+        async with self.listen(server_factory=_RecordingServer) as server:
+            port = server.get_port()
+
+            async with self.connect(port=port,
+                                    known_hosts=(['skey.pub'], [], []),
+                                    server_host_key_algs=['rsa-sha2-256']):
+                async with self.connect(port=port,
+                                        known_hosts=(['skey.pub'], [], []),
+                                        server_host_key_algs=['rsa-sha2-512']):
+                    self.assertEqual(
+                        [conn.get_server_host_key().sig_algorithm
+                         for conn in server_conns],
+                        [b'rsa-sha2-256', b'rsa-sha2-512'])
+
+    @asynctest
     async def test_get_server_host_key(self):
         """Test retrieving a server host key"""
 
@@ -668,6 +707,27 @@ class _TestConnection(ServerTestCase):
         key = await self.get_server_host_key(proxy_command=proxy_command)
 
         self.assertEqual(key, keylist[0])
+
+    @unittest.skipUnless(nc_available, 'Netcat not available')
+    @asynctest
+    async def test_proxy_command_in_config(self):
+        """Test connecting using a proxy command from a config file"""
+
+        with open('config', 'w') as f:
+            f.write('ProxyCommand nc %h %p')
+
+        async with self.connect(config='config'):
+            pass
+
+    @asynctest
+    async def test_unsafe_remote_command_in_config(self):
+        """Test unsafe user name substituted into remote command in config"""
+
+        with open('config', 'w') as f:
+            f.write('RemoteCommand echo %r')
+
+        with self.assertRaises(asyncssh.ConfigParseError):
+            await self.connect(username='u;id', config='config')
 
     @unittest.skipUnless(nc_available, 'Netcat not available')
     @asynctest
@@ -872,6 +932,21 @@ class _TestConnection(ServerTestCase):
             await self.connect(known_hosts=(['ckey.pub'], [], ['skey.pub']))
 
     @asynctest
+    async def test_revoked_known_hosts_port(self):
+        """Test server host key revoked for a specific port"""
+
+        self._server.update(server_host_keys=['skey'])
+
+        with open('skey.pub') as f:
+            skey_pub = f.read()
+
+        known_hosts = (f'@revoked [{self._server_addr}]:{self._server_port} '
+                       f'{skey_pub}{self._server_addr} {skey_pub}')
+
+        with self.assertRaises(asyncssh.HostKeyNotVerifiable):
+            await self.connect(known_hosts=known_hosts.encode())
+
+    @asynctest
     async def test_revoked_known_hosts_ca(self):
         """Test revoked server CA key"""
 
@@ -931,6 +1006,51 @@ class _TestConnection(ServerTestCase):
             with self.subTest(kex_alg=kex):
                 async with self.connect(kex_algs=[kex], gss_host='1'):
                     pass
+
+    async def _connect_with_wrong_guess(self, **kwargs):
+        """Connect with a client that sends a wrong first_kex_packet_follows
+           guess, which the server must ignore"""
+
+        def send_packet(self, pkttype, *args, **kwargs):
+            if pkttype == MSG_KEXINIT and not self._kex_complete:
+                # Set first_kex_packet_follows and send a bogus guess
+                packet = args[0][:-5] + Boolean(True) + args[0][-4:]
+                self._client_kexinit = Byte(MSG_KEXINIT) + packet
+
+                asyncssh.connection.SSHConnection.send_packet(
+                    self, MSG_KEXINIT, packet)
+                asyncssh.connection.SSHConnection.send_packet(
+                    self, MSG_KEX_ECDH_INIT, String(b'bogus guess'))
+            else:
+                asyncssh.connection.SSHConnection.send_packet(
+                    self, pkttype, *args, **kwargs)
+
+        with patch('asyncssh.connection.SSHClientConnection.send_packet',
+                   send_packet):
+            async with self.connect(**kwargs):
+                pass
+
+    @asynctest
+    async def test_wrong_guess_negotiated_kex_matches(self):
+        """Test ignoring a wrong guess when the negotiated kex matches it"""
+
+        # The client's only kex alg is negotiated, but it isn't the
+        # server's first choice, so the guess is wrong per RFC 4253
+        await self._connect_with_wrong_guess(kex_algs=['ecdh-sha2-nistp256'])
+
+    @asynctest
+    async def test_wrong_guess_host_key_alg(self):
+        """Test ignoring a wrong guess when only the host key alg differs"""
+
+        server_kex = [alg for alg in get_kex_algs()
+                      if not alg.startswith(b'gss-')][0].decode('ascii')
+
+        self._server.update(server_host_keys=['skey'])
+
+        # Same first kex alg on both sides, but the client's first host key
+        # alg isn't the server's first choice, so the guess is wrong
+        await self._connect_with_wrong_guess(
+            kex_algs=[server_kex], server_host_key_algs=['rsa-sha2-512'])
 
     @asynctest
     async def test_duplicate_encryption_algs(self):
@@ -1125,11 +1245,114 @@ class _TestConnection(ServerTestCase):
         """Test MAC validation failure"""
 
         with patch('asyncssh.encryption.get_mac', _failing_get_mac):
-            for mac in ('hmac-sha2-256-etm@openssh.com', 'hmac-sha2-256'):
-                with self.subTest(mac_alg=mac):
-                    with self.assertRaises(asyncssh.MACError):
-                        await self.connect(encryption_algs=['aes128-ctr'],
-                                           mac_algs=[mac])
+            with self.assertRaises(asyncssh.MACError):
+                await self.connect(
+                    encryption_algs=['aes128-ctr'],
+                    mac_algs=['hmac-sha2-256-etm@openssh.com'])
+
+    async def _check_discard(self, enc_alg, pktlen, mac_already):
+        """Check that a corrupt packet consumes a fixed amount of data"""
+
+        # pylint: disable=protected-access
+
+        async with self.connect(encryption_algs=[enc_alg],
+                                mac_algs=['hmac-sha2-256']) as conn:
+            enc = conn._recv_encryption
+            blocksize = conn._recv_blocksize
+            total = 4 + conn._max_recv_pktlen + conn._recv_macsize
+
+            conn._inpbuf = b''
+            conn._recv_handler = conn._recv_pkthdr
+
+            header = os.urandom(blocksize)
+
+            with patch.object(enc, 'decrypt_header',
+                              return_value=(header, UInt32(pktlen))), \
+                 patch.object(enc, 'compute_discard_mac',
+                              wraps=enc.compute_discard_mac) as discard_mac:
+                _feed_packet_data(conn, header)
+                _feed_packet_data(conn, os.urandom(total - blocksize - 1))
+                discard_mac.assert_not_called()
+
+                with self.assertRaises(asyncssh.MACError):
+                    _feed_packet_data(conn, b'\0')
+
+                discard_mac.assert_called_once_with(
+                    conn._recv_seq, 4 + conn._max_recv_pktlen - mac_already)
+
+            conn.abort()
+
+    @asynctest
+    async def test_unauthenticated_length_discard(self):
+        """Test discarding a packet with a bad unauthenticated length"""
+
+        for enc_alg in ('aes128-cbc', '3des-cbc', 'aes128-ctr'):
+            for pktlen in (0, 4, 29, 0x40001, 0xffffffff):
+                with self.subTest(encryption_alg=enc_alg, pktlen=pktlen):
+                    await self._check_discard(enc_alg, pktlen, 0)
+
+    @asynctest
+    async def test_unauthenticated_length_mac_discard(self):
+        """Test discarding a packet with a bad MAC after its length"""
+
+        for enc_alg in ('aes128-cbc', '3des-cbc', 'aes128-ctr'):
+            for pktlen in (28, 0x3fffc):
+                with self.subTest(encryption_alg=enc_alg, pktlen=pktlen):
+                    await self._check_discard(enc_alg, pktlen, 4 + pktlen)
+
+    @asynctest
+    async def test_unauthenticated_length_mac_no_discard(self):
+        """Test a bad MAC on a max size packet with nothing to discard"""
+
+        # pylint: disable=protected-access
+
+        async with self.connect(encryption_algs=['aes128-cbc'],
+                                mac_algs=['hmac-sha2-256']) as conn:
+            conn._max_recv_pktlen = 0x3fffc
+
+            enc = conn._recv_encryption
+            blocksize = conn._recv_blocksize
+            total = 4 + conn._max_recv_pktlen + conn._recv_macsize
+
+            conn._inpbuf = b''
+            conn._recv_handler = conn._recv_pkthdr
+
+            header = os.urandom(blocksize)
+
+            with patch.object(enc, 'decrypt_header',
+                              return_value=(header, UInt32(0x3fffc))):
+                _feed_packet_data(conn, header)
+                _feed_packet_data(conn, os.urandom(total - blocksize - 1))
+
+                with self.assertRaises(asyncssh.MACError):
+                    _feed_packet_data(conn, b'\0')
+
+                self.assertEqual(conn._inpbuf, b'')
+
+            conn.abort()
+
+    @asynctest
+    async def test_authenticated_length_max_exceeded(self):
+        """Test immediately rejecting a large authenticated length"""
+
+        # pylint: disable=protected-access
+
+        async with self.connect(
+                encryption_algs=['aes128-ctr'],
+                mac_algs=['hmac-sha2-256-etm@openssh.com']) as conn:
+            enc = conn._recv_encryption
+
+            conn._inpbuf = b''
+            conn._recv_handler = conn._recv_pkthdr
+
+            header = os.urandom(conn._recv_blocksize)
+
+            with patch.object(enc, 'decrypt_header',
+                              return_value=(header, UInt32(0xffffffff))):
+                with self.assertRaises(asyncssh.ProtocolError):
+                    _feed_packet_data(conn, header)
+
+            conn.abort()
 
     @asynctest
     async def test_gcm_verify_error(self):
@@ -1318,6 +1541,39 @@ class _TestConnection(ServerTestCase):
         with patch('asyncssh.connection.SSHServerConnection.send_packet',
                    send_packet):
             await self.connect(compression_algs=['zlib@openssh.com'])
+
+    @asynctest
+    async def test_client_decompression_too_large(self):
+        """Test client rejecting a packet which decompresses too large"""
+
+        def send_packet(self, pkttype, *args, **kwargs):
+            """Send an SSH packet"""
+
+            asyncssh.connection.SSHConnection.send_packet(
+                self, pkttype, *args, **kwargs)
+
+            if pkttype == MSG_USERAUTH_SUCCESS:
+                asyncio.get_running_loop().call_soon(
+                    self.send_packet, MSG_IGNORE, String(bytes(1024*1024)))
+
+        with patch('asyncssh.connection.SSHServerConnection.send_packet',
+                   send_packet):
+            conn, client = await self.create_connection(
+                _ExcRecordingClient, compression_algs=['zlib@openssh.com'])
+            await conn.wait_closed()
+
+        self.assertIsInstance(client.exc, asyncssh.CompressionError)
+
+    @asynctest
+    async def test_server_decompression_too_large(self):
+        """Test server rejecting a packet which decompresses too large"""
+
+        conn, client = await self.create_connection(
+            _ExcRecordingClient, compression_algs=['zlib@openssh.com'])
+        conn.send_packet(MSG_IGNORE, String(bytes(1024*1024)))
+        await conn.wait_closed()
+
+        self.assertIsInstance(client.exc, asyncssh.CompressionError)
 
     @asynctest
     async def test_packet_decode_error(self):
@@ -1667,7 +1923,7 @@ class _TestConnection(ServerTestCase):
         conn = await self.connect()
 
         conn.send_packet(MSG_CHANNEL_OPEN, String(b'\xff'),
-                         UInt32(0), UInt32(1), UInt32(1))
+                         UInt32(0), UInt32(1), UInt32(32768))
 
         await conn.wait_closed()
 
@@ -1678,7 +1934,7 @@ class _TestConnection(ServerTestCase):
         conn = await self.connect()
 
         conn.send_packet(MSG_CHANNEL_OPEN, String('xxx'),
-                         UInt32(0), UInt32(1), UInt32(1))
+                         UInt32(10), UInt32(1), UInt32(32768))
 
         await conn.wait_closed()
 
@@ -1689,7 +1945,7 @@ class _TestConnection(ServerTestCase):
         conn = await self.connect()
 
         conn.send_packet(MSG_CHANNEL_OPEN_CONFIRMATION, UInt32(0xff),
-                         UInt32(0), UInt32(1), UInt32(1))
+                         UInt32(0), UInt32(1), UInt32(32768))
 
         await conn.wait_closed()
 
@@ -2724,6 +2980,174 @@ class _TestReverseDNS(ServerTestCase):
 
         with self.assertRaises(asyncssh.PermissionDenied):
             await self.connect(username='ckey')
+
+
+class _TestVerifiedReverseDNS(ServerTestCase):
+    """Unit tests for verification of reverse DNS lookups"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server which restricts the client's location"""
+
+        with open('ckey.pub') as ckey_pub:
+            ckey_pub_data = ckey_pub.read()
+
+        with open('authorized_keys_from', 'w') as auth_keys:
+            auth_keys.write('from="*.corp.test,10.1.2.*" ' + ckey_pub_data)
+
+        return await cls.create_server(
+            authorized_client_keys='authorized_keys_from', rdns_lookup=True)
+
+    @patch_rdns('good.corp.test', ['127.0.0.1'])
+    @asynctest
+    async def test_verified_rdns(self):
+        """Test reverse DNS name which maps back to the client address"""
+
+        async with self.connect(username='ckey', client_keys='ckey'):
+            pass
+
+    @patch_rdns('GOOD.Corp.Test', ['127.0.0.1'])
+    @asynctest
+    async def test_verified_rdns_mixed_case(self):
+        """Test reverse DNS name with mixed case"""
+
+        async with self.connect(username='ckey', client_keys='ckey'):
+            pass
+
+    @patch_rdns('bad.corp.test', ['10.9.9.9'])
+    @asynctest
+    async def test_unverified_rdns(self):
+        """Test reverse DNS name which doesn't map back"""
+
+        with self.assertRaises(asyncssh.PermissionDenied):
+            await self.connect(username='ckey', client_keys='ckey')
+
+    @patch_rdns('bad.corp.test')
+    @asynctest
+    async def test_unresolvable_rdns(self):
+        """Test reverse DNS name which doesn't resolve"""
+
+        with self.assertRaises(asyncssh.PermissionDenied):
+            await self.connect(username='ckey', client_keys='ckey')
+
+    @patch_rdns('10.1.2.3')
+    @asynctest
+    async def test_numeric_rdns(self):
+        """Test reverse DNS name which looks like an IP address"""
+
+        with self.assertRaises(asyncssh.PermissionDenied):
+            await self.connect(username='ckey', client_keys='ckey')
+
+    @patch_rdns(None)
+    @asynctest
+    async def test_rdns_error(self):
+        """Test reverse DNS lookup failure"""
+
+        with self.assertRaises(asyncssh.PermissionDenied):
+            await self.connect(username='ckey', client_keys='ckey')
+
+
+class _StubServerConnection:
+    """Stub connection for testing reverse DNS verification directly"""
+
+    # pylint: disable=protected-access
+
+    _resolve_peer_host = \
+        asyncssh.connection.SSHServerConnection._resolve_peer_host
+
+    def __init__(self, peer_addr):
+        self._loop = asyncio.get_event_loop()
+        self._peer_addr = peer_addr
+        self._peer_port = 22
+        self._verified_peer_host = None
+        self.logger = asyncssh.logging.logger
+
+    def get_extra_info(self, name):
+        """Return the peer address"""
+
+        # pylint: disable=unused-argument
+
+        return (self._peer_addr, self._peer_port)
+
+
+_STUB_PTR_NAMES = {'10.1.2.3': 'host.corp.test',
+                   '2001:db8::5': 'host6.corp.test'}
+
+_STUB_FORWARD_ADDRS = {('host.corp.test', socket.AF_INET): '10.1.2.3',
+                       ('host6.corp.test', socket.AF_INET6): '2001:db8::5'}
+
+
+def _stub_getnameinfo(sockaddr, flags):
+    """Return a name only for addresses with a stub PTR record"""
+
+    # pylint: disable=unused-argument
+
+    try:
+        return (_STUB_PTR_NAMES[sockaddr[0]], str(sockaddr[1]))
+    except KeyError:
+        raise socket.gaierror() from None
+
+
+def _stub_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    """Return an address only for names with a stub forward record"""
+
+    # pylint: disable=redefined-builtin,unused-argument
+
+    try:
+        addr = _STUB_FORWARD_ADDRS[host, family]
+    except KeyError:
+        raise socket.gaierror() from None
+
+    sockaddr = (addr, port) if family == socket.AF_INET else (addr, port, 0, 0)
+
+    return [(family, socket.SOCK_STREAM, socket.IPPROTO_TCP, '', sockaddr)]
+
+
+@patch('socket.getnameinfo', _stub_getnameinfo)
+@patch('socket.getaddrinfo', _stub_getaddrinfo)
+class _TestResolvePeerHost(AsyncTestCase):
+    """Unit tests for reverse DNS verification of unusual peer addresses"""
+
+    # pylint: disable=protected-access
+
+    @asynctest
+    async def test_ipv4_mapped_peer(self):
+        """Test reverse DNS verification of an IPv4-mapped peer address"""
+
+        conn = _StubServerConnection('::ffff:10.1.2.3')
+        self.assertEqual(await conn._resolve_peer_host(), 'host.corp.test')
+
+    @asynctest
+    async def test_ipv6_peer(self):
+        """Test reverse DNS verification of an IPv6 peer address"""
+
+        conn = _StubServerConnection('2001:db8::5')
+        self.assertEqual(await conn._resolve_peer_host(), 'host6.corp.test')
+
+    @asynctest
+    async def test_peer_without_ptr(self):
+        """Test reverse DNS verification of a peer with no PTR record"""
+
+        conn = _StubServerConnection('10.9.9.9')
+        self.assertEqual(await conn._resolve_peer_host(), '')
+
+    @asynctest
+    async def test_cached_result(self):
+        """Test that the result of reverse DNS verification is cached"""
+
+        conn = _StubServerConnection('10.1.2.3')
+        self.assertEqual(await conn._resolve_peer_host(), 'host.corp.test')
+
+        with patch('socket.getnameinfo', side_effect=socket.gaierror):
+            self.assertEqual(await conn._resolve_peer_host(),
+                             'host.corp.test')
+
+    @asynctest
+    async def test_non_ip_peer(self):
+        """Test reverse DNS verification with a non-IP peer address"""
+
+        conn = _StubServerConnection('')
+        self.assertEqual(await conn._resolve_peer_host(), '')
 
 
 class _TestListenerContextManager(ServerTestCase):

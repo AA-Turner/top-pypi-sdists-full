@@ -872,16 +872,21 @@ def remove_vm(service, names):
 @click.argument("source")
 @click.argument("name", required=False)
 @extraclick.cpu_tier_option
+@click.option(
+    "--memory",
+    is_flag=True,
+    help="Clone live RAM directly from a running or paused VM.",
+)
 @click.option("--json", "as_json", is_flag=True)
 @extraclick.pass_service_client
-def fork_vm(service, source, name, as_json, cpu_tier):
+def fork_vm(service, source, name, as_json, cpu_tier, memory):
     """Create an independent VM from a VM or snapshot."""
     with _progress("Forking VM", "VM ready", as_json):
         snapshots = VM(_service=service)._api("GET", "/artifacts/snapshot")
         if any(item["id"] == source for item in snapshots):
             vm = VM(name, snapshot=source, cpu_tier=cpu_tier, _service=service).create()
         else:
-            vm = _vm(service, source).fork(name, cpu_tier=cpu_tier)
+            vm = _vm(service, source).fork(name, cpu_tier=cpu_tier, memory=memory)
         _ready(vm)
     _show(vm.info, as_json)
 
@@ -1327,12 +1332,17 @@ def snapshot_group():
 @snapshot_group.command("create")
 @click.argument("vm_name")
 @click.option("--name", "--label")
+@click.option(
+    "--memory",
+    is_flag=True,
+    help="Include live RAM so VMs created from this snapshot boot directly from memory.",
+)
 @click.option("--json", "as_json", is_flag=True)
 @extraclick.pass_service_client
-def snapshot_create(service, vm_name, name, as_json):
+def snapshot_create(service, vm_name, name, memory, as_json):
     """Capture a filesystem restore point."""
     with _progress("Snapshotting VM", "Snapshot created", as_json):
-        snapshot = _vm(service, vm_name).snapshot(name)
+        snapshot = _vm(service, vm_name).snapshot(name, memory=memory)
     _show(snapshot, as_json)
 
 
@@ -1383,12 +1393,19 @@ def template_group():
     is_flag=True,
     help="Publish the complete root and snapshot history for other workspaces to fork by ID. Use a fresh VM that has never held personal data or signed-in accounts.",
 )
+@click.option(
+    "--memory",
+    is_flag=True,
+    help="Include live RAM so VMs created from this template boot directly from memory.",
+)
 @click.option("--json", "as_json", is_flag=True)
 @extraclick.pass_service_client
-def template_create(service, vm_name, name, description, public, as_json):
+def template_create(service, vm_name, name, description, public, memory, as_json):
     """Save the VM root as an immutable, forkable template."""
     with _progress("Creating template", "Template created", as_json):
-        template = _vm(service, vm_name).create_template(name, description, public=public)
+        template = _vm(service, vm_name).create_template(
+            name, description, public=public, memory=memory
+        )
     _show(template, as_json)
 
 
@@ -1452,6 +1469,24 @@ def prompt_vm(service, name, prompt, agent, background, cwd):
         exec_vm.callback.__wrapped__(service, name, ("bash", "-lc", shell), cwd)
 
 
+def _emit_vm_container_logs(service, info, name):
+    container_id = info.get("container_id") or info.get("last_container_id") or ""
+    if not container_id:
+        status = info.get("status") or "not running"
+        raise click.ClickException(f"VM {name!r} is {status} and has no recorded container logs")
+    params = {
+        "object_type": "BETA9_CONTAINER",
+        "object_id": container_id,
+        "limit": 200,
+    }
+    if stub_id := info.get("stub_id"):
+        params["stub_id"] = stub_id
+    data = service.http.json("GET", "/api/v1/logs/{ws}", params=params) or {}
+    for record in data.get("logs") or []:
+        message = record.get("message", "")
+        click.echo(message, nl=not message.endswith("\n"))
+
+
 @management.command("logs")
 @click.argument("name")
 @click.option("--unit", help="Read the systemd journal for this unit.")
@@ -1460,9 +1495,11 @@ def prompt_vm(service, name, prompt, agent, background, cwd):
 @click.option("-f", "follow", is_flag=True)
 @extraclick.pass_service_client
 def logs_vm(service, name, unit, session, follow, pid=None):
-    """Read systemd, prompt session or managed process logs."""
+    """Read systemd, prompt session, managed process, or stored container logs."""
     if sum(value is not None for value in (pid, unit, session)) > 1:
         raise click.UsageError("Choose one of --pid, --unit, or --session")
+    if session and not all(c.isalnum() or c in "-_" for c in session):
+        raise click.UsageError("Invalid session")
     if pid is not None:
         vm = _vm(service, name)
         if follow:
@@ -1474,9 +1511,18 @@ def logs_vm(service, name, unit, session, follow, pid=None):
             click.echo(process.stdout.read(), nl=False)
             click.echo(process.stderr.read(), nl=False, err=True)
         return
+    vm = _vm(service, name)
+    info = vm.info or {}
+    container_id = info.get("container_id") or ""
+    status = info.get("status") or ""
+    desired = info.get("desired_state") or ""
+    is_running = (
+        bool(container_id) and desired in ("", "running") and status in ("", "running", "starting")
+    )
+    if not is_running:
+        _emit_vm_container_logs(service, info, name)
+        return
     if session:
-        if not all(c.isalnum() or c in "-_" for c in session):
-            raise click.UsageError("Invalid session")
         command = (
             "tail",
             "-n",
@@ -1493,4 +1539,10 @@ def logs_vm(service, name, unit, session, follow, pid=None):
             *(["-f"] if follow else []),
             *(["-u", unit] if unit else []),
         )
-    exec_vm.callback.__wrapped__(service, name, command, "/workspace")
+    try:
+        exec_vm.callback.__wrapped__(service, name, command, "/workspace")
+    except SandboxConnectionError:
+        if info.get("container_id") or info.get("last_container_id"):
+            _emit_vm_container_logs(service, info, name)
+            return
+        raise

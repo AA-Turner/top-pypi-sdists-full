@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project]
@@ -9,7 +9,7 @@ description = "The lightning-fast ASGI server."
 readme = "README.md"
 license = "BSD-3-Clause"
 license-files = ["LICENSE.md"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Tom Christie", email = "tom@tomchristie.com" },
 ]
@@ -22,11 +22,11 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Internet :: WWW/HTTP",
@@ -34,7 +34,6 @@ classifiers = [
 dependencies = [
     "click>=7.0",
     "h11>=0.8",
-    "typing_extensions>=4.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
@@ -53,7 +52,7 @@ dev = [
     "uvicorn[standard]",
     "ruff>=0.15.15",
     "pytest>=9.1.1",
-    "pytest-mock==3.15.1",
+    "pytest-mock==3.17.0",
     "pytest-xdist[psutil]==3.8.0",
     "pytest-codspeed>=4.1.1",
     "mypy>=2.1.0",
@@ -81,8 +80,22 @@ docs = [
 default-groups = ["dev", "docs"]
 required-version = ">=0.9.17"
 exclude-newer = "7 days"
+# uv does not lock build dependencies, so the build backend's closure is pinned here.
+build-constraint-dependencies = [
+    "hatchling==1.33.0",
+    "uv-dynamic-versioning==0.14.1",
+    "dunamai==1.26.5",
+    "jinja2==3.1.6",
+    "markupsafe==3.0.4",
+    "packaging==26.3",
+    "pathspec==1.1.1",
+    "pluggy==1.7.0",
+    "tomlkit==0.15.2",
+    "trove-classifiers==2026.9.21.13",
+]
 
 [tool.uv.exclude-newer-package]
+certifi = "2026-10-20T23:59:59Z"
 httptools = "2026-05-26"
 zttp = "2026-09-19T23:59:59Z"
 
@@ -90,13 +103,23 @@ zttp = "2026-09-19T23:59:59Z"
 uvicorn = "uvicorn.main:main"
 
 [project.urls]
-Changelog = "https://uvicorn.dev/release-notes"
+Changelog = "https://github.com/Kludex/uvicorn/releases"
 Funding = "https://github.com/sponsors/Kludex"
 Homepage = "https://uvicorn.dev/"
 Source = "https://github.com/Kludex/uvicorn"
 
 [tool.hatch.version]
-path = "uvicorn/__init__.py"
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.hooks.version]
+path = "uvicorn/_version.py"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+pattern = "default-unprefixed"
+bump = true
+fallback-version = "0.0.0"
 
 [tool.hatch.build.targets.sdist]
 include = ["/uvicorn", "/tests"]
@@ -181,9 +204,3 @@ py-not-win32 = "sys_platform != 'win32'"
 py-linux = "sys_platform == 'linux'"
 py-not-linux = "sys_platform != 'linux'"
 py-darwin = "sys_platform == 'darwin'"
-py-gte-39 = "sys_version_info >= (3, 9)"
-py-lt-39 = "sys_version_info < (3, 9)"
-py-gte-310 = "sys_version_info >= (3, 10)"
-py-lt-310 = "sys_version_info < (3, 10)"
-py-gte-311 = "sys_version_info >= (3, 11)"
-py-lt-311 = "sys_version_info < (3, 11)"

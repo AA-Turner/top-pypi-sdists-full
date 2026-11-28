@@ -37,6 +37,6 @@ def placement(model, provider, region):
 
     if region not in _US_WEST_OK:
         name = catalog.entry(model).client.placement_name
-        raise ValueError(f"{name} is served from us-west-2; use region='available' or "
-                         "'us-west-2'")
+        raise ValueError(f"{name} is served from us-west; use region='available' or "
+                         "'us-west'")
     return False

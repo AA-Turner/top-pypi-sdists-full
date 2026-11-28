@@ -1,0 +1,881 @@
+"""The NEC-4.2 printout, top down: what EZNEC's External NEC-4.2 slot reads.
+
+momwire#1295 phase 2.  A FORMATTER, on :mod:`._printout`'s rule: it is handed
+a :class:`Nec4Printout` full of numbers and lays them out in the licensed
+engine's columns.  It computes no physics; :mod:`._nec4` solves the deck and
+fills the dataclass.
+
+Every heading, column header, field width and blank-line run below was
+MEASURED off real NEC-4.2 printouts, used as black-box OUTPUT only: the
+seventeen captured decks (``tests/fixtures/eznec_nec42/``) and the probe
+decks written to settle what the captures did not show
+(``tests/fixtures/eznec_nec42/probes/``, nine at first and more since, each
+dated in the README there), run through the licensed NEC-4.2
+(LLNL-CODE-491368) console build, release 7768648, from 2026-10-03 on, and kept
+beside them under ``printouts/``.  A capture is cited by its number (0234),
+a probe by its name (p1).  No NEC-4.2 source,
+algorithm or internal structure is described or relied on, and none may be.
+
+Most of the layout is the NEC-5 printout's, byte for byte: the comment box,
+the card echo, FREQUENCY, ANTENNA ENVIRONMENT, the loading column header,
+MATRIX TIMING, NETWORK DATA (but one header word), the two port tables'
+headers, POWER BUDGET and RADIATION PATTERNS (3-D trailer included).  Those
+are rendered by :mod:`._printout`'s own section functions, so a width fixed
+there is fixed here.  What is NEC-4.2's own:
+
+* the banner's code name and a blank line 2 (:func:`._printout.render_header`
+  with ``dialect="nec4"``);
+* STRUCTURE SPECIFICATION as a wire table, the ground-plane notes and the
+  junction table, then a SEGMENTATION DATA section NEC-5 does not print;
+* no ``ALLOCATE CM:`` line, and a blank line after every loading row;
+* the port rows (I6, I6, nine E12.5, no end digit);
+* CURRENTS AND LOCATION and CHARGE DENSITIES in upper case with real, imag,
+  magnitude and phase columns, and an ``E`` row for the charge at each free
+  wire end;
+* the admittance-matrix header's ``HTAG``;
+* a NETWORK LOSS line whenever the deck carries a network;
+* FAR FIELD GROUND PARAMETERS before the pattern when the deck carries ``GD``.
+
+Section order is the solve notes' and the printouts': the fixed six-section
+prefix, then (networks), input parameters, currents, charges, power budget,
+(near field), (far-field ground), pattern.  An ``XQ`` deck stops after the
+power budget.  A deck with several runs prints the run block once per run
+(:class:`Nec4Run`): an ``FR`` sweep repeats it from FREQUENCY down for every
+frequency (p2), a later execute card echoes its own cards and repeats it
+from the input parameters down (p8).  A further ``RP``/``NE``/``NH`` card
+that changes nothing echoes its cards and prints its own table alone
+(:class:`Nec4Report`, p20-p28).
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+
+from . import _printout
+from ._printout import (
+    GroundMedium,
+    LineRow,
+    LoadRow,
+    NearFieldBlock,
+    NetworkRow,
+    PatternBlock,
+    PortRow,
+    PowerBudget,
+    RunData,
+)
+
+__all__ = [
+    "FarFieldGround",
+    "Nec4Printout",
+    "Nec4Report",
+    "Nec4Run",
+    "Preamble",
+    "SegmentRow",
+    "SegmentValueRow",
+    "ArcRow",
+    "CatenaryRow",
+    "HelixRow",
+    "MoveRow",
+    "ReflectRow",
+    "ScaleRow",
+    "WireRow",
+    "render_nec4_printout",
+    "value_row",
+]
+
+
+@dataclass(frozen=True)
+class WireRow:
+    """One ``GW`` card's row of the STRUCTURE SPECIFICATION wire table."""
+
+    number: int
+    end1: tuple[float, float, float]
+    end2: tuple[float, float, float]
+    radius: float
+    segments: int
+    first: int
+    last: int
+    tag: int
+
+
+@dataclass(frozen=True)
+class ArcRow:
+    """One ``GA`` card's row of the wire table (probes p46-p48,
+    momwire#1592): the arc's radius and its two angles as written in place
+    of a ``GW``'s two ends, then the wire radius and the segment columns."""
+
+    number: int
+    arc_radius: float
+    angle1_deg: float
+    angle2_deg: float
+    radius: float
+    segments: int
+    first: int
+    last: int
+    tag: int
+
+
+@dataclass(frozen=True)
+class HelixRow:
+    """One ``GH`` card's three lines of the wire table (probes p49-p53,
+    momwire#1592): the wire number and segment columns, the card's six reals
+    as written (turns, length along Z, the helix radius and the wire radius
+    at each end), and the total length of its chords."""
+
+    number: int
+    turns: float
+    length: float
+    helix_radii: tuple[float, float]
+    wire_radii: tuple[float, float]
+    wire_length: float
+    segments: int
+    first: int
+    last: int
+    tag: int
+
+
+@dataclass(frozen=True)
+class CatenaryRow:
+    """One ``CW`` card's three lines of the wire table (probes c1-c7,
+    momwire#1697): the card's ICAT, RHM and ZM as written, the curve's
+    length and its chords' total, then the card's row as a ``GW``'s."""
+
+    icat: int
+    rhm: float
+    zm: float
+    length: float
+    chord_length: float
+    wire: WireRow
+
+
+@dataclass(frozen=True)
+class ScaleRow:
+    """A ``GS`` card's line in the wire table, in card order (probes p38,
+    and ``GM`` then ``GS``, momwire#1592): the factor, F10.5."""
+
+    factor: float
+
+
+@dataclass(frozen=True)
+class MoveRow:
+    """A ``GM`` card's two lines in the wire table, in card order (p39).
+
+    The card's tag increment and copy count, its three rotations and three
+    translations as written, its ``ITS`` field, and the segment count of the
+    structure the card moves.  Two integers between ``ITS`` and that count
+    print as 1 and 0 in every NEC-4.2 printout probed (p39 and four more
+    ``GM`` probes varying every field, momwire#1592), and are printed so.
+    """
+
+    tag_increment: int
+    copies: int
+    rotation_deg: tuple[float, float, float]
+    translation: tuple[float, float, float]
+    first_tag: int
+    segments: int
+
+
+@dataclass(frozen=True)
+class ReflectRow:
+    """A ``GX`` card's line in the wire table, in card order (momwire#1651,
+    probes p54-p76): which of the X, Y and Z planes it reflects in, as the
+    card's digits select them, and its tag increment as written."""
+
+    planes: tuple[bool, bool, bool]
+    tag_increment: int
+
+
+# One entry of the wire table, in card order.
+StructureRow = (
+    WireRow | ArcRow | HelixRow | CatenaryRow | ScaleRow | MoveRow | ReflectRow
+)
+
+
+@dataclass(frozen=True)
+class SegmentRow:
+    """One SEGMENTATION DATA row: metres and degrees, unnormalised.
+
+    ``i_minus``/``i_plus`` are the connection columns, signed by which end of
+    the neighbour lands on this segment, the segment's own number where the
+    end stands on a ``GE 1`` ground plane and 0 where it is free.
+    """
+
+    number: int
+    centre: tuple[float, float, float]
+    length: float
+    alpha_deg: float
+    beta_deg: float
+    radius: float
+    i_minus: int
+    i_plus: int
+    tag: int
+
+
+@dataclass(frozen=True)
+class SegmentValueRow:
+    """One row of CURRENTS AND LOCATION or CHARGE DENSITIES.
+
+    Lengths in wavelengths.  ``end`` marks the charge table's wire-END row,
+    printed as the segment number followed by ``E`` and placed at the end
+    point: every captured charge table carries one before the first segment
+    of a wire whose start is free and one after the last segment of a wire
+    whose end is free, and none at an end on a ``GE 1`` ground plane (0234)
+    or in a junction (p1).
+    """
+
+    number: int
+    tag: int
+    centre: tuple[float, float, float]
+    length: float
+    real: float
+    imag: float
+    magnitude: float
+    phase_deg: float
+    end: bool = False
+
+
+@dataclass(frozen=True)
+class FarFieldGround:
+    """The FAR FIELD GROUND PARAMETERS block a ``GD`` card prints.
+
+    ``kind`` is the cliff's name as the engine prints it.  The captured
+    ``GD 2,...`` prints ``CIRCLE CLIFF`` (0230, 0234, 0235); no other leading
+    integer has been captured.
+    """
+
+    kind: str
+    edge_distance: float
+    height: float
+    eps_r2: float
+    sigma2: float
+
+
+@dataclass(frozen=True)
+class Preamble:
+    """The block a run prints when it fills a matrix: FREQUENCY, ANTENNA
+    ENVIRONMENT, STRUCTURE IMPEDANCE LOADING and MATRIX TIMING.  Every
+    frequency of an ``FR`` sweep prints it (probe p2); a later execute run
+    that refills nothing does not (probe p8)."""
+
+    frequency_mhz: float
+    wavelength_m: float
+    environment: str
+    ground: GroundMedium | None
+    loads: tuple[LoadRow, ...]
+    fill_seconds: float
+    factor_seconds: float
+    # The Sommerfeld-table file a ``GN 2`` card names (momwire#1317), which
+    # this engine never opens; ``None`` when the card names none.
+    ground_file: str | None = None
+    # Whether two lumped loads in force share a segment (momwire#1807):
+    # NEC-4.2 then closes the table with its "LOADED TWICE" note.
+    loaded_twice: bool = False
+
+
+@dataclass(frozen=True)
+class Nec4Run:
+    """One solved run: one frequency of one execute card.
+
+    ``echo_through`` is the number of the last post-``GE`` card echoed in
+    front of this run, ``None`` when nothing is echoed here (every frequency
+    after a sweep's first, probe p2).  The first run's cards are echoed
+    after the segmentation table; a later execute run's cards, from the card
+    after the previous run's to its own execute card, are echoed hard against
+    the previous results (probe p8).  ``networks`` is the NETWORK DATA table,
+    which is printed with the preamble; ``network_excitation`` is the run's.
+    """
+
+    echo_through: int | None
+    preamble: Preamble | None
+    networks: tuple[NetworkRow | LineRow, ...]
+    network_excitation: tuple[PortRow, ...]
+    sources: tuple[PortRow, ...]
+    currents: tuple[SegmentValueRow, ...] | None
+    charges: tuple[SegmentValueRow, ...] | None
+    power: PowerBudget
+    near_fields: tuple[NearFieldBlock, ...]
+    far_field_ground: FarFieldGround | None
+    patterns: tuple[PatternBlock, ...]
+
+
+@dataclass(frozen=True)
+class Nec4Report:
+    """One more table of the run before it: a further ``RP``, ``NE`` or
+    ``NH`` card with nothing between that changes the drive or the matrix
+    (momwire#1463).
+
+    The licensed engine prints such a card's echo hard against the previous
+    table, at a later run's spacing, and under it the card's own table and
+    nothing else: no input parameters, no currents, no power budget (p20
+    ``RP`` then ``NE``, p21 ``NE`` then ``RP``, p22 after an ``XQ``, p27 two
+    ``RP`` cards and an ``NH``).  Under a ``GD`` card every pattern, this
+    one included, is preceded by its FAR FIELD GROUND PARAMETERS block (p28).
+    """
+
+    echo_through: int
+    near_fields: tuple[NearFieldBlock, ...] = ()
+    far_field_ground: FarFieldGround | None = None
+    patterns: tuple[PatternBlock, ...] = ()
+
+
+@dataclass(frozen=True)
+class Nec4Printout:
+    """Everything a NEC-4.2 printout prints that the deck text does not."""
+
+    # The wire table's rows in card order: a ``GW``, ``GA`` or ``GH``
+    # card's entry, or the lines a ``GS`` or ``GM`` card prints among them.
+    wires: tuple[StructureRow, ...]
+    ge_flag: int
+    total_segments: int
+    # One tuple of signed segment numbers per multiple-wire junction.
+    junctions: tuple[tuple[int, ...], ...]
+    segments: tuple[SegmentRow, ...]
+    # In printed order: each run, then the further tables asked of it.
+    runs: tuple[Nec4Run | Nec4Report, ...]
+    run_seconds: float
+    # The GX symmetry still in force when the geometry ends (momwire#1651):
+    # the segments in the symmetric cell, NEC-4.2's SYMMETRY FLAG (1 for
+    # planes X and Y alone, 2 when Z is among them, 0 for none) and the
+    # number of planes.  With no symmetry the cell is the whole structure.
+    cell_segments: int = 0
+    symmetry_flag: int = 0
+    symmetry_planes: int = 0
+
+
+# --------------------------------------------------------------------------
+# headings and column headers that are NEC-4.2's own
+# --------------------------------------------------------------------------
+
+_WIRE_COLUMNS: tuple[str, ...] = (
+    "  WIRE" + " " * 79 + "NO. OF    FIRST  LAST     TAG",
+    "  NO.        X1         Y1         Z1          X2         Y2         Z2"
+    "      RADIUS   SEG.     SEG.   SEG.     NO.",
+)
+
+# The plane notes follow the wire table, by GE's sign: GE 1 prints both lines
+# (0234, 0235), GE -1 the first alone (0239), GE 0 neither.
+_GROUND_PLANE = "   GROUND PLANE SPECIFIED."
+_INTERPOLATION = (
+    "   WHERE WIRE ENDS TOUCH GROUND, CURRENT WILL BE INTERPOLATED TO IMAGE IN"
+    " GROUND PLANE."
+)
+
+_JUNCTION_HEADING: tuple[str, ...] = (
+    "         - MULTIPLE WIRE JUNCTIONS -",
+    " JUNCTION    SEGMENTS  (- FOR END 1, + FOR END 2)",
+)
+_NO_JUNCTIONS = "  NONE"
+
+_SEGMENTATION_HEADING = " " * 33 + "- - - - SEGMENTATION DATA - - - -"
+_SEGMENTATION_NOTES: tuple[str, ...] = (
+    " " * 40 + "COORDINATES IN METERS",
+    "",
+    " " * 25 + "I+ AND I- INDICATE THE SEGMENTS BEFORE AND AFTER I",
+)
+_SEGMENTATION_COLUMNS: tuple[str, ...] = (
+    "  SEG.   COORDINATES OF SEG. CENTER     SEG.     ORIENTATION ANGLES    WIRE"
+    "    CONNECTION DATA   TAG",
+    "  NO.       X         Y         Z       LENGTH     ALPHA     BETA      RADIUS"
+    "    I-   I    I+    NO.",
+)
+
+# The admittance-matrix header differs from NEC-5's in one word: ``HTAG``
+# where NEC-5 prints ``TAG `` (0234).  The other two lines, and the whole
+# transmission-line header, are NEC-5's.
+_NT_COLUMNS: tuple[str, ...] = (
+    _printout._NETWORK_COLUMNS[0],
+    "      HTAG  SEG.   TAG  SEG.             (ONE,ONE)                   "
+    "(ONE,TWO)                   (TWO,TWO)",
+    _printout._NETWORK_COLUMNS[2],
+)
+
+_CURRENTS_HEADING = " " * 29 + "- - - CURRENTS AND LOCATION - - -"
+_CURRENTS_NOTE = " " * 21 + "LENGTHS NORMALIZED BY WAVELENGTH (OR 2.*PI/CABS(K))"
+_CURRENTS_COLUMNS: tuple[str, ...] = (
+    "  SEG.  TAG    COORD. OF SEG. CENTER     SEG.            "
+    "- - - CURRENT (AMPS) - - -",
+    "  NO.   NO.     X        Y        Z      LENGTH     REAL        IMAG."
+    "       MAG.        PHASE",
+)
+# "NORMALIZED TO", not "BY", and two blanks before the columns, not one.
+_CHARGES_HEADING = " " * 34 + "- - - CHARGE DENSITIES - - -"
+_CHARGES_NOTE = " " * 23 + "LENGTHS NORMALIZED TO WAVELENGTH (OR 2.*PI/CABS(K))"
+_CHARGES_COLUMNS: tuple[str, ...] = (
+    "  SEG.  TAG    COORD. OF SEG. CENTER     SEG.          "
+    "CHARGE DENSITY (COULOMBS/METER)",
+    _CURRENTS_COLUMNS[1],
+)
+
+# The first line of the licensed engine's Sommerfeld-table cache block (0231,
+# p7), the file name following as A40.
+_GNDINO = " GNDINO: UNABLE TO OPEN FILE "
+_GNDINO3 = " GNDINO3: Unable to open file "
+_GN3 = "GN3"
+
+_FAR_GROUND_HEADING = " " * 31 + "- - - FAR FIELD GROUND PARAMETERS - - -"
+_FAR_GROUND_INDENT = " " * 40
+
+_SECTION_GAP = _printout._SECTION_GAP
+_PATTERN_GAP = _printout._PATTERN_GAP
+_STRUCTURE_GAP = _printout._STRUCTURE_GAP
+
+
+# --------------------------------------------------------------------------
+# rows
+# --------------------------------------------------------------------------
+
+
+def _segment_columns(row: WireRow | ArcRow | HelixRow) -> str:
+    """The wire table's last four columns: the segment count I7, FIRST I9,
+    LAST I6 and the tag I8, from column 85."""
+    return f"{row.segments:7d}{row.first:9d}{row.last:6d}{row.tag:8d}"
+
+
+def _structure_rows(row: StructureRow) -> list[str]:
+    """One entry of the wire table: a wire's row, or a ``GS``/``GM`` card's
+    lines (probes p38, p39), 6X then the words, and for ``GM`` 4X, two I5,
+    six F10.5 and four I5.  A ``GX`` line (p54-p76) is 6X, the words, each
+    selected axis's letter or a blank, one blank between them, a full stop
+    hard against the third, and the tag increment as written, I5.
+
+    A ``GA`` row (p46-p48) is I6, the words, the arc radius F9.5, the two
+    angles F8.3, then the wire radius F11.5 ending in column 84 and the
+    segment columns.  A ``GH`` entry (p49-p53) is three lines: I6, 6X and
+    its words, blank to column 84 and the segment columns; 10X, the turns
+    F10.4 and the five other reals E12.4; 10X and the chords' total length
+    E13.5.  A ``CW`` entry (c1-c7) is three lines: 10X and the words, ICAT I5,
+    RHM and ZM E12.5; 10X, the curve's length and its chords' total, E12.5
+    each; then the card's ends and radius as a ``GW`` row."""
+    if isinstance(row, CatenaryRow):
+        e = _printout._e
+        return [
+            "          THE FOLLOWING WIRE IS A CATENARY,"
+            f"{row.icat:5d}{e(row.rhm, 12, 5)}{e(row.zm, 12, 5)}",
+            "          Catenary length ="
+            + e(row.length, 12, 5)
+            + "    Total segment length ="
+            + e(row.chord_length, 12, 5),
+            _wire_row(row.wire),
+        ]
+    if isinstance(row, ArcRow):
+        head = (
+            f"{row.number:6d}  ARC RADIUS ={row.arc_radius:9.5f}  FROM"
+            f"{row.angle1_deg:8.3f} TO{row.angle2_deg:8.3f} DEGREES"
+        )
+        return [f"{head:<73}{row.radius:11.5f}{_segment_columns(row)}"]
+    if isinstance(row, HelixRow):
+        e = _printout._e
+        head = f"{row.number:6d}      THIS WIRE IS A LOG-SPIRAL OR HELIX"
+        return [
+            f"{head:<84}{_segment_columns(row)}",
+            f"          SPIRAL DATA: TURNS={row.turns:10.4f}  LENGTH={e(row.length, 12, 4)}"
+            f"  H.RAD={e(row.helix_radii[0], 12, 4)}{e(row.helix_radii[1], 12, 4)}"
+            f"  W.RAD={e(row.wire_radii[0], 12, 4)}{e(row.wire_radii[1], 12, 4)}",
+            "          TOTAL LENGTH OF WIRE IN THE SPIRAL ="
+            + e(row.wire_length, 13, 5),
+        ]
+    if isinstance(row, ScaleRow):
+        return [f"      STRUCTURE SCALED BY FACTOR{row.factor:10.5f}"]
+    if isinstance(row, ReflectRow):
+        axes = " ".join(
+            a if on else " " for a, on in zip("XYZ", row.planes, strict=True)
+        )
+        return [
+            f"      STRUCTURE REFLECTED ALONG THE AXES {axes}.  TAGS INCREMENTED BY"
+            f"{row.tag_increment:5d}"
+        ]
+    if isinstance(row, MoveRow):
+        numbers = "".join(
+            _fixed_or_stars(v, 10, 5) for v in (*row.rotation_deg, *row.translation)
+        )
+        return [
+            "      THE STRUCTURE HAS BEEN MOVED, GM COMMAND DATA IS -",
+            f"    {row.tag_increment:5d}{row.copies:5d}{numbers}"
+            f"{row.first_tag:5d}{1:5d}{0:5d}{row.segments:5d}",
+        ]
+    return [_wire_row(row)]
+
+
+def _fixed_or_stars(value: float, width: int, digits: int) -> str:
+    """``value`` in a fixed field, or ``width`` asterisks when it does not fit
+    there, as the licensed NEC-4.2 prints a GM translation of -3200 m in its
+    ten-character field (Dan AC6LA's 4nec2 deck, momwire#1694)."""
+    text = f"{value:{width}.{digits}f}"
+    return "*" * width if len(text) > width else text
+
+
+def _wire_row(row: WireRow) -> str:
+    """I6, three F11.5, an F12.5 and two F11.5, the radius F11.5, then the
+    segment count I7, FIRST I9, LAST I6 and the tag I8 (0234, 0235)."""
+    x1, y1, z1 = row.end1
+    x2, y2, z2 = row.end2
+    return (
+        f"{row.number:6d}{x1:11.5f}{y1:11.5f}{z1:11.5f}"
+        f"{x2:12.5f}{y2:11.5f}{z2:11.5f}{row.radius:11.5f}"
+        f"{row.segments:7d}{row.first:9d}{row.last:6d}{row.tag:8d}"
+    )
+
+
+def _junction_row(number: int, members: tuple[int, ...]) -> str:
+    """I6 junction number, I10 first member, I5 for the rest (probe p1:
+    ``     1         6   -7  -13``)."""
+    return f"{number:6d}{members[0]:10d}" + "".join(f"{m:5d}" for m in members[1:])
+
+
+def _segment_row(row: SegmentRow) -> str:
+    """I6, four F10.5 (centre and length), ALPHA F11.5, BETA and RADIUS
+    F10.5, then I- I6, I I5, I+ I5 and the tag I7.  A coordinate wide enough
+    to fill its field runs into its neighbour (0234's ``614192.92200``)."""
+    x, y, z = row.centre
+    return (
+        f"{row.number:6d}{x:10.5f}{y:10.5f}{z:10.5f}{row.length:10.5f}"
+        f"{row.alpha_deg:11.5f}{row.beta_deg:10.5f}{row.radius:10.5f}"
+        f"{row.i_minus:6d}{row.number:5d}{row.i_plus:5d}{row.tag:7d}"
+    )
+
+
+def _load_row(row: LoadRow) -> str:
+    """One loading row.
+
+    The FIXED IMPEDANCE row is NEC-5's canvas with one difference: a zero
+    LOCATION field prints BLANK, so ``LD 4,3,0,0`` (a whole tag) prints its
+    tag alone (0234).  The producer resolves an omitted THRU to FROM, which is
+    what ``LD 4,1,3,0`` prints (0225).  The WIRE row (0227) is NEC-5's exactly,
+    and the series/parallel shapes, which no capture carries, are NEC-5's too.
+    """
+    if row.kind != "FIXED IMPEDANCE":
+        return _printout._load_row(row)
+    canvas = [" "] * 118
+
+    def place(text: str, end: int) -> None:
+        canvas[end - len(text) : end] = list(text)
+
+    for value, end in ((row.tag, 8), (row.node_from, 13), (row.node_thru, 18)):
+        if value:
+            place(f"{value:d}", end)
+    place(_printout._e(row.resistance, 11, 4), 73)
+    if row.reactance is not None:
+        place(_printout._e(row.reactance, 11, 4), 86)
+    place(row.kind.ljust(16), 118)
+    return "".join(canvas)
+
+
+def _port_row(row: PortRow) -> str:
+    """I6, I6, then nine E12.5 cells; a negative cell fills its field and
+    runs into its neighbour (``1.89388E-02-1.56495E-02``, 0234).  NEC-4.2's
+    row has no end digit after the segment, unlike NEC-5's."""
+    return f"{row.tag:6d}{row.segment:6d}" + "".join(
+        _printout._e(value, 12, 5) for value in _printout.port_cells(row)
+    )
+
+
+def _value_row(row: SegmentValueRow) -> str:
+    """I6, the end flag in one column, the tag I4, three F9.4 coordinates,
+    the length F9.5, an E13.4 and two E12.4, and the phase F9.3."""
+    x, y, z = row.centre
+    return (
+        f"{row.number:6d}{'E' if row.end else ' '}{row.tag:4d}"
+        f"{x:9.4f}{y:9.4f}{z:9.4f}{row.length:9.5f}"
+        f"{row.real:13.4E}{row.imag:12.4E}{row.magnitude:12.4E}"
+        f"{row.phase_deg:9.3f}"
+    )
+
+
+# --------------------------------------------------------------------------
+# sections
+# --------------------------------------------------------------------------
+
+
+def _structure(data: Nec4Printout) -> list[str]:
+    lines = [_printout._STRUCTURE_HEADING, "", *_printout._COORDINATE_NOTE, "", ""]
+    lines += [
+        *_WIRE_COLUMNS,
+        *(ln for w in data.wires for ln in _structure_rows(w)),
+        "",
+    ]
+    if data.ge_flag != 0:
+        lines += [_GROUND_PLANE, ""]
+    if data.ge_flag > 0:
+        lines += [_INTERPOLATION, "", ""]
+    total = data.total_segments
+    # Under a live GX symmetry the line carries the cell and the flag, and a
+    # plane count follows it, one blank more before the junctions (p54-p76).
+    cell = data.cell_segments if data.symmetry_flag else total
+    lines.append(
+        f"   TOTAL SEGMENTS USED={total:5d}     NO. SEG. IN A SYMMETRIC CELL="
+        f"{cell:5d}     SYMMETRY FLAG={data.symmetry_flag:3d}"
+    )
+    if data.symmetry_flag:
+        lines += [f" STRUCTURE HAS {data.symmetry_planes} PLANES OF SYMMETRY", ""]
+    lines += ["", "", *_JUNCTION_HEADING]
+    if data.junctions:
+        lines += [
+            _junction_row(i, members) for i, members in enumerate(data.junctions, 1)
+        ]
+    else:
+        lines.append(_NO_JUNCTIONS)
+    return lines
+
+
+def _segmentation(data: Nec4Printout) -> list[str]:
+    return [
+        _SEGMENTATION_HEADING,
+        "",
+        *_SEGMENTATION_NOTES,
+        "",
+        "",
+        *_SEGMENTATION_COLUMNS,
+        *(_segment_row(row) for row in data.segments),
+    ]
+
+
+def _loading(data: Preamble) -> list[str]:
+    lines = [_printout._LOADING_HEADING, ""]
+    if not data.loads:
+        return [*lines, _printout._NOT_LOADED]
+    lines += ["", *_printout._LOADING_COLUMNS]
+    for row in data.loads:
+        lines += ["", _load_row(row)]
+    if data.loaded_twice:
+        lines += ["", _LOADED_TWICE]
+    return lines
+
+
+# NEC-4.2's closing note when a segment carries two loads (momwire#1807),
+# measured on the licensed release build: one blank line after the last row,
+# then this line, and the table's usual trailing blanks.
+_LOADED_TWICE = (
+    " " * 10
+    + "NOTE: SOME OF THE ABOVE SEGMENTS HAVE BEEN LOADED TWICE - IMPEDANCES ADDED"
+)
+
+
+def _network_data(data: Nec4Run) -> list[str]:
+    lines = [_printout._NETWORK_HEADING, ""]
+    for index, run in enumerate(_printout._network_runs(data.networks)):
+        if index:
+            lines.append("")
+        columns = (
+            _printout._LINE_COLUMNS if isinstance(run[0], LineRow) else _NT_COLUMNS
+        )
+        lines += [*columns, *(_printout._network_row(row) for row in run)]
+    return lines
+
+
+def _port_table(heading: str, rows: tuple[PortRow, ...]) -> list[str]:
+    return [heading, "", *_printout._PORT_COLUMNS, *(_port_row(r) for r in rows)]
+
+
+def _environment(shared: RunData, ground_file: str | None) -> list[str]:
+    """ANTENNA ENVIRONMENT, with one line more when a Sommerfeld ``GN``
+    (``GN 2``, or ``GN 3`` since momwire#1443) names a table file
+    (momwire#1317).
+
+    The licensed engine prints a four-line block there on EVERY ``GN 2`` run
+    (0231, p7): a blank, ``GNDINO: UNABLE TO OPEN FILE`` and the name as A40,
+    ``WILL COMPUTE SOMMERFELD-GROUND TABLES``, a blank, the table time and a
+    blank, between the heading's blank and the medium.  The name is its
+    default, ``SOMD.NEC``, when the card names none, and this engine prints
+    none of that block for it (the byte gates strip it from the reference).
+    A NAMED file is the deck's own request, so its first line, the one that
+    says the file was not read, is kept in its captured place; the table
+    lines are not, because this engine keeps no table file and has no table
+    time to report.
+
+    ``GN 3`` prints its own block, in its own words and its own place: a
+    blank and ``GNDINO3: Unable to open file`` with the name as A40, then
+    ``Will compute Sommerfeld-ground tables``, AFTER the medium (0232 with
+    its default ``SOMGN3D.NEC``, p16 with SimNEC's ``NOFILE``).  The same rule
+    keeps its first line for a named file (momwire#1463; until then a named
+    ``GN 3`` printed ``GN 2``'s line in ``GN 2``'s place, which no NEC-4.2
+    printout shows)."""
+    lines = _printout._environment(shared)
+    if ground_file is None:
+        return lines
+    if shared.environment.endswith(_GN3):
+        return [*lines, "", _GNDINO3 + ground_file.ljust(40)]
+    return [*lines[:2], "", _GNDINO + ground_file.ljust(40), "", *lines[2:]]
+
+
+def _far_field_ground(ground: FarFieldGround) -> list[str]:
+    pad = _FAR_GROUND_INDENT
+    return [
+        _FAR_GROUND_HEADING,
+        "",
+        "",
+        pad + ground.kind,
+        pad + f"EDGE DISTANCE={ground.edge_distance:9.2f} METERS",
+        pad + f"HEIGHT={ground.height:8.2f} METERS",
+        pad + "SECOND MEDIUM -",
+        pad + f"RELATIVE DIELECTRIC CONST.={ground.eps_r2:7.3f}",
+        pad + f"CONDUCTIVITY={ground.sigma2:10.3E} MHOS",
+    ]
+
+
+def _run(run: Nec4Run) -> list[str]:
+    """One run, from its preamble through its last pattern, each section
+    followed by its captured gap."""
+    gap = _printout._blank
+    body: list[str] = []
+    if run.preamble is not None:
+        shared = RunData(
+            frequency_mhz=run.preamble.frequency_mhz,
+            wavelength_m=run.preamble.wavelength_m,
+            environment=run.preamble.environment,
+            ground=run.preamble.ground,
+            fill_seconds=run.preamble.fill_seconds,
+            factor_seconds=run.preamble.factor_seconds,
+        )
+        body += _printout._frequency(shared)
+        body += gap(_SECTION_GAP)
+        body += _environment(shared, run.preamble.ground_file)
+        body += gap(_SECTION_GAP)
+        body += _loading(run.preamble)
+        body += gap(_SECTION_GAP)
+        body += _printout._timing(shared)
+        body += gap(_SECTION_GAP)
+    if run.networks:
+        body += _network_data(run)
+        body += gap(_SECTION_GAP)
+    if run.network_excitation:
+        body += _port_table(
+            _printout._NETWORK_EXCITATION_HEADING, run.network_excitation
+        )
+        body += gap(_SECTION_GAP)
+    body += _port_table(_printout._ANTENNA_INPUT_HEADING, run.sources)
+    body += gap(_SECTION_GAP)
+    if run.currents is not None:
+        body += [_CURRENTS_HEADING, "", _CURRENTS_NOTE, "", *_CURRENTS_COLUMNS]
+        body += [_value_row(row) for row in run.currents]
+        body += gap(_SECTION_GAP)
+    if run.charges is not None:
+        body += [_CHARGES_HEADING, "", _CHARGES_NOTE, "", "", *_CHARGES_COLUMNS]
+        body += [_value_row(row) for row in run.charges]
+        body += gap(_SECTION_GAP)
+    body += _printout._power_budget(run.power)
+    body += gap(_SECTION_GAP)
+    return body + _tables(run)
+
+
+def _tables(run: Nec4Run | Nec4Report) -> list[str]:
+    """The near-field and pattern tables one card asks for, each followed by
+    its captured gap: the tail of a run, and the whole of a further card's
+    answer."""
+    gap = _printout._blank
+    body: list[str] = []
+    for near in run.near_fields:
+        body += _printout._near_field(near)
+        body += gap(_SECTION_GAP)
+    # Printed only in front of a pattern: probe p5, GD under an XQ, prints
+    # none.
+    if run.patterns and run.far_field_ground is not None:
+        body += _far_field_ground(run.far_field_ground)
+        body += gap(_SECTION_GAP)
+    for block in run.patterns:
+        body += _printout._pattern(block)
+        # three blanks after a NORMALIZED GAIN table, five after a pattern
+        # alone: NEC-5's gaps, and NEC-4.2's (nec42_rp_normalized_gain)
+        body += gap(_printout._pattern_gap(block))
+    return body
+
+
+# What NEC-4.2 prints under an ``EK`` card's echo, between two blank lines
+# (the licensed binary given ``EK 0`` as a black box, 2026-10-04, momwire#1326).
+# The nec4 dialect ignores the card the same way and solves with the extended
+# kernel, its default: the line is true of this engine too.
+_EK_NOTE = (" THE EK AND KH COMMANDS HAVE NO EFFECT IN NEC-4",)
+
+
+def _echo(index: int, card) -> list[str]:
+    """One card's echo, and for ``EK`` the note NEC-4.2 prints under it."""
+    line = _printout._card_echo(index, card)
+    if card.mnemonic == "EK":
+        return [line, "", *_EK_NOTE, ""]
+    return [line]
+
+
+def render_nec4_printout(
+    deck_text: str,
+    data: Nec4Printout,
+    *,
+    basis: str | None = None,
+    closing: bool = True,
+) -> str:
+    """A complete NEC-4.2 printout: the header, then everything to ``RUN TIME``.
+
+    ``deck_text`` supplies what the printout ECHOES (the comment box and the
+    post-``GE`` card images, ``EN`` last and after the results, exactly as in
+    NEC-5's); ``data`` every number the runs produced.  ``basis`` reaches line
+    2's engine stamp and nothing else.
+
+    In an ``NX``-chained deck the terminator's slot holds the ``NX`` echo,
+    and ``closing=False`` drops the ``RUN TIME`` trailer of every structure
+    but the last (momwire#1592), as the NEC-5 printout's chain does.
+    """
+    cards = _printout._post_ge_cards(deck_text)
+    terminator = _printout._terminator(cards)
+    numbered = [(i, c) for i, c in enumerate(cards, start=1) if c is not terminator]
+    gap = _printout._blank
+    body: list[str] = []
+    body += _structure(data)
+    body += gap(_STRUCTURE_GAP)
+    body += _segmentation(data)
+    body += gap(_STRUCTURE_GAP)
+    echoed = 0
+    for index, run in enumerate(data.runs):
+        # One blank more than a section's own gap separates two runs, the
+        # same one that stands before the closing EN echo: six blanks
+        # between one frequency's pattern and the next FREQUENCY (p2), four
+        # between a power budget and the next run's card echo (p8), and the
+        # same again in front of a further table's card echo (p20, p21).
+        if index:
+            body.append("")
+        if run.echo_through is not None:
+            block = [
+                line
+                for i, c in numbered[echoed : run.echo_through]
+                for line in _echo(i, c)
+            ]
+            echoed = run.echo_through
+            # A run that opens with its FREQUENCY block stands as far below
+            # its echo as the first run does, a later run at a new FR
+            # included (p37, momwire#1592); a run without one, a section's
+            # gap (p8).
+            opens = index == 0 or getattr(run, "preamble", None) is not None
+            body += [*block, *gap(_STRUCTURE_GAP if opens else _SECTION_GAP)]
+        body += _tables(run) if isinstance(run, Nec4Report) else _run(run)
+    body.append("")
+    body += [line for i, c in numbered[echoed:] for line in _echo(i, c)]
+    if terminator is not None:
+        body.append(_printout._card_echo(len(cards), terminator))
+    if closing:
+        body += ["", f"{_printout._RUN_TIME_LABEL}{data.run_seconds:10.3f}"]
+    header = _printout.render_header(deck_text, basis=basis, dialect="nec4")
+    return header + "\n".join(body) + "\n"
+
+
+def value_row(
+    number: int,
+    tag: int,
+    centre: tuple[float, float, float],
+    length: float,
+    value: complex,
+    *,
+    end: bool = False,
+) -> SegmentValueRow:
+    """A :class:`SegmentValueRow` from one complex value: the four printed
+    numbers are its real part, imaginary part, magnitude and phase."""
+    magnitude = abs(value)
+    phase = math.degrees(math.atan2(value.imag, value.real)) if magnitude else 0.0
+    return SegmentValueRow(
+        number,
+        tag,
+        centre,
+        length,
+        value.real,
+        value.imag,
+        magnitude,
+        phase,
+        end,
+    )

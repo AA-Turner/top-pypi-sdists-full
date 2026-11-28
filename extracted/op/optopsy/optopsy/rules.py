@@ -16,6 +16,7 @@ Rule functions:
 
 from typing import List, Tuple
 
+import numpy as np
 import pandas as pd
 
 
@@ -63,13 +64,12 @@ def _rule_butterfly_strikes(data: pd.DataFrame, leg_def: List[Tuple]) -> pd.Data
     if len(leg_def) != 3:
         return data
 
+    left_wing = data["strike_leg2"] - data["strike_leg1"]
+    right_wing = data["strike_leg3"] - data["strike_leg2"]
     mask = (
         (data["strike_leg1"] < data["strike_leg2"])
         & (data["strike_leg2"] < data["strike_leg3"])
-        & (
-            (data["strike_leg2"] - data["strike_leg1"])
-            == (data["strike_leg3"] - data["strike_leg2"])
-        )
+        & np.isclose(left_wing, right_wing, rtol=0.0, atol=1e-6)
     )
     return data[mask]
 
@@ -91,12 +91,7 @@ def _rule_iron_condor_strikes(data: pd.DataFrame, leg_def: List[Tuple]) -> pd.Da
     if len(leg_def) != 4:
         return data
 
-    mask = (
-        (data["strike_leg1"] < data["strike_leg2"])
-        & (data["strike_leg2"] < data["strike_leg3"])
-        & (data["strike_leg3"] < data["strike_leg4"])
-    )
-    return data[mask]
+    return _rule_non_overlapping_strike(data, leg_def)
 
 
 def _rule_iron_butterfly_strikes(
@@ -127,6 +122,21 @@ def _rule_iron_butterfly_strikes(
     return data[mask]
 
 
+def _rule_collar_strikes(data: pd.DataFrame, leg_def: List[Tuple]) -> pd.DataFrame:
+    """Filter collar strategies so the long put strike is below the short call strike.
+
+    For synthetic 3-leg collars (leg1=deep ITM call, leg2=short call, leg3=long put),
+    also ensures the synthetic underlying call strike is below the short call strike.
+    """
+    if len(leg_def) != 3:
+        return data
+
+    mask = (data["strike_leg3"] < data["strike_leg2"]) & (
+        data["strike_leg1"] < data["strike_leg2"]
+    )
+    return data[mask]
+
+
 def _rule_expiration_ordering(data: pd.DataFrame, leg_def: List[Tuple]) -> pd.DataFrame:
     """
     Filter calendar/diagonal spread strategies to ensure front leg expires before back leg.
@@ -145,3 +155,27 @@ def _rule_expiration_ordering(data: pd.DataFrame, leg_def: List[Tuple]) -> pd.Da
         return data
 
     return data[data["expiration_leg1"] < data["expiration_leg2"]]
+
+
+def _rule_diagonal_spread(data: pd.DataFrame, leg_def: List[Tuple]) -> pd.DataFrame:
+    """
+    Filter diagonal spread strategies to ensure front expires before back and strikes differ.
+
+    Diagonal spreads require:
+    - expiration_leg1 (front/short-term) < expiration_leg2 (back/long-term)
+    - strike_leg1 != strike_leg2 (same-strike positions are calendar spreads)
+
+    Args:
+        data: DataFrame containing diagonal spread strategy data
+        leg_def: List of tuples defining strategy legs
+
+    Returns:
+        Filtered DataFrame with valid diagonal spread configurations
+    """
+    if len(leg_def) != 2:
+        return data
+
+    return data[
+        (data["expiration_leg1"] < data["expiration_leg2"])
+        & (data["strike_leg1"] != data["strike_leg2"])
+    ]

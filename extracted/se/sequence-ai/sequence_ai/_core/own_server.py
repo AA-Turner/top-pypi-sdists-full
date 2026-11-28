@@ -48,6 +48,10 @@ class OwnGateway:
     https:// server serves (serve(tls=...)), which the connection pins. `pinged`: the server's GET /ping as connect()
     asked it, to know what it serves - its word on how its robots play kept, and not asked again where it gave it."""
 
+
+
+    own = True
+
     def __init__(self, url: str, *, token: Optional[str] = None, fingerprint: Optional[str] = None,
                  timeout_s: float = 10.0, on_reconnect: Optional[Callable[[Any], bool]] = None,
                  pinged: Any = None) -> None:

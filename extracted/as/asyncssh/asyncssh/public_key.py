@@ -37,7 +37,6 @@ from .encryption import Encryption
 from .sk import sk_available
 
 try:
-    # pylint: disable=unused-import
     from .crypto import X509Certificate
     from .crypto import generate_x509_certificate, import_x509_certificate
     _x509_available = True
@@ -141,7 +140,6 @@ _subject_pattern = re.compile(r'(?:Distinguished[ -_]?Name|Subject|DN)[=:]?\s?',
                               re.IGNORECASE)
 
 # SSH certificate types
-CERT_TYPE_ANY  = 0
 CERT_TYPE_USER = 1
 CERT_TYPE_HOST = 2
 
@@ -593,37 +591,31 @@ class SSHKey:
     def encode_pkcs1_private(self) -> object:
         """Export parameters associated with a PKCS#1 private key"""
 
-        # pylint: disable=no-self-use
         raise KeyExportError('PKCS#1 private key export not supported')
 
     def encode_pkcs1_public(self) -> object:
         """Export parameters associated with a PKCS#1 public key"""
 
-        # pylint: disable=no-self-use
         raise KeyExportError('PKCS#1 public key export not supported')
 
     def encode_pkcs8_private(self) -> Tuple[object, object]:
         """Export parameters associated with a PKCS#8 private key"""
 
-        # pylint: disable=no-self-use
         raise KeyExportError('PKCS#8 private key export not supported')
 
     def encode_pkcs8_public(self) -> Tuple[object, object]:
         """Export parameters associated with a PKCS#8 public key"""
 
-        # pylint: disable=no-self-use
         raise KeyExportError('PKCS#8 public key export not supported')
 
     def encode_ssh_private(self) -> bytes:
         """Export parameters associated with an OpenSSH private key"""
 
-        # pylint: disable=no-self-use
         raise KeyExportError('OpenSSH private key export not supported')
 
     def encode_ssh_public(self) -> bytes:
         """Export parameters associated with an OpenSSH public key"""
 
-        # pylint: disable=no-self-use
         raise KeyExportError('OpenSSH public key export not supported')
 
     def encode_agent_cert_private(self) -> bytes:
@@ -1270,7 +1262,7 @@ class SSHKey:
                     comment + b'\n')
         elif format_name == 'rfc4716':
             if self._comment:
-                comment = (b'Comment: "' + self._comment + b'"\n')
+                comment = b'Comment: "' + self._comment + b'"\n'
             else:
                 comment = b''
 
@@ -1493,7 +1485,7 @@ class SSHCertificate:
                     comment + b'\n')
         elif format_name == 'rfc4716':
             if self._comment:
-                comment = (b'Comment: "' + self._comment + b'"\n')
+                comment = b'Comment: "' + self._comment + b'"\n'
             else:
                 comment = b''
 
@@ -1564,9 +1556,9 @@ class SSHOpenSSHCertificate(SSHCertificate):
         self.principals = principals
         self.options = options
         self.signing_key = signing_key
+        self.cert_type = cert_type
 
         self._serial = serial
-        self._cert_type = cert_type
         self._key_id = key_id
         self._valid_after = valid_after
         self._valid_before = valid_before
@@ -1750,10 +1742,11 @@ class SSHOpenSSHCertificate(SSHCertificate):
 
         while packet:
             name = packet.get_string()
+            data = packet.get_string()
 
             decoder = decoders.get(name)
             if decoder:
-                data_packet = SSHPacket(packet.get_string())
+                data_packet = SSHPacket(data)
                 result[name.decode('ascii')] = decoder(data_packet)
                 data_packet.check_end()
             elif critical:
@@ -1765,7 +1758,7 @@ class SSHOpenSSHCertificate(SSHCertificate):
     def validate(self, cert_type: int, principal: Optional[str]) -> None:
         """Validate an OpenSSH certificate"""
 
-        if cert_type not in (CERT_TYPE_ANY, self._cert_type):
+        if cert_type != self.cert_type:
             raise ValueError('Invalid certificate type')
 
         now = time.time()
@@ -1936,8 +1929,7 @@ class SSHX509Certificate(SSHCertificate):
                        host_principal: str = '') -> None:
         """Validate an X.509 certificate chain"""
 
-        trust_store = {c for c in trust_chain if c.subject != c.issuer} | \
-            set(trusted_certs)
+        trust_store = set(trusted_certs)
 
         if trusted_cert_paths:
             self._expand_trust_store(self, trusted_cert_paths, trust_store)
@@ -1945,7 +1937,8 @@ class SSHX509Certificate(SSHCertificate):
             for c in trust_chain:
                 self._expand_trust_store(c, trusted_cert_paths, trust_store)
 
-        self.x509_cert.validate([c.x509_cert for c in trust_store],
+        self.x509_cert.validate([c.x509_cert for c in trust_chain],
+                                [c.x509_cert for c in trust_store],
                                 purposes, user_principal, host_principal)
 
 
@@ -2116,7 +2109,6 @@ class SSHKeyPair:
     def get_agent_private_key(self) -> bytes:
         """Return binary encoding of keypair for upload to SSH agent"""
 
-        # pylint: disable=no-self-use
         raise KeyImportError('Private key export to agent not supported')
 
     def get_comment_bytes(self) -> Optional[bytes]:
@@ -2217,7 +2209,6 @@ class SSHKeyPair:
     def sign(self, data: bytes) -> bytes:
         """Sign a block of data with this private key"""
 
-        # pylint: disable=no-self-use
         raise RuntimeError # pragma: no cover
 
 
@@ -2375,7 +2366,7 @@ def _match_next(data: bytes, keytype: bytes, public: bool = False) -> \
         try:
             key_data, end = der_decode_partial(data)
             return 'der', (key_data,), end
-        except ASN1DecodeError:
+        except (ASN1DecodeError, UnicodeDecodeError):
             pass
 
     start = 0
@@ -2427,7 +2418,7 @@ def _decode_pkcs1_private(
     handler = _pem_map.get(pem_name)
     if handler is None:
         raise KeyImportError('Unknown PEM key type: ' +
-                             pem_name.decode('ascii'))
+                             pem_name.decode('ascii', errors='replace'))
 
     key_params = handler.decode_pkcs1_private(key_data)
     if key_params is None:
@@ -2447,7 +2438,7 @@ def _decode_pkcs1_public(pem_name: bytes, key_data: object) -> SSHKey:
     handler = _pem_map.get(pem_name)
     if handler is None:
         raise KeyImportError('Unknown PEM key type: ' +
-                             pem_name.decode('ascii'))
+                             pem_name.decode('ascii', errors='replace'))
 
     key_params = handler.decode_pkcs1_public(key_data)
     if key_params is None:
@@ -2546,11 +2537,13 @@ def _decode_openssh_private(
                 key_size, iv_size, _, _, _, _ = \
                     get_encryption_params(cipher_name)
             except KeyError:
-                raise KeyEncryptionError('Unknown cipher: ' +
-                                         cipher_name.decode('ascii')) from None
+                raise KeyEncryptionError(
+                    'Unknown cipher: ' +
+                    cipher_name.decode('ascii', errors='replace')) from None
 
             if kdf != b'bcrypt':
-                raise KeyEncryptionError('Unknown kdf: ' + kdf.decode('ascii'))
+                raise KeyEncryptionError(
+                    'Unknown kdf: ' + kdf.decode('ascii', errors='replace'))
 
             if not _bcrypt_available: # pragma: no cover
                 raise KeyEncryptionError('OpenSSH private key encryption '
@@ -2610,7 +2603,7 @@ def _decode_openssh_private(
         key = handler.make_private(key_params)
         key.set_comment(comment)
         return key
-    except PacketDecodeError:
+    except (PacketDecodeError, UnicodeDecodeError):
         raise KeyImportError('Invalid OpenSSH private key') from None
 
 
@@ -2731,7 +2724,7 @@ def _decode_pem_private(
 
     try:
         key_data = der_decode(data)
-    except ASN1DecodeError:
+    except (ASN1DecodeError, UnicodeDecodeError):
         raise KeyImportError('Invalid PEM private key') from None
 
     if pem_name == b'ENCRYPTED':
@@ -2759,7 +2752,7 @@ def _decode_pem_public(pem_name: bytes, data: bytes) -> SSHKey:
 
     try:
         key_data = der_decode(data)
-    except ASN1DecodeError:
+    except (ASN1DecodeError, UnicodeDecodeError):
         raise KeyImportError('Invalid PEM public key') from None
 
     if pem_name:
@@ -2776,7 +2769,7 @@ def _decode_pem_certificate(pem_name: bytes, data: bytes) -> SSHCertificate:
         try:
             _, end = der_decode_partial(data)
             data = data[:end]
-        except ASN1DecodeError:
+        except (ASN1DecodeError, UnicodeDecodeError):
             raise KeyImportError('Invalid PEM trusted certificate') from None
     elif pem_name:
         raise KeyImportError('Invalid PEM certificate')
@@ -2837,7 +2830,7 @@ def _decode_public(data: bytes) -> Tuple[Optional[SSHKey], Optional[int]]:
         if fmt == 'pem' and key_info[0] == b'OPENSSH':
             key = _decode_openssh_public(key_info[2])
         else:
-            key, _ = _decode_private(data, None, False)
+            key, _ = _decode_private(data, None, True)
 
             if key:
                 key = key.convert_to_public()
@@ -3040,7 +3033,7 @@ def decode_ssh_public_key(data: bytes) -> SSHKey:
         else:
             raise KeyImportError('Unknown key algorithm: ' +
                                  alg.decode('ascii', errors='replace'))
-    except PacketDecodeError:
+    except (PacketDecodeError, UnicodeDecodeError):
         raise KeyImportError('Invalid public key') from None
 
 
@@ -3564,7 +3557,7 @@ def load_keypairs(
         elif certs_to_load:
             try:
                 certs = load_certificates(certs_to_load)
-            except (OSError, KeyImportError) as exc:
+            except (OSError, KeyImportError):
                 certs = None
         else:
             certs = None
@@ -3597,7 +3590,7 @@ def load_keypairs(
             pubkey = None
 
         if saved_exc:
-            raise saved_exc # pylint: disable=raising-bad-type
+            raise saved_exc
 
         if key_data is not None:
             try:

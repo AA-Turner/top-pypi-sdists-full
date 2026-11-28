@@ -36,13 +36,21 @@ class PolicyDefinitionError(SeqAuthoringError):
 
 
 class BenchmarkDefinitionError(SeqAuthoringError):
-    """A `@seq.benchmark` class (or a decorator argument) is malformed and cannot be registered.
+    """A `@seq.benchmark` class (or a decorator argument) is malformed.
 
-    Symmetric to `PolicyDefinitionError`: benchmark is the platform's second authorizable artifact
-    (§8), authored with the same decorator+lifecycle pattern, so its malformed-at-registration failures
-    get their own readable exception rather than an AttributeError at eval time.
+    `@seq.benchmark` is for writing a benchmark's code and running it on your own machine; on the platform an eval
+    runs our benchmarks' tasks, `seq eval run <policy> --task <id> ...`. It is written with the same decorator and
+    lifecycle pattern as a policy, so a malformed declaration gets its own readable exception where it is written,
+    symmetric to `PolicyDefinitionError`, rather than an AttributeError later.
 
     """
+
+
+
+
+
+BENCHMARK_IS_LOCAL = ("a @seq.benchmark is for writing a benchmark's code and running it on your own machine; on the "
+                      "platform, seq eval run <policy> --task <id> ... runs our benchmarks' tasks")
 
 
 class AdapterDefinitionError(SeqAuthoringError):
@@ -52,7 +60,7 @@ class AdapterDefinitionError(SeqAuthoringError):
 
 
 class GpuRenderError(RuntimeError):
-    """A GPU benchmark's cameras cannot be drawn on this machine's card. Raise it from your benchmark's `__init__` (or
+    """A GPU benchmark's cameras cannot be drawn on this machine's card. A benchmark raises it from its `__init__` (or
     anything it calls) when the renderer did not reach the GPU - EGL or Vulkan would not start, or the GL it got is a
     software one (Mesa's llvmpipe) - rather than drawing on the CPU: the platform starts the benchmark machine again on
     another GPU, and with none left ends the eval (stop reason `no_gpu_render`, this error's fields in its sentence). A

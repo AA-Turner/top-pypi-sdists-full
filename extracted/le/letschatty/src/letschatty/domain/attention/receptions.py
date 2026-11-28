@@ -20,8 +20,9 @@ from typing import Any, Dict, List, Optional, Protocol, Sequence, Union
 from ...models.company.assets.recepcion import Ausencia, Recepcion
 from ...models.utils.types import StrObjectId
 
-# The fields of an account's block (`account_receptions.<id>`): the only names `set_account_block` takes.
-BLOCK_FIELDS = ("bienvenida_fast_answer_id", "ausencia", "atencion_estado")
+# The fields of an account's block (`account_receptions.<id>`): the only names `set_account_block` takes. 0.6.109:
+# `bienvenida_la_arma_la_ia` (the welcome «La arma la IA», per account like the welcome).
+BLOCK_FIELDS = ("bienvenida_fast_answer_id", "ausencia", "atencion_estado", "bienvenida_la_arma_la_ia")
 # The fields of `ausencia` a pause or a resume overwrites (`set_absence` with a dict).
 ABSENCE_FLAGS = ("activa", "activa_hasta")
 

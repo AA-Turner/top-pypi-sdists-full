@@ -9,6 +9,7 @@ from unifi_core.drive.managers.connection_manager import (
     DriveWriteOutcomeUnknown,
 )
 from unifi_core.drive.managers.file_service_manager import FileServiceManager
+from unifi_core.drive.managers.performance_manager import PerformanceManager, disk_stats_interval
 from unifi_core.drive.managers.shared_drive_manager import SharedDriveManager
 from unifi_core.drive.managers.storage_manager import StorageManager
 from unifi_core.drive.managers.system_manager import DriveSystemManager
@@ -22,7 +23,12 @@ from unifi_core.drive.models.services import (
     is_world_client,
     nfs_connection_from_api,
 )
-from unifi_core.exceptions import UniFiNotFoundError, UniFiOperationError, UniFiValidationError
+from unifi_core.exceptions import (
+    UniFiMalformedResponseError,
+    UniFiNotFoundError,
+    UniFiOperationError,
+    UniFiValidationError,
+)
 from unifi_core.operation_gate import GateSettings, OperationGate
 
 from tests.drive import fixtures as fx
@@ -32,6 +38,11 @@ V1 = "/proxy/drive/api/v1/services"
 NFS_ADVANCED = f"{V1}/nfs/advanced-settings"
 TEST_HOSTNAMES = f"{V1}/nfs/test-hostnames"
 DRIVES = "/proxy/drive/api/v2/drives"
+SYSTEMS = "/proxy/drive/api/v2/systems"
+
+
+RSYNC = "/proxy/drive/api/v2/services/rsync/settings"
+SYSTEMS_INFO = "/proxy/drive/api/v1/systems/info"
 
 
 @pytest.fixture
@@ -56,6 +67,7 @@ async def test_system_info_keeps_only_listed_fields(connection, console):
 
     assert info["shortname"] == "UNASPRO8" and info["firmware_version"] == "5.0.12"
     assert info["firmware_update_available"] == "5.0.17+3f9b9ea"
+    assert (info["drive_version"], info["drive_update_available"]) == ("4.4.31", "4.5.7")
     assert info["memory_total_kb"] == 16639296
     dumped = str(info)
     assert "198.51.100.1" not in dumped and "synthetic location" not in dumped and "synthetic-owner" not in dumped
@@ -71,6 +83,74 @@ async def test_storage_pools_report_degraded_raid(connection, console):
     (group,) = pool.raid_groups
     assert (group.current_level, group.config_level) == ("raid1", "raid5")
     assert (group.current_protection, group.expected_protection) == (0, 1)
+
+
+async def test_storage_usage_splits_each_pool(connection, console):
+    console.reply("GET", "/proxy/drive/api/v2/storage/usage", fx.storage_usage())
+
+    first, second = await StorageManager(connection).get_usage()
+
+    assert first.model_dump(exclude_none=True) == {
+        "pool_id": fx.POOL_ID,
+        "capacity_bytes": 15992168120320,
+        "used_bytes": 10826060070912,
+        "available_bytes": 5166108049408,
+        "used_percent": 67.7,
+        "personal_drives_bytes": 0,
+        "shared_drives_bytes": 10825012379648,
+        "m365_bytes": 0,
+        "system_bytes": 1047691264,
+    }
+    assert second.pool_id == fx.OTHER_POOL_ID and second.used_percent == pytest.approx(95.22)
+    assert second.system_bytes == 11418377715712 - 1073741824 - 11400000000000
+
+
+async def test_storage_usage_pool_ids_match_the_pool_list(connection, console):
+    console.reply("GET", "/proxy/drive/api/v2/storage", fx.storage())
+    usage = fx.storage_usage()
+    del usage[fx.OTHER_POOL_ID]
+    console.reply("GET", "/proxy/drive/api/v2/storage/usage", usage)
+    manager = StorageManager(connection)
+
+    (pool,) = await manager.list_pools()
+    (pool_usage,) = await manager.get_usage()
+
+    assert pool_usage.pool_id == pool.id
+
+
+async def test_storage_usage_reads_optional_parts_and_skips_a_split_it_cannot_make(connection, console):
+    usage = fx.storage_usage()
+    usage[fx.POOL_ID].update({"usedBySnapshots": 1000})
+    del usage[fx.OTHER_POOL_ID]["poolId"]
+    usage[fx.OTHER_POOL_ID]["iscsiInfo"] = {"usedByIscsiThin": 1, "reservedByIscsiThick": 2, "usedByIscsiThick": 3}
+    usage["not-a-pool"] = "garbage"
+    console.reply("GET", "/proxy/drive/api/v2/storage/usage", usage)
+
+    first, second = await StorageManager(connection).get_usage()
+
+    assert first.snapshots_bytes == 1000 and first.system_bytes == 1047691264 - 1000
+    assert second.pool_id == fx.OTHER_POOL_ID and second.system_bytes is None
+
+
+async def test_storage_usage_without_pools_is_empty(connection, console):
+    console.reply("GET", "/proxy/drive/api/v2/storage/usage", {})
+
+    assert await StorageManager(connection).get_usage() == []
+
+
+@pytest.mark.parametrize("body", [None, [], "x"])
+async def test_unreadable_storage_usage_is_an_error(connection, console, body):
+    console.reply("GET", "/proxy/drive/api/v2/storage/usage", body)
+
+    with pytest.raises(UniFiMalformedResponseError):
+        await StorageManager(connection).get_usage()
+
+
+async def test_storage_usage_missing_endpoint_is_an_error(connection, console):
+    console.reply("GET", "/proxy/drive/api/v2/storage/usage", {"err": {"msg": "not found"}}, status=404)
+
+    with pytest.raises(UniFiOperationError, match="no endpoint"):
+        await StorageManager(connection).get_usage()
 
 
 async def test_disks_skip_empty_bays_unless_asked(connection, console):
@@ -104,6 +184,24 @@ async def test_get_shared_drive_refuses_a_path_like_id(connection, console):
     assert console.requests == []
 
 
+async def test_get_shared_drive_with_a_non_uuid_id_is_not_found_without_a_request(connection, console):
+    # Drive answers 500, not 404, for an id that isn't a UUID.
+    with pytest.raises(UniFiNotFoundError, match="not-a-drive"):
+        await SharedDriveManager(connection).get_shared_drive("not-a-drive")
+    assert console.requests == []
+
+
+async def test_system_info_without_a_drive_app_entry_leaves_its_version_unset(connection, console):
+    system = fx.system()
+    del system["apps"]
+    console.reply("GET", "/api/system", system)
+
+    info = await DriveSystemManager(connection).get_system_info()
+
+    assert info.drive_version is None and info.drive_update_available is None
+    assert info.firmware_version == "5.0.12"
+
+
 async def test_get_shared_drive_not_found(connection, console):
     console.reply("GET", f"{DRIVES}/{fx.DRIVE_ID}", {"err": {"msg": "drive not found"}}, status=404)
 
@@ -128,6 +226,184 @@ async def test_nfs_connections_carry_export_paths(files, console):
 
     assert connection.client == fx.CLIENT and connection.async_writes is False
     assert connection.shared_drives[0].export_path == "/var/nfs/shared/Shared_Drive"
+
+
+# --- performance --------------------------------------------------------------
+
+
+async def test_network_throughput_is_rounded_as_the_dashboard_shows_it(connection, console):
+    console.reply("GET", f"{SYSTEMS}/network-io", fx.network_io())
+
+    throughput = await PerformanceManager(connection).get_network_throughput()
+
+    assert (throughput.receive_kbps, throughput.transmit_kbps) == (6.32, 17.45)
+    assert throughput.timestamp == "2026-01-02T03:04:05.123456789-05:00"
+
+
+async def test_fan_profile_carries_the_web_app_labels(connection, console):
+    console.reply("GET", f"{SYSTEMS}/fan-control", fx.fan_control())
+
+    fan = (await PerformanceManager(connection).get_fan_profile()).model_dump()
+
+    assert (fan["current_profile"], fan["current_label"]) == ("default", "Balanced")
+    assert [(p["profile"], p["label"]) for p in fan["available_profiles"]] == [
+        ("cooling", "Cooling"),
+        ("default", "Balanced"),
+        ("quiet", "Quiet"),
+    ]
+    assert not console.writes
+
+
+async def test_fan_profile_unknown_to_the_web_app_has_no_label(connection, console):
+    console.reply("GET", f"{SYSTEMS}/fan-control", {"availableProfiles": ["turbo"], "currentProfile": "turbo"})
+
+    fan = await PerformanceManager(connection).get_fan_profile()
+
+    assert fan.current_profile == "turbo" and fan.current_label is None
+    assert fan.available_profiles[0].label is None
+
+
+@pytest.mark.parametrize("path", ["network-io", "fan-control"])
+async def test_unreadable_performance_answer_is_an_error(connection, console, path):
+    console.reply("GET", f"{SYSTEMS}/{path}", ["not", "an", "object"])
+    manager = PerformanceManager(connection)
+    read = manager.get_network_throughput if path == "network-io" else manager.get_fan_profile
+
+    with pytest.raises(UniFiMalformedResponseError):
+        await read()
+
+
+async def test_disk_stats_asks_for_the_window_and_summarizes_each_disk(connection, console):
+    console.reply("GET", f"{SYSTEMS}/disk-stats", fx.disk_stats())
+
+    stats = await PerformanceManager(connection).get_disk_stats(hours=24)
+
+    query = console.calls("GET", f"{SYSTEMS}/disk-stats")[0].query
+    assert int(query["end"]) - int(query["start"]) == 24 * 3600
+    assert query["interval"] == "900"
+    assert (stats.interval_seconds, stats.sample_count) == (900, 2)
+    assert stats.window_start == "2026-01-01T00:00:00+00:00"
+    assert stats.window_end == "2026-01-01T00:30:00+00:00"
+
+    first, second, cache = stats.disks
+    assert (first.slot_id, first.bay_type, first.type) == ("1", "disk", "HDD")
+    assert first.samples_with_data == 2
+    assert (first.read_kbps_avg, first.read_kbps_max) == (200.38, 300.25)
+    assert (first.write_kbps_avg, first.write_kbps_max) == (25.0, 50)
+    assert (first.temperature_c_latest, first.temperature_c_max) == (36, 36)
+    assert (first.bad_sector_count_latest, first.bad_sector_count_increase) == (2, 2)
+    assert [s.time for s in first.samples] == ["2026-01-01T00:00:00+00:00", "2026-01-01T00:15:00+00:00"]
+
+    # A bucket without data is kept as nulls and left out of the summary.
+    assert second.samples_with_data == 1 and second.temperature_c_latest == 37
+    assert second.samples[1].read_kbps is None
+
+    assert (cache.bay_type, cache.samples_with_data, cache.read_kbps_avg) == ("cache", 0, None)
+    assert "SYNTHETIC-SERIAL" not in str(stats.model_dump())
+
+
+@pytest.mark.parametrize(
+    ("hours", "interval"),
+    [(1, 900), (167, 900), (168, 3600), (719, 3600), (720, 21600), (2160, 21600)],
+)
+def test_disk_stats_interval_follows_the_dashboard_steps(hours, interval):
+    assert disk_stats_interval(hours) == interval
+    # Drive refuses about a thousand buckets or more in one answer.
+    assert hours * 3600 // interval <= 1000
+
+
+@pytest.mark.parametrize("hours", [0, -1, 2161, True, 1.5])
+async def test_disk_stats_refuses_a_bad_window_without_a_request(connection, console, hours):
+    with pytest.raises(UniFiValidationError):
+        await PerformanceManager(connection).get_disk_stats(hours=hours)
+
+    assert not console.requests
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"window": {"start": 1767225600, "interval": 900}},
+        {"series": {"disks": []}, "window": {"interval": 900}},
+        {"series": {"disks": []}, "window": {"start": 1767225600, "interval": 0}},
+        {"series": {}, "window": {"start": 1767225600, "interval": 900}},
+        {"series": {"disks": None}, "window": {"start": 1767225600, "interval": 900}},
+    ],
+)
+async def test_unreadable_disk_stats_are_an_error(connection, console, body):
+    console.reply("GET", f"{SYSTEMS}/disk-stats", body)
+
+    with pytest.raises(UniFiMalformedResponseError):
+        await PerformanceManager(connection).get_disk_stats(hours=1)
+
+
+async def test_smb_advanced_settings(files, console):
+    console.reply("GET", f"{V1}/smb/advanced-settings", fx.smb_advanced(status="migrateFirstFailed"))
+
+    settings = await files.get_smb_advanced_settings()
+
+    assert settings.personal_drive_recycle_enabled is True
+    assert settings.personal_drive_recycle_status == "migrateFirstFailed"
+    assert not console.writes
+
+
+async def test_rsync_settings_without_an_account(files, console):
+    console.reply("GET", RSYNC, fx.rsync_settings())
+    console.reply("GET", SYSTEMS_INFO, fx.systems_info(ssh_enabled=False))
+
+    settings = (await files.get_rsync_settings()).model_dump()
+
+    assert settings == {
+        "enabled": False,
+        "account_configured": False,
+        "account_username": None,
+        "ssh_enabled": False,
+    }
+    assert not console.writes
+
+
+async def test_rsync_account_keeps_only_its_username(files, console):
+    account = {"username": "synthetic-rsync", "password": "synthetic-secret-0123", "passwordHash": "x"}
+    console.reply("GET", RSYNC, fx.rsync_settings(enabled=True, account=account))
+    console.reply("GET", SYSTEMS_INFO, fx.systems_info(ssh_enabled=True))
+
+    settings = await files.get_rsync_settings()
+
+    assert (settings.enabled, settings.ssh_enabled) == (True, True)
+    assert (settings.account_configured, settings.account_username) == (True, "synthetic-rsync")
+    assert "synthetic-secret" not in str(settings.model_dump()) and "passwordHash" not in str(settings.model_dump())
+
+
+async def test_rsync_answer_without_the_account_key_leaves_it_unknown(files, console):
+    console.reply("GET", RSYNC, {"enable": True})
+    console.reply("GET", SYSTEMS_INFO, fx.systems_info())
+
+    settings = await files.get_rsync_settings()
+
+    assert settings.account_configured is None
+
+
+@pytest.mark.parametrize("path", ["smb", "rsync", "systems"])
+async def test_unreadable_service_settings_are_an_error(files, console, path):
+    console.reply("GET", f"{V1}/smb/advanced-settings", {"err": None, "type": "single", "data": "nope"})
+    console.reply("GET", RSYNC, ["nope"] if path == "rsync" else fx.rsync_settings())
+    console.reply(
+        "GET", SYSTEMS_INFO, {"err": None, "type": "single", "data": None} if path == "systems" else fx.systems_info()
+    )
+
+    with pytest.raises(UniFiMalformedResponseError):
+        if path == "smb":
+            await files.get_smb_advanced_settings()
+        else:
+            await files.get_rsync_settings()
+
+
+async def test_rsync_settings_missing_on_older_firmware_is_an_error(files, console):
+    console.reply("GET", RSYNC, {"err": {"msg": "not found"}}, status=404)
+    console.reply("GET", SYSTEMS_INFO, fx.systems_info())
+
+    with pytest.raises(UniFiOperationError, match="no endpoint"):
+        await files.get_rsync_settings()
 
 
 # --- file service toggles -----------------------------------------------------

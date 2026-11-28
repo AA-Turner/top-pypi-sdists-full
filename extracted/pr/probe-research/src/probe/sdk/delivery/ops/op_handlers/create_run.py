@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .... import errors
+from .....foundation.durable.durable import write_text_atomic
 from .....foundation.safe_warn import safe_warn as _diagnostics
 from probe.sdk.routes import WriteOp, path_for
 
@@ -47,7 +50,7 @@ def _replace(value: Any, old: str, new: str) -> Any:
     return value
 
 
-def deliver_create(journal: Journal, client: Client, op: dict) -> dict:
+def deliver_create(journal: Journal, client: Client, op: dict, op_path: Path | None = None) -> dict:
     """Deliver an offline run's create and record ``key -> id`` before the op is
     dequeued. Idempotent by creation key: a crash between create and mapping replays the
     create and gets the same run.
@@ -65,6 +68,7 @@ def deliver_create(journal: Journal, client: Client, op: dict) -> dict:
         return {"id": known["id"]}
     kept = create.get("request")
     via = "offline"
+    _settle_stage(client, op, op_path)
     try:
         path = create.get("path") or _home_path(client, create, key)
         if path == UNFILED_CREATE_PATH:
@@ -99,7 +103,24 @@ def deliver_create(journal: Journal, client: Client, op: dict) -> dict:
             ) from again
         via = "online"
     _write_mapping(journal.dir, key, row["id"], via=via)
+    warn_if_stage_not_applied((create.get("body") or {}).get("stage"), row)
     return row
+
+
+def _settle_stage(client: Client, op: dict, op_path: Path | None) -> None:
+    """Decide once whether the queued create sends its stage: a server without plan stages gets none (one
+    warning). The decision is saved to the op before the first POST, so every retry sends the same body: an
+    upgrade between attempts never changes the creation fingerprint."""
+    create = op.get("create") or {}
+    body = create.get("body") or {}
+    if "stage" not in body or create.get("stage_settled"):
+        return
+    if not client.supports_feature(PLAN_STAGES_FEATURE):
+        stage = body.pop("stage")
+        warn_stage_once("old", f"probe: this Probe server has no plan stages yet; synced without stage {stage!r}.")
+    create["stage_settled"] = True
+    if op_path is not None:
+        write_text_atomic(op_path, json.dumps(op, indent=2) + "\n", mode=0o600)
 
 
 def _key_made_a_run(exc: errors.RosError) -> bool:
@@ -150,7 +171,8 @@ def _home_path(client: Client, create: dict, key: str) -> str:
         if experiment:
             if question is not None:
                 exp = client.ensure_experiment(
-                    experiment, create.get("experiment_name"), question=question, project_id=project_id
+                    experiment, create.get("experiment_name"), question=question, project_id=project_id,
+                    stage=(create.get("body") or {}).get("stage"),  # a fresh experiment's default stage, as online
                 )
             else:
                 exp = client.resolve_or_raise("experiment", experiment, project_id=project_id)
@@ -255,5 +277,6 @@ def _mark_supersede(client: Client, row: dict, incumbent: str | None, attempt: i
             f"probe sync: run {row.get('id')} superseded {incumbent}, but its retry lineage "
             f"(retry_of, the incumbent's `superseded` tag) was not recorded: {exc}"
         )
+from probe.sdk.values.stage_key import PLAN_STAGES_FEATURE, warn_if_stage_not_applied, warn_stage_once  # noqa: E402 -- pieces need each other
 from probe.sdk.delivery.offline.offline import LOCAL_PREFIX, local_ref  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.offline.queue import _write_mapping, read_mapping  # noqa: E402 -- pieces need each other; the front door loads this one first

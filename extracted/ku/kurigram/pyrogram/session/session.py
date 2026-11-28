@@ -1,20 +1,22 @@
-#  Pyrogram - Telegram MTProto API Client Library for Python
+#  Kurigram - Telegram MTProto API Client Library for Python
+#
 #  Copyright (C) 2017-present Dan <https://github.com/delivrance>
+#  Copyright (C) 2024-present KurimuzonAkuma <https://github.com/KurimuzonAkuma>
 #
-#  This file is part of Pyrogram.
+#  This file is part of Kurigram.
 #
-#  Pyrogram is free software: you can redistribute it and/or modify
+#  Kurigram is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU Lesser General Public License as published
 #  by the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  Pyrogram is distributed in the hope that it will be useful,
+#  Kurigram is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #  GNU Lesser General Public License for more details.
 #
 #  You should have received a copy of the GNU Lesser General Public License
-#  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
+#  along with Kurigram. If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations as _annotations
 
@@ -282,7 +284,14 @@ class Session:
         except (AuthKeyDuplicated, Unauthorized) as e:
             await self.stop()
             raise e
-        except (OSError, RPCError) as e:
+        except (OSError, RPCError, BadMsgNotification) as e:
+            if (
+                isinstance(e, BadMsgNotification)
+                and e.code not in BadMsgNotification.RESENDABLE_CODES
+            ):
+                await self.stop()
+                raise
+
             log.info("Restarting session due to - %s - %s", e.__class__.__name__, e)
             asyncio.create_task(self.restart())
             return
@@ -411,8 +420,23 @@ class Session:
         log.debug("Received: %s", data)
 
         for msg in messages:
-            if msg.seq_no == 0:
+            # A clock notification after the first message has `seq_no` above 0, and its
+            #  resend needs the corrected clock too.
+            #  https://core.telegram.org/mtproto/service_messages_about_messages#notice-of-ignored-error-message
+            #  https://github.com/LonamiWebs/Telethon/blob/afe900f45d74221df03e7fe6f176a1472f16afb4/telethon/network/mtprotosender.py#L775-L780
+            clock_is_off: bool = (
+                isinstance(msg.body, raw.types.BadMsgNotification)
+                and msg.body.error_code in BadMsgNotification.CLOCK_CODES
+            )
+
+            if msg.seq_no == 0 or clock_is_off:
                 self.client._set_server_time(msg.msg_id)
+
+            # The factory never goes below the rejected `msg_id`, so after code 17 the
+            #  resend stays as far ahead as the clock was.
+            #  https://github.com/LonamiWebs/Telethon/blob/afe900f45d74221df03e7fe6f176a1472f16afb4/telethon/network/mtprotostate.py#L254-L267
+            if clock_is_off:
+                self.msg_factory.reset_message_identity()
 
             if msg.seq_no % 2 != 0:
                 if msg.msg_id in self.pending_acks:
@@ -581,7 +605,7 @@ class Session:
             # Only logged: the current salt still has a minute of life, and a
             #  `BadServerSalt` recovers the session anyway. `send` reports an answer
             #  that never came as `TimeoutError`, which is an `OSError`.
-            except (OSError, RPCError) as e:
+            except (OSError, RPCError, BadMsgNotification) as e:
                 log.info("Could not get future salts - %s - %s", e.__class__.__name__, e)
 
         log.info("PingTask stopped")
@@ -642,30 +666,27 @@ class Session:
 
         log.debug("Sent: %s", message)
 
-        payload = await asyncio.get_running_loop().run_in_executor(
-            self.connection.protocol.crypto_executor,
-            mtproto.pack,
-            message,
-            self._current_salt(self.client.server_time),
-            self.session_id,
-            self.auth_key,
-            self.auth_key_id,
-        )
-
         try:
+            payload = await asyncio.get_running_loop().run_in_executor(
+                self.connection.protocol.crypto_executor,
+                mtproto.pack,
+                message,
+                self._current_salt(self.client.server_time),
+                self.session_id,
+                self.auth_key,
+                self.auth_key_id,
+            )
             await self.connection.send(payload)
-        except OSError as e:
+
+            if pending_result is not None:
+                try:
+                    await asyncio.wait_for(pending_result.event.wait(), timeout)
+                except asyncio.TimeoutError:
+                    pass
+        finally:
             self.results.pop(msg_id, None)
-            raise e
 
         if pending_result is not None:
-            try:
-                await asyncio.wait_for(pending_result.event.wait(), timeout)
-            except asyncio.TimeoutError:
-                pass
-
-            self.results.pop(msg_id, None)
-
             if pending_result.exception is not None:
                 raise pending_result.exception
 
@@ -683,9 +704,7 @@ class Session:
                 RPCError.raise_it(result, type(data))
 
             if isinstance(result, raw.types.BadMsgNotification):
-                log.warning(
-                    "%s: %s", BadMsgNotification.__name__, BadMsgNotification(result.error_code)
-                )
+                raise BadMsgNotification(result.error_code)
 
             # `handle_packet` has already taken the new salt, so this only re-sends.
             if isinstance(result, raw.types.BadServerSalt):
@@ -708,18 +727,15 @@ class Session:
 
         query_name = ".".join(inner_query.QUALNAME.split(".")[1:])
 
-        try:
-            await asyncio.wait_for(self.is_started.wait(), self.WAIT_TIMEOUT)
-
-        # Carrying on instead reaches `send()`, which reads `self.connection.protocol` on a
-        #  session whose `connection` is still `None`: `AttributeError: 'NoneType' object has
-        #  no attribute 'protocol'`, naming neither the session nor the query.
-        except asyncio.TimeoutError as e:
-            raise TimeoutError(
-                f'Waited {self.WAIT_TIMEOUT}s to invoke "{query_name}", and {self} is not started'
-            ) from e
-
         for attempt in range(1, retries + 1):
+            # A failed send can wake up while restart() is still reconnecting.
+            try:
+                await asyncio.wait_for(self.is_started.wait(), self.WAIT_TIMEOUT)
+            except asyncio.TimeoutError as e:
+                raise TimeoutError(
+                    f'Waited {self.WAIT_TIMEOUT}s to invoke "{query_name}", and {self} is not started'
+                ) from e
+
             try:
                 return await self.send(query, timeout=timeout)
             except (FloodWait, FloodPremiumWait) as e:
@@ -736,6 +752,17 @@ class Session:
                 )
 
                 await asyncio.sleep(amount)
+            except BadMsgNotification as e:
+                if e.code not in BadMsgNotification.RESENDABLE_CODES:
+                    raise
+
+                log.warning(
+                    '[%s] Resending "%s" (attempt %s) due to: %s',
+                    self.client.name,
+                    query_name,
+                    attempt,
+                    e,
+                )
             except (OSError, InternalServerError, ServiceUnavailable) as e:
                 # `TCP.send` raises a bare `TimeoutError`, an `OSError` whose `str()` is
                 #  empty, so without the `repr` fallback the line would end at "due to: ".

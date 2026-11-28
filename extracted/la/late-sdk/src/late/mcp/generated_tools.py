@@ -282,6 +282,101 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List the people blocked on a Facebook Page",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def account_settings_list_facebook_blocked_users(
+        account_id: str, limit: int = 25, cursor: str | None = None
+    ) -> str:
+        """List the people blocked on a Facebook Page
+
+        Returns the people blocked on the Page selected on a `facebook` account, as Meta
+        returns them from the Page's `blocked` edge.
+
+        Cursor-paginated: pass `nextCursor` from the previous response as `cursor` to read
+        the next page. `nextCursor` is null when there are no more pages.
+
+        Args:
+            account_id: The ID of a connected Facebook account. (required)
+            limit: Page size.
+            cursor: The `nextCursor` of the previous page."""
+        client = _get_client()
+        try:
+            response = client.account_settings.list_facebook_blocked_users(
+                account_id=account_id, limit=limit, cursor=cursor
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Block a person on a Facebook Page",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def account_settings_block_facebook_user(
+        account_id: str, psid: str | None = None, user_id: str | None = None
+    ) -> str:
+        """Block a person on a Facebook Page
+
+        Blocks one person on the Page selected on a `facebook` account. Send `psid` for a
+        Messenger contact (the participant id of a Facebook inbox conversation) or `userId`
+        for a page-scoped user id or a Page id, never both.
+
+        `blocked` is Meta's answer for the id. Meta refuses to block someone again too soon
+        after unblocking them, and caps how many people a Page can block: both come back
+        as `platform_api_error`.
+
+        Args:
+            account_id: The ID of a connected Facebook account. (required)
+            psid: Page-scoped id of a Messenger contact, the `platformUserId` of a Facebook inbox conversation participant.
+            user_id: A page-scoped Facebook user id or a Page id."""
+        client = _get_client()
+        try:
+            response = client.account_settings.block_facebook_user(
+                account_id=account_id, psid=psid, user_id=user_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Unblock a person on a Facebook Page",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def account_settings_unblock_facebook_user(
+        account_id: str, psid: str | None = None, user_id: str | None = None
+    ) -> str:
+        """Unblock a person on a Facebook Page
+
+        Unblocks one person on the Page selected on a `facebook` account. Pass `psid` for a
+        Messenger contact or `userId` for a page-scoped user id or a Page id, never both.
+
+        Args:
+            account_id: The ID of a connected Facebook account. (required)
+            psid: Page-scoped id of a Messenger contact. Set this or `userId`.
+            user_id: A page-scoped Facebook user id or a Page id. Set this or `psid`."""
+        client = _get_client()
+        try:
+            response = client.account_settings.unblock_facebook_user(
+                account_id=account_id, psid=psid, user_id=user_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get persistent menu",
             readOnlyHint=True,
             destructiveHint=False,
@@ -2803,6 +2898,53 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.accounts.update_stripe_settings(
                 account_id=account_id, forward_sales=forward_sales
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Shopify or WooCommerce store settings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_store_settings(account_id: str) -> str:
+        """Get Shopify or WooCommerce store settings
+
+        Read whether a connected Shopify store's or WordPress (WooCommerce) site's orders go to the ad platforms.
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_store_settings(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update Shopify or WooCommerce store settings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_update_store_settings(account_id: str, forward_orders: bool) -> str:
+        """Update Shopify or WooCommerce store settings
+
+        Turn sending a store's paid orders to the ad platforms on or off. Orders are always stored and counted in campaign results; this only decides whether they are also forwarded. Meta and TikTok get them only from a forwarding rule whose sources list the store (`shopify` or `woocommerce`).
+
+        Args:
+            account_id: (required)
+            forward_orders: Send each paid order as `Purchase` through the profile's forwarding rules that take the store's source. A Shopify order goes with the event id the Zernio Shopify pixel uses for it, so a platform counts the pair once. (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.update_store_settings(
+                account_id=account_id, forward_orders=forward_orders
             )
             return _format_response(response)
         except Exception as e:
@@ -6278,6 +6420,83 @@ def register_generated_tools(mcp, _get_client):
             raise ToolError(f"Error: {e}") from e
 
     # AD_AUDIENCES
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Meta saved audiences",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_audiences_list_meta_saved_audiences(
+        account_id: str, ad_account_id: str, limit: int = 25, after: str | None = None
+    ) -> str:
+        """List Meta saved audiences
+
+        Lists the saved audiences of a Meta ad account, read live from Meta (`GET /act_X/saved_audiences`).
+
+        These are Meta's own saved audiences, the ones made in Ads Manager, not the Zernio
+        `saved_targeting` audiences of `/v1/ads/audiences`. Meta's Marketing API exposes saved
+        audiences read-only: they are created, edited and deleted in Ads Manager.
+
+        To target an ad set at a saved audience, send its `targeting` as `rawTargeting` on
+        `POST /v1/ads/create`.
+
+        Platforms: meta
+
+        Args:
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            ad_account_id: Meta ad account id (act_<n>). (required)
+            limit: Rows per page
+            after: Cursor from paging.after of the previous page."""
+        client = _get_client()
+        try:
+            response = client.ad_audiences.list_meta_saved_audiences(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                limit=limit,
+                after=after,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read a Meta saved audience",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_audiences_get_meta_saved_audience(
+        saved_audience_id: str, account_id: str, ad_account_id: str
+    ) -> str:
+        """Read a Meta saved audience
+
+        Reads one saved audience of a Meta ad account, including the targeting spec it holds.
+
+        Meta's SavedAudience node does not say which ad account owns it, so the audience is
+        looked up in the named ad account's `GET /act_X/saved_audiences` (up to 1,000 saved
+        audiences). An id that is not on that ad account answers 404.
+
+        Platforms: meta
+
+        Args:
+            saved_audience_id: Meta saved audience id. (required)
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            ad_account_id: Meta ad account id (act_<n>) that holds the saved audience. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_audiences.get_meta_saved_audience(
+                saved_audience_id=saved_audience_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11112,6 +11331,7 @@ def register_generated_tools(mcp, _get_client):
         location_targeting_type: Literal["presence", "presence_or_interest"]
         | None = None,
         raw_targeting: dict[str, Any] | None = None,
+        meta_saved_audience_id: str | None = None,
         bid_strategy: Literal[
             "LOWEST_COST_WITHOUT_CAP",
             "LOWEST_COST_WITH_BID_CAP",
@@ -11242,6 +11462,11 @@ def register_generated_tools(mcp, _get_client):
         - Array values (`flexible_spec`, ...) are replaced as a whole key, never element-merged.
 
         **`targeting_automation`.** When `rawTargeting` is present, Zernio no longer emits its usual `advantage_audience: 0` default, so it cannot clobber a `targeting_automation` in the raw spec. Meta requires `targeting_automation` on ad set creation: include it in the raw spec, or send `targeting.advantage_audience` (0/1 or false/true), merged over raw as `targeting_automation`.
+                meta_saved_audience_id: Meta only. The id of a Meta saved audience on `adAccountId` (made in Ads Manager, listed by `GET /v1/ads/saved-audiences`).
+
+        Its targeting is read live from Meta and used as `rawTargeting` for the ad set the boost creates, so `targeting` merges on top of it exactly as it does on `rawTargeting`. Also applied with `validateOnly`.
+
+        Returns 404 when the id is not on the ad account, 400 `mutually_exclusive_fields` with `rawTargeting`, and 400 with `adSetId` (an existing ad set keeps its targeting) or on another network. Meta requires `targeting_automation` on create: send `targeting.advantage_audience` when the saved audience does not carry it.
                 bid_strategy: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
 
         Meta bid strategy applied to the ad set. On TikTok, mapped to
@@ -11463,6 +11688,7 @@ def register_generated_tools(mcp, _get_client):
                 targeting=targeting,
                 location_targeting_type=location_targeting_type,
                 raw_targeting=raw_targeting,
+                meta_saved_audience_id=meta_saved_audience_id,
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
@@ -12074,6 +12300,7 @@ def register_generated_tools(mcp, _get_client):
         languages: list[str] | None = None,
         placements: dict[str, Any] | None = None,
         saved_targeting_id: str | None = None,
+        meta_saved_audience_id: str | None = None,
         raw_targeting: dict[str, Any] | None = None,
         special_ad_categories: list[
             Literal[
@@ -12114,7 +12341,7 @@ def register_generated_tools(mcp, _get_client):
         sitelinks: list[dict[str, Any]] | None = None,
         callouts: list[str] | None = None,
         structured_snippets: list[dict[str, Any]] | None = None,
-        advantage_audience: str | None = None,
+        advantage_audience: bool | Literal[0, 1] | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         gender: Literal["all", "male", "female"] = "all",
         bid_strategy: Literal[
@@ -12528,6 +12755,9 @@ def register_generated_tools(mcp, _get_client):
                 saved_targeting_id: ID of a `saved_targeting` audience (created via POST /v1/ads/audiences). When set, its stored
         TargetingSpec is expanded as the base targeting; inline fields on this body merge on top. Lets you
         reuse a named targeting preset without re-sending every field.
+                meta_saved_audience_id: Meta only. The id of a Meta saved audience on `adAccountId` (made in Ads Manager, listed by `GET /v1/ads/saved-audiences`). Its targeting is read live from Meta and used as `rawTargeting` for the new ad set, so camelCase targeting fields merge on top of it exactly as they do on `rawTargeting`.
+
+        Returns 404 when the id is not on the ad account, 400 `mutually_exclusive_fields` with `rawTargeting` or `savedTargetingId`, and 400 on another network or with `adSetId` (an existing ad set keeps its targeting). Meta requires `targeting_automation` on create: send `advantageAudience` when the saved audience does not carry it.
                 raw_targeting: Meta only. A raw Meta-native targeting spec (snake_case: `geo_locations`, `age_min`, `excluded_custom_audiences`, `flexible_spec`, `targeting_automation`, `user_os`, `wireless_carrier`, business places, etc.), the exact shape `GET /v1/ads/{adId}` returns for external ads.
 
         Sent alone, it reaches the ad set VERBATIM (the path for cloning a campaign's targeting exactly). Meta validates it and surfaces any errors.
@@ -12825,6 +13055,7 @@ def register_generated_tools(mcp, _get_client):
             "languages": languages,
             "placements": placements,
             "saved_targeting_id": saved_targeting_id,
+            "meta_saved_audience_id": meta_saved_audience_id,
             "raw_targeting": raw_targeting,
             "special_ad_categories": special_ad_categories,
             "special_ad_category_country": special_ad_category_country,
@@ -12953,6 +13184,7 @@ def register_generated_tools(mcp, _get_client):
                 languages=languages,
                 placements=placements,
                 saved_targeting_id=saved_targeting_id,
+                meta_saved_audience_id=meta_saved_audience_id,
                 raw_targeting=raw_targeting,
                 special_ad_categories=special_ad_categories,
                 special_ad_category_country=special_ad_category_country,
@@ -14702,7 +14934,7 @@ def register_generated_tools(mcp, _get_client):
         date_preset: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
-        time_increment: str | None = None,
+        time_increment: int | Literal["monthly", "all_days"] | None = None,
     ) -> str:
         """Submit async insights report
 
@@ -27997,7 +28229,12 @@ def register_generated_tools(mcp, _get_client):
         **Reconnects**: business-login reconnects preserve the existing scope; supplied IDs are checked against the new grant. To change the scope after migration, call this endpoint with the IDs and omit loginMode.
                 ad_account_ids: Scope ad sync to multiple platform ad accounts (same platform support and id shapes as `adAccountId`). Repeat the param (`?adAccountIds=act_1&adAccountIds=act_2`) or comma-separate (`?adAccountIds=act_1,act_2`).
 
-        - Persisted server-side; the latest call wins. De-scoped ad accounts have their synced ads, campaigns, ad sets and keywords removed. Where ad accounts are already split into one account each, the call only adds accounts for new ids and never removes one (disconnect that account instead).
+        - Persisted server-side. On a connection not split into one account per ad account, the latest call wins, and de-scoped ad accounts have their synced ads, campaigns, ad sets and keywords removed.
+        - Where ad accounts are already split into one account each, the call only adds accounts for new ids and never removes one (disconnect that account instead).
+        - At most 25 ids per call; more returns 400 `invalid_field_value` (`param: adAccountIds`).
+        - Meta, Google, LinkedIn, X, Reddit, Microsoft, TikTok and Snapchat: the first call with `adAccountIds` (or `adAccountId`) on a connection not split yet turns it into one account per ad account.
+        - The connection keeps its `accountId` for the first id. Each other id gets its own account with the same token, listed in GET /v1/accounts.
+        - If the profile already holds an account for that first ad account (an earlier connect), that account is deleted and replaced by the connection: its posts move to the connection and its old `accountId` returns 404.
         - On Meta only the scoped ad accounts get webhook subscriptions, including when the call starts a fresh OAuth.
         - On Meta, ad accounts left out of the scope are unsubscribed from Zernio's ad-account webhooks (unless another connection still holds them) and are no longer stored, so syncs do not add them back. `GET /v1/ads/accounts` lists them (`selected: false`) only with `live=true`; passing them again reselects them.
         - On TikTok, advertisers left out of the scope are no longer synced or stored either, and are listed (`selected: false`) only with `live=true`.
@@ -41250,7 +41487,7 @@ def register_generated_tools(mcp, _get_client):
         language_code: str | None = None,
         phone_number: str | None = None,
         email_address: str | None = None,
-        mailer_contact: str | None = None,
+        mailer_contact: dict[str, Any] | str | None = None,
         context: dict[str, Any] | None = None,
     ) -> str:
         """Start a verification
@@ -42525,6 +42762,56 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.instagram.get_instagram_business_discovery(
                 account_id=account_id, username=username, limit=limit
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Search public Instagram media by hashtag",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def instagram_search_instagram_hashtag(
+        account_id: str, hashtag: str, limit: int = 24
+    ) -> str:
+        """Search public Instagram media by hashtag
+
+        Resolves a hashtag to its Instagram hashtag ID, then returns the top
+        and the recent public media carrying it, read through one of your
+        connected Instagram accounts. Useful for trend, content and
+        competitor research.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        serves hashtag search on graph.facebook.com only, so accounts
+        connected with classic Instagram Login receive a 400
+        (`instagram_hashtag_search_requires_facebook_login`) and must be
+        reconnected choosing the Facebook option.
+
+        **Weekly limit:** Meta lets one Instagram account search at most 30
+        unique hashtags in a rolling 7 days.
+
+        - Searching a hashtag again inside the window does not count twice.
+        - `recentlySearchedCount` shows how much of the budget is used.
+        - Past the limit the request answers 429
+          `instagram_hashtag_search_limit_reached` until older searches leave
+          the window.
+        - Another connected account has its own budget.
+
+        `recentMedia` only holds media published in the last 24 hours. Meta
+        returns ...
+
+        Args:
+            account_id: The ID of a connected Instagram account (Facebook Login). (required)
+            hashtag: One hashtag: letters, digits or "_", with or without the leading #. Case-insensitive. (required)
+            limit: How many media to return in each of topMedia and recentMedia."""
+        client = _get_client()
+        try:
+            response = client.instagram.search_instagram_hashtag(
+                account_id=account_id, hashtag=hashtag, limit=limit
             )
             return _format_response(response)
         except Exception as e:
@@ -44644,6 +44931,37 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get a Messenger contact's language, time zone and gender",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def messages_get_messenger_contact(conversation_id: str, account_id: str) -> str:
+        """Get a Messenger contact's language, time zone and gender
+
+        Reads the language, time zone and gender of the person in a Facebook Messenger conversation, live from Meta with the Page token.
+
+        Available on Facebook Page conversations only. Instagram and every other platform answer 400 `platform_not_supported`.
+
+        Meta shares each field only when the person made it available, so any field can be `null`. A null field is not an error.
+
+        Platforms: facebook
+
+        Args:
+            conversation_id: The conversation ID (required)
+            account_id: The Facebook social account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.messages.get_messenger_contact(
+                conversation_id=conversation_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Accept a message request",
             readOnlyHint=False,
             destructiveHint=True,
@@ -45154,6 +45472,7 @@ def register_generated_tools(mcp, _get_client):
         saved_targeting_id: str | None = None,
         targeting: dict[str, Any] | None = None,
         raw_targeting: dict[str, Any] | None = None,
+        meta_saved_audience_id: str | None = None,
         special_ad_categories: list[
             Literal[
                 "HOUSING",
@@ -45166,7 +45485,7 @@ def register_generated_tools(mcp, _get_client):
         ]
         | None = None,
         special_ad_category_country: list[str] | None = None,
-        advantage_audience: str | None = None,
+        advantage_audience: bool | Literal[0, 1] | None = None,
         objective: Literal["OUTCOME_ENGAGEMENT", "OUTCOME_SALES", "OUTCOME_LEADS"]
         | None = None,
         status: Literal["ACTIVE", "PAUSED"] | None = None,
@@ -45347,6 +45666,9 @@ def register_generated_tools(mcp, _get_client):
         Flat fields you also send are layered on top and win per key.
 
         With rawTargeting present the US geo and `advantage_audience: 0` defaults are not injected, so include `targeting_automation` in it (or send `advantageAudience`), as Meta requires it on create.
+                meta_saved_audience_id: The id of a Meta saved audience on `adAccountId` (made in Ads Manager, listed by `GET /v1/ads/saved-audiences`). Its targeting is read live from Meta and used as `rawTargeting` for the new ad set, so flat targeting fields merge on top of it exactly as they do on `rawTargeting`.
+
+        Returns 404 when the id is not on the ad account, 400 `mutually_exclusive_fields` with `rawTargeting` or `savedTargetingId`, and 400 with `adSetId` (an existing ad set keeps its targeting). Meta requires `targeting_automation` on create: send `advantageAudience` when the saved audience does not carry it.
                 special_ad_categories: Meta special ad categories on the new campaign.
                 special_ad_category_country: Countries the special ad category applies to. Requires specialAdCategories.
                 advantage_audience: Meta's Advantage+ audience expansion. `0` or `false` (default) keeps
@@ -45506,6 +45828,7 @@ def register_generated_tools(mcp, _get_client):
             "saved_targeting_id": saved_targeting_id,
             "targeting": targeting,
             "raw_targeting": raw_targeting,
+            "meta_saved_audience_id": meta_saved_audience_id,
             "special_ad_categories": special_ad_categories,
             "special_ad_category_country": special_ad_category_country,
             "advantage_audience": advantage_audience,
@@ -45590,6 +45913,7 @@ def register_generated_tools(mcp, _get_client):
                 saved_targeting_id=saved_targeting_id,
                 targeting=targeting,
                 raw_targeting=raw_targeting,
+                meta_saved_audience_id=meta_saved_audience_id,
                 special_ad_categories=special_ad_categories,
                 special_ad_category_country=special_ad_category_country,
                 advantage_audience=advantage_audience,
@@ -45715,6 +46039,7 @@ def register_generated_tools(mcp, _get_client):
         saved_targeting_id: str | None = None,
         targeting: dict[str, Any] | None = None,
         raw_targeting: dict[str, Any] | None = None,
+        meta_saved_audience_id: str | None = None,
         special_ad_categories: list[
             Literal[
                 "HOUSING",
@@ -45727,7 +46052,7 @@ def register_generated_tools(mcp, _get_client):
         ]
         | None = None,
         special_ad_category_country: list[str] | None = None,
-        advantage_audience: str | None = None,
+        advantage_audience: bool | Literal[0, 1] | None = None,
         objective: Literal["OUTCOME_ENGAGEMENT", "OUTCOME_SALES", "OUTCOME_LEADS"]
         | None = None,
         status: Literal["ACTIVE", "PAUSED"] | None = None,
@@ -45895,6 +46220,9 @@ def register_generated_tools(mcp, _get_client):
         Flat fields you also send are layered on top and win per key.
 
         With rawTargeting present the US geo and `advantage_audience: 0` defaults are not injected, so include `targeting_automation` in it (or send `advantageAudience`), as Meta requires it on create.
+                meta_saved_audience_id: The id of a Meta saved audience on `adAccountId` (made in Ads Manager, listed by `GET /v1/ads/saved-audiences`). Its targeting is read live from Meta and used as `rawTargeting` for the new ad set, so flat targeting fields merge on top of it exactly as they do on `rawTargeting`.
+
+        Returns 404 when the id is not on the ad account, 400 `mutually_exclusive_fields` with `rawTargeting` or `savedTargetingId`, and 400 with `adSetId` (an existing ad set keeps its targeting). Meta requires `targeting_automation` on create: send `advantageAudience` when the saved audience does not carry it.
                 special_ad_categories: Meta special ad categories on the new campaign.
                 special_ad_category_country: Countries the special ad category applies to. Requires specialAdCategories.
                 advantage_audience: Meta's Advantage+ audience expansion. `0` or `false` (default) keeps
@@ -46031,6 +46359,7 @@ def register_generated_tools(mcp, _get_client):
             "saved_targeting_id": saved_targeting_id,
             "targeting": targeting,
             "raw_targeting": raw_targeting,
+            "meta_saved_audience_id": meta_saved_audience_id,
             "special_ad_categories": special_ad_categories,
             "special_ad_category_country": special_ad_category_country,
             "advantage_audience": advantage_audience,
@@ -46111,6 +46440,7 @@ def register_generated_tools(mcp, _get_client):
                 saved_targeting_id=saved_targeting_id,
                 targeting=targeting,
                 raw_targeting=raw_targeting,
+                meta_saved_audience_id=meta_saved_audience_id,
                 special_ad_categories=special_ad_categories,
                 special_ad_category_country=special_ad_category_country,
                 advantage_audience=advantage_audience,
@@ -46228,6 +46558,7 @@ def register_generated_tools(mcp, _get_client):
         saved_targeting_id: str | None = None,
         targeting: dict[str, Any] | None = None,
         raw_targeting: dict[str, Any] | None = None,
+        meta_saved_audience_id: str | None = None,
         special_ad_categories: list[
             Literal[
                 "HOUSING",
@@ -46240,7 +46571,7 @@ def register_generated_tools(mcp, _get_client):
         ]
         | None = None,
         special_ad_category_country: list[str] | None = None,
-        advantage_audience: str | None = None,
+        advantage_audience: bool | Literal[0, 1] | None = None,
         objective: Literal["OUTCOME_ENGAGEMENT", "OUTCOME_SALES", "OUTCOME_LEADS"]
         | None = None,
         status: Literal["ACTIVE", "PAUSED"] | None = None,
@@ -46404,6 +46735,9 @@ def register_generated_tools(mcp, _get_client):
         Flat fields you also send are layered on top and win per key.
 
         With rawTargeting present the US geo and `advantage_audience: 0` defaults are not injected, so include `targeting_automation` in it (or send `advantageAudience`), as Meta requires it on create.
+                meta_saved_audience_id: The id of a Meta saved audience on `adAccountId` (made in Ads Manager, listed by `GET /v1/ads/saved-audiences`). Its targeting is read live from Meta and used as `rawTargeting` for the new ad set, so flat targeting fields merge on top of it exactly as they do on `rawTargeting`.
+
+        Returns 404 when the id is not on the ad account, 400 `mutually_exclusive_fields` with `rawTargeting` or `savedTargetingId`, and 400 with `adSetId` (an existing ad set keeps its targeting). Meta requires `targeting_automation` on create: send `advantageAudience` when the saved audience does not carry it.
                 special_ad_categories: Meta special ad categories on the new campaign.
                 special_ad_category_country: Countries the special ad category applies to. Requires specialAdCategories.
                 advantage_audience: Meta's Advantage+ audience expansion. `0` or `false` (default) keeps
@@ -46538,6 +46872,7 @@ def register_generated_tools(mcp, _get_client):
             "saved_targeting_id": saved_targeting_id,
             "targeting": targeting,
             "raw_targeting": raw_targeting,
+            "meta_saved_audience_id": meta_saved_audience_id,
             "special_ad_categories": special_ad_categories,
             "special_ad_category_country": special_ad_category_country,
             "advantage_audience": advantage_audience,
@@ -46616,6 +46951,7 @@ def register_generated_tools(mcp, _get_client):
                 saved_targeting_id=saved_targeting_id,
                 targeting=targeting,
                 raw_targeting=raw_targeting,
+                meta_saved_audience_id=meta_saved_audience_id,
                 special_ad_categories=special_ad_categories,
                 special_ad_category_country=special_ad_category_country,
                 advantage_audience=advantage_audience,
@@ -47209,7 +47545,7 @@ def register_generated_tools(mcp, _get_client):
         date_preset: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
-        time_increment: str | None = None,
+        time_increment: int | Literal["monthly", "all_days"] | None = None,
         limit: int = 500,
         cursor: str | None = None,
     ) -> str:
@@ -49266,6 +49602,42 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.posts.unpin_post(
                 post_id=post_id, platform=platform, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Turn comments on or off",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def posts_set_post_comments_enabled(
+        post_id: str, platform: str, enabled: bool, account_id: str | None = None
+    ) -> str:
+        """Turn comments on or off
+
+        Turns comments on or off on a published Instagram post, Reel or carousel, after publishing. Works for accounts connected through Instagram Login and through Facebook Login.
+
+        Only Instagram posts are supported; any other platform answers 400 `platform_not_supported`. To turn comments off at publish time instead, send `commentsEnabled: false` in the Instagram platform options when creating the post.
+
+        Platforms: instagram
+
+        Args:
+            post_id: (required)
+            platform: Must be `instagram`. Any other value answers 400 `platform_not_supported`. (required)
+            account_id: Which Instagram account's copy to change when the post was published to several Instagram accounts. Required in that case.
+            enabled: true turns comments on, false turns them off. (required)"""
+        client = _get_client()
+        try:
+            response = client.posts.set_post_comments_enabled(
+                post_id=post_id,
+                platform=platform,
+                account_id=account_id,
+                enabled=enabled,
             )
             return _format_response(response)
         except Exception as e:
@@ -59822,7 +60194,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def whatsapp_flows_upload_whats_app_flow_json(
-        flow_id: str, account_id: str, flow_json: str
+        flow_id: str, account_id: str, flow_json: dict[str, Any] | str
     ) -> str:
         """Upload flow JSON
 
@@ -61743,6 +62115,7 @@ TOOL_OAUTH_SCOPES: dict[str, tuple[str, ...]] = {
         "accounts:write",
     ),
     "account_groups_update_account_group": ("accounts:write",),
+    "account_settings_block_facebook_user": ("accounts:write",),
     "account_settings_delete_instagram_ice_breakers": ("accounts:write",),
     "account_settings_delete_messenger_get_started": ("accounts:write",),
     "account_settings_delete_messenger_greeting": ("accounts:write",),
@@ -61781,12 +62154,17 @@ TOOL_OAUTH_SCOPES: dict[str, tuple[str, ...]] = {
         "accounts:read",
         "accounts:write",
     ),
+    "account_settings_list_facebook_blocked_users": (
+        "accounts:read",
+        "accounts:write",
+    ),
     "account_settings_set_instagram_ice_breakers": ("accounts:write",),
     "account_settings_set_messenger_get_started": ("accounts:write",),
     "account_settings_set_messenger_greeting": ("accounts:write",),
     "account_settings_set_messenger_ice_breakers": ("accounts:write",),
     "account_settings_set_messenger_menu": ("accounts:write",),
     "account_settings_set_telegram_commands": ("accounts:write",),
+    "account_settings_unblock_facebook_user": ("accounts:write",),
     "account_settings_update_facebook_page_info": ("accounts:write",),
     "accounts_batch_get_google_business_reviews": ("messaging:write",),
     "accounts_create_google_business_media": ("accounts:write",),
@@ -61868,6 +62246,10 @@ TOOL_OAUTH_SCOPES: dict[str, tuple[str, ...]] = {
         "accounts:read",
         "accounts:write",
     ),
+    "accounts_get_store_settings": (
+        "accounts:read",
+        "accounts:write",
+    ),
     "accounts_get_stripe_settings": (
         "accounts:read",
         "accounts:write",
@@ -61925,6 +62307,7 @@ TOOL_OAUTH_SCOPES: dict[str, tuple[str, ...]] = {
     "accounts_update_hub_spot_settings": ("accounts:write",),
     "accounts_update_salesforce_settings": ("accounts:write",),
     "accounts_update_slack_settings": ("accounts:write",),
+    "accounts_update_store_settings": ("accounts:write",),
     "accounts_update_stripe_settings": ("accounts:write",),
     "accounts_verify_gohighlevel_funnel_tracking": ("ads:write",),
     "ad_accounts_add_account_callouts": ("ads:write",),
@@ -62105,7 +62488,15 @@ TOOL_OAUTH_SCOPES: dict[str, tuple[str, ...]] = {
         "ads:read",
         "ads:write",
     ),
+    "ad_audiences_get_meta_saved_audience": (
+        "ads:read",
+        "ads:write",
+    ),
     "ad_audiences_list_ad_audiences": (
+        "ads:read",
+        "ads:write",
+    ),
+    "ad_audiences_list_meta_saved_audiences": (
         "ads:read",
         "ads:write",
     ),
@@ -63848,6 +64239,10 @@ TOOL_OAUTH_SCOPES: dict[str, tuple[str, ...]] = {
         "accounts:read",
         "accounts:write",
     ),
+    "instagram_search_instagram_hashtag": (
+        "accounts:read",
+        "accounts:write",
+    ),
     "lead_gen_archive_lead_form": ("ads:write",),
     "lead_gen_count_leads": (
         "contacts:read",
@@ -63918,6 +64313,10 @@ TOOL_OAUTH_SCOPES: dict[str, tuple[str, ...]] = {
         "messaging:write",
     ),
     "messages_get_message_attachment": (
+        "messaging:read",
+        "messaging:write",
+    ),
+    "messages_get_messenger_contact": (
         "messaging:read",
         "messaging:write",
     ),
@@ -64060,6 +64459,7 @@ TOOL_OAUTH_SCOPES: dict[str, tuple[str, ...]] = {
     ),
     "posts_pin_post": ("posts:write",),
     "posts_review_post": ("posts:write",),
+    "posts_set_post_comments_enabled": ("posts:write",),
     "posts_unpin_post": ("posts:write",),
     "posts_unpublish_post": ("posts:write",),
     "posts_update_post": ("posts:write",),

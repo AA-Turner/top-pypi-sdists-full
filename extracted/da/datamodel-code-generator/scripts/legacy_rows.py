@@ -96,6 +96,31 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
         option="--keep-bases-beside-generic-base-class",
     ),
     LegacyRow(
+        "legacy-generic-base-names-dropped-class-binding",
+        (
+            "where the import of a class no base names binds the alias of the library base of the generated base class "
+            "of `--use-generic-base-class` (`_BaseModel`, `_Struct`), as the import of a `--base-class` class that row "
+            "`legacy-generic-base-drops-configured-bases` drops does, and a field names the library base too, the "
+            "generated base class keeps naming the alias and inherits the class of whichever import binds it last "
+            "(`parser/_python_type_imports.py:_StructuredImportAliasState.base_binding_row`)"
+        ),
+        fix=7436,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/generic_base_class_library_base/class.json",
+            "--input-file-type",
+            "jsonschema",
+            "--disable-timestamp",
+            "--use-generic-base-class",
+            "--extra-fields",
+            "forbid",
+            "--base-class",
+            "mypkg.base._BaseModel",
+            "--formatters",
+            "builtin",
+        ),
+    ),
+    LegacyRow(
         "legacy-standard-primitive-types-without-decoder",
         (
             "without `--use-str-for-formats-msgspec-cannot-decode`, `--use-standard-primitive-types` writes "
@@ -2529,6 +2554,27 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
         ),
     ),
     LegacyRow(
+        "legacy-struct-conflicts-at-collected-places",
+        (
+            "a msgspec struct is written `kw_only=True` where a required field follows a default at the places "
+            "dataclasses give the fields, also where msgspec, which puts each struct's keyword-only fields last, "
+            "would create it without (`parser/_passes/_shared.py:get_constructor_conflicts`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/msgspec_restated_keyword_only/use_default.json",
+            "--input-file-type",
+            "jsonschema",
+            "--output-model-type",
+            "msgspec.Struct",
+            "--use-default",
+            "--keep-defaults-of-inherited-required-fields",
+            "--formatters",
+            "builtin",
+        ),
+    ),
+    LegacyRow(
         "legacy-reference-only",
         (
             "the field renames of `change_field_name` read the references a field's annotation names, not the enum of "
@@ -3547,6 +3593,29 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
         ),
     ),
     LegacyRow(
+        "legacy-dataclass-own-config-drops-taken-config",
+        (
+            "a `pydantic_v2.dataclass` that writes a config of its own (an option such as "
+            "`--allow-population-by-field-name`, `--extra-template-data`, or `regex_engine` that its own patterns, "
+            "the type aliases it reaches or a lone surrogate select) writes only its own items, so it stops applying "
+            "the config of its first dataclass base (`extra`, `--extra-template-data` items); the engine the patterns "
+            "of its bases select keeps those items of a dataclass without a config of its own (#7452)"
+        ),
+        fix=7497,
+        witness=(
+            "--input",
+            "tests/data/openapi/inherited_dataclass_config/schema.yaml",
+            "--input-file-type",
+            "openapi",
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--keep-inherited-dataclass-config",
+    ),
+    LegacyRow(
         "legacy-flat-bare-loads",
         (
             "the check of module imports named like a builtin counts every name node of a rendered model as a bare "
@@ -4174,6 +4243,25 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
         ),
     ),
     LegacyRow(
+        "legacy-typed-root-standard-schema",
+        (
+            "without `--keep-typed-input-model-root-python-types`, a dataclass or TypedDict root of an input model is "
+            "written as the JSON Schema of Pydantic's standard generator spells it, which drops the `Callable` branch "
+            "of a union (`int \\| Callable` is `int`, and `int \\| str` on the reuse path) and writes "
+            "`type[X]` as `Any`, where a Pydantic model root keeps "
+            "both (`input_model.py:_model_schema_with_python_types`)"
+        ),
+        fix=KEEP,
+        witness=(
+            "--input-model",
+            "tests.data.python.input_model.dataclass_models:Settings",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ),
+        option="--keep-typed-input-model-root-python-types",
+    ),
+    LegacyRow(
         "legacy-str-subclass-host-repr",
         (
             "`represent_python_value` writes a `str` subclass that keeps the `repr()` of `str` (a `$ref` value that "
@@ -4297,6 +4385,28 @@ LEGACY_ROWS: Final[tuple[LegacyRow, ...]] = (
             "builtin",
         ),
     ),
+    LegacyRow(
+        "legacy-forwarder-export-loads",
+        (
+            "the refusal of a class beside a module of its name in its package reads the `__init__.py` that an import "
+            "cycle merge leaves as a forwarder of the class with the `--all-exports-scope` re-exports it does not "
+            "write, as a load of the module, and writes the output that 0.90.0 and later write there "
+            "(`parser/_passes/_import_edges.py:init_load_edges`, "
+            "`parser/_passes/imports.py:_class_named_like_submodule`)"
+        ),
+        fix=7573,
+        witness=(
+            "--input",
+            "tests/data/jsonschema/submodule_named_like_forwarded_class.json",
+            "--input-file-type",
+            "jsonschema",
+            "--disable-timestamp",
+            "--all-exports-scope",
+            "children",
+            "--formatters",
+            "builtin",
+        ),
+    ),
 )
 """Every ``legacy-*`` row of ``src/``, in the order of the page table."""
 
@@ -4323,6 +4433,7 @@ UNTESTED: Final[frozenset[str]] = frozenset({
     "legacy-cycle-walk-reads-values-whole",
     "legacy-dataclass-follows-every-reference",
     "legacy-dataclass-overwrites-engine",
+    "legacy-dataclass-own-config-drops-taken-config",
     "legacy-decide-in-union-module",
     "legacy-dedup-before-strip",
     "legacy-dedup-keys-without-unique-items",
@@ -4401,6 +4512,7 @@ UNTESTED: Final[frozenset[str]] = frozenset({
     "legacy-struct-hash-last-base-first",
     "legacy-tag-from-earlier-union",
     "legacy-tree-scope",
+    "legacy-typed-root-standard-schema",
     "legacy-undeclared-keywords-off-literal",
     "legacy-unique-items-decided-before-collapse",
     "legacy-unique-sets-level-order",

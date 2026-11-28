@@ -95,6 +95,9 @@ from coord.drive_queue import (
     fired_holds,
     flag_shadows_config_warning,
     format_coarse_duration,
+    format_intervention_reason,
+    fresh_interventions,
+    INTERVENTION_DEFAULT_STALE_SECONDS,
     is_benign_queue_alert_command,
     is_dispatch_failure_reason,
     is_fix_round_ceiling_blocked,
@@ -1842,6 +1845,42 @@ def _board_for_list_diagnosis() -> BoardView | None:
         return None
 
 
+def _fetch_tranche_prereq_members() -> dict[str, str]:
+    """Every issue key an in-flight tranche row's closing PR will close,
+    mapped to that row's master key (#4227) — `coord.drive_queue.
+    tranche_prereq_members` over this tick's `tranche_rows`.
+
+    This is the `after=` half of the tranche's presentation: a riding
+    child has no `QueueEntry` of its own, so without this mapping an
+    ordinary row declaring `after=<child>` reads that child as having
+    landed long ago (`_after_satisfied`) or as unknown to the board
+    (`_resolve_prereqs`) — see `tranche_prereq_members`' own module
+    comment. Threaded into `plan_tick` and into `list`/`status`'s
+    `diagnose_blocked_after` renders, so an operator's view and a live
+    tick's verdict are derived from the same membership.
+
+    `{}` on a thin client and `{}` on any read failure, the same
+    best-effort posture `_advance_tranche_rows`/`_tranche_status_lines`
+    take: the local `tranche_rows` table a thin client would read is not
+    the daemon's, and an empty mapping is exactly the pre-tranche
+    behaviour rather than a wrong one.
+    """
+    from coord.board_service import resolve as resolve_board_service  # noqa: PLC0415
+
+    if resolve_board_service() is not None:
+        return {}
+    try:
+        from coord.drive_queue import tranche_prereq_members  # noqa: PLC0415
+        from coord.models import TRANCHE_ROW_STATES  # noqa: PLC0415
+        from coord.state import load_tranche_rows_in_states  # noqa: PLC0415
+
+        return tranche_prereq_members(
+            load_tranche_rows_in_states(TRANCHE_ROW_STATES)
+        )
+    except Exception:  # noqa: BLE001 — advisory read; never break list/tick
+        return {}
+
+
 def _drive_queue_list_read(
     repo: str | None,
 ) -> tuple[list[dict], DriveQueueRead | None, str | None]:
@@ -1969,6 +2008,23 @@ def drive_queue_list(repo: str | None, output_json: bool, config_path: Path) -> 
     # probe failure" text must read the same way here as it does in
     # `coord.drive_queue._resolve_prereqs`.
     dep_reasons = {e.key: e.last_reason for e in all_entries}
+    # #4216: same "thread it through so a render never disagrees with a
+    # live tick" rule as `dep_reasons` just above, for a dep's own active
+    # `coord drive-queue note` record — see `_resolve_prereqs`'s
+    # `dep_interventions` docstring. Run through `fresh_interventions` so a
+    # record old enough to render `STALE` on its own held row (`now` above)
+    # drops out here too, matching `plan_tick`'s `effective_interventions`.
+    dep_interventions = fresh_interventions(
+        {e.key: e.intervention for e in all_entries if e.intervention}, now,
+    )
+    # #4227: same "thread it through so a render never disagrees with a live
+    # tick" rule again, for a dep that is riding an in-flight tranche row
+    # instead of holding a queue row of its own — see
+    # `_fetch_tranche_prereq_members`. Read only when a diagnosis is
+    # actually going to run, matching `board` above.
+    tranche_members = (
+        _fetch_tranche_prereq_members() if board is not None else {}
+    )
     cycle_keys: dict[str, str] = {}
     cycle = find_cycle({e.key: list(e.after) for e in all_entries})
     if cycle is not None:
@@ -2005,7 +2061,9 @@ def drive_queue_list(repo: str | None, output_json: bool, config_path: Path) -> 
             if not is_unsatisfiable_prereq_reason(candidate.last_reason):
                 continue
             pre_diag = diagnose_blocked_after(
-                candidate, board, cascaded_states, cycle_keys, dep_reasons=dep_reasons
+                candidate, board, cascaded_states, cycle_keys, dep_reasons=dep_reasons,
+                dep_interventions=dep_interventions,
+                tranche_members=tranche_members,
             )
             if not pre_diag.unsatisfiable:
                 cascaded_states[candidate.key] = STATE_WAITING
@@ -2018,7 +2076,9 @@ def drive_queue_list(repo: str | None, output_json: bool, config_path: Path) -> 
         dependency_reason = ""
         if diagnosed:
             diagnosis = diagnose_blocked_after(
-                entry, board, cascaded_states, cycle_keys, dep_reasons=dep_reasons
+                entry, board, cascaded_states, cycle_keys, dep_reasons=dep_reasons,
+                dep_interventions=dep_interventions,
+                tranche_members=tranche_members,
             )
             unsatisfied = diagnosis.unsatisfied
             dependency_reason = diagnosis.dependency_reason
@@ -2148,11 +2208,23 @@ def drive_queue_list(repo: str | None, output_json: bool, config_path: Path) -> 
         # caused (no `after=`, or its real cause is unrelated to it) keeps
         # showing its own frozen `last_reason` exactly as before.
         using_fresh_reason = diagnosed and bool(dependency_reason)
-        display_reason = dependency_reason if using_fresh_reason else entry.last_reason
+        # #4216: an active `coord drive-queue note` record on THIS row wins
+        # over both — the operator's own account of what is actually
+        # happening outranks any `after=` re-diagnosis or frozen
+        # `last_reason`, the same override `coord/serve_app.py`'s
+        # board/drive-queue projections apply for coord-tui/the dashboard
+        # (one function, one answer: #2096).
+        intervention_reason = format_intervention_reason(entry.intervention, now)
+        if intervention_reason is not None:
+            display_reason = intervention_reason
+            using_fresh_reason = True
+        else:
+            display_reason = dependency_reason if using_fresh_reason else entry.last_reason
         # The age suffix (#2133) times how long `entry.last_reason` has sat
         # unrevalidated — meaningless (and actively misleading, implying the
         # fresh sentence is itself stale) once that text has been swapped
-        # for a diagnosis computed THIS call.
+        # for a diagnosis computed THIS call (or an active intervention
+        # record, which carries its own staleness marker instead).
         age_suffix = "" if using_fresh_reason else _reason_age_suffix(entry, now)
         if display_reason:
             click.echo(f"      last{age_suffix}: {display_reason}")
@@ -2484,6 +2556,140 @@ def drive_queue_log_intervention(
     click.echo(f"logged a {category!r} intervention against {key}")
 
 
+# ── note (#4216) ─────────────────────────────────────────────────────────────
+
+
+@drive_queue_group.command("note")
+@click.argument("repo")
+@click.argument("issue", type=int)
+@click.option(
+    "--by", default="",
+    help="Who performed the rescue — a person or agent identifier.",
+)
+@click.option(
+    "--did", default="",
+    help='What you actually did, in your own words (e.g. "force-pushed a '
+    'rebase onto green main").',
+)
+@click.option(
+    "--next", "next_step", default="",
+    help='What should happen next (e.g. "CI rerun in flight, re-check in '
+    '20m").',
+)
+@click.option(
+    "--sha", default=None,
+    help="The commit SHA the rescue landed, if any — shown alongside the note.",
+)
+@click.option(
+    "--stale-after", "stale_after_seconds", type=float, default=None,
+    help="Seconds after which this record reads as stale (default "
+    f"{INTERVENTION_DEFAULT_STALE_SECONDS}s = 6h).",
+)
+@click.option(
+    "--clear", "clear_flag", is_flag=True, default=False,
+    help="Remove the current intervention record instead of writing one.",
+)
+@_CONFIG_OPTION
+def drive_queue_note(
+    repo: str,
+    issue: int,
+    by: str,
+    did: str,
+    next_step: str,
+    sha: str | None,
+    stale_after_seconds: float | None,
+    clear_flag: bool,
+    config_path: Path,
+) -> None:
+    """Record (or `--clear`) a note that a human/agent rescued REPO ISSUE
+    outside the drive queue's own commands (#4216).
+
+    The drive queue has no way to see a hand push, a fix to a red base, or a
+    CI rerun done directly against GitHub — a blocked/parked row keeps
+    showing its OLD gate reading (e.g. "blocked: fix-round ceiling") and its
+    dependents keep showing "it will never satisfy", while the real state
+    has already moved on. This command records your own account of what
+    happened; it does not re-derive or verify anything live itself.
+
+    Once recorded, the row's displayed reason in `coord drive-queue list`,
+    the board API (coord-tui), and the dashboard all become `held: <--by>
+    — <--did>; next: <--next>` instead of the stale reading underneath —
+    and any dependent waiting on REPO ISSUE shows "waiting on ... (held by
+    <--by>)" instead of "it will never satisfy", within one tick. The
+    record goes stale after `--stale-after` seconds (default 6h) and then
+    displays as stale rather than silently keeping on display. `--clear`
+    removes it outright and restores the underlying reading; a row that
+    reaches `done` on its own clears it automatically.
+    """
+    from coord.state import (  # noqa: PLC0415
+        clear_drive_queue_intervention,
+        get_drive_queue_entry,
+        set_drive_queue_intervention,
+    )
+
+    key = entry_key(repo, issue)
+    existing = get_drive_queue_entry(repo, issue)
+    if existing is None:
+        raise click.ClickException(f"{key} is not in the drive queue — nothing to note")
+
+    if clear_flag:
+        if by or did or next_step or sha or stale_after_seconds is not None:
+            raise click.ClickException(
+                "--clear cannot be combined with --by/--did/--next/--sha/--stale-after"
+            )
+        cleared = clear_drive_queue_intervention(repo, issue)
+        if not cleared:
+            raise click.ClickException(f"failed to clear the intervention record on {key}")
+        # #2096: "did not raise" is not "cleared" — read the row back and
+        # confirm before telling the operator it's gone, the same posture
+        # `drive_queue_log_intervention` already applies to its own write.
+        after = get_drive_queue_entry(repo, issue)
+        if after is None or after.get("intervention_json"):
+            raise click.ClickException(
+                f"clear reported success but {key}'s record did not actually "
+                "clear on read-back — try again"
+            )
+        click.echo(f"cleared the intervention record on {key}")
+        return
+
+    by = by.strip()
+    did = did.strip()
+    next_step = next_step.strip()
+    missing = [
+        flag for flag, value in (("--by", by), ("--did", did), ("--next", next_step))
+        if not value
+    ]
+    if missing:
+        raise click.ClickException(
+            f"{', '.join(missing)} must not be empty (pass --clear instead "
+            "to remove the current record)"
+        )
+
+    written = set_drive_queue_intervention(
+        repo, issue, by=by, did=did, next_step=next_step, sha=sha,
+        stale_after_seconds=stale_after_seconds,
+    )
+    if not written:
+        raise click.ClickException(f"failed to record the intervention on {key}")
+    # #2096: read the row back and confirm the record we just wrote is
+    # actually what is stored before telling the operator it's recorded —
+    # the same posture `drive_queue_log_intervention` already applies.
+    after = get_drive_queue_entry(repo, issue)
+    recorded = after.get("intervention_json") if after is not None else None
+    if not isinstance(recorded, dict) or recorded.get("by") != by or recorded.get("did") != did:
+        raise click.ClickException(
+            f"note reported success but {key}'s record did not match on "
+            "read-back — try again"
+        )
+    click.echo(f"recorded on {key}: {format_intervention_reason(recorded, time.time())}")
+    click.echo(
+        "this overrides the row's displayed reason in `coord drive-queue "
+        "list`, the board API, and its dependents, until it goes stale, you "
+        f"`coord drive-queue note {repo} {issue} --clear` it, or the row "
+        "reaches `done`."
+    )
+
+
 # ── remove / move ────────────────────────────────────────────────────────────
 
 
@@ -2772,6 +2978,42 @@ def _unreachable_wait_alert_dict(rows: list[Mapping[str, Any]]) -> dict | None:
     }
 
 
+def _tranche_status_lines() -> list[str]:
+    """`coord drive-queue status`'s tranche block (#4227): every live
+    tranche row's master/riding-children view, rendered by
+    `coord.drive_queue.render_tranche_rows` — the one place a tranche row
+    becomes visible to an operator reading `status` at all (see that
+    module section's own module comment for why nothing else renders it:
+    a `TrancheRow` is not a `QueueEntry`, so it never appears in the
+    ordinary per-entry counts/rows above).
+
+    Every state, not just the advanceable ones `_advance_tranche_rows`
+    acts on — `"pending"`/`"failed"` rows are exactly as real to an
+    operator watching the queue as `"dispatched"`/`"integrating"`/
+    `"done"` ones.
+
+    Best-effort and `[]` on a thin client (same `resolve_board_service`
+    gate `_advance_tranche_rows`/`_requeue_tranche_rows` use): the local
+    `tranche_rows` table a thin client would read from is not the
+    daemon's, so rendering it here would show either nothing or a stale
+    daemon-unrelated table — `[]` (no tranche block at all) is honest
+    about that, where a wrong render would not be.
+    """
+    from coord.board_service import resolve as resolve_board_service  # noqa: PLC0415
+
+    if resolve_board_service() is not None:
+        return []
+    try:
+        from coord.drive_queue import render_tranche_rows  # noqa: PLC0415
+        from coord.models import TRANCHE_ROW_STATES  # noqa: PLC0415
+        from coord.state import load_tranche_rows_in_states  # noqa: PLC0415
+
+        rows = load_tranche_rows_in_states(TRANCHE_ROW_STATES)
+    except Exception:  # noqa: BLE001 — advisory read; never break `status`
+        return []
+    return render_tranche_rows(rows)
+
+
 @drive_queue_group.command("status")
 @click.option("--json", "output_json", is_flag=True, default=False, help="Emit counts + alert as JSON.")
 @_CONFIG_OPTION
@@ -2781,6 +3023,7 @@ def drive_queue_status(output_json: bool, config_path: Path) -> None:
 
     rows = list_drive_queue()
     counts = _counts(rows)
+    tranche_lines = _tranche_status_lines()
     # #2944: a tick-raised alert (a HELD gate, a real BLOCKED-entry remedy)
     # takes priority when one exists — it is fresher and, on a busy queue,
     # `_unreachable_wait_alert_dict` would silently win-and-hide it every
@@ -2862,6 +3105,12 @@ def drive_queue_status(output_json: bool, config_path: Path) -> None:
                     "roll_pending": (
                         roll_pending.to_dict() if roll_pending is not None else None
                     ),
+                    # #4227: the master-row/riding-children render, one
+                    # string per line exactly as the text branch below
+                    # prints it — a native `TrancheRow` is not a
+                    # `QueueEntry`, so it is otherwise entirely absent from
+                    # this payload's `counts`/`rows`.
+                    "tranche_rows": tranche_lines,
                 }
             )
         )
@@ -2875,6 +3124,11 @@ def drive_queue_status(output_json: bool, config_path: Path) -> None:
         click.echo(
             "drive queue: " + " · ".join(f"{counts[s]} {s}" for s in ordered)
         )
+    # #4227: printed right after the ordinary queue counts, above the
+    # HELD/alert blocks below — a tranche row is queue state in its own
+    # right, not an annotation on something else already printed.
+    for line in tranche_lines:
+        click.echo(line)
     # The gate goes ABOVE the alert: "HELD" is the state, the alert is the
     # note about it, and an operator scanning the first line must not have to
     # read three more to learn the queue has stopped.
@@ -7237,6 +7491,12 @@ def _fetch_live_prereq_terminal(
         if board.facts(e.key).landed:
             continue
         targets.add(e.key)
+    # `STATE_MERGED_PARTIAL` deliberately gets NO entry here (#4218): its
+    # own self-heal in `coord.drive_queue` rests on `facts.closed` alone,
+    # never a live probe — see that sweep's comment for why a live
+    # confirmation landing ahead of the cache would put it at odds with
+    # the `#3863` done-row correction pass, which only ever reads the
+    # cache.
     if not targets:
         return {}
 
@@ -7378,6 +7638,177 @@ def _fetch_live_dispatch_evidence(
         if any(name.startswith(prefix) for name in names):
             evidence[e.key] = True
     return evidence
+
+
+def _advance_tranche_rows(config_path: Path) -> list[str]:
+    """Advance every native tranche row that still has a step left to take
+    (#4129/#4202) and return one report line per row.
+
+    A `TrancheRow` is not a `QueueEntry` — it fans out to N children off
+    one base sha instead of driving one issue — so it never goes through
+    `plan_tick`'s one-launch-per-tick walk. This is its tick: load the
+    rows, let `coord.drive_queue.tranche_rows_ready_to_advance` decide
+    which ones are candidates, and hand each to `coord.drive.
+    advance_tranche_row`, which owns the whole Test -> review -> PR
+    ordering and takes exactly one step per call. Every decision lives in
+    those two functions; this is only the I/O shell around them.
+
+    Each row's own pool is the machines that can work on its repo and are
+    not currently paused or cordoned (`coord.machine_pause.paused_set`
+    with cordons included — the #3599 reason a drain must not keep
+    receiving dispatches). A row with no eligible machine is reported and
+    skipped: `advance_tranche_row` refuses an empty pool, and a Test
+    verdict from a machine that was never eligible is worse than waiting.
+
+    Best-effort throughout, like every other live re-read this tick runs:
+    an unreadable config/board, or one row raising, costs that row this
+    tick only and never the queue walk.
+
+    Runs only on the daemon host: a thin client returns before the local
+    board read is imported, because the tranche rows, the board and the
+    legs it dispatches all live on the daemon host.
+    """
+    from coord.board_service import resolve as resolve_board_service  # noqa: PLC0415
+
+    if resolve_board_service() is not None:
+        return []
+
+    try:
+        from coord.commands._common import _load_config  # noqa: PLC0415
+        from coord.drive import advance_tranche_row  # noqa: PLC0415
+        from coord.drive_queue import (  # noqa: PLC0415
+            TRANCHE_ADVANCEABLE_STATES,
+            tranche_rows_ready_to_advance,
+        )
+        from coord.machine_pause import paused_set  # noqa: PLC0415
+        from coord.models import Board  # noqa: PLC0415
+        from coord.state import (  # noqa: PLC0415
+            load_board,
+            load_tranche_rows_in_states,
+            save_tranche_row,
+        )
+
+        config = _load_config(config_path)
+        rows = tranche_rows_ready_to_advance(
+            load_tranche_rows_in_states(TRANCHE_ADVANCEABLE_STATES)
+        )
+        if not rows:
+            return []
+        # `load_board` returns None only when no board was ever saved —
+        # genuinely "no legs have ever been dispatched", not "the board
+        # could not be read" (that raises, and is caught below).
+        board = load_board() or Board()
+        paused = paused_set(config.machines, include_cordons=True)
+    except Exception as exc:  # noqa: BLE001 — see docstring: this tick only
+        return [f"(tranche rows not advanced this tick: {exc})"]
+
+    lines: list[str] = []
+    for row in rows:
+        pool = [
+            m.name for m in config.machines
+            if m.can_work_on(row.repo_name) and m.name not in paused
+        ]
+        if not pool:
+            lines.append(
+                f"tranche row {row.id} ({row.repo_name}#{row.issue_number}): "
+                "every machine for this repo is paused or cordoned — waiting"
+            )
+            continue
+        before = row.state
+        try:
+            step = advance_tranche_row(row, config, pool, board)
+        except Exception as exc:  # noqa: BLE001 — one row never breaks the tick
+            lines.append(
+                f"tranche row {row.id} ({row.repo_name}#{row.issue_number}): "
+                f"could not advance: {exc}"
+            )
+            continue
+        if row.state != before:
+            save_tranche_row(row)
+        lines.append(
+            f"tranche row {row.id} ({row.repo_name}#{row.issue_number}): "
+            f"{step['stage']} — {step['detail']}"
+        )
+    return lines
+
+
+def _requeue_tranche_rows() -> list[str]:
+    """Hand back every `"failed"` tranche row's children to the ordinary
+    queue (#4227) and return one report line per row.
+
+    Same shell/pure-decision split as `_advance_tranche_rows` just above:
+    `coord.drive_queue.tranche_rows_ready_to_requeue` picks the rows,
+    `coord.drive_queue.tranche_requeue_plan` decides what each one hands
+    back, and this is only the I/O around those two pure functions —
+    `coord.state.enqueue_drive_queue` each child as an ordinary row,
+    stamp the plan's `remainder_note` onto it as `last_reason` so an
+    operator reads WHY it reappeared, then `coord.state.delete_tranche_row`
+    the row itself.
+
+    That delete is load-bearing, not cleanup: `"failed"` never clears on
+    its own (see `tranche_rows_ready_to_requeue`'s own docstring), so
+    without it this would re-enqueue the SAME children, with a fresh
+    `last_reason` overwrite each time, on every tick forever. Deleting the
+    row is what makes the next tick's `load_tranche_rows_in_states(
+    ("failed",))` stop returning it — the same role `save_tranche_row`'s
+    state write plays for `tranche_rows_ready_to_dispatch`/
+    `tranche_rows_ready_to_advance`.
+
+    Best-effort, same posture as `_advance_tranche_rows`: an unreadable
+    DB, or one row raising, costs that row this tick only — and crucially
+    never re-deletes a row whose children failed to enqueue, so a
+    transient write failure loses nothing (the row stays `"failed"` and
+    is retried next tick).
+
+    Runs only on the daemon host, same reason `_advance_tranche_rows`
+    does: the local `tranche_rows` table a thin client would read from is
+    not the daemon's.
+    """
+    from coord.board_service import resolve as resolve_board_service  # noqa: PLC0415
+
+    if resolve_board_service() is not None:
+        return []
+
+    try:
+        from coord.drive_queue import (  # noqa: PLC0415
+            tranche_requeue_plan,
+            tranche_rows_ready_to_requeue,
+        )
+        from coord.state import (  # noqa: PLC0415
+            delete_tranche_row,
+            enqueue_drive_queue,
+            load_tranche_rows_in_states,
+            update_drive_queue_entry,
+        )
+
+        rows = tranche_rows_ready_to_requeue(load_tranche_rows_in_states(("failed",)))
+    except Exception as exc:  # noqa: BLE001 — see docstring: this tick only
+        return [f"(tranche rows not requeued this tick: {exc})"]
+    if not rows:
+        return []
+
+    lines: list[str] = []
+    for row in rows:
+        try:
+            plan = tranche_requeue_plan(row)
+            for child in plan.requeue:
+                enqueue_drive_queue(child.repo_name, child.issue_number)
+                update_drive_queue_entry(
+                    child.repo_name, child.issue_number,
+                    last_reason=plan.remainder_note,
+                )
+            delete_tranche_row(row.id)
+        except Exception as exc:  # noqa: BLE001 — one row never breaks the tick
+            lines.append(
+                f"tranche row {row.id} ({row.repo_name}#{row.issue_number}): "
+                f"could not requeue: {exc}"
+            )
+            continue
+        lines.append(
+            f"tranche row {row.id} ({row.repo_name}#{row.issue_number}): "
+            f"{plan.remainder_note}"
+        )
+    return lines
 
 
 def _fetch_merge_only_ready(
@@ -9300,6 +9731,12 @@ def drive_queue_tick(
         # chained `--after` it, recoverable only by a manual remove+add).
         live_prereq_terminal = _fetch_live_prereq_terminal(entries, board, config_path)
 
+        # #4227: which issues an in-flight tranche row's single closing PR
+        # is going to close — the children riding it have no queue row of
+        # their own, so an `after=` edge naming one has nothing to read
+        # without this. See `_fetch_tranche_prereq_members`.
+        tranche_members = _fetch_tranche_prereq_members()
+
         # #2101: release cordons. THIS is the hole the issue names — the
         # queue's launcher had zero pause awareness (`coord/drive.py` checks
         # pause only when routing a *worker*), so a cordoned host kept getting
@@ -9371,6 +9808,7 @@ def drive_queue_tick(
             live_test_routing_reason=live_test_routing_reason,
             live_credential_routing_clear=live_credential_routing_clear,
             live_credential_routing_reason=live_credential_routing_reason,
+            tranche_members=tranche_members,
         )
 
         if roll_pending is not None:
@@ -9397,6 +9835,23 @@ def drive_queue_tick(
             return
 
         _apply_writes(plan)
+
+        # Native tranche rows advance on their own track, outside the
+        # capacity walk above: a row's children are one dispatch, not one
+        # launched drive per step, and the Test/review/PR tail launches no
+        # drive at all. Deliberately AFTER the `dry_run` return just above
+        # (it dispatches legs and opens a PR) and skipped under
+        # `--reconcile-only`, which promises to start nothing new.
+        if not reconcile_only:
+            for line in _advance_tranche_rows(config_path):
+                click.echo(line)
+            # #4227: a row's advance above may itself have just set
+            # `row.state = "failed"` (`integrate_tranche_row`'s merge-
+            # declined branch) — this runs AFTER that save lands, in the
+            # same tick, so a row never sits `"failed"` for one whole
+            # extra tick before its children are handed back.
+            for line in _requeue_tranche_rows():
+                click.echo(line)
 
         # #3413: the writes have LANDED — but ONLY a tick that reached
         # `plan_tick`'s step-4 walk actually re-stamped every queue row's

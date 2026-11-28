@@ -771,6 +771,10 @@ bool BinSeparationModel::solve_step(
     std::vector<double> solution;
 #ifdef HIGHS_FOUND
     Highs highs;
+    // A single thread: the simplex is serial, and a solve with several
+    // threads would create a thread pool each time (see
+    // 'mathoptsolverscmake::solve').
+    highs.setOptionValue("threads", 1);
     mathoptsolverscmake::reduce_printout(highs);
     mathoptsolverscmake::set_time_limit(highs, timer.remaining_time());
     highs.setOptionValue("parallel", "off");

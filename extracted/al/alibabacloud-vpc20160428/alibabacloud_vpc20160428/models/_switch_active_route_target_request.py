@@ -16,17 +16,17 @@ class SwitchActiveRouteTargetRequest(DaraModel):
         route_target_group_id: str = None,
         tag: List[main_models.SwitchActiveRouteTargetRequestTag] = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must ensure that it is unique among different requests. The client token can contain only ASCII characters. Note: If you do not specify this parameter, the system automatically uses the RequestId of the API request as the client token. The RequestId of each API request may be different.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, and you must make sure that the value is unique among different requests. The client token can contain only ASCII characters. Note: If you do not specify this parameter, the system automatically uses the RequestId of the API request as the client token. The RequestId of each API request may be different.
         self.client_token = client_token
         # Specifies whether to perform a dry run without actually performing the operation.
         self.dry_run = dry_run
         # The region ID of the route target group.
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to obtain the region ID.
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The instance ID of the route target group.
+        # The instance ID of the routing target group.
         # 
         # This parameter is required.
         self.route_target_group_id = route_target_group_id
@@ -91,11 +91,11 @@ class SwitchActiveRouteTargetRequestTag(DaraModel):
         key: str = None,
         value: str = None,
     ):
-        # The tag key of the resource. You can specify up to 20 tag keys. If you specify this parameter, you cannot enter an empty string.
+        # The tag key of the resource. You can specify up to 20 tag keys. If you specify this parameter, the value cannot be an empty string.
         # 
         # A tag key can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.key = key
-        # The tag value of the resource. You can specify up to 20 tag values. If you specify this parameter, you can enter an empty string.
+        # The tag value of the resource. You can specify up to 20 tag values. If you specify this parameter, the value can be an empty string.
         # 
         # A tag value can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.value = value

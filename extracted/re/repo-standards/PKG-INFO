@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: repo-standards
-Version: 8.22.0
+Version: 8.22.2
 Summary: Deterministic pull-request sizing and reviewed repository policy
 Keywords: architecture,github-actions,lint,openapi,repository
 Author: sarj-ai
@@ -80,5 +80,5 @@ publication or GitHub Release from the same verified source revision.
 ## GitHub Action
 
 ```yaml
-- uses: sarj-ai/repo-standards@825c85dd45833c51aeda472bda3e7d4e7ddd9925 # v8.22.0
+- uses: sarj-ai/repo-standards@7fe36ad4df02581cd1c4602cea98a1b153d2bf0e # v8.22.2
 ```

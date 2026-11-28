@@ -217,8 +217,189 @@ pub struct LocationHealthObservation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct PersonLocationHealth {
     pub state: LocationState,
+    /// The target's health as every page shows it: its worst open fact, and whether it stops runs.
+    pub verdict: LocationVerdict,
+    /// The run-history sync now: a request waiting for the location, the sync running, and whether it stalled.
+    pub warehouse_sync: WarehouseSyncState,
     /// Newest first, with this server's pool-cap warning on the current snapshot.
     pub observations: Vec<LocationHealthObservation>,
+}
+
+/// How serious a location's open problem is: whether its runs can happen at all.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, utoipa::ToSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ProblemTier {
+    /// Runs can't happen: the location isn't checking in, can't connect, or has no version to run.
+    StopsRuns,
+    /// It works, but needs a look.
+    NeedsAttention,
+}
+
+/// A location target's open fact, worst first: its health names the worst wherever it is shown.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, utoipa::ToSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum LocationFact {
+    NotCheckingIn,
+    /// The warehouse connection check after its last load failed.
+    CantConnect,
+    /// The latest deploy failed to load and no earlier version is published to run instead.
+    DeployFailed,
+    /// The latest deploy failed to load, so runs use the version before it.
+    DeployFailedOnPrevious,
+    SyncFailing,
+    /// A running sync reported no progress for `SYNC_STALL_SECONDS`.
+    SyncStalled,
+    MissingSecrets,
+    ChangePlanFailed,
+    DiscoveryFailed,
+    /// A running schedule's next tick is more than 30 seconds late.
+    ScheduleOverdue,
+    /// A trigger is skipped because its stored job or pinned snapshot can't be read, or a sensor's check failed.
+    TriggerSkipped,
+    /// A lifecycle event sink's newest run lost events.
+    SinkFailing,
+    /// A running calendar's dates run out within a day.
+    CalendarLow,
+    /// A republish dropped a calendar's pending times.
+    CalendarTimesDropped,
+    /// A sensor is checked again from scratch because its last check can't be read.
+    SensorRechecked,
+    /// A stored event of the location can't be read, so webhook delivery or a platform sensor skipped it.
+    EventSkipped,
+    Starting,
+    /// No connection check since the version it runs was published.
+    NotTested,
+    Healthy,
+}
+
+impl LocationFact {
+    /// The one place a problem's tier is decided: red when it stops the location's runs, amber otherwise; none when nothing is open.
+    #[must_use]
+    pub const fn tier(self) -> Option<ProblemTier> {
+        match self {
+            Self::NotCheckingIn | Self::CantConnect | Self::DeployFailed => {
+                Some(ProblemTier::StopsRuns)
+            }
+            Self::DeployFailedOnPrevious
+            | Self::SyncFailing
+            | Self::SyncStalled
+            | Self::MissingSecrets
+            | Self::ChangePlanFailed
+            | Self::DiscoveryFailed
+            | Self::ScheduleOverdue
+            | Self::TriggerSkipped
+            | Self::SinkFailing
+            | Self::CalendarLow
+            | Self::CalendarTimesDropped
+            | Self::SensorRechecked
+            | Self::EventSkipped
+            | Self::Starting
+            | Self::NotTested => Some(ProblemTier::NeedsAttention),
+            Self::Healthy => None,
+        }
+    }
+
+    /// The tier of an open problem of this kind, which every problem the server lists carries.
+    #[must_use]
+    pub const fn problem_tier(self) -> ProblemTier {
+        match self.tier() {
+            Some(tier) => tier,
+            None => ProblemTier::NeedsAttention,
+        }
+    }
+
+    /// The fact a target's state is; `published` tells a failed deploy that still runs a version from one with none to run.
+    #[must_use]
+    pub const fn of_state(state: LocationState, published: bool) -> Self {
+        match state {
+            LocationState::Broken => Self::NotCheckingIn,
+            LocationState::Degraded => Self::CantConnect,
+            LocationState::FallingBack if published => Self::DeployFailedOnPrevious,
+            LocationState::FallingBack => Self::DeployFailed,
+            LocationState::MissingSecrets => Self::MissingSecrets,
+            LocationState::ChangePlanFailed => Self::ChangePlanFailed,
+            LocationState::DiscoveryFailed => Self::DiscoveryFailed,
+            LocationState::Starting => Self::Starting,
+            LocationState::Healthy => Self::Healthy,
+        }
+    }
+}
+
+/// A target's health verdict: its worst open fact and its tier, none when nothing is open.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct LocationVerdict {
+    pub fact: LocationFact,
+    pub tier: Option<ProblemTier>,
+}
+
+impl LocationVerdict {
+    /// The worst of the target's open facts: its state, sync, other open `problems` and an untested connection; healthy if none.
+    #[must_use]
+    pub fn of(
+        (state, published_at): (LocationState, Option<DateTime<Utc>>),
+        (sync, tested_at): (&WarehouseSyncState, Option<DateTime<Utc>>),
+        problems: &[LocationFact],
+    ) -> Self {
+        let stalled = sync.running.as_ref().is_some_and(|running| running.stalled);
+        let untested = tested_at.is_none_or(|tested| published_at.is_some_and(|at| tested < at));
+        let fact = [
+            Some(LocationFact::of_state(state, published_at.is_some())),
+            sync.failing.then_some(LocationFact::SyncFailing),
+            stalled.then_some(LocationFact::SyncStalled),
+            untested.then_some(LocationFact::NotTested),
+        ]
+        .into_iter()
+        .flatten()
+        .chain(problems.iter().copied())
+        .min()
+        .unwrap_or(LocationFact::Healthy);
+        Self {
+            fact,
+            tier: fact.tier(),
+        }
+    }
+}
+
+/// A target's run-history sync now, as people read it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct WarehouseSyncState {
+    /// A sync someone asked for that the location hasn't started, while the request lasts.
+    pub requested: Option<SyncRequest>,
+    /// The sync running now, from its newest report; absent when none is.
+    pub running: Option<RunningSync>,
+    /// The newest report is a failure.
+    pub failing: bool,
+}
+
+/// When a target last reported a connection check, as the health read finds it.
+#[derive(Debug, Deserialize)]
+pub(crate) struct TestedAt {
+    pub(crate) tested_at: Option<DateTime<Utc>>,
+}
+
+/// Who asked for a sync, and when.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct SyncRequest {
+    pub requested_at: DateTime<Utc>,
+    pub requested_by: String,
+}
+
+/// The sync running now: when it started, when it last moved forward, and how far it has got.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RunningSync {
+    pub started_at: DateTime<Utc>,
+    /// The newest report, each of which moves the sync forward by a page.
+    pub progressed_at: DateTime<Utc>,
+    pub position: u64,
+    pub kinds: u64,
+    pub rows: u64,
+    pub table: WarehouseHistoryKind,
+    /// No progress for `SYNC_STALL_SECONDS`: a problem until it moves again, completes or fails.
+    pub stalled: bool,
 }
 
 /// One target's state from its newest health observations, as the web UI shows it.
@@ -502,6 +683,8 @@ pub enum PlatformEventKind {
     TriggerSkipped,
     SensorRechecked,
     CalendarTimesDropped,
+    UnreadableEventSkipped,
+    ControlSessionCutOff,
 }
 
 impl PlatformEventKind {
@@ -519,6 +702,8 @@ impl PlatformEventKind {
             Self::TriggerSkipped => "trigger_skipped",
             Self::SensorRechecked => "sensor_rechecked",
             Self::CalendarTimesDropped => "calendar_times_dropped",
+            Self::UnreadableEventSkipped => "unreadable_event_skipped",
+            Self::ControlSessionCutOff => "control_session_cut_off",
         }
     }
 }
@@ -582,6 +767,25 @@ pub enum PlatformEvent {
         snapshot_id: Uuid,
         times: Vec<DateTime<Utc>>,
     },
+    /// Webhook delivery or a platform sensor skipped stored event `storage_id`, which this server can't read, and carried on; listed as a problem while the event is kept and still can't be read.
+    UnreadableEventSkipped {
+        storage_id: i64,
+        event_id: Uuid,
+        /// The stored type, such as `platform_run_failed`.
+        event_type: String,
+        /// The location target the event concerns, when it names or leads to one.
+        location_id: Option<Uuid>,
+        target: Option<String>,
+        /// Why the event couldn't be read.
+        reason: String,
+    },
+    /// The control database cut off one of this server's sessions: a statement ran past its limit, or a transaction sat idle past its own, and was rolled back.
+    ControlSessionCutOff {
+        /// The transaction sat idle past its limit, rather than a statement running past its own.
+        idle: bool,
+        cut_at: DateTime<Utc>,
+        error: String,
+    },
 }
 
 /// What a `run_failed` event says: the run, what started it, when, what failed and why, with UI links.
@@ -628,6 +832,8 @@ impl PlatformEvent {
             Self::TriggerSkipped { .. } => PlatformEventKind::TriggerSkipped,
             Self::SensorRechecked { .. } => PlatformEventKind::SensorRechecked,
             Self::CalendarTimesDropped { .. } => PlatformEventKind::CalendarTimesDropped,
+            Self::UnreadableEventSkipped { .. } => PlatformEventKind::UnreadableEventSkipped,
+            Self::ControlSessionCutOff { .. } => PlatformEventKind::ControlSessionCutOff,
         }
     }
 
@@ -645,6 +851,8 @@ impl PlatformEvent {
             Self::TriggerSkipped { .. } => "platform_trigger_skipped",
             Self::SensorRechecked { .. } => "platform_sensor_rechecked",
             Self::CalendarTimesDropped { .. } => "platform_calendar_times_dropped",
+            Self::UnreadableEventSkipped { .. } => "platform_unreadable_event_skipped",
+            Self::ControlSessionCutOff { .. } => "platform_control_session_cut_off",
         }
     }
 }
@@ -662,6 +870,12 @@ pub(crate) struct WatchdogTrigger {
     pub(crate) trigger_id: Uuid,
     pub(crate) definition_json: TriggerDefinition,
     pub(crate) next_due_at: Option<DateTime<Utc>>,
+}
+
+/// A target's newest check-in across its instances; absent before its first.
+#[derive(Debug, Deserialize)]
+pub(crate) struct LastCheckIn {
+    pub(crate) last_seen_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -688,6 +902,54 @@ pub struct PersonPlatformEventPage {
     pub events: Vec<PersonPlatformEvent>,
     /// The `before` that continues the scan, absent once no older events remain; a page can be empty and still continue.
     pub before: Option<i64>,
+    /// Stored events of this scan that this server can't read, such as a kind or shape from another release; each is listed, never dropped.
+    #[serde(default)]
+    pub unreadable: Vec<UnreadablePlatformEvent>,
+}
+
+/// A stored platform event this server can't read: what is known about it and why reading it failed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct UnreadablePlatformEvent {
+    pub storage_id: i64,
+    pub event_id: Uuid,
+    pub occurred_at: DateTime<Utc>,
+    /// The stored type, such as `platform_location_failing`.
+    pub event_type: String,
+    /// Why the event couldn't be read.
+    pub error: String,
+    /// The location target the event names, when it names one that can be read.
+    pub location_id: Option<Uuid>,
+    pub target: Option<String>,
+}
+
+/// The location target, trigger or run an unreadable event's payload names, each absent when it can't be read.
+#[derive(Debug, Default, Deserialize)]
+pub(crate) struct PayloadScope {
+    #[serde(default)]
+    pub(crate) location_id: Option<Uuid>,
+    #[serde(default)]
+    pub(crate) target: Option<String>,
+    #[serde(default)]
+    pub(crate) trigger_id: Option<Uuid>,
+    #[serde(default)]
+    pub(crate) run_id: Option<Uuid>,
+}
+
+/// An unreadable stored event and the trigger or run its payload names, whose location target scopes it.
+#[derive(Debug)]
+pub(crate) struct UnreadableRow {
+    pub(crate) event: UnreadablePlatformEvent,
+    pub(crate) scope: Option<Uuid>,
+}
+
+/// A stored platform event row with its payload not yet read, so one row that can't be read never fails the rest.
+#[derive(Debug, Deserialize)]
+pub(crate) struct StoredPlatformEvent {
+    pub(crate) storage_id: i64,
+    pub(crate) event_id: Uuid,
+    pub(crate) occurred_at: DateTime<Utc>,
+    pub(crate) event_type: String,
+    pub(crate) payload: serde_json::Value,
 }
 
 /// The location target a trigger or run belongs to.
@@ -725,6 +987,9 @@ pub struct PlatformProblems {
     /// Checking-in locations whose run-history sync is failing, until a sync report succeeds.
     #[serde(default)]
     pub failing_syncs: Vec<FailingSync>,
+    /// Checking-in locations whose run-history sync reported no progress for ten minutes, until it moves, completes or fails.
+    #[serde(default)]
+    pub stalled_syncs: Vec<StalledSync>,
     /// Lifecycle event sinks whose newest run lost events, until a run delivers all of its events.
     #[serde(default)]
     pub failing_sinks: Vec<FailingSink>,
@@ -744,6 +1009,9 @@ pub struct PlatformProblems {
     /// Sensors checked again from scratch because their last check can't be read, until a check completes.
     #[serde(default)]
     pub rechecked_sensors: Vec<RecheckedSensor>,
+    /// Stored events webhook delivery or a platform sensor skipped because this server can't read them, while they are kept and still can't be read.
+    #[serde(default)]
+    pub skipped_events: Vec<SkippedEvent>,
 }
 
 /// A calendar whose pending past-due times a republish dropped, because its previous definition can't be read; it clears at its next successful tick.
@@ -757,6 +1025,46 @@ pub struct DroppedCalendarTimes {
     pub dropped_at: DateTime<Utc>,
     /// The times that were due by the republish but never ticked, oldest first.
     pub times: Vec<DateTime<Utc>>,
+    /// Always `needs_attention`, by `LocationFact::problem_tier`.
+    pub tier: ProblemTier,
+}
+
+/// The open problems scoped to location targets other than the target's own state and sync: one target's, or every target's.
+#[derive(Debug, Default)]
+pub(crate) struct ScopedProblems {
+    pub(crate) late_targets: std::collections::BTreeSet<(Uuid, String)>,
+    pub(crate) low_calendars: Vec<LowCalendar>,
+    pub(crate) triggers: TriggerProblems,
+    pub(crate) sinks: Vec<FailingSink>,
+    pub(crate) skipped_events: Vec<SkippedEvent>,
+}
+
+impl ScopedProblems {
+    /// The fact of each kind of problem open here, for a target's verdict.
+    #[must_use]
+    pub(crate) fn facts(&self) -> Vec<LocationFact> {
+        [
+            (!self.late_targets.is_empty(), LocationFact::ScheduleOverdue),
+            (
+                !self.triggers.skipped.is_empty(),
+                LocationFact::TriggerSkipped,
+            ),
+            (!self.sinks.is_empty(), LocationFact::SinkFailing),
+            (!self.low_calendars.is_empty(), LocationFact::CalendarLow),
+            (
+                !self.triggers.dropped.is_empty(),
+                LocationFact::CalendarTimesDropped,
+            ),
+            (
+                !self.triggers.rechecked.is_empty(),
+                LocationFact::SensorRechecked,
+            ),
+            (!self.skipped_events.is_empty(), LocationFact::EventSkipped),
+        ]
+        .into_iter()
+        .filter_map(|(open, fact)| open.then_some(fact))
+        .collect()
+    }
 }
 
 /// The live trigger problems, each list with its own withdrawal.
@@ -776,6 +1084,33 @@ pub struct RecheckedSensor {
     pub location_name: String,
     pub target: String,
     pub rechecked_at: DateTime<Utc>,
+    /// Always `needs_attention`, by `LocationFact::problem_tier`.
+    pub tier: ProblemTier,
+}
+
+/// A stored event webhook delivery or a platform sensor skipped because this server can't read it; it clears once the event can be read or is pruned.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct SkippedEvent {
+    pub storage_id: i64,
+    pub event_id: Uuid,
+    /// The stored type, such as `platform_run_failed`.
+    pub event_type: String,
+    /// The location target the event concerns; absent when it names none that can be read.
+    pub location_id: Option<Uuid>,
+    pub location_name: Option<String>,
+    pub target: Option<String>,
+    /// When it was first skipped.
+    pub skipped_at: DateTime<Utc>,
+    /// Why the event couldn't be read.
+    pub reason: String,
+    /// Always `needs_attention`, by `LocationFact::problem_tier`.
+    pub tier: ProblemTier,
+}
+
+/// The stored event a dismissal of its skip names, read from the audit event's scope.
+#[derive(Debug, Deserialize)]
+pub(crate) struct DismissedSkip {
+    pub(crate) storage_id: i64,
 }
 
 /// A trigger the scheduler skips because its stored job or pinned snapshot can't be read, or a sensor whose check failed; it clears once its location publishes again or, for a sensor, a later check completes.
@@ -789,6 +1124,8 @@ pub struct SkippedTrigger {
     /// When it was first skipped for this snapshot.
     pub skipped_at: DateTime<Utc>,
     pub reason: String,
+    /// Always `needs_attention`, by `LocationFact::problem_tier`.
+    pub tier: ProblemTier,
 }
 
 /// A live trigger and the snapshot it was published in.
@@ -814,6 +1151,8 @@ pub struct LowCalendar {
     pub refresh_at: DateTime<Utc>,
     /// The calendar's last date; absent when none are left.
     pub horizon_end: Option<DateTime<Utc>>,
+    /// Always `needs_attention`, by `LocationFact::problem_tier`.
+    pub tier: ProblemTier,
 }
 
 /// A running schedule of a live location, with its declaration.
@@ -834,6 +1173,8 @@ pub struct BrokenLocation {
     pub location_name: String,
     pub target: String,
     pub last_seen_at: DateTime<Utc>,
+    /// Always `stops_runs`, by `LocationFact::tier`.
+    pub tier: ProblemTier,
 }
 
 /// A checking-in location whose latest load, plan of what changed, discovery or connection check failed, and what it serves instead.
@@ -850,6 +1191,8 @@ pub struct FailingLocation {
     pub error: Option<String>,
     /// The snapshot the target serves; absent before its first publication.
     pub serving: Option<SnapshotRecord>,
+    /// Whether the failure stops runs, by `LocationFact::tier` of `state`.
+    pub tier: ProblemTier,
 }
 
 /// Every checking-in location's failing load, plan, discovery or connection check, and failing run-history sync.
@@ -857,6 +1200,22 @@ pub struct FailingLocation {
 pub(crate) struct LocationFailures {
     pub(crate) locations: Vec<FailingLocation>,
     pub(crate) syncs: Vec<FailingSync>,
+    pub(crate) stalled: Vec<StalledSync>,
+}
+
+/// A checking-in location whose run-history sync reported no progress for `SYNC_STALL_SECONDS`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct StalledSync {
+    pub location_id: Uuid,
+    pub location_name: String,
+    pub target: String,
+    /// The last progress report.
+    pub progressed_at: DateTime<Utc>,
+    pub position: u64,
+    pub kinds: u64,
+    pub table: WarehouseHistoryKind,
+    /// Always `needs_attention`, by `LocationFact::tier`.
+    pub tier: ProblemTier,
 }
 
 /// A checking-in location whose run-history sync is failing: since when, why, and when it tries again.
@@ -878,6 +1237,8 @@ pub struct FailingSync {
     pub retry_seconds: Option<u64>,
     /// The newest report of a sync that worked.
     pub last_success_at: Option<DateTime<Utc>>,
+    /// Always `needs_attention`, by `LocationFact::tier`.
+    pub tier: ProblemTier,
 }
 
 /// An event webhook this server can't deliver to: since when, and why; its events stay queued.
@@ -906,6 +1267,8 @@ pub struct FailingSink {
     pub run_id: Option<Uuid>,
     /// The newest run before that whose events it all delivered.
     pub last_success_at: Option<DateTime<Utc>>,
+    /// Always `needs_attention`, by `LocationFact::problem_tier`.
+    pub tier: ProblemTier,
 }
 
 /// A run's report of its sinks' deliveries, with where the run ran.
@@ -980,6 +1343,8 @@ pub struct OverdueTick {
     pub location_name: String,
     pub target: String,
     pub scheduled_for: DateTime<Utc>,
+    /// Always `needs_attention`, by `LocationFact::problem_tier`.
+    pub tier: ProblemTier,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1001,12 +1366,14 @@ pub(crate) struct ProblemScan {
     pub(crate) broken: Vec<BrokenLocation>,
     pub(crate) failing: Vec<FailingLocation>,
     pub(crate) failing_syncs: Vec<FailingSync>,
+    pub(crate) stalled_syncs: Vec<StalledSync>,
     pub(crate) failing_sinks: Vec<FailingSink>,
     pub(crate) late_targets: std::collections::BTreeSet<(Uuid, String)>,
     pub(crate) low_calendars: Vec<LowCalendar>,
     pub(crate) skipped_triggers: Vec<SkippedTrigger>,
     pub(crate) rechecked_sensors: Vec<RecheckedSensor>,
     pub(crate) dropped_calendar_times: Vec<DroppedCalendarTimes>,
+    pub(crate) skipped_events: Vec<SkippedEvent>,
 }
 
 /// Where the control store keeps its data.

@@ -14,6 +14,7 @@
 #include "test_csc_matrix.h"
 #include "test_csr_csc_conversion.h"
 #include "test_csr_matrix.h"
+#include "test_dense.h"
 #include "test_linalg_sparse_matmuls.h"
 #include "test_linalg_utils_matmul_chain_rule.h"
 #include "test_matmul_dispatchers.h"
@@ -37,6 +38,7 @@ int main(void)
     mu_run_test(test_sat_mul_int_clamps_on_overflow, tests_run);
     mu_run_test(test_row_gather_alloc_no_int_overflow, tests_run);
     mu_run_test(test_cblas_ddot, tests_run);
+    mu_run_test(test_A_transpose, tests_run);
     mu_run_test(test_transpose, tests_run);
     mu_run_test(test_AT_alloc_and_fill, tests_run);
     mu_run_test(test_csr_to_csc_split, tests_run);
@@ -54,6 +56,8 @@ int main(void)
     mu_run_test(test_gustavson_ba_matches_reference_random, tests_run);
     mu_run_test(test_gustavson_ba_matches_legacy, tests_run);
     mu_run_test(test_gustavson_kron_matches_legacy, tests_run);
+    mu_run_test(test_gustavson_plan_matches_accumulator, tests_run);
+    mu_run_test(test_gustavson_plan_cap, tests_run);
     mu_run_test(test_block_left_multiply_vec_single_block, tests_run);
     mu_run_test(test_block_left_multiply_vec_two_blocks, tests_run);
     mu_run_test(test_block_left_multiply_vec_sparse, tests_run);
@@ -68,6 +72,7 @@ int main(void)
     mu_run_test(test_gustavson_dense_column, tests_run);
     mu_run_test(test_gustavson_empty_rows_and_cols, tests_run);
     mu_run_test(test_sparse_BTA_ATA_bind_accumulator, tests_run);
+    mu_run_test(test_sparse_product_plan_cap, tests_run);
 #ifdef SP_TRACK_MEMORY
     mu_run_test(test_sparse_BTDA_ATDA_fill_no_transient_alloc, tests_run);
 #endif
@@ -140,6 +145,7 @@ int main(void)
     mu_run_test(test_BTA_csc_pd_empty, tests_run);
     mu_run_test(test_BTDA_matrices_spd_pd, tests_run);
     mu_run_test(test_BTDA_matrices_pd_spd, tests_run);
+    mu_run_test(test_BTDA_matrices_csr_pd_tiled, tests_run);
     mu_run_test(test_BTA_pd_csc_basic, tests_run);
     mu_run_test(test_BTA_pd_csc_partial_and_excluded_cols, tests_run);
     mu_run_test(test_BTA_pd_csc_empty, tests_run);
@@ -183,6 +189,7 @@ int main(void)
     mu_run_test(test_sum_4_matrices_mixed_kinds, tests_run);
     mu_run_test(test_sum_n_matrices_mixed_kinds, tests_run);
     mu_run_test(test_sum_n_matrices_n1_n5, tests_run);
+    mu_run_test(test_sort_int_array, tests_run);
     mu_run_test(test_sum_n_matrices_fill_add, tests_run);
 #ifdef SP_TRACK_MEMORY
     mu_run_test(test_sum_4_matrices_fill_no_transient_alloc, tests_run);

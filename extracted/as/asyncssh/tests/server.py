@@ -109,11 +109,10 @@ class ServerTestCase(AsyncTestCase):
     async def asyncSetUpClass(cls):
         """Set up keys, an SSH server, and an SSH agent for the tests to use"""
 
-        # pylint: disable=too-many-statements
-
         ckey = get_test_key('ssh-rsa')
         ckey.write_private_key('ckey')
-        ckey.write_private_key('ckey_encrypted', passphrase='passphrase')
+        ckey.write_private_key('ckey_encrypted', passphrase='passphrase',
+                               rounds=1, ignore_few_rounds=True)
         ckey.write_public_key('ckey.pub')
 
         ckey_ecdsa = get_test_key('ecdsa-sha2-nistp256')

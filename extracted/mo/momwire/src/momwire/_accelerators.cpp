@@ -1,0 +1,88 @@
+#include "_accel_common.h"
+#include "_cpu_count.h"
+#include "_thread_policy.h"
+#include "_mw_times.h"
+
+// Thin module TU (momwire#687): the sections register themselves; their
+// prototypes live in _accel_common.h so every TU compiles against the seam.
+//
+// The capability flags live INSIDE the register_* body that defines the
+// symbols they vouch for (ek_ira_per_pair in register_sinusoidal, the three
+// #568 flags in register_mw568, razor_fill_742 in register_razor) — flag and
+// binding in one TU, so an edit
+// cannot advertise a contract whose symbols moved out from under it
+// (#710 review; `_sommerfeld_below`/`_sommerfeld_transmitted` trust the
+// flag alone, with no hasattr backstop).
+
+// momwire#1032: the module NAME is a build parameter, so the same sources can
+// be compiled twice — once with AVX2/FMA and once at the x86-64 baseline — and
+// loaded by name at import time on a CPU that can run one but not the other.
+// `PYBIND11_MODULE` pastes this token into the init symbol, so a `-D` here is
+// what makes `PyInit__accelerators_sse2` exist. The default keeps an
+// out-of-tree or single-variant build (macOS, arm64) building under the name
+// it has always had.
+#ifndef MOMWIRE_MODULE_NAME
+#define MOMWIRE_MODULE_NAME _accelerators
+#endif
+
+PYBIND11_MODULE(MOMWIRE_MODULE_NAME, m) {
+    // Phase 2: raised by the long kernels when their cancel_flag is tripped;
+    // the _accel.py wrappers remap it to momwire.SolveAborted.
+    py::register_exception<AbortedError>(m, "AcceleratorAborted");
+
+    register_bspline(m);
+    register_sinusoidal(m);
+    register_sinusoidal_nec4(m);
+    register_sinusoidal_far(m);
+    register_somm(m);
+    register_mw568(m);
+    register_razor(m);
+    register_somm_pairs(m);
+    register_factorize(m);
+    register_left_gather(m);
+    register_razor_t2(m);
+    register_row_scatter(m);
+    register_phi_reduce(m);
+    register_solve_prep(m);
+    register_sin_pair_reuse(m);
+    register_bspline_pair_reuse(m);
+    register_qp_pairs(m);
+    register_exact_kernel(m);
+    register_exact_kernel_point(m);
+    register_exact_kernel_series(m);
+    register_cmul(m);
+    register_razor_solve(m);
+    register_nec5_deck(m);
+    register_nec4_printout(m);
+    register_near_buried(m);
+
+    // What the in-library pools resolve to in this process (`_cpu_count.h`):
+    // the crossing cores' team cap and the Sommerfeld grid's node pool both
+    // read pool_threads(). Test-facing (tests/test_pool_threads.py).
+    m.def("_pool_threads", [] {
+        py::dict d;
+        d["pool"] = mw::cpu::pool_threads();
+        d["allowed_threads"] = mw::cpu::allowed_threads();
+        d["allowed_cores"] = mw::cpu::allowed_cores();
+        return d;
+    });
+
+    // The executable's size policy on this process's physical cores
+    // (`_thread_policy.h`), for the Python drop-in (`momwire._thread_policy`).
+    m.def("_threads_for", [](long long n_basis, long long crossing_pairs, long long below_pairs) {
+        return mw_threads::for_deck(mw::cpu::allowed_cores(), n_basis, crossing_pairs, below_pairs);
+    });
+
+    // MOMWIRE_TIMES: the C++ half of a Python answer's stage
+    // tally -- the ground tables and the LU this module fills and runs --
+    // read by `momwire._times` (`_mw_times.h`; this thread only).
+    m.def("stage_times_begin", [] { mw_times::enable(); });
+    m.def("stage_times_end", [] { mw_times::disable(); });
+    m.def("stage_times_read", [] {
+        const mw_times::State &s = mw_times::state();
+        mw_times::settle();
+        return py::make_tuple(s.ms[mw_times::ground], s.ms[mw_times::factor], s.ground_built,
+                              s.ground_disk, s.ground_blended);
+    });
+}
+

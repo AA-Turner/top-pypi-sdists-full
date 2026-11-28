@@ -16,6 +16,15 @@ from .base import CompositionCondition, entity_axes
 if TYPE_CHECKING:
     import typesafe_carla.carla as carla
 
+STANDSTILL_SPEED_MPS: float = 0.1
+"""The speed (m/s) at or below which an entity counts as stopped.
+
+Well above the velocity CARLA reports for a vehicle at rest (a few cm/s of
+noise), which has no direction to speak of.  The default threshold of
+:class:`StandstillCondition` and :class:`TemporaryStopCondition`, and the
+speed at or below which :class:`TimeHeadwayCondition` has no headway.
+"""
+
 
 class SpeedDirection(Enum):
     """Which speed component to evaluate.

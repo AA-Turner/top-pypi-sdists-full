@@ -23,7 +23,10 @@ from datamodel_code_generator.model._decisions.assignment import (
 )
 from datamodel_code_generator.model._render_plan import FORCED_ASSIGNMENT, CallPlan, Kwarg, Positional, RuleId, Why
 from datamodel_code_generator.model.base import (
+    _KEEP_INHERITED_DATACLASS_CONFIG_TEMPLATE_DATA_KEY,
+    _REDECLARED_FIELDS_KEY,
     UNDEFINED,
+    _class_body_fields,
     _classify_field_assignment,
     _find_base_classes,
     _has_opaque_custom_base,
@@ -46,7 +49,8 @@ from datamodel_code_generator.model.pydantic_v2.base_model import (
     _ALIAS_GENERATOR_TEMPLATE_DATA_KEY,
     _built_bases,
     _config_dict_items,
-    _import_rendered_alias_generator,
+    _ConfigValueT,
+    _merged_config_items,
     _PydanticV2Model,
     has_lookaround_pattern,
 )
@@ -62,8 +66,6 @@ from datamodel_code_generator.python_literal import represent_python_value
 
 has_field_assignment = _dataclass_module.has_field_assignment
 _MUTABLE_DEFAULT_FACTORY = Why(RuleId("D4.default.dataclass-mutable-factory"), keyword="default")
-_REDECLARED_FIELDS_KEY = "redeclared_python_rejected_fields"
-"""The copies of inherited fields a dataclass writes without a pattern its engine cannot build (#7452)."""
 _VISIBLE_METADATA = Why(RuleId("D11.pydantic-dataclass.visible-metadata"), option="--use-annotated")
 """The dataclass must see the call's metadata: the call follows a plain annotation instead of going into it."""
 
@@ -99,7 +101,7 @@ def _pydantic_dataclass_field_participates_in_constructor(field: DataModelFieldB
 
 if TYPE_CHECKING:
     from collections import defaultdict
-    from collections.abc import Mapping
+    from collections.abc import Callable, Iterable, Mapping, Sequence
     from pathlib import Path
 
     from datamodel_code_generator.enums import DataclassArguments
@@ -120,6 +122,7 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
     DEFAULT_IMPORTS: ClassVar[tuple[Import, ...]] = (IMPORT_PYDANTIC_DATACLASS,)
     SUPPORTS_FIELD_RENAMING: ClassVar[bool] = True
     SUPPORTS_FIELD_TYPE_RENAMING: ClassVar[bool] = True
+    EVALUATES_ANNOTATIONS_IN_BASES: ClassVar[bool] = True
     FIELD_ASSIGNMENT_CHECKER = staticmethod(_has_pydantic_dataclass_field_assignment)
     FIELD_DEFAULT_CLASSIFIER = staticmethod(_get_pydantic_dataclass_field_default_info)
     FIELD_PARTICIPATES_IN_CONSTRUCTOR = staticmethod(_pydantic_dataclass_field_participates_in_constructor)
@@ -202,9 +205,19 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
 
         if config_parameters:
             self._store_config(config_parameters)
-            _import_rendered_alias_generator(self, self._rendered_config_items())
 
         self._lookaround_regex_engine_checked = False
+
+    @classmethod
+    @override
+    def config_left_without_generic_base_class(cls, config: dict[str, object]) -> Mapping[str, object]:
+        """Return the ``ConfigDict`` items ``__init__`` writes from the run-level ``config``."""
+        return build_base_config_parameters(
+            extra_template_data=config,
+            all_data_types=(),
+            config_attributes_v2=cls._CONFIG_ATTRIBUTES_V2,
+            config_attributes_v2_11=cls._CONFIG_ATTRIBUTES_V2_11,
+        )
 
     @override
     def orders_required_assignments_before_defaults(self) -> bool:
@@ -275,7 +288,7 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
         base's, so a dataclass whose config lacks the engine fails at import (#7452). The dataclasses whose config it
         would take decide first (``_config_chain``), after every other reason to select the engine, so the engine is
         selected here only where nothing else selected it. ``selected`` gains the dataclasses
-        that apply such a config, their own or the one they take.
+        that apply such a config, their own or the one they take (``_engine_owner``).
         """
         decided: dict[int, bool] = {}
         for model in models:
@@ -284,8 +297,44 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
         selected.update(
             id(model)
             for model in models
-            if isinstance(model, DataClass) and decided[id(DataClass._config_chain(model)[-1])]
+            if isinstance(model, DataClass) and decided[id(DataClass._engine_owner(model))]
         )
+
+    def _engine_owner(self) -> DataClass:
+        """Return the dataclass whose config gives the engine the dataclass applies.
+
+        The nearest of ``_config_chain`` whose own config names an engine, else the last; without
+        ``--keep-inherited-dataclass-config`` only the last has a config of its own.
+        """
+        chain = self._config_chain()
+        return next(
+            (member for member in chain if "regex_engine" in dict(DataClass._rendered_config_items(member))),
+            chain[-1],
+        )
+
+    @classmethod
+    @override
+    def _store_inherited_configs(cls, models: list[DataModel]) -> None:
+        """Write into each config of a dataclass the items it applies from its first dataclass base.
+
+        Row ``legacy-dataclass-own-config-drops-taken-config``: only with ``--keep-inherited-dataclass-config``. A
+        dataclass with a config of its own writes the items of the config its first dataclass base applies that it
+        does not set (``_inherited_config``). It runs after the last writer of a dataclass config, every engine route
+        of ``finalize_type_alias_users`` included, and every reader before it already read the items it writes
+        (``_applied_config``); the items a base gets here are the ones its subclasses read, so the order of
+        ``models`` does not matter.
+        """
+        for model in models:
+            if isinstance(model, DataClass):
+                DataClass._store_inherited_config(model)
+
+    def _store_inherited_config(self) -> None:
+        """Write the items of the first dataclass base into the dataclass's own config, where it adds any."""
+        if not (self._keeps_inherited_config() and self._rendered_config_items()):
+            return
+        if (inherited := self._inherited_config()) != dict(_config_dict_items(self.extra_template_data.get("config"))):
+            self._store_config(inherited)
+            self.invalidate_render_caches()
 
     def _decide_engine_for_bases(self, decided: dict[int, bool]) -> None:
         """Select ``python-re`` where a base's pattern needs it, once the dataclasses whose config it takes decided.
@@ -298,7 +347,7 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
         for base in self._config_chain()[1:]:
             DataClass._decide_engine_for_bases(base, decided)
         if self._inherited_patterns_select_python():
-            self._select_python_regex_engine(self._config_chain()[-1].extra_template_data.get("config"))
+            self._select_python_regex_engine(taken_config=self._taken_config())
             decided[id(self)] = True
 
     def _inherited_patterns_select_python(self) -> bool:
@@ -339,8 +388,10 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
         The dataclass builds each declaration it inherits (``get_effective_fields``) with its own config, which
         selects ``python-re`` for a base's pattern (#7452). A declaration of a model the engine builds (``built``)
         already leaves out a pattern Python's ``re`` rejects (#6593), and so does a copy that a dataclass between it
-        and the declaring base writes, which decides first; for another declaration of its module, the dataclass
-        writes a copy that leaves the pattern out, so the base keeps its output, and warns as for its own fields.
+        and the declaring base writes, which decides first; for another declaration, of its module or another one,
+        the dataclass writes a copy that leaves the pattern out, so the base keeps its output, and warns as for its
+        own fields. A copy names the models of its type from the module of the dataclass, which imports them
+        (``render_prep.finalize_type_alias_users``).
         """
         if id(self) in done:
             return
@@ -352,11 +403,11 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
         redeclared: list[DataModelFieldBase] = []
         for field in get_effective_fields(self):
             owner = field.parent
-            if owner is None or owner is self or id(owner) in built or owner.module_path != self.module_path:
+            if owner is None or owner is self or id(owner) in built:
                 continue
             if any(
                 isinstance(base, DataClass)
-                and any(copy.name == field.name for copy in DataClass._class_body_fields(base))
+                and any(copy.name == field.name for copy in _class_body_fields(base))
                 and any(ancestor is owner for ancestor in _built_bases(base))
                 for base in bases
                 if base is not owner
@@ -377,15 +428,22 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
             self._set_internal_template_data(_REDECLARED_FIELDS_KEY, redeclared)
 
     @override
-    def _class_body_fields(self) -> list[DataModelFieldBase]:
-        """Return the fields the class body writes: the inherited ones it redeclares, then its own."""
-        return [*self._internal_template_data.get(_REDECLARED_FIELDS_KEY, ()), *self.fields]
+    def _takes_engine_of(self, base: DataModel) -> bool:
+        """Return whether the engine a base selects reaches the dataclass: not where its own config names one.
+
+        With ``--keep-inherited-dataclass-config`` a config of its own takes the other items of the base, and an
+        engine it names stays whatever the base selects. Without it a dataclass with a config of its own takes none.
+        """
+        return self._takes_config_of(base) and "regex_engine" not in dict(self._rendered_config_items())
 
     @override
     def _takes_config_of(self, base: DataModel) -> bool:
-        """Return whether the dataclass applies the config of a base: its first, where it has no config of its own."""
+        """Return whether the dataclass applies the config of a base: its first, where it has no config of its own.
+
+        With ``--keep-inherited-dataclass-config`` a config of its own keeps the items of that base too.
+        """
         return (
-            not self._rendered_config_items()
+            (self._keeps_inherited_config() or not self._rendered_config_items())
             and bool(self.base_classes)
             and (reference := self.base_classes[0].reference) is not None
             and reference.source is base
@@ -396,9 +454,13 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
         """Return the bases after the first, or every base where the dataclass has a config of its own.
 
         A dataclass takes the config of its first base only where it has none of its own (``_applied_config_items``),
-        and builds the fields of every base with the config it applies.
+        or with ``--keep-inherited-dataclass-config``, and builds the fields of every base with the config it applies.
         """
-        return self.base_classes if self._rendered_config_items() else self.base_classes[1:]
+        return (
+            self.base_classes
+            if self._rendered_config_items() and not self._keeps_inherited_config()
+            else self.base_classes[1:]
+        )
 
     @override
     def _builds_patterns_with_python_engine(self) -> bool:
@@ -410,32 +472,59 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
     def _applied_config(self, visiting: frozenset[int] = frozenset()) -> tuple[dict[str, str], frozenset[str] | None]:
         """Return the config items Pydantic applies: the dataclass's own, else all of its first dataclass base's.
 
-        Without either, a configured base class the generator does not read may give them all (``_config_chain``).
+        With ``--keep-inherited-dataclass-config`` the items of the bases the dataclass does not set come first
+        (``_chain_config``), as the config it writes holds them (``_store_inherited_configs``). Without any, a
+        configured base class the generator does not read may give them all (``_config_chain``).
         """
-        if own := DataClass._rendered_config_items(owner := self._config_chain()[-1]):
-            return dict(own), None
-        return {}, frozenset() if _has_opaque_custom_base(owner, owner.BASE_CLASS) else None
+        if items := _chain_config(chain := self._config_chain(), DataClass._rendered_config_items):
+            return items, None
+        return {}, frozenset() if _has_opaque_custom_base(owner := chain[-1], owner.BASE_CLASS) else None
+
+    def _config_owner(self) -> DataClass:
+        """Return the dataclass whose config the dataclass applies: the first of ``_config_chain`` with a config."""
+        chain = self._config_chain()
+        return next((member for member in chain if DataClass._rendered_config_items(member)), chain[-1])
+
+    def _taken_config(self) -> object:
+        """Return the config of the base whose config the dataclass applies, as it has none of its own, else None.
+
+        It is the config that base applies (``_inherited_config``): with ``--keep-inherited-dataclass-config`` the
+        items of its own bases come first, as it writes them once every config is final.
+        """
+        return None if (owner := self._config_owner()) is self else DataClass._inherited_config(owner)
+
+    def _inherited_config(self) -> dict[str, object]:
+        """Return the config the dataclass writes once it keeps the items of its bases (``_chain_config``)."""
+        return _chain_config(
+            self._config_chain(), lambda member: _config_dict_items(member.extra_template_data.get("config"))
+        )
+
+    def _keeps_inherited_config(self) -> bool:
+        """Return whether a config of its own keeps the items of the first dataclass base.
+
+        Row ``legacy-dataclass-own-config-drops-taken-config``: only with ``--keep-inherited-dataclass-config``;
+        without it Pydantic applies the config of its own alone and drops those of its base (#7497, #7560).
+        """
+        return bool(self.extra_template_data.get(_KEEP_INHERITED_DATACLASS_CONFIG_TEMPLATE_DATA_KEY))
 
     def _config_chain(self) -> list[DataClass]:
         """Return the dataclass, then each first dataclass base whose config the one before takes, as it has none.
 
-        A base on an inheritance cycle, which generation rejects later, ends the chain.
+        With ``--keep-inherited-dataclass-config`` each takes it with one of its own too. A base on an inheritance
+        cycle, which generation rejects later, ends the chain.
         """
+        keeps = self._keeps_inherited_config()
         chain = [self]
-        while (
-            not DataClass._rendered_config_items(chain[-1])
-            and (
-                base := next(
-                    (
-                        base
-                        for base in _find_base_classes(chain[-1])
-                        if isinstance(base, DataClass) and all(base is not seen for seen in chain)
-                    ),
-                    None,
-                )
+        while (keeps or not DataClass._rendered_config_items(chain[-1])) and (
+            base := next(
+                (
+                    base
+                    for base in _find_base_classes(chain[-1])
+                    if isinstance(base, DataClass) and all(base is not seen for seen in chain)
+                ),
+                None,
             )
-            is not None
-        ):
+        ) is not None:
             chain.append(base)
         return chain
 
@@ -464,6 +553,19 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
         """Render the dataclass, ensuring the lookaround regex engine config is applied."""
         self._apply_lookaround_regex_engine()
         return super().render(class_name=class_name)
+
+
+def _chain_config(
+    chain: Sequence[DataClass], items_of: Callable[[DataClass], Iterable[tuple[str, _ConfigValueT]]]
+) -> dict[str, _ConfigValueT]:
+    """Return the config items a chain of ``DataClass._config_chain`` applies, each member's own over the deeper ones.
+
+    Without ``--keep-inherited-dataclass-config`` only the last member has items of its own.
+    """
+    merged: dict[str, _ConfigValueT] = {}
+    for member in reversed(chain):
+        merged = _merged_config_items(merged.items(), items_of(member))
+    return merged
 
 
 class DataModelField(DataModelFieldV2):

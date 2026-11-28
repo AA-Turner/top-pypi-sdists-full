@@ -3,19 +3,15 @@ when:
   path: [ "**/*.py", "uv.lock", "Cargo.toml", ".woodpecker/test.yml", "**/*.rs"  ]
 
 steps:
-  setup_venv:
+  unit_tests:
     image: codeberg.org/poezio/slixmpp:ci
     commands:
     - uv python pin ${TAG}
     - uv sync --frozen --all-extras
-  unit_tests:
-    image: codeberg.org/poezio/slixmpp:ci
-    commands:
-    - ./run_tests.py
+    - uv run --frozen --all-extras ./run_tests.py
 
 matrix:
   TAG:
-    - "3.11"
-    - "3.12"
     - "3.13"
     - "3.14"
+    - "3.15"

@@ -219,16 +219,12 @@ namespace sogen
                             std::max(max_sub_key_name_length, static_cast<ULONG>(u8_to_u16(*name).size() * sizeof(char16_t)));
                     }
                 }
-                for (size_t index = 0; index < c.win_emu.registry.get_value_count(*key); ++index)
-                {
-                    const auto value = c.win_emu.registry.get_value(*key, index);
-                    if (value)
-                    {
-                        max_value_name_length =
-                            std::max(max_value_name_length, static_cast<ULONG>(u8_to_u16(value->name).size() * sizeof(char16_t)));
-                        max_value_data_length = std::max(max_value_data_length, static_cast<ULONG>(value->data.size()));
-                    }
-                }
+                c.win_emu.registry.for_each_value(*key, [&](const registry_value& value) {
+                    max_value_name_length =
+                        std::max(max_value_name_length, static_cast<ULONG>(u8_to_u16(value.name).size() * sizeof(char16_t)));
+                    max_value_data_length = std::max(max_value_data_length, static_cast<ULONG>(value.data.size()));
+                    return true;
+                });
                 return std::tuple{max_sub_key_name_length, max_value_name_length, max_value_data_length};
             };
 
@@ -680,19 +676,7 @@ namespace sogen
                 name = u16_to_u8(read_unicode_string(c.emu, value_name));
             }
 
-            auto reports_change = registry_notification::has_watchers(c);
-            if (reports_change)
-            {
-                const auto previous = c.win_emu.registry.get_value(*key, name);
-                reports_change = !previous || previous->type != type || !std::ranges::equal(previous->data, data_buffer);
-            }
-
-            c.win_emu.registry.set_value(*key, std::move(name), type, std::span<const std::byte>{data_buffer});
-            if (reports_change)
-            {
-                registry_notification::report_value_change(c, *key);
-            }
-
+            registry_notification::set_value(c, *key, std::move(name), type, data_buffer);
             return STATUS_SUCCESS;
         }
 

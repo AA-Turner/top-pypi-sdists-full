@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import json
 import logging
 import os
@@ -25,7 +26,9 @@ from pathlib import Path
 from agent_egress import clock_armed, egress_env
 from codex_config import MODEL_HEADERS_ENV, endpoint_root, model_headers, relayed_provider
 from codex_date import env_date_rewrite
+from codex_rollout import ROLLOUT_POLL_S, RolloutTail
 from model_relay import Calls, model_relay
+from tail_follow import following
 
 logger = logging.getLogger(__name__)
 WORKSPACE_DIR = os.environ.get("CODEX_WORKSPACE_DIR", "/app")
@@ -955,6 +958,46 @@ async def _run_codex_once(
 
 
 async def run_codex(
+    prompt: str,
+    thread_id: str | None,
+    model: str | None = None,
+    effort: str | None = None,
+    system_prompt: str | None = None,
+    output_format: dict | None = None,
+    timeout_s: int = 600,
+    project_id: str | None = None,
+    task_id: str | None = None,
+    event_callback: Callable[[dict], None] | None = None,
+    config_overrides: Sequence[str] = (),
+    max_turns: int | None = None,
+    mcp_urls: Sequence[str] = (),
+    aux_callback: Callable[[str, dict], None] | None = None,
+) -> CodexResult:
+    """Run one logical turn with bounded transient recovery (``_run_codex_attempts``). With ``aux_callback``, each
+    rollout record the turn writes, its sub-agents' too, is fed to it as the atif/1 adapter's ``rollout`` aux record
+    while the CLI runs (``RolloutTail``)."""
+    attempts = functools.partial(
+        _run_codex_attempts, prompt, thread_id, model=model, effort=effort, system_prompt=system_prompt,
+        output_format=output_format, timeout_s=timeout_s, project_id=project_id, task_id=task_id,
+        config_overrides=config_overrides, max_turns=max_turns, mcp_urls=mcp_urls)
+    if aux_callback is None:
+        return await attempts(event_callback=event_callback)
+    tail = await asyncio.to_thread(RolloutTail, thread_id, SESSIONS_DIR, find_rollout_path)
+
+    def on_event(event: dict) -> None:
+        if event.get("type") == "thread.started" and isinstance(event.get("thread_id"), str):
+            tail.bind(event["thread_id"])
+        if event_callback is not None:
+            event_callback(event)
+
+    def read(final: bool) -> list[tuple[str, dict]]:
+        return [("rollout", record) for record in tail.read(final=final)]
+
+    async with following(read, aux_callback, ROLLOUT_POLL_S, "rollout"):
+        return await attempts(event_callback=on_event)
+
+
+async def _run_codex_attempts(
     prompt: str,
     thread_id: str | None,
     model: str | None = None,

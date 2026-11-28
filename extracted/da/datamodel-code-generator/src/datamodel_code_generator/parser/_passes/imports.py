@@ -38,7 +38,7 @@ from datamodel_code_generator._module_paths import (
 from datamodel_code_generator._python_syntax import holds_lone_surrogate
 from datamodel_code_generator._python_target_names import is_builtin_type_name
 from datamodel_code_generator._reference_graph import EdgeKind, GraphSnapshot, walk_graph
-from datamodel_code_generator._requirements import pydantic_floor
+from datamodel_code_generator._requirements import pydantic_floor, python_target_meets
 from datamodel_code_generator._shared_types import DefaultValueTypeWarning, Error
 from datamodel_code_generator._target_unicode import is_importable_part
 from datamodel_code_generator._url_redaction import redact_reference
@@ -64,9 +64,19 @@ from datamodel_code_generator.model._decisions.msgspec_str_like import (
 from datamodel_code_generator.model._decisions.tag_value import struct_union_refusal
 from datamodel_code_generator.model._render_plan import RENDER_READY
 from datamodel_code_generator.model._rendered_names import FieldNameBindings, _bare_loads_of
-from datamodel_code_generator.model.base import BaseClassDataType, DataModel, _model_key_of_model
+from datamodel_code_generator.model.base import (
+    BaseClassDataType,
+    DataModel,
+    _class_body_fields,
+    _find_base_classes,
+    _model_key_of_model,
+)
 from datamodel_code_generator.model.enum import Enum, Member, get_raw_enum_member_value
-from datamodel_code_generator.model.output import _model_field_name_collisions
+from datamodel_code_generator.model.output import (
+    _inherited_field_name_collisions,
+    _model_field_name_collisions,
+    _ModuleScope,
+)
 from datamodel_code_generator.model.type_alias import TypeAliasBase
 from datamodel_code_generator.parser._imports_plan import Added, Aliased, ImportProducer, Removed
 from datamodel_code_generator.parser._passes._import_binding import (
@@ -85,6 +95,7 @@ from datamodel_code_generator.parser._passes._import_edges import (
     failing_import_reads,
     import_cycle_seeds,
     import_plan,
+    init_load_edges,
     init_loads,
     module_import_edges,
     relative_import_targets,
@@ -429,8 +440,9 @@ class RenderHost(
         require_update: Collection[ModelKey],
         future_imports_str: str,
         shared_imports_str: str,
+        texts: Sequence[str],
     ) -> ResultT | None:
-        """Return the result of one module, or None when it writes nothing."""
+        """Return the result of one module, or None when it writes nothing, from the rendered ``texts`` of it."""
 
     def _inspect_invalid_dotted_stdout(
         self,
@@ -467,13 +479,14 @@ def _alias_reserved_names(
 ) -> set[str]:
     """Return the names an alias that a module imports a name under takes none of.
 
-    The names of its classes and fields, those its imports and the shared imports bind, and ``also``: every name the
-    module binds, a ``__future__`` one too, which ``shared_import_bindings`` leaves out.
+    The names of its classes and of the fields their bodies write (``_class_body_fields``), those its imports and the
+    shared imports bind, and ``also``: every name the module binds, a ``__future__`` one too, which
+    ``shared_import_bindings`` leaves out.
     """
     return {
         *also,
         *(model.class_name for model in models),
-        *(field.name for model in models for field in model.fields if field.name is not None),
+        *(field.name for model in models for field in _class_body_fields(model) if field.name is not None),
         *_iter_import_bindings(imports),
         *_iter_import_bindings(shared_imports),
     }
@@ -498,6 +511,7 @@ def _bind_module_field_names(
     target: tuple[int, int],
     *,
     texts: Sequence[str] | None = None,
+    module_names_of: Callable[[DataModel], Collection[str]] | None = None,
 ) -> bool:
     """Alias the names a property hides from the text of its class; return whether it aliased any.
 
@@ -505,8 +519,22 @@ def _bind_module_field_names(
     which a builtin import binds under the alias. An alias avoids every name the module's and the shared imports
     bind. Type aliases sit at module scope, so an import they name keeps its name beside the alias. ``texts`` are the
     rendered models; without them a model renders where it holds a field of such a name.
+
+    Where ``module_names_of`` gives the names the module of a model binds, the annotations a library evaluates as
+    strings also count the namespaces of the bases it declares a redeclared field in
+    (``DataModel.annotation_namespaces``): a name that a base binds in its class body to a value the annotation
+    raises on is hidden as well, and the alias avoids every name of those bases. It needs ``texts``.
     """
-    field_names = {field.name for model in models for field in model.fields if field.name is not None}
+    namespaces = (
+        [model.annotation_namespaces() for model in models] if module_names_of is not None else [{} for _ in models]
+    )
+    declaring_bases = [base for by_field in namespaces for bases in by_field.values() for base in bases]
+    inherited_names = {
+        field.name for base in declaring_bases for field in _class_body_fields(base) if field.name is not None
+    }
+    field_names = {
+        field.name for model in models for field in _class_body_fields(model) if field.name is not None
+    } | inherited_names
     shadowable_imports = {binding: key for key, binding in _import_bindings(imports) if binding in field_names}
     shadowable_imports.update(
         (name, ("builtins", name))
@@ -520,9 +548,32 @@ def _bind_module_field_names(
         collisions.update(
             _model_field_name_collisions(model, None if texts is None else texts[index], shadowable_imports)
         )
+    if module_names_of is not None and texts is not None:
+        aliased = frozenset(collisions)
+        for text, model, by_field in zip(texts, models, namespaces, strict=True):
+            if by_field:
+                collisions.update(
+                    _inherited_field_name_collisions(
+                        model.class_name,
+                        by_field,
+                        text,
+                        shadowable_imports,
+                        _ModuleScope(module_names_of, aliased, partial(is_builtin_type_name, target_version=target)),
+                    )
+                )
     if not collisions:
         return False
-    reserved_names = _alias_reserved_names(models, imports, shared_imports)
+    reserved_names = _alias_reserved_names(
+        models,
+        imports,
+        shared_imports,
+        also=inherited_names
+        | (
+            {name for base in declaring_bases for name in module_names_of(base)}
+            if module_names_of is not None
+            else set()
+        ),
+    )
     type_alias_imports = {
         _import_key(import_) for model in models if isinstance(model, TypeAliasBase) for import_ in model.imports
     }
@@ -554,14 +605,18 @@ def render_module_models(  # noqa: PLR0917
     ledger: ModuleImportLedger,
     target: tuple[int, int],
     overrides: Mapping[str, str] | None,
+    module_names_of: Callable[[DataModel], Collection[str]] | None = None,
 ) -> list[str]:
     """Render the models of a module, alias the names a property hides in the texts and render the aliased again.
 
     Where ``bind_module_field_names`` bound the names before, the texts already write the aliases. The imports the
     aliases add go through ``--import-overrides`` (``overrides``), as ``remap_import_overrides`` routes the others.
+    ``module_names_of`` (``_bind_module_field_names``) is given where the annotations are evaluated as strings.
     """
     texts = [model.render() for model in models]
-    if not _bind_module_field_names(models, imports, shared_imports, ledger, target, texts=texts):
+    if not _bind_module_field_names(
+        models, imports, shared_imports, ledger, target, texts=texts, module_names_of=module_names_of
+    ):
         return texts
     if overrides is not None:
         _remap_imports(ledger, imports, overrides)
@@ -2082,7 +2137,7 @@ def _alias_builtins_hidden_by_submodules(
 def alias_builtins_hidden_by_submodules(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
     """Import the builtins that each package's submodules hide, and that the package writes bare, under aliases."""
     submodule_names = _package_submodule_names(
-        state.contexts, state.forwarder_modules, treat_dot_as_module=parser.treat_dot_as_module
+        state.contexts, state.forwarder_map, treat_dot_as_module=parser.treat_dot_as_module
     )
     for ctx in state.contexts:
         if (package := _written_package(ctx, treat_dot_as_module=parser.treat_dot_as_module)) is not None and (
@@ -2117,6 +2172,7 @@ def submodules_hidden_by_packages(
     contexts: Sequence[ModuleContextView],
     naming: ModuleNamesView,
     config: ParseConfigView,
+    forwarder_map: ForwarderMap,
 ) -> dict[ModulePath, frozenset[tuple[str, ...]]]:
     """Return, by the file of each module, the modules it imports models from that their package hides from it.
 
@@ -2128,9 +2184,16 @@ def submodules_hidden_by_packages(
     submodule from every module but the ``__init__.py`` itself, and only where the ``__init__.py`` imports from the
     submodule, for a type or for the class of an enum member literal, or loads it as it runs (``init_loads``: an
     import, a module it imports, ``--all-exports-scope``): the submodule is then loaded before the class takes the
-    name, and no later import of it replaces the class. A module that the ``__init__.py`` loads as it runs reads the
-    submodule under its name before the class exists, so a load of that kind hides it only from the other modules.
-    A module names the hidden modules by their module names, as ``reference_import_target`` reads them.
+    name, and no later import of it replaces the class. A class that an import cycle merge moved into ``_internal``
+    and the ``__init__.py`` re-exports binds the name alike (``_package_bindings``, of the models the internal module
+    still defines), where the forwarder loads the submodule through the modules it re-exports from
+    (``init_load_edges``). A module that the ``__init__.py`` loads as it runs reads the submodule under its name before
+    the class exists, so a load of that kind hides it only from the other modules. A module names the hidden modules
+    by their module names, as ``reference_import_target`` reads them. The forwarders are read before render adds to
+    the forwarder of a module that a grown merge moved the names it imported before (``_released_name_imports``):
+    such a forwarder loads only its internal module, and a submodule loaded through that module is below a package of
+    the merge, which the growth merges too, so it writes no model a module could import from it. ``forwarder_map``
+    holds the forwarders of the models that the internal modules still define (``_forward_defined_models``).
     """
     treat_dot_as_module, module_names = parser.treat_dot_as_module, naming.model_path_to_module_name
 
@@ -2144,31 +2207,34 @@ def submodules_hidden_by_packages(
 
     shared_future = shared_future_bindings(parser.imports)
     inits = {
-        package: ctx
-        for ctx in contexts
-        if ctx.models and (package := _written_package(ctx, treat_dot_as_module=treat_dot_as_module)) is not None
+        path[:-1]: (ctx, frozenset(names))
+        for path, ctx, names in _package_bindings(contexts, forwarder_map, treat_dot_as_module=treat_dot_as_module)
     }
 
     @cache
     def import_edges() -> dict[str, set[str]]:
-        return module_import_edges(
-            contexts, treat_dot_as_module=treat_dot_as_module, all_exports_scope=config.all_exports_scope
+        return init_load_edges(
+            contexts, forwarder_map, treat_dot_as_module=treat_dot_as_module, all_exports_scope=config.all_exports_scope
         )
 
     hidden: dict[ModulePath, tuple[set[tuple[str, ...]], set[tuple[str, ...]]]] = {}
     unloaded: dict[ModulePath, tuple[set[tuple[str, ...]], set[str]]] = {}
     for ctx in contexts:
         parts = module_parts(written_path(ctx.module, treat_dot_as_module=treat_dot_as_module))
-        if not (ctx.models and parts and (init := inits.get(package := parts[:-1])) is not None):
+        init, names = inits.get(package := parts[:-1], (None, frozenset()))
+        if not (ctx.models and parts and init is not None):
             continue
-        name = parts[-1]
         modules = {tuple(_get_model_module_name(model, module_names).split(".")) for model in ctx.models}
-        if name in shared_future or (
-            name == IMPORT_ANNOTATIONS.import_ and parser._writes_module_future_annotations(init.models, config)
+        if init.models and (
+            parts[-1] in shared_future
+            or (
+                parts[-1] == IMPORT_ANNOTATIONS.import_
+                and parser._writes_module_future_annotations(init.models, config)
+            )
         ):
             for found in hidden.setdefault(package, (set(), set())):
                 found.update(modules)
-        elif any(model.class_name == name for model in init.models):
+        elif parts[-1] in names:
             if any(
                 is_within(named, module)
                 for named in named_modules(init.models, literals=False) | named_modules(init.models, literals=True)
@@ -2176,9 +2242,9 @@ def submodules_hidden_by_packages(
             ):
                 hidden.setdefault(package, (set(), set()))[1].update(modules)
             elif loaded := init_loads(import_edges(), package, modules):
-                late_modules, late_loaded = unloaded.setdefault(package, (set(), set()))
-                late_modules.update(modules)
-                late_loaded.update(loaded)
+                late = unloaded.setdefault(package, (set(), set()))
+                late[0].update(modules)
+                late[1].update(loaded)
     if not hidden and not unloaded:
         return {}
     result: dict[ModulePath, frozenset[tuple[str, ...]]] = {}
@@ -2286,7 +2352,7 @@ def _alias_imports_hidden_by_loaded_submodules(parser: ImportsHost[Any], state: 
     """
     treat_dot_as_module = parser.treat_dot_as_module
     submodule_names = _package_submodule_names(
-        state.contexts, state.forwarder_modules, treat_dot_as_module=treat_dot_as_module
+        state.contexts, state.forwarder_map, treat_dot_as_module=treat_dot_as_module
     )
     loaded: set[str] | None = None
     for ctx in state.contexts:
@@ -2345,7 +2411,9 @@ def import_models_of_hidden_submodules(parser: ImportsHost[Any], state: _Finaliz
     where the import binds it, as the field render plans froze it written.
     """
     _alias_imports_hidden_by_loaded_submodules(parser, state)
-    by_packages = submodules_hidden_by_packages(parser, state.contexts, state, state.config)
+    by_packages = submodules_hidden_by_packages(
+        parser, state.contexts, state, state.config, _forward_defined_models(state.contexts, state.forwarder_map)
+    )
     by_imports = _submodules_hidden_by_imports(state.contexts, state.model_path_to_module_name)
     if not (
         hidden := {
@@ -2628,13 +2696,15 @@ def _class_named_like_submodule(
 
     The module replaces the class where the ``__init__.py`` does not load it while its imports run, before its classes
     are defined (``reject_class_named_like_submodule``); a forwarder loads the modules it re-exports from
-    (``Forwarder.names``) and what they load. 0.90.0 to 0.100.0 took the imports of an ancestor package, which has
-    started before the ``__init__.py``, as loads too (``init_loads`` row ``legacy-running-packages-load``) and wrote
-    such output: the ancestor runs first and its import of the module's name gets the class, so a model it reads of
-    the module through that name fails where its class evaluates its annotations, and the ancestor fails at import
-    with every module below it; each class comes with whether that reading loads the module, which keeps the output
-    where the classes do not evaluate their annotations as they are defined (``_evaluates_class_annotations``). The
-    class comes with the written path of the ``__init__.py``, the module's parts and the path of its file.
+    (``Forwarder.names``) and what they load, and is read with the ``--all-exports-scope`` re-exports it does not
+    write, as from 0.90.0 on (``init_load_edges`` row ``legacy-forwarder-export-loads``). 0.90.0 to 0.100.0 took the
+    imports of an ancestor package, which has started before the ``__init__.py``, as loads too (``init_loads`` row
+    ``legacy-running-packages-load``) and wrote such output: the ancestor runs first and its import of the module's
+    name gets the class, so a model it reads of the module through that name fails where its class evaluates its
+    annotations, and the ancestor fails at import with every module below it; each class comes with whether that
+    reading loads the module, which keeps the output where the classes do not evaluate their annotations as they are
+    defined (``_evaluates_class_annotations``). The class comes with the written path of the ``__init__.py``, the
+    module's parts and the path of its file.
     """
     written = sorted(
         ((written_path(ctx.module, treat_dot_as_module=treat_dot_as_module), ctx) for ctx in contexts if ctx.models),
@@ -2653,15 +2723,13 @@ def _class_named_like_submodule(
     ]
     if not clashes:
         return
-    edges = module_import_edges(contexts, treat_dot_as_module=treat_dot_as_module, all_exports_scope=all_exports_scope)
-    written_modules = {
-        ctx.module_key: written_module_name(ctx.module, treat_dot_as_module=treat_dot_as_module) for ctx in contexts
-    }
-    for ctx in contexts:
-        if not ctx.models and (forwarder := forwarder_map.get(ctx.module_key)) is not None:
-            edges.setdefault(written_modules[ctx.module_key], set()).update(
-                written_modules[source] for source, _, _ in forwarder.names
-            )
+    edges = init_load_edges(
+        contexts,
+        forwarder_map,
+        treat_dot_as_module=treat_dot_as_module,
+        all_exports_scope=all_exports_scope,
+        row="legacy-forwarder-export-loads",
+    )
     for path, name, module, file in clashes:
         if not init_loads(edges, path[:-1], [module]):
             released = bool(init_loads(edges, path[:-1], [module], row="legacy-running-packages-load"))
@@ -2837,6 +2905,84 @@ def reject_unimportable_imports(
             raise Error(msg)
 
 
+def _bases_first(contexts: Sequence[ContextT]) -> Iterator[ContextT]:
+    """Yield the modules, each after the modules of the generated models its models inherit from.
+
+    Otherwise in the order of ``contexts``. Inheritance between the modules of an output that imports is acyclic: a
+    base is imported where the class is defined, and import cycles are merged. A module met again while its bases are
+    yielded keeps the state it has.
+    """
+    owner = {id(model): ctx for ctx in contexts for model in ctx.models}
+
+    def bases_of(ctx: ContextT) -> Iterator[ContextT]:
+        return (
+            base_ctx
+            for model in ctx.models
+            for base in _find_base_classes(model)
+            if (base_ctx := owner.get(id(base))) is not None
+        )
+
+    seen: set[int] = set()
+    for root in contexts:
+        if id(root) in seen:
+            continue
+        seen.add(id(root))
+        stack = [(root, bases_of(root))]
+        while stack:
+            ctx, pending = stack[-1]
+            if (base := next(pending, None)) is None:
+                stack.pop()
+                yield ctx
+            elif id(base) not in seen:
+                seen.add(id(base))
+                stack.append((base, bases_of(base)))
+
+
+def _decide_module_texts(
+    parser: RenderHost[ConfigT, ContextT, ResultT],
+    contexts: Sequence[ContextT],
+    config: ConfigT,
+    ledger: ModuleImportLedger,
+    overrides: Mapping[str, str] | None,
+) -> dict[int, list[str]]:
+    """Render the models of every module and alias the names their properties hide, the modules of bases first.
+
+    The annotations that a library evaluates as strings are evaluated in the namespace of the module of a base as well
+    (``_bind_module_field_names``), so the base's imports are final before a module that redeclares its fields
+    decides. The texts by ``id`` of the module.
+    """
+    owner = {id(model): (ctx,) for ctx in contexts for model in ctx.models}
+    version_key = parser.target_python_version.version_key
+    writes_strings = config.use_deferred_annotations and not python_target_meets(
+        "python.deferred_annotations", version_key
+    )
+
+    def module_names_of(model: DataModel) -> set[str]:
+        return {
+            name
+            for ctx in owner.get(id(model), ())
+            for name in (
+                *(model.class_name for model in ctx.models),
+                *_iter_import_bindings(ctx.imports),
+                *_iter_import_bindings(parser.imports),
+            )
+        }
+
+    texts: dict[int, list[str]] = {id(ctx): [] for ctx in contexts}
+    for ctx in _bases_first(contexts):
+        if ctx.models:
+            texts[id(ctx)] = render_module_models(
+                ctx.models,
+                ctx.imports,
+                parser.imports,
+                ledger,
+                version_key,
+                overrides,
+                module_names_of if writes_strings else None,
+            )
+    return texts
+
+
 def render_modules(
     parser: RenderHost[ConfigT, ContextT, ResultT],
     results: dict[ModulePath, ResultT],
@@ -2853,9 +2999,10 @@ def render_modules(
     Every relative import block that a module writes is kept (``_record_written_imports``) for the import check of a
     modular output (``check_import_reads``).
     """
-    future_imports = parser._import_ledger.extract_future(parser.imports, _FUTURE_IMPORTS)
+    ledger = parser._import_ledger
+    future_imports = ledger.extract_future(parser.imports, _FUTURE_IMPORTS)
     future_imports_str = str(future_imports)
-    shared_imports_str = str(parser._import_ledger.rendered(parser.imports))
+    shared_imports_str = str(ledger.rendered(parser.imports))
     merges = forwarder_map
     if forwarder_map:
         forwarder_map = _forward_defined_models(contexts, _released_name_imports(parser, contexts, forwarder_map))
@@ -2876,9 +3023,10 @@ def render_modules(
         all_exports_scope=config.all_exports_scope,
         use_deferred_annotations=config.use_deferred_annotations,
     )
+    texts = _decide_module_texts(parser, contexts, config, ledger, parser._import_overrides)
     for ctx in contexts:
         result = parser._generate_module_output(
-            ctx, config, contexts, forwarder_map, require_update, future_imports_str, shared_imports_str
+            ctx, config, contexts, forwarder_map, require_update, future_imports_str, shared_imports_str, texts[id(ctx)]
         )
         if result is not None:
             results[ctx.module] = result

@@ -8,7 +8,8 @@ import os
 import subprocess
 import sys
 
-from tst.unit.agents.gemini.agent import AGENT_DIR, a2a_server
+from agent_env.providers.sandbox_providers.local_docker.provider import LocalSandbox
+from tst.unit.agents.gemini.agent import AGENT_DIR, PYTHONPATH, a2a_server
 from tst.unit.agents.gemini.support import card
 
 _GEMINI_SKILL = {
@@ -74,7 +75,9 @@ def test_descriptions(app):
             "Read back the LiteLLM attribution headers the agent most recently emitted on an outbound "
             "LLM call. Used by the agent-env runtime attribution validator."
         ),
-        "urn:agentenv:trajectory/v1": "Retrieve a task's Gemini stream-json trajectory, also while it runs.",
+        "urn:agentenv:trajectory/v1": (
+            "Retrieve a task's Gemini stream-json trajectory, also while it runs; atif/1 when the run prescribes it."
+        ),
         "urn:agentenv:mcp-config/v1": "Register MCP servers the Gemini CLI should connect to.",
         "urn:agentenv:skill-config/v1": "Register a skill loaded by the Gemini CLI from ~/.gemini/skills/.",
         "urn:agentenv:peer-agents/v1": (
@@ -104,7 +107,9 @@ def test_endpoints_and_verbs(app):
         "urn:agentenv:install/v1": (None, {}),
         "urn:agentenv:agent-config/v1": ("/ext/agent-config", {"set": ("POST", None), "get": ("GET", None)}),
         "urn:agentenv:attribution-probe/v1": ("/ext/attribution-probe", {"probe": ("POST", None)}),
-        "urn:agentenv:trajectory/v1": ("/ext/trajectory", {"get": ("POST", None)}),
+        "urn:agentenv:trajectory/v1": ("/ext/trajectory", {
+            "get": ("POST", None), "prescribe": ("POST", "/ext/trajectory/prescribe"),
+            "media": ("POST", "/ext/trajectory/media")}),
         "urn:agentenv:mcp-config/v1": ("/ext/mcp-config", {"add": ("POST", None), "list": ("GET", None)}),
         "urn:agentenv:skill-config/v1": ("/ext/skill-config", {"add": ("POST", None), "list": ("GET", None)}),
         "urn:agentenv:peer-agents/v1": ("/ext/peer-agents", {"set": ("POST", None), "list": ("GET", None)}),
@@ -212,7 +217,15 @@ def test_install_params(app):
     assert params["required_params_host"] == ["work_dir", "agent_ctx_tar", "a2a_port", "agent_name", *endpoint]
     assert params["install_commands"] == a2a_server._INSTALL_COMMANDS
     assert params["install_commands_host"] == a2a_server._INSTALL_COMMANDS_HOST
-    assert (params["workdir_host"], params["user_host"]) == ("/workspace", "root")
+    assert (params["workdir_host"], params["user_host"]) == ("/app", "root")
+
+
+def test_a_host_install_on_a_local_sandbox_works_in_the_sandboxs_own_folder(tmp_path):
+    """A local sandbox runs a host install on this machine as this user, who can't make a folder at the root: the
+    workspace the install names is the one it maps to a folder of its own."""
+    command = a2a_server._INSTALL_COMMANDS_HOST[-1]
+    assert command.endswith(f" {a2a_server._HOST_WORKDIR}")
+    assert LocalSandbox(work_dir=tmp_path)._rewrite_app_script(command).endswith(f" {tmp_path}")
 
 
 def test_the_card_and_health_are_served(client):
@@ -232,9 +245,15 @@ def test_install_mode_reads_the_card_by_importing_agent_card():
         "from a2a_server import AGENT_CARD; "
         "print(json.dumps(AGENT_CARD.model_dump()))"
     )
-    env = {k: v for k, v in os.environ.items() if not k.startswith("LITELLM_")}
+    env = {**{k: v for k, v in os.environ.items() if not k.startswith("LITELLM_")}, "PYTHONPATH": PYTHONPATH}
     out = subprocess.run([sys.executable, "-c", script], cwd=AGENT_DIR, env=env, capture_output=True, text=True,
                          check=True)
     exported = json.loads(out.stdout)
     (install,) = [e for e in exported["capabilities"]["extensions"] if e["uri"] == "urn:agentenv:install/v1"]
     assert install["params"]["install_commands"] and install["params"]["install_commands_host"]
+
+
+def test_the_card_offers_atif_beside_stream_json_which_stays_the_default(app):
+    params = _extensions(app)["urn:agentenv:trajectory/v1"]["params"]
+    assert params["formats"] == ["gemini-stream-json/1", "atif/1"]
+    assert params["native"] == params["default"] == "gemini-stream-json/1"

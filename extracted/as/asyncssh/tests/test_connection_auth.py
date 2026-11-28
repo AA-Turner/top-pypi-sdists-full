@@ -22,9 +22,11 @@
 
 import asyncio
 import os
+import shutil
 import sys
 import unittest
 
+from pathlib import Path
 from unittest.mock import patch
 
 from cryptography.exceptions import UnsupportedAlgorithm
@@ -37,7 +39,7 @@ from asyncssh.public_key import CERT_TYPE_USER, CERT_TYPE_HOST
 from .keysign_stub import create_subprocess_exec_stub
 from .server import Server, ServerTestCase
 from .util import asynctest, gss_available, patch_getnameinfo
-from .util import patch_getnameinfo_error, patch_gss
+from .util import patch_getnameinfo_error, patch_gss, patch_rdns
 from .util import make_certificate, nc_available, x509_available
 
 
@@ -57,7 +59,7 @@ class _FailValidateHostSSHServerConnection(asyncssh.SSHServerConnection):
 class _AsyncGSSServer(asyncssh.SSHServer):
     """Server for testing async GSS authentication"""
 
-    # pylint: disable=useless-super-delegation
+    # pylint: disable=useless-parent-delegation
 
     async def validate_gss_principal(self, username, user_principal,
                                      host_principal):
@@ -99,21 +101,15 @@ class _HostBasedServer(Server):
                                  client_port, key):
         """Return whether key is an authorized key for this host"""
 
-        # pylint: disable=unused-argument
-
         return key == self._host_key
 
     def validate_host_ca_key(self, client_host, client_addr, client_port, key):
         """Return whether key is an authorized CA key for this host"""
 
-        # pylint: disable=unused-argument
-
         return key == self._ca_key
 
     def validate_host_based_user(self, username, client_host, client_username):
         """Return whether remote host and user is authorized for this user"""
-
-        # pylint: disable=unused-argument
 
         return client_username == 'user'
 
@@ -121,7 +117,7 @@ class _HostBasedServer(Server):
 class _AsyncHostBasedServer(Server):
     """Server for testing async host-based authentication"""
 
-    # pylint: disable=useless-super-delegation
+    # pylint: disable=useless-parent-delegation
 
     async def validate_host_based_user(self, username, client_host,
                                        client_username):
@@ -142,6 +138,29 @@ class _InvalidUsernameClientConnection(asyncssh.connection.SSHClientConnection):
         return keypair, host, b'\xff'
 
 
+class _ChangingClientHostConnection(asyncssh.connection.SSHClientConnection):
+    """Test claiming a different client host on each host-based attempt"""
+
+    _host_attempt = 0
+
+    async def host_based_auth_requested(self):
+        """Return a host key pair, host, and user to authenticate with"""
+
+        keypair, _, user = await super().host_based_auth_requested()
+
+        self._host_attempt += 1
+        return keypair, f'host{self._host_attempt}', user
+
+
+class _HostBasedPublicKeyServer(_HostBasedServer):
+    """Server for testing host-based and public key authentication"""
+
+    def public_key_auth_supported(self):
+        """Return whether or not public key authentication is supported"""
+
+        return True
+
+
 class _PublicKeyClient(asyncssh.SSHClient):
     """Test client public key authentication"""
 
@@ -160,8 +179,6 @@ class _PublicKeyClient(asyncssh.SSHClient):
 
 class _AsyncPublicKeyClient(_PublicKeyClient):
     """Test async client public key authentication"""
-
-    # pylint: disable=useless-super-delegation
 
     async def public_key_auth_requested(self):
         """Return a public key to authenticate with"""
@@ -216,7 +233,7 @@ class _PublicKeyServer(Server):
 class _AsyncPublicKeyServer(_PublicKeyServer):
     """Server for testing async public key authentication"""
 
-    # pylint: disable=useless-super-delegation
+    # pylint: disable=useless-parent-delegation
 
     async def begin_auth(self, username):
         """Handle client authentication request"""
@@ -261,7 +278,7 @@ class _PasswordClient(asyncssh.SSHClient):
 class _AsyncPasswordClient(_PasswordClient):
     """Test async client password authentication"""
 
-    # pylint: disable=useless-super-delegation
+    # pylint: disable=useless-parent-delegation
 
     async def password_auth_requested(self):
         """Return a password to authenticate with"""
@@ -299,7 +316,7 @@ class _PasswordServer(Server):
 class _AsyncPasswordServer(_PasswordServer):
     """Server for testing async password authentication"""
 
-    # pylint: disable=useless-super-delegation
+    # pylint: disable=useless-parent-delegation
 
     async def validate_password(self, username, password):
         """Return whether password is valid for this user"""
@@ -326,8 +343,6 @@ class _KbdintClient(asyncssh.SSHClient):
     def kbdint_challenge_received(self, name, instructions, lang, prompts):
         """Return responses to a keyboard-interactive auth challenge"""
 
-        # pylint: disable=unused-argument
-
         if not prompts:
             return []
         elif self._responses:
@@ -341,7 +356,7 @@ class _KbdintClient(asyncssh.SSHClient):
 class _AsyncKbdintClient(_KbdintClient):
     """Test keyboard-interactive client auth"""
 
-    # pylint: disable=useless-super-delegation
+    # pylint: disable=useless-parent-delegation
 
     async def kbdint_auth_requested(self):
         """Return the list of supported keyboard-interactive auth methods"""
@@ -400,7 +415,7 @@ class _KbdintServer(Server):
 class _AsyncKbdintServer(_KbdintServer):
     """Server for testing async keyboard-interactive authentication"""
 
-    # pylint: disable=useless-super-delegation
+    # pylint: disable=useless-parent-delegation
 
     async def get_kbdint_challenge(self, username, lang, submethods):
         """Return a keyboard-interactive auth challenge"""
@@ -706,7 +721,8 @@ class _TestHostBasedAuth(ServerTestCase):
         """Start an SSH server which supports host-based authentication"""
 
         return await cls.create_server(
-            _HostBasedServer, known_client_hosts='known_hosts')
+            _HostBasedServer, known_client_hosts='known_hosts',
+            rdns_lookup=True)
 
     @asynctest
     async def test_get_server_auth_methods(self):
@@ -784,6 +800,19 @@ class _TestHostBasedAuth(ServerTestCase):
                                     client_username='user',
                                     signature_algs=[alg]):
                 pass
+
+    @asynctest
+    async def test_shared_client_host_key_signature_alg(self):
+        """Test that signing doesn't change a shared client host key"""
+
+        skey = asyncssh.load_keypairs('skey')[0]
+        sig_algorithm = skey.sig_algorithm
+
+        for alg in ('rsa-sha2-256', 'rsa-sha2-512'):
+            async with self.connect(username='user', client_host_keys=[skey],
+                                    client_username='user',
+                                    signature_algs=[alg]):
+                self.assertEqual(skey.sig_algorithm, sig_algorithm)
 
     @asynctest
     async def test_no_server_signature_algs(self):
@@ -913,7 +942,8 @@ class _TestHostBasedAuthNoRDNS(ServerTestCase):
         """Start an SSH server which supports host-based authentication"""
 
         return await cls.create_server(
-            _HostBasedServer, known_client_hosts='known_hosts')
+            _HostBasedServer, known_client_hosts='known_hosts',
+            rdns_lookup=True)
 
     @patch_getnameinfo_error
     @asynctest
@@ -923,6 +953,68 @@ class _TestHostBasedAuthNoRDNS(ServerTestCase):
         async with self.connect(username='user', client_host_keys='skey',
                                 client_username='user'):
             pass
+
+
+class _ResolvedHostBasedServer(_HostBasedServer):
+    """Server for testing the client host passed to host-based auth"""
+
+    def validate_host_based_user(self, username, client_host, client_username):
+        """Return whether remote host and user is authorized for this user"""
+
+        return client_host == 'localhost' and client_username == 'user'
+
+
+class _TestHostBasedAuthVerifiedRDNS(ServerTestCase):
+    """Unit tests for host-based authentication with verified reverse DNS"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server which supports host-based authentication"""
+
+        return await cls.create_server(
+            _ResolvedHostBasedServer, known_client_hosts='known_hosts',
+            rdns_lookup=True)
+
+    @patch_rdns('localhost', ['127.0.0.1'])
+    @asynctest
+    async def test_verified_rdns(self):
+        """Test reverse DNS name which maps back to the client address"""
+
+        async with self.connect(username='user',
+                                client_host_keys=[('skey', None)],
+                                client_host='xxx', client_username='user'):
+            pass
+
+    @patch_rdns('localhost', ['10.9.9.9'])
+    @asynctest
+    async def test_unverified_rdns(self):
+        """Test reverse DNS name which doesn't map back"""
+
+        with self.assertRaises(asyncssh.PermissionDenied):
+            await self.connect(username='user',
+                               client_host_keys=[('skey', None)],
+                               client_host='localhost', client_username='user')
+
+
+@patch_getnameinfo
+class _TestHostBasedAuthRDNSDisabled(ServerTestCase):
+    """Unit tests for host-based authentication with reverse DNS disabled"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server which supports host-based authentication"""
+
+        return await cls.create_server(
+            _HostBasedServer, known_client_hosts='known_hosts')
+
+    @asynctest
+    async def test_client_host_name_ignored(self):
+        """Test that client host name isn't used without rdns_lookup"""
+
+        with self.assertRaises(asyncssh.PermissionDenied):
+            await self.connect(username='user',
+                               client_host_keys=[('skey', None)],
+                               client_host='localhost', client_username='user')
 
 
 @patch_getnameinfo
@@ -1091,6 +1183,58 @@ class _TestHostBasedAsyncServerAuth(_TestHostBasedAuth):
                                client_host='xxx', client_username='user')
 
 
+class _TrustedHostServer(_HostBasedServer):
+    """Server for testing which trusted client host is authorized"""
+
+    def validate_host_based_user(self, username, client_host, client_username):
+        """Return whether remote host and user is authorized for this user"""
+
+        return client_host == 'host2' and client_username == 'user'
+
+
+class _TestHostBasedAuthTrustedHostChange(ServerTestCase):
+    """Unit tests for changing the trusted client host between attempts"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server which trusts client-provided host names"""
+
+        with open('skey.pub') as f:
+            skey_pub = f.read()
+
+        with open('ckey.pub') as f:
+            ckey_pub = f.read()
+
+        known_client_hosts = asyncssh.import_known_hosts(
+            f'host1 {skey_pub}host2 {ckey_pub}')
+
+        return await cls.create_server(_TrustedHostServer,
+                                       known_client_hosts=known_client_hosts,
+                                       trust_client_host=True)
+
+    @asynctest
+    async def test_trusted_host(self):
+        """Test authenticating with the key of the authorized host"""
+
+        async with self.connect(username='user', client_host_keys='ckey',
+                                client_host='host2', client_username='user'):
+            pass
+
+    @asynctest
+    async def test_trusted_host_change(self):
+        """Test trust in one host's key not carrying over to another host"""
+
+        skey = asyncssh.read_private_key('skey')
+
+        with patch('asyncssh.connection.SSHClientConnection',
+                   _ChangingClientHostConnection):
+            with self.assertRaises(asyncssh.PermissionDenied):
+                async with self.connect(username='user',
+                                        client_host_keys=[skey, skey],
+                                        client_username='user'):
+                    pass # pragma: no cover
+
+
 @patch_getnameinfo
 class _TestLimitedHostBasedSignatureAlgs(ServerTestCase):
     """Unit tests for limited host key signature algorithms"""
@@ -1101,7 +1245,7 @@ class _TestLimitedHostBasedSignatureAlgs(ServerTestCase):
 
         return await cls.create_server(
             _HostBasedServer, known_client_hosts='known_hosts',
-            signature_algs=['ssh-rsa', 'rsa-sha2-512'])
+            signature_algs=['ssh-rsa', 'rsa-sha2-512'], rdns_lookup=True)
 
     @asynctest
     async def test_mismatched_host_signature_algs(self):
@@ -1337,6 +1481,34 @@ class _TestPublicKeyAuth(ServerTestCase):
         async with self.connect(username='ckey', client_keys='ckey'):
             pass
 
+    @unittest.skipUnless(hasattr(asyncio, 'eager_task_factory'),
+                         'Eager task factory not available')
+    @asynctest
+    async def test_public_key_auth_after_disabled_gss_eager(self):
+        """Test eager public key authentication after skipping GSS methods"""
+
+        loop = asyncio.get_running_loop()
+        task_factory = loop.get_task_factory()
+
+        try:
+            for eager in (False, True):
+                loop.set_task_factory(asyncio.eager_task_factory
+                                      if eager else None)
+
+                for methods in ([], [b'gssapi-keyex'], [b'gssapi-with-mic'],
+                                [b'gssapi-keyex', b'gssapi-with-mic']):
+                    with self.subTest(eager=eager, methods=methods):
+                        with patch('asyncssh.connection.'
+                                   'get_supported_server_auth_methods',
+                                   return_value=methods + [b'publickey']):
+                            async with self.connect(
+                                    username='ckey', client_keys='ckey',
+                                    agent_path=None, gss_kex=False,
+                                    gss_auth=False, connect_timeout=10):
+                                pass
+        finally:
+            loop.set_task_factory(task_factory)
+
     @asynctest
     async def test_public_key_auth_disabled(self):
         """Test connecting with public key authentication disabled"""
@@ -1361,6 +1533,18 @@ class _TestPublicKeyAuth(ServerTestCase):
             async with self.connect(username='ckey', agent_path=None,
                                     client_keys='ckey', signature_algs=[alg]):
                 pass
+
+    @asynctest
+    async def test_shared_client_key_signature_alg(self):
+        """Test that signing doesn't change a shared client key"""
+
+        ckey = asyncssh.load_keypairs('ckey')[0]
+        sig_algorithm = ckey.sig_algorithm
+
+        for alg in ('rsa-sha2-256', 'rsa-sha2-512'):
+            async with self.connect(username='ckey', agent_path=None,
+                                    client_keys=[ckey], signature_algs=[alg]):
+                self.assertEqual(ckey.sig_algorithm, sig_algorithm)
 
     @asynctest
     async def test_no_server_signature_algs(self):
@@ -1714,6 +1898,33 @@ class _TestPreloadedAuthorizedKeysFileList(ServerTestCase):
             pass
 
 
+class _TestAuthorizedKeysFileUserToken(ServerTestCase):
+    """Unit tests for a server config AuthorizedKeysFile with %u"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server with a per-user AuthorizedKeysFile"""
+
+        os.mkdir('user_keys')
+        os.mkdir(os.path.join('user_keys', 'ckey'))
+        shutil.copy('authorized_keys',
+                    os.path.join('user_keys', 'ckey', 'authorized_keys'))
+
+        keys_path = Path('user_keys').resolve().as_posix()
+
+        with open('server_config', 'w') as f:
+            f.write(f'AuthorizedKeysFile {keys_path}/%u/authorized_keys\n')
+
+        return await cls.create_server(Server, config='server_config')
+
+    @asynctest
+    async def test_user_token(self):
+        """Test public key auth with a per-user AuthorizedKeysFile"""
+
+        async with self.connect(username='ckey', client_keys='ckey'):
+            pass
+
+
 @unittest.skipUnless(x509_available, 'X.509 not available')
 class _TestX509Auth(ServerTestCase):
     """Unit tests for X.509 certificate authentication"""
@@ -1860,6 +2071,35 @@ class _TestX509Untrusted(ServerTestCase):
 
         with self.assertRaises(asyncssh.PermissionDenied):
             await self.connect(username='ckey', client_keys=['ckey_x509_self'])
+
+
+@unittest.skipUnless(x509_available, 'X.509 not available')
+class _TestX509KnownClientHosts(ServerTestCase):
+    """Unit tests for X.509 certificates trusted in known client hosts"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server which supports host-based and X.509 auth"""
+
+        with open('ckey_x509_self.pub') as f:
+            known_client_hosts = asyncssh.import_known_hosts('* ' + f.read())
+
+        authorized_keys = asyncssh.import_authorized_keys(
+            'x509v3-ssh-rsa subject=OU=name\n')
+
+        return await cls.create_server(
+            _HostBasedPublicKeyServer, known_client_hosts=known_client_hosts,
+            authorized_client_keys=authorized_keys, x509_trusted_certs=[])
+
+    @asynctest
+    async def test_known_client_host_cert_not_trusted_for_user(self):
+        """Test known client host X.509 cert isn't trusted for user auth"""
+
+        with self.assertRaises(asyncssh.PermissionDenied):
+            async with self.connect(username='ckey', client_host_keys='skey',
+                                    client_username='user',
+                                    client_keys=['ckey_x509_self']):
+                pass # pragma: no cover
 
 
 @unittest.skipUnless(x509_available, 'X.509 not available')

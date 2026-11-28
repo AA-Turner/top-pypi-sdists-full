@@ -508,7 +508,7 @@ def _register_browse_and_search(mcp, svc):
         Every result carries `why_matched`: `score` is a RANK, not a probability - `reason` (when present) is one line from the model that read the passage.
 
         To open a result:
-        - a hit whose `entity_type` is listed in the response's `available_views` is an entity: `entity(refs=["<entity_type>:<id>"])`
+        - a hit whose `entity_type` is listed in the response's `available_views` is an entity: `entity(refs=["<entity_type>:<id>"])` (a saved paper: `paper:<id>`)
         - every other hit (`document`, `file`) is TERMINAL - entity has no route for it. `card.doc_id` is its address; `card.snippet` and `card.source_url` are the content
         - the one exception: a transcript hit opens with `entity(refs=["session:<card.session_id>"], view="transcript")`
         """

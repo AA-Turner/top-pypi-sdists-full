@@ -496,7 +496,8 @@ async def open_policy_connection(
     validate_provider_selection(model, provider, region)
     region = validate_speed_selection(model, speed, provider, region)
     if (provider == "modal" or speed == "fast") and transport != "auto":
-        raise ValueError("Modal requires transport='auto'")
+        chosen = 'speed="fast"' if speed == "fast" else "this provider"
+        raise ValueError(f'transport must be "auto" with {chosen}')
     startup_timeout = _validate_startup_timeout(startup_timeout)
     keep_warm = _validate_keep_warm(keep_warm)
     if transport not in ("auto", "quic", "relay"):

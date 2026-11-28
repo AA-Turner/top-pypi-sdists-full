@@ -1,0 +1,198 @@
+// The NEC-4.2 slot's RUN HALF in C++ (momwire#1607 B4a), with no Python in
+// it: deck text to the `Nec4Printout` A3's writer prints, over one basis'
+// solver (`RunEngine`). It is the copy of `eznec/_nec4.py`'s `solve` and
+// `_run` and of the parts of `portal._portal.DeckSolver` they call:
+// - the deck tables: the wire table (`_wire_rows`), the GE flag, the
+//   junctions (`_segment_end_nodes`) and the segmentation rows with NEC-4.2's
+//   junction rule for the connection columns (`_connections`);
+// - each run's port algebra (`DeckSolver.solve_group`), a TL / NT network
+//   through the NEC-5 seam's network solve (`nec5::replay::composed`):
+//   the LD 0-4 port impedances (`_load_impedances`), `(1 + Z·Y)⁻¹·V` by
+//   numpy's solve, a lone current source scaled to its set current, the
+//   coefficients `X·(signs·V_gap)`, the segment currents
+//   (`_segment_currents`: the element match and the knot means) and charges
+//   (`_segment_charges`, and `_charges`' free-end charges), and the power
+//   budget;
+// - the rows (`_run`, `_run_records`' source rows, `_charge_rows`, `value_row`)
+//   and RP (`_pattern` over the NEC-5 seam's row builder,
+//   `nec5::replay::free_space_pattern`, then `_at_range`); NE / NH over the
+//   NEC-5 seam's near-field readout (`nec5::replay::near_field`); the
+//   network rows (`_networks`).
+//
+// The basis answers three questions (`RunEngine`): its port solution, its
+// current at every knot, and dI/ds at given arclengths. The sinusoidal
+// basis' answers are `_sinusoidal_run_core.h`'s.
+//
+// Python stays the reference: the printout this produces is
+// `_nec4.render(text, basis=...)`'s byte for byte, except the two lines that
+// carry measured time (FILL= ... SEC. and RUN TIME), gated by
+// `tests/test_nec4_run_core.py` through `scripts/core_split/nec4_run_compare.py`.
+//
+// A GD card's second medium is the far field's cliff (`_far_moments`'
+// `cliff`, B5d), reflected off on every RP over a ground.
+//
+// A wire below the ground plane is the engine's question (the sinusoidal
+// front serves a wholly-buried deck, momwire#1607 B6a); a near field over
+// a finite ground of a deck with a buried wire, at a point in the soil or at
+// a wire's ground contact is refused in the reference's own words
+// (`_refuse_finite_ground_near_field`).
+//
+// DECLINED (`Declined`), never misprinted: an insulated wire, two sources on
+// one segment of a phased drive, and any run Python would answer with a
+// refusal this copy does not word (a singular drive block, a current source
+// on a port that takes no current).
+#pragma once
+
+#include "_nec4_printout_core.h"
+
+#include <complex>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace mw {
+namespace nec4 {
+
+// A refusal the reference raises as a ValueError inside `solve` (the solver
+// constructor's, say), which `_nec4.solve` turns into the structure's
+// refusal printout with the exception's words: an engine throws it with
+// Python's message.
+struct Refusal : std::runtime_error {
+    std::string message;  // UTF-8
+    explicit Refusal(const std::string &m) : std::runtime_error(m), message(m) {}
+};
+
+// One operating point's `compute_port_solution()`: Y (n_ports x n_ports,
+// C order) and the coefficients X (n_basis x n_ports) with the element
+// strides numpy holds them at.
+struct EngineSolve {
+    long long n_basis = 0, n_ports = 0;
+    std::vector<std::complex<double>> y;
+    std::vector<std::complex<double>> x;
+    long long x_s0 = 0, x_s1 = 0;
+    double fill_seconds = 0;    // measured, for the printout's MATRIX TIMING:
+    double factor_seconds = 0;  // FILL= the fill alone, FACTOR= the LU
+};
+
+class RunEngine {
+  public:
+    virtual ~RunEngine() = default;
+    // `solver.compute_port_solution()` at this operating point (`index`:
+    // its position in the structure's `points`).
+    virtual const EngineSolve &solve(std::size_t index) = 0;
+    // `solver.currents_at_knots(coeffs)`: per solver polyline, the current at
+    // each knot.
+    virtual std::vector<std::vector<std::complex<double>>> currents_at_knots(
+        std::size_t index, const std::vector<std::complex<double>> &coeffs) = 0;
+    // `solver.current_slopes(coeffs, s)`: per polyline, dI/ds at each arclength.
+    virtual std::vector<std::vector<std::complex<double>>> current_slopes(
+        std::size_t index, const std::vector<std::complex<double>> &coeffs,
+        const std::vector<std::vector<double>> &s) = 0;
+    // `solver.wire_loss_power(coeffs)[0]`: the wires' own loss (0 with no
+    // wire loading).
+    virtual double wire_loss_power(std::size_t index, const std::vector<std::complex<double>> &coeffs) = 0;
+    // `solver.currents_at_knots(coeffs, s_array)` on ONE polyline `wire`:
+    // the current at each arclength from its start (`element_currents`'
+    // subdivided walk, for NE / NH).
+    virtual std::vector<std::complex<double>> currents_at_arcs(
+        std::size_t index, const std::vector<std::complex<double>> &coeffs, std::size_t wire,
+        const std::vector<double> &arcs) = 0;
+    // `solver.omega`, and the `solver.eps` its ground's eps~ is folded with.
+    virtual double solver_omega(std::size_t index) = 0;
+    virtual double solver_eps0(std::size_t index) = 0;
+    // `solver._wire_dedup` (momwire#1042): how the operating point's input
+    // wires map onto the wires the solver holds, or nullptr when none was
+    // dropped. Every readout above speaks the SOLVED wires.
+    virtual const WireDedup *dedup(std::size_t index) {
+        (void)index;
+        return nullptr;
+    }
+    // `solver.nec2_end_cap_withdrawn` (momwire#2033): the refusal an explicit
+    // `nec2_end_cap` would raise on this operating point's deck, when the
+    // NEC-2 launcher's default ran it without the cap; "" otherwise (and on
+    // every basis but the point-matched sinusoidal one).
+    virtual std::string nec2_end_cap_withdrawn(std::size_t index) {
+        (void)index;
+        return std::string();
+    }
+};
+
+// Builds the engine for one built structure (its operating points).
+class EngineFactory {
+  public:
+    virtual ~EngineFactory() = default;
+    virtual RunEngine &engine_for(const StructureBuild &structure) = 0;
+};
+
+// `_nec4.render(text, basis=...)` over the engine: true with the printout
+// (UTF-8, LF), or false with why this copy declines the deck. An exception
+// that is not a decline (an allocation, say) escapes, as Python's would.
+bool render(const std::string &latin1_text, const std::string &basis,
+            const nec5::EngineStamp &stamp, EngineFactory &engines,
+            const nec5::NumpyLinalg &np, std::string &utf8_printout, std::string &why);
+
+// `_shell._stream_piece(text, dialect="nec4")` (momwire#1512): a piece cut
+// at an NX is that structure (`_nec4.render_structure` with its NX echo and
+// no RUN TIME), and `go_on` says it solved; any other piece is a whole deck
+// (`render`), after which the stream is over.
+bool render_piece(const std::string &latin1_text, const std::string &basis,
+                  const nec5::EngineStamp &stamp, EngineFactory &engines,
+                  const nec5::NumpyLinalg &np, std::string &utf8_printout, std::string &why,
+                  bool &go_on);
+
+// --- the NEC-2 portal's run half (momwire#2065) ------------------------------
+// `portal._portal.DeckSolver` over one built structure (`build_portal_structure`
+// of a deck read by `parse_portal_deck(text, Dialect::nec2)`), for the
+// NEC-2 printout writer (`_nec2_printout_core.h`): the same port algebra,
+// readouts and near field the slot's run half above is made of, handed
+// over as numbers rather than as a NEC-4.2 printout. A run Python would
+// refuse throws Refusal with its words; one this copy does not answer,
+// Declined.
+struct PortalRun {  // portal._portal.GroupResult
+    std::vector<std::pair<long long, std::pair<long long, std::complex<double>>>> driven;  // (port, (seg, volts))
+    std::vector<std::complex<double>> v_gap, v_applied, i_port, i_source, coeffs;
+    std::vector<std::complex<double>> segment_currents, segment_charges;
+    double p_in = 0, p_structure = 0, p_radiated = 0, efficiency = 0, p_network = 0;
+    double fill_seconds = 0, factor_seconds = 0, wavelength = 0;
+    bool networked = false;
+    std::vector<std::pair<long long, std::pair<long long, long long>>> network_points;  // (tag, (seg, port))
+    std::size_t point = 0;
+    bool pec = false, finite = false;
+    double eps_r = 0, sigma = 0;
+    std::string end_cap_withdrawn;  // `solver.nec2_end_cap_withdrawn`, "" for none
+};
+
+class PortalSolve {
+  public:
+    PortalSolve(const StructureSeam &ss, const StructureBuild &sb, RunEngine &engine, const nec5::NumpyLinalg &np);
+    ~PortalSolve();
+    PortalSolve(const PortalSolve &) = delete;
+    PortalSolve &operator=(const PortalSolve &) = delete;
+    // `DeckSolver.__init__`'s seed fill: the first operating point's port
+    // solution, whose refusal Python raises before the structure prints
+    void seed();
+    // `DeckSolver.solve_group(group, freq, group_index)`
+    PortalRun solve_group(const PortalGroup &group, double freq, long long group_index);
+    // `DeckSolver.current_elements(result)`: midpoints and moments, (n, 3)
+    void far_elements(const PortalRun &r, std::vector<double> &mid, std::vector<std::complex<double>> &moment);
+    // `_near_field_lines`' readout: one NE / NH grid's rows
+    PrintNearBlock near_field(const nec5::Card &card, const PortalRun &r);
+    bool loaded_twice(long long group_index) const;
+    // `global_segment(*structure.locate(tag, seg))`
+    long long global_segment(const Int &tag, const Int &seg) const;
+    // `live_cards(model, plan, group)`'s cards
+    std::vector<const NetworkCard *> live_networks(long long group_index) const;
+    // `card_branches(card, ...)[0]`'s line: |Z0|, the resolved length, crossed
+    void tl_line(const NetworkCard &card, double &z0, double &length, bool &crossed) const;
+
+  private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+// The largest solve (segments) the deck's built structures prepare, or -1
+// (the executable's thread policy).
+long long largest_solve(const std::string &latin1_text, const std::string &basis, bool open_end);
+
+}  // namespace nec4
+}  // namespace mw

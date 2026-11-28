@@ -18,7 +18,7 @@ from importlib.util import cache_from_source
 from pathlib import Path
 from shutil import copy2
 from stat import S_IREAD, S_IWGRP, S_IWOTH, S_IWUSR
-from subprocess import PIPE, STDOUT, Popen, check_call, run
+from subprocess import PIPE, STDOUT, Popen, TimeoutExpired, check_call, run
 from threading import Barrier, BrokenBarrierError, Event, Thread, current_thread, main_thread
 from typing import TYPE_CHECKING, Final
 
@@ -152,8 +152,8 @@ def test_second_interrupt_exits_and_next_run_finishes_seed(tmp_path: Path) -> No
     args: Final[list[str]] = ["--app-data", str(cache), "--no-periodic-update", "--no-setuptools", str(env)]
     script: Final[str] = """
 import os
+import signal
 import sys
-from _thread import interrupt_main
 from threading import Event, Thread
 from virtualenv.__main__ import run_with_catch
 from virtualenv.seed.embed.via_app_data.pip_install.base import PipInstall
@@ -164,7 +164,8 @@ def block(self, archive, folder):
 
 def watch_stdin():
     for _ in sys.stdin:
-        interrupt_main()
+        # A synthetic interrupt does not wake Windows waits that listen for SIGINT.
+        signal.raise_signal(signal.SIGINT)
 
 if os.name == "nt":
     Thread(target=watch_stdin, daemon=True).start()
@@ -837,9 +838,13 @@ _QUOTING_ONLY: Final[pytest.MarkDecorator] = pytest.mark.skipif(
 @pytest.mark.parametrize(
     "name",
     [
-        # GraalPy skips the slow launcher tests, so the plain case is its only check that a console script runs
         pytest.param(
-            "plain", id="plain", marks=pytest.mark.skipif(IS_PYPY, reason="the slow app-data seed test runs a launcher")
+            "plain",
+            id="plain",
+            marks=[
+                pytest.mark.graalpy,
+                pytest.mark.skipif(IS_PYPY, reason="the slow app-data seed test runs a launcher"),
+            ],
         ),
         pytest.param("two words", id="space", marks=_QUOTING_ONLY),
         pytest.param("owner's env", id="apostrophe", marks=_QUOTING_ONLY),
@@ -869,13 +874,14 @@ _QUOTING_ONLY: Final[pytest.MarkDecorator] = pytest.mark.skipif(
     ],
 )
 @pytest.mark.parametrize("seeder", [pytest.param("app-data", id="app-data"), pytest.param("pip", id="pip")])
+# Let the 300-second seed and 120-second launcher deadlines expire before pytest can kill the Windows worker.
+@pytest.mark.timeout(450)
 def test_console_script_preserves_interpreter_path(
     tmp_path: Path, current_fastest: str, name: str, via_python: bool, seeder: str
 ) -> None:
     destination: Final[str] = os.path.join(str(tmp_path), name, "env")
-    # GraalPy on a busy macOS runner takes over a minute to create and seed an environment, so the timeouts only guard
-    # against a hang.
-    run(
+    # GraalPy on a busy macOS runner can take over a minute to seed an environment.
+    _run_launcher_command(
         [
             sys.executable,
             "-m",
@@ -891,26 +897,35 @@ def test_console_script_preserves_interpreter_path(
             "--pip",
             "embed",
         ],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
+        tmp_path / "seed.stdout",
         timeout=300,
-        check=True,
     )
     scripts: Final[str] = os.path.join(destination, _SCRIPTS_DIR)
-    result: Final[CompletedProcess[str]] = run(
+    output: Final[str] = _run_launcher_command(
         [
             *{True: [os.path.join(scripts, "python")], False: []}[via_python],
             os.path.join(scripts, _PIP_EXE),
             "--version",
         ],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
+        tmp_path / "launcher.stdout",
         timeout=120,
-        check=True,
     )
-    assert os.path.normcase(destination) in os.path.normcase(result.stdout)
+    assert os.path.normcase(destination) in os.path.normcase(output)
+
+
+def _run_launcher_command(command: list[str], output: Path, *, timeout: int) -> str:
+    errors: Final[Path] = output.with_suffix(".stderr")
+    # On Windows a surviving grandchild can keep a pipe open after a timed-out child is killed.
+    try:
+        with output.open("wb") as stdout, errors.open("wb") as stderr:
+            result = run(command, stdout=stdout, stderr=stderr, timeout=timeout, check=False)
+    except TimeoutExpired:
+        pytest.fail(
+            f"{command!r} did not finish in {timeout}s\n"
+            f"{output.read_text(encoding='utf-8', errors='replace')}\n{errors.read_text(encoding='utf-8', errors='replace')}"
+        )
+    assert result.returncode == 0, errors.read_text(encoding="utf-8", errors="replace")
+    return output.read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX shebangs")

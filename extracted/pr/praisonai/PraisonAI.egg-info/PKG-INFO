@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.8.2
+Version: 4.8.3
 Summary: Open-source Python AI agent framework that runs on your own computers, even fully offline.
 Author: Mervin Praison
 License: MIT
@@ -11,14 +11,14 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.8.3
-Requires-Dist: praisonai-code>=0.2.2
-Requires-Dist: praisonai-bot>=0.2.2
-Requires-Dist: praisonai-train>=0.2.2
-Requires-Dist: praisonai-browser>=0.2.2
-Requires-Dist: praisonai-mcp>=0.2.2
-Requires-Dist: praisonai-sandbox>=0.2.2
-Requires-Dist: praisonai-deploy>=0.2.2
+Requires-Dist: praisonaiagents>=1.8.4
+Requires-Dist: praisonai-code>=0.2.3
+Requires-Dist: praisonai-bot>=0.2.3
+Requires-Dist: praisonai-train>=0.2.3
+Requires-Dist: praisonai-browser>=0.2.3
+Requires-Dist: praisonai-mcp>=0.2.3
+Requires-Dist: praisonai-sandbox>=0.2.3
+Requires-Dist: praisonai-deploy>=0.2.3
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<1.106,>=1.83.14
 Requires-Dist: PyYAML>=6.0
@@ -381,6 +381,9 @@ vLLM and LM Studio work the same way: use `hosted_vllm/` (vLLM) or `lm_studio/` 
 <td valign="top"><b><a href="https://praison.ai/docs/deploy">Deploy</a></b><br /><sub>Ship agents as APIs or to the cloud.</sub></td>
 </tr>
 </table>
+
+> **Open Products** — Built directly on PraisonAI with zero duplicated code:
+> **[OpenShip](products/openship/)** — open-source PR shipping, self-review, PR Steward, and declarative `.praisonai/approvals.yml` on any LLM or local Ollama (draft PRs only; never merges). Browse all [`products/`](products/).
 
 ## The Five-Layer Agent Stack
 

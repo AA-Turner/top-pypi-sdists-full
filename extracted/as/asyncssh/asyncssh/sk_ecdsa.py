@@ -26,7 +26,8 @@ from typing import Optional, Tuple, cast
 from .asn1 import der_encode, der_decode
 from .crypto import ECDSAPublicKey
 from .packet import Byte, MPInt, String, UInt32, SSHPacket
-from .public_key import KeyExportError, SSHKey, SSHOpenSSHCertificateV01
+from .public_key import KeyExportError, KeyImportError
+from .public_key import SSHKey, SSHOpenSSHCertificateV01
 from .public_key import register_public_key_alg, register_certificate_alg
 from .public_key import register_sk_alg
 from .sk import SSH_SK_ECDSA, SSH_SK_USER_PRESENCE_REQD
@@ -62,9 +63,6 @@ class _SKECDSAKey(SSHKey):
         self._reserved = reserved
 
     def __eq__(self, other: object) -> bool:
-        # This isn't protected access - both objects are _SKECDSAKey instances
-        # pylint: disable=protected-access
-
         return (isinstance(other, type(self)) and
                 self._key.curve_id == other._key.curve_id and
                 self._key.public_value == other._key.public_value and
@@ -103,8 +101,11 @@ class _SKECDSAKey(SSHKey):
         curve_id, public_value, application, flags, key_handle, reserved = \
             cast(_PrivateKeyArgs, key_params)
 
-        return cls(curve_id, public_value, application,
-                   flags, key_handle, reserved)
+        try:
+            return cls(curve_id, public_value, application,
+                       flags, key_handle, reserved)
+        except ValueError:
+            raise KeyImportError('Invalid U2F ECDSA private key') from None
 
     @classmethod
     def make_public(cls, key_params: object) -> SSHKey:
@@ -112,7 +113,10 @@ class _SKECDSAKey(SSHKey):
 
         curve_id, public_value, application = cast(_PublicKeyArgs, key_params)
 
-        return cls(curve_id, public_value, application)
+        try:
+            return cls(curve_id, public_value, application)
+        except ValueError:
+            raise KeyImportError('Invalid U2F ECDSA public key') from None
 
     @classmethod
     def decode_ssh_private(cls, packet: SSHPacket) -> _PrivateKeyArgs:

@@ -300,6 +300,19 @@ def edge_evidence(d: dict) -> list[dict]:
     return [d, *(a for a in also if isinstance(a, dict))] if isinstance(also, list) else [d]
 
 
+def edge_lines(d: dict) -> list[int]:
+    """Every line of an edge's own file where it was seen, ascending: ``source_location`` plus ``also_seen``."""
+    own = d.get("source_file")
+    lines: set[int] = set()
+    for ev in edge_evidence(d):
+        if ev is not d and ev.get("source_file") not in (None, "", own):
+            continue
+        m = re.fullmatch(r"L(\d+)", str(ev.get("source_location") or ""))
+        if m:
+            lines.add(int(m.group(1)))
+    return sorted(lines)
+
+
 def _fold_also_seen(winner: dict, loser: dict) -> None:
     """Record ``loser``'s provenance on ``winner`` when the two collapse (#4881).
 
@@ -581,6 +594,7 @@ _EDGE_LANG_FAMILY: dict[str, str] = {
     ".php7": "php", ".phps": "php",
     ".luau": "lua",
     ".cbl": "cobol", ".cob": "cobol", ".cobol": "cobol", ".cpy": "cobol",
+    ".liquid": "liquid",
     ".r": "r", ".sol": "solidity",
     ".erl": "erlang", ".hrl": "erlang", ".escript": "erlang",
     ".zig": "zig", ".ex": "elixir", ".exs": "elixir", ".jl": "julia",
@@ -865,6 +879,56 @@ def _coerce_non_string_ids(extraction: dict) -> None:
             members = he.get(key)
             if isinstance(members, list):
                 he[key] = [_coerce_id(ref) for ref in members]
+
+
+def _repair_extraction_field_types(extraction: dict) -> None:
+    """Keep valid records usable before deduplication or graph assembly."""
+    dropped_nodes = dropped_edges = repaired_fields = 0
+    nodes = []
+    for node in extraction.get("nodes", []):
+        if isinstance(node, dict):
+            node_id = node.get("id")
+            if "id" in node and not isinstance(node_id, str):
+                dropped_nodes += 1
+                continue
+            if "label" in node and not isinstance(node["label"], str):
+                alias = node.get("name")
+                node["label"] = alias if isinstance(alias, str) and alias else node_id or ""
+                repaired_fields += 1
+            if "source_file" in node and not isinstance(node["source_file"], str):
+                node["source_file"] = ""
+                repaired_fields += 1
+        nodes.append(node)
+    if "nodes" in extraction:
+        extraction["nodes"] = nodes
+
+    edges = []
+    for edge in extraction.get("edges", []):
+        if isinstance(edge, dict):
+            if "relation" in edge and not isinstance(edge["relation"], str):
+                _fold_edge_aliases(edge)
+            if (
+                ("relation" in edge and not isinstance(edge["relation"], str))
+                or any(
+                    canonical in edge or alias in edge
+                    for canonical, alias in (("source", "from"), ("target", "to"))
+                    if not isinstance(edge.get(canonical, edge.get(alias)), str)
+                )
+            ):
+                dropped_edges += 1
+                continue
+            if "source_file" in edge and not isinstance(edge["source_file"], str):
+                edge["source_file"] = ""
+                repaired_fields += 1
+        edges.append(edge)
+    if "edges" in extraction:
+        extraction["edges"] = edges
+    if dropped_nodes or dropped_edges or repaired_fields:
+        print(
+            f"[graphify] WARNING: malformed field types: skipped {dropped_nodes} node(s) "
+            f"and {dropped_edges} edge(s), repaired {repaired_fields} field(s).",
+            file=sys.stderr,
+        )
 
 
 def _norm_source_file(p: str | None, root: str | None = None) -> str | None:
@@ -1798,6 +1862,7 @@ def build_from_json(extraction: dict, *, directed: bool = False, root: str | Pat
         if isinstance(edge, dict):
             _fold_edge_aliases(edge)
 
+    _repair_extraction_field_types(extraction)
     errors = validate_extraction(extraction)
     # Dangling edges (stdlib/external imports) are expected - only warn about real schema errors.
     real_errors = [e for e in errors if "does not match any node id" not in e]
@@ -2300,7 +2365,12 @@ def build_from_json(extraction: dict, *, directed: bool = False, root: str | Pat
                 # imports/references: drop only when BOTH endpoints are known code
                 # languages of different families, so a config->code reference
                 # (unknown ext, e.g. a manifest) is never mistaken for a phantom.
-                if src_fam is not None and tgt_fam is not None and src_fam != tgt_fam:
+                # A .liquid file legitimately references assets of other languages
+                # (assets/x.js); the Liquid extractor only emits file-verified edges.
+                if (
+                    src_fam is not None and tgt_fam is not None and src_fam != tgt_fam
+                    and src_fam != "liquid"
+                ):
                     continue
         # A file-level import or re-export cannot carry useful connectivity when
         # both endpoints resolve to the same node.  This most often happens when
@@ -2545,6 +2615,7 @@ def build(
         # raise TypeError in _pick_winner's regex search (#2326). build_from_json
         # coerces too, but that runs after dedup — too late for this path.
         _coerce_non_string_ids(combined)
+        _repair_extraction_field_types(combined)
         # Fold legacy node field aliases before dedup (#2194): dedup runs BEFORE
         # build_from_json and keys on `label`, so a `name`/`file`/`path` alias node
         # would be invisible to it and only label-dedup one build later, after

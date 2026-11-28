@@ -19,6 +19,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from tensor_grep.cli.repo_map_fast_cache import resolve_canonical_cache_root
 from tensor_grep.io.confined import (
     prepare_directory,
     publish_confined,
@@ -180,7 +181,7 @@ def _configure_sqlite(conn: sqlite3.Connection) -> None:
 
 
 def _open_tdad_db(repo_root: Path, *, create_dirs: bool) -> tuple[sqlite3.Connection, Path, Path]:
-    resolved_root = Path(repo_root).expanduser().resolve()
+    resolved_root = resolve_canonical_cache_root(repo_root)
     db_path = resolved_root / TDAD_CACHE_REL_PATH
     if create_dirs:
         prepare_directory(resolved_root, db_path.parent)
@@ -204,24 +205,31 @@ def _open_tdad_db(repo_root: Path, *, create_dirs: bool) -> tuple[sqlite3.Connec
                         "SELECT name FROM sqlite_master WHERE type='table'"
                     ).fetchall()
                 }
-                if {"metadata", "source_test_deps"}.issubset(tables):
-                    meta_cols = {
-                        row[1] for row in conn.execute("PRAGMA table_info(metadata)").fetchall()
-                    }
-                    dep_cols = {
-                        row[1]
+                triggers = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='trigger'"
+                ).fetchall()
+                qc = conn.execute("PRAGMA quick_check").fetchone()
+                if tables == {"metadata", "source_test_deps"} and not triggers and qc == ("ok",):
+                    meta_info = [
+                        (str(row[1]), str(row[2]).upper(), int(row[3]), int(row[5]))
+                        for row in conn.execute("PRAGMA table_info(metadata)").fetchall()
+                    ]
+                    dep_info = [
+                        (str(row[1]), str(row[2]).upper(), int(row[3]), int(row[5]))
                         for row in conn.execute("PRAGMA table_info(source_test_deps)").fetchall()
-                    }
-                    required_dep_cols = {
-                        "source_file",
-                        "source_symbol",
-                        "test_file",
-                        "edge_kind",
-                        "weight",
-                    }
-                    if {"key", "value"}.issubset(meta_cols) and required_dep_cols.issubset(
-                        dep_cols
-                    ):
+                    ]
+                    expected_meta = [
+                        ("key", "TEXT", 0, 1),
+                        ("value", "TEXT", 1, 0),
+                    ]
+                    expected_deps = [
+                        ("source_file", "TEXT", 1, 1),
+                        ("source_symbol", "TEXT", 1, 2),
+                        ("test_file", "TEXT", 1, 3),
+                        ("edge_kind", "TEXT", 1, 4),
+                        ("weight", "REAL", 1, 0),
+                    ]
+                    if meta_info == expected_meta and dep_info == expected_deps:
                         ver_row = conn.execute(
                             "SELECT value FROM metadata WHERE key = 'schema_version'"
                         ).fetchone()
@@ -284,10 +292,11 @@ def record_tdad_edges(
     edges: Iterable[tuple[str, str, str, str, float]],
     *,
     replace: bool = False,
+    replace_files: Iterable[str] | None = None,
     metadata_updates: Mapping[str, str] | None = None,
 ) -> int:
     """Persist explicit (source_file, source_symbol, test_file, edge_kind, weight) rows."""
-    resolved_root = Path(repo_root).expanduser().resolve()
+    resolved_root = resolve_canonical_cache_root(repo_root)
     rows = [
         (
             _norm_path(src_file, repo_root=resolved_root),
@@ -304,6 +313,15 @@ def record_tdad_edges(
         with conn:
             if replace:
                 conn.execute("DELETE FROM source_test_deps")
+            elif replace_files is not None:
+                scoped_sources = sorted({
+                    _norm_path(src, repo_root=resolved_root) for src in replace_files if src
+                })
+                if scoped_sources:
+                    conn.executemany(
+                        "DELETE FROM source_test_deps WHERE source_file = ?",
+                        [(src,) for src in scoped_sources],
+                    )
             if rows:
                 conn.executemany(
                     """
@@ -437,7 +455,8 @@ def build_tdad_dependency_map(
     persist: bool = True,
 ) -> dict[str, Any]:
     """Build (and optionally persist) the TDAD source-to-test dependency map."""
-    resolved_root = Path(repo_root).expanduser().resolve()
+    input_root = Path(repo_root).expanduser().resolve()
+    resolved_root = resolve_canonical_cache_root(input_root)
     payload = repo_map_payload
     if payload is None:
         from tensor_grep.cli import repo_map as _repo_map
@@ -449,14 +468,20 @@ def build_tdad_dependency_map(
     fingerprint = _compute_repo_fingerprint(resolved_root, tracked_files)
     persisted = False
     if persist and resolved_root.is_dir():
+        replace_canonical = repo_map_payload is None or input_root == resolved_root
         record_tdad_edges(
             resolved_root,
             edges,
-            replace=True,
-            metadata_updates={
-                "repo_fingerprint": fingerprint,
-                "tracked_files": json.dumps(tracked_files, separators=(",", ":")),
-            },
+            replace=replace_canonical,
+            replace_files=None if replace_canonical else tracked_files,
+            metadata_updates=(
+                {
+                    "repo_fingerprint": fingerprint,
+                    "tracked_files": json.dumps(tracked_files, separators=(",", ":")),
+                }
+                if replace_canonical
+                else None
+            ),
         )
         persisted = True
 
@@ -499,7 +524,7 @@ def ensure_tdad_dependency_map(
     persist: bool = True,
 ) -> dict[str, Any]:
     """Refresh TDAD cache only if missing or invalidated by revision/file-stat changes."""
-    resolved_root = Path(repo_root).expanduser().resolve()
+    resolved_root = resolve_canonical_cache_root(repo_root)
     db_path = resolved_root / TDAD_CACHE_REL_PATH
     if db_path.exists():
         rows, stored_fp, tracked_files = _read_tdad_cache_state(resolved_root)
@@ -519,7 +544,7 @@ def ensure_tdad_dependency_map(
                     "cache_path": str(db_path).replace("\\", "/"),
                 }
     result = build_tdad_dependency_map(
-        resolved_root,
+        repo_root if repo_map_payload is not None else resolved_root,
         repo_map_payload=repo_map_payload,
         persist=persist,
     )
@@ -536,7 +561,7 @@ def query_tdad_tests(
     persist: bool = True,
 ) -> list[dict[str, Any]]:
     """Query covering test files for changed_files / changed_symbols from TDAD cache."""
-    resolved_root = Path(repo_root).expanduser().resolve()
+    resolved_root = resolve_canonical_cache_root(repo_root)
     db_path = resolved_root / TDAD_CACHE_REL_PATH
     norm_files = sorted({_norm_path(f, repo_root=resolved_root) for f in changed_files if f})
     sym_names = sorted({str(s.get("name", "")) for s in (changed_symbols or ()) if s.get("name")})
@@ -567,14 +592,20 @@ def query_tdad_tests(
             if persist and resolved_root.is_dir():
                 tracked_files = _collect_repo_map_file_paths(repo_map_payload, resolved_root)
                 fingerprint = _compute_repo_fingerprint(resolved_root, tracked_files)
+                replace_canonical = Path(repo_root).expanduser().resolve() == resolved_root
                 record_tdad_edges(
                     resolved_root,
                     rows,
-                    replace=True,
-                    metadata_updates={
-                        "repo_fingerprint": fingerprint,
-                        "tracked_files": json.dumps(tracked_files, separators=(",", ":")),
-                    },
+                    replace=replace_canonical,
+                    replace_files=None if replace_canonical else tracked_files,
+                    metadata_updates=(
+                        {
+                            "repo_fingerprint": fingerprint,
+                            "tracked_files": json.dumps(tracked_files, separators=(",", ":")),
+                        }
+                        if replace_canonical
+                        else None
+                    ),
                 )
         elif (cache_stale or (db_path.exists() and not has_fingerprint)) and resolved_root.is_dir():
             build_tdad_dependency_map(resolved_root, repo_map_payload=None, persist=persist)
@@ -932,7 +963,7 @@ def build_change_slice_from_manifest(
     *,
     root: Path,
 ) -> dict[str, Any]:
-    """Build a minimal change-directed graph slice from an audit manifest for review bundles."""
+    """Build a change-directed graph slice from an audit manifest for review bundles."""
     raw_files = manifest.get("files")
     changed_files: list[str] = []
     if isinstance(raw_files, Sequence):
@@ -942,15 +973,73 @@ def build_change_slice_from_manifest(
             elif isinstance(item, str):
                 changed_files.append(_norm_path(item))
     changed_files = sorted(set(changed_files))
-    tdad_tests = (
-        query_tdad_tests(root, changed_files, persist=False)
-        if changed_files and root.is_dir()
-        else []
-    )
-    return extract_change_directed_slice(
+    changed_symbols: list[dict[str, Any]] = []
+    callers: list[dict[str, Any]] = []
+    affected_files: set[str] = set(changed_files)
+    tdad_tests: list[dict[str, Any]] = []
+    omitted_symbols: list[str] = []
+    if changed_files and root.is_dir():
+        from tensor_grep.cli import repo_map
+
+        repo_map_payload = repo_map.build_repo_map(root)
+        changed_set = set(changed_files)
+        for sym in repo_map_payload.get("symbols", []):
+            if not isinstance(sym, Mapping):
+                continue
+            sym_file = _norm_path(str(sym.get("file", "")), repo_root=root)
+            if sym_file in changed_set and sym.get("name"):
+                changed_symbols.append({
+                    "file": sym_file,
+                    "name": str(sym["name"]),
+                    "kind": str(sym.get("kind", "symbol")),
+                    **({"line": int(sym["line"])} if sym.get("line") is not None else {}),
+                })
+        tdad_tests = query_tdad_tests(
+            root,
+            changed_files,
+            changed_symbols,
+            repo_map_payload=repo_map_payload,
+            persist=False,
+        )
+        seen_callers: set[tuple[str, str, int]] = set()
+        seen_names: list[str] = []
+        for sym in changed_symbols:
+            sym_name = str(sym["name"])
+            if sym_name not in seen_names:
+                if len(seen_names) < 20:
+                    seen_names.append(sym_name)
+                elif sym_name not in omitted_symbols:
+                    omitted_symbols.append(sym_name)
+        for sym_name in seen_names:
+            radius = repo_map.build_symbol_blast_radius_from_map(repo_map_payload, sym_name)
+            for caller in radius.get("callers", []):
+                if not isinstance(caller, Mapping):
+                    continue
+                c_file = _norm_path(str(caller.get("file", "")), repo_root=root)
+                c_name = str(caller.get("caller", caller.get("name", "")))
+                c_line = int(caller.get("line", 0))
+                key = (c_file, c_name, c_line)
+                if key not in seen_callers:
+                    seen_callers.add(key)
+                    c_copy = dict(caller)
+                    c_copy["file"] = c_file
+                    callers.append(c_copy)
+            for af in radius.get("affected_files", []):
+                affected_files.add(_norm_path(str(af), repo_root=root))
+        for test_hit in tdad_tests:
+            affected_files.add(_norm_path(str(test_hit["test_file"]), repo_root=root))
+    result_slice = extract_change_directed_slice(
         changed_files,
-        [],
-        [],
-        [str(t["test_file"]) for t in tdad_tests],
+        changed_symbols,
+        callers,
+        sorted(affected_files),
         tdad_tests,
+        repo_root=root,
     )
+    if omitted_symbols:
+        result_slice["omitted_symbols_count"] = len(omitted_symbols)
+        result_slice["result_incomplete"] = True
+        result_slice["omissions"] = [
+            f"{len(omitted_symbols)} changed symbols omitted past the 20-symbol caller expansion limit"
+        ]
+    return result_slice

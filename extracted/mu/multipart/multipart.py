@@ -11,7 +11,7 @@ License: MIT (see LICENSE file)
 """
 
 __author__ = "Marcel Hellkamp"
-__version__ = '2.0.1'
+__version__ = "2.0.2"
 __license__ = "MIT"
 __all__ = [
     "MultipartError",
@@ -177,7 +177,7 @@ class MultiDict(DictMixin):
                 yield key, value
 
 
-def to_bytes(data, enc="utf8"):
+def to_bytes(data, enc="utf-8"):
     if isinstance(data, str):
         data = data.encode(enc)
 
@@ -197,16 +197,6 @@ def copy_file(stream, target, maxread=-1, buffer_size=2**16):
 
         target.write(part)
         size += len(part)
-
-
-def _is_valid_charset(charset):
-    if charset in _KNOWN_CHARSETS:
-        return True
-    try:
-        codecs.lookup(charset)
-        return True
-    except (LookupError, TypeError):
-        return False
 
 
 # -------------
@@ -345,18 +335,61 @@ def parse_content_disposition(value: str) -> tuple[str, str | None, str | None]:
 ##############################################################################
 
 
-# Known-good header names and charsets, used to skip costly validity checks.
+# fmt: off
+#: Known-good header names, used to skip costly validity checks.
 _KNOWN_HEADERS = frozenset(
-    ["Content-Disposition", "Content-Type", "Content-Length", "Content-Range"]
+    ("Content-Disposition", "Content-Type", "Content-Length", "Content-Range")
 )
-_KNOWN_CHARSETS = frozenset(
-    ("utf8", "utf-8", "ascii", "us-ascii", "latin1", "latin-1", "iso-8859-1")
-)
+
+#: Known-good header charsets and some common aliases mapped to their actual name
+_KNOWN_CHARSETS = {
+    alias: codecs.lookup(alias).name
+    for alias in (
+        "utf-8", "utf8",
+        "ascii", "us-ascii",
+        "iso8859-1", "iso-8859-1", "latin1", "latin-1",
+    )
+}
+
+#: Python specific charsets that should never be used by valid clients.
+_BAD_CHARSETS = {
+    "unicode-escape", "punycode", "rot-13", "raw-unicode-escape", "hex",
+    "bz2", "palmos", "undefined", "zlib", "base64", "idna", "quopri",
+    "uu", "mbcs", "oem"
+}
+# fmt: on
+
+
+def _safe_charset(charset: str, strict: bool):
+    """Return the actual name of a given charset or common alias while
+    rejecting problematic or unknown charsets. In strict mode, only a
+    small set of known charsets is allowed and any other charset raises
+    an exception. In non-strict mode, uncommon charsets are also allowed.
+    Unknown or known bad charsets always raise an exception."""
+    if charset == "utf-8":
+        return "utf-8"
+    if good := _KNOWN_CHARSETS.get(charset.lower()):
+        return good
+    if strict:
+        raise StrictParserError(f"Invalid or unknown charset: {charset!r}")
+    try:
+        info = codecs.lookup(charset)
+        if info.name not in _BAD_CHARSETS:
+            return info.name
+    except LookupError:
+        pass
+    raise ParserError(f"Invalid or unknown charset: {charset!r}")
+
+
 # Parser states as constants
 _PREAMBLE = object()
 _HEADER = object()
 _BODY = object()
 _COMPLETE = object()
+
+
+class _TaggedBytes(bytes):
+    """A `bytes` subclass with extra meaning or metadata attached to it."""
 
 
 class PushMultipartParser:
@@ -386,7 +419,7 @@ class PushMultipartParser:
         max_header_count=8,  # RFC 7578 allows just 3
         max_segment_size=inf,  # unlimited
         max_segment_count=inf,  # unlimited
-        header_charset="utf8",
+        header_charset="utf-8",
         strict=False,
     ):
         """Create a new parser instance.
@@ -402,7 +435,7 @@ class PushMultipartParser:
         """
         self.boundary = to_bytes(boundary)
         self.content_length = content_length
-        self.header_charset = header_charset
+        self.header_charset = _safe_charset(header_charset or "utf-8", strict)
         self.max_header_size = max_header_size
         self.max_header_count = max_header_count
         self.max_segment_size = max_segment_size
@@ -415,8 +448,6 @@ class PushMultipartParser:
             raise ParserError("Invalid characters in boundary")
         if self.strict and len(self.boundary) > 1024:
             raise StrictParserError("Boundary too long")
-        if not _is_valid_charset(header_charset):
-            raise ParserError(f"Invalid charset: {header_charset!r}")
 
         # Internal parser state
         self._delimiter = b"\r\n--" + self.boundary
@@ -426,7 +457,7 @@ class PushMultipartParser:
 
         self._segment: Optional["MultipartSegment"] = None
         self._segment_count = 0
-        self._segment_headerlist: List[Tuple[str, str]] = []
+        self._segment_headerlines: List[bytes] = []
         self._segment_limit = -1
 
         #: True if the parser was closed, either successfully by reaching the
@@ -559,7 +590,9 @@ class PushMultipartParser:
                         offset = nl + 2
                         continue
                     elif nl == offset:  # Empty header line -> End of header section
-                        self._segment = self._create_segment(self._segment_headerlist)
+                        self._segment = self._create_segment(
+                            self._collect_segment_headers()
+                        )
                         yield self._segment
                         self._state = _BODY
                         offset += 2
@@ -721,58 +754,69 @@ class PushMultipartParser:
             raise ParserLimitReached("Maximum segment count exceeded")
 
         self._segment = None
-        self._segment_headerlist = []
+        self._segment_headerlines = []
         self._segment_limit = -1
 
     def _on_segment_headerline(self, line: bytes):
-        """Parse a raw segment header line, which may be a continuation of a
-        previous line in non-strict mode."""
+        """Collect raw header lines and enforce limits. Merge multi-line header in
+        non-strict mode only."""
         assert line and self._segment is None
 
         # Handle header continuation (headers split into multiple lines)
         if line[0] in b" \t":  # Multi-line header value
-            if not self._segment_headerlist or self.strict:
+            if self.strict:
                 raise StrictParserError("Unexpected segment header continuation")
-            if line.isspace():
-                raise StrictParserError("Empty segment header continuation")
-            prev = ": ".join(self._segment_headerlist.pop())
-            line = prev.encode(self.header_charset) + b" " + line[1:]
+            if not self._segment_headerlines:
+                raise ParserError("Unexpected segment header continuation")
+            last = self._segment_headerlines.pop()
+            if isinstance(last, _TaggedBytes):
+                raise ParserLimitReached("Too many segment header continuations")
+            line = _TaggedBytes(last + b" " + line[1:])
 
         # Enforce header limits
         if len(line) > self.max_header_size:
             raise ParserLimitReached("Maximum segment header length exceeded")
-        if len(self._segment_headerlist) >= self.max_header_count:
+        if len(self._segment_headerlines) >= self.max_header_count:
             raise ParserLimitReached("Maximum segment header count exceeded")
 
-        # Decode headerline into normalized (name, value) pairs
-        try:
-            name, col, value = line.decode(self.header_charset).partition(":")
-        except UnicodeDecodeError as err:
-            raise ParserError("Segment header failed to decode", err)
-        if not col:
-            raise ParserError("Malformed segment header")
-        if name not in _KNOWN_HEADERS:
-            name = name.strip().title()
-            if name not in _KNOWN_HEADERS and not _re_hname.fullmatch(name):
-                raise ParserError("Invalid segment header name")
-        value = value.lstrip(" \t")
+        self._segment_headerlines.append(line)
 
-        if name == "Content-Length":
-            if self._segment_limit >= 0:
-                raise ParserError("Multiple segment Content-Length headers")
+    def _collect_segment_headers(self):
+        """Parse and decode all collected header lines into a (name, value) list."""
+        parsed = []
+
+        for line in self._segment_headerlines:
+            # Decode headerline into normalized (name, value) pairs
             try:
-                content_length = int(value)
-                if content_length < 0 or str(content_length) != value:
-                    raise ValueError("Not an unsigned ASCII decimal")
-            except ValueError:
-                raise ParserError("Invalid segment Content-Length header value")
-            if content_length > self.max_segment_size:
-                raise ParserLimitReached(
-                    "Segment Content-Length larger than maximum segment size"
-                )
-            self._segment_limit = content_length
+                name, col, value = line.decode(self.header_charset).partition(":")
+            except UnicodeDecodeError as err:
+                raise ParserError("Segment header failed to decode", err)
+            if not col:
+                raise ParserError("Malformed segment header")
+            if name not in _KNOWN_HEADERS:
+                name = name.strip().title()
+                if name not in _KNOWN_HEADERS and not _re_hname.fullmatch(name):
+                    raise ParserError("Invalid segment header name")
+            value = value.lstrip(" \t")
+            parsed.append((name, value))
 
-        self._segment_headerlist.append((name, value))
+            # Set segment read limit from Content-Length segment header
+            if name == "Content-Length":
+                if self._segment_limit >= 0:
+                    raise ParserError("Multiple segment Content-Length headers")
+                try:
+                    content_length = int(value)
+                    if content_length < 0 or str(content_length) != value:
+                        raise ValueError("Not an unsigned ASCII decimal")
+                except ValueError:
+                    raise ParserError("Invalid segment Content-Length header value")
+                if content_length > self.max_segment_size:
+                    raise ParserLimitReached(
+                        "Segment Content-Length larger than maximum segment size"
+                    )
+                self._segment_limit = content_length
+
+        return parsed
 
     def _create_segment(self, headerlist: List[Tuple[str, str]]) -> "MultipartSegment":
         """Create and return a :class:`MultipartSegment` from a list of headers.
@@ -928,7 +972,7 @@ class MultipartParser:
         stream,
         boundary,
         content_length=-1,
-        charset="utf8",
+        charset="utf-8",
         strict=False,
         buffer_size=1024 * 64,
         header_limit=8,
@@ -1074,7 +1118,7 @@ class MultipartPart:
         segment: "MultipartSegment",
         buffer_size=2**16,
         memfile_limit=2**18,
-        charset="utf8",
+        charset="utf-8",
     ):
         """Private constructor, used by :class:`MultipartParser`"""
 
@@ -1146,7 +1190,7 @@ class MultipartPart:
         Warning, this may consume a lot of memory, check :attr:`size` first.
         """
 
-        return self.raw.decode(self.charset)
+        return self.raw.decode(_safe_charset(self.charset, strict=False))
 
     @property
     def raw(self):
@@ -1207,7 +1251,7 @@ def is_form_request(environ):
 
 
 def parse_form_data(
-    environ, charset="utf8", strict=False, ignore_errors=None, **kwargs
+    environ, charset="utf-8", strict=False, ignore_errors=None, **kwargs
 ):
     """Parses both types of form data (multipart and url-encoded) from a WSGI
     environment and returns two :class:`MultiDict` instances, one for text form
@@ -1257,9 +1301,6 @@ def parse_form_data(
         content_type, options = parse_options_header(content_type)
         kwargs["charset"] = charset = options.get("charset", charset)
 
-        if not _is_valid_charset(charset):
-            raise ParserError(f"Invalid charset: {charset!r}")
-
         if content_type == "multipart/form-data":
             boundary = options.get("boundary", "")
 
@@ -1295,6 +1336,7 @@ def parse_form_data(
                 if len(data) > mem_limit:
                     raise ParserLimitReached("Memory limit exceeded")
 
+            charset = _safe_charset(charset, strict)
             fields = data.decode(charset).split("&", part_limit)
             if len(fields) > part_limit:
                 raise ParserLimitReached("Part limit exceeded")
@@ -1303,8 +1345,8 @@ def parse_form_data(
                 if not name:
                     continue
                 forms.append(
-                    _unquote_plus(name, encoding=charset, errors="replace"),
-                    _unquote_plus(value or "", encoding=charset, errors="replace"),
+                    _unquote_plus(name, encoding=charset),
+                    _unquote_plus(value or "", encoding=charset),
                 )
 
         elif strict:

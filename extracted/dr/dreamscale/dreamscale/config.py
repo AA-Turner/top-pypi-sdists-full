@@ -71,6 +71,21 @@ def warn_engine_ignored(engine: object, *, stacklevel: int = 2) -> None:
         )
 
 
+# Dreamscale chooses the server for each session. Code and scripts that still pin one with
+# `provider=` or `--provider` have it sent, with this notice.
+PROVIDER_DEPRECATED = "is deprecated: omit it and Dreamscale chooses the server"
+
+
+def warn_provider_deprecated(provider: object, *, stacklevel: int = 2) -> None:
+    """One DeprecationWarning when code still passes ``provider`` (any value but None), at
+    ``stacklevel`` counted from the public function that took it (2: its caller)."""
+    if provider is not None:
+        warnings.warn(
+            f"provider= {PROVIDER_DEPRECATED}. It still works for now.",
+            DeprecationWarning, stacklevel=stacklevel + 1,
+        )
+
+
 def legacy_home_in_use() -> Path | None:
     """The pre-rename ~/.dropbear, when it is used in place of ~/.dreamscale."""
     home = Path(DEFAULT_HOME).expanduser()

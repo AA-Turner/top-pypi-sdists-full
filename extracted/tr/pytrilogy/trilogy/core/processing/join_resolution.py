@@ -70,6 +70,8 @@ from trilogy.core.processing.utility import (
     left_deep_joins,
     padded_before,
     padded_by,
+    padded_sources,
+    set_sources,
 )
 from trilogy.utility import string_to_hash
 
@@ -341,6 +343,11 @@ class SideFacts:
     filters: tuple[BoolExpr, ...] = ()
     # the tables the side reads
     leaves: frozenset[str] = frozenset()
+    # the tables every row of the side holds a row of (no join pads them)
+    row_tables: frozenset[str] = frozenset()
+    # the one table a one-row total reads every row of, bare: the total holds
+    # its row exactly when that table holds one (`_total_input`)
+    total_of: str | None = None
     # extent-free span or `~` key -> the leaf tables whose own `~` column
     # binds it here
     span_bindings: Mapping[str, frozenset[str]] = field(default_factory=dict)
@@ -404,6 +411,10 @@ class JoinFacts:
     # the ones on a FULL-declared key the graph proves anyway (rule B): a
     # directed subset path between the two concepts overrides the declaration
     proven_covered: frozenset[tuple[str, str, str]] = frozenset()
+    # (rows, filtered, key): `filtered` reads `rows`' stream past filters each
+    # a function of `rows`' grain, so every `rows` row passing them has a
+    # `filtered` partner on `key` (`_gated_twins`)
+    gated_covered: frozenset[tuple[str, str, str]] = frozenset()
 
     def side(self, node: str) -> SideFacts:
         return self.sides.get(node) or _NO_FACTS
@@ -1282,12 +1293,21 @@ def _narrow_covered(
     subset side with one carrying its key's whole domain keeps none of the
     subset side's unmatched rows, since it has none. A right subset side
     needs the covering left's rows all still in the stream; a subset side
-    padded in earlier is kept by `ensure_content_preservation`."""
-    if len(join.keys) != 1:
+    padded in earlier is kept by `ensure_content_preservation`. Of several
+    lefts, the one holding every key decides (`_equated_lead`)."""
+    left = _equated_lead(join, joins)
+    if left is None:
         return
-    ((left, keys),) = join.keys.items()
+    keys = join.keys[left]
+    others = [
+        set(_covered_sides(other, join.right, other_keys, facts))
+        for other, other_keys in join.keys.items()
+        if other != left
+    ]
     narrowed = join.type
     for sub_is_left in _covered_sides(left, join.right, keys, facts):
+        if not all(sub_is_left in covered for covered in others):
+            continue
         if sub_is_left:
             join.matched_left = True
         elif _intact(left, walked, joins):
@@ -1298,6 +1318,90 @@ def _narrow_covered(
     if narrowed != join.type and plan_trace.active():
         _trace_join_type(left, join.right, keys, facts, walked, narrowed, "covered")
     join.type = narrowed
+
+
+def _narrow_gated(
+    join: JoinOrderOutput, joins: list[JoinOrderOutput], facts: JoinFacts
+) -> None:
+    """A join keeping the unfiltered side of a pair whose filtered side holds
+    the key of each unfiltered row its extra filters pass
+    (`JoinFacts.gated_covered`), read off it or a side an earlier INNER
+    equated it with on the key: the merge re-applies those filters after its
+    joins (`_unfiltered_copy`), so INNER drops only rows its WHERE drops. Of
+    one left only: several coalesce their keys."""
+    if len(join.keys) != 1:
+        return
+    ((left, keys),) = join.keys.items()
+    for sub_is_left in (True, False):
+        if not _gated_keys(left, join.right, keys, sub_is_left, joins, facts):
+            continue
+        narrowed = _without_preserving(join.type, sub_is_left)
+        if narrowed != join.type and plan_trace.active():
+            _trace_join_type(left, join.right, keys, facts, [], narrowed, "gated")
+        join.type = narrowed
+
+
+def _gated_keys(
+    left: str,
+    right: str,
+    keys: set[str],
+    sub_is_left: bool,
+    joins: list[JoinOrderOutput],
+    facts: JoinFacts,
+) -> bool:
+    """Each key read off `left`'s unfiltered rows, or a witness an INNER
+    equated them with, which only a key `rows` never NULLs speaks for: the
+    witness may pair a NULL null-safely that this join's own pair does not."""
+    rows, filtered = (left, right) if sub_is_left else (right, left)
+    return bool(keys) and all(
+        any(
+            (witness, filtered, key) in facts.gated_covered
+            and _unfiltered_copy(
+                facts.side(witness), facts.side(filtered), facts.applied
+            )
+            is True
+            for witness in facts.sides
+            if witness == rows
+            or key not in facts.side(rows).nullables
+            and _inner_equated(rows, witness, {key}, joins)
+        )
+        for key in keys
+    )
+
+
+def _equated_lead(join: JoinOrderOutput, joins: list[JoinOrderOutput]) -> str | None:
+    """The left a join's whole ON reads as one: its only left, or one holding
+    every key that an earlier INNER join equated each other left with on the
+    keys that left joins on. The ON's `coalesce(a.k, b.k)` is then `a.k` on
+    every row, so the pair is that left's."""
+    if len(join.keys) == 1:
+        return next(iter(join.keys))
+    every = set().union(*join.keys.values())
+    for lead, keys in join.keys.items():
+        if keys == every and all(
+            _inner_equated(lead, other, other_keys, joins)
+            for other, other_keys in join.keys.items()
+            if other != lead
+        ):
+            return lead
+    return None
+
+
+def _inner_equated(
+    a: str, b: str, keys: set[str], joins: list[JoinOrderOutput]
+) -> bool:
+    """An INNER join between `a` and `b` paired every one of `keys`: on every
+    row since, the two hold the same value of each (both padded alike after)."""
+    return any(
+        join.type == JoinType.INNER
+        and (
+            join.right == b
+            and keys <= join.keys.get(a, set())
+            or join.right == a
+            and keys <= join.keys.get(b, set())
+        )
+        for join in joins
+    )
 
 
 def _join_onto(right: str, walked: list[str], facts: JoinFacts) -> JoinOrderOutput:
@@ -1421,6 +1525,8 @@ def _walk(facts: JoinFacts, seed: str | None = None) -> list[JoinOrderOutput]:
             join = _join_onto(right, walked, facts)
             if facts.covered:
                 _narrow_covered(join, walked, output, facts)
+            if facts.gated_covered:
+                _narrow_gated(join, output, facts)
             output.append(join)
         elif eligible_left:
             # a second island: its seed joins on nothing and the keyless-join
@@ -1447,10 +1553,61 @@ def _walk(facts: JoinFacts, seed: str | None = None) -> list[JoinOrderOutput]:
                     right=ds,
                     type=JoinType.INNER if one_row else JoinType.FULL,
                     keys={},
+                    matched_left=_total_beside_its_rows(ds, eligible_left, facts),
                 )
             )
         eligible_left.add(ds)
     return output
+
+
+def _total_beside_its_rows(
+    total: str, walked: Collection[str], facts: JoinFacts
+) -> bool:
+    """A one-row total over a bare table, joined onto sides every row of which
+    holds a row of that table: the stream having a row means the table does,
+    so the total has its row and the join keeps every row of the stream."""
+    table = facts.side(total).total_of
+    return (
+        table is not None
+        and facts.side(total).one_row
+        and all(table in facts.side(side).row_tables for side in walked)
+    )
+
+
+def _row_tables(ds: DataSource) -> frozenset[str]:
+    """The leaf tables every row of `ds` holds a row of: those under a source
+    no join of `ds` NULL-pads, bar a set only a subselect reads. A union's
+    rows are either arm's."""
+    if not isinstance(ds, QueryDatasource):
+        return frozenset({ds.identifier})
+    if ds.source_type in (SourceType.UNION, SourceType.RECURSIVE):
+        return frozenset()
+    skipped = padded_sources(ds.joins, _join_bases(ds)) | set_sources(ds)
+    return frozenset().union(
+        *(_row_tables(sub) for sub in ds.datasources if sub.identifier not in skipped)
+    )
+
+
+def _join_bases(ds: QueryDatasource) -> list[str]:
+    right = joined_right_ids(ds.joins)
+    return [sub.identifier for sub in ds.datasources if sub.identifier not in right]
+
+
+def _total_input(ds: DataSource) -> str | None:
+    """The table a total reads every row of with no join, filter or limit
+    between: a total holds its row exactly when its input does (an empty
+    input's group is no row), so it has one wherever that table has one."""
+    while isinstance(ds, QueryDatasource):
+        if (
+            ds.joins
+            or ds.condition is not None
+            or ds.limit is not None
+            or len(ds.datasources) != 1
+            or ds.source_type in (SourceType.UNION, SourceType.RECURSIVE)
+        ):
+            return None
+        ds = ds.datasources[0]
+    return ds.identifier
 
 
 def restore_full_join_providers(joins: list[JoinOrderOutput]) -> None:
@@ -1521,7 +1678,10 @@ def _same_filters(left: DataSource, right: DataSource) -> bool:
     no member, so a pairing on it does not restrict either side: a lookup
     that skipped the WHERE pairs every padded row it has (each customer with
     no order, of any nation) with the other side's."""
-    lefts, rights = applied_atoms(left), applied_atoms(right)
+    return _same_atoms(applied_atoms(left), applied_atoms(right))
+
+
+def _same_atoms(lefts: Sequence[BoolExpr], rights: Sequence[BoolExpr]) -> bool:
     return all(any(a == b for b in rights) for a in lefts) and all(
         any(a == b for b in lefts) for a in rights
     )
@@ -1816,11 +1976,18 @@ def _unnested_list(unnests: list[UnnestJoin], address: str) -> BuildConcept | No
 
 
 def key_providers(
-    ds: DataSource, address: str, relation_stamps: Collection[str] = frozenset()
+    ds: DataSource,
+    address: str,
+    relation_stamps: Collection[str] = frozenset(),
+    computed: bool = False,
 ) -> frozenset[str]:
     """The leaf tables binding ``address`` complete whose every row passing
     this source's filters is still in it: the key's values here are theirs.
-    Empty when a LIMIT, a `~` stamp or a join drops a row of every one."""
+    Empty when a LIMIT, a `~` stamp or a join drops a row of every one. Under
+    `computed`, a source emitting the key where none of those survives (it
+    derives the key, or its joins drop rows of every table binding it) is
+    the leaf: two reads of every row of that one source read one value
+    set, where no join pads it (`_computed_unpadded`)."""
     stamped = any(c.address == address for c in ds.partial_concepts)
     if isinstance(ds, BuildDatasource):
         binds = any(c.address == address for c in ds.output_concepts)
@@ -1830,12 +1997,38 @@ def key_providers(
     if (stamped and address not in relation_stamps) or ds.limit is not None:
         return frozenset()
     preserved = preserved_sources(ds.datasources, ds.joins)
-    return frozenset().union(
+    padded = padded_sources(ds.joins) if computed else set()
+    out: frozenset[str] = frozenset().union(
         *(
-            key_providers(sub, address, relation_stamps)
+            _computed_unpadded(
+                sub, key_providers(sub, address, relation_stamps, computed), padded
+            )
             for sub in ds.datasources
             if sub.identifier in preserved
         )
+    )
+    if out or not computed:
+        return out
+    if any(c.address == address for c in ds.output_concepts):
+        return frozenset({ds.identifier})
+    return out
+
+
+def _computed_unpadded(
+    sub: DataSource, found: frozenset[str], padded: Collection[str]
+) -> frozenset[str]:
+    """`found` unless it names a source computing the key (no leaf table) and
+    a join pads `sub`: a row with `sub` padded holds a NULL key that source
+    never computed (`derived_attribute` in the null-group matrix)."""
+    if sub.identifier in padded and found - leaf_tables(sub):
+        return frozenset()
+    return found
+
+
+def _computes(ds: QueryDatasource, address: str) -> bool:
+    """`ds` emits `address` and no source under it does: it derives it."""
+    return any(c.address == address for c in ds.output_concepts) and not any(
+        c.address == address for sub in ds.datasources for c in sub.output_concepts
     )
 
 
@@ -3015,6 +3208,8 @@ def _side_facts(
         ),
         filters=tuple(applied_atoms(datasource)),
         leaves=leaf_tables(datasource),
+        row_tables=_row_tables(datasource),
+        total_of=_total_input(datasource),
         span_bindings={
             canon_node(address): partial_binding_sources(datasource, address)
             for address in extent_free_spans
@@ -3091,17 +3286,19 @@ def _carries_every_value(
 def _concept_providers(
     datasource: DataSource, concept: BuildConcept, relation_stamps: Collection[str]
 ) -> frozenset[str]:
-    """`key_providers`, through BASIC and ROWSET lineage."""
+    """`key_providers`, through BASIC and ROWSET lineage, else the source
+    deriving the key (`computed`)."""
     out = key_providers(datasource, concept.address, relation_stamps)
-    if out or concept.derivation not in _COMPLETENESS_TRANSFERRING:
+    if out:
         return out
-    args = [
-        _concept_providers(datasource, arg, relation_stamps)
-        for arg in concept.concept_arguments
-    ]
-    if not args or not all(args):
-        return frozenset()
-    return frozenset().union(*args)
+    if concept.derivation in _COMPLETENESS_TRANSFERRING:
+        args = [
+            _concept_providers(datasource, arg, relation_stamps)
+            for arg in concept.concept_arguments
+        ]
+        if args and all(args):
+            return frozenset().union(*args)
+    return key_providers(datasource, concept.address, relation_stamps, computed=True)
 
 
 def _covered_keys(
@@ -3110,6 +3307,7 @@ def _covered_keys(
     ds_concept_map: Mapping[tuple[str, str], BuildConcept],
     environment: BuildEnvironment,
 ) -> tuple[
+    frozenset[tuple[str, str, str]],
     frozenset[tuple[str, str, str]],
     frozenset[tuple[str, str, str]],
     frozenset[tuple[str, str, str]],
@@ -3127,7 +3325,9 @@ def _covered_keys(
     boundary carries (`JoinFacts.boundary_covered`) and those a FULL-declared
     key holds by a graph proof alone (`JoinFacts.proven_covered`), whether or
     not the graph also relates the two spellings (a `union join` member read
-    off the column it joins is within it, and still vetoed)."""
+    off the column it joins is within it, and still vetoed), and those that
+    hold only on the rows a side's extra filters pass
+    (`JoinFacts.gated_covered`)."""
     graph = environment.domain_graph
     carries = _Carries(ds_node_map, ds_concept_map, graph)
     vetoed = graph.full_relation_keys()
@@ -3135,6 +3335,7 @@ def _covered_keys(
     proven: set[tuple[str, str, str]] = set()
     declared = graph.declared_relation_keys()
     out: set[tuple[str, str, str]] = set()
+    gated: set[tuple[str, str, str]] = set()
     for sub, sub_facts in sides.items():
         for key in sub_facts.columns:
             sub_concept = ds_concept_map[(sub, key)]
@@ -3149,6 +3350,8 @@ def _covered_keys(
                 ):
                     if _twins(key, sub, sup, sides, carries, related):
                         out.add((sub, sup, key))
+                    elif _gated_twins(key, sub, sup, sides, carries):
+                        gated.add((sub, sup, key))
                     continue
                 within = (
                     graph.relation(sub_concept.address, sup_concept.address) in _WITHIN
@@ -3174,7 +3377,7 @@ def _covered_keys(
                         boundary.add((sub, sup, key))
                     if rule_b:
                         proven.add((sub, sup, key))
-    return frozenset(out), frozenset(boundary), frozenset(proven)
+    return frozenset(out), frozenset(boundary), frozenset(proven), frozenset(gated)
 
 
 _WITHIN = (ResolvedRelation.SUBSET, ResolvedRelation.EQUAL)
@@ -3188,10 +3391,36 @@ class _Carries:
     concepts: Mapping[tuple[str, str], BuildConcept]
     graph: DomainGraph
     memo: dict[tuple[str, str, bool], bool] = field(default_factory=dict)
+    atoms: dict[str, list[BoolExpr]] = field(default_factory=dict)
+    filter_memo: dict[tuple[str, str], bool] = field(default_factory=dict)
+    leaves: dict[str, frozenset[str]] = field(default_factory=dict)
 
     @cached_property
     def relation_stamps(self) -> frozenset[str]:
         return frozenset(self.graph.subset_sources())
+
+    def _atoms(self, side: str) -> list[BoolExpr]:
+        if side not in self.atoms:
+            self.atoms[side] = applied_atoms(self.nodes[side])
+        return self.atoms[side]
+
+    def same_filters(self, a: str, b: str) -> bool:
+        """`_same_filters` of two sides, walked once per side and pair."""
+        entry = (a, b)
+        if entry not in self.filter_memo:
+            self.filter_memo[entry] = self.filter_memo[(b, a)] = _same_atoms(
+                self._atoms(a), self._atoms(b)
+            )
+        return self.filter_memo[entry]
+
+    def same_leaves(self, a: str, b: str) -> bool:
+        for side in (a, b):
+            if side not in self.leaves:
+                self.leaves[side] = leaf_tables(self.nodes[side])
+        return self.leaves[a] == self.leaves[b]
+
+    def same_rows(self, a: str, b: str) -> bool:
+        return self.same_leaves(a, b) and self.same_filters(a, b)
 
     def providers(self, side: str, key: str) -> frozenset[str]:
         return _concept_providers(
@@ -3235,7 +3464,7 @@ def _twins(
         and (
             related
             or key not in sides[a].nullables | sides[b].nullables
-            or same_rows(carries.nodes[a], carries.nodes[b])
+            or carries.same_rows(a, b)
         )
         and carries(a, key)
         and carries(b, key)
@@ -3252,11 +3481,30 @@ def _one_read(
     null-safely, and only where no span pads it for one side alone; a
     grouping set's subtotal NULL is no row of the stream."""
     na, nb = carries.nodes[a], carries.nodes[b]
-    if key in sides[a].rollup_padded | sides[b].rollup_padded or not same_rows(na, nb):
+    if key in sides[a].rollup_padded | sides[b].rollup_padded or not (
+        carries.same_filters(a, b)
+    ):
         return False
-    providers = carries.providers(a, key)
-    if not providers or providers != carries.providers(b, key):
+    providers, others = carries.providers(a, key), carries.providers(b, key)
+    if not (
+        providers
+        and (providers == others and carries.same_rows(a, b))
+        or providers
+        and others
+        and bool(
+            _one_value_set(na, carries.concepts[(a, key)])
+            & _one_value_set(nb, carries.concepts[(b, key)])
+        )
+    ):
         return False
+    return _nulls_pair(key, a, b, sides, carries)
+
+
+def _nulls_pair(
+    key: str, a: str, b: str, sides: Mapping[str, SideFacts], carries: _Carries
+) -> bool:
+    """Two reads of one stream's key NULL it alike: neither does, or both
+    do, padded by the same spans, and the pair matches NULL null-safely."""
     nullable = [key in sides[side].nullables for side in (a, b)]
     if not any(nullable):
         return True
@@ -3265,10 +3513,142 @@ def _one_read(
         and sides[a].span_padding.get(key) == sides[b].span_padding.get(key)
         and bool(
             get_modifiers(
-                carries.concepts[(a, key)], carries.concepts[(b, key)], na, nb
+                carries.concepts[(a, key)],
+                carries.concepts[(b, key)],
+                carries.nodes[a],
+                carries.nodes[b],
             )
         )
     )
+
+
+def _gated_twins(
+    key: str,
+    rows: str,
+    filtered: str,
+    sides: Mapping[str, SideFacts],
+    carries: _Carries,
+) -> bool:
+    """`filtered` reads the key off the stream `rows` reads it off
+    (`key_providers`), past filters `rows` skipped, every input of which
+    `rows`' grain determines and none of which holds on a NULL
+    (`_null_rejecting`): a `rows` row passing them stands for stream rows
+    that pass them too, so its key is one of `filtered`'s. A split-key
+    gate beside the totals it gates (`test_split_key_gates`); the merge
+    re-applying those filters makes it a cover (`_narrow_gated`)."""
+    unfiltered, gated = sides[rows], sides[filtered]
+    if key in unfiltered.rollup_padded | gated.rollup_padded | gated.partials:
+        return False
+    extra = [a for a in gated.filters if not any(a == b for b in unfiltered.filters)]
+    if not extra or not _passed_all(gated.filters, unfiltered.filters):
+        return False
+    spelled = {
+        concept.address: node
+        for (side, node), concept in carries.concepts.items()
+        if side == rows
+    }
+    within = unfiltered.grain | unfiltered.determined
+    if not all(map(_null_rejecting, extra)) or not all(
+        spelled.get(arg.address) in within
+        for atom in extra
+        for arg in atom.concept_arguments
+    ):
+        return False
+    na, nb = carries.nodes[rows], carries.nodes[filtered]
+    providers, others = carries.providers(rows, key), carries.providers(filtered, key)
+    if not (
+        providers
+        and (providers == others and carries.same_leaves(rows, filtered))
+        or providers
+        and others
+        and bool(
+            _one_value_set(na, carries.concepts[(rows, key)])
+            & _one_value_set(nb, carries.concepts[(filtered, key)])
+        )
+    ):
+        return False
+    return _nulls_pair(key, rows, filtered, sides, carries)
+
+
+def _null_rejecting(atom: BoolExpr) -> bool:
+    """`atom` is false wherever an input it reads is NULL, padding included:
+    a later join padding the rows INNER dropped cannot pass it (`amount is
+    null` beside an outer region would)."""
+    # local import: grain_utility imports this module
+    from trilogy.core.processing.grain_utility import non_null_proofs
+
+    proofs = non_null_proofs(atom)
+    return all(arg.address in proofs for arg in atom.concept_arguments)
+
+
+def _matched_kept(ds: QueryDatasource) -> set[str]:
+    """`preserved_sources` on join types and the planner's own matches
+    (`matched_left`/`matched_right`) alone: no partner is inferred from a
+    complete binding, which a `?` key does not promise."""
+    alive = {
+        sub.identifier
+        for sub in ds.datasources
+        if sub.identifier not in joined_right_ids(ds.joins)
+    }
+    for join in ds.joins:
+        if not isinstance(join, Join):
+            alive = set()
+            continue
+        if not (join.matched_left or join.join_type in PADS_RIGHT_JOIN_TYPES):
+            alive = set()
+        if join.matched_right or join.join_type in PADS_LEFT_JOIN_TYPES:
+            alive.add(join.right.identifier)
+    return alive
+
+
+def _equated_binders(ds: DataSource, address: str) -> list[frozenset[str]] | None:
+    """The leaf tables under `ds` binding `address`, grouped where an INNER
+    join on it equates them: every row of the source holds one value of it
+    from each table of a group. None when a join drops rows of one."""
+    if not isinstance(ds, QueryDatasource):
+        if any(c.address == address for c in ds.output_concepts):
+            return [frozenset({ds.identifier})]
+        return []
+    if _computes(ds, address):
+        return [frozenset({ds.identifier})]
+    kept = _matched_kept(ds)
+    padded = padded_sources(ds.joins)
+    sets = set_sources(ds)
+    groups: list[list[frozenset[str]]] = []
+    for sub in ds.datasources:
+        if sub.identifier in sets:
+            groups.append([])
+            continue
+        found = _equated_binders(sub, address)
+        if found is None or found and sub.identifier not in kept:
+            return None
+        if found and not _computed_unpadded(sub, frozenset().union(*found), padded):
+            return None
+        groups.append(found)
+    slot = {sub.identifier: i for i, sub in enumerate(ds.datasources)}
+    for join in ds.joins:
+        if not isinstance(join, Join) or join.join_type != JoinType.INNER:
+            continue
+        for pair in join.pairs:
+            if pair.left.address != address or pair.right.address != address:
+                continue
+            left = slot.get(pair.node.identifier)
+            right = slot.get(join.right.identifier)
+            if left is None or right is None or left == right:
+                continue
+            if len(groups[left]) == 1 and len(groups[right]) == 1:
+                groups[left] = [groups[left][0] | groups[right][0]]
+                groups[right] = []
+                slot = {k: left if v == right else v for k, v in slot.items()}
+    return [group for found in groups for group in found]
+
+
+def _one_value_set(ds: DataSource, concept: BuildConcept) -> frozenset[str]:
+    """The tables binding `concept` under `ds` when every row of each is still
+    in it and INNER joins on it equate them all: the source's values of it
+    are any one of theirs that pass its filters. Empty otherwise."""
+    groups = _equated_binders(ds, concept.address)
+    return groups[0] if groups is not None and len(groups) == 1 else frozenset()
 
 
 def _null_alike(key: str, a: SideFacts, b: SideFacts) -> bool:
@@ -3563,7 +3943,7 @@ def get_node_joins(
             for ds_node, side in sides.items()
         }
     declared = frozenset(canon_node(a) for a in _declared_subset_keys(environment))
-    covered, boundary_covered, proven_covered = _covered_keys(
+    covered, boundary_covered, proven_covered, gated_covered = _covered_keys(
         sides, ds_node_map, ds_concept_map, environment
     )
     span_families = {
@@ -3602,6 +3982,7 @@ def get_node_joins(
         covered=covered,
         boundary_covered=boundary_covered,
         proven_covered=proven_covered,
+        gated_covered=gated_covered,
     )
     facts = replace(
         facts,

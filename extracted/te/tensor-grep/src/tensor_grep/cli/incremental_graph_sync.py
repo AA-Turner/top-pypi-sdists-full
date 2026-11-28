@@ -97,9 +97,12 @@ def sync_graph_edges(
     cache_root: Path,
     current_files: Mapping[str, bytes | str],
     extract_edges_fn: Callable[[str, str], list[tuple[str, str]]],
+    *,
+    scope_root: Path | None = None,
 ) -> dict[str, int]:
     """Incrementally sync file hashes and extracted code edges in confined SQLite storage."""
     resolved_root = Path(cache_root).resolve()
+    resolved_scope = Path(scope_root).expanduser().resolve() if scope_root is not None else None
     conn, db_path = _open_graph_db(resolved_root, create_dirs=True)
     try:
         existing_hashes = {
@@ -109,7 +112,17 @@ def sync_graph_edges(
 
         skipped = 0
         updated = 0
-        deleted_paths = sorted(path for path in existing_hashes if path not in current_files)
+        deleted_paths = sorted(
+            path
+            for path in existing_hashes
+            if path not in current_files
+            and (
+                resolved_scope is None
+                or (Path(path) if Path(path).is_absolute() else resolved_root / path)
+                .resolve()
+                .is_relative_to(resolved_scope)
+            )
+        )
         dirty_entries: list[tuple[str, str, list[tuple[str, str]]]] = []
 
         for raw_path, raw_content in current_files.items():
@@ -213,6 +226,7 @@ def sync_graph_edges_from_paths(
     deadline_monotonic: float | None = None,
     force_refresh: bool = False,
     context_digest: str | None = None,
+    scope_root: Path | None = None,
 ) -> dict[str, int]:
     """Incrementally sync file edges using ``(mtime_ns, ctime_ns, size)`` stat-first reconciliation.
 
@@ -249,7 +263,18 @@ def sync_graph_edges_from_paths(
 
         current_path_strs = [str(p) for p in file_paths]
         current_path_set = set(current_path_strs)
-        deleted_paths = sorted(p for p in existing_hashes if p not in current_path_set)
+        resolved_scope = Path(scope_root).expanduser().resolve() if scope_root is not None else None
+        deleted_paths = sorted(
+            p
+            for p in existing_hashes
+            if p not in current_path_set
+            and (
+                resolved_scope is None
+                or (Path(p) if Path(p).is_absolute() else resolved_root / p)
+                .resolve()
+                .is_relative_to(resolved_scope)
+            )
+        )
 
         skipped = 0
         updated = 0

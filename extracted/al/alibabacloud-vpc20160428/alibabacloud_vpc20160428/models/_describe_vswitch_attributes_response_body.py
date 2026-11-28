@@ -40,14 +40,18 @@ class DescribeVSwitchAttributesResponseBody(DaraModel):
         self.creation_time = creation_time
         # The description of the vSwitch.
         self.description = description
+        # Specifies whether DNS64 is enabled for the vSwitch. Valid values:
+        # 
+        # - **true**: DNS64 is enabled.
+        # - **false**: DNS64 is disabled.
         self.enable_dns_64 = enable_dns_64
-        # Specifies whether the IPv6 CIDR block is enabled and configured for the vSwitch. Valid values:
+        # Specifies whether the IPv6 CIDR block feature is enabled and configured for the vSwitch. Valid values:
         # - **true**: Enabled.
         # - **false**: Disabled.
         self.enabled_ipv_6 = enabled_ipv_6
         # The IPv6 CIDR block of the vSwitch.
         self.ipv_6cidr_block = ipv_6cidr_block
-        # Indicates whether the vSwitch is an IPv6 single-stack vSwitch. Valid values:
+        # Specifies whether the vSwitch is an IPv6 single-stack vSwitch. Valid values:
         # 
         # - true: The vSwitch is an IPv6 single-stack vSwitch.
         # - false: The vSwitch is not an IPv6 single-stack vSwitch.
@@ -59,9 +63,9 @@ class DescribeVSwitchAttributesResponseBody(DaraModel):
         self.is_default = is_default
         # The network ACL rules.
         self.network_acl_id = network_acl_id
-        # The Alibaba Cloud account ID of the resource owner.
+        # The Alibaba Cloud account ID of the resource ownership.
         # 
-        # >Notice: This value is of the Long type and may cause precision loss in some programming languages. Use it with caution.
+        # >Notice: This value is of the Long type. Precision loss may occur in some programming languages. Use it with caution.
         self.owner_id = owner_id
         # The ID of the request.
         self.request_id = request_id
@@ -69,17 +73,17 @@ class DescribeVSwitchAttributesResponseBody(DaraModel):
         self.resource_group_id = resource_group_id
         # The route table information of the vSwitch.
         self.route_table = route_table
-        # The share type of the vSwitch.
+        # The sharing type of the vSwitch.
         # 
-        # - If the value is empty, the vSwitch is a standard vSwitch.
-        # - If the value is **Shared**, the vSwitch is a shared vSwitch.
-        # - If the value is **Sharing**, the vSwitch is being shared.
+        # - If the value is empty, the vSwitch is a regular vSwitch.
+        # - **Shared**: The vSwitch is a shared vSwitch.
+        # - **Sharing**: The vSwitch is being shared with other users.
         self.share_type = share_type
         # The status of the vSwitch. Valid values:
         # 
-        # - **Pending**: Configuring. 
+        # - **Pending**: The vSwitch is being configured. 
         # 
-        # - **Available**: Available.
+        # - **Available**: The vSwitch is available.
         self.status = status
         self.tags = tags
         # The ID of the vSwitch.
@@ -316,9 +320,9 @@ class DescribeVSwitchAttributesResponseBodyRouteTable(DaraModel):
         self.route_table_id = route_table_id
         # The type of the route table. Valid values:
         # 
-        # - **System**: System route table.
+        # - **System**: system route table.
         # 
-        # - **Custom**: Custom route table.
+        # - **Custom**: custom route table.
         self.route_table_type = route_table_type
 
     def validate(self):

@@ -596,6 +596,105 @@ const char *test_BTDA_matrices_pd_spd(void)
     return 0;
 }
 
+/* (A=sparse, B=PD) with more active columns than one tile of
+   BTDA_pd_csc_fill_values (23 = 16 + 7). A has columns that miss B's rows and
+   entries in rows outside B's row_perm. Compared against a dense reference. */
+const char *test_BTDA_matrices_csr_pd_tiled(void)
+{
+    enum
+    {
+        M = 40,
+        NA = 45,
+        NB = 4,
+        M0 = 20,
+        N0 = 3
+    };
+
+    /* B: M x NB PD on the even rows and on columns {0, 1, 3}. */
+    int B_rp[M0];
+    int B_cp[N0] = {0, 1, 3};
+    double BX[M0 * N0];
+    double B_dense[M][NB] = {{0}};
+    for (int kk = 0; kk < M0; kk++)
+    {
+        B_rp[kk] = 2 * kk;
+        for (int ii = 0; ii < N0; ii++)
+        {
+            BX[kk * N0 + ii] = 1.0 + 0.5 * kk - 0.25 * ii * kk + ii;
+            B_dense[B_rp[kk]][B_cp[ii]] = BX[kk * N0 + ii];
+        }
+    }
+    matrix *B = new_permuted_dense(M, NB, M0, N0, B_rp, B_cp, BX);
+
+    /* A: M x NA sparse. Column j has entries in rows j and j + 2 (mod M), so
+       the odd columns miss B's rows; every fourth column also has an entry
+       in the odd row j + 1. */
+    double A_dense[M][NA] = {{0}};
+    int nnz = 0;
+    for (int j = 0; j < NA; j++)
+    {
+        A_dense[j % M][j] = 1.0 + j;
+        A_dense[(j + 2) % M][j] = -2.0 + 0.5 * j;
+        if (j % 4 == 0)
+        {
+            A_dense[(j + 1) % M][j] = 3.0;
+        }
+        nnz += (j % 4 == 0) ? 3 : 2;
+    }
+    CSR_matrix *A_csr = new_CSR_matrix(M, NA, nnz);
+    nnz = 0;
+    for (int i = 0; i < M; i++)
+    {
+        A_csr->p[i] = nnz;
+        for (int j = 0; j < NA; j++)
+        {
+            if (A_dense[i][j] != 0.0)
+            {
+                A_csr->i[nnz] = j;
+                A_csr->x[nnz] = A_dense[i][j];
+                nnz++;
+            }
+        }
+    }
+    A_csr->p[M] = nnz;
+    matrix *A = new_sparse_matrix(A_csr);
+
+    double d[M];
+    for (int i = 0; i < M; i++)
+    {
+        d[i] = 0.5 + 0.1 * i;
+    }
+
+    matrix *C = BTA_matrices_alloc(A, B);
+    BTDA_matrices_fill_values(A, d, B, C);
+
+    /* C is a PD on B's columns and on the even columns of A */
+    permuted_dense *C_pd = (permuted_dense *) C;
+    mu_assert("kind", C->kind == MATRIX_PERMUTED_DENSE);
+    mu_assert("m0", C_pd->m0 == N0);
+    mu_assert("n0", C_pd->n0 == 23);
+
+    double C_ref[N0 * 23];
+    for (int i = 0; i < N0; i++)
+    {
+        for (int j = 0; j < 23; j++)
+        {
+            double sum = 0.0;
+            for (int k = 0; k < M; k++)
+            {
+                sum += B_dense[k][B_cp[i]] * d[k] * A_dense[k][2 * j];
+            }
+            C_ref[i * 23 + j] = sum;
+        }
+    }
+    mu_assert("X", cmp_double_array(C_pd->X, C_ref, N0 * 23));
+
+    free_matrix(C);
+    free_matrix(A);
+    free_matrix(B);
+    return 0;
+}
+
 /* Wrapper dispatch: (A=spd, B=spd). The spd-spd route returns stacked_pd
    (via BTA_spd_matrices); the sparse-sparse fallback returns sparse_matrix.
    Compare via to_csr. */
@@ -3187,8 +3286,9 @@ const char *test_BA_sparse_matrices_csc_A(void)
     mu_assert("sparse x sparse built a CSC mirror",
               ((sparse_matrix *) B)->csc_cache == NULL &&
                   ((sparse_matrix *) A)->csc_cache == NULL);
-    mu_assert("sparse x sparse C has no accumulator",
-              ((sparse_matrix *) C)->bound_dwork != NULL);
+    mu_assert("sparse x sparse C has a plan or the accumulator",
+              (((sparse_matrix *) C)->bound_iwork != NULL) !=
+                  (((sparse_matrix *) C)->bound_dwork != NULL));
 
     free_matrix(C);
     free_matrix(A);
@@ -3509,10 +3609,12 @@ static matrix *sk_kron(matrix *A, int p)
     return new_sparse_matrix(K);
 }
 
-/* No CSC mirror is involved: C carries the accumulator, a sparse J keeps none. */
+/* No CSC mirror is involved: C carries a plan or the accumulator, a sparse J
+   keeps none. */
 static int sk_no_mirror(matrix *J, matrix *C)
 {
-    if (((sparse_matrix *) C)->bound_dwork == NULL) return 0;
+    const sparse_matrix *sm_C = (const sparse_matrix *) C;
+    if ((sm_C->bound_iwork != NULL) == (sm_C->bound_dwork != NULL)) return 0;
     if (J->kind == MATRIX_SPARSE && ((sparse_matrix *) J)->csc_cache != NULL)
         return 0;
     return 1;

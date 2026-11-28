@@ -129,6 +129,9 @@ class View(StrEnum):
     #: The choices that changed the work, oldest first: on a project its own and its experiments', on an
     #: experiment or run those filed under it or naming it. MCP-only and read-only; `probe decision add` writes.
     DECISIONS = "decisions"
+    #: A project's plan: its stages in order (key, title, done-when, status) and the runs and experiments behind
+    #: each. MCP-only and read-only; `probe plan save` writes (GET /v1/projects/{P}/plan).
+    PLAN = "plan"
 
 
 #: What a view MEANS on a kind. The union across both surfaces; each declares the
@@ -160,6 +163,8 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.PANES,
             # Its decisions and its experiments' (GET /v1/projects/{P}/decisions?include=experiments).
             View.DECISIONS,
+            # Its plan's stages and the records behind each (GET /v1/projects/{P}/plan).
+            View.PLAN,
         }
     ),
     ViewKind.EXPERIMENT: frozenset(
@@ -287,6 +292,7 @@ VIEW_PURPOSE: dict[View, str] = {
     View.COMMANDS: "what was asked of the running script (checkpoint, config, stop...), what happened, what it accepts (first page)",
     View.PANES: "the visuals an agent wrote on its page: slug, title, place, what each reads; no HTML",
     View.DECISIONS: "why the work changed: each choice, its reason, who, when, what it touched; oldest first",
+    View.PLAN: "the plan's stages in order: key, title, done-when, status, and the runs and experiments behind each",
 }
 
 
@@ -370,6 +376,8 @@ VIEW_ADMISSION: dict[View, Admits] = {
     View.PANES: Admits.NOTHING,
     # Why someone chose what they did: an account of a choice, never a measurement.
     View.DECISIONS: Admits.NOTHING,
+    # What the work is for and how far it got: an account of intent, never a measurement.
+    View.PLAN: Admits.NOTHING,
 }
 
 

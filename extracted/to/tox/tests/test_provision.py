@@ -762,6 +762,12 @@ def test_provision_reports_entry_owned_by_other_account(tox_project: ToxProjectC
     assert planted.read_bytes() == b"planted"
 
 
+def test_provision_accepts_missing_root(tox_project: ToxProjectCreator, tmp_path: Path) -> None:
+    project = tox_project({"tox.toml": '[env_run_base]\npackage = "skip"\n'})
+
+    project.run("l", "--root", str(tmp_path / "missing")).assert_success()
+
+
 def test_provision_unrecognized_args_no_provision(tox_project: ToxProjectCreator) -> None:
     # When provisioning is not needed, unknown CLI args should still error.
     proj = tox_project({
@@ -925,3 +931,22 @@ def test_provision_no_recreate_json_pinned_tox(tox_project: ToxProjectCreator) -
     project.run("c", "-e", "py", "--no-provision", "out.json").assert_failed()
     requires = json.loads((project.path / "out.json").read_text())
     assert requires == {"minversion": "999", "requires": ["tox==999", "tox"]}
+
+
+def test_provision_reports_work_dir_file(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({"tox.ini": "[tox]\nrequires = tox>=99\n[testenv]\npackage=skip", ".tox": ""})
+
+    result = project.run("r")
+
+    result.assert_failed()
+    assert f"cannot create the directory {project.path / '.tox'}: a file is in the way" in result.out
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX path repair")
+def test_provision_reports_root_file(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({"tox.toml": '[env_run_base]\npackage = "skip"\n', "a_file": ""})
+
+    result = project.run("l", "--root", str(project.path / "a_file"))
+
+    result.assert_failed()
+    assert f"ROOT: HandledError| [Errno 20] Not a directory: '{project.path.resolve() / 'a_file'}'" in result.out

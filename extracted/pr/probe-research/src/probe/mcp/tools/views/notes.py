@@ -132,6 +132,10 @@ class NotesViewsMixin:
         # parts from here (`entity` on each id), and a part's page names the
         # effort it belongs to.
         _card_part_of(payload, entity)
+        # Plan stages R21: the stage keys a run takes, so a fresh agent finds them without knowing `view="plan"`.
+        plan = self._get_plan_card_block(entity)
+        if plan:
+            payload["plan"] = plan
         return _ViewData(payload=payload) if payload else _ViewData()
 
     def _view_project_notes(self, entity: dict, request: _Req) -> _ViewData:

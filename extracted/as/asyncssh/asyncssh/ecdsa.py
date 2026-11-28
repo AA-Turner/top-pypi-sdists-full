@@ -70,9 +70,6 @@ class _ECKey(SSHKey):
         self._hash_alg = _hash_algs[self._key.curve_id]
 
     def __eq__(self, other: object) -> bool:
-        # This isn't protected access - both objects are _ECKey instances
-        # pylint: disable=protected-access
-
         return (isinstance(other, type(self)) and
                 self._key.curve_id == other._key.curve_id and
                 self._key.x == other._key.x and
@@ -135,8 +132,11 @@ class _ECKey(SSHKey):
         if isinstance(private_value, bytes):
             private_value = int.from_bytes(private_value, 'big')
 
-        return cls(ECDSAPrivateKey.construct(curve_id, public_value,
-                                             private_value))
+        try:
+            return cls(ECDSAPrivateKey.construct(curve_id, public_value,
+                                                 private_value))
+        except ValueError:
+            raise KeyImportError('Invalid EC private key') from None
 
     @classmethod
     def make_public(cls, key_params: object) -> SSHKey:
@@ -144,7 +144,10 @@ class _ECKey(SSHKey):
 
         curve_id, public_value = cast(_PublicKeyArgs, key_params)
 
-        return cls(ECDSAPublicKey.construct(curve_id, public_value))
+        try:
+            return cls(ECDSAPublicKey.construct(curve_id, public_value))
+        except ValueError:
+            raise KeyImportError('Invalid EC public key') from None
 
     @classmethod
     def decode_pkcs1_private(cls, key_data: object) -> \
@@ -176,8 +179,6 @@ class _ECKey(SSHKey):
             Optional[_PublicKeyArgs]:
         """Decode a PKCS#1 format EC public key"""
 
-        # pylint: disable=unused-argument
-
         raise KeyImportError('PKCS#1 not supported for EC public keys')
 
     @classmethod
@@ -187,7 +188,7 @@ class _ECKey(SSHKey):
 
         try:
             key_data = der_decode(data)
-        except ASN1DecodeError:
+        except (ASN1DecodeError, UnicodeDecodeError):
             key_data = None
 
         if (isinstance(key_data, tuple) and len(key_data) > 1 and
@@ -297,8 +298,6 @@ class _ECKey(SSHKey):
     def sign_ssh(self, data: bytes, sig_algorithm: bytes) -> bytes:
         """Compute an SSH-encoded signature of the specified data"""
 
-        # pylint: disable=unused-argument
-
         if not self._key.private_value:
             raise ValueError('Private key needed for signing')
 
@@ -309,8 +308,6 @@ class _ECKey(SSHKey):
     def verify_ssh(self, data: bytes, sig_algorithm: bytes,
                    packet: SSHPacket) -> bool:
         """Verify an SSH-encoded signature of the specified data"""
-
-        # pylint: disable=unused-argument
 
         sig = packet.get_string()
         packet.check_end()

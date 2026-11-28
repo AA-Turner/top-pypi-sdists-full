@@ -94,6 +94,9 @@ class TestAdHocCommands(SlixTest):
           </iq>
         """)
 
+        self.assertEqual(len(self.xmpp.plugin['xep_0050'].sessions), 0,
+                         'Completed command should clean up session')
+
         self.send("""
           <iq id="11" type="result" to="foo@bar">
             <command xmlns="http://jabber.org/protocol/commands"
@@ -170,6 +173,7 @@ class TestAdHocCommands(SlixTest):
           </iq>
         """)
 
+
         self.send("""
           <iq id="12" type="result" to="foo@bar">
             <command xmlns="http://jabber.org/protocol/commands"
@@ -234,23 +238,34 @@ class TestAdHocCommands(SlixTest):
         self.run_coro(asyncio.sleep(0.05))
 
         handle_timeout.assert_awaited_once()
-        self.send(
-            """
-            <iq xmlns="jabber:client" id="1" type="set" to="foo@bar" from="foo@bar">
-              <command xmlns="http://jabber.org/protocol/commands"
-                       node="foo"
-                       action="cancel"
-                       sessionid="_sessionid_">
-                <x xmlns="jabber:x:data"
-                   type="form">
-                   <field var="foo" type="text-single" label="Foo" />
-                </x>
-              </command>
-            </iq>
-            """
-        )
         self.assertFalse(self.xmpp.plugin["xep_0050"]._timeout_tasks)
+        self.assertFalse(self.xmpp.plugin["xep_0050"].sessions, "Sessions should be cleared on timeout")
 
+        # Bad Session error message should be sent when the timeout has cleared the session data.
+
+        self.recv("""
+          <iq id="12" type="set" to="tester@localhost" from="foo@bar">
+            <command xmlns="http://jabber.org/protocol/commands"
+                     node="foo"
+                     action="complete"
+                     sessionid="_sessionid_">
+              <x xmlns="jabber:x:data" type="submit">
+                <field var="foo" label="Foo" type="text-single">
+                  <value>blah</value>
+                </field>
+              </x>
+            </command>
+          </iq>
+        """)
+
+        self.send("""
+            <iq id="12" type="error" to="foo@bar">
+              <error code="400" type="modify">
+                <bad-request xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/>
+                <bad-sessionid xmlns="http://jabber.org/protocol/commands"/>
+              </error>
+            </iq> 
+        """, use_values=False)
 
     def testOneStepCommandTimeoutNoHandler(self):
         """Test the timeout when running a single step command."""
@@ -299,23 +314,8 @@ class TestAdHocCommands(SlixTest):
         """)
 
         self.run_coro(asyncio.sleep(0.05))
-
-        self.send(
-            """
-            <iq xmlns="jabber:client" id="1" type="set" to="foo@bar" from="foo@bar">
-              <command xmlns="http://jabber.org/protocol/commands"
-                       node="foo"
-                       action="cancel"
-                       sessionid="_sessionid_">
-                <x xmlns="jabber:x:data"
-                   type="form">
-                   <field var="foo" type="text-single" label="Foo" />
-                </x>
-              </command>
-            </iq>
-            """
-        )
         self.assertFalse(self.xmpp.plugin["xep_0050"]._timeout_tasks)
+        self.assertFalse(self.xmpp.plugin["xep_0050"].sessions, "Sessions should be cleared on timeout")
 
     def testTwoStepCommand(self):
         """Test using a two-stage command."""

@@ -28,6 +28,7 @@ from probe.sdk.client.resources.catalog import CatalogMixin, CatalogResource
 from probe.sdk.client.resources.charts import ChartsMixin, ChartsResource
 from probe.sdk.client.resources.compute import ComputeMixin
 from probe.sdk.client.resources.decisions import DecisionsMixin
+from probe.sdk.client.resources.plans import PlansMixin
 from probe.sdk.client.resources.delivery import DeliveryMixin
 from probe.sdk.client.resources.history import DigestMixin, DigestResource
 from probe.sdk.client.resources.runs.commands import RunCommandsMixin
@@ -50,6 +51,7 @@ from probe.sdk.client.resources.projects.projects import ProjectsMixin, Projects
 from probe.sdk.client.resources.projects.summaries import SummariesMixin, SummariesResource
 from probe.sdk.client.resources.reads import ReadsMixin, ReadsResource
 from probe.sdk.client.resources.samples.episodes import EpisodesMixin
+from probe.sdk.client.resources.samples.evidence import SampleEvidenceMixin
 from probe.sdk.client.resources.samples.live import LiveSamplesMixin
 from probe.sdk.client.resources.samples.points import SamplePointsMixin
 from probe.sdk.client.resources.samples.samples import SampleReadsMixin, SamplesResource
@@ -97,6 +99,7 @@ class Client(
     PanesMixin,
     PinsMixin,
     DecisionsMixin,
+    PlansMixin,
     ComputeMixin,
     ExperimentLocatorMixin,
     ExperimentsMixin,
@@ -135,6 +138,7 @@ class Client(
     SamplePointsMixin,
     LiveSamplesMixin,
     EpisodesMixin,
+    SampleEvidenceMixin,
 ):
     #: True for a client whose queue is drained by hand on purpose -- the
     #: offline run's, which `probe sync` drains (plan 2.12) -- so the "no

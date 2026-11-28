@@ -127,6 +127,7 @@ class ExperimentsMixin:
         document: str | None = None,
         tags: list[str] | None = None,
         authored_by: str | None = None,
+        stage: str | None = None,
     ) -> dict:
         """Create an experiment in a project. Raises ``ConflictError`` if the slug is taken.
 
@@ -151,7 +152,10 @@ class ExperimentsMixin:
 
         ``tags`` and ``description`` are refused: an experiment's tags are kept
         read-only since it moved to its own record, and its question replaced
-        its description."""
+        its description.
+
+        ``stage`` is the plan stage its runs default to: sent only to a server with plan
+        stages (else one warning), never failing the create."""
         if not question:
             raise errors.ValidationError(
                 f"an experiment needs a question: what do you expect {slug} to show?"
@@ -167,6 +171,9 @@ class ExperimentsMixin:
         # See create_project: omitted, never the slug. Same reason.
         if name:
             body["name"] = name
+        stage = self._get_stage_to_send(stage)
+        if stage is not None:
+            body["stage"] = stage
         _put_authorship(body, authored_by)
         row = _from_experiment_api(
             self.transport.post(f"/v1/projects/{project_id}/experiments", body)

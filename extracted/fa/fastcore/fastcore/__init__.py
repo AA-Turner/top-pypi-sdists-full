@@ -33,7 +33,6 @@ test_eq(x.unique(), [1,2,3,4,5])
 
 - [Quick tour](https://fastcore.fast.ai/tour.html.md): A quick tour of a few highlights from fastcore.
 - [fastcore: an underrated Python library](https://gist.githubusercontent.com/hamelsmu/ea9e0519d9a94a4203bcc36043eb01c5/raw/6c0c96a2823d67aecc103206d6ab21c05dcd520a/fastcore:_an_underrated_python_library.md): A tour of some of the features of fastcore.
-- [API list](https://fastcore.fast.ai/apilist.txt): A succinct list of all functions and methods in fastcore.
 
 Modules:
 
@@ -48,6 +47,7 @@ Modules:
 - `fastcore.net`: Network, HTTP, and URL functions
 - `fastcore.parallel`: Threading and multiprocessing functions
 - `fastcore.script`: Creates a CLI from a Python function decorated with `call_parse`.
+- `fastcore.skill`: Write idiomatic Python with `fastcore`: `L`, `@patch`, `store_attr`, `@delegates`, `call_parse` CLIs, async/sync bridging, and concise IO/testing helpers.
 - `fastcore.style`: Fast styling for friendly CLIs.
 - `fastcore.test`: Helper functions to quickly write tests in notebooks
 - `fastcore.tools`: Text and file editing primitives shared by the fastai editing tools
@@ -55,10 +55,7 @@ Modules:
 - `fastcore.xml`: Concise HTML generation and namespace-aware XML construction.
 - `fastcore.xtras`: Utility functions used in the fastai library"""
 
-__version__ = "2.2.49"
-
-
-
+__version__ = "2.3.3"
 
 
 

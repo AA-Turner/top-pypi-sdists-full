@@ -210,7 +210,9 @@ from .options import (
     _SPEED_MODE_THROUGH_JUNCTION as _SPEED_MODE_THROUGH_JUNCTION,
     _SUMO_CLASSES as _SUMO_CLASSES,
     _merge_file_options as _merge_file_options,
+    _net_lefthand as _net_lefthand,
     _net_offset as _net_offset,
+    _sets_option as _sets_option,
     _with_siren as _with_siren,
     _write_scenario_types as _write_scenario_types,
     _write_type_distribution as _write_type_distribution,
@@ -361,6 +363,18 @@ def _is_gui(binary: str) -> bool:
     return Path(binary).name.lower().startswith("sumo-gui")
 
 
+def _headless(binary: str) -> str:
+    """*binary*, or the plain ``sumo`` beside it when it is sumo-gui: what
+    SUMO's mesoscopic model runs, which has no window to show (#2637)."""
+    if not _is_gui(binary):
+        return binary
+    path = Path(binary)
+    name = "sumo" + path.name[len("sumo-gui") :]
+    if path.parent == Path("."):
+        return name
+    return str(path.with_name(name))
+
+
 def _load_traci(use_libsumo: bool) -> Any:
     if use_libsumo:
         try:
@@ -476,9 +490,11 @@ class _LaneChangeRequest:
         self.started = False
         self.target_lane = -1
         #: From the centre of the lane it leaves to that of the one it goes to,
-        #: positive to the left, m.
+        #: positive towards the higher lane index (to the left; to the right
+        #: in a left-hand-traffic network), as SUMO's lateral position, m.
         self.across_m = 0.0
-        #: Where it started, from the centre of the lane it goes to, to the left, m.
+        #: Where it started, from the centre of the lane it goes to, the same
+        #: way positive, m.
         self.start_offset_m = 0.0
         #: Its own lateral limits, to be given back; negative, empty: none kept.
         self.max_lateral_speed = -1.0
@@ -527,6 +543,9 @@ class SumoTrafficBackend(TrafficBackend):
         self._walker_type: Optional[str] = None
         self._net: Any = None  # sumolib's view of the network, for routes
         self._offset: tuple[float, float] = (0.0, 0.0)
+        #: A left-hand-traffic network: SUMO counts its lanes from the left
+        #: kerb, and a lateral position is positive to the right (#2637).
+        self._lefthand = False
         self._rng = random.Random(0)
         self._draws = random.Random(1)
         self._entities: list[Any] = []
@@ -543,6 +562,11 @@ class SumoTrafficBackend(TrafficBackend):
         #: the vehicle overrides given it while CARLA drove it, layered (the
         #: one given last wins): drawn for it when SUMO drives it again.
         self._released_overrides: dict[str, VehicleParameters] = {}
+        #: SUMO id of a scenario's vehicle -> the vehicle overrides given it
+        #: alone (override_entity_parameters), layered (the one given last
+        #: wins): drawn for it again each time it departs into SUMO, after
+        #: the run's, so a mesoscopic round trip keeps them (#2592).
+        self._own_overrides: dict[str, VehicleParameters] = {}
         #: SUMO id -> the speed (m/s) set_desired_speed() last held it at.
         self._commanded: dict[str, float] = {}
         #: SUMO id -> the entity SUMO drives.
@@ -803,10 +827,16 @@ class SumoTrafficBackend(TrafficBackend):
         sets: in SUMO when SUMO drives it, else through the TrafficManager."""
         sumo_id = self._id_of(entity)
         released = self._handed.get(id(entity))
+        meso_id = self._meso_id_of(entity) if sumo_id is None else None
         if sumo_id is None and released is not None and self._running:
             # Released: CARLA drives it now; drawn for it at resume().
             self._keep_released_overrides(released[0], overrides)
+            self._keep_own_overrides(released[0], overrides)
+        elif meso_id is not None:
+            # Mesoscopic: drawn for it when it departs into SUMO again.
+            self._keep_own_overrides(meso_id, overrides)
         elif sumo_id is not None:
+            self._keep_own_overrides(sumo_id, overrides)
             if self._is_bicycle(sumo_id):
                 logger.warning(
                     "SUMO: %s is a bicycle, which rides as traffic.bicycles "
@@ -888,6 +918,17 @@ class SumoTrafficBackend(TrafficBackend):
         if self._tm_drives_scenario:
             self._warn_dropped(overrides, shared)
             self._tm.override_vehicle_parameters(world, shared)
+        # The one given last wins: an entity's own override of a field this
+        # sets is spent, not drawn over the run's again when it next departs
+        # (_apply_parameters), as the TrafficManager backend spends its own.
+        overridden = set(overrides.set_fields())
+        for own_id in list(self._own_overrides):
+            own = self._own_overrides[own_id]
+            kept = set(own.set_fields()) - overridden
+            if kept:
+                self._own_overrides[own_id] = own.restricted_to(kept)
+            else:
+                del self._own_overrides[own_id]
         if not self._running:
             return
         for sumo_id in self._traci.vehicle.getIDList():
@@ -947,6 +988,15 @@ class SumoTrafficBackend(TrafficBackend):
         given before, for when SUMO drives it again."""
         previous = self._released_overrides.get(sumo_id)
         self._released_overrides[sumo_id] = (
+            overrides if previous is None else previous.overridden_by(overrides)
+        )
+
+    def _keep_own_overrides(self, sumo_id: str, overrides: VehicleParameters) -> None:
+        """Keep *overrides*, given the scenario's vehicle *sumo_id* alone,
+        over those it was given before, for each time it departs into SUMO
+        (:meth:`_apply_parameters`)."""
+        previous = self._own_overrides.get(sumo_id)
+        self._own_overrides[sumo_id] = (
             overrides if previous is None else previous.overridden_by(overrides)
         )
 
@@ -1045,6 +1095,7 @@ class SumoTrafficBackend(TrafficBackend):
                 cycle_on_sidewalks=self._config.cycle_on_sidewalks,
             )
         self._offset = _net_offset(self._network.net_file)
+        self._lefthand = _net_lefthand(self._network.net_file)
         try:
             import sumolib  # noqa: PLC0415
         except ImportError as exc:
@@ -1134,6 +1185,10 @@ class SumoTrafficBackend(TrafficBackend):
         # Always: a scenario's motorcycle or emergency vehicle may join at
         # any point of the run.
         types.append(str(_write_scenario_types(out / "scenario_types.add.xml")))
+        if not _sets_option(self._config.sumo_args, "--time-to-teleport"):
+            # Never SUMO's teleport of a vehicle that has waited 300 s: the
+            # CARLA actor of one would jump down the road (#2637).
+            cmd += ["--time-to-teleport", "-1"]
         # Before the demand: SUMO's default types are redefined only before
         # anything uses them.  sumo_args' own additional and route files join
         # these (SUMO refuses an option twice), after them.
@@ -1160,7 +1215,10 @@ class SumoTrafficBackend(TrafficBackend):
             # Once SUMO is up: SUMO's mesoscopic model is a SUMO of its own,
             # which copies this one's signals.
             self._meso = self._build_mesoscopic(
-                binary=binary, step_length=step_length, types=types, out=out
+                binary=_headless(binary),
+                step_length=step_length,
+                types=types,
+                out=out,
             )
         if self._tm_drives_scenario:
             self._tm.prepare(context)
@@ -1669,6 +1727,7 @@ class SumoTrafficBackend(TrafficBackend):
                 pass
         self._handed_ambient = {}
         self._released_overrides = {}
+        self._own_overrides = {}
         for entity in self._driven.values():
             actor = getattr(entity, "actor", None)
             if actor is not None:
@@ -1907,7 +1966,7 @@ class SumoTrafficBackend(TrafficBackend):
         """Ask SUMO for a lane change of its own one lane to *direction*."""
         tc = self._traci
         lane = tc.vehicle.getLaneIndex(sumo_id)
-        step = _lane_step(direction)
+        step = _lane_step(direction, self._lefthand)
         if not self._lane_change_allowed(sumo_id, step):
             # SUMO obeys the line (a solid one, as roadgen reads the map),
             # where CARLA's TrafficManager would cross it.
@@ -1981,7 +2040,7 @@ class SumoTrafficBackend(TrafficBackend):
             self._end_lane_change_request(request)
             self._lane_change_requests.pop(sumo_id, None)
             return
-        step = _lane_step(request.direction)
+        step = _lane_step(request.direction, self._lefthand)
         lane = tc.vehicle.getLaneIndex(sumo_id)
         edge = tc.vehicle.getRoadID(sumo_id)
         if edge.startswith(":") or not self._lane_change_allowed(sumo_id, step):
@@ -2036,7 +2095,8 @@ class SumoTrafficBackend(TrafficBackend):
         """Hold a crossing vehicle to the speed it can slow to the speed of what
         is ahead of it from, anywhere between it and the lane's centre.
 
-        *lateral* is how far it is to the left of that centre.
+        *lateral* is how far it is from that centre, as SUMO's lateral
+        position: to the left, or to the right in a left-hand-traffic network.
         """
         vehicle = self._traci.vehicle
         sumo_id = request.sumo_id
@@ -2069,7 +2129,7 @@ class SumoTrafficBackend(TrafficBackend):
             safe = crossing_safe_speed(
                 ahead,
                 beside,
-                -lateral,
+                lateral if self._lefthand else -lateral,
                 0.5 * length,
                 0.5 * width,
                 0.5 * other_length,
@@ -3296,17 +3356,63 @@ class SumoTrafficBackend(TrafficBackend):
             route = ahead
         return None
 
-    def _keep_route_ahead(self, sumo_id: str) -> None:
-        """Give a vehicle that must not arrive more road before it runs out."""
+    def _keep_route_ahead(
+        self, sumo_id: str, *, hold_at_dead_end: bool = False
+    ) -> None:
+        """Give a vehicle that must not arrive more road before it runs out.
+
+        Where there is none -- a dead end -- a vehicle SUMO drives
+        (*hold_at_dead_end*) is stopped where its road ends and waits there,
+        as the mesoscopic model holds one: arrived, SUMO would remove it and
+        leave its CARLA actor driving on (#2637).
+        """
         vehicle = self._traci.vehicle
         route = list(vehicle.getRoute(sumo_id))
         index = vehicle.getRouteIndex(sumo_id)
         if 0 <= index >= len(route) - 2:
             # From the edge it is on: SUMO refuses a route without it.
-            vehicle.setRoute(
-                sumo_id,
-                self._continue_route(route[index:], vclass=self._vclass(sumo_id)),
+            ahead = self._continue_route(route[index:], vclass=self._vclass(sumo_id))
+            vehicle.setRoute(sumo_id, ahead)
+            if hold_at_dead_end and len(ahead) == len(route) - index:
+                self._hold_at_dead_end(sumo_id, ahead[-1])
+
+    def _hold_at_dead_end(self, sumo_id: str, edge_id: str) -> None:
+        """Stop *sumo_id* at the end of *edge_id*, the last of its route, on
+        the lane of it a vehicle of its class may use nearest its own; once:
+        a stop it has (this one, or its goal's) is left as it is.  A new
+        route drops the stop (SUMO's ``setRoute``)."""
+        vehicle = self._traci.vehicle
+        if len(vehicle.getStops(sumo_id)) > 0:
+            return
+        vclass = self._vclass(sumo_id)
+        lanes = [
+            lane
+            for lane in self._net.getEdge(edge_id).getLanes()
+            if lane.allows(vclass)
+        ]
+        if not lanes:
+            return
+        own = int(vehicle.getLaneIndex(sumo_id))
+        lane = min(lanes, key=lambda candidate: abs(candidate.getIndex() - own))
+        pos = max(float(lane.getLength()) - 0.1, 0.0)
+        try:
+            vehicle.setStop(
+                sumo_id, edge_id, pos=pos, laneIndex=lane.getIndex(), duration=_STAND_S
             )
+        except Exception as exc:  # noqa: BLE001 - SUMO arrives it, as before
+            logger.warning(
+                "SUMO could not hold %s at the dead end of %s: %s",
+                sumo_id,
+                edge_id,
+                exc,
+            )
+            return
+        logger.info(
+            "SUMO: %s's road ends; it waits at the end of %s_%d",
+            sumo_id,
+            edge_id,
+            lane.getIndex(),
+        )
 
     def _push_external(self) -> None:
         for sumo_id, actor in list(self._external.items()):
@@ -3554,8 +3660,12 @@ class SumoTrafficBackend(TrafficBackend):
             return [None] * len(distances)
         # Mid lane change, SUMO's vehicle is off its lane's centre by this much
         # (to the left when positive); the point aimed at is too, or the car
-        # would cut the lane change short of where SUMO has it.
+        # would cut the lane change short of where SUMO has it.  A
+        # left-hand-traffic network's lateral position is positive to the
+        # right (#2637).
         lateral = float(tc.vehicle.getLateralLanePosition(sumo_id))
+        if self._lefthand:
+            lateral = -lateral
         position = float(tc.vehicle.getLanePosition(sumo_id))
         route = list(tc.vehicle.getRoute(sumo_id))
         index = tc.vehicle.getRouteIndex(sumo_id)
@@ -4082,7 +4192,7 @@ class SumoTrafficBackend(TrafficBackend):
             if actor is None or sumo_id not in present or sumo_id in self._settling:
                 continue
             self._follow(actor, sumo_id, self._length(actor), self._control(sumo_id))
-            self._keep_route_ahead(sumo_id)
+            self._keep_route_ahead(sumo_id, hold_at_dead_end=True)
         for sumo_id in self._external:
             if sumo_id in present:
                 self._keep_route_ahead(sumo_id)
@@ -4615,6 +4725,11 @@ class SumoTrafficBackend(TrafficBackend):
                 tc.vehicle.setWidth(sumo_id, self._meso_widths[sumo_id])
             if vehicle.speed_cap is not None:
                 tc.vehicle.setSpeed(sumo_id, vehicle.speed_cap)
+            if vehicle.type_id == EMERGENCY_TYPE:
+                # Off duty, as it first joined (_add_vehicle): re-added, its
+                # device sounds and its speed mode is the device's 7 (#2592).
+                tc.vehicle.setParameter(sumo_id, _BLUELIGHT_REACTION, "0")
+                tc.vehicle.setSpeedMode(sumo_id, _SPEED_MODE_DEFAULT)
         except Exception as exc:  # noqa: BLE001 - one vehicle must not end the run
             # The scenario's own vehicle is worth a line; SUMO's traffic is not.
             log = logger.warning if entity is not None else logger.debug
@@ -4637,6 +4752,11 @@ class SumoTrafficBackend(TrafficBackend):
             else:
                 tc.vehicle.setColor(sumo_id, _DRIVEN_COLOR)
                 self._driven[sumo_id] = entity
+            # On a call, its siren sounded again, as when it joined (_join).
+            if self._emergency_ids.get(id(entity)) == sumo_id and getattr(
+                entity, "in_emergency", False
+            ):
+                self._sound_siren(sumo_id, entity, True)
             self._mark_fidelity(entity, SimulationFidelity.MICROSCOPIC)
             logger.info("SUMO: %s is microscopic again; back in CARLA", sumo_id)
         self._level_changes[1] += 1
@@ -4986,7 +5106,8 @@ class SumoTrafficBackend(TrafficBackend):
         parameters = self.vehicle_parameters
         draws = bool(parameters.set_fields())
         sublane = self._config.lateral_resolution_m is not None
-        if draws or sublane:
+        own = self._own_overrides
+        if draws or sublane or own:
             for sumo_id in self._departed_ids():
                 if sumo_id in self._external:  # CARLA's side drives those
                     continue
@@ -4994,6 +5115,11 @@ class SumoTrafficBackend(TrafficBackend):
                     self._no_sidestep_standing(sumo_id)
                 if draws:
                     self._draw_vehicle(sumo_id, parameters)
+                if sumo_id in own:
+                    # Its own over the run's: lost to the draw above on
+                    # every departure -- back from the mesoscopic model among
+                    # them -- otherwise (#2592).
+                    self._draw_vehicle(sumo_id, own[sumo_id])
         overrides = self._pedestrian_overrides
         if overrides is not None:
             for person in self._traci.simulation.getDepartedPersonIDList():

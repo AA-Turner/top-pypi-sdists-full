@@ -236,7 +236,11 @@ class XEP_0050(BasePlugin):
         session = self.sessions.get(sessionid)
 
         if session is None:
-            return await self._handle_command_start(iq)
+            if action == 'execute':
+                return await self._handle_command_start(iq)
+            else:
+                raise XMPPError('bad-request', extension='bad-sessionid',
+                                extension_ns=stanza.Command.namespace)
 
         if action in ('next', 'execute'):
             return await self._handle_command_next(iq)
@@ -309,9 +313,9 @@ class XEP_0050(BasePlugin):
             handler = session['next']
             interfaces = session['interfaces']
             results = []
-            for stanza in iq['command']['substanzas']:
-                if stanza.plugin_attrib in interfaces:
-                    results.append(stanza)
+            for substanza in iq['command']['substanzas']:
+                if substanza.plugin_attrib in interfaces:
+                    results.append(substanza)
             if len(results) == 1:
                 results = results[0]
 
@@ -319,7 +323,8 @@ class XEP_0050(BasePlugin):
 
             await self._process_command_response(iq, session)
         else:
-            raise XMPPError('item-not-found')
+            raise XMPPError('bad-request', extension='bad-sessionid',
+                            extension_ns=stanza.Command.namespace)
 
     async def _handle_command_prev(self, iq):
         """
@@ -336,9 +341,9 @@ class XEP_0050(BasePlugin):
             handler = session['prev']
             interfaces = session['interfaces']
             results = []
-            for stanza in iq['command']['substanzas']:
-                if stanza.plugin_attrib in interfaces:
-                    results.append(stanza)
+            for substanza in iq['command']['substanzas']:
+                if substanza.plugin_attrib in interfaces:
+                    results.append(substanza)
             if len(results) == 1:
                 results = results[0]
 
@@ -346,7 +351,8 @@ class XEP_0050(BasePlugin):
 
             await self._process_command_response(iq, session)
         else:
-            raise XMPPError('item-not-found')
+            raise XMPPError('bad-request', extension='bad-sessionid',
+                            extension_ns=stanza.Command.namespace)
 
     async def _process_command_response(self, iq: Iq, session: dict) -> None:
         """
@@ -386,6 +392,8 @@ class XEP_0050(BasePlugin):
         if session['next'] is None:
             iq['command']['actions'] = []
             iq['command']['status'] = 'completed'
+            self._cancel_timeout_task(sessionid)
+            del self.sessions[sessionid]
         elif session['has_next']:
             actions = ['next']
             if session['allow_complete']:
@@ -432,8 +440,8 @@ class XEP_0050(BasePlugin):
             iq['command']['notes'] = session['notes']
             iq.send()
         else:
-            raise XMPPError('item-not-found')
-
+            raise XMPPError('bad-request', extension='bad-sessionid',
+                            extension_ns=stanza.Command.namespace)
 
     async def _handle_command_complete(self, iq):
         """
@@ -505,9 +513,8 @@ class XEP_0050(BasePlugin):
             await asyncio.sleep(timeout)
             if handler is not None:
                 await handler(session)
-            session['jid'] = iq.get_from()
-            self.cancel_command(session)
             self._cancel_timeout_task(session["id"])
+            del self.sessions[session['id']]
 
         self._timeout_tasks[session["id"]] = asyncio.create_task(timer())
 

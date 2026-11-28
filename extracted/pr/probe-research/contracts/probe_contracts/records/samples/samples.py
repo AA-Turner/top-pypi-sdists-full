@@ -11,6 +11,7 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, FiniteFl
 
 from ...compat import StrEnum
 from ..records import Record
+from .evidence import CompactEvidence, GradeStatus
 from .outcome import SampleOutcome, SampleSplit, validate_drop_reason
 from .provenance import Generation, Scorer, Sha256
 from .result import MAX_FAILURE_REASON_CHARS, SampleErrorReason, SampleResult, cut_failure_reason
@@ -231,6 +232,10 @@ class Sample(Record):
     attempt_key: str | None = Field(default=None, min_length=1, max_length=MAX_KEY_CHARS)
     task_id: UUID
     task_key: str = Field(min_length=1, max_length=MAX_TASK_KEY_CHARS)
+    #: Resolved on read from the run's task registry.
+    task_name: str | None = None
+    evidence_summary: CompactEvidence | None = None
+    grade_status: GradeStatus = GradeStatus.UNKNOWN
     scenario: Scenario = Field(default_factory=dict)
     group_key: str | None = Field(default=None, max_length=MAX_KEY_CHARS)
     group_id: UUID | None = None
@@ -288,6 +293,8 @@ class Sample(Record):
     #: The tools the model was offered (ATIF `agent.tool_definitions`, a chat template's `tools`), in their order.
     tools: Tools = Field(default_factory=list)
     finish_reason: FinishReason | None = None
+    #: Content digest of the separately staged, immutable observation graph.
+    evidence_ref: Sha256 | None = None
     prompt_tokens: int | None = Field(default=None, ge=0)
     response_tokens: int | None = Field(default=None, ge=0)
 

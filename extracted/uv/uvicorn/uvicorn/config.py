@@ -171,15 +171,14 @@ def resolve_reload_patterns(patterns_list: list[str], directories_list: list[str
     directories = list(map(lambda x: x.resolve(), directories))
     directories = list({reload_path for reload_path in directories if is_dir(reload_path)})
 
-    children = []
-    for j in range(len(directories)):
-        for k in range(j + 1, len(directories)):  # pragma: full coverage
-            if directories[j] in directories[k].parents:
-                children.append(directories[k])
-            elif directories[k] in directories[j].parents:
-                children.append(directories[j])
+    # Drop directories nested inside another one. Visiting shallower paths first means a set lookup
+    # of each ancestor is enough, instead of comparing every pair of directories.
+    kept: set[Path] = set()
+    for directory in sorted(directories, key=lambda path: len(path.parts)):
+        if not any(parent in kept for parent in directory.parents):
+            kept.add(directory)
 
-    directories = list(set(directories).difference(set(children)))
+    directories = list(kept)
 
     return list(set(patterns)), directories
 
@@ -597,7 +596,7 @@ class Config:
                 family = socket.AF_INET6
                 addr_format = "%s://[%s]:%d"
 
-            sock = socket.socket(family=family)
+            sock = socket.socket(family=family, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 sock.bind((self.host, self.port))

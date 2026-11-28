@@ -1,4 +1,5 @@
-"""Hosted benchmarks: `dreamscale sim robolab` runs on Dreamscale's simulators (DSL-444).
+"""Hosted benchmarks: `dreamscale sim robolab` (DSL-444) and `dreamscale sim robotwin`
+(DSL-612) run on Dreamscale's simulators.
 
 Nothing runs locally and no simulator is installed: the control plane's ``/v1/sim-runs`` API
 creates the run, launches sim units for it and terminates them when it ends
@@ -33,7 +34,8 @@ from dreamscale.control import (
 )
 
 # Benchmarks that run on Dreamscale's simulators, not this computer.
-HOSTED_BENCHMARKS = {"robolab": "RoboLab"}
+HOSTED_BENCHMARKS = {"robolab": "RoboLab", "robotwin": "RoboTwin"}
+EPISODES_MAX = {"robolab": 50, "robotwin": 100}
 DEFAULT_EPISODES = 4
 DEFAULT_MAX_UNITS = 1
 SIM_RUNS_PATH = "/v1/sim-runs"
@@ -52,8 +54,9 @@ _RUNNING = frozenset({"running", "evaluating", "finishing"})
 GETTING = "Getting a simulator"
 WAITING = "Waiting for L4 capacity"
 STARTING = "Starting Isaac Sim"
+STARTING_ROBOTWIN = "Starting RoboTwin"
 PREPARING = "Preparing scene"
-BOOT_STAGES = frozenset({GETTING, WAITING, STARTING, PREPARING})
+BOOT_STAGES = frozenset({GETTING, WAITING, STARTING, STARTING_ROBOTWIN, PREPARING})
 DONE = "Done"
 
 
@@ -66,15 +69,19 @@ def run_body(
     *,
     task_id: str | None = None,
     task_suite: str | None = None,
+    task_ids: list[str] | None = None,
     episodes: int = DEFAULT_EPISODES,
     max_units: int = DEFAULT_MAX_UNITS,
 ) -> dict[str, Any]:
-    """``POST /v1/sim-runs``'s body: one task by id, or a suite (``all``: every task)."""
-    if (task_id is None) == (task_suite is None):
-        raise ValueError("choose one: a task id or a suite")
+    """``POST /v1/sim-runs``'s body: one task by id, several (a benchmark without suites:
+    ``--all``), or a suite (``all``: every task)."""
+    if sum(x is not None for x in (task_id, task_suite, task_ids)) != 1:
+        raise ValueError("choose one: a task id, task ids or a suite")
     body: dict[str, Any] = {"benchmark": benchmark, "model": model}
     if task_id is not None:
         body["tasks"] = [task_id]
+    elif task_ids is not None:
+        body["tasks"] = list(task_ids)
     else:
         body["suite"] = task_suite
     return {**body, "episodes": episodes, "max_units": max_units}
@@ -189,8 +196,9 @@ def stage(run: dict[str, Any], previous: str | None = None) -> str:
         return WAITING
     activity = run.get("activity") or {}
     unit_phase = activity.get("phase")
+    starting = STARTING_ROBOTWIN if run.get("benchmark") == "robotwin" else STARTING
     if unit_phase == "starting_isaac_sim":
-        return STARTING
+        return starting
     if unit_phase in ("claiming", "creating_env", "env_created"):
         return PREPARING
     if unit_phase == "running" and isinstance(activity.get("episode"), int):
@@ -207,7 +215,7 @@ def stage(run: dict[str, Any], previous: str | None = None) -> str:
         return f"Running {done}/{total} tasks" if total else "Running tasks"
     units = run.get("units") if isinstance(run.get("units"), dict) else {}
     if phase in _STARTING or (phase == "launching" and _int(units.get("live"))):
-        return STARTING
+        return starting
     if phase in _WAITING or phase == "launching" or status == "queued":
         return GETTING
     return previous or GETTING
@@ -315,10 +323,12 @@ def result_lines(run: dict[str, Any]) -> list[str]:
     lines.append(f"Success rate: {_rate(successes, episodes)}")
     contract = run.get("contract") or {}
     parts = [
-        f"{label} {contract[key]}"
+        f"{label} {str(contract[key])[:12] if key == 'seed_list_sha256' else contract[key]}"
         for key, label in (("gpu", "GPU"), ("isaac_sim", "Isaac Sim"),
-                           ("robolab_commit", "RoboLab"))
-        if contract.get(key)
+                           ("robolab_commit", "RoboLab"), ("robotwin_commit", "RoboTwin"),
+                           ("setting", "setting"), ("seed_list_sha256", "seeds"),
+                           ("bundle", "bundle"))
+        if contract.get(key) and (key != "bundle" or contract.get("benchmark") == "robotwin")
     ]
     if parts:
         lines.append("Contract: " + " · ".join(parts))
@@ -395,6 +405,7 @@ def run_hosted(
     model: str,
     task_id: str | None = None,
     task_suite: str | None = None,
+    task_ids: list[str] | None = None,
     episodes: int = DEFAULT_EPISODES,
     max_units: int = DEFAULT_MAX_UNITS,
     json_output: bool = False,
@@ -417,14 +428,15 @@ def run_hosted(
     say = err_fn if json_output else print_fn
     client_factory = client_factory or ControlPlaneClient
     body = run_body(benchmark, model, task_id=task_id, task_suite=task_suite,
-                    episodes=episodes, max_units=max_units)
+                    task_ids=task_ids, episodes=episodes, max_units=max_units)
     started = time.monotonic()
     if live_wait:
         say(f"{GETTING}: 0s elapsed")
     run = call(client_factory, create_run, body, view)
     run_id = run["id"]
-    what = (f"task {task_id}" if task_id is not None else "every task"
-            if body["suite"] == "all" else f"suite {body['suite']}")
+    what = (f"task {task_id}" if task_id is not None
+            else f"{len(task_ids)} tasks" if task_ids is not None
+            else "every task" if body["suite"] == "all" else f"suite {body['suite']}")
     if not json_output:
         print_fn(f"{HOSTED_BENCHMARKS[benchmark]} run {run_id}: {model} · {what} · "
                  f"{episodes} episode{'s' if episodes != 1 else ''} per task")

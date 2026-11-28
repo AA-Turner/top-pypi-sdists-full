@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bottle
-Version: 0.13.4
+Version: 0.13.5
 Summary: Fast and simple WSGI-framework for small web-applications.
 Home-page: http://bottlepy.org/
 Author: Marcel Hellkamp

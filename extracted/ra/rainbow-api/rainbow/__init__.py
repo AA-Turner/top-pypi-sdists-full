@@ -5,9 +5,9 @@ from rainbow.datafile import DataFile
 from rainbow.datadirectory import DataDirectory
 from rainbow.datasequence import DataSequence
 from rainbow import agilent, waters
-from rainbow._binning import MZ_FLOORS
-from rainbow.asm import (asm_technique, from_asm, iso_timestamp,
-                         peaks_from_asm, sequence_from_asm)
+from rainbow._binning import MZ_FLOORS, RECORDED, is_recorded as _is_recorded
+from rainbow.asm import (asm_technique, device_of, from_asm, iso_timestamp,
+                         measurements, peaks_from_asm, sequence_from_asm)
 
 
 # `debug` is listed although it is not imported above: __getattr__ fetches it on
@@ -17,9 +17,10 @@ __all__ = [
     'DataFile', 'DataDirectory', 'DataSequence',
     'agilent', 'waters', 'debug',
     'read', 'read_sequence', 'read_metadata', 'mz_resolution',
-    'from_asm', 'sequence_from_asm', 'peaks_from_asm', 'iso_timestamp',
+    'from_asm', 'sequence_from_asm', 'peaks_from_asm', 'measurements', 'device_of',
+    'iso_timestamp',
     'asm_technique', 'sniff_vendor',
-    'VENDORS', 'MZ_FLOORS',
+    'VENDORS', 'MZ_FLOORS', 'RECORDED',
 ]
 
 
@@ -90,7 +91,7 @@ def _warn_bin_width_floor(datafiles, bin_width, vendor):
     an ordinary quadrupole channel that does have a floor, and the flag must not
     silence the warning that channel has earned.
     """
-    if bin_width is None:
+    if bin_width is None or _is_recorded(bin_width):
         return
     too_fine = {}
     for datafile in datafiles:
@@ -146,6 +147,11 @@ def sniff_vendor(path):
             or any(re.fullmatch(r'_func\d{3}\.dat', name) for name in lower):
         return 'waters'
 
+    # Agilent OpenLab .sirslt: a .dx archive beside its .acaml result document.
+    exts = {os.path.splitext(name)[1] for name in lower}
+    if '.dx' in exts and '.acaml' in exts:
+        return 'agilent'
+
     # Agilent .D: the AcqData subdirectory or any Chemstation data file.
     if 'acqdata' in lower \
             or any(os.path.splitext(name)[1] in ('.ch', '.uv', '.ms')
@@ -163,7 +169,8 @@ def _detect_vendor(path):
     """
     Determines which vendor parser to use for a path.
 
-    The path's extension is tried first (.D/.dx -> Agilent, .raw -> Waters),
+    The path's extension is tried first (.D/.dx/.sirslt -> Agilent, .raw ->
+    Waters),
     which preserves rainbow's historical behavior exactly. If the extension is
     unrecognized and the path is a directory, its contents are sniffed for a
     vendor signature, so datasets whose folders were renamed without the
@@ -181,7 +188,7 @@ def _detect_vendor(path):
     if not isinstance(path, str):
         return None
     ext = os.path.splitext(path)[1].lower()
-    if ext in ('.d', '.dx'):
+    if ext in ('.d', '.dx', '.sirslt'):
         return 'agilent'
     if ext == '.raw':
         return 'waters'
@@ -230,7 +237,8 @@ def _unreadable(path, what="read"):
         hint = (" It holds injection subdirectories, so it is a sequence "
                 "rather than one run: rb.read_sequence() reads that.")
     elif isinstance(path, str) and os.path.isdir(path):
-        hint = (" If its name lost the vendor suffix (.D, .dx, .raw), pass "
+        hint = (" If its name lost the vendor suffix (.D, .dx, .sirslt, "
+                ".raw), pass "
                 "format='agilent' or format='waters' to name the parser.")
     # A path that does not exist never reaches here: the vendor parsers raise
     # "<path> is not a directory" first, which already says what is wrong.
@@ -254,10 +262,12 @@ def read(path, display_precision='auto', hrms=False, requested_files=None,
 
     Agilent HRMS parsing may be slow. Set the flag to enable it.
 
-    For Agilent .dx archives, instrument telemetry traces (e.g. pressure, \
-        temperature) are skipped unless the telemetry flag is set.
+    For Agilent .dx archives and OpenLab .sirslt folders, instrument \
+        telemetry traces (e.g. pressure, temperature) are skipped unless the \
+        telemetry flag is set.
 
-    The vendor is normally detected from the path: a .D/.dx path is read as \
+    The vendor is normally detected from the path: a .D/.dx/.sirslt path is \
+        read as \
         Agilent and a .raw path as Waters. A directory whose name lacks that \
         suffix is identified from its contents instead. Pass ``format`` \
         ('agilent' or 'waters') to override detection entirely.
@@ -292,6 +302,17 @@ def read(path, display_precision='auto', hrms=False, requested_files=None,
             default) to keep the per-scan representation, or pass a width to
             project the scans onto one shared m/z grid (see
             :ref:`hrms-data-model`).
+
+            ``'recorded'`` keeps every m/z as the file stores it: no width is
+            chosen and nothing is merged. A channel on a shared axis (an
+            Agilent .ms, a Waters function, an uncalibrated MassHunter
+            centroid) gets one column per distinct m/z it stores, labelled by
+            that m/z unrounded (a float32 one as the shortest decimal that
+            reads back to it); its ``metadata['mz_spacing']`` is the smallest
+            gap between two of them, measured on the file, unless it monitors
+            chosen ions (SIM, MRM). A channel whose m/z are continuous (the
+            HRMS profile, a calibrated TOF centroid) stays per scan, as with
+            no bin_width. ``display_precision`` does not apply.
         peaks (bool, optional): Flag for reading the run's integrated peaks
             into ``DataDirectory.peaks``, as :func:`read_sequence` does for a
             whole sequence. For Agilent they come from the result document of
@@ -375,7 +396,26 @@ def read(path, display_precision='auto', hrms=False, requested_files=None,
     # Warned here, not before the read, because the floor is a property of the
     # channels the parsers actually returned.
     _warn_bin_width_floor(datadir.datafiles, bin_width, vendor)
+    if _is_recorded(bin_width):
+        _state_recorded_spacing(datadir.datafiles)
     return datadir
+
+
+def _state_recorded_spacing(datafiles):
+    """Puts ``mz_spacing`` on each MS channel read as recorded that sweeps a
+    range on a shared axis: the smallest gap between two distinct m/z it
+    stores, measured on this file (:func:`rainbow._binning.recorded_spacing`).
+    A selected-ion channel's gaps are the method's choice, and a per-scan
+    channel has no shared axis, so neither gets one (as in
+    :func:`mz_resolution`)."""
+    from rainbow._binning import recorded_spacing
+    for datafile in datafiles:
+        if datafile.detector != 'MS' or hasattr(datafile, 'mass_labels') \
+                or _is_selected_ion(datafile):
+            continue
+        spacing = recorded_spacing(datafile.ylabels)
+        if spacing is not None:
+            datafile.metadata['mz_spacing'] = spacing
 
 
 def _mz_spacings(datadir, only=None):
@@ -492,8 +532,9 @@ def _is_selected_ion(datafile):
     as selected-ion.
     """
     mode = datafile.metadata.get('acquisition_mode')
-    if mode in ('SIM', 'Scan'):
-        return mode == 'SIM'
+    if mode in ('SIM', 'MRM', 'Scan', 'mixed'):
+        # A mixed channel's full scans are a grid to measure.
+        return mode in ('SIM', 'MRM')
     # Counted on the labels, not on the width of the data grid. They are the
     # same for an ordinary read (one column per label), but the probe reads
     # labels only, so the grid there is empty and would make every untagged
@@ -509,8 +550,8 @@ def _needs_the_probe(datadir, measured):
     """Whether any MS channel in ``datadir`` still has no measurement.
 
     Every MS channel the first read did not measure has to come from the probe:
-    one already on a shared axis (a Chemstation .ms beside a MassHunter
-    MSPeak.bin, or Agilent ICP-MS), and a centroid, whose per-scan peaks are
+    one already on a shared axis (a Chemstation .ms read beside a MassHunter
+    centroid, or Agilent ICP-MS), and a centroid, whose per-scan peaks are
     not a grid to measure. Asking which channels are still missing covers both
     without naming either, so a channel that stops being measured in the first
     read cannot silently drop out of the answer.

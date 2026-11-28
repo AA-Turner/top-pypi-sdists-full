@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agilicus
-Version: 1.451.30
+Version: 1.452.1
 Summary: Agilicus SDK
 License: MIT
 License-File: LICENSE.txt
@@ -63,6 +63,9 @@ Generally you may install this from [pypi](https://pypi.org/project/agilicus/) a
 ```
 pip install --upgrade agilicus
 ```
+
+Once installed, `agilicus-cli upgrade` performs the same upgrade from the
+public index and does nothing when the installed version is already current.
 
 You may wish to add bash completion by adding this to your ~/.bashrc:
 

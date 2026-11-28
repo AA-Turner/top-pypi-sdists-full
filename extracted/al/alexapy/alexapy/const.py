@@ -91,6 +91,21 @@ LOCALE_KEY = {
     ".co.jp": "ja_JP",
     ".com.br": "pt_BR",
 }
+# Retail marketplace identifiers used by the Alexa lists service.
+LIST_MARKETPLACE_IDS = {
+    "amazon.com": "ATVPDKIKX0DER",
+    "amazon.co.uk": "A1F83G8C2ARO7P",
+    "amazon.de": "A1PA6795UKMFR9",
+    "amazon.in": "A21TJRUUN4KGV",
+    "amazon.co.jp": "A1VC38T7YXB528",
+    "amazon.com.au": "A39IBJ37TRP1C6",
+    "amazon.ca": "A2EUQ1WTGCTBG2",
+    "amazon.fr": "A13V1IB3VIYZZH",
+    "amazon.it": "APJ6JRA9NG5V4",
+    "amazon.es": "A1RKKUPIHCS9HS",
+    "amazon.com.mx": "A1AM78C64UM0Y8",
+    "amazon.com.br": "A2Q3Y263D00KWC",
+}
 # https://developer.amazon.com/en-US/docs/alexa/alexa-voice-service/api-overview.html#endpoints
 HTTP2_NA = "alexa.na.gateway.devices.a2z.com"
 HTTP2_EU = "alexa.eu.gateway.devices.a2z.com"
@@ -114,6 +129,7 @@ query CustomerSmartHome {
     ) {
         items {
             id
+            friendlyName
             model {
                 type
                 value {

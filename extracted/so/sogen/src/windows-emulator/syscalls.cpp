@@ -54,6 +54,11 @@ namespace sogen
         // syscalls/file.cpp
         // Validates an I/O completion event, resolving the handle before checking the type of the object it names.
         NTSTATUS check_completion_event(const syscall_context& c, handle event);
+        NTSTATUS handle_file_io_control(const syscall_context& c, const file& f, handle event, emulator_pointer apc_routine,
+                                        emulator_pointer apc_context,
+                                        emulator_object<IO_STATUS_BLOCK<EmulatorTraits<Emu64>>> io_status_block, ULONG io_control_code,
+                                        emulator_pointer input_buffer, ULONG input_buffer_length, emulator_pointer output_buffer,
+                                        ULONG output_buffer_length);
         NTSTATUS handle_NtSetInformationFile(const syscall_context& c, handle file_handle,
                                              emulator_object<IO_STATUS_BLOCK<EmulatorTraits<Emu64>>> io_status_block,
                                              uint64_t file_information, ULONG length, FILE_INFORMATION_CLASS info_class);
@@ -653,6 +658,7 @@ namespace sogen
                                            emulator_object<UNICODE_STRING<EmulatorTraits<Emu64>>> class_name,
                                            emulator_object<UNICODE_STRING<EmulatorTraits<Emu64>>> window_name);
         BOOL handle_NtUserMoveWindow(const syscall_context& c, hwnd hwnd, int x, int y, int width, int height, BOOL repaint);
+        BOOL completion_NtUserMoveWindow(const syscall_context& c, hwnd hwnd, int x, int y, int width, int height, BOOL repaint);
         uint64_t handle_NtUserGetProcessWindowStation(const syscall_context& c);
         uint64_t handle_NtUserCreateWindowStation(const syscall_context& c,
                                                   emulator_object<OBJECT_ATTRIBUTES<EmulatorTraits<Emu64>>> object_attributes,
@@ -988,6 +994,12 @@ namespace sogen
         BOOL handle_NtGdiGetDCDword(const syscall_context& c, hdc dc, uint32_t index, emulator_pointer result);
         BOOL handle_NtGdiGetDCPoint(const syscall_context& c, hdc dc, uint32_t index, emulator_pointer result);
         BOOL handle_NtGdiGetAndSetDCDword(const syscall_context& c, hdc dc, uint32_t method, uint32_t value, emulator_pointer result);
+        BOOL handle_NtGdiTransformPoints(const syscall_context& c, hdc dc, emulator_pointer source, emulator_pointer destination,
+                                         int32_t count, uint32_t mode);
+        BOOL handle_NtGdiScaleWindowExtEx(const syscall_context& c, hdc dc, int32_t x_numerator, int32_t x_denominator, int32_t y_numerator,
+                                          int32_t y_denominator, emulator_pointer previous_extent);
+        BOOL handle_NtGdiScaleViewportExtEx(const syscall_context& c, hdc dc, int32_t x_numerator, int32_t x_denominator,
+                                            int32_t y_numerator, int32_t y_denominator, emulator_pointer previous_extent);
         BOOL handle_NtGdiSetBrushOrg(const syscall_context& c, hdc dc, int x, int y, emulator_pointer prev);
         uint64_t handle_NtGdiHfontCreate(const syscall_context& c, emulator_pointer logfont, uint32_t angle);
         uint32_t handle_NtGdiExtGetObjectW(const syscall_context& c, uint32_t handle_value, uint32_t size, emulator_pointer buffer);
@@ -1220,7 +1232,14 @@ namespace sogen
             auto* device = c.proc.devices.get(resolved_file_handle);
             if (!device)
             {
-                return STATUS_INVALID_HANDLE;
+                const auto* file_entry = c.proc.files.get(resolved_file_handle);
+                if (!file_entry)
+                {
+                    return STATUS_INVALID_HANDLE;
+                }
+
+                return handle_file_io_control(c, *file_entry, event, apc_routine, apc_context, io_status_block, io_control_code,
+                                              input_buffer, input_buffer_length, output_buffer, output_buffer_length);
             }
 
             // IopXxxControlFile references the file handle first and the event second, so an invalid file handle wins over a
@@ -1249,14 +1268,7 @@ namespace sogen
             context.output_buffer_length = output_buffer_length;
             context.vcpu = &c.vcpu;
 
-            if (c.proc.is_wow64_process && io_status_block)
-            {
-                const auto native_iosb = io_status_block.read();
-                if (native_iosb.Pointer != 0)
-                {
-                    context.wow64_io_status_block.set_address(static_cast<emulator_pointer>(native_iosb.Pointer));
-                }
-            }
+            attach_wow64_io_status_block(c, context);
 
             try
             {
@@ -1962,6 +1974,9 @@ namespace sogen
         add_handler(NtGdiGetDCDword);
         add_handler(NtGdiGetDCPoint);
         add_handler(NtGdiGetAndSetDCDword);
+        add_handler(NtGdiTransformPoints);
+        add_handler(NtGdiScaleWindowExtEx);
+        add_handler(NtGdiScaleViewportExtEx);
         add_handler(NtGdiSetBrushOrg);
         add_handler(NtGdiHfontCreate);
         add_handler(NtGdiExtGetObjectW);
@@ -2499,6 +2514,7 @@ namespace sogen
         add_callback(NtUserDestroyWindow, window_destroy_state);
         add_callback(NtUserShowWindow, window_show_state);
         add_callback(NtUserSetWindowPos, window_position_state);
+        add_callback(NtUserMoveWindow, window_position_state);
         add_callback(NtUserEndDeferWindowPosEx, deferred_window_position_state);
         add_callback(NtUserMessageCall, message_call_state);
         add_callback(NtUserGetComboBoxInfo, message_call_state);

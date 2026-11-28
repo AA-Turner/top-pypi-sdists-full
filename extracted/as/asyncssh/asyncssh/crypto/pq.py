@@ -22,10 +22,15 @@
 
 import ctypes
 import ctypes.util
-from typing import Mapping, Protocol, Tuple, Type, Union
+from typing import Mapping, Optional, Protocol, Tuple, Type, Union
 
 from cryptography.hazmat.backends.openssl import backend
 from cryptography.hazmat.primitives.asymmetric import mlkem
+
+
+_OQS_SUCCESS = 0
+
+_oqs: Optional[ctypes.CDLL] = None
 
 
 class PQKey(Protocol):
@@ -36,7 +41,6 @@ class PQKey(Protocol):
     ciphertext_bytes: int
     secret_bytes: int
 
-    # pylint: disable=super-init-not-called
     def __init__(self, alg_name: bytes) -> None:
         """Construct a PQKey"""
 
@@ -136,7 +140,9 @@ class _OQSKEM(_KEM):
 
         pubkey = ctypes.create_string_buffer(self.pubkey_bytes)
         privkey = ctypes.create_string_buffer(self.privkey_bytes)
-        self._keypair(pubkey, privkey)
+
+        if self._keypair(pubkey, privkey) != _OQS_SUCCESS:
+            raise ValueError('Unable to create keypair') # pragma: no cover
 
         self._pub_key = pubkey.raw
         self._priv_key = privkey.raw
@@ -155,7 +161,8 @@ class _OQSKEM(_KEM):
         ciphertext = ctypes.create_string_buffer(self.ciphertext_bytes)
         secret = ctypes.create_string_buffer(self.secret_bytes)
 
-        self._encaps(ciphertext, secret, peer_public)
+        if self._encaps(ciphertext, secret, peer_public) != _OQS_SUCCESS:
+            raise ValueError('Unable to encapsulate secret') # pragma: no cover
 
         return secret.raw, ciphertext.raw
 
@@ -167,7 +174,8 @@ class _OQSKEM(_KEM):
 
         secret = ctypes.create_string_buffer(self.secret_bytes)
 
-        self._decaps(secret, ciphertext, self._priv_key)
+        if self._decaps(secret, ciphertext, self._priv_key) != _OQS_SUCCESS:
+            raise ValueError('Unable to decapsulate secret') # pragma: no cover
 
         return secret.raw
 

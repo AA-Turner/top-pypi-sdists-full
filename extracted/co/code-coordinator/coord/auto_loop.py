@@ -60,9 +60,13 @@ from coord.models import (
     effective_issue_number,
 )
 from coord.review import (
+    CeilingModelDecision,
     ReviewFindings,
     authoritative_review_counts,
+    ceiling_continue_override_pending,
+    ceiling_model_decision_enabled,
     classify_blocking_evidence,
+    decide_ceiling_action,
     dispatch_review,
     extract_nits_section,
     maybe_scoped_review_for_completed_fix,
@@ -71,6 +75,7 @@ from coord.review import (
     newest_done_work_leg,
     parse_review_from_agent,
     parse_review_from_log,
+    record_ceiling_continue_override_consumed,
     record_unparseable_treated_as_blocking,
     review_could_have_seen_head,
 )
@@ -1466,6 +1471,54 @@ def _merge_blocking_review_findings(
     return ReviewFindings(verdict="request-changes", body=merged_body)
 
 
+def _latest_blocking_findings_body(
+    work_assignment_id: str, board: Board, config: Config, *, repo_name: str,
+) -> str:
+    """Best-effort blocking-findings body for the #4190 ceiling model's
+    evidence, for the call sites (``run_for_fix_transition``,
+    ``coord.review.dispatch_pending_reviews``) that reach the ceiling
+    without already holding the triggering review's own ``ReviewFindings``
+    (unlike ``_dispatch_fix_for_review``, which does and merges it via
+    :func:`_merge_blocking_review_findings` instead of this).
+
+    Scans every completed/active review of *work_assignment_id* for the
+    MOST RECENT (by ``finished_at``) whose loaded findings read
+    ``verdict == "request-changes"``, and returns its body — empty string
+    when there is no such review or none of its findings can be loaded,
+    which `coord.review._render_ceiling_evidence` renders explicitly as
+    "(none recorded for this evidence bundle)" rather than omitting the
+    line.
+    """
+    repo_github = None
+    try:
+        repo_cfg = config.repo(repo_name)
+        repo_github = repo_cfg.github if repo_cfg is not None else None
+    except Exception:  # noqa: BLE001
+        repo_github = None
+
+    candidates = sorted(
+        (
+            a
+            for a in list(board.completed) + list(board.active)
+            if a.type == "review" and a.review_of_assignment_id == work_assignment_id
+        ),
+        key=lambda a: a.finished_at or 0,
+        reverse=True,
+    )
+    for candidate in candidates:
+        try:
+            findings = _load_review_findings(candidate, None, None, repo_github=repo_github)
+        except Exception as exc:  # noqa: BLE001 — best-effort evidence only
+            log.debug(
+                "auto_loop: failed to load findings for %s while building "
+                "#4190 ceiling evidence: %s", candidate.assignment_id, exc,
+            )
+            continue
+        if findings is not None and findings.verdict == "request-changes":
+            return findings.body
+    return ""
+
+
 def _dispatch_fix_for_review(
     review: Assignment,
     findings,
@@ -1613,6 +1666,15 @@ def _dispatch_fix_for_review(
                 detail=escalation_reason,
             )]
 
+    # #3113: gather every OTHER completed review of THIS work assignment with
+    # its own blocking findings before building the briefing — a dispatch
+    # race (or a legacy duplicate) can leave two reviews on the same work
+    # row, and the fix worker must see every reviewer's findings, not just
+    # whichever review's completion happened to trigger this call. Computed
+    # BEFORE the iteration-ceiling check below, since #4190's bounded model
+    # decision needs the same merged findings as its evidence.
+    merged_findings = _merge_blocking_review_findings(work, review, findings, board, config)
+
     # Compute the next iteration number and check the limit.  #3322: read it
     # off the WHOLE branch chain, not off `work` alone — the stalled-pipeline
     # sweep reaches this function with `work` bound to the ORIGINAL
@@ -1621,30 +1683,81 @@ def _dispatch_fix_for_review(
     next_iteration = next_fix_iteration(board, work)
     max_iter = config.pipeline.max_review_iterations
 
-    if next_iteration > max_iter:
-        log.warning(
-            "auto_loop: max_review_iterations (%d) reached for assignment %s "
-            "— stopping loop and notifying user",
-            max_iter, work.assignment_id,
-        )
-        _post_max_iterations_notice(
-            work, config, completed_rounds=next_iteration - 1,
-        )
-        return [LoopAction(
-            kind="max_iterations",
-            assignment_id=review.assignment_id,
-            detail=(
-                f"max_review_iterations={max_iter} reached for "
-                f"work assignment {work.assignment_id}"
-            ),
-        )]
+    # Set when this fix round's dispatch, if it succeeds below, is spending
+    # a #4190 continue override — the per-issue grant is only actually
+    # "spent" once the dispatch it bought succeeds (see
+    # `coord.review.record_ceiling_continue_override_consumed`'s docstring
+    # for why counting any earlier than that discarded the grant for free).
+    override_pending_for = None
 
-    # #3113: gather every OTHER completed review of THIS work assignment with
-    # its own blocking findings before building the briefing — a dispatch
-    # race (or a legacy duplicate) can leave two reviews on the same work
-    # row, and the fix worker must see every reviewer's findings, not just
-    # whichever review's completion happened to trigger this call.
-    merged_findings = _merge_blocking_review_findings(work, review, findings, board, config)
+    if next_iteration > max_iter:
+        completed_rounds = next_iteration - 1
+        if not ceiling_model_decision_enabled():
+            log.warning(
+                "auto_loop: max_review_iterations (%d) reached for "
+                "assignment %s — stopping loop and notifying user",
+                max_iter, work.assignment_id,
+            )
+            _post_max_iterations_notice(
+                work, config, completed_rounds=completed_rounds,
+            )
+            return [LoopAction(
+                kind="max_iterations",
+                assignment_id=review.assignment_id,
+                detail=(
+                    f"max_review_iterations={max_iter} reached for "
+                    f"work assignment {work.assignment_id}"
+                ),
+            )]
+        # A "continue" grant for this issue may already be outstanding —
+        # granted by an earlier call to one of #4190's three ceiling-hit
+        # call sites but not yet used to dispatch anything (this function
+        # re-entering for the same issue, or a sibling site's own grant).
+        # Reuse it instead of consulting the model again: a second
+        # "continue" vote would be denied outright by the cap gate inside
+        # `decide_ceiling_action`, discarding the still-unused first grant
+        # for nothing — see `coord.review.ceiling_continue_override_pending`.
+        if ceiling_continue_override_pending(work.repo_name, work.issue_number):
+            log.info(
+                "auto_loop: max_review_iterations (%d) reached for "
+                "assignment %s, but issue #%s already has an outstanding "
+                "#4190 continue grant — reusing it rather than consulting "
+                "the model again",
+                max_iter, work.assignment_id, work.issue_number,
+            )
+        else:
+            decision = decide_ceiling_action(
+                repo_name=work.repo_name, issue_number=work.issue_number,
+                assignment_id=work.assignment_id, branch=work.branch,
+                completed_rounds=completed_rounds, max_iter=max_iter,
+                findings_body=merged_findings.body, config=config,
+            )
+            log.warning(
+                "auto_loop: max_review_iterations (%d) reached for assignment %s "
+                "— #4190 bounded model decided action=%s (confidence=%.2f, "
+                "model=%s, fell_back=%s): %s",
+                max_iter, work.assignment_id, decision.action, decision.confidence,
+                decision.model_used, decision.fell_back, decision.reasoning,
+            )
+            if decision.action != "continue":
+                _post_ceiling_decision_notice(
+                    work, config, decision, completed_rounds=completed_rounds,
+                )
+                return [LoopAction(
+                    kind=f"max_iterations_{decision.action}",
+                    assignment_id=review.assignment_id,
+                    detail=(
+                        f"max_review_iterations={max_iter} reached for work "
+                        f"assignment {work.assignment_id} — #4190 bounded model "
+                        f"decided {decision.action}: {decision.reasoning}"
+                    ),
+                )]
+        # action == "continue" (fresh or reused): the model granted a
+        # one-time override of this issue's own ceiling (capped — see
+        # `coord.review.CEILING_MODEL_MAX_CONTINUE_OVERRIDES`); fall through
+        # and dispatch the next fix round exactly as if under budget. Mark
+        # it for consumption once the dispatch below actually succeeds.
+        override_pending_for = (work.repo_name, work.issue_number)
 
     # Build briefing and dispatch.  The fix worker escalates the model per
     # iteration (when pipeline.escalate_fix_model is enabled); compute it here
@@ -1702,6 +1815,13 @@ def _dispatch_fix_for_review(
             assignment_id=review.assignment_id,
             detail=detail,
         )]
+
+    if override_pending_for is not None:
+        # The fix round the grant was for just dispatched successfully —
+        # spend the override now, not back when the model granted it.
+        record_ceiling_continue_override_consumed(
+            *override_pending_for, assignment_id=fix.assignment_id,
+        )
 
     # #3210: a request-changes review is itself evidence the branch is about
     # to be rewritten — same reasoning as the WORK-id door onto `coord fix`
@@ -2329,6 +2449,105 @@ def _post_max_iterations_notice(
         )
 
 
+def _post_ceiling_decision_notice(
+    work: Assignment,
+    config: Config,
+    decision: CeilingModelDecision,
+    *,
+    completed_rounds: int,
+) -> None:
+    """Act on a #4190 :func:`coord.review.decide_ceiling_action` decision
+    whose ``action`` is NOT ``"continue"`` — the three call sites
+    (`_dispatch_fix_for_review`, `run_for_fix_transition`, and
+    `coord.review.dispatch_pending_reviews`'s own #1612 duplicate guard)
+    all route here once they decide to stop rather than dispatch again.
+
+    ``"escalate"`` (including every fallback case
+    :func:`coord.review.decide_ceiling_action` itself resolves to on a
+    model/parse failure or a spent continue-override cap) reuses
+    :func:`_post_max_iterations_notice` verbatim — the ORIGINAL blind-stop
+    notice, unchanged, so a model outage degrades to exactly today's
+    behavior. ``"rescope"``/``"split"`` post a variant notice naming the
+    model's own reasoning and (for ``rescope``) file the remainder it named
+    as a follow-up issue in the SAME call — the issue's own "filing the
+    remainder in the same action" ask. A failed follow-up filing still
+    posts the notice (with a note to file it manually) rather than losing
+    the stop notification entirely.
+    """
+    if decision.action == "escalate":
+        _post_max_iterations_notice(work, config, completed_rounds=completed_rounds)
+        return
+
+    repo = config.repo(work.repo_name)
+    if repo is None:
+        return
+
+    max_iter = config.pipeline.max_review_iterations
+    followup_lines: list[str] = []
+    if decision.action == "rescope":
+        try:
+            followup_number = github_ops.create_issue(
+                repo.github,
+                f"Remainder of #{work.issue_number} (filed by the #4190 "
+                "ceiling model decision)",
+                "Filed automatically by the bounded ceiling-model decision "
+                f"(#4190) against #{work.issue_number}'s review → fix loop, "
+                f"after it hit `pipeline.max_review_iterations` ({max_iter}) "
+                "without an approval.\n\n## What\n\n" + decision.remainder,
+            )["number"]
+            followup_lines.append(f"- Remainder filed as #{followup_number}.\n")
+        except Exception as exc:  # noqa: BLE001 — still post the stop notice below
+            log.warning(
+                "auto_loop: ceiling 'rescope' decision for %s could not "
+                "file the remainder issue: %s", work.assignment_id, exc,
+            )
+            followup_lines.append(
+                "- Could not automatically file the remainder as a new "
+                f"issue ({exc}) — file it manually using the remainder "
+                "text below.\n"
+            )
+
+    heading = (
+        "ceiling model chose to rescope"
+        if decision.action == "rescope"
+        else "ceiling model recommends a split"
+    )
+    body_lines = [
+        f"<!-- coord:event=auto_loop_stopped assignment={work.assignment_id} -->",
+        f"## ⚠️ Auto-loop stopped — {heading}",
+        "",
+        f"The review → fix cycle for issue **#{work.issue_number}** has "
+        f"completed **{completed_rounds}** fix round(s) without receiving an "
+        f"approval, which equals the configured maximum of **{max_iter}** "
+        "`pipeline.max_review_iterations`. Rather than stop blind, a "
+        f"bounded `{decision.model_used}` call (#4190) reviewed the "
+        f"remaining blocking finding(s) and chose **{decision.action}** "
+        f"(confidence={decision.confidence:.2f}): {decision.reasoning}",
+        "",
+        f"Remainder scope named by the model:\n\n> {decision.remainder}",
+        "",
+        *followup_lines,
+        "**Manual intervention still required.** Options:",
+        "- Review the diff and the reviewer's latest findings, then "
+        "dispatch a fix manually with `coord assign`.",
+        "- Run `coord merge --force-merge` to merge the branch as-is "
+        "(if the delivered part is acceptable on its own).",
+        "- Adjust the issue scope and open a fresh issue.",
+        "",
+        "Details:",
+        f"- Assignment: `{work.assignment_id}`",
+        f"- Branch: `{work.branch or '(unknown)'}`",
+        f"- Completed fix rounds: {completed_rounds}/{max_iter}",
+    ]
+    try:
+        github_ops.post_issue_comment(repo.github, work.issue_number, "\n".join(body_lines))
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "auto_loop: failed to post ceiling %s notice for %s: %s",
+            decision.action, work.assignment_id, exc,
+        )
+
+
 def _post_fix_round_ceiling_blocked_notice(work: Assignment, config: Config) -> None:
     """Post a GitHub issue comment when the review→fix dispatcher declines to
     fire because the drive-queue row for this (repo, issue) already gave up
@@ -2505,28 +2724,95 @@ def run_for_fix_transition(
         )]
 
     max_iter = config.pipeline.max_review_iterations
+    # Set when dispatching this fix's re-review, if it succeeds below, is
+    # spending a #4190 continue override — only actually spent once that
+    # dispatch succeeds (see `coord.review.record_ceiling_continue_override_
+    # consumed`'s docstring).
+    override_pending_for = None
     if fix.review_iteration >= max_iter:
-        log.warning(
-            "auto_loop: fix %s has review_iteration=%d >= max_review_iterations=%d "
-            "— not dispatching another review",
-            assignment_id, fix.review_iteration, max_iter,
-        )
-        # Surface the cap-hit as a persisted blocker: post a GitHub comment so
-        # the operator sees it outside the TUI, mark the board entry with a
-        # distinct review_state so `coord status` shows an explicit blocker line,
-        # and save the board so the state survives a coordinator restart.
-        _post_max_iterations_notice(fix, config)
-        fix.review_state = "cap_hit"
-        write_board(board)
-        return [LoopAction(
-            kind="iteration_cap_hit",
-            assignment_id=assignment_id,
-            detail=(
-                f"fix iteration {fix.review_iteration} >= "
-                f"max_review_iterations {max_iter}; "
-                "not dispatching another review"
-            ),
-        )]
+        if not ceiling_model_decision_enabled():
+            log.warning(
+                "auto_loop: fix %s has review_iteration=%d >= "
+                "max_review_iterations=%d — not dispatching another review",
+                assignment_id, fix.review_iteration, max_iter,
+            )
+            # Surface the cap-hit as a persisted blocker: post a GitHub
+            # comment so the operator sees it outside the TUI, mark the
+            # board entry with a distinct review_state so `coord status`
+            # shows an explicit blocker line, and save the board so the
+            # state survives a coordinator restart.
+            _post_max_iterations_notice(fix, config)
+            fix.review_state = "cap_hit"
+            write_board(board)
+            return [LoopAction(
+                kind="iteration_cap_hit",
+                assignment_id=assignment_id,
+                detail=(
+                    f"fix iteration {fix.review_iteration} >= "
+                    f"max_review_iterations {max_iter}; "
+                    "not dispatching another review"
+                ),
+            )]
+        # A "continue" grant for this issue may already be outstanding from
+        # an earlier call to one of #4190's three ceiling-hit call sites but
+        # not yet used — reuse it rather than re-consulting the model, which
+        # would either answer differently or (more likely) have the cap gate
+        # inside `decide_ceiling_action` deny a second "continue" outright,
+        # discarding the still-unused first grant for nothing. See
+        # `coord.review.ceiling_continue_override_pending`.
+        if ceiling_continue_override_pending(fix.repo_name, fix.issue_number):
+            log.info(
+                "auto_loop: fix %s has review_iteration=%d >= "
+                "max_review_iterations=%d, but issue #%s already has an "
+                "outstanding #4190 continue grant — reusing it rather than "
+                "consulting the model again",
+                assignment_id, fix.review_iteration, max_iter, fix.issue_number,
+            )
+        else:
+            decision = decide_ceiling_action(
+                repo_name=fix.repo_name, issue_number=fix.issue_number,
+                assignment_id=fix.assignment_id, branch=fix.branch,
+                completed_rounds=fix.review_iteration, max_iter=max_iter,
+                findings_body=_latest_blocking_findings_body(
+                    fix.review_of_assignment_id or fix.assignment_id, board, config,
+                    repo_name=fix.repo_name,
+                ),
+                config=config,
+            )
+            log.warning(
+                "auto_loop: fix %s has review_iteration=%d >= max_review_iterations=%d "
+                "— #4190 bounded model decided action=%s (confidence=%.2f, "
+                "model=%s, fell_back=%s): %s",
+                assignment_id, fix.review_iteration, max_iter, decision.action,
+                decision.confidence, decision.model_used, decision.fell_back,
+                decision.reasoning,
+            )
+            if decision.action != "continue":
+                # Surface the cap-hit as a persisted blocker: post a GitHub
+                # notice so the operator sees it outside the TUI, mark the
+                # board entry with a distinct review_state so `coord status`
+                # shows an explicit blocker line, and save the board so the
+                # state survives a coordinator restart.
+                _post_ceiling_decision_notice(
+                    fix, config, decision, completed_rounds=fix.review_iteration,
+                )
+                fix.review_state = "cap_hit"
+                write_board(board)
+                return [LoopAction(
+                    kind=f"iteration_cap_hit_{decision.action}",
+                    assignment_id=assignment_id,
+                    detail=(
+                        f"fix iteration {fix.review_iteration} >= "
+                        f"max_review_iterations {max_iter}; #4190 bounded model "
+                        f"decided {decision.action}: {decision.reasoning}"
+                    ),
+                )]
+        # action == "continue" (fresh or reused): fall through and dispatch
+        # the re-review exactly as if under budget. Mark it for consumption
+        # once the dispatch below actually succeeds — NOT here, since this
+        # function may still defer to `dispatch_pending_reviews` (the #1612
+        # test-gate check immediately below) without dispatching anything.
+        override_pending_for = (fix.repo_name, fix.issue_number)
 
     # #1612: this is the *other* auto-dispatch path — `dispatch_pending_reviews`
     # (reached from reconcile()/`coord notify`) holds review dispatch until the
@@ -2591,6 +2877,12 @@ def run_for_fix_transition(
     # why stomping "dispatched" over that must be skipped here too.
     if review.status != "done":
         fix.review_state = "dispatched"
+    if override_pending_for is not None:
+        # The re-review the grant was for just dispatched successfully —
+        # spend the override now, not back when the model granted it.
+        record_ceiling_continue_override_consumed(
+            *override_pending_for, assignment_id=fix.assignment_id,
+        )
     write_board(board)
 
     log.info(

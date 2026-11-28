@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-puppy
-Version: 0.0.971
+Version: 1.0.0
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -13,44 +13,27 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Code Generators
 Requires-Python: <3.15,>=3.11
-Requires-Dist: agent-client-protocol<0.12,>=0.11.0
-Requires-Dist: anthropic<2,>=1.0.0
-Requires-Dist: anyio>=4.14.2
-Requires-Dist: azure-identity>=1.15.0
-Requires-Dist: boto3>=1.43.9
-Requires-Dist: code-puppy-core-plugins>=0.0.110
+Requires-Dist: cbor2<6; sys_platform == 'darwin' and platform_machine == 'x86_64'
 Requires-Dist: cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'
-Requires-Dist: fastmcp-slim[client]<5,>=3.3.0
-Requires-Dist: httpx2>=2.7
-Requires-Dist: httpx[http2]>=0.24.1
-Requires-Dist: json-repair>=0.46.2
-Requires-Dist: keyring>=24.0.0
-Requires-Dist: mcp>=1.9.4
-Requires-Dist: openai>=2.45.0
 Requires-Dist: packaging>=24.0
-Requires-Dist: pillow>=10.0.0
-Requires-Dist: playwright>=1.40.0; sys_platform != 'android'
-Requires-Dist: pydantic-ai-harness[code-mode]==0.64.0
-Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==2.64.0
-Requires-Dist: pydantic-monty<2,>=1.4.0
-Requires-Dist: pydantic>=2.4.0
-Requires-Dist: pyfiglet>=0.8.post1
-Requires-Dist: python-dotenv>=1.0.0
-Requires-Dist: requests>=2.28.0
-Requires-Dist: rich>=13.4.2
-Requires-Dist: ripgrep==14.1.0; sys_platform != 'android'
-Requires-Dist: termflow-md>=0.10.0
-Requires-Dist: typer>=0.12.0
-Requires-Dist: websockets>=14.0
-Provides-Extra: bedrock
-Requires-Dist: boto3>=1.35.0; extra == 'bedrock'
-Provides-Extra: computer-use
-Requires-Dist: code-puppy-core-plugins[computer-use]>=0.0.110; extra == 'computer-use'
-Provides-Extra: durable
-Requires-Dist: dbos>=2.11.0; extra == 'durable'
+Requires-Dist: pydantic-ai-pax[boxd,daytona,e2b,kubernetes,local,modal,opensandbox,render,sprites,typesafe]==0.75.0
+Requires-Dist: pydantic-claude-code<0.8,>=0.7.5
 Description-Content-Type: text/markdown
+
+> **Code Puppy 1.0** is a rebuild on
+> [pydantic-ai-pax](https://github.com/pydantic/pydantic-ai/tree/main/src/pydantic_ai_pax)
+> and [pydantic-ai-harness](https://pydantic.dev/docs/ai/harness/). Most of this
+> README still describes 0.0.x and has not been rewritten yet.
+>
+> - Run it: `uvx code-puppy`. 0.0.x stays available: `uvx --from 'code-puppy<1' code-puppy`.
+> - Your 0.0.x settings, API keys and MCP servers are carried over on first start;
+>   `pup migrate --dry-run` shows what would move. 0.0.x files are never modified.
+> - 0.0.x plugins keep loading; `/puppy-plugins` lists them.
+> - **Windows:** the agent runs its commands in PowerShell.
+> - Plan and status: [`docs/upgrade/code_puppy_1_0_rewrite_plan.md`](docs/upgrade/code_puppy_1_0_rewrite_plan.md).
 
 <div align="center">
 
@@ -167,16 +150,19 @@ After a `git pull`, Python source changes are available immediately. Run
 `pipx reinstall code-puppy` only when project dependencies change.
 Playwright-backed browser tools are not installed on Android.
 
-#### Optional: DBOS durable execution
+#### Optional: DBOS durable execution (0.0.x only)
 
-Code Puppy ships with an optional [DBOS](https://github.com/dbos-inc/dbos-transact-py)-backed
+> 1.0 has no `durable` extra and no `/dbos` command yet. These steps install
+> the 0.0.x line, which still has both.
+
+Code Puppy 0.0.x ships with an optional [DBOS](https://github.com/dbos-inc/dbos-transact-py)-backed
 durable-execution plugin that survives crashes and lets you resume long agent runs.
 It's **off by default in the dependency tree** — install the `durable` extra to opt in:
 
 ```bash
-pip install "code-puppy[durable]"
+pip install "code-puppy[durable]<1"
 # or
-uv pip install "code-puppy[durable]"
+uv pip install "code-puppy[durable]<1"
 ```
 
 Then toggle it from inside the app via `/dbos on` (and restart). Use `/dbos status`
@@ -280,9 +266,10 @@ These providers are automatically configured with correct OpenAI-compatible endp
 - **⚠️ Unsupported Providers** - Providers like Amazon Bedrock and Google Vertex that require special authentication are clearly marked
 - **⚠️ No Tool Calling** - Models without tool calling support show a big warning since they can't use Code Puppy's file/shell tools
 
-### Durable Execution
+### Durable Execution (0.0.x only)
 
-Code Puppy now supports **[DBOS](https://github.com/dbos-inc/dbos-transact-py)** durable execution.
+Code Puppy 0.0.x supports **[DBOS](https://github.com/dbos-inc/dbos-transact-py)** durable execution;
+see [the install steps above](#optional-dbos-durable-execution-00x-only).
 
 When enabled, every agent is automatically wrapped as a `DBOSAgent`, checkpointing key interactions (including agent inputs, LLM responses, MCP calls, and tool calls) in a database for durability and recovery.
 

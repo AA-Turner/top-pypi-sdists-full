@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import textwrap
+from typing import TYPE_CHECKING
 
-import click
 from typer.core import TyperGroup
+
+if TYPE_CHECKING:
+    import typer._click as click
+else:
+    try:
+        import typer._click as click
+    except ImportError:
+        import click
 
 HELP_SUMMARY = "Search code, follow symbols, and prepare a bounded edit."
 HELP_EXAMPLES = (
@@ -15,8 +23,23 @@ HELP_EXAMPLES = (
     "tg mcp",
 )
 HELP_FOOTER = (
-    "Search supports a validated rg-compatible subset. GPU execution is experimental. "
-    "Use tg COMMAND --help for details."
+    "Use tg --help-all for all commands, or tg COMMAND --help for details. "
+    "Search supports a validated rg-compatible subset."
+)
+
+CORE_WORKFLOW_COMMANDS: tuple[str, ...] = (
+    "search",
+    "find",
+    "run",
+    "scan",
+    "orient",
+    "defs",
+    "callers",
+    "blast-radius",
+    "prepare",
+    "diff-impact",
+    "checkpoint",
+    "mcp",
 )
 
 # This metadata assigns sections only. Typer remains the registration source, and each
@@ -64,9 +87,23 @@ class TopLevelHelpGroup(TyperGroup):
     """Render only root commands in five plain, task-oriented sections."""
 
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        click.Group.format_help(self, ctx, formatter)
+        super(TyperGroup, self).format_help(ctx, formatter)
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        show_all = bool(
+            ctx.meta.get("show_all_commands")
+            or (isinstance(ctx.obj, dict) and ctx.obj.get("show_all_commands"))
+        )
+        if not show_all:
+            core_rows: list[tuple[str, click.Command]] = []
+            for name in CORE_WORKFLOW_COMMANDS:
+                command = self.get_command(ctx, name)
+                if command is not None and not command.hidden:
+                    core_rows.append((name, command))
+            if core_rows:
+                self._write_command_section("Core workflow", core_rows, formatter)
+            return
+
         grouped: dict[str, list[tuple[str, click.Command]]] = {
             title: [] for title, _ in COMMAND_GROUPS
         }
@@ -83,17 +120,24 @@ class TopLevelHelpGroup(TyperGroup):
                 continue
             # Lead with text search and preserve the other commands' registration order.
             names.sort(key=lambda row: row[0] != "search")
-            max_name_width = min(max(len(name) for name, _ in names), 30)
-            col_spacing = 2
-            first_column_width = max_name_width + col_spacing
-            row_indent = formatter.current_indent + formatter.indent_increment
-            description_width = max(
-                formatter.width - row_indent - first_column_width,
-                10,
-            )
-            rows = [
-                (name, _bounded_one_line_help(command, description_width))
-                for name, command in names
-            ]
-            with formatter.section(title):
-                formatter.write_dl(rows, col_max=30, col_spacing=col_spacing)
+            self._write_command_section(title, names, formatter)
+
+    @staticmethod
+    def _write_command_section(
+        title: str,
+        names: list[tuple[str, click.Command]],
+        formatter: click.HelpFormatter,
+    ) -> None:
+        max_name_width = min(max(len(name) for name, _ in names), 30)
+        col_spacing = 2
+        first_column_width = max_name_width + col_spacing
+        row_indent = formatter.current_indent + formatter.indent_increment
+        description_width = max(
+            formatter.width - row_indent - first_column_width,
+            10,
+        )
+        rows = [
+            (name, _bounded_one_line_help(command, description_width)) for name, command in names
+        ]
+        with formatter.section(title):
+            formatter.write_dl(rows, col_max=30, col_spacing=col_spacing)

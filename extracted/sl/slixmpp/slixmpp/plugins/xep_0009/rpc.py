@@ -34,7 +34,7 @@ class XEP_0009(BasePlugin):
             self._handle_method_call)
         )
         self.xmpp.register_handler(
-            Callback('RPC Call', MatchXPath('{%s}iq/{%s}query/{%s}methodResponse' % (self.xmpp.default_ns, RPCQuery.namespace, RPCQuery.namespace)),
+            Callback('RPC Call Response', MatchXPath('{%s}iq/{%s}query/{%s}methodResponse' % (self.xmpp.default_ns, RPCQuery.namespace, RPCQuery.namespace)),
             self._handle_method_response)
         )
         #self.activeCalls = []

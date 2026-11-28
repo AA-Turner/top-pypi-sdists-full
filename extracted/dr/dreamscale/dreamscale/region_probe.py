@@ -441,11 +441,11 @@ def validate_speed_selection(
     if model not in FAST_MODELS:
         raise ValueError(f'speed="fast" is not available for {public_model(model)}')
     if provider == "aws":
-        raise ValueError('speed="fast" runs on Modal H100; omit provider or use provider="modal"')
+        raise ValueError('speed="fast" chooses its own server; omit provider')
     if region in (None, "auto", "nearest"):
         return "available"
     if region not in ("available", "us-west-2", "us-west"):
-        raise ValueError('speed="fast" is served from us-west-2; use region="available"')
+        raise ValueError('speed="fast" is served from us-west; use region="available"')
     return region
 
 
@@ -467,19 +467,20 @@ def validate_provider_selection(model: str, provider: str | None, region: str | 
     if model in _MODAL_ONLY_MODELS:
         name = _MODAL_ONLY_MODELS[model]
         if provider not in (None, "modal"):
-            raise ValueError(f"{name} runs on Modal; omit provider or use provider='modal'")
+            raise ValueError(f"{name} chooses its own server; omit provider")
         if region not in _US_WEST_OK:
-            raise ValueError(f"{name} is served from us-west-2")
+            raise ValueError(f"{name} is served from us-west")
         return
     if provider is None:
         return
     if provider not in _PROVIDERS.get(model, ()):
-        raise ValueError("provider selection requires a qualified aws/modal model")
+        raise ValueError(f"{public_model(model)} doesn't take this provider; omit provider")
     if provider == "modal":
         allowed = _MODAL_REGIONS[model]
         if _WIRE_NAMES.get(str(region), region) not in allowed:
             raise ValueError(
-                f"Modal region for {public_model(model)} must be one of {', '.join(allowed)}"
+                f"region for {public_model(model)} on this provider must be one of "
+                f"{', '.join(allowed)}"
             )
 
 

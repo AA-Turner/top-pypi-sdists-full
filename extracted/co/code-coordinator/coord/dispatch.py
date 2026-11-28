@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Callable, Iterable, Sequence
 
 import httpx
 
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from coord.merge_queue import TrancheMergeResult
     from coord.milestone_dispatch import OracleReadiness
-    from coord.models import Board
+    from coord.models import Board, TrancheChild, TrancheRow
+    from coord.smoke import SmokeCommand
 
 from coord import github_ops
 from coord.comments import (
@@ -30,6 +34,7 @@ from coord.config import Config, SmokeRule
 from coord.dispatch_liveness import check_dispatch_liveness, record_dispatch_refusal
 from coord.models import (
     EPIC_DECOMPOSE_TYPE,
+    Assignment,
     Machine,
     Proposal,
     Repo,
@@ -1918,10 +1923,20 @@ def dispatch(
     # (non-workflow) Work leg. `is_workflow_leg` is the single source of
     # truth for this question — `coord.state`'s recorded `mode` column
     # calls the same function.
-    from coord.agent import is_workflow_leg  # noqa: PLC0415
+    from coord.agent import is_tranche_leg, is_workflow_leg  # noqa: PLC0415
 
     if is_workflow_leg(proposal.type, proposal.issue_labels):
         payload["workflow"] = True
+    # #4128: the canned tranche-template opt-in, independent of (but only
+    # ever True alongside) `workflow` above — `is_tranche_leg` only matches
+    # the explicit `coord:tranche` label, never `ultracode`, so an
+    # `ultracode`-only work leg stays a generic #3681 workflow leg without
+    # also pulling in the pilot-batch-specific recipe. Same "omit, never
+    # send False" discipline as every optional field in this block — an
+    # agent predating `AssignmentSpec.tranche` simply runs the leg as an
+    # ordinary workflow leg (or single leg) instead.
+    if is_tranche_leg(proposal.type, proposal.issue_labels):
+        payload["tranche"] = True
     # #2131: per-leg spend ceiling, resolved here (CLI/daemon lane) and
     # carried on the wire so a config-free agent is covered too. Sent ONLY
     # when the operator has actually configured one — with no `budget:` block
@@ -3538,3 +3553,978 @@ def post_needs_decomposition(
         reason=reason,
     )
     github_ops.post_issue_comment(repo_github, issue_number, body)
+
+
+# ── Native tranche rows: parallel child dispatch + result contract ─────────
+# (#4129 Phase 1, this slice #4200)
+#
+# `coord.models.TrancheRow`/`TrancheChild` (#4199) only persist the row
+# shape — nothing reads one yet. This section is the first reader: given a
+# saved row, fan its pending children out in parallel, each branched off
+# the row's single shared `base_sha` rather than whatever the repo's
+# default branch happens to be at dispatch time, with NO per-child PR or
+# review. A child is dispatched via the same `dispatch()`/`/assign` POST
+# every other `type="work"` leg uses, but its response is never passed to
+# `coord.state.record_dispatched` — it never becomes a board `Assignment`,
+# which is what keeps it invisible to auto_loop/review/merge_queue (no
+# per-child PR or review "by construction": nothing board-driven ever
+# looks at it). Collecting each child's completion and deciding what the
+# ROW does next (merge, integrate, re-dispatch) is the sibling slices'
+# job (#4201/#4202) — this module only defines the wire contract and does
+# the fan-out.
+
+
+def tranche_child_branch_name(row: "TrancheRow", child: "TrancheChild") -> str:
+    """The deterministic per-child branch name a tranche child's worker
+    checks out (#4200).
+
+    Derived from `row.id` (stable once the row is saved) and the child's
+    own issue number — never stored on `TrancheChild` itself, since it is
+    always recomputable from the two and storing it would just be a second
+    place the two could drift (#2096: one question, one answer).
+
+    Raises ValueError if `row.id` is None — a row must be saved (and so
+    carry a stable id) before anything branches off it.
+    """
+    if row.id is None:
+        raise ValueError(
+            "tranche_child_branch_name: row.id is None — save the row "
+            "(coord.state.save_tranche_row) before dispatching its children"
+        )
+    return f"tranche-{row.id}-child-{child.issue_number}"
+
+
+#: Injected into `coord.github_ops.branch_exists_on_remote`/
+#: `create_remote_branch`/`get_branch_sha`'s call signatures so tests can
+#: substitute fakes — the exact same dependency-injection shape
+#: `coord.branch_model.ensure_feature_branch_exists` already uses for its
+#: own idempotent remote-branch creation.
+TrancheBranchExistsFetch = Callable[[str, str], bool]
+TrancheBranchCreate = Callable[[str, str, str], bool]
+TrancheBranchShaFetch = Callable[[str, str], "str | None"]
+
+
+def ensure_tranche_child_branch(
+    repo_github: str,
+    branch: str,
+    base_sha: str,
+    *,
+    exists: TrancheBranchExistsFetch = github_ops.branch_exists_on_remote,
+    create: TrancheBranchCreate = github_ops.create_remote_branch,
+    get_sha: TrancheBranchShaFetch = github_ops.get_branch_sha,
+) -> None:
+    """Idempotently create *branch* at *base_sha* on *repo_github* (#4200).
+
+    A no-op when *branch* already exists — safe to call on every dispatch
+    attempt (retries, re-ticks) without re-creating the ref.
+
+    *exists* (`branch_exists_on_remote` by default) fails OPEN on any
+    infrastructure problem — an unresponsive `gh`, a network glitch, an
+    auth hiccup all read back as "already exists". That is fine for the
+    idempotent-retry case this guards against, but it means *exists*
+    alone cannot prove the branch is actually at *base_sha*: a worker
+    that already pushed commits onto a re-dispatched branch, or a reused
+    row id after a DB restore colliding with a different base, would
+    both read as "exists" with no further check. So after either branch
+    of the create-or-skip above, this reads the ref back with *get_sha*
+    and REQUIRES it equal *base_sha* byte-for-byte — the one check that
+    cannot fail open, since a `None`/mismatched read raises exactly like
+    a confirmed wrong sha.
+
+    Raises RuntimeError if *create* reports failure (permissions, a
+    transient API error, branch protection), or if the post-create/post-
+    exists read of *branch*'s sha is not exactly *base_sha*. A tranche
+    child must never be dispatched against an unconfirmed base — fail
+    closed rather than trust a probe that cannot itself report failure.
+    """
+    if not exists(repo_github, branch):
+        if not create(repo_github, branch, base_sha):
+            raise RuntimeError(
+                f"ensure_tranche_child_branch: failed to create {branch!r} at "
+                f"{base_sha!r} on {repo_github!r}"
+            )
+    actual_sha = get_sha(repo_github, branch)
+    if actual_sha != base_sha:
+        raise RuntimeError(
+            f"ensure_tranche_child_branch: {branch!r} on {repo_github!r} is "
+            f"at {actual_sha!r}, not the expected base {base_sha!r} — "
+            "refusing to dispatch a child against an unconfirmed base"
+        )
+
+
+#: The structured result marker every tranche child's final message must
+#: carry (#4200) — the one-line, line-anchored contract
+#: `parse_tranche_child_result` validates against, mirroring the
+#: `WORK_OUTCOME:`/`SMOKE_TESTS:` marker convention this repo's own worker
+#: briefing (see this session's own system prompt) already uses elsewhere.
+TRANCHE_CHILD_RESULT_MARKER = "TRANCHE_CHILD_RESULT:"
+
+#: Cap on how much of a dispatch failure's `str(exc)` lands in
+#: `child.result["summary"]` — an `httpx` error can carry a full HTTP
+#: response body, and this is persisted as JSON on every failed dispatch.
+_TRANCHE_DISPATCH_ERROR_MAX_CHARS = 500
+
+#: Appended to a tranche child's briefing (#4200) — tells the worker there
+#: is no PR/review for this leg and exactly what to report instead.
+TRANCHE_CHILD_RESULT_CONTRACT = f"""
+
+## Tranche child — no PR, no review (#4129/#4200)
+
+This is one of several children dispatched in parallel off the same base
+commit, as part of a native tranche row. Do NOT open a pull request and do
+NOT wait for a review for this leg — the coordinator merges every child's
+branch itself once all of them finish, then runs one Test and one review
+set against the merged whole.
+
+Push your branch when you are done (`git push origin HEAD`). Before your
+final message, report your result with exactly one line, with a JSON
+object after the marker:
+
+{TRANCHE_CHILD_RESULT_MARKER} {{"outcome": "done", "summary": "<one sentence>", "files": ["path/a.py"]}}
+
+Use `"outcome": "failed"` instead if you could not complete the work. A
+missing or unparseable marker is treated as failed, never as done.
+"""
+
+#: The only values `parse_tranche_child_result` accepts for `"outcome"`.
+TRANCHE_CHILD_OUTCOMES = ("done", "failed")
+
+_TRANCHE_CHILD_RESULT_RE = re.compile(
+    r"^[ \t>*_`]*TRANCHE_CHILD_RESULT:[ \t]*(\{.*\})[ \t]*$",
+    re.MULTILINE,
+)
+
+
+def _unparseable_tranche_child_result(reason: str) -> dict:
+    """The one shape every fail-closed exit of
+    :func:`parse_tranche_child_result` returns — see that function's
+    docstring for why `fail_closed_unparseable` exists as its own field
+    rather than overloading `outcome`.
+    """
+    return {
+        "outcome": "failed",
+        "summary": f"unparseable {TRANCHE_CHILD_RESULT_MARKER} marker: {reason}",
+        "files": [],
+        "fail_closed_unparseable": True,
+    }
+
+
+def parse_tranche_child_result(text: str | None) -> dict:
+    """Extract and validate a tranche child's self-reported result (#4200).
+
+    Returns a dict shaped ``{"outcome": "done"|"failed", "summary": str,
+    "files": list[str], "fail_closed_unparseable": bool}`` — this is
+    exactly what :class:`coord.models.TrancheChild`'s ``result`` field
+    stores (its own round-trip is already covered by
+    ``tests/test_tranche_row_4199.py``). Never raises.
+
+    When *text* carries more than one `TRANCHE_CHILD_RESULT:` marker, the
+    LAST one wins — the same "last marker, not first" rule
+    `coord.worker_events.parse_work_outcome` uses, so a worker's own
+    earlier draft embedded in a thinking block or a quoted example can't
+    masquerade as the final word.
+
+    Fails closed (#2096 "a gate must be able to fail", #3931-style
+    unparseable handling): a missing marker, invalid JSON, a non-object
+    payload, a missing/invalid ``outcome``, a non-string ``summary``, or a
+    ``files`` that isn't a list of strings are ALL reported as
+    ``outcome="failed"`` with ``fail_closed_unparseable=True`` — an
+    unparseable result is never silently treated as success.
+    """
+    if not text:
+        return _unparseable_tranche_child_result("no completion text")
+
+    matches = list(_TRANCHE_CHILD_RESULT_RE.finditer(text))
+    if not matches:
+        return _unparseable_tranche_child_result(
+            f"no {TRANCHE_CHILD_RESULT_MARKER} marker found"
+        )
+
+    raw_json = matches[-1].group(1)
+    try:
+        payload = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        return _unparseable_tranche_child_result(f"invalid JSON ({exc})")
+
+    if not isinstance(payload, dict):
+        return _unparseable_tranche_child_result("marker payload is not a JSON object")
+
+    outcome = payload.get("outcome")
+    if outcome not in TRANCHE_CHILD_OUTCOMES:
+        return _unparseable_tranche_child_result(
+            f"outcome {outcome!r} is not one of {TRANCHE_CHILD_OUTCOMES}"
+        )
+
+    summary = payload.get("summary", "")
+    if not isinstance(summary, str):
+        return _unparseable_tranche_child_result("summary is not a string")
+
+    files = payload.get("files", [])
+    if not isinstance(files, list) or not all(isinstance(f, str) for f in files):
+        return _unparseable_tranche_child_result("files is not a list of strings")
+
+    return {
+        "outcome": outcome,
+        "summary": summary,
+        "files": files,
+        "fail_closed_unparseable": False,
+    }
+
+
+def build_tranche_child_proposal(
+    row: "TrancheRow",
+    child: "TrancheChild",
+    machine_name: str,
+) -> Proposal:
+    """Build the :class:`Proposal` for one tranche child (#4200).
+
+    `target_branch` pins the worker to :func:`tranche_child_branch_name`
+    (which `ensure_tranche_child_branch` must already have created at
+    `row.base_sha` — this function does not create it). `type="work"`
+    reuses every bit of the existing worktree/routing plumbing
+    `dispatch()` already has for a normal work leg; what keeps this child
+    OUT of the normal Work → Test → Review → Merge pipeline is that the
+    caller never records the resulting agent assignment on the board (see
+    this section's module-level comment) — nothing about the `Proposal`
+    itself needs to differ for that.
+    """
+    briefing = (
+        child.title or f"Tranche child of {row.repo_name}#{row.issue_number}"
+    ) + TRANCHE_CHILD_RESULT_CONTRACT
+    return Proposal(
+        id=row.id or 0,
+        machine_name=machine_name,
+        repo_name=child.repo_name,
+        issue_number=child.issue_number,
+        issue_title=child.title,
+        rationale=f"tranche row {row.id} child",
+        briefing=briefing,
+        type="work",
+        target_branch=tranche_child_branch_name(row, child),
+    )
+
+
+def dispatch_tranche_row_children(
+    row: "TrancheRow",
+    config: Config,
+    machine_names: Sequence[str],
+    *,
+    dispatcher: Callable[..., dict] = dispatch,
+    branch_exists: TrancheBranchExistsFetch = github_ops.branch_exists_on_remote,
+    create_branch: TrancheBranchCreate = github_ops.create_remote_branch,
+    branch_sha: TrancheBranchShaFetch = github_ops.get_branch_sha,
+    status_fetcher=None,
+    credential_fetcher=None,
+    board: "Board | None" = None,
+    max_workers: int = 8,
+) -> "TrancheRow":
+    """Dispatch every `"pending"` child of *row* IN PARALLEL (#4129/#4200),
+    each branched off the row's single shared ``base_sha``, with no
+    per-child PR or review.
+
+    *machine_names* assigns one machine per child, round-robin if there
+    are fewer machines than children — placement itself is a caller
+    decision (a sibling queue-tick integration); this function only fans
+    the dispatch out once it is told where.
+
+    *status_fetcher* / *credential_fetcher* / *board* are forwarded
+    verbatim to the underlying `dispatcher` (`dispatch()` by default) so
+    this fan-out keeps the SAME structural liveness-routing, credential-
+    health and Test-host reservation gates every other `type="work"`
+    dispatch site wires — `None` (the default) performs no probe at all,
+    same opt-in shape as `dispatch()` itself. Without these a child can
+    land on an unreachable machine or pile onto the sole `macos`/
+    `windows` Test host alongside every other child in the same row.
+
+    The fan-out itself runs on a thread pool (true wall-clock parallelism,
+    not just "queued one after another") because each `dispatch()` call
+    blocks on the agent's synchronous worktree setup
+    (`ASSIGN_POST_TIMEOUT_SECS`) — serial dispatch would make N children
+    take N times as long to even START.
+
+    Mutates *row* in place and returns it:
+    - a child whose branch-create/confirm, dispatch POST, or whose agent
+      response itself reports failure (no `id`, or `status` already
+      `"failed"` — `/assign` returns HTTP 202 even when the agent's own
+      worktree setup failed, so a 2xx alone proves nothing) becomes
+      `"failed"` (fail closed — never left `"pending"` with no record of
+      why), with `child.result` set to a `parse_tranche_child_result`-
+      shaped dict describing the dispatch failure
+      (`fail_closed_unparseable=False`, since this is a known dispatch
+      error, not an unparseable worker report);
+    - every other pending child becomes `"dispatched"`, with
+      `child.result` set to `{"assignment_id": ..., "machine_name": ...}`
+      — the only surviving handle on the agent-assigned id and the
+      POST-REROUTE machine (routing above may move `proposal.machine_name`
+      away from what was requested), which is what a later poll needs to
+      go collect this child's completion text. `apply_tranche_child_result`
+      overwrites this dict wholesale once that completion lands.
+    `row.state` becomes `"dispatched"` once the fan-out completes,
+    regardless of whether every child's own POST succeeded — a partially
+    failed fan-out still needs the integration slice (#4201) to see which
+    children actually started. Persisting the mutated row is the caller's
+    job (`coord.state.save_tranche_row`); this function does no I/O against
+    `coord.state` itself.
+
+    Raises ValueError if `row.id` is None, if *row* has no `"pending"`
+    children, if *machine_names* is empty, or if the row's repo has no
+    `github` slug configured — there is nothing sensible to fan out, or no
+    way to confirm a child's base, in any of those cases, so this refuses
+    rather than silently no-oping.
+    """
+    if row.id is None:
+        raise ValueError(
+            "dispatch_tranche_row_children: row.id is None — save the row "
+            "first (coord.state.save_tranche_row)"
+        )
+    pending = [c for c in row.children if c.state == "pending"]
+    if not pending:
+        raise ValueError(
+            "dispatch_tranche_row_children: row has no pending children to dispatch"
+        )
+    if not machine_names:
+        raise ValueError("dispatch_tranche_row_children: machine_names is empty")
+
+    repo_cfg = config.repo(row.repo_name)
+    repo_github = repo_cfg.github if repo_cfg is not None else None
+    if not repo_github:
+        raise ValueError(
+            f"dispatch_tranche_row_children: repo {row.repo_name!r} has no "
+            "`github` slug configured — cannot confirm a child's base_sha "
+            "pin, so refusing to dispatch against an unverified branch"
+        )
+
+    def _dispatch_one(
+        indexed_child: tuple[int, "TrancheChild"],
+    ) -> tuple["TrancheChild", str, str, dict]:
+        from coord.agent import FAILED as AGENT_ASSIGNMENT_FAILED  # noqa: PLC0415
+
+        index, child = indexed_child
+        machine_name = machine_names[index % len(machine_names)]
+        try:
+            branch = tranche_child_branch_name(row, child)
+            ensure_tranche_child_branch(
+                repo_github, branch, row.base_sha,
+                exists=branch_exists, create=create_branch, get_sha=branch_sha,
+            )
+            proposal = build_tranche_child_proposal(row, child, machine_name)
+            response = dispatcher(
+                proposal, config,
+                status_fetcher=status_fetcher,
+                credential_fetcher=credential_fetcher,
+                board=board,
+            )
+            if not isinstance(response, dict) or not response.get("id"):
+                raise RuntimeError(
+                    f"dispatch response carried no assignment id: {response!r}"
+                )
+            if response.get("status") == AGENT_ASSIGNMENT_FAILED:
+                raise RuntimeError(
+                    "agent reported dispatch failure: "
+                    f"{response.get('error') or 'unknown error'}"
+                )
+        except Exception as exc:  # noqa: BLE001 — fail closed, never stuck "pending"
+            return child, "failed", str(exc), {}
+        return (
+            child, "dispatched", "",
+            {"assignment_id": response["id"], "machine_name": proposal.machine_name},
+        )
+
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(pending))) as pool:
+        results = list(pool.map(_dispatch_one, enumerate(pending)))
+
+    for child, state, error, handle in results:
+        child.state = state
+        if state == "failed":
+            child.result = {
+                "outcome": "failed",
+                "summary": f"dispatch failed: {error[:_TRANCHE_DISPATCH_ERROR_MAX_CHARS]}",
+                "files": [],
+                "fail_closed_unparseable": False,
+            }
+        else:
+            child.result = handle
+
+    row.state = "dispatched"
+    return row
+
+
+# ── Native tranche rows: LLM integrator fallback (#4129 Phase 1, this slice
+# #4201) ─────────────────────────────────────────────────────────────────────
+#
+# `coord.merge_queue.merge_tranche_children` does the coord-side merge and
+# the declared `integration_surfaces` regen itself, with no `claude -p`
+# worker, exactly like `coord.conflict_fix.attempt_mechanical_surface_
+# resolution` does for an ordinary merge-queue conflict. It only reports
+# `needs_integrator=True` (see `TrancheMergeResult`'s docstring) when a real
+# conflict touches a path outside every declared surface, or a surface's own
+# `regen`/`check` fails — the two shapes no mechanical step can resolve.
+# This section is the fallback for exactly that case: dispatch ONE ordinary
+# `type="work"` leg (same `/assign` POST every other leg in this module
+# uses), briefed with the row's children and the merge's own failure detail,
+# to finish the merge by hand and push the result to
+# `coord.merge_queue.tranche_integration_branch_name`. Collecting that leg's
+# completion is a later slice's job, mirroring `dispatch_tranche_row_children`
+# vs. `coord.drive.apply_tranche_child_result` — this only defines the wire
+# contract and does the dispatch.
+
+
+#: The structured result marker a tranche integrator leg's final message
+#: must carry (#4201) — mirrors `TRANCHE_CHILD_RESULT_MARKER`'s shape and
+#: fail-closed contract, but named distinctly since it answers a different
+#: question (did the WHOLE integration finish, not one child).
+TRANCHE_INTEGRATOR_RESULT_MARKER = "TRANCHE_INTEGRATOR_RESULT:"
+
+_TRANCHE_INTEGRATOR_RESULT_RE = re.compile(
+    r"^[ \t>*_`]*TRANCHE_INTEGRATOR_RESULT:[ \t]*(\{.*\})[ \t]*$",
+    re.MULTILINE,
+)
+
+#: Appended to a tranche integrator leg's briefing (#4201) — tells the
+#: worker there is no PR/review for this leg either, and exactly what to
+#: report instead.
+TRANCHE_INTEGRATOR_RESULT_CONTRACT = f"""
+
+## Tranche integrator — no PR, no review (#4129/#4201)
+
+This leg exists because the coordinator's own mechanical merge of this
+tranche's children could not finish on its own (see the conflict detail
+above). Finish merging every child branch listed above onto the target
+branch you were assigned, resolving the conflict(s) by hand. Do NOT open a
+pull request and do NOT wait for a review — the coordinator runs one Test
+and one review set against the branch you push.
+
+Push your branch when you are done (`git push origin HEAD`). Before your
+final message, report your result with exactly one line, with a JSON
+object after the marker:
+
+{TRANCHE_INTEGRATOR_RESULT_MARKER} {{"outcome": "done", "summary": "<one sentence>", "files": ["path/a.py"]}}
+
+Use `"outcome": "failed"` instead if you could not finish. A missing or
+unparseable marker is treated as failed, never as done.
+"""
+
+
+def _unparseable_tranche_integrator_result(reason: str) -> dict:
+    """The one shape every fail-closed exit of
+    :func:`parse_tranche_integrator_result` returns — mirrors
+    `_unparseable_tranche_child_result`'s shape for the child contract.
+    """
+    return {
+        "outcome": "failed",
+        "summary": f"unparseable {TRANCHE_INTEGRATOR_RESULT_MARKER} marker: {reason}",
+        "files": [],
+        "fail_closed_unparseable": True,
+    }
+
+
+def parse_tranche_integrator_result(text: str | None) -> dict:
+    """Extract and validate a tranche integrator leg's self-reported result
+    (#4201).
+
+    Identical validation/shape/fail-closed contract to
+    :func:`parse_tranche_child_result` — the two are kept as separate
+    functions (rather than one parameterized by marker) only because they
+    grade two DIFFERENT questions ("is this one child done" vs. "is the
+    whole integration done") and must be able to evolve independently
+    without a shared signature coupling them (#2096 is about one function
+    per QUESTION, not merging every structurally-similar parser into one).
+    """
+    if not text:
+        return _unparseable_tranche_integrator_result("no completion text")
+
+    matches = list(_TRANCHE_INTEGRATOR_RESULT_RE.finditer(text))
+    if not matches:
+        return _unparseable_tranche_integrator_result(
+            f"no {TRANCHE_INTEGRATOR_RESULT_MARKER} marker found"
+        )
+
+    raw_json = matches[-1].group(1)
+    try:
+        payload = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        return _unparseable_tranche_integrator_result(f"invalid JSON ({exc})")
+
+    if not isinstance(payload, dict):
+        return _unparseable_tranche_integrator_result("marker payload is not a JSON object")
+
+    outcome = payload.get("outcome")
+    if outcome not in TRANCHE_CHILD_OUTCOMES:
+        return _unparseable_tranche_integrator_result(
+            f"outcome {outcome!r} is not one of {TRANCHE_CHILD_OUTCOMES}"
+        )
+
+    summary = payload.get("summary", "")
+    if not isinstance(summary, str):
+        return _unparseable_tranche_integrator_result("summary is not a string")
+
+    files = payload.get("files", [])
+    if not isinstance(files, list) or not all(isinstance(f, str) for f in files):
+        return _unparseable_tranche_integrator_result("files is not a list of strings")
+
+    return {
+        "outcome": outcome,
+        "summary": summary,
+        "files": files,
+        "fail_closed_unparseable": False,
+    }
+
+
+def build_tranche_integrator_briefing(
+    row: "TrancheRow", merge_result: "TrancheMergeResult",
+) -> str:
+    """The briefing text for one tranche integrator leg (#4201).
+
+    Lists every `"done"` child's branch (so the integrator knows exactly
+    what to merge — it never has to rediscover the row), the target
+    integration branch it must push to, and *merge_result.detail* verbatim
+    (the coordinator's own mechanical attempt's failure reason — the
+    conflicted paths or the failing regen/check command) so the integrator
+    starts with the SAME information the coordinator had, not a rediscovery
+    of the same conflict from scratch.
+    """
+    from coord.merge_queue import tranche_integration_branch_name  # noqa: PLC0415
+
+    done_children = sorted(
+        (c for c in row.children if c.state == "done"), key=lambda c: c.issue_number,
+    )
+    children_lines = "\n".join(
+        f"- #{c.issue_number} ({c.title or 'untitled'}): branch "
+        f"`{tranche_child_branch_name(row, c)}`"
+        for c in done_children
+    )
+    target_branch = tranche_integration_branch_name(row)
+    return (
+        f"Integrate tranche row {row.id} for {row.repo_name}#{row.issue_number} "
+        f"({row.issue_title}).\n\n"
+        f"Base commit: `{row.base_sha}`\n"
+        f"Target branch (already checked out, may carry partial progress): "
+        f"`{target_branch}`\n\n"
+        f"Children to merge onto the target branch:\n{children_lines}\n\n"
+        f"The coordinator's own mechanical merge attempt reported:\n"
+        f"{merge_result.detail}\n"
+        + TRANCHE_INTEGRATOR_RESULT_CONTRACT
+    )
+
+
+def build_tranche_integrator_proposal(
+    row: "TrancheRow", merge_result: "TrancheMergeResult", machine_name: str,
+) -> Proposal:
+    """Build the :class:`Proposal` for one tranche integrator leg (#4201).
+
+    `target_branch` pins the worker to `coord.merge_queue.
+    tranche_integration_branch_name` — `merge_tranche_children` has already
+    pushed whatever progress it made there (see that function's docstring)
+    before this is ever called, so checking it out resumes from exactly
+    where the mechanical attempt stopped rather than starting over at
+    `row.base_sha`. `type="work"` reuses the same worktree/routing plumbing
+    every other work leg already has, same as
+    :func:`build_tranche_child_proposal`.
+    """
+    from coord.merge_queue import tranche_integration_branch_name  # noqa: PLC0415
+
+    return Proposal(
+        id=row.id or 0,
+        machine_name=machine_name,
+        repo_name=row.repo_name,
+        issue_number=row.issue_number,
+        issue_title=row.issue_title,
+        rationale=f"tranche row {row.id} integrator",
+        briefing=build_tranche_integrator_briefing(row, merge_result),
+        type="work",
+        target_branch=tranche_integration_branch_name(row),
+    )
+
+
+def dispatch_tranche_integrator(
+    row: "TrancheRow",
+    merge_result: "TrancheMergeResult",
+    config: Config,
+    machine_name: str,
+    *,
+    dispatcher: Callable[..., dict] = dispatch,
+    status_fetcher=None,
+    credential_fetcher=None,
+    board: "Board | None" = None,
+) -> dict:
+    """Dispatch ONE LLM integrator leg for *row* (#4129/#4201) — only ever
+    called when *merge_result.needs_integrator* is ``True``
+    (`coord.merge_queue.merge_tranche_children` is the one place that
+    decides that; this function trusts the caller already checked it rather
+    than re-deriving the same verdict a second way, #2096).
+
+    *status_fetcher*/*credential_fetcher*/*board* are forwarded verbatim to
+    *dispatcher* — the same liveness/credential/Test-host-reservation gates
+    `dispatch_tranche_row_children` wires for the child fan-out, so this
+    single leg is not the one dispatch site in the whole tranche flow that
+    skips them.
+
+    Returns ``{"ok": True, "assignment_id": ..., "machine_name": ...}`` on a
+    confirmed dispatch (an `id` present, and the agent's own ``status`` not
+    `coord.agent.FAILED` — a 2xx `/assign` response alone proves nothing,
+    same fail-closed read `dispatch_tranche_row_children` already applies).
+    Returns ``{"ok": False, "error": ...}`` on any dispatch failure — never
+    raises, so a caller can fold this straight into `row.state` without its
+    own try/except.
+    """
+    from coord.agent import FAILED as AGENT_ASSIGNMENT_FAILED  # noqa: PLC0415
+
+    try:
+        proposal = build_tranche_integrator_proposal(row, merge_result, machine_name)
+        response = dispatcher(
+            proposal, config,
+            status_fetcher=status_fetcher,
+            credential_fetcher=credential_fetcher,
+            board=board,
+        )
+        if not isinstance(response, dict) or not response.get("id"):
+            raise RuntimeError(
+                f"dispatch response carried no assignment id: {response!r}"
+            )
+        if response.get("status") == AGENT_ASSIGNMENT_FAILED:
+            raise RuntimeError(
+                "agent reported dispatch failure: "
+                f"{response.get('error') or 'unknown error'}"
+            )
+    except Exception as exc:  # noqa: BLE001 — fail closed, caller never left guessing
+        return {"ok": False, "error": str(exc)}
+    return {
+        "ok": True,
+        "assignment_id": response["id"],
+        "machine_name": proposal.machine_name,
+    }
+
+
+# ── Native tranche rows: capability-routed Test leg (#4129 Phase 1, this
+# slice #4202) ───────────────────────────────────────────────────────────
+#
+# Once `coord.merge_queue.merge_tranche_children` has pushed a clean
+# integrated tree (`row.state == "done"` — see `coord.drive.
+# integrate_tranche_row`'s own docstring: "Nothing more to do; the Test/
+# review/PR slice (#4202) picks up from here"), #4129 names ONE Test leg
+# against that tree — never one per child. Capability matching reuses the
+# SAME `coord.smoke.required_capabilities` the Test stage's own routing
+# uses — #2096, one question one answer — from the union of every done
+# child's own self-reported touched files (`TrancheChild.result["files"]`,
+# #4200's contract) rather than a fresh diff this module would otherwise
+# have to compute a second way. Unlike `route_work_by_capability` (a
+# `type="work"` primitive that always returns a best-covering machine),
+# this NEVER relaxes: no capable machine in the given pool means refusal,
+# mirroring `coord.smoke`'s own Test-stage posture.
+#
+# Dispatched as a standalone `type="smoke"` leg via a raw `/assign` POST,
+# mirroring `coord.gate_b.dispatch_gate_b_review`'s posture for the same
+# reason that function states: this is not keyed off one completed
+# `type="work"` assignment the way `coord.smoke.dispatch_smoke` is, so that
+# machinery's own PR-diff/candidate-ranking plumbing doesn't apply here.
+# Collecting this leg's own pass/fail verdict reuses the existing generic
+# Test-stage verdict machinery already wired through `coord.notify` for
+# every `type="smoke"` row — nothing new to parse.
+
+
+def tranche_test_files_likely(row: "TrancheRow") -> list[str]:
+    """Union of every `"done"` child's self-reported touched files (#4202)
+    — the `files_likely` capability routing needs to pick the right
+    machine for the ONE Test leg run against the integrated tree, mirroring
+    how a `type="work"` diff's own declared `## Files` drives
+    `route_work_by_capability`. Reuses each child's own `result["files"]`
+    (the structured contract `parse_tranche_child_result` already
+    validated, #4200) instead of re-deriving the touched-file set from a
+    fresh diff a second way (#2096).
+
+    `row.children` order, de-duplicated; empty when no child carries a
+    `result` yet — the caller's own capability routing then falls through
+    to plain, uncapped availability, same as a `type="work"` diff whose
+    `## Files` matches nothing.
+    """
+    files: list[str] = []
+    seen: set[str] = set()
+    for child in row.children:
+        if child.state != "done":
+            continue
+        for f in (child.result or {}).get("files") or []:
+            if f not in seen:
+                seen.add(f)
+                files.append(f)
+    return files
+
+
+def tranche_test_machine_name(
+    row: "TrancheRow",
+    config: Config,
+    machine_names: Sequence[str],
+) -> str | None:
+    """Pick the machine for the tranche's ONE capability-routed Test leg
+    (#4129/#4202).
+
+    Capability matching here is never relaxed — the Test stage's own
+    posture (`coord.smoke.rank_smoke_machines`'s docstring: "a fallback
+    that dispatched to a machine lacking the capability would produce a
+    green verdict from a machine that cannot run the suite, which is worse
+    than refusing"), not `route_work_by_capability`'s `type="work"`
+    posture of always returning a best-covering machine. Computes the same
+    `coord.smoke.required_capabilities(repo_requires,
+    tranche_test_files_likely(row), capability_rules)` union
+    `route_work_by_capability` itself calls, plus any
+    `backend_capability_from_title` tag (#2096, one question one answer),
+    then walks *machine_names* IN ORDER — respecting the caller's own
+    pool/exclusions rather than falling through to `config.machines` at
+    large — for the first machine that declares every required
+    capability.
+
+    Returns `None` when nothing in *machine_names* does; the caller must
+    refuse the dispatch rather than land the Test leg on a machine that
+    cannot verify it. Returns `machine_names[0]` unconditionally when no
+    capability is required at all.
+
+    Raises ValueError if *machine_names* is empty.
+    """
+    if not machine_names:
+        raise ValueError("tranche_test_machine_name: machine_names is empty")
+    from coord.smoke import required_capabilities  # noqa: PLC0415
+
+    repo_cfg = config.repo(row.repo_name)
+    required = list(
+        required_capabilities(
+            repo_cfg.requires if repo_cfg is not None else (),
+            tranche_test_files_likely(row),
+            config.smoke_tests.capability_rules,
+        )
+    )
+    backend_capability = backend_capability_from_title(row.issue_title)
+    if backend_capability and backend_capability not in required:
+        required.append(backend_capability)
+    if not required:
+        return machine_names[0]
+
+    by_name = {m.name: m for m in config.machines}
+    for name in machine_names:
+        machine = by_name.get(name)
+        if (
+            machine is not None
+            and machine.can_work_on(row.repo_name)
+            and machine.covers_capabilities(required)
+        ):
+            return name
+    return None
+
+
+def build_tranche_test_briefing(
+    row: "TrancheRow", integrated_sha: str, smoke_command: "SmokeCommand | None" = None,
+) -> str:
+    """Briefing text for the tranche's ONE Test leg (#4129/#4202) — tells
+    the worker exactly what tree it's testing and why there's no PR to
+    check out from, mirroring `build_tranche_integrator_briefing`'s own
+    "start with the same information the coordinator had" posture.
+
+    *smoke_command* (`coord.smoke.resolve_smoke_command`'s result, the
+    SAME resolution every other Test-stage leg's briefing embeds) names
+    the actual command to run; `None` (no command configured for this
+    repo at all) tells the worker to fall back to the repo's own suite.
+    The verdict instructions name the real marker `coord.notify` parses
+    for a `type="smoke"` row (`SMOKE: pass`/`SMOKE: fail <reason>`,
+    `coord.smoke`'s own contract) rather than a `coord report-result`
+    flag that does not exist for this leg type.
+    """
+    done_children = sorted(
+        (c for c in row.children if c.state == "done"), key=lambda c: c.issue_number,
+    )
+    children_lines = "\n".join(
+        f"- #{c.issue_number} ({c.title or 'untitled'})" for c in done_children
+    ) or "(none)"
+    if smoke_command is not None and smoke_command.command:
+        command_block = (
+            f"{smoke_command.briefing_note()}\n\n"
+            f"```bash\n{smoke_command.command}\n```\n"
+        )
+    else:
+        command_block = (
+            "No Test-stage command is configured for this repo "
+            "(`repos[].ci_command` / `smoke_tests.default_command` / "
+            "`repos[].test_command`) — run whatever this repo's own test "
+            "suite is.\n"
+        )
+    return (
+        f"Run this repo's Test-stage suite against the INTEGRATED tree for "
+        f"tranche row {row.id}, {row.repo_name}#{row.issue_number} "
+        f"({row.issue_title}) — #4129's ONE-Test-per-row requirement, not "
+        f"a per-child rerun.\n\n"
+        f"This tree merges the following child issue(s) onto `{row.base_sha}` "
+        f"(no PR exists for this branch yet — the coordinator merged these "
+        f"itself):\n{children_lines}\n\n"
+        f"Current tree sha: `{integrated_sha}`.\n\n"
+        f"{command_block}\n"
+        f"Report your result with exactly one final line, at the start of "
+        f"the line — this is the SAME marker contract any other Test leg "
+        f"uses, and the only thing `coord.notify` parses for a "
+        f'`type="smoke"` row:\n\n'
+        f"- `SMOKE: pass` — the command above exited 0\n"
+        f"- `SMOKE: fail <one-line reason>` — it failed\n\n"
+        f"A run that ends with no such line records NO verdict (never a "
+        f"pass) and this Test leg is simply re-dispatched."
+    )
+
+
+def dispatch_tranche_test(
+    row: "TrancheRow",
+    integrated_sha: str,
+    config: Config,
+    machine_names: Sequence[str],
+    board: "Board",
+    *,
+    http_client: httpx.Client | None = None,
+    now: float | None = None,
+) -> dict:
+    """Dispatch the ONE capability-routed Test leg for *row*'s integrated
+    tree (#4129/#4202) — only ever called once `row.state == "done"` (see
+    `coord.drive.integrate_tranche_row`).
+
+    Standalone raw `/assign` POST (mirrors `coord.gate_b.
+    dispatch_gate_b_review`'s posture, not `coord.smoke.dispatch_smoke`'s —
+    see this section's own module comment for why). Appends the new
+    `type="smoke"` `Assignment` to `board.active` and records it via
+    `coord.state.record_dispatched_assignment` on success. Never raises on
+    a dispatch failure — returns ``{"ok": True, "assignment_id": ...,
+    "machine_name": ...}`` on a confirmed dispatch, else ``{"ok": False,
+    "error": ...}`` (an unroutable machine, no configured `repo_path`, or
+    the agent itself rejecting/being unreachable for the POST).
+
+    Raises ValueError if *machine_names* is empty — there is nowhere to
+    route the single Test leg to. Returns ``{"ok": False, "error": ...}``
+    (never raises) when *machine_names* contains no machine that declares
+    every capability `tranche_test_files_likely(row)` needs — capability
+    matching for this leg is never relaxed, mirroring `coord.smoke`'s own
+    Test-stage posture rather than silently landing on an incapable
+    machine.
+    """
+    if not machine_names:
+        raise ValueError("dispatch_tranche_test: machine_names is empty")
+
+    machine_name = tranche_test_machine_name(row, config, machine_names)
+    if machine_name is None:
+        return {
+            "ok": False,
+            "error": (
+                f"no machine in {list(machine_names)!r} declares every "
+                "capability this tranche's Test leg needs — refusing "
+                "rather than running an unverified suite"
+            ),
+        }
+    machine = next((m for m in config.machines if m.name == machine_name), None)
+    if machine is None:
+        return {"ok": False, "error": f"unknown machine {machine_name!r}"}
+    repo_path = machine.repo_path(row.repo_name)
+    if repo_path is None:
+        return {
+            "ok": False,
+            "error": f"machine {machine_name!r} has no repo_path for {row.repo_name!r}",
+        }
+
+    from coord.merge_queue import tranche_integration_branch_name  # noqa: PLC0415
+    from coord.smoke import resolve_smoke_command  # noqa: PLC0415
+
+    target_branch = tranche_integration_branch_name(row)
+    repo_cfg = config.repo(row.repo_name)
+    smoke_command = (
+        resolve_smoke_command(repo_cfg, config.smoke_tests, tranche_test_files_likely(row))
+        if repo_cfg is not None else None
+    )
+    briefing = build_tranche_test_briefing(row, integrated_sha, smoke_command)
+    payload = {
+        "repo_name": row.repo_name,
+        "repo_path": repo_path,
+        "issue_number": row.issue_number,
+        "issue_title": f"[test] {row.issue_title}",
+        "briefing": briefing,
+        "files_allowed": [],
+        "files_forbidden": [],
+        "pull_repos": [],
+        "type": "smoke",
+        "model": config.models.default,
+        "review_target": target_branch,
+        "branch": target_branch,
+    }
+
+    client = http_client or httpx
+    url = f"http://{machine.host}:{AGENT_PORT}/assign"
+    try:
+        resp = client.post(url, json=payload, timeout=ASSIGN_POST_TIMEOUT_SECS)
+        resp.raise_for_status()
+        agent_response = resp.json()
+    except (httpx.HTTPError, httpx.TimeoutException) as exc:
+        return {"ok": False, "error": f"agent {machine_name!r} rejected dispatch: {exc}"}
+
+    from coord.agent import FAILED as AGENT_ASSIGNMENT_FAILED  # noqa: PLC0415
+
+    if not isinstance(agent_response, dict) or not agent_response.get("id"):
+        return {
+            "ok": False,
+            "error": f"dispatch response carried no assignment id: {agent_response!r}",
+        }
+    if agent_response.get("status") == AGENT_ASSIGNMENT_FAILED:
+        return {
+            "ok": False,
+            "error": (
+                "agent reported dispatch failure: "
+                f"{agent_response.get('error') or 'unknown error'}"
+            ),
+        }
+
+    assignment_id = agent_response["id"]
+    assignment = Assignment(
+        machine_name=machine_name,
+        repo_name=row.repo_name,
+        issue_number=row.issue_number,
+        issue_title=f"[test] {row.issue_title}",
+        files_allowed=[],
+        files_forbidden=[],
+        briefing=briefing,
+        assignment_id=assignment_id,
+        status="running",
+        branch=target_branch,
+        dispatched_at=now if now is not None else time.time(),
+        type="smoke",
+        review_target=target_branch,
+    )
+    board.active.append(assignment)
+
+    from coord.state import record_dispatched_assignment  # noqa: PLC0415
+
+    record_dispatched_assignment(
+        assignment=assignment, repo_github=repo_cfg.github if repo_cfg else "",
+    )
+
+    return {"ok": True, "assignment_id": assignment_id, "machine_name": machine_name}
+
+
+def tranche_test_leg_assignment(
+    board: "Board", row: "TrancheRow",
+) -> "Assignment | None":
+    """The most recently dispatched Test leg for *row*'s integrated tree,
+    scanned off *board* (#4202), or `None` when no Test leg has ever been
+    dispatched for this row.
+
+    Keyed on `coord.merge_queue.tranche_integration_branch_name(row)` —
+    derived from `row.id`, so unique per row — rather than a column stored
+    anywhere new, the same re-derive-don't-store shape
+    `coord.review.tranche_review_leg_assignments` uses for the review
+    legs. Scans completed and active together and returns the newest by
+    `dispatched_at`, so a re-dispatch after a mute or failed leg always
+    wins over the stale one it replaced.
+
+    Returns `None` when `row.id` is None (no branch name to key on, so no
+    leg can have been dispatched yet) rather than raising — the caller is
+    asking "has a Test leg run", and an unsaved row's answer is plainly
+    no.
+    """
+    if row.id is None:
+        return None
+    from coord.merge_queue import tranche_integration_branch_name  # noqa: PLC0415
+
+    branch = tranche_integration_branch_name(row)
+    matches = [
+        a for a in list(board.completed) + list(board.active)
+        if a.type == "smoke" and a.repo_name == row.repo_name and a.branch == branch
+    ]
+    matches.sort(key=lambda a: a.dispatched_at or 0.0)
+    return matches[-1] if matches else None

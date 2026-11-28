@@ -57,6 +57,7 @@ from .patterns import (
     get_text_value,
     get_widget_key,
     get_widget_type,
+    record_pdf_value,
     update_annotation_name,
 )
 from .utils import get_dictionary
@@ -314,11 +315,12 @@ def _process_widget(
 
         if type(_widget) is Checkbox:
             _widget.value = get_checkbox_value(widget)
-            # the value the PDF holds, which filling doesn't write again
-            _widget.__dict__["_pdf_value"] = _widget.value
 
         if isinstance(_widget, Dropdown):
             _populate_dropdown_properties(widget, _widget)
+
+        # the value the PDF holds, which filling doesn't write again
+        record_pdf_value(_widget)
 
         if isinstance(_widget, Radio):
             _handle_radio_widget(widget, key, _widget, radios)
@@ -707,6 +709,9 @@ def _apply_widget_key_updates(
 
     The update queue is converted into a lookup keyed by old widget name, then
     each annotation is checked against that lookup as pages are traversed.
+    Only annotations that `get_widget_type` reads as widgets, as
+    `build_widgets` does, are renamed or counted, so another annotation with
+    the same `/T`, such as a note, keeps its title.
     Non-radio widgets honor the requested occurrence index, while radio widgets
     update every annotation in the radio group.
 
@@ -725,7 +730,8 @@ def _apply_widget_key_updates(
             annot = cast(DictionaryObject, annot.get_object())
             key = get_widget_key(annot.get_object(), False)
 
-            if key not in updates:
+            # a note with the same /T is no widget, so it isn't an occurrence
+            if key not in updates or get_widget_type(annot) is None:
                 continue
 
             widget = widgets.get(key)

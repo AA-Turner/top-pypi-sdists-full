@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 from ....sdk import errors
+from probe.mcp.tools.shaping.cards import _CARD_LIST_ITEMS
 from probe.mcp.tools.view import _Req, _ViewData
 
 # Rows fetched past the caller's offset — far more than any sane token_budget
@@ -21,6 +22,44 @@ _TRANSCRIPT_SECTION_LINES = 40
 _ARTIFACT_CONTENT_MAX_BYTES = 2 * 1024 * 1024
 _TRANSCRIPT_CONTEXT_DEFAULT = 3
 _TRANSCRIPT_CONTEXT_MAX = 20
+#: A paper card's cap per text leaf. Twin of the search index's abstract cap,
+#: `_MAX_INDEXED_ABSTRACT_CHARS` in app/knowledge/indexing/projections/projectors/paper.py:
+#: any passage a hint or search hit quotes is then inside the card.
+_PAPER_LEAF_CHARS = 20_000
+#: Items per digest list on a paper card. Twin of `_DIGEST_LIST_CAP` in
+#: app/generation/agent/expansion/verbs/artifact_content.py: the head of a list
+#: the digest already ordered by importance; the paper's page holds the rest.
+_PAPER_DIGEST_LIST_ITEMS = 8
+
+
+def _cap_leaves(value: Any, limit: int) -> tuple[Any, bool]:
+    """`value` with every string inside it cut to `limit` chars, and whether any was cut."""
+    if isinstance(value, str):
+        return (value[:limit], True) if len(value) > limit else (value, False)
+    if isinstance(value, list):
+        pairs = [_cap_leaves(item, limit) for item in value]
+        return [item for item, _ in pairs], any(cut for _, cut in pairs)
+    if isinstance(value, dict):
+        capped = {key: _cap_leaves(item, limit) for key, item in value.items()}
+        return {key: item for key, (item, _) in capped.items()}, any(
+            cut for _, cut in capped.values()
+        )
+    return value, False
+
+
+def _cap_digest(digest: dict) -> dict:
+    """A paper digest with each list cut to its head and each text leaf capped;
+    `<key>_truncated` names every member that lost something."""
+    out: dict[str, Any] = {}
+    for key, value in digest.items():
+        is_list_cut = isinstance(value, list) and len(value) > _PAPER_DIGEST_LIST_ITEMS
+        if is_list_cut:
+            value = value[:_PAPER_DIGEST_LIST_ITEMS]
+        value, is_leaf_cut = _cap_leaves(value, _PAPER_LEAF_CHARS)
+        out[key] = value
+        if is_list_cut or is_leaf_cut:
+            out[f"{key}_truncated"] = True
+    return out
 
 
 def _satisfies(version: dict, requirement: str) -> bool:
@@ -171,6 +210,28 @@ class FileViewsMixin:
         """
         rows, more = self.source.project_papers(str(entity["id"]))
         return _ViewData(rows=rows, rows_key="papers", more_beyond=more)
+
+    def _build_paper_card_view(self, entity: dict, request: _Req) -> _ViewData:
+        """One saved paper: its row and digest, bounded. Shaped IN PLACE, as
+        the sub-note card is, because the card projection reads the entity
+        after this runs. Every text leaf is capped (`<key>_truncated` says
+        which), digest lists keep their head, and the sessions list is cut to
+        the card's list size (`session_total` keeps the real count)."""
+        entity.pop("extraction_metadata", None)
+        for key, value in list(entity.items()):
+            if key == "digest":
+                continue
+            capped, is_cut = _cap_leaves(value, _PAPER_LEAF_CHARS)
+            entity[key] = capped
+            if is_cut:
+                entity[f"{key}_truncated"] = True
+        if isinstance(entity.get("digest"), dict):
+            entity["digest"] = _cap_digest(entity["digest"])
+        sessions = entity.get("agent_sessions")
+        if isinstance(sessions, list) and len(sessions) > _CARD_LIST_ITEMS:
+            entity["agent_sessions"] = sessions[:_CARD_LIST_ITEMS]
+            entity["agent_sessions_truncated"] = True
+        return _ViewData()
 
     def _view_groups(self, entity: dict, request: _Req) -> _ViewData:
         """Sweeps/ensembles under an experiment — reached by a view, not by a

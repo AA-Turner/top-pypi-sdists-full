@@ -110,13 +110,13 @@ def save_signature(sigfile, sig):
         f.write(signature)
 
 
-def load_key(keyfile):
+def load_key(keyfile, allow_aes=False):
     # TODO: better handling of invalid pass-phrase
-    key = keys.load(keyfile)
+    key = keys.load(keyfile, allow_aes=allow_aes)
     if key is not None:
         return key
     passwd = getpass.getpass("Enter key passphrase: ").encode('utf-8')
-    return keys.load(keyfile, passwd)
+    return keys.load(keyfile, passwd, allow_aes=allow_aes)
 
 
 def get_password():
@@ -421,7 +421,9 @@ class BasedIntParamType(click.ParamType):
                    'keys. Enable when BOOT_SWAP_SAVE_ENCTLV config option '
                    'was set.')
 @click.option('-E', '--encrypt', metavar='filename',
-              help='Encrypt image using the provided public key. '
+              help='Encrypt image using a public key or a base64-encoded '
+                   'AES-KW secret KEK. Use a 16-byte KEK for the default '
+                   '128-bit mode, or a 32-byte KEK with --encrypt-keylen 256. '
                    '(Not supported in direct-xip or ram-load mode.)')
 @click.option('--encrypt-keylen', default='128',
               type=click.Choice(['128', '256']),
@@ -473,11 +475,12 @@ class BasedIntParamType(click.ParamType):
               help='Specify the value of security counter. Use the `auto` '
               'keyword to automatically generate it from the image version.')
 @click.option('-v', '--version', callback=validate_version,  required=True)
-@click.option('--align', type=click.Choice(['1', '2', '4', '8', '16', '32']),
+@click.option('--align', type=click.Choice(['1', '2', '4', '8', '16', '32',
+              '64', '128']),
               default='1',
               required=False,
               help='Alignment used by swap update modes.')
-@click.option('--max-align', type=click.Choice(['8', '16', '32']),
+@click.option('--max-align', type=click.Choice(['8', '16', '32','64', '128']),
               required=False,
               help='Maximum flash alignment. Set if flash alignment of the '
               'primary and secondary slot differ and any of them is larger '
@@ -542,13 +545,14 @@ def sign(key, public_key_format, align, version, pad_sig, header_size,
             "Cannot sign with a public-only PEM; signing requires the "
             "private key."
         )
-    enckey = load_key(encrypt) if encrypt else None
-    if enckey and key and ((isinstance(key, keys.ECDSA256P1) and
-         not isinstance(enckey, keys.ECDSA256P1Public))
-       or (isinstance(key, keys.ECDSA384P1) and
-           not isinstance(enckey, keys.ECDSA384P1Public))
-            or (isinstance(key, keys.RSA) and
-                not isinstance(enckey, keys.RSAPublic))):
+    enckey = load_key(encrypt, allow_aes=True) if encrypt else None
+    if (enckey and key and not isinstance(enckey, keys.AESKWKey)
+        and ((isinstance(key, keys.ECDSA256P1) and
+              not isinstance(enckey, keys.ECDSA256P1Public))
+             or (isinstance(key, keys.ECDSA384P1) and
+                 not isinstance(enckey, keys.ECDSA384P1Public))
+             or (isinstance(key, keys.RSA) and
+                 not isinstance(enckey, keys.RSAPublic)))):
         # FIXME
         raise click.UsageError("Signing and encryption must use the same "
                                "type of key")

@@ -17,11 +17,13 @@ from . import (
     capabilities,
     edit,
     find,
+    markdown_regions,
     note_types,
     origin_bindings,
     page_ids,
     provenance,
     relation_registry,
+    semantic_blocks,
     semantic_contract,
     semantic_index,
     semantic_kinds,
@@ -41,7 +43,6 @@ from .mutation_timings import MutationTimings, write_timings_enabled
 
 ObserveOperation = Literal["add", "update", "remove", "validate", "supersede", "assess"]
 _OPERATIONS: tuple[str, ...] = get_args(ObserveOperation)
-_COMPACT_KIND = "observation"
 _HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*#*[ \t]*$")
 _FENCE_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 _UPDATED_RE = re.compile(r"^updated:.*$", re.MULTILINE)
@@ -52,7 +53,13 @@ _ANCHOR_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?$")
 #: governed rows, such as a belief unit's credence, are written by hand and carried through
 #: an edit as written, so this command never writes a belief on a holder's behalf.
 # nosemgrep: ep-word-set -- this command's own argument names, fixed by its tool schema
-_GOVERNED_ARGUMENT_KEYS = ("verdict", "check_by", "as_of", "until")
+_RICH_ONLY_ARGUMENT_KEYS = ("verdict", "check_by")
+#: The two governed arguments that a compact call may carry: the server writes them on a rich
+#: unit of the kind that has the `dated_default` trait. Every other governed argument refuses
+#: the compact call.
+# nosemgrep: ep-word-set -- this command's own argument names, fixed by its tool schema
+_DATE_ARGUMENT_KEYS = ("as_of", "until")
+_GOVERNED_ARGUMENT_KEYS = (*_RICH_ONLY_ARGUMENT_KEYS, *_DATE_ARGUMENT_KEYS)
 
 #: Metadata rows this module renders from its own arguments. Every *other*
 #: authored row is carried through a reconstruction with its value intact.
@@ -335,12 +342,17 @@ def observe_memory(
         current_unit = resolution.unit
 
     frontmatter, body, _ = vault.parse_frontmatter(editable.original_text)
+    if current_unit is not None and proposal_mode in {"update", "remove"}:
+        _guard_nested_observation_span(body, current_unit)
     target_anchor: str | None = None
     removed_unit = None
     dropped_relations: tuple[tuple[str, str], ...] = ()
     dropped_outcome: str | None = None
     lifted_frontmatter: list[tuple[str, str]] | None = None
     lift_resolver: Any = None
+    dated_default_kind: str | None = None
+    dated_fields: tuple[str, ...] = ()
+    placement_outcome: str | None = None
     link_warnings: list[str] = []
     if proposal_mode == "remove":
         assert current_unit is not None
@@ -392,22 +404,7 @@ def observe_memory(
             elif resolved.kind is not None:
                 selected_kind = resolved.kind
             else:
-                admitted = set(
-                    _admitted_kind_keys(
-                        language, projects=page_projects, page_type=page_type
-                    )
-                )
-                replacements = sorted(language.kinds_with("replacement") & admitted)
-                if len(replacements) != 1:
-                    raise ObserveMemoryError(
-                        "REPLACEMENT_KIND_REQUIRED",
-                        f"{len(replacements)} admitted kinds carry the "
-                        "replacement trait; the successor's kind must be named",
-                        "Pass `kind` with one of the replacement kinds: "
-                        + (", ".join(replacements) if replacements else "none admitted")
-                        + ".",
-                    )
-                selected_kind = replacements[0]
+                selected_kind = semantic_kinds.replacement_kind()
             if selected_kind in semantic_kinds.compact_kinds():
                 raise ObserveMemoryError(
                     "UNSUPPORTED_SEMANTIC_KIND",
@@ -466,6 +463,7 @@ def observe_memory(
             normalized_category = resolved.category
             normalized_content = resolved.content
             if resolved.unit is not None and resolved.unit.form == "rich":
+                _guard_nested_observation_span(body, resolved.unit)
                 selected_kind = str(resolved.kind)
                 if kind is not None and _select_kind(
                     language,
@@ -501,6 +499,7 @@ def observe_memory(
                     as_of=normalized_as_of,
                     until=normalized_until,
                     preserved=preserved_metadata,
+                    heading_level=resolved.unit.level or 2,
                 )
                 after_body = _replace_unit(
                     body,
@@ -583,11 +582,44 @@ def observe_memory(
             )
         normalized_tags = _canonical_tags(tags or [])
         normalized_context = _canonical_context(context)
+        base_unit = current_unit if proposal_mode == "update" else None
+        normalized_verdict = _resolve_verdict(
+            verdict, base_unit, language,
+        )
+        normalized_check_by = _resolve_check_by(check_by, base_unit)
+        normalized_as_of = _resolve_governed_value(
+            as_of, base_unit, key="as_of",
+            normalize=lambda value: _canonical_date(value, "as_of"),
+        )
+        normalized_until = _resolve_governed_value(
+            until, base_unit, key="until",
+            normalize=lambda value: _canonical_date(value, "until"),
+        )
+        if (
+            normalized_as_of and normalized_until
+            and dt.date.fromisoformat(normalized_until) < dt.date.fromisoformat(normalized_as_of)
+        ):
+            raise ObserveMemoryError(
+                "INVALID_SEMANTIC_DATE_ORDER", "until must be on or after as_of",
+            )
+        dated_fields = _governed_names(as_of=normalized_as_of, until=normalized_until)
+        if (
+            kind is None
+            and selected_kind in semantic_kinds.compact_kinds()
+            and dated_fields
+            and not (normalized_verdict or normalized_check_by)
+        ):
+            # Only dates, and no kind: a compact unit carries no rows, so the dates go on a rich
+            # unit of the one kind the registry marks as the default for them. The decision comes
+            # before the relations below, so links on this call are handled as for a rich unit.
+            dated_default_kind = _dated_default_kind(language)
+            selected_kind = dated_default_kind
         # add and update both render the unit's whole edge set, which the seam owns.
         normalized_relations = unit_edges.add_unit_edges((), _canonical_relations(relations or []))
-        explicit_rich_kind = bool(
+        compact_kinds = semantic_kinds.compact_kinds()
+        explicit_rich_kind = dated_default_kind is not None or bool(
             kind is not None
-            and semantic_language_registry.normalize_label(kind) != _COMPACT_KIND
+            and semantic_language_registry.normalize_label(kind) not in compact_kinds
         )
         if normalized_relations and not explicit_rich_kind:
             # A rich unit that keeps its kind on update carries its own relations, so only a unit
@@ -616,32 +648,12 @@ def observe_memory(
             # Every relation is a provenance link to captured material, so the unit commits
             # compact and each target lands in its page field in the same atomic write.
             normalized_relations = ()
-        base_unit = current_unit if proposal_mode == "update" else None
         if base_unit is not None and relations is None and base_unit.relations:
             # `relations` replaces on update, so a call that omits it removes every relation the
             # unit had. A list the caller sent, even an empty one, is its stated intent.
             dropped_relations = tuple((item.kind, item.target) for item in base_unit.relations)
             dropped_outcome = _dropped_relations_outcome(
                 dropped_relations, compact=selected_kind in semantic_kinds.compact_kinds()
-            )
-        normalized_verdict = _resolve_verdict(
-            verdict, base_unit, language,
-        )
-        normalized_check_by = _resolve_check_by(check_by, base_unit)
-        normalized_as_of = _resolve_governed_value(
-            as_of, base_unit, key="as_of",
-            normalize=lambda value: _canonical_date(value, "as_of"),
-        )
-        normalized_until = _resolve_governed_value(
-            until, base_unit, key="until",
-            normalize=lambda value: _canonical_date(value, "until"),
-        )
-        if (
-            normalized_as_of and normalized_until
-            and dt.date.fromisoformat(normalized_until) < dt.date.fromisoformat(normalized_as_of)
-        ):
-            raise ObserveMemoryError(
-                "INVALID_SEMANTIC_DATE_ORDER", "until must be on or after as_of",
             )
         preserved_metadata = _preserved_metadata(base_unit)
         governed_passed = _governed_names(
@@ -650,10 +662,10 @@ def observe_memory(
             as_of=normalized_as_of,
             until=normalized_until,
         )
-        if selected_kind == _COMPACT_KIND and (governed_passed or preserved_metadata):
+        if selected_kind in compact_kinds and (governed_passed or preserved_metadata):
             if base_unit is None or base_unit.form != "rich":
-                # A compact unit, new or existing, carries no rows, so the only exit that applies
-                # is to leave the fields out of this call.
+                # A compact unit, new or existing, carries no rows, so the only exits that apply
+                # are a rich kind, or leaving the other fields out so a date takes the default kind.
                 raise _compact_metadata_refusal(
                     passed=governed_passed,
                     kinds=_rich_kind_remediation(
@@ -662,6 +674,7 @@ def observe_memory(
                         projects=page_projects,
                         page_type=page_type,
                     ),
+                    kind_named=kind is not None,
                 )
             # Every exit named here has to actually exist. `verdict=""` and
             # `check_by=""` really do clear those rows, but no argument clears
@@ -679,10 +692,15 @@ def observe_memory(
                     projects=page_projects,
                     page_type=page_type,
                 )
-                + " Or, to convert this unit to compact form, clear each governed field "
-                "by passing an empty string and remove any remaining "
-                "metadata rows by editing the page, since no argument clears a "
-                "row this tool does not own.",
+                + (
+                    ""
+                    if any(str(value or "").strip() for value in (as_of, until))
+                    # A date in this call is there to be kept, so converting the unit is no exit.
+                    else " Or, to convert this unit to compact form, clear each governed field "
+                    "by passing an empty string and remove any remaining "
+                    "metadata rows by editing the page, since no argument clears a "
+                    "row this tool does not own."
+                ),
             )
         existing_anchors = {
             unit.anchor
@@ -703,23 +721,52 @@ def observe_memory(
                 existing_anchors,
             )
         )
-        rendered = _render_unit(
-            kind=selected_kind,
-            category=normalized_category,
-            content=normalized_content,
-            tags=normalized_tags,
-            context=normalized_context,
-            relations=normalized_relations,
-            anchor=target_anchor,
-            verdict=normalized_verdict,
-            check_by=normalized_check_by,
-            as_of=normalized_as_of,
-            until=normalized_until,
-            preserved=preserved_metadata,
-        )
-        if proposal_mode == "update":
-            assert current_unit is not None
-            if current_unit.form == "compact" and selected_kind != _COMPACT_KIND:
+
+        def render(heading_level: int) -> str:
+            return _render_unit(
+                kind=selected_kind, category=normalized_category, content=normalized_content,
+                tags=normalized_tags, context=normalized_context, relations=normalized_relations,
+                anchor=target_anchor, verdict=normalized_verdict, check_by=normalized_check_by,
+                as_of=normalized_as_of, until=normalized_until, preserved=preserved_metadata,
+                heading_level=heading_level,
+            )
+
+        compact = selected_kind in semantic_kinds.compact_kinds()
+        if dated_default_kind is not None:
+            insertion_body = body if current_unit is None else _remove_unit(
+                body, current_unit.span.start_offset, current_unit.span.end_offset,
+            )
+            # A vault may use this heading for a rich unit that owns its descendants.
+            page_language = semantic_language_registry.for_attached_projects(
+                language, page_projects,
+            )
+            observation_heading = page_language.resolve_heading("Observations", page_type=page_type)
+            nested_body = (
+                _place_dated_block(insertion_body, render(3))
+                if observation_heading.resolved is None
+                else None
+            )
+            if nested_body is None:
+                after_body = _append_visible_record(insertion_body, render(2))
+                placement_outcome = _end_placement_notice(previewing)
+            else:
+                after_body = nested_body
+        elif current_unit is not None and proposal_mode == "update":
+            start, end = current_unit.span.start_offset, current_unit.span.end_offset
+            depth = current_unit.level or 2
+            section = _observation_section_containing(body, start) if depth > 2 else None
+            if section is not None and compact:
+                after_body = _add_compact(
+                    _remove_unit(body, start, end), render(2), section_start=section.start,
+                )
+            elif section is not None:
+                rendered = render(depth)
+                if _fits_nested_block(rendered, depth):
+                    after_body = _replace_unit(body, start, end, rendered)
+                else:
+                    after_body = _append_visible_record(_remove_unit(body, start, end), render(2))
+                    placement_outcome = _end_placement_notice(previewing)
+            elif current_unit.form == "compact" and not compact:
                 # A promoted compact line cannot become a rich block in place:
                 # the compact lines after it would fall inside the new block.
                 # The line leaves and the block lands at the body end instead.
@@ -729,20 +776,18 @@ def observe_memory(
                         current_unit.span.start_offset,
                         current_unit.span.end_offset,
                     ),
-                    rendered,
+                    render(2),
                 )
             else:
                 after_body = _replace_unit(
                     body,
                     current_unit.span.start_offset,
                     current_unit.span.end_offset,
-                    rendered,
+                    render(2),
                 )
         else:
             after_body = (
-                _add_compact(body, rendered)
-                if selected_kind == _COMPACT_KIND
-                else _append_rich(body, rendered)
+                _add_compact(body, render(2)) if compact else _append_rich(body, render(2))
             )
 
     # What the governed parser must read back for the rendered unit; a remove renders none.
@@ -778,6 +823,11 @@ def observe_memory(
         link_warnings.extend(lift_warnings)
     lifted_outcome = (
         _lifted_relations_outcome(lifted_cited, preview=previewing) if lifted_cited else None
+    )
+    dated_default_outcome = (
+        _dated_default_outcome(dated_fields, preview=previewing)
+        if dated_default_kind is not None
+        else None
     )
     after_source = _rebuild_source(
         editable.original_text,
@@ -901,6 +951,9 @@ def observe_memory(
                 dropped_outcome=dropped_outcome,
                 lifted_cited=lifted_cited,
                 lifted_outcome=lifted_outcome,
+                dated_default_kind=dated_default_kind,
+                dated_default_outcome=dated_default_outcome,
+                placement_outcome=placement_outcome,
                 warnings=link_warnings,
             )
 
@@ -937,6 +990,7 @@ def observe_memory(
                 )
         except semantic_writes.SemanticWriteError as error:
             raise ObserveMemoryError(error.code, error.reason) from error
+        link_warnings.extend(committed.review_field_warnings())
 
         final = semantic_index.selected_parent_index_state(vault_root, editable.rel_path)
         final_unit = _unit_by_anchor(final.document, target_anchor)
@@ -960,6 +1014,9 @@ def observe_memory(
             dropped_outcome=dropped_outcome,
             lifted_cited=lifted_cited,
             lifted_outcome=lifted_outcome,
+            dated_default_kind=dated_default_kind,
+            dated_default_outcome=dated_default_outcome,
+            placement_outcome=placement_outcome,
             timings=(
                 timings.as_dict() if timings is not None and write_timings_enabled() else None
             ),
@@ -1116,7 +1173,7 @@ def _resolved_claim(
     edits: tuple[tuple[int, int, str], ...] = ()
     if not anchor:
         anchor = _generated_anchor(
-            kind or _COMPACT_KIND,
+            kind or semantic_kinds.compact_kind(),
             category,
             unit.content,
             tuple(unit.tags),
@@ -1235,7 +1292,9 @@ def claim_conversion(
     """
     item = target.item
     category = str(target.category)
-    anchor = _generated_anchor(_COMPACT_KIND, category, item.text, (), None, (), existing_anchors)
+    anchor = _generated_anchor(
+        semantic_kinds.compact_kind(), category, item.text, (), None, (), existing_anchors,
+    )
     existing_anchors.add(anchor)
     return anchor, (item.start, item.end, f"{item.indent}- [{category}] {item.text} ^{anchor}")
 
@@ -1314,8 +1373,11 @@ def _select_kind(
     raw = kind
     if raw is None and current_unit is not None and current_unit.form == "rich":
         raw = current_unit.kind
-    if raw is None or semantic_language_registry.normalize_label(raw) == _COMPACT_KIND:
-        return _COMPACT_KIND
+    if (
+        raw is None
+        or semantic_language_registry.normalize_label(raw) in semantic_kinds.compact_kinds()
+    ):
+        return semantic_kinds.compact_kind()
     registry = semantic_language_registry.for_attached_projects(
         language, projects
     )
@@ -1408,24 +1470,53 @@ def _rich_kind_remediation(
     return f"{hint}Pass `kind` with one of the admitted kinds: {', '.join(kinds)}."
 
 
+def _dated_default_kind(
+    language: semantic_language_registry.SemanticLanguageRegistry,
+) -> str:
+    """The kind a dated observation takes when the caller names none.
+
+    The registry lets only the shipped pack give the `dated_default` trait, and the shipped kinds
+    are always admitted, so exactly one kind has it on every page.
+    """
+    (carrier,) = language.kinds_with("dated_default")
+    return carrier
+
+
 def _compact_metadata_refusal(
-    *, passed: tuple[str, ...], kinds: str, with_relations: bool = False
+    *,
+    passed: tuple[str, ...],
+    kinds: str,
+    with_relations: bool = False,
+    kind_named: bool = False,
 ) -> ObserveMemoryError:
-    """Governed metadata sent with a compact unit: name each field and both exits.
+    """Governed metadata sent with a compact unit: name each field and the exits that apply.
 
     The refusal for converting a rich unit to compact names no field, and its exits (convert
     the unit, edit the page to drop its rows) do not apply to a compact unit, which has no
     rows. Both exits here are a retry of the same call; `kinds` says which rich kinds to pass.
     A call that also passes relations keeps only the rich-kind exit: without its metadata, the
-    page may still refuse its relations for the same reason.
+    page may still refuse its relations for the same reason. A date is never offered up: the
+    caller sent it to keep it, so the second exit leaves out the other governed fields (and a
+    named compact `kind`, `kind_named`), and the date then lands in a dated block. A date alone
+    with no `kind` never reaches here, so that second exit always has something to leave out.
     """
     fields = ", ".join(passed)
-    remediation = (
-        f"Keep {fields} and the relations by passing a rich kind. {kinds}"
-        if with_relations
-        else f"Retry one of two ways: omit {fields} to keep a compact observation, or keep "
-        f"{fields} by passing a rich kind. {kinds}"
-    )
+    dates = tuple(name for name in passed if name in _DATE_ARGUMENT_KEYS)
+    if dates:
+        leave_out = [name for name in passed if name not in dates]
+        if kind_named:
+            leave_out.append("kind")
+        remediation = (
+            f"Retry one of two ways: pass a rich kind to keep {fields}, or omit "
+            f"{', '.join(leave_out)} to save {', '.join(dates)} in a dated block. {kinds}"
+        )
+    elif with_relations:
+        remediation = f"Keep {fields} and the relations by passing a rich kind. {kinds}"
+    else:
+        remediation = (
+            f"Retry one of two ways: omit {fields} to keep a compact observation, or keep "
+            f"{fields} by passing a rich kind. {kinds}"
+        )
     return ObserveMemoryError(
         "COMPACT_METADATA_REQUIRES_RICH_KIND",
         f"Governed unit metadata ({fields}) needs a rich kind, and a compact observation "
@@ -1440,7 +1531,8 @@ def argument_refusal(arguments: Mapping[str, Any]) -> ObserveMemoryError | None:
     The busy intake queues a save and replays it later, so a save that is certain to be
     refused would otherwise come back as a queued receipt and fail only at the replay. This
     reads no page. A unit reference without `kind` keeps the unit's own kind, which only the
-    page knows, so that call is left to the replay.
+    page knows, so that call is left to the replay. So is a call with dates and no `kind`:
+    the page's registry says whether one kind takes the dates.
     """
     passed = _compact_names_passed(arguments)
     if not passed:
@@ -1449,6 +1541,7 @@ def argument_refusal(arguments: Mapping[str, Any]) -> ObserveMemoryError | None:
         passed=passed,
         kinds=_core_kinds_remediation(),
         with_relations=bool(arguments.get("relations")),
+        kind_named=arguments.get("kind") is not None,
     )
 
 
@@ -1466,15 +1559,21 @@ def _compact_names_passed(arguments: Mapping[str, Any]) -> tuple[str, ...] | Non
     if kind is None:
         compact_kind = mode in {"add", "validate"}
     else:
-        compact_kind = semantic_language_registry.normalize_label(kind) == _COMPACT_KIND
+        key = semantic_language_registry.normalize_label(kind)
+        compact_kind = key in semantic_kinds.compact_kinds()
     if not compact_kind:
         return None
     # A blank value is no value, as `_resolve_governed_value` reads it on an add.
-    return _governed_names(**{
+    passed = _governed_names(**{
         key: arguments[key]
         for key in _GOVERNED_ARGUMENT_KEYS
         if str(arguments.get(key) or "").strip()
     })
+    if kind is None and not any(key in passed for key in _RICH_ONLY_ARGUMENT_KEYS):
+        # With no `kind` the dates reach the page's registry, which may hold them on a default kind.
+        # A stated compact `kind` is certain to refuse them, so that call is refused here too.
+        return None
+    return passed
 
 
 def refusal_before_page(
@@ -1549,7 +1648,9 @@ def refusal_before_page(
         return None  # INVALID_SEMANTIC_DATE_ORDER wins, as `observe_memory` checks order first
     rel_path = page()
     kinds = None if rel_path is None else _page_kinds_remediation(vault_root, rel_path, category)
-    return _compact_metadata_refusal(passed=passed, kinds=kinds or _core_kinds_remediation())
+    return _compact_metadata_refusal(
+        passed=passed, kinds=kinds or _core_kinds_remediation(), kind_named=kind is not None
+    )
 
 
 def _page_kinds_remediation(vault_root: Path, rel_path: str, category: str) -> str | None:
@@ -1755,6 +1856,13 @@ def _lifted_relations_outcome(cited: list[str], *, preview: bool) -> str:
     return f"Cited {named} in the page's frontmatter."
 
 
+def _dated_default_outcome(fields: tuple[str, ...], *, preview: bool) -> str:
+    """The sentence for a dated observation that the server saved on the dated default kind."""
+    saved = "Committing this will save it" if preview else "Saved"
+    dates = "dates" if len(fields) > 1 else "date"
+    return f"{saved} with its {dates}."
+
+
 def _canonical_relations(values: list[dict[str, Any]]) -> tuple[tuple[str, str], ...]:
     relations: list[tuple[str, str]] = []
     for index, value in enumerate(values):
@@ -1908,7 +2016,7 @@ def _generated_anchor(
         ensure_ascii=False,
         separators=(",", ":"),
     )
-    prefix = "obs" if kind == _COMPACT_KIND else "unit"
+    prefix = "obs" if kind in semantic_kinds.compact_kinds() else "unit"
     base = f"{prefix}-{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:12]}"
     candidate = base
     occurrence = 2
@@ -1932,11 +2040,12 @@ def _render_unit(
     as_of: str | None = None,
     until: str | None = None,
     preserved: tuple[tuple[str, str], ...] = (),
+    heading_level: int = 2,
 ) -> str:
     clean_content = content.strip()
     if not clean_content:
         raise ObserveMemoryError("INVALID_OBSERVE_INPUT", "content must not be empty")
-    if kind == _COMPACT_KIND:
+    if kind in semantic_kinds.compact_kinds():
         if "\n" in clean_content or "\r" in clean_content:
             raise ObserveMemoryError(
                 "INVALID_COMPACT_CONTENT",
@@ -1967,7 +2076,7 @@ def _render_unit(
         metadata.append(f"- until: {until}")
     # Rows this command does not own, re-emitted in their authored order.
     metadata.extend(_metadata_row(key, value) for key, value in preserved)
-    return f"## {heading}\n" + "\n".join(metadata) + f"\n\n{clean_content}"
+    return f"{'#' * heading_level} {heading}\n" + "\n".join(metadata) + f"\n\n{clean_content}"
 
 
 def _metadata_row(key: str, value: str) -> str:
@@ -1992,21 +2101,113 @@ def _remove_unit(body: str, start: int, end: int) -> str:
     return body[:start] + body[end:]
 
 
-def _add_compact(body: str, rendered: str) -> str:
-    section_ends = _observation_section_ends(body)
-    if len(section_ends) > 1:
+def _add_compact(body: str, rendered: str, *, section_start: int | None = None) -> str:
+    sections = _observation_sections(body)
+    if section_start is not None:
+        sections = [section for section in sections if section.start == section_start]
+    if len(sections) > 1:
         raise ObserveMemoryError(
             "AMBIGUOUS_OBSERVATIONS_SECTION",
             "parent contains multiple canonical ## Observations sections",
         )
-    if not section_ends:
-        separator = _append_separator(body)
-        return f"{body}{separator}## Observations\n\n{rendered}\n"
-    point = section_ends[0]
+    if not sections:
+        return _append_rich(body, f"## Observations\n\n{rendered}")
+    return _insert_observation(body, sections[0].compact_at, rendered)
+
+
+def _insert_observation(body: str, point: int, rendered: str) -> str:
     before, after = body[:point], body[point:]
     separator = "" if before.endswith("\n\n") else "\n" if before.endswith("\n") else "\n\n"
     tail = "\n" if not after else "\n\n"
     return before + separator + rendered + tail + after
+
+
+def _end_placement_notice(preview: bool) -> str:
+    return ("The observation will go at the end of the note." if preview
+            else "The observation is at the end of the note.")
+
+
+def _fits_nested_block(rendered: str, depth: int) -> bool:
+    """Both readers must keep the block whole and see the section that follows it."""
+    followed = f"{rendered}\n\n# Following section\n"
+    headings = markdown_regions.block_headings(followed)
+    semantic = semantic_blocks.scan_semantic_blocks(followed)
+    boundary = len(rendered) + 2
+    return (
+        len(headings) >= 2 and headings[-1][:2] == (boundary, 1)
+        and all(level > depth for _, level, _ in headings[1:-1])
+        and len(semantic) >= 2 and semantic[0].end_line + 1 == semantic[-1].line
+    )
+
+
+def _place_dated_block(body: str, rendered: str) -> str | None:
+    if not _fits_nested_block(rendered, 3):
+        return None
+    sections = _observation_sections(body)
+    outline = markdown_regions.block_headings(body)
+    visible = [
+        offset for offset, level, title in outline
+        if level == 2 and semantic_language_registry.normalize_label(title) == "observations"
+    ]
+    if not sections and not visible:
+        candidate = _append_rich(body, f"## Observations\n\n{rendered}")
+        point = len(body)
+    elif len(sections) != 1 or visible != [sections[0].start]:
+        return None
+    else:
+        section = sections[0]
+        visible_end = next(
+            (offset for offset, level, _ in outline if offset > section.start and level <= 2),
+            len(body),
+        )
+        if section.end != visible_end:
+            return None
+        point = section.end
+        candidate = _insert_observation(body, point, rendered)
+    return candidate if _shows_rendered_heading(candidate, rendered, point) else None
+
+
+def _shows_rendered_heading(body: str, rendered: str, point: int) -> bool:
+    return any(offset >= point and body.startswith(rendered, offset)
+               for offset, _, _ in markdown_regions.block_headings(body))
+
+
+def _append_visible_record(body: str, rendered: str) -> str:
+    candidate = _append_rich(body, rendered)
+    if not _shows_rendered_heading(candidate, rendered, len(body)):
+        raise _hidden_record_heading()
+    return candidate
+
+
+def _observation_section_containing(body: str, point: int) -> _ObservationSection | None:
+    return next(
+        (section for section in _observation_sections(body) if section.start < point < section.end),
+        None,
+    )
+
+
+def _guard_nested_observation_span(body: str, unit: semantic_units.SemanticUnit) -> None:
+    level = unit.level or 2
+    start, end = unit.span.start_offset, unit.span.end_offset
+    if level <= 2 or _observation_section_containing(body, start) is None:
+        return
+    outline = markdown_regions.block_headings(body)
+    if not any(offset == start and depth == level for offset, depth, _ in outline):
+        raise _hidden_record_heading()
+    if any(start < offset < end and depth <= level for offset, depth, _ in outline):
+        raise ObserveMemoryError(
+            "AMBIGUOUS_SEMANTIC_UNIT_CONTENT",
+            "the record crosses a Markdown section boundary",
+            "Separate the heading from the record with a page edit, then read the unit and retry.",
+        )
+
+
+def _hidden_record_heading() -> ObserveMemoryError:
+    return ObserveMemoryError(
+        "INVALID_SEMANTIC_UNIT",
+        "the note's Markdown hides the record heading",
+        "Close the unfinished Markdown block, then retry.",
+    )
 
 
 def _append_rich(body: str, rendered: str) -> str:
@@ -2020,9 +2221,17 @@ def _append_separator(body: str) -> str:
     return "\n" if body.endswith("\n") else "\n\n"
 
 
-def _observation_section_ends(body: str) -> list[int]:
+@dataclass(frozen=True, slots=True)
+class _ObservationSection:
+    start: int
+    compact_at: int
+    end: int
+
+
+def _observation_sections(body: str) -> list[_ObservationSection]:
+    """The start, compact line insertion point and end of each canonical section."""
     lines = body.splitlines(keepends=True)
-    offsets: list[int] = []
+    sections = []
     offset = 0
     headings: list[tuple[int, int, str]] = []
     fence_char: str | None = None
@@ -2051,16 +2260,21 @@ def _observation_section_ends(body: str) -> list[int]:
         if heading is not None:
             headings.append((offset, len(heading.group(1)), heading.group(2).strip()))
         offset += len(line)
-    for index, (_start, level, title) in enumerate(headings):
+    for index, (start, level, title) in enumerate(headings):
         if level != 2 or semantic_language_registry.normalize_label(title) != "observations":
             continue
         end = len(body)
-        for candidate_start, candidate_level, _ in headings[index + 1 :]:
+        first_child = None
+        for candidate_index in range(index + 1, len(headings)):
+            candidate_start, candidate_level, _ = headings[candidate_index]
             if candidate_level <= level:
                 end = candidate_start
                 break
-        offsets.append(end)
-    return offsets
+            if first_child is None:
+                first_child = candidate_start
+        compact_at = end if first_child is None else first_child
+        sections.append(_ObservationSection(start, compact_at, end))
+    return sections
 
 
 def _rebuild_source(
@@ -2131,7 +2345,7 @@ def _assert_round_trip(
         and unit.anchor == anchor
         and relation_values == relations
     )
-    if kind == _COMPACT_KIND:
+    if kind in semantic_kinds.compact_kinds():
         matches = common_matches and unit.tags == tags and unit.context == context
     else:
         # Preserved rows are part of the expectation, so a reconstruction that
@@ -2225,6 +2439,9 @@ def _result(
     dropped_outcome: str | None = None,
     lifted_cited: list[str] | None = None,
     lifted_outcome: str | None = None,
+    dated_default_kind: str | None = None,
+    dated_default_outcome: str | None = None,
+    placement_outcome: str | None = None,
     timings: dict[str, Any] | None = None,
     warnings: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -2244,6 +2461,13 @@ def _result(
     elif lifted_cited and lifted_outcome is not None:
         value["relations_cited"] = lifted_cited
         value["outcome"] = lifted_outcome
+    elif dated_default_kind is not None and dated_default_outcome is not None:
+        value["kind_defaulted"] = dated_default_kind
+        value["outcome"] = dated_default_outcome
+    if placement_outcome is not None:
+        value["observation_at_end"] = True
+        outcome = value.get("outcome")
+        value["outcome"] = f"{outcome} {placement_outcome}" if outcome else placement_outcome
     if timings is not None:
         value["timings"] = timings
     if warnings:

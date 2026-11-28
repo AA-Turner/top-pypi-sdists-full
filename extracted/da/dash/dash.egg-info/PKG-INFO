@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dash
-Version: 4.5.1
+Version: 4.5.2
 Summary: A Python framework for building reactive web-apps. Developed by Plotly.
 Home-page: https://plotly.com/dash
 Author: Chris Parmer
@@ -74,7 +74,7 @@ Requires-Dist: pytest-rerunfailures; extra == "ci"
 Requires-Dist: pytest-timeout; extra == "ci"
 Requires-Dist: jupyterlab<4.0.0; extra == "ci"
 Requires-Dist: pyright==1.1.414; extra == "ci"
-Requires-Dist: mypy==1.15.0; extra == "ci"
+Requires-Dist: mypy==2.4.1; extra == "ci"
 Provides-Extra: dev
 Requires-Dist: coloredlogs>=15.0.1; extra == "dev"
 Requires-Dist: fire>=0.4.0; extra == "dev"
@@ -93,8 +93,8 @@ Requires-Dist: psutil>=5.8.0; extra == "testing"
 Requires-Dist: dash_testing_stub>=0.0.2; extra == "testing"
 Provides-Extra: celery
 Requires-Dist: redis<=8.1.0,>=3.5.3; extra == "celery"
-Requires-Dist: kombu<5.7.0; extra == "celery"
-Requires-Dist: celery[redis]<5.7.0,>=5.1.2; extra == "celery"
+Requires-Dist: kombu<5.8.0; extra == "celery"
+Requires-Dist: celery[redis]<5.8.0,>=5.1.2; extra == "celery"
 Provides-Extra: diskcache
 Requires-Dist: diskcache>=5.2.1; extra == "diskcache"
 Requires-Dist: multiprocess>=0.70.12; extra == "diskcache"

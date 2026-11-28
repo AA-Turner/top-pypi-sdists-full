@@ -76,6 +76,7 @@ _RENDER_EXTRA_OMIT_KEYS: frozenset[str] = frozenset({
 
 _SECONDARY_TRIM_ORDER: tuple[str, ...] = (
     "caveat",
+    "candidate_edit_targets",
     "resolution_gaps",
     "candidates",
     "alternative_targets",
@@ -105,11 +106,11 @@ _LIST_OMIT_ORDER: tuple[str, ...] = (
     "sections",
     "callers",
     "candidate_edit_targets",
-    "edit_order",
     "symbols",
     "tests",
     "files",
     "definitions",
+    "edit_order",
 )
 
 _BLAST_RADIUS_ROUTING_REASONS: frozenset[str] = frozenset({
@@ -167,7 +168,6 @@ def _primary_keys_for_payload(payload: dict[str, Any]) -> tuple[frozenset[str], 
             "tests",
             "symbols",
             "edit_order",
-            "candidate_edit_targets",
             "validation_commands",
             "blast_radius_score",
         })
@@ -617,7 +617,7 @@ def compact_payload_for_cli(payload: dict[str, Any]) -> dict[str, Any]:
     for key in _LIST_OMIT_ORDER:
         val = bounded.get(key)
         if isinstance(val, list) and val:
-            min_keep = 1 if key in {"definitions", "files", "tests"} else 0
+            min_keep = 1 if key in {"definitions", "files", "tests", "edit_order"} else 0
             removed = 0
             while len(val) > min_keep and _over_budget():
                 val.pop()
@@ -633,7 +633,14 @@ def compact_payload_for_cli(payload: dict[str, Any]) -> dict[str, Any]:
         return bounded
 
     # 6. Drop whole primary structured objects (excluding envelope/safety/omissions) if needed.
-    for key in (*_LIST_OMIT_ORDER, "plan", "source_budget"):
+    # Shed `edit_order` last so blast-radius-plan preserves the ordered edit plan whenever possible.
+    _drop_order = (
+        *[k for k in _LIST_OMIT_ORDER if k != "edit_order"],
+        "plan",
+        "source_budget",
+        "edit_order",
+    )
+    for key in _drop_order:
         if key in bounded and key not in (_ENVELOPE_KEYS | _SAFETY_AND_OMISSION_KEYS):
             _drop_key_with_omission(bounded, key)
             if len(_json_bytes(bounded)) <= COMPACT_MAX_BYTES:

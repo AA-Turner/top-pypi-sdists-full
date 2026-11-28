@@ -22,7 +22,8 @@ from importlib import metadata
 from typing import Any
 
 
-INSTALL = 'pip install sequence-cloud --extra-index-url "https://$SEQUENCES_API_KEY@api.generalsequences.com/simple"'
+
+INSTALL = "sequence-cloud comes with sequence-ai on Python 3.10 or later: pip install -U sequence-ai"
 
 
 @functools.lru_cache(maxsize=None)

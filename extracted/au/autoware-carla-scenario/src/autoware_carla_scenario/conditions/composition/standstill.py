@@ -10,7 +10,7 @@ from ..base import BaseCondition, ScenarioResult
 from ..comparison import ComparisonRule
 from ..persistent import PersistentCondition
 from .base import CompositionCondition
-from .speed import SpeedCondition
+from .speed import STANDSTILL_SPEED_MPS, SpeedCondition
 
 if TYPE_CHECKING:
     import typesafe_carla.carla as carla
@@ -45,7 +45,7 @@ class StandstillCondition(CompositionCondition):
         self,
         entity_name: Union[EntityRole, str],
         duration: float,
-        speed_threshold: float = 0.1,
+        speed_threshold: float = STANDSTILL_SPEED_MPS,
         *,
         label: str,
     ) -> None:

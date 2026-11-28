@@ -62,6 +62,7 @@ from . import (
 
 from .messages import messages, messages_main
 from . import databases
+from . import upgrade as upgrade_main
 
 from .input_helpers import (
     SubObjectInt,
@@ -98,6 +99,11 @@ from .metrics_commands import metrics_main
 from .version import __version__
 
 sort_order_values = ["ascending", "descending"]
+
+#: Commands that never talk to the API.  The group callback otherwise fetches a
+#: token for every command, which on a fresh or expired install launches a
+#: browser login; ``version`` and ``upgrade`` must work without one.
+LOCAL_COMMANDS = {"version", "upgrade"}
 
 
 class Config:
@@ -381,7 +387,7 @@ def cli(
     else:
         context.save_refreshable_token(ctx, tokens.RefreshableAccessToken())
 
-    if not org_id:
+    if not org_id and ctx.invoked_subcommand not in LOCAL_COMMANDS:
         # this is optional, used primarily for the prompt
         try:
             if not token:
@@ -9692,6 +9698,7 @@ def main():
     deployments_main.add_commands(cli)
     printers_main.add_commands(cli)
     metrics_main.add_commands(cli)
+    upgrade_main.add_commands(cli)
 
     cli(auto_envvar_prefix="AGILICUS")
 

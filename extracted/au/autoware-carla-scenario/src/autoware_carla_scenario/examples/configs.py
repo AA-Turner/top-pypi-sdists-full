@@ -1,8 +1,12 @@
-"""Hydra-compatible dataclass definitions for scenario parameters.
+"""Dataclass definitions for scenario parameters.
 
 Each dataclass corresponds to a YAML config group and provides typed,
-documented defaults.  Hydra's ``structured configs`` feature maps the
-YAML values directly to these dataclasses via OmegaConf.
+documented defaults.  Hydra composes the YAML into a plain config, which no
+structured config types: the builder that
+:func:`~autoware_carla_scenario.register_scenario` registers builds the
+scenario's config class from the composed ``scenario`` mapping
+(``config_cls(**scenario)``), as the pre-run check does first, so the class's
+``__post_init__`` refuses a value before anything starts.
 
 The **shared** configs (``ServerConfig``, ``MapConfig``, ``EntityConfig``,
 ``EgoVehicleConfig``, ``NpcVehicleConfig``, ``SweepConfig``) live in the public
@@ -66,6 +70,12 @@ NADE_TIMEOUT_MARGIN_SECONDS = 5.0
 #: config refuses another side when it is built, and the scenario's setup
 #: again, as a backstop.
 CUT_IN_SIDES = ("left", "right")
+
+#: How long after the green the traffic-light-compliance run first checks
+#: that the ego has pulled away (s): its pass holds from
+#: ``light_switch_delay_seconds`` plus this.  A timeout that fires by then
+#: fails every run, so ``TrafficLightComplianceConfig`` refuses one (#2586).
+GREEN_DEPARTURE_CHECK_SECONDS = 0.5
 
 #: Every ``IntersectionPassingConfig.turn_direction`` but ``None`` (straight
 #: through, with no turn action): the ones the scenario's setup turns into a
@@ -309,7 +319,10 @@ class TrafficLightComplianceConfig:
     light_switch_delay_seconds: float = 3.0
 
     #: Fail-safe timeout in seconds: the scenario's own timeout, so the run's
-    #: default timeout is not added on top of it.  Ignored when
+    #: default timeout is not added on top of it.  It must be above
+    #: ``light_switch_delay_seconds`` plus
+    #: :data:`GREEN_DEPARTURE_CHECK_SECONDS`, when the run can first pass.
+    #: Ignored when
     #: ``timeout_after_green_seconds`` is set -- a ``scenario.timeout_seconds=``
     #: override then no longer caps the run.
     timeout_seconds: float = 5.0
@@ -366,7 +379,8 @@ class TrafficLightComplianceConfig:
     #: The fail-safe timeout counted from the green light instead:
     #: ``light_switch_delay_seconds`` plus this, in seconds, in place of
     #: ``timeout_seconds``, so a sweep that draws the delay keeps the time
-    #: the ego has to pull away.  ``None`` uses ``timeout_seconds``.
+    #: the ego has to pull away.  ``None`` uses ``timeout_seconds``.  It
+    #: must be above :data:`GREEN_DEPARTURE_CHECK_SECONDS`.
     #:
     #: When set, the run lasts until this limit however short
     #: ``timeout_seconds`` is: the scenario registers its own timeout, so
@@ -393,6 +407,29 @@ class TrafficLightComplianceConfig:
             # Below 0 the run times out before the light turns green.
             _require_positive(
                 "timeout_after_green_seconds", timeout_after_green_seconds
+            )
+            # The pass first holds GREEN_DEPARTURE_CHECK_SECONDS after the
+            # green: a timeout by then fails every run (#2586).
+            if timeout_after_green_seconds <= GREEN_DEPARTURE_CHECK_SECONDS:
+                raise ValueError(
+                    "scenario.timeout_after_green_seconds "
+                    f"({timeout_after_green_seconds}) must be above "
+                    f"{GREEN_DEPARTURE_CHECK_SECONDS} s: the run passes only "
+                    "once the ego has pulled away that long after the green"
+                )
+        elif (
+            self.timeout_seconds
+            <= self.light_switch_delay_seconds + GREEN_DEPARTURE_CHECK_SECONDS
+        ):
+            # The same, counted from the start (#2586).
+            raise ValueError(
+                f"scenario.timeout_seconds ({self.timeout_seconds}) must be "
+                "above scenario.light_switch_delay_seconds "
+                f"({self.light_switch_delay_seconds}) plus "
+                f"{GREEN_DEPARTURE_CHECK_SECONDS} s: the run passes only once "
+                "the ego has pulled away that long after the green; set "
+                "scenario.timeout_after_green_seconds to count the timeout "
+                "from the green instead"
             )
         # StopLineWatch's, which takes a NaN zone that nothing is ever in.
         for key, value in (
@@ -454,7 +491,9 @@ class PedestrianDartOutConfig:
     name: str = "pedestrian_dart_out"
 
     #: How far ahead of the ego's spawn, along its lanelet, the pedestrian
-    #: waits at the kerb (m).
+    #: waits at the kerb (m): above 0.  The crossing and the pass point
+    #: (``pass_beyond_m`` past it) must lie on the spawn lanelet, which the
+    #: scenario's setup checks against the lanelet's length.
     pedestrian_ahead_m: float = 35.0
 
     #: The pedestrian's distance from the lane's centreline, on its kerb side
@@ -487,7 +526,7 @@ class PedestrianDartOutConfig:
     walker_type: str = "walker.pedestrian.0015"
 
     #: The run passes once the ego is this far past the pedestrian's crossing
-    #: line, on its own lanelet (m).
+    #: line, on its own lanelet (m): no further than the lanelet's end.
     pass_beyond_m: float = 10.0
 
     #: Fail-safe timeout in seconds.
@@ -497,8 +536,10 @@ class PedestrianDartOutConfig:
         """Refuse a value the scenario would refuse once CARLA is up, or one
         with which the pedestrian never darts out, naming its key (#1815,
         #1816)."""
-        # Along the lanelet from the ego's spawn; NaN puts it nowhere.
-        _require_finite("pedestrian_ahead_m", self.pedestrian_ahead_m)
+        # Along the lanelet from the ego's spawn, strictly ahead of it: at or
+        # behind the spawn, the pass point is where the ego already is, and
+        # the run passes on the first tick (#2586).  NaN puts it nowhere.
+        _require_positive("pedestrian_ahead_m", self.pedestrian_ahead_m)
         # The sign is ignored; at 0 the pedestrian stands on the lane's
         # centre, facing off the road in right-hand traffic.
         _require_not_zero("pedestrian_offset_m", self.pedestrian_offset_m)
@@ -528,8 +569,10 @@ class CutInConfig:
     #: The side of the ego the NPC comes from (``"left"`` or ``"right"``).
     side: str = "left"
 
-    #: The lanelet beside the ego's spawn lanelet the NPC starts on.  A sweep
-    #: binds it to the lane beside the pick (``adjacent`` binding).
+    #: The lanelet beside the ego's spawn lanelet the NPC starts on, on
+    #: ``side``: the scenario's setup refuses any other (the default, 0, names
+    #: none).  A sweep binds it to the lane beside the pick (``adjacent``
+    #: binding).
     npc_lanelet_id: int = 0
 
     #: How far ahead of the ego the NPC starts, along its lanelet (m): its

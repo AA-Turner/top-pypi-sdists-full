@@ -1,0 +1,202 @@
+"""Multi-run NEC-5 decks — momwire#1237.
+
+SimNEC measures an N-port by driving each port in turn at 1 V, with the
+others at 1e-10 V, one ``XQ`` block per port, in ONE deck. The seam serves
+each block as its own single-run deck (``split_runs``) and prints them in the
+licensed engine's multi-run layout (``render_multi_printout``).
+
+``tests/fixtures/eznec_multi_run_1237/`` (README there) holds the decks and
+the licensed printouts. The gates:
+
+  * the LAYOUT is the licensed one line for line, with the numbers masked:
+    free space with RP (an RP executes, and the XQ after it echoes with the
+    next group), without RP (each XQ executes), and over a Sommerfeld ground
+    (the range form's LOWER MEDIUM line);
+  * the per-run port currents, i.e. the N-port admittance matrix, are the
+    licensed engine's on razor-nec5, its formulation twin;
+  * a later block that changes anything but its sources and requests is
+    refused by name, and a single-run deck never takes this path.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from momwire.dropin.nec5 import _serve
+from momwire.dropin.nec5._shell import render
+
+FIXTURES = Path(__file__).parent / "fixtures" / "eznec_multi_run_1237"
+DECKS = ("two-port", "two-port-xq", "two-port-ground")
+TWIN = "razor2p"
+_NUMBER = re.compile(r"[-+]?\d+(\.\d+)?(E?[-+]\d+)?")
+
+
+def _deck(name):
+    return (FIXTURES / f"{name}.nec").read_text()
+
+
+def _oracle(name):
+    lines = (FIXTURES / f"{name}.out").read_text(encoding="latin-1").splitlines()
+    # The licensed engine's own ground-table cache chatter (README): a blank,
+    # then two lines, which momwire does not print.
+    out, i = [], 0
+    while i < len(lines):
+        if not lines[i].strip() and i + 1 < len(lines) and "GMPINO" in lines[i + 1]:
+            i += 3
+            continue
+        out.append(lines[i])
+        i += 1
+    return out
+
+
+def _mask(line):
+    return " ".join("#" if _NUMBER.fullmatch(t) else t for t in line.split())
+
+
+def _from_structure(lines):
+    i = next(i for i, ln in enumerate(lines) if "STRUCTURE SPECIFICATION" in ln)
+    return [_mask(ln) for ln in lines[i:]]
+
+
+def _port_currents(lines):
+    runs = []
+    for block in "\n".join(lines).split("ANTENNA INPUT PARAMETERS")[1:]:
+        rows = [
+            ln.split()
+            for ln in block.splitlines()
+            if re.match(r"^\s+\d+\s+\d+\s+1\s", ln)
+        ]
+        runs.append([complex(float(r[5]), float(r[6])) for r in rows])
+    return np.array(runs)
+
+
+@pytest.mark.parametrize("name", DECKS)
+def test_the_layout_is_the_licensed_one(name):
+    ours = _from_structure(render(_deck(name), basis=TWIN).splitlines())
+    theirs = _from_structure(_oracle(name))
+    assert ours == theirs
+
+
+@pytest.mark.parametrize("name", DECKS)
+def test_the_n_port_is_the_licensed_one(name):
+    ours = _port_currents(render(_deck(name), basis=TWIN).splitlines())
+    theirs = _port_currents(_oracle(name))
+    assert ours.shape == theirs.shape == (2, 2)
+    assert np.max(np.abs(ours - theirs)) <= 2e-3 * np.max(np.abs(theirs))
+
+
+def test_each_block_replaces_the_sources():
+    """Two runs of two sources each; an accumulating reader would print four
+    rows in the second run."""
+    ours = _port_currents(render(_deck("two-port"), basis=TWIN).splitlines())
+    assert ours.shape[1] == 2
+
+
+def test_the_split_is_one_single_run_deck_per_block():
+    runs = _serve.split_runs(_deck("two-port"))
+    assert len(runs) == 2
+    for i, text in enumerate(runs):
+        cards = [ln[:2] for ln in text.splitlines()]
+        assert cards.count("XQ") == 1 and cards.count("EX") == 2
+        assert cards[-1] == "EN"
+        drive = [ln for ln in text.splitlines() if ln.startswith("EX")][i]
+        assert drive.split()[5] == "1.000000e+00"
+
+
+def test_a_single_run_deck_takes_the_old_path():
+    """At most one XQ, as in every EZNEC deck: `split_runs` answers None and
+    `render` is exactly what it was."""
+    assert _serve.split_runs(_deck("two-port").split("XQ\n", 1)[0] + "XQ\nEN\n") is None
+    one_field_ge = Path(__file__).parent / "fixtures" / "eznec_simnec_1230"
+    assert _serve.split_runs((one_field_ge / "dipole-ex5.nec").read_text()) is None
+
+
+def test_a_later_block_that_changes_the_frequency_runs_there():
+    """momwire 0.79.2: an FR in a later block is the frequency that block runs
+    at, as the licensed NEC-5 reads a deck (top to bottom), not a refusal."""
+    text = _deck("two-port").replace(
+        "EX 0 1 11 0 1.000000e-10\n", "FR 0 1 0 0 15.0 1\nEX 0 1 11 0 1.000000e-10\n", 1
+    )
+    out = render(text, basis=TWIN)
+    assert "NEC ERROR" not in out
+    assert "FREQUENCY= 1.5000E+01 MHZ" in out
+
+
+@pytest.mark.parametrize("card", ["LD 5 1 1 21 5.8e7"])
+def test_a_later_block_that_changes_more_than_its_sources_is_refused(card):
+    text = _deck("two-port").replace(
+        "EX 0 1 11 0 1.000000e-10\n", card + "\nEX 0 1 11 0 1.000000e-10\n", 1
+    )
+    out = render(text, basis=TWIN)
+    assert "NEC ERROR" in out
+    assert "XQ block 2 carries " + card[:2] in out
+
+
+# momwire#1395: the runs share one fill and factorisation. SimNEC's runs drive
+# the same sites with different values, so each later run is only its own
+# drive and tables, as in the licensed engine. The gates: the printout is the
+# one a fresh solve per run gives, the structure is prepared once per group,
+# and a run that drives other sites is prepared on its own.
+
+
+def _per_run(monkeypatch):
+    """`render` as it was before #1395: every run solved from scratch."""
+    monkeypatch.setattr(
+        _serve,
+        "serve_runs",
+        lambda decks, basis=_serve.BASIS: [_serve.serve(d, basis=basis) for d in decks],
+    )
+
+
+def _without_times(text):
+    return [ln for ln in text.splitlines() if "TIME" not in ln.upper()]
+
+
+@pytest.mark.parametrize("basis", [_serve.BASIS, TWIN])
+@pytest.mark.parametrize("name", DECKS)
+def test_shared_runs_print_what_fresh_solves_print(name, basis, monkeypatch):
+    shared = render(_deck(name), basis=basis)
+    _per_run(monkeypatch)
+    fresh = render(_deck(name), basis=basis)
+    assert _without_times(shared) == _without_times(fresh)
+
+
+def _count_prepares(monkeypatch):
+    calls = []
+    real = _serve._prepare
+
+    def counting(deck, **kwargs):
+        calls.append(deck)
+        return real(deck, **kwargs)
+
+    monkeypatch.setattr(_serve, "_prepare", counting)
+    return calls
+
+
+@pytest.mark.parametrize("name", DECKS)
+def test_the_structure_is_prepared_once_per_group(name, monkeypatch):
+    calls = _count_prepares(monkeypatch)
+    out = render(_deck(name), basis=TWIN)
+    assert "NEC ERROR" not in out
+    assert len(calls) == 1
+
+
+def test_a_run_on_other_sites_is_prepared_on_its_own(monkeypatch):
+    """Block 2 drives segment 10 instead of 11: a different port set, so it
+    cannot share block 1's solution, and it prints what a fresh solve does."""
+    text = _deck("two-port")
+    head, second = text.split("XQ\n", 1)
+    second = second.replace("EX 0 1 11 0", "EX 0 1 10 0").replace(
+        "EX 0 2 11 0", "EX 0 2 10 0"
+    )
+    text = head + "XQ\n" + second
+    calls = _count_prepares(monkeypatch)
+    shared = render(text, basis=TWIN)
+    assert len(calls) == 2
+    monkeypatch.undo()
+    _per_run(monkeypatch)
+    assert _without_times(shared) == _without_times(render(text, basis=TWIN))

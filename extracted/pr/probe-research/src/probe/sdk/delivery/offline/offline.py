@@ -69,6 +69,7 @@ _CREATE_FIELDS = (
     "started_at",
     "run_type",
     "total_steps",
+    "stage",
 )
 #: Keywords that choose WHERE the run lives, resolved at sync.
 _HOME_FIELDS = ("project", "experiment", "question", "experiment_name", "workspace")
@@ -519,6 +520,7 @@ def _create_from_init(
         started_at=create_kw.pop("started_at", None),
         run_type=create_kw.pop("run_type", None),
         total_steps=create_kw.pop("total_steps", None),
+        stage=_to_offline_stage(create_kw.pop("stage", None)),
     )
     body["creation_key"] = key
     body = _offline_body(body, started_at=started_at, owner=owner)
@@ -529,6 +531,17 @@ def _create_from_init(
         **{k: v for k, v in home.items() if v is not None},
     }
     return key, body, create, home, skipped
+
+
+def _to_offline_stage(stage: Any) -> str | None:
+    """The stage the queued create carries, resolved at sync like online; a malformed key is dropped (one
+    warning), never an error: a stage never stops a run."""
+    from ...values.stage_key import STAGE_KEY_RULE, is_stage_key, warn_stage_once
+
+    if stage is None or is_stage_key(stage):
+        return stage
+    warn_stage_once(f"bad:{stage}", f"probe: {stage!r} is not a stage key ({STAGE_KEY_RULE}); recorded without a stage.")
+    return None
 
 
 def _start_offline_queue(

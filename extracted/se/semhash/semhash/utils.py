@@ -20,13 +20,12 @@ class Encoder(Protocol):
     def encode(
         self,
         inputs: Sequence[Any] | Any,
-        **kwargs: Any,
+        /,
     ) -> np.ndarray:
         """
         Encode a list of inputs into embeddings.
 
         :param inputs: A list of inputs to encode (strings, images, etc.).
-        :param **kwargs: Additional keyword arguments.
         :return: The embeddings of the inputs.
         """
         ...  # pragma: no cover
@@ -38,6 +37,7 @@ def make_hashable(value: Any) -> Any:
 
     Strings and other hashable types are returned as-is.
     Non-hashable types (like PIL images, numpy arrays) are hashed to a string.
+    Array shape and dtype are included, since matching bytes can represent different array content.
 
     :param value: The value to make hashable.
     :return: A hashable representation of the value.
@@ -45,7 +45,12 @@ def make_hashable(value: Any) -> Any:
     # Fast path: most values are strings or already hashable
     if isinstance(value, (str, int, float, bool, type(None))):
         return value
-    # Handle objects with tobytes() (PIL Image, numpy array, etc.)
+    if isinstance(value, np.ndarray):
+        digest = hashlib.md5(repr((value.shape, value.dtype.descr)).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(value.tobytes())
+        return digest.hexdigest()
+    # Handle other objects with tobytes() (PIL Image, etc.)
     if hasattr(value, "tobytes"):
         return hashlib.md5(value.tobytes()).hexdigest()
     # Fallback: try to hash, otherwise stringify

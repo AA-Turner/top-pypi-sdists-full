@@ -49,6 +49,7 @@ class RunCreateMixin:
         started_at: str | datetime | None = None,
         run_type: str | None = None,
         total_steps: int | None = None,
+        stage: str | None = None,
     ) -> dict[str, Any]:
         # 0268 (plan 2.5): a fresh key per create, so the SAME body can be sent
         # again when its response is lost and the server hands back the run it
@@ -149,6 +150,9 @@ class RunCreateMixin:
             # A re-logged past run keeps its real start (0269; the server needs the
             # creation_key above and stores a future time as its own now).
             body["started_at"] = to_iso_time(started_at, label="started_at")
+        if stage is not None:
+            # The plan stage this run serves; an unknown key still creates the run (`stage_applied: false`).
+            body["stage"] = stage
         return body
 
     def create_run(
@@ -177,6 +181,7 @@ class RunCreateMixin:
         started_at: str | datetime | None = None,
         run_type: str | None = None,
         total_steps: int | None = None,
+        stage: str | None = None,
     ) -> Run:
         """Create an experiment-attached run
         (``POST /v1/projects/{P}/experiments/{E}/runs``; ``project_id`` saves the
@@ -207,6 +212,8 @@ class RunCreateMixin:
             started_at=started_at,
             run_type=run_type,
             total_steps=total_steps,
+            # Sent only to a server with plan stages; never fails the create (`PlansMixin`).
+            stage=self._get_stage_to_send(stage),
         )
         session_id, lease = self._lease_for_create(
             body, heartbeat=heartbeat, awaiting_attach=awaiting_attach, launcher=launcher
@@ -228,6 +235,7 @@ class RunCreateMixin:
         data = self._on_experiment(create_in, experiment_id, project_id)
         self._verify_slug_written(slug, data)
         self._warn_if_notes_dropped(notes, data, "runs")
+        warn_if_stage_not_applied(body.get("stage"), data)
         return self._opened(
             self._wrap_run(
                 data,
@@ -351,6 +359,7 @@ class RunCreateMixin:
         started_at: str | datetime | None = None,
         run_type: str | None = None,
         total_steps: int | None = None,
+        stage: str | None = None,
     ) -> Run:
         """POST /v1/projects/{id}/runs — open a PROJECT-DIRECT run (W&B shape).
 
@@ -383,6 +392,8 @@ class RunCreateMixin:
             started_at=started_at,
             run_type=run_type,
             total_steps=total_steps,
+            # Sent only to a server with plan stages; never fails the create (`PlansMixin`).
+            stage=self._get_stage_to_send(stage),
         )
         session_id, lease = self._lease_for_create(
             body, heartbeat=heartbeat, awaiting_attach=awaiting_attach, launcher=launcher
@@ -413,6 +424,7 @@ class RunCreateMixin:
             raise
         self._verify_slug_written(slug, data)
         self._warn_if_notes_dropped(notes, data, "runs")
+        warn_if_stage_not_applied(body.get("stage"), data)
         return self._opened(
             self._wrap_run(
                 data,
@@ -425,4 +437,5 @@ class RunCreateMixin:
                 lease_protocol="leases" if lease is not None else None,
             )
         )
+from probe.sdk.values.stage_key import warn_if_stage_not_applied  # noqa: E402 -- pieces need each other
 from probe.sdk.client.authorship import _put_authorship  # noqa: E402 -- pieces need each other; the front door loads this one first

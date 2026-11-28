@@ -16,8 +16,9 @@ from collections.abc import Mapping
 from functools import lru_cache
 from urllib.parse import urlsplit
 
-# Route segment per kind, mirroring dashboard/src/app. Only these three have a page;
-# artifact, group and document render INSIDE one of them, so they get no link.
+# Route segment per kind, mirroring dashboard/src/app. Only these have a page (a saved
+# paper's is `/papers/[id]`); artifact, group and document render INSIDE one of them,
+# so they get no link.
 #
 # A SESSION lost its page when the digest cutover deleted `/sessions/[id]`: a link
 # to a 404 is worse than none. Content: `GET /v1/sessions/{id}/transcript`.
@@ -25,6 +26,7 @@ _ROUTES = {
     "run": "runs",
     "experiment": "experiments",
     "project": "projects",
+    "paper": "papers",
 }
 
 #: Kinds whose page is NESTED under another entity's: (parent segment, own segment).

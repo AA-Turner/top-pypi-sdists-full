@@ -95,7 +95,6 @@ def validate_contract(contract: dict[str, Any]) -> None:
         "dcc-mcp-core": "pyproject.toml",
         "dcc-mcp-server": "pkg/dcc-mcp-server-bin/pyproject.toml",
         "dcc-mcp-core-semantic": "pkg/dcc-mcp-core-semantic/pyproject.toml",
-        "dcc-mcp-cli": "pkg/dcc-mcp-cli-bin/pyproject.toml",
     }
     if not isinstance(distributions, dict) or set(distributions) != set(expected_distributions):
         raise ContractError("all released Python distributions must be declared")
@@ -151,7 +150,7 @@ def validate_contract(contract: dict[str, Any]) -> None:
         raise ContractError("native_py37.pr_matrix must be a list of objects")
     expected_platforms = {
         "linux-x86_64": {"runner": "ubuntu-22.04", "target": "x86_64"},
-        "windows-x86_64": {"runner": "windows-2022", "target": "x64"},
+        "windows-x86_64": {"runner": "windows-2022", "target": "x86_64-pc-windows-msvc"},
         # macOS has no ARM64 CPython 3.7, so the ARM64 runner cross-compiles
         # the x86_64-apple-darwin target that Maya 2022 on macOS consumes.
         "macos-x86_64": {"runner": "macos-latest", "target": "x86_64-apple-darwin"},

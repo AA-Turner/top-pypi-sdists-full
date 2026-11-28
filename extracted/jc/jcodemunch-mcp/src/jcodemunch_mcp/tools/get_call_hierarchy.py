@@ -16,6 +16,7 @@ from ._call_graph import (
     build_symbols_by_file,
     c_text_reach,
     is_c_family_file,
+    cap_rows,
     label_row_depths,
 )
 from ._scip_consume import open_scip_reader, scip_meta_and_stale, scip_meta_block
@@ -150,6 +151,7 @@ def get_call_hierarchy(
     direction: str = "both",
     depth: int = 1,
     storage_path: Optional[str] = None,
+    max_results: int = 0,
 ) -> dict:
     """Return incoming callers and outgoing callees for a symbol, N levels deep.
 
@@ -164,6 +166,11 @@ def get_call_hierarchy(
         depth: Maximum hops to traverse (1–5). Default 1, the direct rows:
             each further hop can multiply the reply (CHANGELOG, this fix).
         storage_path: Custom storage path.
+        max_results: Max rows to list in each of ``callers`` and ``callees``;
+            0 or less lists all (the default here). ``caller_count``,
+            ``callee_count`` and the per-depth counts stay the whole counts,
+            and ``callers_truncated`` / ``callees_truncated`` say whether rows
+            were left out.
 
     Returns:
         Dict with symbol info, callers list, callees list, depth_reached, and _meta.
@@ -175,6 +182,7 @@ def get_call_hierarchy(
         ``call_lines: None`` and names why in ``call_lines_unknown``.
     """
     depth = max(1, min(depth, 5))
+    max_results = max(0, int(max_results or 0))
     if direction not in ("callers", "callees", "both"):
         direction = "both"
     start = time.perf_counter()
@@ -369,7 +377,17 @@ def get_call_hierarchy(
         _attach_caller_gate_disclosure(response, index, sym, reverse_adj)
         _attach_call_lines(response, index, store, owner, name)
         _attach_c_text_only(response, index, sym, reverse_adj, symbols_by_file)
+    _cap_rows(response, max_results)
     return response
+
+
+def _cap_rows(response: dict, max_results: int) -> None:
+    """Cut `callers` and `callees` with the shared rule (`cap_rows`), last,
+    after every step that adds rows (compile-time evidence) or reads them
+    (call lines, the caller-gate disclosure), and say per list whether it cut."""
+    for key, flag in (("callers", "callers_truncated"), ("callees", "callees_truncated")):
+        rows = response.get(key)
+        response[flag] = cap_rows(rows, max_results) if isinstance(rows, list) else False
 
 
 def _attach_c_text_only(response: dict, index, sym: dict, reverse_adj, symbols_by_file) -> None:

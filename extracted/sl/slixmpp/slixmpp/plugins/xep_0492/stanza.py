@@ -3,7 +3,7 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 
-from typing import Literal, cast
+from typing import ClassVar, Literal, cast
 
 from slixmpp import register_stanza_plugin
 from slixmpp.plugins.xep_0402.stanza import Extensions
@@ -33,9 +33,11 @@ class Notify(ElementBase):
     namespace = NS
     name = "notify"
     plugin_attrib = "notify"
-    interfaces = {"notify"}
+    interfaces: ClassVar[set[str]] = set()
 
-    def configure(self, when: WhenLiteral, client_type: ClientTypes | None = None) -> None:
+    def configure(
+        self, when: WhenLiteral, client_type: ClientTypes | None = None
+    ) -> None:
         """
         Configure the chat notification settings for this bookmark.
 
@@ -54,9 +56,7 @@ class Notify(ElementBase):
 
         self.append(element)
 
-    def get_config(
-        self, client_type: ClientTypes | None = None
-    ) -> WhenLiteral | None:
+    def get_config(self, client_type: ClientTypes | None = None) -> WhenLiteral | None:
         """
         Get the chat notification settings for this bookmark.
 

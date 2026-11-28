@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parakeet-mlx
-Version: 0.7.0
+Version: 0.8.0
 Summary: An implementation of the Nvidia's Parakeet models for Apple Silicon using MLX.
 License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/senstella/parakeet-mlx.git
@@ -11,7 +11,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: dacite>=1.9.2
 Requires-Dist: huggingface-hub>=0.30.2
-Requires-Dist: librosa>=0.11.0
 Requires-Dist: mlx>=0.22.1
 Requires-Dist: numpy>=2.2.5
 Requires-Dist: typer>=0.15.3
@@ -268,6 +267,7 @@ config = DecodingConfig(
     decoding = Beam(
         booster = boost.lift( # must `lift`!
             boost.first_uppercase(0.5), # log-probs!
+            model.vocabulary,
         )
     )
 )

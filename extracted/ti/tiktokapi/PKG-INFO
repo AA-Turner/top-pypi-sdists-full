@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TikTokApi
-Version: 7.3.5
+Version: 7.3.6
 Summary: The Unofficial TikTok API Wrapper in Python 3.
 Home-page: https://github.com/davidteather/tiktok-api
 Download-URL: https://github.com/davidteather/TikTok-Api/tarball/main
@@ -72,6 +72,14 @@ These sponsors have paid to be placed here or are my own affiliate links which I
         <b></b>
         <div>
          <b>Euler Stream</b> is the #1 provider of TikTok API data for <b>Enterprises & Agencies</b>, trusted by 30,000+ customers. Our focus is on quick, stable APIs with world-class documentation & SDKs.
+        </div>
+    </a>
+    <br>
+    <a href="https://www.importly.io/?utm_source=tiktok-api&utm_medium=sponsorship&utm_campaign=library-readme" target="_blank">
+        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/importly.png" width="100" alt="Importly">
+        <b></b>
+        <div>
+         <b>Getting blocked on your server?</b> Importly downloads videos, transcripts and metadata from TikTok, YouTube and 1,000+ other sites through one API. Free to try.
         </div>
     </a>
     <br>

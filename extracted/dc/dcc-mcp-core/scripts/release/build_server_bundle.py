@@ -12,6 +12,9 @@ from zipfile import ZIP_DEFLATED
 from zipfile import ZipFile
 from zipfile import ZipInfo
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+NOTICE_FILES = ("LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.txt", "THIRD_PARTY_LICENSES.txt")
+
 
 def _github_error(message: str) -> None:
     print(f"::error::{message}", file=sys.stderr)
@@ -40,12 +43,21 @@ def _write_binary(zf: ZipFile, source: Path, archive_name: str) -> None:
         shutil.copyfileobj(src, dst)
 
 
+def _write_notice_files(zf: ZipFile) -> None:
+    for name in NOTICE_FILES:
+        source = REPO_ROOT / name
+        if name == "THIRD_PARTY_LICENSES.txt" and not source.is_file():
+            continue
+        if not source.is_file():
+            raise FileNotFoundError(f"release notice not found: {source}")
+        _write_binary(zf, source, name)
+
+
 def build_bundle(
     *,
     version: str,
     platform: str,
     server_bin: Path,
-    cli_bin: Path,
     out_dir: Path,
 ) -> Path:
     """Create a deployable server zip and return its path."""
@@ -56,8 +68,8 @@ def build_bundle(
     bundle_path = out_dir / f"dcc-mcp-server-{version}-{platform}.zip"
 
     with ZipFile(bundle_path, "w", ZIP_DEFLATED) as zf:
+        _write_notice_files(zf)
         _write_binary(zf, server_bin, _archive_binary_name("server", server_bin))
-        _write_binary(zf, cli_bin, _archive_binary_name("cli", cli_bin))
 
     return bundle_path
 
@@ -68,7 +80,6 @@ def main() -> int:
     parser.add_argument("--version", required=True)
     parser.add_argument("--platform", required=True)
     parser.add_argument("--server-bin", type=Path, required=True)
-    parser.add_argument("--cli-bin", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, default=Path())
     args = parser.parse_args()
 
@@ -77,7 +88,6 @@ def main() -> int:
             version=args.version,
             platform=args.platform,
             server_bin=args.server_bin,
-            cli_bin=args.cli_bin,
             out_dir=args.out_dir,
         )
     except Exception as exc:

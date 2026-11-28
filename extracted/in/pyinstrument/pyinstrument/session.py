@@ -168,7 +168,7 @@ class Session:
 
         start_stack = deque(frame_info_get_identifier(info) for info in self.start_call_stack)
 
-        if start_stack.popleft() != frame.identifier:
+        if not start_stack or start_stack.popleft() != frame.identifier:
             # the frame doesn't match where the profiler was started. Don't trim.
             return frame
 
@@ -224,11 +224,13 @@ class Session:
         result: list[FrameRecordType] = []
         accumulated_time = 0.0
 
+        # Durations are rounded down to whole intervals, carrying the remainder
+        # forward. A final partial interval is discarded.
         for frame_info_stack, time in frame_records:
             accumulated_time += time
 
             if accumulated_time >= interval:
-                result.append((frame_info_stack, accumulated_time))
+                result.append((frame_info_stack, accumulated_time - accumulated_time % interval))
                 accumulated_time = accumulated_time % interval
 
         return result

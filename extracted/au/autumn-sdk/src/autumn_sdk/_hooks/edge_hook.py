@@ -4,11 +4,20 @@ import httpx
 
 from autumn_sdk.sdkconfiguration import SDKConfiguration
 
-from .edge_clients import EdgeAsyncClient, EdgeBases, EdgeSyncClient, rebase_request, rebase_url
+from .edge_clients import (
+    EdgeAsyncClient,
+    EdgeBases,
+    EdgeSyncClient,
+    is_track_with_caller_key_header,
+    rebase_request,
+    rebase_url,
+)
 from .types import BeforeRequestContext, BeforeRequestHook, SDKInitHook
 
-# What the edge serves, by operation id. Track never goes there; finalize joins once the Atom dedupes it by key.
-EDGE_OPERATION_IDS = {"check", "getCustomer", "getEntity", "getOrCreateCustomer"}
+# What the edge serves, by operation id. A track is counted once by its body's idempotency_key (IdempotencyKeyHook),
+# and one the caller keyed by header stays with Autumn; the edge serves no trackTokens or batchTrack. Finalize joins
+# once the Atom dedupes it by key.
+EDGE_OPERATION_IDS = {"check", "getCustomer", "getEntity", "getOrCreateCustomer", "track"}
 
 
 def edge_bases_of(config: SDKConfiguration) -> Optional[EdgeBases]:
@@ -40,6 +49,8 @@ class EdgeHook(SDKInitHook, BeforeRequestHook):
         if bases is None or not getattr(hook_ctx.config, "use_edge", False):
             return request
         if hook_ctx.operation_id not in EDGE_OPERATION_IDS:
+            return request
+        if is_track_with_caller_key_header(hook_ctx.operation_id, request):
             return request
         # Only a call bound for the client's Autumn API: a per-call `server_url` is the caller's choice.
         edge_url = rebase_url(request.url, bases.autumn, bases.edge)

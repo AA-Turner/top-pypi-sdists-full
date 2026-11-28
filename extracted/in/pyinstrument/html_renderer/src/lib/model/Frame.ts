@@ -36,6 +36,22 @@ const ATTRIBUTE_MARKER_CLASS_NAME = "c"
 const ATTRIBUTE_MARKER_LINE_NUMBER = "l"
 const ATTRIBUTE_MARKER_TRACEBACKHIDE = "h"
 
+/**
+ * Return true if `path` is `directory` itself, or a file within it.
+ *
+ * Purely lexical (no filesystem access), but respects path component
+ * boundaries so that a sibling directory like `/tmp/env-project` is not
+ * treated as inside `/tmp/env`. Both `/` and `\` are accepted as separators
+ * because profiles saved on one platform can be rendered on another.
+ */
+export function pathIsInside(path: string, directory: string): boolean {
+    if (!path.startsWith(directory)) return false;
+    if (path.length === directory.length) return true;
+    if (directory.endsWith("/") || directory.endsWith("\\")) return true;
+    const nextChar = path[directory.length];
+    return nextChar === "/" || nextChar === "\\";
+}
+
 export default class Frame {
     uuid: string = randomId()
     identifier: string
@@ -102,7 +118,7 @@ export default class Frame {
         if (options.after) {
             const reversed = frames.slice()
             reversed.reverse()
-            frames.forEach(f => this.addChild(f, options))
+            reversed.forEach(f => this.addChild(f, options))
         } else {
             frames.forEach(f => this.addChild(f, options))
         }
@@ -114,6 +130,19 @@ export default class Frame {
             this.parent._children.splice(idx, 1)
             this.parent = null
         }
+    }
+
+    /**
+     * Removes several child frames in one pass, nulling their parent links.
+     * Faster than calling removeFromParent on each when there are many.
+     */
+    removeChildren(frames: readonly Frame[]) {
+        if (frames.some(f => f.parent !== this)) {
+            throw new Error("All frames must be children of this frame.")
+        }
+        const removing = new Set(frames)
+        this._children = this._children.filter(c => !removing.has(c))
+        frames.forEach(f => { f.parent = null })
     }
 
     getAttributes(marker: string): {data: string, time: number}[] {
@@ -181,7 +210,7 @@ export default class Frame {
         }
 
         const prefixes = this.context.sysPrefixes
-        if (prefixes.some(path => filePath.startsWith(path))) {
+        if (prefixes.some(prefix => pathIsInside(filePath, prefix))) {
             // this code lives in the Python installation dir or a virtualenv
             return false;
         }

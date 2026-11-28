@@ -221,6 +221,8 @@ class EntityReadsMixin:
             # notes row handed out under this prefix -- one more 404 on every
             # bare-ref miss would buy nothing.
             return kind, self._sub_note_entity(value)
+        if kind == EntityType.PAPER.value:
+            return kind, self._load_paper_entity(value)
         getters = {
             EntityType.RUN.value: self.client.get_run,
             EntityType.EXPERIMENT.value: self.client.get_experiment,
@@ -256,6 +258,7 @@ class EntityReadsMixin:
                     EntityType.ARTIFACT.value,
                     EntityType.SESSION.value,
                     EntityType.SUB_NOTE.value,
+                    EntityType.PAPER.value,
                 ]
             )
             raise errors.ValidationError(
@@ -274,7 +277,7 @@ class EntityReadsMixin:
             uuid.UUID(value)
         except ValueError:
             raise errors.NotFoundError(
-                f"no run, experiment, project, group, or trial matches {ref!r}: "
+                f"no run, experiment, project, group, trial, or paper matches {ref!r}: "
                 f"a bare ref must be a UUID id (names are reached as artifact:<name>)"
             ) from None
         for candidate in getters:
@@ -282,8 +285,16 @@ class EntityReadsMixin:
                 return candidate, getters[candidate](value)
             except errors.NotFoundError:
                 continue
+        # A paper LAST, after every other kind missed: a citation like
+        # `paper Title: Subtitle (id:<uuid>)` can lose the word "paper" at the
+        # colon, and its bare id must still open. Last, so a hit on any other
+        # kind costs no extra read.
+        try:
+            return EntityType.PAPER.value, self._load_paper_entity(value)
+        except errors.NotFoundError:
+            pass
         raise errors.NotFoundError(
-            f"no run, experiment, project, group, or trial matches {ref}"
+            f"no run, experiment, project, group, trial, or paper matches {ref}"
         )
 
     def _sub_note_entity(self, value: str) -> dict:
@@ -301,6 +312,42 @@ class EntityReadsMixin:
                 status=422,
             ) from None
         return dict(self.client.get_sub_note(value))
+
+    def _load_paper_entity(self, value: str) -> dict:
+        """``paper:<uuid>``: the saved paper's row, then its digest.
+
+        The row's 404 is the paper's not-found (a restricted or deleted paper
+        reads as absent). The digest is extra: a digest not written yet says
+        ``digest_status: "absent"``, and a digest read that fails says
+        ``"unavailable"`` while the row still comes back -- losing the whole
+        card to a side read would hide what the row already holds.
+        """
+        # Both reads put the id in a URL path, and the route types it a UUID:
+        # refuse anything else here so a `/` or `..` cannot re-steer them.
+        try:
+            uuid.UUID(value)
+        except ValueError:
+            raise errors.ValidationError(
+                f"{value!r} is not a saved paper id: a paper is reached as "
+                f"paper:<uuid>, its Probe id. A public literature id (arxiv:...) "
+                f"from find_papers is not one; name that paper by its link",
+                status=422,
+            ) from None
+        paper = dict(self.client.get_paper(value))
+        # Provider bookkeeping, not what the paper says.
+        paper.pop("extraction_metadata", None)
+        try:
+            digest = self.client.get_paper_digest(value) or {}
+        except errors.RosError:
+            paper["digest_status"] = "unavailable"
+            return paper
+        paper["digest_status"] = digest.get("status") or "absent"
+        if isinstance(digest.get("digest"), dict):
+            paper["digest"] = digest["digest"]
+        for key in ("stale", "generated_at"):
+            if digest.get(key) is not None:
+                paper[f"digest_{key}"] = digest[key]
+        return paper
 
     def experiment(self, experiment_id: str, *, project_id: str | None = None) -> dict:
         """One experiment through the experiment API (light experiments R4):

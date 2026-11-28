@@ -23,6 +23,7 @@
 """SFTP handlers"""
 
 import asyncio
+from contextlib import aclosing
 import errno
 from fnmatch import fnmatch
 import inspect
@@ -34,7 +35,8 @@ import stat
 import sys
 import time
 from types import TracebackType
-from typing import TYPE_CHECKING, AnyStr, AsyncIterator, Awaitable, Callable
+from typing import TYPE_CHECKING, AnyStr, AsyncGenerator, AsyncIterator
+from typing import Awaitable, Callable
 from typing import Dict, Generic, IO, Iterable, List, Literal, Mapping
 from typing import Optional, Protocol, Sequence, Set, Tuple, Type, TypeVar
 from typing import Union, cast, overload
@@ -582,6 +584,96 @@ def _from_local_path(path: _SFTPPath) -> bytes:
     return path
 
 
+def _local_realpath(path: _LocalPath) -> _LocalPath:
+    """Return the canonical form of a local path for comparison
+
+       On Windows, realpath() doesn't normalize the part of a path ahead
+       of a missing component, such as the target of a dangling symlink,
+       so it can be left with 8.3 short names in it. To make results
+       comparable, the deepest existing directory in the result is
+       resolved again and the remaining components are appended to it.
+
+    """
+
+    path = os.path.realpath(path)
+
+    if sys.platform == 'win32': # pragma: cover only win32
+        head = path
+        tail: List[_LocalPath] = []
+
+        while not os.path.isdir(head):
+            head, name = os.path.split(head)
+
+            if not name:
+                break
+
+            tail.append(name)
+
+        path = os.path.join(os.path.realpath(head), *reversed(tail))
+
+    return path
+
+
+def _check_local_containment(path: _LocalPath, dstroot: bytes,
+                             msg: str) -> None:
+    """Confirm a resolved local path is at or below dstroot"""
+
+    root = _local_realpath(_to_local_path(dstroot))
+
+    if not (path == root or path.startswith(root + _LocalSep)):
+        raise SFTPBadMessage(msg)
+
+
+def _resolve_local_symlink(linkpath: bytes, target: bytes) -> _LocalPath:
+    """Resolve the target of a symlink about to be created locally
+
+       Components of the target are resolved one at a time, following
+       any links which already exist. A '..' after a component which
+       doesn't exist yet or is a dangling link is rejected, since that
+       component could later be created as a symlink, changing where
+       this link resolves.
+
+    """
+
+    if sys.platform == 'win32': # pragma: cover only win32
+        target = target.replace(b'\\', b'/')
+
+        # Reject drive-qualified targets like 'C:foo' on Windows
+        if b':' in target:
+            raise SFTPBadMessage('Symlink target is an absolute path')
+
+    # Check for a leading slash rather than calling os.path.isabs(), as
+    # Python 3.13 and later on Windows don't consider a rooted path with
+    # no drive to be absolute
+
+    if target.startswith(b'/'):
+        raise SFTPBadMessage('Symlink target is an absolute path')
+
+    path = _local_realpath(os.path.dirname(_to_local_path(linkpath)))
+    exists = True
+
+    for comp in target.split(b'/'):
+        if comp in (b'', b'.'):
+            continue
+
+        if comp == b'..':
+            if not exists:
+                raise SFTPBadMessage('Symlink target is ambiguous')
+
+            path = os.path.dirname(path)
+        else:
+            path = os.path.join(path, _to_local_path(comp))
+
+            # A dangling link is treated like a missing component, as
+            # its target could later be created as a symlink
+            if os.path.lexists(path):
+                path = _local_realpath(path)
+
+            exists = os.path.lexists(path)
+
+    return path
+
+
 def _to_local_path(path: bytes) -> _LocalPath:
     """Convert SFTP path to local path"""
 
@@ -748,38 +840,43 @@ class _SFTPParallelIO(Generic[_T]):
 
         raise NotImplementedError
 
-    async def iter(self) -> AsyncIterator[Tuple[int, _T]]:
+    async def iter(self) -> AsyncGenerator[Tuple[int, _T], None]:
         """Perform file I/O and return async iterator of results"""
 
         self._start_tasks()
 
-        while self._pending:
-            done, self._pending = await asyncio.wait(
-                self._pending, return_when=asyncio.FIRST_COMPLETED)
+        try:
+            while self._pending:
+                done, _ = await asyncio.wait(
+                    self._pending, return_when=asyncio.FIRST_COMPLETED)
 
-            exceptions = []
+                exceptions = []
 
-            for task in done:
-                try:
-                    offset, size, count, result = task.result()
-                    yield offset, result
+                for task in done:
+                    self._pending.remove(task)
 
-                    if count and count < size:
-                        self._pending.add(asyncio.ensure_future(
-                            self._start_task(offset+count, size-count)))
-                except SFTPEOFError:
-                    self._bytes_left = 0
-                except (OSError, SFTPError) as exc:
-                    exceptions.append(exc)
+                    try:
+                        offset, size, count, result = task.result()
+                        yield offset, result
 
-            if exceptions:
-                for task in self._pending:
-                    task.cancel()
+                        if count and count < size:
+                            self._pending.add(asyncio.ensure_future(
+                                self._start_task(offset+count, size-count)))
+                    except SFTPEOFError:
+                        self._bytes_left = 0
+                    except (OSError, SFTPError) as exc:
+                        exceptions.append(exc)
 
-                await asyncio.gather(*self._pending, return_exceptions=True)
-                raise exceptions[0]
+                if exceptions:
+                    raise exceptions[0]
 
-            self._start_tasks()
+                self._start_tasks()
+        finally:
+            for task in self._pending:
+                task.cancel()
+
+            await asyncio.gather(*self._pending, return_exceptions=True)
+            self._pending.clear()
 
 
 class _SFTPFileReader(_SFTPParallelIO[bytes]):
@@ -806,14 +903,15 @@ class _SFTPFileReader(_SFTPParallelIO[bytes]):
 
         result = bytearray()
 
-        async for offset, data in self.iter():
-            pos = offset - self._start
-            pad = pos - len(result)
+        async with aclosing(self.iter()) as results:
+            async for offset, data in results:
+                pos = offset - self._start
+                pad = pos - len(result)
 
-            if pad > 0:
-                result += pad * b'\0'
+                if pad > 0:
+                    result += pad * b'\0'
 
-            result[pos:pos+len(data)] = data
+                result[pos:pos+len(data)] = data
 
         return bytes(result)
 
@@ -842,8 +940,9 @@ class _SFTPFileWriter(_SFTPParallelIO[int]):
     async def run(self):
         """Perform parallel writes"""
 
-        async for _ in self.iter():
-            pass
+        async with aclosing(self.iter()) as results:
+            async for _ in results:
+                pass
 
 class _SFTPFileCopier(_SFTPParallelIO[int]):
     """SFTP file copier
@@ -927,13 +1026,15 @@ class _SFTPFileCopier(_SFTPParallelIO[int]):
                                                self._total_bytes)
             else:
                 async for self._offset, self._bytes_left in ranges:
-                    async for _, datalen in self.iter():
-                        self._bytes_copied += datalen
+                    async with aclosing(self.iter()) as results:
+                        async for _, datalen in results:
+                            self._bytes_copied += datalen
 
-                        if self._progress_handler and datalen != 0:
-                            self._progress_handler(self._srcpath, self._dstpath,
-                                                   self._bytes_copied,
-                                                   self._total_bytes)
+                            if self._progress_handler and datalen != 0:
+                                self._progress_handler(self._srcpath,
+                                                       self._dstpath,
+                                                       self._bytes_copied,
+                                                       self._total_bytes)
 
                 if self._bytes_copied != self._total_bytes and not self._sparse:
                     exc = SFTPFailure('Unexpected EOF during file copy')
@@ -1020,8 +1121,6 @@ class SFTPError(Error):
 
     def decode(self, packet: SSHPacket) -> None:
         """Decode error-specific data"""
-
-        # pylint: disable=no-self-use
 
         # By default, expect no error-specific data
 
@@ -2785,8 +2884,6 @@ class SFTPClientHandler(SFTPHandler):
     def _process_extended_reply(self, packet: SSHPacket) -> SSHPacket:
         """Process an incoming SFTP extended reply response"""
 
-        # pylint: disable=no-self-use
-
         # Let the caller do the decoding for extended replies
         return packet
 
@@ -2879,6 +2976,8 @@ class SFTPClientHandler(SFTPHandler):
 
     async def request_limits(self) -> None:
         """Request SFTP server limits"""
+
+        # pylint: disable=no-member
 
         if self._supports_limits:
             packet = cast(SSHPacket, await self._make_request(
@@ -3987,6 +4086,11 @@ class SFTPClient:
                 self.logger.info('  Starting copy of directory %s to %s',
                                  srcpath, dstpath)
 
+                if isinstance(dstfs, LocalFS):
+                    _check_local_containment(
+                        _local_realpath(_to_local_path(dstpath)), dstroot,
+                        'Destination path is outside download directory')
+
                 if not await dstfs.isdir(dstpath):
                     await dstfs.mkdir(dstpath)
 
@@ -3997,6 +4101,13 @@ class SFTPClient:
                         continue
 
                     if b'/' in filename or b'\\' in filename:
+                        raise SFTPBadMessage('Invalid filename')
+
+                    # On Windows, a colon could make this refer to an
+                    # alternate data stream or a path on another drive
+                    if sys.platform == 'win32' and \
+                            isinstance(dstfs, LocalFS) and \
+                            b':' in filename: # pragma: cover only win32
                         raise SFTPBadMessage('Invalid filename')
 
                     srcfile = posixpath.join(srcpath, filename)
@@ -4018,22 +4129,9 @@ class SFTPClient:
                 # tree must not point outside that tree, rooted at dstroot.
 
                 if isinstance(dstfs, LocalFS):
-                    local_target = _to_local_path(targetpath)
-
-                    if os.path.isabs(local_target):
-                        raise SFTPBadMessage('Symlink target is '
-                                             'an absolute path')
-
-                    parent = os.path.realpath(os.path.dirname(
-                        _to_local_path(dstpath)))
-                    resolved = os.path.normpath(os.path.join(
-                        parent, local_target))
-                    root = os.path.realpath(_to_local_path(dstroot))
-
-                    if not (resolved == root or
-                            resolved.startswith(root + _LocalSep)):
-                        raise SFTPBadMessage('Symlink target is outside '
-                                             'download directory')
+                    _check_local_containment(
+                        _resolve_local_symlink(dstpath, targetpath), dstroot,
+                        'Symlink target is outside download directory')
 
                 self.logger.info('  Copying symlink %s to %s', srcpath, dstpath)
                 self.logger.info('    Target path: %s', targetpath)
@@ -4044,6 +4142,11 @@ class SFTPClient:
 
                 if remote_only and not self.supports_remote_copy:
                     raise SFTPOpUnsupported('Remote copy not supported')
+
+                if isinstance(dstfs, LocalFS):
+                    _check_local_containment(
+                        _local_realpath(_to_local_path(dstpath)), dstroot,
+                        'Destination path is outside download directory')
 
                 await _SFTPFileCopier(block_size, max_requests,
                                       srcattrs.size or 0, sparse,
@@ -4102,19 +4205,25 @@ class SFTPClient:
                          copy_type, srcpaths, dstpath)
 
         srcnames: List[SFTPName] = []
+        exact_paths: Set[bytes] = set()
 
         if expand_glob:
             glob = SFTPGlob(srcfs, len(srcpaths) > 1)
 
             for srcpath in srcpaths:
-                srcnames.extend(await glob.match(srcfs.encode(srcpath),
-                                                 error_handler, self.version))
+                srcpath = srcfs.encode(srcpath)
+                srcnames.extend(await glob.match(srcpath, error_handler,
+                                                 self.version))
+
+                if not any(c in srcpath for c in b'*?[]'):
+                    exact_paths.add(srcpath)
         else:
             for srcpath in srcpaths:
                 srcpath = srcfs.encode(srcpath)
                 srcattrs = await srcfs.stat(srcpath,
                                             follow_symlinks=follow_symlinks)
                 srcnames.append(SFTPName(srcpath, attrs=srcattrs))
+                exact_paths.add(srcpath)
 
         if dstpath:
             dstpath = dstfs.encode(dstpath)
@@ -4138,13 +4247,26 @@ class SFTPClient:
             basename = srcfs.basename(srcfile)
 
             if dstpath is None:
+                # On Windows, a colon could make this refer to a path
+                # on another drive
+                if sys.platform == 'win32' and \
+                        isinstance(dstfs, LocalFS) and \
+                        b':' in basename: # pragma: cover only win32
+                    raise SFTPBadMessage('Invalid filename')
+
                 dstfile = basename
             elif dst_isdir:
                 dstfile = dstfs.compose_path(basename, parent=dstpath)
             else:
                 dstfile = dstpath
 
-            await self._copy(srcfs, dstfs, srcfile, dstfile, dstroot,
+            # When following symlinks, a destination for a path the caller
+            # explicitly requested may be a local symlink, so it becomes
+            # the root for names chosen by the server below it
+            copyroot = dstfile if follow_symlinks and \
+                srcfile in exact_paths else dstroot
+
+            await self._copy(srcfs, dstfs, srcfile, dstfile, copyroot,
                              srcname.attrs, preserve, recurse, follow_symlinks,
                              sparse, block_size, max_requests, progress_handler,
                              error_handler, remote_only)
@@ -4186,7 +4308,10 @@ class SFTPClient:
            on the remote system will have the contents of their target
            downloaded rather than creating a local symbolic link. When
            using this option during a recursive download, one needs to
-           watch out for links that result in loops.
+           watch out for links that result in loops. This option does
+           not allow names chosen by the server to be written through
+           existing local symbolic links which lead outside of the
+           download directory.
 
            The block_size argument specifies the size of read and write
            requests issued when downloading the files, defaulting to
@@ -6020,7 +6145,7 @@ class SFTPServerHandler(SFTPHandler):
                               packet: SSHPacket) -> None:
         """Process incoming SFTP requests"""
 
-        # pylint: disable=broad-except
+        # pylint: disable=broad-exception-caught
         try:
             if pkttype == FXP_EXTENDED:
                 handler_type: Union[int, bytes] = packet.get_string()
@@ -7064,17 +7189,14 @@ class SFTPServer:
 
     """
 
-    # The default implementation of a number of these methods don't need self
-    # pylint: disable=no-self-use
-
     def __init__(self, chan: 'SSHServerChannel',
-                 chroot: Optional[bytes] = None):
+                 chroot: Optional[_LocalPath] = None):
         self._chan = chan
 
         self._chroot: Optional[bytes]
 
         if chroot:
-            self._chroot = _from_local_path(os.path.realpath(chroot))
+            self._chroot = _from_local_path(_local_realpath(chroot))
         else:
             self._chroot = None
 
@@ -7094,11 +7216,12 @@ class SFTPServer:
     def env(self) -> Mapping[str, str]:
         """The environment associated with this SFTP server session
 
-           This method returns the environment set by the client
-           when this SFTP session was opened.
+           This method returns the environment for this SFTP session.
+           See :meth:`SSHServerChannel.get_environment` for details on
+           where these values come from.
 
            :returns: A dictionary containing the environment variables
-                     set by the client
+                     for this session
 
         """
 
@@ -7132,6 +7255,248 @@ class SFTPServer:
         path = posixpath.join(parent, name)
         attrs = await self.convert_attrs(self.lstat(path))
         return SFTPName(name, attrs=attrs)
+
+    def _contain_symlink(self, target: bytes, newpath: bytes,
+                         oldpath: Optional[bytes] = None) -> bytes:
+        """Update target to stay within the chroot if there is one
+
+           When oldpath is not set, target is the SFTP path a client
+           asked for in a new link at newpath. When oldpath is set,
+           target is the target of the existing link at oldpath, as
+           read from the local file system and converted to an SFTP
+           path, which is being moved to newpath. The returned target
+           points to the same place as the existing one.
+
+        """
+
+        if oldpath is None:
+            # On Windows, a drive letter in a relative target ends up as
+            # a component in the middle of the joined path, which relpath()
+            # turns back into a drive-qualified target outside the chroot
+            if sys.platform == 'win32' and \
+                    b':' in target: # pragma: cover only win32
+                raise SFTPInvalidFilename('Invalid symlink target')
+
+            if posixpath.isabs(target):
+                local_target = _to_local_path(self.map_path(target))
+                return _from_local_path(_local_realpath(local_target))
+
+            newdir = posixpath.dirname(posixpath.normpath(newpath))
+            local_target = _to_local_path(
+                self.map_path(posixpath.join(newdir, target)))
+            abs_target = _from_local_path(_local_realpath(local_target))
+        else:
+            local_target = _to_local_path(target)
+
+            # Resolve the target as the OS does, from the old link's directory
+            olddir = posixpath.dirname(posixpath.normpath(oldpath))
+            abs_olddir = _local_realpath(
+                _to_local_path(self.map_path(olddir)))
+            abs_target = _from_local_path(
+                _local_realpath(os.path.join(abs_olddir, local_target)))
+
+            if os.path.isabs(local_target):
+                # Make sure the symlink doesn't point outside the chroot
+                self.reverse_map_path(abs_target)
+                return abs_target
+
+            newdir = posixpath.dirname(posixpath.normpath(newpath))
+
+        abs_newdir = _from_local_path(
+            _local_realpath(_to_local_path(self.map_path(newdir))))
+
+        # Make sure the symlink doesn't point outside the chroot
+        self.reverse_map_path(abs_target)
+
+        return os.path.relpath(abs_target, start=abs_newdir)
+
+    @staticmethod
+    def _read_local_symlink(local_path: _LocalPath) -> _LocalPath:
+        """Read the target of a local symlink"""
+
+        target = os.readlink(local_path)
+
+        if sys.platform == 'win32' and \
+                target.startswith('\\\\?\\'): # pragma: cover only win32
+            target = target[4:]
+
+        return target
+
+    @staticmethod
+    def _tmp_path(local_path: _LocalPath) -> _LocalPath:
+        """Return a unique temporary path beside a local path"""
+
+        suffix = f'.{os.urandom(6).hex()}.tmp'
+
+        return local_path + (suffix.encode()
+                             if isinstance(local_path, bytes) else suffix)
+
+    @staticmethod
+    def _replace_symlink(target: _LocalPath, local_path: _LocalPath) -> None:
+        """Replace an existing local path with a symlink
+
+           The new link is created beside the old path and then renamed
+           over the top, so replacing an existing path works like it
+           does for os.replace() and there is never a missing link.
+
+        """
+
+        tmp_path = SFTPServer._tmp_path(local_path)
+
+        os.symlink(target, tmp_path)
+
+        try:
+            os.replace(tmp_path, local_path)
+        except OSError:
+            os.remove(tmp_path)
+            raise
+
+    def _move_symlink(self, oldpath: bytes, newpath: bytes,
+                      replace: bool) -> None:
+        """Move a symlink, keeping its target within the chroot"""
+
+        local_oldpath = _to_local_path(self.map_path(oldpath))
+        local_newpath = _to_local_path(self.map_path(newpath))
+
+        target = self._read_local_symlink(local_oldpath)
+
+        target = _to_local_path(self._contain_symlink(
+            _from_local_path(target), newpath, oldpath))
+
+        if not os.path.lexists(local_newpath):
+            os.symlink(target, local_newpath)
+        elif not replace:
+            raise SFTPFileAlreadyExists('File already exists')
+        elif os.path.samestat(os.lstat(local_oldpath),
+                              os.lstat(local_newpath)):
+            return
+        else:
+            self._replace_symlink(target, local_newpath)
+
+        os.remove(local_oldpath)
+
+    def _contain_dir_symlinks(self, local_oldpath: _LocalPath,
+                              local_newpath: _LocalPath) -> \
+            List[Tuple[_LocalPath, _LocalPath, _LocalPath]]:
+        """Return updates to symlinks in a directory about to be moved
+
+           Each symlink in the directory's subtree gets a new target
+           exactly as if it were being moved on its own, except that
+           targets inside the subtree are mapped to their new location.
+           Nothing changes if the directory stays in the same parent,
+           as relative targets then still resolve to the same place.
+
+           An error is raised before anything is changed if a target
+           is outside the chroot or a link can't be read or updated.
+           Otherwise, a list of (new link path, old target, new target)
+           tuples is returned for the links which need to change.
+
+        """
+
+        def _raise(exc: OSError) -> None:
+            raise exc
+
+        old_root = _local_realpath(local_oldpath)
+        new_parent = _local_realpath(os.path.dirname(local_newpath))
+
+        if new_parent == os.path.dirname(old_root):
+            return []
+
+        new_root = os.path.join(new_parent, os.path.basename(local_newpath))
+        updates: List[Tuple[_LocalPath, _LocalPath, _LocalPath]] = []
+
+        for dirpath, dirnames, filenames in os.walk(old_root, onerror=_raise):
+            new_dirpath = new_root + dirpath[len(old_root):]
+
+            for name in dirnames + filenames:
+                path = os.path.join(dirpath, name)
+
+                # Use lstat() rather than islink() so that errors are
+                # raised rather than treated as a non-link
+                if not stat.S_ISLNK(os.lstat(path).st_mode):
+                    continue
+
+                old_target = self._read_local_symlink(path)
+                abs_target = _local_realpath(os.path.join(dirpath, old_target))
+
+                if abs_target == old_root or \
+                        abs_target.startswith(old_root + _LocalSep):
+                    abs_target = new_root + abs_target[len(old_root):]
+
+                # Make sure the symlink doesn't point outside the chroot
+                self.reverse_map_path(_from_local_path(abs_target))
+
+                if os.path.isabs(old_target):
+                    new_target = abs_target
+                else:
+                    new_target = os.path.relpath(abs_target,
+                                                 start=new_dirpath)
+
+                if new_target != old_target:
+                    if not os.access(dirpath, os.W_OK | os.X_OK):
+                        raise SFTPPermissionDenied('Permission denied')
+
+                    updates.append((os.path.join(new_dirpath, name),
+                                    old_target, new_target))
+
+        return updates
+
+    def _update_symlink(self, target: _LocalPath,
+                        local_path: _LocalPath) -> None:
+        """Update the target of an existing local symlink"""
+
+        if sys.platform == 'win32': # pragma: cover only win32
+            attrs = os.lstat(local_path).st_file_attributes
+
+            if attrs & stat.FILE_ATTRIBUTE_DIRECTORY:
+                # Windows can't replace a directory symlink, so move
+                # the old link aside, create the new one in its place,
+                # and then remove the old one
+                aside_path = self._tmp_path(local_path)
+
+                os.rename(local_path, aside_path)
+
+                try:
+                    os.symlink(target, local_path, target_is_directory=True)
+                except OSError:
+                    os.rename(aside_path, local_path)
+                    raise
+
+                os.remove(aside_path)
+                return
+
+        self._replace_symlink(target, local_path)
+
+    def _move_local_path(self, local_oldpath: _LocalPath,
+                         local_newpath: _LocalPath, replace: bool) -> None:
+        """Move a local path, keeping symlinks in it within the chroot"""
+
+        rename = os.replace if replace else os.rename
+
+        if not (self._chroot and os.path.isdir(local_oldpath)):
+            rename(local_oldpath, local_newpath)
+            return
+
+        updates = self._contain_dir_symlinks(local_oldpath, local_newpath)
+
+        rename(local_oldpath, local_newpath)
+
+        done: List[Tuple[_LocalPath, _LocalPath, _LocalPath]] = []
+
+        try:
+            for update in updates:
+                path, _, new_target = update
+                self._update_symlink(new_target, path)
+                done.append(update)
+        except OSError:
+            # Put back any links already updated and move the directory
+            # back to where it was, so no link is left pointing outside
+            # the chroot
+            for path, old_target, _ in reversed(done):
+                self._update_symlink(old_target, path)
+
+            os.rename(local_newpath, local_oldpath)
+            raise
 
     def format_user(self, uid: Optional[int]) -> str:
         """Return the user name associated with a uid
@@ -7355,7 +7720,7 @@ class SFTPServer:
             flags |= os.O_EXCL
 
         if sys.platform == 'win32': # pragma: cover only win32
-            flags |= os.O_BINARY # pylint: disable=no-member
+            flags |= os.O_BINARY
 
         perms = 0o666 if attrs.permissions is None else attrs.permissions
 
@@ -7456,7 +7821,7 @@ class SFTPServer:
             mode += '+'
 
         if sys.platform == 'win32': # pragma: cover only win32
-            open_flags |= os.O_BINARY # pylint: disable=no-member
+            open_flags |= os.O_BINARY
 
         perms = 0o666 if attrs.permissions is None else attrs.permissions
 
@@ -7664,7 +8029,6 @@ class SFTPServer:
             # which case :meth:`lstat` is called to retrieve attribute
             # information.
 
-            # pylint: disable=no-member
             listdir_result = self.listdir(path)
 
             if inspect.isawaitable(listdir_result):
@@ -7754,7 +8118,7 @@ class SFTPServer:
 
         """
 
-        path = os.path.realpath(_to_local_path(self.map_path(path)))
+        path = _local_realpath(_to_local_path(self.map_path(path)))
         return self.reverse_map_path(_from_local_path(path))
 
     def stat(self, path: bytes) -> MaybeAwait[_SFTPOSAttrs]:
@@ -7800,13 +8164,19 @@ class SFTPServer:
 
         """
 
-        oldpath = _to_local_path(self.map_path(oldpath))
-        newpath = _to_local_path(self.map_path(newpath))
+        mapped_oldpath = self.map_path(oldpath)
 
-        if os.path.exists(newpath):
-            raise SFTPFileAlreadyExists('File already exists')
+        if self._chroot and os.path.islink(_to_local_path(mapped_oldpath)):
+            self._move_symlink(oldpath, newpath, replace=False)
+        else:
+            newpath = self.map_path(newpath)
 
-        os.rename(oldpath, newpath)
+            if os.path.exists(newpath):
+                raise SFTPFileAlreadyExists('File already exists')
+
+            self._move_local_path(_to_local_path(mapped_oldpath),
+                                  _to_local_path(newpath), replace=False)
+
         return None
 
     def readlink(self, path: bytes) -> MaybeAwait[bytes]:
@@ -7829,7 +8199,7 @@ class SFTPServer:
             path = path[4:]
 
         if self._chroot:
-            path = os.path.realpath(path)
+            path = _local_realpath(path)
 
         return self.reverse_map_path(_from_local_path(path))
 
@@ -7847,18 +8217,8 @@ class SFTPServer:
 
         """
 
-        if posixpath.isabs(oldpath):
-            oldpath = self.map_path(oldpath)
-        else:
-            newdir = posixpath.dirname(newpath)
-            abspath1 = self.map_path(posixpath.join(newdir, oldpath))
-
-            mapped_newdir = self.map_path(newdir)
-            abspath2 = os.path.join(mapped_newdir, oldpath)
-
-            # Make sure the symlink doesn't point outside the chroot
-            if os.path.realpath(abspath1) != os.path.realpath(abspath2):
-                oldpath = os.path.relpath(abspath1, start=mapped_newdir)
+        if self._chroot:
+            oldpath = self._contain_symlink(oldpath, newpath)
 
         newpath = self.map_path(newpath)
 
@@ -7914,10 +8274,15 @@ class SFTPServer:
 
         """
 
-        oldpath = _to_local_path(self.map_path(oldpath))
-        newpath = _to_local_path(self.map_path(newpath))
+        mapped_oldpath = self.map_path(oldpath)
 
-        os.replace(oldpath, newpath)
+        if self._chroot and os.path.islink(_to_local_path(mapped_oldpath)):
+            self._move_symlink(oldpath, newpath, replace=True)
+        else:
+            newpath = self.map_path(newpath)
+            self._move_local_path(_to_local_path(mapped_oldpath),
+                                  _to_local_path(newpath), replace=True)
+
         return None
 
     def statvfs(self, path: bytes) -> MaybeAwait[_SFTPOSVFSAttrs]:
@@ -8041,8 +8406,6 @@ class LocalFS:
            This method has no effect if the path is already bytes.
 
         """
-
-        # pylint: disable=no-self-use
 
         return os.fsencode(path)
 

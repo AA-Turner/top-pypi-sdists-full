@@ -12,15 +12,15 @@ class RemoveKnowledgeTagsRequest(DaraModel):
         file_location: str = None,
         tags: str = None,
     ):
-        # The database cluster ID.
+        # The ID of the database cluster.
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id
-        # The file ID.
+        # The ID of the file.
         self.file_id = file_id
-        # The knowledge base document location.
+        # The location of the knowledge base document.
         self.file_location = file_location
-        # The JSON string of the tag array to be deleted.
+        # The JSON string of the array of tags to delete.
         self.tags = tags
 
     def validate(self):

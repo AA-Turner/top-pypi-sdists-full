@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2025 by Ron Frederick <ronf@timeheart.net> and others.
+# Copyright (c) 2016-2026 by Ron Frederick <ronf@timeheart.net> and others.
 #
 # This program and the accompanying materials are made available under
 # the terms of the Eclipse Public License v2.0 which accompanies this
@@ -52,7 +52,7 @@ from .stream import SSHReader, SSHWriter, SSHStreamSession
 from .stream import SSHClientStreamSession, SSHServerStreamSession
 from .stream import SFTPServerFactory
 
-_AnyStrContra = TypeVar('_AnyStrContra', bytes, str, contravariant=True)
+_AnyStr_contra = TypeVar('_AnyStr_contra', bytes, str, contravariant=True)
 
 _File = Union[IO[bytes], '_AsyncFileProtocol[bytes]']
 
@@ -96,10 +96,10 @@ class _ReaderProtocol(Protocol):
         """Stop forwarding data"""
 
 
-class _WriterProtocol(Protocol[_AnyStrContra]):
+class _WriterProtocol(Protocol[_AnyStr_contra]):
     """A class that can be used as a writer in SSHProcess"""
 
-    def write(self, data: _AnyStrContra) -> None:
+    def write(self, data: _AnyStr_contra) -> None:
         """Write data"""
 
     def write_exception(self, exc: Exception) -> None:
@@ -888,7 +888,12 @@ class SSHProcess(SSHStreamSession, Generic[AnyStr]):
 
     @property
     def env(self) -> Mapping[str, str]:
-        """A mapping containing the environment set by the client"""
+        """A mapping containing the environment for this session
+
+           See :meth:`SSHServerChannel.get_environment` for details
+           on where these values come from on the server.
+
+        """
 
         assert self._chan is not None
         return self._chan.get_environment()

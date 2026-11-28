@@ -30,6 +30,8 @@ WRITE_GROUPS = frozenset(
         "edge",
         # Decisions (decisions PR2): `add` records, `list` reads, `remove` removes.
         "decision",
+        # Plan stages: `save`, `update`, `cite` and `uncite` record; `show` reads.
+        "plan",
         "trial",
         "views",
         "paper",
@@ -79,7 +81,8 @@ READ_UNLESS_FLAGS = {"project contributors": frozenset({"--add", "--remove"})}
 
 #: Characters that mark a word the shell still expands (`$F`, `$(...)`, `--{add,x}`).
 #: Glob characters count only in an option's NAME (`--a[d]d`): a literal `[::1]`
-#: in a `--base-url` value is common.
+#: in a `--base-url` value is common. Reading help (`_may_pass_options_on`) counts
+#: them anywhere: there being wrong is only stricter.
 _SHELL_EXPANSION_CHARS = frozenset("$`{")
 _GLOB_CHARS = frozenset("*?[")
 
@@ -202,12 +205,73 @@ HELP_FLAGS = frozenset({HELP_FLAG, "-h"})
 
 #: Commands that hand an unknown option on (`ignore_unknown_options`): there `-h`
 #: is an argument and the command runs (`probe daemon worker -h`), so it is no help.
-#: `test_daemon_profile.py` holds this to the CLI's tree.
+#: Also those that read every word after their first argument as an argument
+#: (`allow_interspersed_args` off: `client check`). `test_daemon_profile.py` holds this
+#: to the CLI's tree.
 UNKNOWN_OPTIONS_PASSED = frozenset(
     {"exec", "docs", "cli search", "daemon worker", "daemon override", "daemon session", "daemon task", "run resume",
      # The removed W&B imports take any old argv and only print what replaced them (#5245).
-     "wandb import-local", "wandb import-hosted"}
+     "wandb import-local", "wandb import-hosted", "client check"}
 )
+
+
+def _may_pass_options_on(args: "list[str]") -> bool:
+    """May the command these args name read an option as an argument (`UNKNOWN_OPTIONS_PASSED`)?
+    So may one the shell may yet fill in or split: a word up to its second that holds a `$`,
+    backtick, `{` or glob, or starts with `~` (`probe "$G" worker`, `probe --base-url $U worker`,
+    `probe ~+ worker` with PWD=daemon). Read as click gets them: the CLI takes `--directed` out
+    first (`split_directed`)."""
+    own = [arg for arg in args if arg != DIRECTED_FLAG]
+    found = 0
+    is_value = False
+    for token in own:
+        if token.startswith("~") or not (_SHELL_EXPANSION_CHARS.isdisjoint(token) and _GLOB_CHARS.isdisjoint(token)):
+            return True
+        if is_value:
+            is_value = False
+        elif token.startswith("-"):
+            is_value = not found and token in ROOT_VALUE_OPTIONS
+        else:
+            found += 1
+            if found == 2:
+                break
+    words = command_words(own)[:2]
+    return bool({" ".join(words), " ".join(words[:1])} & UNKNOWN_OPTIONS_PASSED)
+
+
+#: Options that take no value in any command that has them (`--yes`, `--dry-run`): click never
+#: hands one the `--help` after it, so that `--help` is help. `test_daemon_profile.py` holds each
+#: to the CLI's tree. One that takes a value somewhere (`--json`) is not on it.
+NO_VALUE_OPTIONS = frozenset({
+    "--accept-env", "--after-install", "--agent-rules", "--all", "--allow-mismatch",
+    "--allow-missing", "--allow-write", "--ascii", "--async", "--auto-update", "--background",
+    "--backup-unsent", "--brief", "--cancel", "--capture", "--chats-all", "--check", "--clear",
+    "--clear-dead-end", "--curve", "--derived", "--detached-launcher", "--device", "--direct",
+    "--directed", "--discard-unsent", "--down", "--dry-run", "--endpoint-only", "--experimental",
+    "--failing", "--files", "--fix", "--follow", "--force", "--from-evals", "--full", "--held",
+    "--hung", "--import-changed", "--import-unverified", "--include-discovery",
+    "--include-excluded", "--include-unresolved", "--linear-y", "--list", "--log-y",
+    "--no-agent-rules", "--no-auto-update", "--no-browser", "--no-capture",
+    "--no-capture-outputs", "--no-color", "--no-env", "--no-expand", "--no-files", "--no-gpu",
+    "--no-include-unresolved", "--no-plugin", "--no-preview", "--no-tracking", "--no-transcripts",
+    "--no-upload", "--no-verify", "--no-visuals", "--no-wait", "--noise", "--offline", "--offer-queue",
+    "--once", "--open", "--overlay", "--parallel", "--peek", "--pending", "--pending-only", "--pin",
+    "--plugin", "--preview", "--print", "--probe-remote", "--project-from-env", "--publish",
+    "--pull-only", "--push-only", "--quiet", "--raw", "--readme-embed", "--recommended",
+    "--recursive", "--reference", "--refresh", "--reinstall", "--replace", "--retry-dead",
+    "--review-excluded", "--revoke-all", "--samples", "--send", "--send-back", "--shared",
+    "--show", "--skypilot-sso", "--slow", "--steal", "--steps", "--sync", "--top-level",
+    "--tracking", "--transcripts", "--transcripts-only", "--uninstall", "--until-resume",
+    "--upload", "--use", "--verbose", "--verify", "--verify-only", "--visuals", "--wait",
+    "--wandb-only", "--whole-run", "--writer", "--wrong", "--yes", "-f", "-y"
+})
+
+
+def is_no_value_option(word: str, args: "list[str]") -> bool:
+    """Is `word`, one of these args (after `probe`), an option that takes no value
+    (`NO_VALUE_OPTIONS`)? Not where the command passes unknown options on: there
+    it may be an argument, and so may the `--help` after it."""
+    return word in NO_VALUE_OPTIONS and not _may_pass_options_on(args)
 
 
 def is_help_flag(word: str, args: "list[str]") -> bool:
@@ -215,10 +279,7 @@ def is_help_flag(word: str, args: "list[str]") -> bool:
     reads as one (`HELP_FLAGS`)? `-h` is not where the command passes it on."""
     if word == HELP_FLAG:
         return True
-    if word not in HELP_FLAGS:
-        return False
-    words = command_words(args)
-    return not {" ".join(words[:2]), " ".join(words[:1])} & UNKNOWN_OPTIONS_PASSED
+    return word in HELP_FLAGS and not _may_pass_options_on(args)
 
 #: Groups whose whole job is READING research content. Refused only under `off`.
 #: `docs` reads Probe's own docs, not the team's record: a read so that `off`
@@ -584,6 +645,8 @@ DAEMON_PROFILE_TABLE_READS = frozenset(
         "views show",
         "project contributors",
         "project code list",
+        # One project's plan stages: the keys an agent passes as a run's stage (plan stages R21).
+        "plan show",
     }
 )
 
@@ -628,6 +691,15 @@ RESEARCHER_SWITCH = frozenset(
 
 #: The one switch command an agent may run, with `--directed` (T3): it sets, never flips.
 SWITCH_SET = "session state"
+
+#: What the CLI's write gate leaves to the guard hook alone (`write_gate._refuse_records`): `mcp
+#: call|tools` (the bridge refuses them itself), `session initialize` (the pi host bridge) and the
+#: takeover commands removed in 2026-10-06, which this CLI does not have, and `daemon worker` (the
+#: daemon itself, started with the session's own environment). The hook reads no `--help` given as
+#: a value there as help: no gate would check it.
+CLI_GATE_LEAVES_TO_HOOK = frozenset(
+    {"mcp call", "mcp tools", "session initialize", "session inline", "session daemon", "daemon worker"}
+)
 
 #: How an agent spells this chat's switch and the new-chat default (the npx
 #: spelling: the launcher's floor picks a CLI that strips `--directed`).
@@ -777,6 +849,10 @@ def daemon_profile_allows(args: "list[str]", session_id: "str | None" = None) ->
         return (needs_directed(args) is None, "probe " + upkeep)
     if head in DAEMON_PROFILE_PLAIN_FLAGS:
         return (_runs_plainly(args, head), "probe " + head)
+    compute, changes = compute_command(args)
+    if compute is not None:
+        # Registering GPUs (compute-any-chat-state): reads and the dry run run; a change with `--directed`.
+        return (not changes or carries_directed(args), "probe " + compute)
     directed = _directed_workspace_change(args)
     if directed is not None:
         return (carries_directed(args), "probe " + directed)
@@ -881,6 +957,27 @@ def _flag_writes(args: "list[str]", flags: "frozenset[str]") -> bool:
     )
 
 
+#: What a value the shell has yet to fill in reads as (`fill_shell_values`).
+_SHELL_VALUE_STANDIN = "value"
+
+
+def fill_shell_values(args: "list[str]") -> "list[str]":
+    """These args, typed into a shell, with each value it has yet to fill in (`"$WS"`, `--name=$N`)
+    read as a plain word. An option's name (`--$F`) and the command's own words stay as typed."""
+    filled = []
+    for arg in args:
+        name, eq, _value = arg.partition("=")
+        if _SHELL_EXPANSION_CHARS.isdisjoint(arg):
+            filled.append(arg)
+        elif not arg.startswith("-"):
+            filled.append(_SHELL_VALUE_STANDIN)
+        elif eq and _SHELL_EXPANSION_CHARS.isdisjoint(name) and _GLOB_CHARS.isdisjoint(name):
+            filled.append(name + "=" + _SHELL_VALUE_STANDIN)
+        else:
+            filled.append(arg)
+    return filled if command_words(filled)[:2] == command_words(args)[:2] else list(args)
+
+
 def daemon_profile_deny(args: "list[str]", matched: str, session_id: "str | None" = None) -> str:
     """The refusal for args `daemon_profile_allows` refused: the switch is told
     how the agent sets it (`switch_refusal`), upkeep that records less to ask
@@ -892,6 +989,9 @@ def daemon_profile_deny(args: "list[str]", matched: str, session_id: "str | None
     switch = switch_refusal(args, RESEARCHER_SWITCH_DENY, session_id)
     if switch is not None:
         return switch
+    compute, _changes = compute_command(args)
+    if compute is not None:
+        return COMPUTE_DIRECTED_DENY.format(matched="probe " + compute)  # never `/probe inline`
     key, offender = _check_upkeep(args)
     if key is not None and offender is None and needs_directed(args):
         return needs_directed(args)
@@ -1224,6 +1324,93 @@ def grants_auto(args: "list[str]") -> "str | None":
     return None
 
 
+#: REGISTERING GPUs (compute-any-chat-state): the main agent runs `probe compute` setup in every chat
+#: state and profile, so registering GPUs never waits on `/probe inline`. Reads, and the connect dry
+#: run, run with no flag; what changes the team's machines or their enrollment credentials runs with
+#: `--directed` (the person said yes to it), outside an inline chat. The daemon's own process never
+#: runs any of it: those commands are SETUP in its command rules (`command_rules.OWNERS`).
+COMPUTE_READS = frozenset({"compute nodes", "compute node", "compute clusters", "compute enroll-token list"})
+COMPUTE_CHANGES = frozenset(
+    {"compute connect", "compute disconnect", "compute enroll-token create", "compute enroll-token revoke"})
+#: ...and the change whose `--dry-run`, or no `--target`, only detects targets and prints each plan.
+COMPUTE_DRY_RUNS = frozenset({"compute connect"})
+DRY_RUN_FLAG = "--dry-run"
+COMPUTE_TARGET_FLAG = "--target"
+#: `compute connect`'s own flags that take no value but are not `NO_VALUE_OPTIONS` (one takes a value elsewhere).
+COMPUTE_CONNECT_BARE_FLAGS = frozenset({"--json"})
+
+#: A `COMPUTE_CHANGES` command without `--directed`, outside an inline chat (reason `directed_required`).
+COMPUTE_DIRECTED_DENY = (
+    "`{matched}` changes the team's machines or their enrollment credentials, so it was refused before it ran: "
+    "from an agent it runs only with `--directed`. Ask the person first, saying exactly what it changes; if they "
+    "say yes, run it again with `--directed`, never on your own."
+)
+
+
+def compute_command(args: "list[str]") -> "tuple[str | None, bool]":
+    """`(key, changes)` for `probe compute` setup these args (after `probe`) run: the `COMPUTE_READS` or
+    `COMPUTE_CHANGES` key, and whether it changes anything (a connect with a plain `--dry-run`, or naming no
+    `--target`, does not).
+    `(None, False)` for anything else. A `--dry-run` counts only as a flag click reads as one: before any
+    `--`, not the value of the option before it, and with no word the shell still expands before it."""
+    own = [arg for arg in args if arg != DIRECTED_FLAG]
+    words = command_words(own)
+    for key in (" ".join(words[:3]), " ".join(words[:2])):
+        if key in COMPUTE_READS:
+            return (key, False)
+        if key in COMPUTE_CHANGES:
+            return (key, not (key in COMPUTE_DRY_RUNS and (_plain_dry_run(own) or _names_no_target(own))))
+    return (None, False)
+
+
+def _names_no_target(args: "list[str]") -> bool:
+    """Does this `compute connect` name no target? Then it only detects targets and prints each plan, as
+    `compute clusters` tells the person to run it. Not where a word the shell still expands might be one."""
+    for arg in args:
+        if not _SHELL_EXPANSION_CHARS.isdisjoint(arg) or not _GLOB_CHARS.isdisjoint(arg):
+            return False
+        if arg.split("=", 1)[0] == COMPUTE_TARGET_FLAG:
+            return False
+    return True
+
+
+def _plain_dry_run(args: "list[str]") -> bool:
+    """Do these args carry `--dry-run` as the flag itself (`compute_command`)?"""
+    for at, arg in enumerate(args):
+        if arg == "--":
+            return False
+        if not _SHELL_EXPANSION_CHARS.isdisjoint(arg) or not _GLOB_CHARS.isdisjoint(arg):
+            return False
+        if arg == DRY_RUN_FLAG:
+            before = args[at - 1] if at else ""
+            return (not before.startswith("-") or "=" in before or before in NO_VALUE_OPTIONS
+                    or before in COMPUTE_CONNECT_BARE_FLAGS)
+    return False
+
+
+def _is_agent_recorded(session_id: str, state: str) -> bool:
+    """Is this chat inline: the agent records Probe itself (`on` in the agent profile, `/probe inline`
+    in the daemon profile)?"""
+    if state != STATE_FULL:
+        return False
+    return session_profile(session_id) != RECORDER_DAEMON or is_inline(session_id, state)
+
+
+def compute_refusal(args: "list[str]", session_id: "str | None" = None,
+                    state: "str | None" = None) -> "str | None":
+    """`COMPUTE_DIRECTED_DENY` for a `COMPUTE_CHANGES` command run without `--directed` outside an inline
+    chat, else None: reads and the dry run never, an inline chat keeps running changes with no flag, and a
+    chat with no stored state is not gated (as the CLI's gate leaves it; the daemon profile's guard still
+    asks `--directed` there, `daemon_profile_allows`)."""
+    key, changes = compute_command(args)
+    if key is None or not changes or carries_directed(args) or not session_id:
+        return None
+    state = state if state is not None else session_state(session_id)
+    if state is None or _is_agent_recorded(session_id, state):
+        return None
+    return COMPUTE_DIRECTED_DENY.format(matched="probe " + key)
+
+
 def needs_directed(args: "list[str]") -> "str | None":
     """The refusal for upkeep that runs from an agent only with `--directed` (what records less, or turns
     auto mode on) and was run without it, else None."""
@@ -1397,11 +1584,15 @@ def show_server(url: str) -> str:
 def agent_refusal(args: "list[str]", deny: str = INLINE_SWITCH_DENY,
                   session_id: "str | None" = None) -> "str | None":
     """What every chat state refuses an agent before anything else (T2, T3): its
-    move of this chat's switch (`switch_refusal`; `session_id` for auto), and what
-    records less without `--directed` (`DIRECTED_REQUIRED_DENY`). None when neither applies."""
+    move of this chat's switch (`switch_refusal`; `session_id` for auto), a change to the team's machines
+    outside an inline chat (`compute_refusal`), and what records less without `--directed`
+    (`DIRECTED_REQUIRED_DENY`), each without `--directed`. None when none applies."""
     switch = switch_refusal(args, deny, session_id)
     if switch is not None:
         return switch
+    compute = compute_refusal(args, session_id)
+    if compute is not None:
+        return compute
     return needs_directed(args)
 
 

@@ -7,6 +7,7 @@ import ast
 import asyncio
 import importlib
 import importlib.util
+import inspect
 import itertools
 import json
 import operator
@@ -20,9 +21,10 @@ import warnings
 from collections import UserDict, defaultdict
 from collections.abc import Callable as ABCCallable
 from collections.abc import Iterator, Sequence
-from contextlib import ExitStack, nullcontext, suppress
+from contextlib import AbstractContextManager, ExitStack, nullcontext, suppress
 from dataclasses import Field as DataclassField
-from dataclasses import is_dataclass
+from dataclasses import asdict, is_dataclass
+from dataclasses import fields as dataclass_fields
 from decimal import Decimal
 from functools import partial
 from http.server import ThreadingHTTPServer
@@ -82,6 +84,7 @@ from datamodel_code_generator.model.base import TEMPLATE_DIR, UNDEFINED
 from datamodel_code_generator.model.msgspec import DataModelField as MsgspecDataModelField
 from datamodel_code_generator.model.typed_dict import TypedDict as TypedDictModel
 from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+from tests.capabilities import needs
 from tests.checks.areas import CheckFailure
 from tests.conftest import (
     CHECK_SCHEMA_GRAPH_ENV,
@@ -4680,6 +4683,159 @@ def test_main_jsonschema_forwarded_class_beside_loaded_submodule(output_dir: Pat
         ("pkg.api", "Order", ['{"detail": {"message": "m"}, "warn": {"count": 1}}', '{"detail": {"message": 1}}']),
         ("pkg", "Warn", ['{"count": 1, "order": {"detail": {"message": "m"}}}', '{"count": "x"}']),
     ]
+    assert_output(_decoded_package_verdicts(output_dir, output_model_type, decoded), name="payloads")
+
+
+_FORWARDED_READ_OUTSIDE_CYCLE = "submodule_named_like_forwarded_class_read_outside_cycle.json"
+_FORWARDED_READ_OUTSIDE_CYCLE_DECODED = [
+    (
+        "pkg.report",
+        "Report",
+        [
+            (
+                '{"detail": {"message": "m"}, "warn": {"count": 1}, "details": [{"message": "a"}], "either": "s", '
+                '"by_code": {"x": {"message": "b"}}, "kind": "high", "trace": {"line": 3}}'
+            ),
+            '{"details": [{"message": 1}]}',
+        ],
+    ),
+    ("other", "Other", ['{"detail": {"message": "m"}}', '{"detail": {"message": 1}}']),
+    ("pkg.sub.leaf", "Leaf", ['{"detail": {"message": "m"}}', '{"detail": {"message": 1}}']),
+    ("pkg.extended", "Extended", ['{"message": "m", "code": "c"}', '{"message": 1}']),
+    (
+        "pkg.api",
+        "Order",
+        [
+            '{"detail": {"message": "m"}, "kind": "low", "trace": {"line": 1}, "shipment": {"weight": 2}}',
+            '{"kind": "mid"}',
+        ],
+    ),
+    ("pkg", "Warn", ['{"count": 1, "order": {"detail": {"message": "m"}}}', '{"count": "x"}']),
+]
+_FORWARDED_READ_OUTSIDE_CYCLE_FILES_DECODED = [
+    ("pkg.report", "Report", ['{"detail": {"message": "m"}}', '{"detail": {"message": 1}}']),
+    ("pkg", "Warn", ['{"count": 1, "order": {"detail": {"message": "m"}}}', '{"count": "x"}']),
+]
+
+
+@pytest.mark.parametrize(
+    ("input_name", "output_model_type", "extra_args", "decoded"),
+    [
+        *(
+            pytest.param(
+                _FORWARDED_READ_OUTSIDE_CYCLE,
+                output_model_type,
+                [],
+                _FORWARDED_READ_OUTSIDE_CYCLE_DECODED,
+                id=output_model_type,
+                marks=(needs("typed-dict-validation"),) if output_model_type == "typing.TypedDict" else (),
+            )
+            for output_model_type in (
+                "pydantic_v2.BaseModel",
+                "dataclasses.dataclass",
+                "msgspec.Struct",
+                "typing.TypedDict",
+                "pydantic_v2.dataclass",
+            )
+        ),
+        *(
+            pytest.param(
+                _FORWARDED_READ_OUTSIDE_CYCLE,
+                "pydantic_v2.BaseModel",
+                extra_args,
+                _FORWARDED_READ_OUTSIDE_CYCLE_DECODED,
+                id=param_id,
+                marks=(needs("native-deferred-annotations"),) if param_id == "py314" else (),
+            )
+            for extra_args, param_id in (
+                (["--all-exports-scope", "children"], "all-exports-children"),
+                (["--all-exports-scope", "recursive"], "all-exports-recursive"),
+                (["--use-exact-imports"], "exact-imports"),
+                (["--preset", "standard-py310-20261125"], "preset"),
+                (["--target-python-version", "3.14"], "py314"),
+                (["--set-default-enum-member"], "enum-default"),
+            )
+        ),
+        pytest.param(
+            "submodule_named_like_nested_forwarded_class_read_outside_cycle.json",
+            "pydantic_v2.BaseModel",
+            [],
+            [
+                ("a.b.report", "Report", ['{"detail": {"message": "m"}}', '{"detail": {"message": 1}}']),
+                ("a.c", "Other", ['{"detail": {"message": "m"}}', '{"detail": {"message": 1}}']),
+                ("a.b.sub.deep", "Leaf", ['{"detail": {"message": "m"}}', '{"detail": {"message": 1}}']),
+                ("a.b", "Warn", ['{"count": 1, "order": {"detail": {"message": "m"}}}', '{"count": "x"}']),
+            ],
+            id="nested",
+        ),
+        pytest.param(
+            "submodule_named_like_root_forwarded_class_read_outside_cycle.json",
+            "pydantic_v2.BaseModel",
+            [],
+            [
+                (
+                    "report",
+                    "Report",
+                    ['{"detail": {"message": "m"}, "warn": {"count": 1}}', '{"detail": {"message": 1}}'],
+                ),
+                ("", "Warn", ['{"count": 1, "order": {"detail": {"message": "m"}}}', '{"count": "x"}']),
+            ],
+            id="root",
+        ),
+        *(
+            pytest.param(
+                "submodule_named_like_forwarded_class_files",
+                "pydantic_v2.BaseModel",
+                extra_args,
+                _FORWARDED_READ_OUTSIDE_CYCLE_FILES_DECODED,
+                id=param_id,
+            )
+            for extra_args, param_id in (
+                ([], "directory"),
+                (["--treat-dot-as-module"], "directory-treat-dot-as-module"),
+                (["--treat-dot-as-module", "--all-exports-scope", "children"], "directory-all-exports-children"),
+            )
+        ),
+    ],
+)
+def test_main_jsonschema_forwarded_class_read_outside_cycle(
+    output_dir: Path,
+    input_name: str,
+    output_model_type: str,
+    extra_args: list[str],
+    decoded: list[tuple[str, str, list[str]]],
+) -> None:
+    """Import a model of a submodule from it in a module outside the cycle where ``__init__.py`` forwards its class.
+
+    An import cycle merge moves ``pkg.Warn`` and ``pkg.api.Order`` into ``pkg/_internal.py``, which imports
+    ``pkg/Warn.py`` for ``Order.detail`` while ``pkg/__init__.py`` (``from ._internal import Warn``) runs, so the class
+    takes the name after the module. ``pkg.report``, ``other`` and ``pkg.sub.leaf`` run after the package and wrote
+    ``from . import Warn`` with ``Warn.Detail``, which read the class: the module failed to import, or with a
+    dataclass, a Struct or a TypedDict to decode (#7443). They now import ``Detail`` from ``pkg/Warn.py``, in a list, a
+    union, a dict and an enum default as well, and so does a module that reads ``pkg/Warn/deep.py``, a module below
+    the submodule as a package. A module that the package loads while it runs keeps the module form: ``_internal``
+    and, under ``--all-exports-scope``, ``pkg.sub.leaf``, which the export imports of the empty package ``pkg.sub``
+    load. A base class was imported from the submodule already, and so was every model under ``--use-exact-imports``,
+    or where the preset renames the submodule; the same holds for a root package that forwards the class, a nested
+    package, whose merge takes the module along, and a directory input. The package is imported as Python imports it,
+    a package before its modules.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / input_name,
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            output_model_type,
+            "--target-python-version",
+            "3.10",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+            *extra_args,
+        ],
+        skip_code_validation=True,
+    )
     assert_output(_decoded_package_verdicts(output_dir, output_model_type, decoded), name="payloads")
 
 
@@ -21036,6 +21192,182 @@ def test_main_use_generic_base_class_msgspec_forbid(output_file: Path) -> None:
     )
 
 
+_GENERIC_BASE_CLASS_DATACLASS = ("--output-model-type", "pydantic_v2.dataclass", "--use-generic-base-class")
+_GENERIC_BASE_CLASS_LEFT_OUT = "--use-generic-base-class writes no base class"
+_GENERIC_BASE_CLASS_ONE_GENERATION = ("--formatters", "builtin")
+
+
+def _left_out_warnings(recwarn: pytest.WarningsRecorder) -> str:
+    """Return the warnings that name the configuration a generic base class run leaves out, one per line."""
+    return "".join(
+        f"{warning.message}\n"
+        for warning in recwarn
+        if warning.category is UserWarning and _GENERIC_BASE_CLASS_LEFT_OUT in str(warning.message)
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_name", "options"),
+    [
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--extra-fields", "forbid", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="extra-forbid",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--extra-fields", "allow", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="extra-allow",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--extra-fields", "ignore", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="extra-ignore",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--allow-extra-fields", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="allow-extra",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--allow-population-by-field-name", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="populate-by-name",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            (
+                "--allow-population-by-field-name",
+                "--target-pydantic-version",
+                "2.11",
+                *_GENERIC_BASE_CLASS_DATACLASS,
+            ),
+            id="validate-by-name-2.11",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--use-attribute-docstrings", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="attr-docstrings",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--extra-fields", "forbid", "--allow-population-by-field-name", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="forbid-and-populate",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            (
+                "--extra-fields",
+                "forbid",
+                "--use-msgspec-forbid-unknown-fields",
+                *_GENERIC_BASE_CLASS_DATACLASS,
+            ),
+            id="forbid-msgspec-forbid-unknown-fields",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--enable-faux-immutability", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="frozen",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--target-pydantic-version", "2.11", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="target-pydantic-version-only",
+        ),
+        pytest.param(
+            "extra_fields.json",
+            ("--extra-fields", "forbid", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="own-config-extra-forbid",
+        ),
+        pytest.param(
+            "use_generic_base_class_with_inheritance.json",
+            ("--extra-fields", "forbid", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="inheritance-extra-forbid",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--preset", "practical-py314-20261027", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="preset",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--extra-fields", "forbid", "--output-model-type", "typing.TypedDict", "--use-generic-base-class"),
+            id="typed-dict-extra-forbid",
+        ),
+        pytest.param(
+            "use_generic_base_class_simple.json",
+            ("--extra-fields", "forbid", "--output-model-type", "pydantic_v2.BaseModel", "--use-generic-base-class"),
+            id="base-model-extra-forbid",
+        ),
+        pytest.param(
+            "use_generic_base_class_enum_only.json",
+            ("--extra-fields", "forbid", *_GENERIC_BASE_CLASS_DATACLASS),
+            id="enum-only-extra-forbid",
+        ),
+    ],
+)
+def test_main_use_generic_base_class_pydantic_dataclass(
+    output_file: Path, recwarn: pytest.WarningsRecorder, input_name: str, options: tuple[str, ...]
+) -> None:
+    """Warn that --use-generic-base-class leaves out the configuration a pydantic dataclass writes on each class.
+
+    The dataclass has no base class to carry the run's configuration, so the module is the one written before; the
+    warning names the items the run without the flag writes. A type that writes none of the run's configuration
+    (TypedDict, frozen, a bare target version), one with a base class, and an output without a target model stay
+    silent. The run names the built-in formatter, so the test harness does not generate a second time to compare
+    formatters: that run would record the warning again.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / input_name,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=(*_GENERIC_BASE_CLASS_ONE_GENERATION, *options),
+    )
+    assert_output(_left_out_warnings(recwarn), name="warnings")
+
+
+def test_main_use_generic_base_class_pydantic_dataclass_extra_template_data(
+    output_file: Path, recwarn: pytest.WarningsRecorder
+) -> None:
+    """Name only the run-level item in the warning: the config of --extra-template-data stays on the dataclass."""
+    extra_template_data = output_file.with_name("extra_template_data.json")
+    extra_template_data.write_text(json.dumps({"#all#": {"config": {"str_strip_whitespace": True}}}), encoding="utf-8")
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "use_generic_base_class_simple.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *_GENERIC_BASE_CLASS_ONE_GENERATION,
+            "--extra-template-data",
+            str(extra_template_data),
+            "--extra-fields",
+            "forbid",
+            *_GENERIC_BASE_CLASS_DATACLASS,
+        ],
+    )
+    assert_output(_left_out_warnings(recwarn), name="warnings")
+
+
+def test_main_use_generic_base_class_pydantic_dataclass_package(
+    output_dir: Path, recwarn: pytest.WarningsRecorder
+) -> None:
+    """Warn once for a package output: no module gets the configuration and every module is the one written before."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "use_generic_base_class_with_inheritance.json",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            *_GENERIC_BASE_CLASS_ONE_GENERATION,
+            "--extra-fields",
+            "forbid",
+            *_GENERIC_BASE_CLASS_DATACLASS,
+            "--module-split-mode",
+            "single",
+        ],
+    )
+    assert_output(_left_out_warnings(recwarn), name="warnings")
+
+
 def test_main_jsonschema_same_name_objects(output_file: Path) -> None:
     """Test objects with same name (see issue #2460)."""
     run_main_and_assert(
@@ -36230,7 +36562,11 @@ def test_msgspec_inheritance_preserve_other_backends(
 
 @pytest.mark.parametrize("entrypoint", ["cli", "api"])
 def test_msgspec_inheritance_preserve_mixed_opaque_layout(output_file: Path, entrypoint: str) -> None:
-    """Keep opaque ancestry conservative even after a known compact conflict."""
+    """Flatten the join whose bases conflict whatever a configured class holds, and leave a base below one as it is.
+
+    ``Payload`` flattens, as ``LeftOuter`` and ``RightInner`` conflict; ``RightOuter`` still fails to import, as only
+    the slots of its configured class, which the generator does not read, conflict with those of ``RightInner``.
+    """
     if entrypoint == "cli":
         run_main_and_assert(
             input_path=MSGSPEC_INHERITANCE_DATA / "dry_opaque.json",
@@ -36249,6 +36585,46 @@ def test_msgspec_inheritance_preserve_mixed_opaque_layout(output_file: Path, ent
     with pytest.raises(TypeError) as error:
         _assert_python_module_importable(output_file, "generated_mixed_opaque", "Payload")
     assert_output(f"{error.value}\n", name="dry_opaque")
+
+
+def test_msgspec_inheritance_configured_base_modular(output_dir: Path) -> None:
+    """Flatten a join of another module's bases that conflict below a configured class, changing only its module."""
+    import msgspec
+
+    run_main_and_assert(
+        input_path=MSGSPEC_INHERITANCE_DATA / "configured_base_modular",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "msgspec.Struct",
+            "--disable-timestamp",
+            "--base-class-map",
+            '{"J": "msgspec.inspect.Type"}',
+        ],
+    )
+    with _generated_package_module(output_dir, "payload") as module:
+        assert_output(json.dumps(msgspec.to_builtins(msgspec.convert({"j": 1, "k": 2}, type=module.Payload))) + "\n")
+        with pytest.raises(msgspec.ValidationError):
+            msgspec.convert({"j": "s"}, type=module.Payload)
+
+
+def test_msgspec_inheritance_configured_base_preset() -> None:
+    """Flatten a join whose bases conflict below a configured class under a dated preset."""
+    run_main_and_assert(
+        input_path=MSGSPEC_INHERITANCE_DATA / "jsonschema_configured_parent_defaults.json",
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "msgspec.Struct",
+            "--disable-timestamp",
+            "--preset",
+            "standard-py310-20261125",
+            "--base-class-map",
+            '{"J": "msgspec.inspect.Type"}',
+        ],
+        force_exec_validation=True,
+    )
 
 
 _EXPORT_CASES = [
@@ -37583,6 +37959,193 @@ def test_field_name_bindings(
         assert_output(
             json.dumps(observations, ensure_ascii=False, indent=2) + "\n",
             name="runtime",
+        )
+
+
+_DATACLASS_BASES_PATH = JSON_SCHEMA_DATA_PATH / "field_name_bindings_dataclass_bases"
+_DATACLASS_BASES_SAMPLE = {
+    "user": "u",
+    "home": {"city": "c"},
+    "billing_address": {"city": "b"},
+    "level": 1,
+    "date": "2026-01-02",
+    "when": "2026-01-03",
+    "name": "n",
+    "label": "7",
+    "str": 1,
+    "tag": "abc",
+}
+_SLOTS = ["--dataclass-arguments", '{"slots": true}']
+
+
+def _dataclass_bases_observations(output_dir: Path, sample: dict[str, object]) -> str:
+    """Import every module of the package and describe the dataclasses it defines and a value of each."""
+    observations: dict[str, dict[str, object]] = {}
+    for path in sorted(output_dir.glob("*.py")):
+        if path.stem == "__init__":
+            continue
+        with _generated_package_module(output_dir, path.stem) as module:
+            observations[path.stem] = {
+                cls.__name__: {
+                    "signature": str(inspect.signature(cls)),
+                    "value": asdict(TypeAdapter(cls).validate_python(_dataclass_bases_values(cls, sample)))
+                    if hasattr(cls, "__pydantic_validator__")
+                    else None,
+                }
+                for cls in vars(module).values()
+                if is_dataclass(cls) and isinstance(cls, type) and cls.__module__ == module.__name__
+            }
+    return json.dumps(observations, indent=2, default=str) + "\n"
+
+
+def _dataclass_bases_values(cls: type, sample: dict[str, object]) -> dict[str, object]:
+    """Return the values of ``sample`` for the fields of a dataclass, by ``Class.field`` first."""
+    return {
+        field.name: sample.get(f"{cls.__name__}.{field.name}", sample.get(field.name))
+        for field in dataclass_fields(cls)
+        if f"{cls.__name__}.{field.name}" in sample or field.name in sample
+    }
+
+
+@pytest.mark.parametrize(
+    ("case", "backend", "args", "sample"),
+    [
+        pytest.param("qualifier", "pydantic_v2.dataclass", [], {}, id="qualifier"),
+        pytest.param("qualifier", "pydantic_v2.dataclass", ["--no-use-union-operator"], {}, id="qualifier_optional"),
+        pytest.param(
+            "qualifier",
+            "pydantic_v2.dataclass",
+            ["--preset", "standard-py312-20261125"],
+            {},
+            id="preset",
+            marks=needs("type-statements"),
+        ),
+        pytest.param("qualifier", "pydantic_v2.dataclass", _SLOTS, {}, id="slots"),
+        pytest.param("qualifier_required", "pydantic_v2.dataclass", _SLOTS, {}, id="slots_required"),
+        pytest.param(
+            "annotated",
+            "pydantic_v2.dataclass",
+            ["--use-annotated", "--field-constraints", "--use-schema-description", "--set-default-enum-member"],
+            {"Invoice.home": [{"city": "c"}]},
+            id="annotated",
+        ),
+        pytest.param(
+            "annotated",
+            "pydantic_v2.dataclass",
+            ["--field-constraints"],
+            {"Invoice.home": [{"city": "c"}]},
+            id="field_default",
+        ),
+        pytest.param("chain", "pydantic_v2.dataclass", [], {}, id="chain"),
+        pytest.param("from_import", "pydantic_v2.dataclass", [], {}, id="from_import"),
+        pytest.param("builtin_other_module", "pydantic_v2.dataclass", [], {}, id="builtin_other_module"),
+        pytest.param(
+            "qualifier",
+            "pydantic_v2.dataclass",
+            ["--target-python-version", "3.14"],
+            {},
+            id="py314",
+            marks=needs("type-statements"),
+        ),
+        pytest.param("no_redeclare", "pydantic_v2.dataclass", [], {}, id="no_redeclare"),
+        pytest.param("own_and_inherited", "pydantic_v2.dataclass", [], {"Place.str": "s"}, id="own_and_inherited"),
+        pytest.param("import_cycle", "pydantic_v2.dataclass", [], {}, id="import_cycle"),
+        pytest.param("qualifier_required", "pydantic_v2.dataclass", [], {}, id="required_base"),
+        pytest.param("own_field", "pydantic_v2.dataclass", [], {}, id="own_field"),
+        pytest.param("from_import", "pydantic_v2.dataclass", ["--no-use-union-operator"], {}, id="optional_form"),
+        pytest.param(
+            "double_collision",
+            "pydantic_v2.dataclass",
+            ["--use-tuple-for-fixed-items"],
+            {"pair": ["2026-01-02", "x"]},
+            id="double_collision",
+        ),
+        pytest.param(
+            "alias_of_builtin",
+            "pydantic_v2.dataclass",
+            ["--type-overrides", '{"Item.amount": "decimal.Decimal"}'],
+            {},
+            id="alias_of_builtin",
+        ),
+        pytest.param(
+            "alias_of_import",
+            "pydantic_v2.dataclass",
+            ["--type-overrides", '{"Item.amount": "decimal.Decimal", "Concert.label": "decimal.Decimal"}'],
+            {},
+            id="alias_of_import",
+        ),
+        *(
+            pytest.param("qualifier", backend, [], {}, id=f"qualifier-{backend}")
+            for backend in ("pydantic_v2.BaseModel", "dataclasses.dataclass", "msgspec.Struct", "typing.TypedDict")
+        ),
+    ],
+)
+def test_field_name_bindings_of_dataclass_bases(
+    output_dir: Path, case: str, backend: str, args: list[str], sample: dict[str, object]
+) -> None:
+    """Import every module where a redeclared field's annotation loads a name that a dataclass base binds.
+
+    Pydantic evaluates the string annotation of such a field in the namespace of the base too, where the class body
+    binds the name of a field of the base (``None`` for a default of ``None``, a ``member_descriptor`` for a field of a
+    class with slots): the module that holds the redeclaring class imports the name under an alias. In the
+    ``alias_of_*`` cases a base declares a field named like the alias that the names a class hides were given before,
+    so the alias is renamed again and the annotations write the last one.
+    """
+    run_main_and_assert(
+        input_path=_DATACLASS_BASES_PATH / case,
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            backend,
+            *(() if "--preset" in args or "--target-python-version" in args else ("--target-python-version", "3.10")),
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+            *args,
+        ],
+    )
+    assert_output(_dataclass_bases_observations(output_dir, {**_DATACLASS_BASES_SAMPLE, **sample}), suffix=".json")
+
+
+@pytest.mark.parametrize(
+    ("input_name", "args"),
+    [
+        pytest.param("same_module.json", [], id="same_module"),
+        pytest.param(
+            "renamed_class.json",
+            ["--type-overrides", '{"Item.amount": "decimal.Decimal", "Item.when": "datetime.date"}'],
+            id="renamed_class",
+        ),
+    ],
+)
+def test_field_name_bindings_of_dataclass_base_of_the_module(
+    output_file: Path, input_name: str, args: list[str]
+) -> None:
+    """Import a module whose dataclass redeclares a field of a base of the same module with a hidden builtin.
+
+    ``renamed_class`` has a class that takes the name of an overridden type, so the names the imports hide are bound
+    before the models render, and the inherited ones in the rendered texts after them.
+    """
+    run_main_and_assert(
+        input_path=_DATACLASS_BASES_PATH / input_name,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--target-python-version",
+            "3.10",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+            *args,
+        ],
+    )
+    with _generated_model(output_file, "dataclass_base_of_the_module", "Concert") as model:
+        assert_output(
+            json.dumps(asdict(TypeAdapter(model).validate_python({"str": 1, "label": "7"})), indent=2) + "\n",
+            suffix=".json",
         )
 
 
@@ -42160,3 +42723,40 @@ def test_read_refs_in_their_resources_first_input_dialect(tmp_path: Path, output
                 "builtin",
             ],
         )
+
+
+@pytest.mark.parametrize(
+    "directories",
+    [
+        pytest.param(("orders", "users"), id="two"),
+        pytest.param(("billing", "orders", "users"), id="three"),
+        pytest.param(("v1/orders", "v1/users", "v2/orders", "v2/users"), id="nested"),
+    ],
+)
+def test_directory_input_same_named_files_order(
+    tmp_path: Path, directories: tuple[str, ...], directory_listing: ABCCallable[..., AbstractContextManager[None]]
+) -> None:
+    """Files of one name in different subdirectories get the same numbered class names whatever the listing order."""
+    schemas = tmp_path / "schemas"
+    for directory in directories:
+        (schemas / directory).mkdir(parents=True)
+        (schemas / directory / "schema.json").write_text(
+            json.dumps({
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "title": directory.replace("/", "_").title(),
+                "type": "object",
+                "properties": {"status": {"type": "object", "properties": {"code": {"type": "integer"}}}},
+                "definitions": {"Status": {"type": "string", "enum": ["open", "closed"]}},
+                "required": ["status"],
+            }),
+            encoding="utf-8",
+        )
+    for reverse in (False, True):
+        with directory_listing(reverse=reverse):
+            run_main_and_assert(
+                input_path=schemas,
+                output_path=tmp_path / f"model-{reverse}",
+                input_file_type="jsonschema",
+                extra_args=["--disable-timestamp", "--formatters", "builtin"],
+                name="model",
+            )

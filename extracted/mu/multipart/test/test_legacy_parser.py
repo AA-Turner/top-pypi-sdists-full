@@ -113,7 +113,7 @@ class TestMultipartParser(BaseParserTest):
         self.assertEqual(part.size, 3)
         self.assertEqual(part.name, "file1")
         self.assertEqual(part.filename, "random.png")
-        self.assertEqual(part.charset, "utf8")
+        self.assertEqual(part.charset, "utf-8")
         self.assertEqual(part.headerlist, [
             ('Content-Disposition','form-data; name="file1"; filename="random.png"'),
             ('Content-Type','image/png')

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..compat import StrEnum
 from .compute import (
     MAX_GPUS_PER_NODE,
     MAX_LABELS,
@@ -16,6 +17,15 @@ from .compute import (
     NodeKeySource,
     Pricing,
 )
+
+
+class EnrollmentTokenKind(StrEnum):
+    """How often an enrollment token enrolls (control/099). Named at every mint: neither is a silent default."""
+
+    #: One machine, at most 2 h, enrolls once; then only the node it made may enroll again, with its credential.
+    SINGLE_USE = "single_use"
+    #: Many enrollments until it expires (a Helm DaemonSet, pod and container jobs, the SkyPilot reporters).
+    REUSABLE = "reusable"
 
 
 class ClusterEvidence(BaseModel):

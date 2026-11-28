@@ -218,13 +218,13 @@ class Form(ElementBase):
             if isinstance(field, dict):
                 self.add_reported(**field)
             else:
-                reported = self.xml.find('{%s}reported' % self.namespace)
-                if reported is None:
-                    reported = ET.Element('{%s}reported' % self.namespace)
-                    self.xml.append(reported)
+                reported_element = self.xml.find('{%s}reported' % self.namespace)
+                if reported_element is None:
+                    reported_element = ET.Element('{%s}reported' % self.namespace)
+                    self.xml.append(reported_element)
 
                 fieldXML = ET.Element('{%s}field' % FormField.namespace)
-                reported.append(fieldXML)
+                reported_element.append(fieldXML)
                 new_field = FormField(xml=fieldXML)
                 new_field.values = field.values
 

@@ -135,6 +135,7 @@ class RenderFact(Enum):
     DEFAULT_EXPRESSION = "default_expression"
     IMPORT_ALIASES = "import_aliases"
     TYPE_ALIAS_BODY = "type_alias_body"
+    HINT_BODY_TYPES = "hint_body_types"
     SET_ITEM_HASH = "set_item_hash"
     CLASS_NAMES = "class_names"
     MODULE_MEMBERSHIP = "module_membership"
@@ -183,6 +184,7 @@ RENDER_FACT_FREEZE_POINTS: dict[RenderFact, FreezePoint] = {
     RenderFact.DEFAULT_EXPRESSION: FreezePoint.B2,
     RenderFact.IMPORT_ALIASES: FreezePoint.RENDER,
     RenderFact.TYPE_ALIAS_BODY: FreezePoint.B2,
+    RenderFact.HINT_BODY_TYPES: FreezePoint.B2,
     RenderFact.SET_ITEM_HASH: FreezePoint.B2,
     RenderFact.CLASS_NAMES: FreezePoint.RENDER,
     RenderFact.MODULE_MEMBERSHIP: FreezePoint.RENDER,
@@ -861,6 +863,16 @@ ATTRIBUTE_FACTS: tuple[AttributeFact, ...] = (
     ),
     AttributeFact(
         "DataModelFieldBase",
+        "_HINT_BODY_TYPES_KEY",
+        FactKind.PRESENTATION,
+        (RenderFact.HINT_BODY_TYPES,),
+        Phase.RENDER_PREPARATION,
+        FreezePoint.B2,
+        store_ops=("record_hint_body_types",),
+        access=Access.DICT_KEY,
+    ),
+    AttributeFact(
+        "DataModelFieldBase",
         "_forced_field_assignment",
         FactKind.PRESENTATION,
         (RenderFact.FORCED_ASSIGNMENT,),
@@ -931,6 +943,15 @@ ATTRIBUTE_FACTS: tuple[AttributeFact, ...] = (
         FactKind.BOOKKEEPING,
         (),
         Phase.PARSE,
+        None,
+        access=Access.DICT_KEY,
+    ),
+    AttributeFact(
+        "DataModelFieldBase",
+        "_EXPLICIT_FIELD_ALIAS_KEY",
+        FactKind.BOOKKEEPING,
+        (),
+        Phase.MODULES,
         None,
         access=Access.DICT_KEY,
     ),
@@ -1208,6 +1229,7 @@ ATTRIBUTE_FACTS: tuple[AttributeFact, ...] = (
     AttributeFact(
         "Reference", "_DERIVED_FROM_KEY", FactKind.BOOKKEEPING, (), Phase.PARSE, None, access=Access.DICT_KEY
     ),
+    AttributeFact("Reference", "NAME_REQUEST_KEY", FactKind.BOOKKEEPING, (), Phase.PARSE, None, access=Access.DICT_KEY),
     AttributeFact(
         "Reference", "FIELDLESS_SITE_KEY", FactKind.BOOKKEEPING, (), Phase.PARSE, None, access=Access.DICT_KEY
     ),

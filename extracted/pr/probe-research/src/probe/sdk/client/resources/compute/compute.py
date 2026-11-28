@@ -7,6 +7,8 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import quote
 
+from probe.generated.enums import EnrollmentTokenKind
+
 from .... import errors
 
 
@@ -52,16 +54,22 @@ class ComputeMixin:
         self,
         name: str,
         *,
+        kind: str,
         labels: Mapping[str, str] | None = None,
         max_nodes: int | None = None,
         expires_in_seconds: int | None = None,
         runs_submit_key_id: str | None = None,
     ) -> dict[str, Any]:
         """``POST /v1/compute/enrollment-tokens``: the new token, its secret included this once.
+        ``kind`` (required): ``"single_use"`` installs one machine within 2 h (no ``max_nodes`` above 1);
+        ``"reusable"`` enrolls until it expires (a cluster, pod jobs, many hosts).
         ``runs_submit_key_id``: a SkyPilot queue reader's server key (yours), revoked with the token's cluster."""
         if not str(name or "").strip():
             raise errors.ValidationError("name the enrollment token")
-        body: dict[str, Any] = {"name": str(name).strip()}
+        kinds = [item.value for item in EnrollmentTokenKind]
+        if str(kind) not in kinds:
+            raise errors.ValidationError(f"kind is one of {', '.join(kinds)}")
+        body: dict[str, Any] = {"name": str(name).strip(), "kind": str(kind)}
         if labels:
             body["labels"] = dict(labels)
         if max_nodes is not None:

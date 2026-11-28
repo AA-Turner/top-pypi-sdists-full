@@ -5748,6 +5748,8 @@ class RuleDomainValue(enum.Enum):
     jsii_struct_bases=[],
     name_mapping={
         "astro": "astro",
+        "biome_plugin": "biomePlugin",
+        "convex": "convex",
         "drizzle": "drizzle",
         "next": "next",
         "playwright": "playwright",
@@ -5770,6 +5772,8 @@ class RuleDomains:
         self,
         *,
         astro: typing.Optional["RuleDomainValue"] = None,
+        biome_plugin: typing.Optional["RuleDomainValue"] = None,
+        convex: typing.Optional["RuleDomainValue"] = None,
         drizzle: typing.Optional["RuleDomainValue"] = None,
         next: typing.Optional["RuleDomainValue"] = None,
         playwright: typing.Optional["RuleDomainValue"] = None,
@@ -5788,6 +5792,8 @@ class RuleDomains:
     ) -> None:
         '''
         :param astro: 
+        :param biome_plugin: 
+        :param convex: 
         :param drizzle: 
         :param next: 
         :param playwright: 
@@ -5810,6 +5816,8 @@ class RuleDomains:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d48381bffa9c2b0ef8e9116898fdc56e984cd30d1a51b6e379dc5c999a8b5336)
             check_type(argname="argument astro", value=astro, expected_type=type_hints["astro"])
+            check_type(argname="argument biome_plugin", value=biome_plugin, expected_type=type_hints["biome_plugin"])
+            check_type(argname="argument convex", value=convex, expected_type=type_hints["convex"])
             check_type(argname="argument drizzle", value=drizzle, expected_type=type_hints["drizzle"])
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
             check_type(argname="argument playwright", value=playwright, expected_type=type_hints["playwright"])
@@ -5828,6 +5836,10 @@ class RuleDomains:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if astro is not None:
             self._values["astro"] = astro
+        if biome_plugin is not None:
+            self._values["biome_plugin"] = biome_plugin
+        if convex is not None:
+            self._values["convex"] = convex
         if drizzle is not None:
             self._values["drizzle"] = drizzle
         if next is not None:
@@ -5866,6 +5878,24 @@ class RuleDomains:
         :schema: RuleDomains#astro
         '''
         result = self._values.get("astro")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def biome_plugin(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#biomePlugin
+        '''
+        result = self._values.get("biome_plugin")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def convex(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#convex
+        '''
+        result = self._values.get("convex")
         return typing.cast(typing.Optional["RuleDomainValue"], result)
 
     @builtins.property
@@ -7748,6 +7778,8 @@ def _typecheckingstub__15d4ec259e2481f14109da78900e918d2d10bde9b57b737b5c0ac7d4d
 def _typecheckingstub__d48381bffa9c2b0ef8e9116898fdc56e984cd30d1a51b6e379dc5c999a8b5336(
     *,
     astro: typing.Optional[RuleDomainValue] = None,
+    biome_plugin: typing.Optional[RuleDomainValue] = None,
+    convex: typing.Optional[RuleDomainValue] = None,
     drizzle: typing.Optional[RuleDomainValue] = None,
     next: typing.Optional[RuleDomainValue] = None,
     playwright: typing.Optional[RuleDomainValue] = None,

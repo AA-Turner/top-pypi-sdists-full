@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from tensor_grep.cli.repo_map_fast_cache import resolve_canonical_cache_root
 from tensor_grep.cli.symbols_cache_auth import load_machine_key
 from tensor_grep.cli.symbols_cache_io import (
     cache_lock,
@@ -101,11 +102,20 @@ def collect_source_address_entries(
     files: Iterable[str | Path],
 ) -> list[tuple[str, int, int]]:
     """Collect sorted ``(rel_posix_path, mtime_ns, size)`` entries for regular files."""
-    resolved_root = Path(repo_root).resolve()
+    input_root = Path(repo_root).expanduser().resolve()
+    resolved_root = resolve_canonical_cache_root(input_root)
     entries_by_rel: dict[str, tuple[int, int]] = {}
     for raw in files:
         fp = Path(raw)
-        abs_fp = fp if fp.is_absolute() else resolved_root / fp
+        if fp.is_absolute():
+            abs_fp = fp
+        else:
+            candidate_root = resolved_root / fp
+            abs_fp = (
+                candidate_root
+                if candidate_root.exists() or input_root == resolved_root
+                else input_root / fp
+            )
         try:
             rel_posix = abs_fp.relative_to(resolved_root).as_posix()
         except ValueError:
@@ -114,6 +124,10 @@ def collect_source_address_entries(
             except ValueError:
                 continue
         if not rel_posix or rel_posix.startswith(".."):
+            continue
+        try:
+            validate_confined_parent_prefix(resolved_root, abs_fp)
+        except OSError:
             continue
         stat_pair = _lstat_regular(abs_fp)
         if stat_pair is None:
@@ -149,8 +163,9 @@ def build_source_address_contract(
     files: Iterable[str | Path],
 ) -> tuple[str, dict[str, Any]]:
     """Build generation Merkle root and source-address contract dictionary."""
-    resolved_root = Path(repo_root).resolve()
-    entries = collect_source_address_entries(resolved_root, files)
+    scope_root = Path(repo_root).resolve()
+    resolved_root = resolve_canonical_cache_root(scope_root)
+    entries = collect_source_address_entries(scope_root, files)
     if not entries:
         merkle_root = hashlib.sha256(b"tg-merkle-empty-v1\0").hexdigest()
     else:
@@ -175,31 +190,55 @@ def build_source_address_contract(
     return merkle_root, contract
 
 
-def _stat_confined_regular_artifact(repo_root: Path, path: Path) -> tuple[int, int, int] | None:
+_MAX_ARTIFACT_HASH_BYTES = 512 * 1024 * 1024
+
+
+def _hash_confined_regular_artifact(repo_root: Path, path: Path) -> str | None:
+    from tensor_grep.io.root_probe import open_regular_nontraversing_fd
+
     try:
         validate_confined_parent_prefix(repo_root, path)
-        st = path.lstat()
+        fd = open_regular_nontraversing_fd(path)
     except OSError:
         return None
-    if (
-        not stat.S_ISREG(st.st_mode)
-        or (getattr(st, "st_file_attributes", 0) & _REPARSE_ATTR)
-        or st.st_nlink != 1
-    ):
+    if fd is None:
         return None
-    return int(st.st_size), int(st.st_mtime_ns), int(st.st_ino)
+    hasher = hashlib.sha256()
+    total = 0
+    try:
+        with os.fdopen(fd, "rb") as handle:
+            st = os.fstat(handle.fileno())
+            if (
+                not stat.S_ISREG(st.st_mode)
+                or st.st_nlink != 1
+                or st.st_size > _MAX_ARTIFACT_HASH_BYTES
+            ):
+                return None
+            validate_confined_parent_prefix(repo_root, path)
+            while True:
+                chunk = handle.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > _MAX_ARTIFACT_HASH_BYTES:
+                    return None
+                hasher.update(chunk)
+    except OSError:
+        return None
+    return hasher.hexdigest()
 
 
 def compute_view_artifact_fingerprint(repo_root: Path, view_name: str) -> str | None:
-    """Return a confined regular-file fingerprint for ``hybrid_v1`` or ``index_v1``, else None."""
-    resolved_root = Path(repo_root).resolve()
-    if view_name == "hybrid_v1":
-        fp = _stat_confined_regular_artifact(
-            resolved_root, resolved_root / ".tg_cache" / "hybrid_v1" / "index.sqlite3"
-        )
-        if fp is None:
-            return None
-        return hashlib.sha256(f"{fp[0]}:{fp[1]}:{fp[2]}".encode()).hexdigest()
+    """Return a confined regular-file SHA-256 content digest for cached view artifacts, else None."""
+    resolved_root = resolve_canonical_cache_root(repo_root)
+    rel_map = {
+        "hybrid_v1": Path(".tg_cache") / "hybrid_v1" / "index.sqlite3",
+        "symbols_v1": Path(".tg_cache") / "symbols_v1" / "metadata.sqlite3",
+        "graph_v1": Path(".tg_cache") / "graph_v1" / "incremental_edges.sqlite3",
+        "prepare_v1": Path(".tg_cache") / "prepare_v1" / "repo_map_cache.json",
+    }
+    if view_name in rel_map:
+        return _hash_confined_regular_artifact(resolved_root, resolved_root / rel_map[view_name])
     if view_name == "index_v1":
         index_dir = resolved_root / ".tg_cache" / "index_v1"
         try:
@@ -216,10 +255,10 @@ def compute_view_artifact_fingerprint(repo_root: Path, view_name: str) -> str | 
             return None
         digest = hashlib.sha256()
         for candidate in candidates:
-            fp = _stat_confined_regular_artifact(resolved_root, candidate)
-            if fp is None:
+            file_hash = _hash_confined_regular_artifact(resolved_root, candidate)
+            if file_hash is None:
                 return None
-            digest.update(f"{candidate.name}:{fp[0]}:{fp[1]}:{fp[2]}\0".encode())
+            digest.update(f"{candidate.name}:{file_hash}\0".encode())
         return digest.hexdigest()
     return None
 
@@ -232,7 +271,7 @@ def load_unified_manifest(
     """Load and HMAC-verify ``.tg_cache/manifest_v1.json``; fail closed on tamper/unsigned."""
     if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
         return None
-    resolved_root = Path(repo_root).resolve()
+    resolved_root = resolve_canonical_cache_root(repo_root)
     signing_key = load_machine_key(resolved_root)
     if signing_key is None:
         return None
@@ -334,7 +373,13 @@ def check_view_freshness(
             and entry.get("merkle_root") == current_merkle_root
             and entry.get("ready") is True
         )
-        if is_fresh and view_name in ("hybrid_v1", "index_v1"):
+        if is_fresh and view_name in (
+            "hybrid_v1",
+            "index_v1",
+            "symbols_v1",
+            "graph_v1",
+            "prepare_v1",
+        ):
             if resolved_root is None:
                 is_fresh = False
             else:
@@ -374,7 +419,7 @@ def save_unified_manifest(
     """Sign and atomically publish ``.tg_cache/manifest_v1.json`` via confined I/O."""
     if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
         return False
-    resolved_root = Path(repo_root).resolve()
+    resolved_root = resolve_canonical_cache_root(repo_root)
     signing_key = load_machine_key(resolved_root)
     if signing_key is None:
         return False
@@ -398,7 +443,13 @@ def save_unified_manifest(
                 for view_name, view_data in views.items():
                     merged_views[str(view_name)] = dict(view_data)
             for view_name, entry in merged_views.items():
-                if view_name in ("hybrid_v1", "index_v1"):
+                if view_name in (
+                    "hybrid_v1",
+                    "index_v1",
+                    "symbols_v1",
+                    "graph_v1",
+                    "prepare_v1",
+                ):
                     fp = compute_view_artifact_fingerprint(resolved_root, view_name)
                     recorded_fp = entry.get("artifact_fingerprint")
                     if fp is None or not isinstance(recorded_fp, str) or recorded_fp != fp:
@@ -448,6 +499,12 @@ def update_view_states(
     now = time.time()
     views_payload: dict[str, dict[str, Any]] = {}
     for view_name, (ready, schema_ver) in view_updates.items():
+        if artifact_fingerprints is not None and view_name in artifact_fingerprints:
+            fp = artifact_fingerprints[view_name]
+        elif ready:
+            fp = compute_view_artifact_fingerprint(repo_root, view_name)
+        else:
+            fp = None
         views_payload[view_name] = ViewFreshnessRecord(
             name=view_name,
             merkle_root=merkle_root,
@@ -455,9 +512,7 @@ def update_view_states(
             schema_version=schema_ver,
             updated_at=now,
             ready=ready,
-            artifact_fingerprint=(
-                artifact_fingerprints.get(view_name) if artifact_fingerprints is not None else None
-            ),
+            artifact_fingerprint=fp,
         ).to_dict()
     return save_unified_manifest(
         repo_root,

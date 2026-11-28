@@ -5,6 +5,131 @@ use anyhow::{anyhow, Context};
 use ignore::WalkBuilder;
 use std::env;
 use std::path::{Path, PathBuf};
+
+fn cmdline_indices(matches: &clap::ArgMatches, id: &str) -> Vec<usize> {
+    if matches.value_source(id) != Some(clap::parser::ValueSource::CommandLine) {
+        return Vec::new();
+    }
+    matches
+        .indices_of(id)
+        .map(|it| it.collect())
+        .unwrap_or_default()
+}
+
+pub fn apply_last_ignore_wins(matches: &clap::ArgMatches, no_ignore: &mut bool, ignore: &mut bool) {
+    *no_ignore = resolve_no_ignore_from_matches(matches, *no_ignore);
+    if *no_ignore {
+        *ignore = false;
+    }
+}
+
+pub fn resolve_no_ignore_from_matches(matches: &clap::ArgMatches, parsed_no_ignore: bool) -> bool {
+    let no_idx = cmdline_indices(matches, "no_ignore");
+    let ig_idx = cmdline_indices(matches, "ignore");
+    match (no_idx.iter().max(), ig_idx.iter().max()) {
+        (Some(n), Some(i)) => n > i,
+        (Some(_), None) => true,
+        (None, Some(_)) => false,
+        (None, None) => parsed_no_ignore,
+    }
+}
+
+pub fn implicit_search_paths(
+    explicit_paths: &[String],
+    stdin_searches_implicit_path: bool,
+) -> Vec<String> {
+    if !explicit_paths.is_empty() {
+        return explicit_paths.to_vec();
+    }
+    if stdin_searches_implicit_path {
+        Vec::new()
+    } else {
+        vec![".".to_string()]
+    }
+}
+
+fn token_takes_next_arg(cmd: &clap::Command, tok: &str) -> bool {
+    if let Some(long_name) = tok.strip_prefix("--") {
+        if long_name.is_empty() || long_name.contains('=') {
+            return false;
+        }
+        return cmd
+            .get_arguments()
+            .any(|a| a.get_long() == Some(long_name) && a.get_action().takes_values());
+    }
+    if tok.starts_with('-') && tok.len() >= 2 {
+        if let Some(last_ch) = tok.chars().last() {
+            return cmd
+                .get_arguments()
+                .any(|a| a.get_short() == Some(last_ch) && a.get_action().takes_values());
+        }
+    }
+    false
+}
+
+pub fn extract_search_tail_with_matches(
+    search_args: &[std::ffi::OsString],
+    root_matches: Option<&clap::ArgMatches>,
+    search_cmd: Option<&clap::Command>,
+) -> Vec<String> {
+    let mut args: Vec<String> = search_args
+        .iter()
+        .skip(2)
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    if let (Some(sub), Some(cmd)) = (
+        root_matches.and_then(|m| m.subcommand_matches("search")),
+        search_cmd,
+    ) {
+        strip_overridden_ignore_flags_with_matches(&mut args, sub, cmd);
+    }
+    args
+}
+
+pub fn strip_overridden_ignore_flags_with_matches(
+    args: &mut Vec<String>,
+    matches: &clap::ArgMatches,
+    search_cmd: &clap::Command,
+) {
+    let no_idx = cmdline_indices(matches, "no_ignore");
+    let ig_idx = cmdline_indices(matches, "ignore");
+    if no_idx.is_empty() || ig_idx.is_empty() {
+        return;
+    }
+    let last_no_ignore = no_idx.iter().max() > ig_idx.iter().max();
+    let drop_flag = if last_no_ignore {
+        "--ignore"
+    } else {
+        "--no-ignore"
+    };
+    let mut out = Vec::with_capacity(args.len());
+    let mut skip_next = false;
+    let mut after_double_dash = false;
+    for tok in args.drain(..) {
+        if after_double_dash {
+            out.push(tok);
+            continue;
+        }
+        if skip_next {
+            skip_next = false;
+            out.push(tok);
+            continue;
+        }
+        if tok == "--" {
+            after_double_dash = true;
+            out.push(tok);
+            continue;
+        }
+        if tok == drop_flag {
+            continue;
+        }
+        if token_takes_next_arg(search_cmd, &tok) {
+            skip_next = true;
+        }
+        out.push(tok);
+    }
+    *args = out;
+}
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
 
@@ -151,6 +276,69 @@ pub struct RipgrepSearchArgs {
 // alone, still bounded by the same 1500-file ceiling walk -- closing #105 (a bare, unfiltered
 // implicit-path search on a huge root) too.
 pub const IMPLICIT_SEARCH_WALK_FILE_CEILING: usize = 1500;
+
+const BROAD_GENERATED_SCAN_DIR_NAMES: &[&str] = &[
+    "__pycache__",
+    ".claude",
+    ".cache",
+    ".cargo",
+    ".git",
+    ".gradle",
+    ".mypy_cache",
+    ".npm",
+    ".nuget",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".rustup",
+    ".tox",
+    ".venv",
+    "appdata",
+    "artifacts",
+    "build",
+    "coverage",
+    "dist",
+    "node_modules",
+    "target",
+    "venv",
+];
+
+pub fn generated_scan_dir_names(paths: &[String], include_child_dirs: bool) -> Vec<String> {
+    let mut found = std::collections::BTreeSet::new();
+    for raw_path in paths {
+        if raw_path.is_empty() || raw_path == "-" || raw_path.starts_with('-') {
+            continue;
+        }
+        let path = Path::new(raw_path);
+        if !path.is_dir() {
+            continue;
+        }
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if BROAD_GENERATED_SCAN_DIR_NAMES
+                .iter()
+                .any(|c| c.eq_ignore_ascii_case(name))
+            {
+                found.insert(name.to_string());
+            }
+        }
+        if !include_child_dirs {
+            continue;
+        }
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten() {
+                if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if BROAD_GENERATED_SCAN_DIR_NAMES
+                        .iter()
+                        .any(|c| c.eq_ignore_ascii_case(&name))
+                    {
+                        found.insert(name);
+                    }
+                }
+            }
+        }
+    }
+    found.into_iter().collect()
+}
 
 /// Bounded WALK probe: walks `paths` honoring the SAME max-depth / no-ignore / hidden traversal
 /// settings the real search would use, counting every FILE the walker VISITS (NOT filtered by
@@ -547,6 +735,18 @@ pub fn execute_ripgrep_search(args: &RipgrepSearchArgs) -> anyhow::Result<i32> {
     }
     if args.vimgrep {
         command.arg("--vimgrep");
+    }
+    {
+        use std::io::IsTerminal;
+        if std::io::stdout().is_terminal()
+            && !args.json
+            && !args.files
+            && !args.count
+            && !args.count_matches
+            && !args.vimgrep
+        {
+            command.arg("--max-columns").arg("300");
+        }
     }
     if args.passthru {
         command.arg("--passthru");

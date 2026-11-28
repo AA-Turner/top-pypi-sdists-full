@@ -108,8 +108,6 @@ def patch_getaddrinfo(cls):
     def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         """Mock DNS lookup of server hostname"""
 
-        # pylint: disable=unused-argument
-
         try:
             return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP,
                      hosts[host], ('127.0.0.1', port))]
@@ -132,13 +130,56 @@ def patch_getnameinfo(cls):
     return patch('socket.getnameinfo', getnameinfo)(cls)
 
 
+def patch_rdns(ptr_name, forward_addrs=()):
+    """Decorator for patching reverse and forward DNS lookups
+
+       The reverse lookup of any address returns ptr_name, or raises
+       an error if ptr_name is `None`. The forward lookup of ptr_name
+       returns forward_addrs. Lookups of other names are passed through.
+
+    """
+
+    orig_getaddrinfo = socket.getaddrinfo
+
+    def getnameinfo(sockaddr, flags):
+        """Mock reverse DNS lookup of client address"""
+
+        # pylint: disable=unused-argument
+
+        if ptr_name is None:
+            raise socket.gaierror()
+
+        return (ptr_name, str(sockaddr[1]))
+
+    def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        """Mock forward DNS lookup of reverse DNS name"""
+
+        # pylint: disable=redefined-builtin
+
+        if host == ptr_name:
+            if not forward_addrs:
+                raise socket.gaierror()
+
+            return [(socket.AF_INET, socket.SOCK_STREAM,
+                     socket.IPPROTO_TCP, '', (addr, port))
+                    for addr in forward_addrs]
+        else:
+            return orig_getaddrinfo(host, port, family, type, proto, flags)
+
+    def decorator(func):
+        """Apply reverse and forward DNS patches"""
+
+        func = patch('socket.getaddrinfo', getaddrinfo)(func)
+        return patch('socket.getnameinfo', getnameinfo)(func)
+
+    return decorator
+
+
 def patch_getnameinfo_error(cls):
     """Decorator for patching socket.getnameinfo to raise an error"""
 
     def getnameinfo_error(sockaddr, flags):
         """Mock failure of reverse DNS lookup of client address"""
-
-        # pylint: disable=unused-argument
 
         raise socket.gaierror()
 
@@ -269,7 +310,7 @@ def run(cmd):
         return subprocess.check_output(cmd, shell=True,
                                        stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as exc: # pragma: no cover
-        logger.error('Error running command: %s' % cmd)
+        logger.error('Error running command: %s', cmd)
         logger.error(exc.output.decode())
         raise
 
@@ -308,7 +349,7 @@ class ConnectionStub:
     async def _run_task(self, coro):
         """Run an asynchronous task"""
 
-        # pylint: disable=broad-except
+        # pylint: disable=broad-exception-caught
         try:
             await coro
         except Exception as exc:

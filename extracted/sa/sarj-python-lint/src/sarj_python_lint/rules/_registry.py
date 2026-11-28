@@ -247,10 +247,12 @@ from sarj_python_lint.rules.no_defaulted_environment_setting import NoDefaultedE
 from sarj_python_lint.rules.no_discarded_tagged_outcome import NoDiscardedTaggedOutcome
 from sarj_python_lint.rules.no_duplicate_field_validator_body import NoDuplicateFieldValidatorBody
 from sarj_python_lint.rules.no_dynamic_builtins import NoDynamicBuiltins
+from sarj_python_lint.rules.no_enum_literal_comparison import NoEnumLiteralComparison
 from sarj_python_lint.rules.no_exception_text_in_500_detail import NoExceptionTextIn500Detail
 from sarj_python_lint.rules.no_failure_conflated_with_absence import NoFailureConflatedWithAbsence
 from sarj_python_lint.rules.no_folded_bad_request_not_found import NoFoldedBadRequestNotFound
 from sarj_python_lint.rules.no_gather_first_exception_reraise import NoGatherFirstExceptionReraise
+from sarj_python_lint.rules.no_http_exception_in_services import NoHttpExceptionInServices
 from sarj_python_lint.rules.no_impossible_pydantic_field_bounds import NoImpossiblePydanticFieldBounds
 from sarj_python_lint.rules.no_injected_dependency_close import NoInjectedDependencyClose
 from sarj_python_lint.rules.no_invalid_pydantic_bypass import NoInvalidPydanticBypass
@@ -278,6 +280,7 @@ from sarj_python_lint.rules.numeric_literal_separators import NumericLiteralSepa
 from sarj_python_lint.rules.prefer_application_model_joins import PreferApplicationModelJoins
 from sarj_python_lint.rules.prefer_bulk_upsert import PreferBulkUpsert
 from sarj_python_lint.rules.prefer_coordinated_state_owner import PreferCoordinatedStateOwner
+from sarj_python_lint.rules.prefer_decimal_money import PreferDecimalMoney
 from sarj_python_lint.rules.prefer_defaultdict import PreferDefaultdict
 from sarj_python_lint.rules.prefer_direct_import_module import PreferDirectImportModule
 from sarj_python_lint.rules.prefer_direct_iteration import PreferDirectIteration
@@ -301,6 +304,7 @@ from sarj_python_lint.rules.prefer_pytest_dependency_fixtures import PreferPytes
 from sarj_python_lint.rules.prefer_required_prerequisite import PreferRequiredPrerequisite
 from sarj_python_lint.rules.prefer_result_over_nullable_exception import PreferResultOverNullableException
 from sarj_python_lint.rules.prefer_runtime_validation import PreferRuntimeValidation
+from sarj_python_lint.rules.prefer_secret_field_type import PreferSecretFieldType
 from sarj_python_lint.rules.prefer_semantic_temporal_types import PreferSemanticTemporalTypes
 from sarj_python_lint.rules.prefer_single_parametrize_contract import PreferSingleParametrizeContract
 from sarj_python_lint.rules.prefer_single_psycopg_cursor import PreferSinglePsycopgCursor
@@ -314,6 +318,7 @@ from sarj_python_lint.rules.redundant_test_constructor_forwarder import Redundan
 from sarj_python_lint.rules.repeated_unimplemented_test_contract import RepeatedUnimplementedTestContract
 from sarj_python_lint.rules.require_exp_on_jwt_decode import RequireExpOnJwtDecode
 from sarj_python_lint.rules.require_hidden_settings_input import RequireHiddenSettingsInput
+from sarj_python_lint.rules.require_strict_pydantic_model import RequireStrictPydanticModel
 from sarj_python_lint.rules.require_total_enum_mapping import RequireTotalEnumMapping
 from sarj_python_lint.rules.server_proxied_file_upload import ServerProxiedFileUpload
 from sarj_python_lint.rules.service_singleton_delegates_to_bulk import ServiceSingletonDelegatesToBulk
@@ -326,6 +331,11 @@ from sarj_python_lint.rules.test_without_explicit_oracle import NoExplicitTestOr
 
 _AUTHORING_REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
     {
+        PreferSecretFieldType.id: PreferSecretFieldType,
+        NoEnumLiteralComparison.id: NoEnumLiteralComparison,
+        PreferDecimalMoney.id: PreferDecimalMoney,
+        NoHttpExceptionInServices.id: NoHttpExceptionInServices,
+        RequireStrictPydanticModel.id: RequireStrictPydanticModel,
         NoNominalRebrand.id: NoNominalRebrand,
         NoFailureConflatedWithAbsence.id: NoFailureConflatedWithAbsence,
         PreferFrozenDataclass.id: PreferFrozenDataclass,

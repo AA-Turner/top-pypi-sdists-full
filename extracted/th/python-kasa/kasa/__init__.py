@@ -30,9 +30,11 @@ from kasa.emeterstatus import EmeterStatus
 from kasa.exceptions import (
     AuthenticationError,
     DeviceError,
+    DeviceUnavailableError,
     KasaException,
     TimeoutError,
     UnsupportedDeviceError,
+    UnsupportedEncryptionError,
 )
 from kasa.feature import Feature
 from kasa.interfaces.light import HSV, ColorTempRange, Light, LightState
@@ -68,7 +70,9 @@ __all__ = [
     "KasaException",
     "AuthenticationError",
     "DeviceError",
+    "DeviceUnavailableError",
     "UnsupportedDeviceError",
+    "UnsupportedEncryptionError",
     "TimeoutError",
     "Credentials",
     "DeviceConfig",

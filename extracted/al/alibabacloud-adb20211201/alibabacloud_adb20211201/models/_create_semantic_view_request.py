@@ -12,19 +12,19 @@ class CreateSemanticViewRequest(DaraModel):
         schema_name: str = None,
         view_name: str = None,
     ):
-        # ADB cluster ID.
+        # The ID of the ADB cluster.
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id
-        # YAML definition of the semantic view.
+        # The YAML definition of the semantic view.
         # 
         # This parameter is required.
         self.definition = definition
-        # Schema name.
+        # The name of the schema.
         # 
         # This parameter is required.
         self.schema_name = schema_name
-        # Semantic view name.
+        # The name of the semantic view.
         # 
         # This parameter is required.
         self.view_name = view_name

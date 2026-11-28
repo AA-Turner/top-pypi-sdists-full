@@ -2782,7 +2782,7 @@ def _build_tools_list(
         ),
         Tool(
             name="check_references",
-            description="Where is a function, class or other identifier used: import sites plus every file whose content mentions it, in one call (find_references + search_text). Answers 'where is X used / referenced' and returns is_referenced (bool) for quick dead-code detection. Accepts multiple identifiers in one call via identifiers param. Content matches are capped at max_content_results (default 20), and a match inside a comment or string still counts as referenced.",
+            description="Where is a function, class or other identifier used: import sites plus every file whose content mentions it, in one call (find_references + search_text). Answers 'where is X used / referenced' and returns is_referenced (bool) for quick dead-code detection. Accepts multiple identifiers in one call via identifiers param. Content matches are capped at max_content_results (default 20) and importing files at max_import_results (default 50, 0 = all), disclosed by import_references_total and import_references_truncated; a match inside a comment or string still counts as referenced.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -2799,6 +2799,10 @@ def _build_tools_list(
                     "max_content_results": {
                         "type": "integer", "default": 20,
                         "description": "Max files to return per identifier for content search.",
+                    },
+                    "max_import_results": {
+                        "type": "integer", "default": 50,
+                        "description": "Max importing files to list per identifier; 0 lists all. import_count stays the total.",
                     },
                 },
                 "required": ["repo"],
@@ -3478,6 +3482,10 @@ def _build_tools_list(
                         "description": "When > 0, also find symbols that *call* this symbol (call-level analysis). Returns a callers list alongside the import-level confirmed/potential. Max 3. Default 0 (disabled).",
                         "default": 0,
                     },
+                    "max_results": {
+                        "type": "integer", "default": 100,
+                        "description": "Max rows in the call_depth callers list, nearest first; 0 lists all. caller_count stays the total; callers_truncated says when rows were cut.",
+                    },
                     "fqn": {
                         "type": "string",
                         "description": "PHP fully-qualified class name (e.g. 'App\\Models\\User'). Resolves to symbol via PSR-4. Alternative to symbol."
@@ -3514,6 +3522,7 @@ def _build_tools_list(
                 "Useful for understanding how a symbol fits into the call graph before refactoring."
                 " Detection is name-based, so same-name symbols in different modules can merge and dynamic dispatch is missed."
                 " Only depth-1 rows are direct callers; on a deeper row, `via` names the row it is reached from. `caller_count` counts every depth, `direct_caller_count` depth 1."
+                " Each list holds at most max_results rows, nearest first; the counts stay totals and `callers_truncated` / `callees_truncated` say when rows were cut."
             ),
             inputSchema={
                 "type": "object",
@@ -3536,6 +3545,10 @@ def _build_tools_list(
                         "type": "integer",
                         "description": "Maximum hops to traverse (1–5). Default 1: the direct callers and callees.",
                         "default": 1,
+                    },
+                    "max_results": {
+                        "type": "integer", "default": 100,
+                        "description": "Max rows in each of callers and callees; 0 lists all.",
                     },
                 },
                 "required": ["repo", "symbol_id"],
@@ -4976,6 +4989,10 @@ def _build_tools_list(
                         "type": "integer",
                         "description": "Call-graph hops for caller detection (0 disables; max 3).",
                         "default": 2,
+                    },
+                    "max_results": {
+                        "type": "integer", "default": 100,
+                        "description": "Max rows in each impact's callers list, nearest first; 0 lists all. caller_count stays the total; callers_truncated says when rows were cut.",
                     },
                     "include_infra": {
                         "type": "boolean",
@@ -6969,6 +6986,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                     search_content=arguments.get("search_content", True),
                     max_content_results=arguments.get("max_content_results", 20),
                     storage_path=storage_path,
+                    max_import_results=arguments.get("max_import_results", 50),
                 )
             )
         elif name == "search_columns":
@@ -7238,6 +7256,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                     include_source=arguments.get("include_source", False),
                     source_budget=arguments.get("source_budget", 8000),
                     include_decisions=arguments.get("include_decisions", False),
+                    max_results=arguments.get("max_results", 100),
                 )
             )
         elif name == "get_call_hierarchy":
@@ -7250,6 +7269,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                     direction=arguments.get("direction", "both"),
                     depth=arguments.get("depth", 1),
                     storage_path=storage_path,
+                    max_results=arguments.get("max_results", 100),
                 )
             )
         elif name == "get_impact_preview":
@@ -7711,6 +7731,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                     call_depth=arguments.get("call_depth", 2),
                     include_infra=arguments.get("include_infra", False),
                     storage_path=storage_path,
+                    max_results=arguments.get("max_results", 100),
                 )
             )
         elif name == "render_diagram":

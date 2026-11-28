@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunk_hugpy_ui=self.webpackChunk_hugpy_ui||[]).push([[6445],{6445(e,u,s){s.d(u,{createInfoServices:()=>c.v});var c=s(4614);s(4954)}}]);

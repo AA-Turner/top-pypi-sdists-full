@@ -26,18 +26,18 @@ class UpdateGatewayRouteTableEntryAttributeRequest(DaraModel):
         # 
         # You can use the client to generate the value, but you must make sure that the value is unique among different requests. The client token can contain only ASCII characters.
         # 
-        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request is different.
+        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request is unique.
         self.client_token = client_token
         # The description of the gateway route table.
         # 
-        # The description must be 2 to 256 characters in length, and must start with a letter or a Chinese character. It cannot start with `http://` or `https://`.
+        # The description must be 2 to 256 characters in length, and must start with a letter or a Chinese character. It cannot start with http:// or https://.
         self.description = description
         # The destination CIDR block of the route in the gateway route table.
         # 
         # This parameter is required.
         self.destination_cidr_block = destination_cidr_block
-        # Specifies whether to perform a dry run. Valid values:
-        # - **true**: performs a dry run and does not modify the gateway route table. The system checks whether the required parameters are specified, the request format is valid, and the service limits are met. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
+        # Specifies whether to perform only a dry run. Valid values:
+        # - **true**: performs only a dry run and does not modify the gateway route table. The system checks whether the required parameters are specified, the request format is valid, and the service limits are met. If the request fails the dry run, an error message is returned. If the request passes the dry run, the DryRunOperation error code is returned.
         # - **false** (default): performs a dry run and sends the request. If the request passes the dry run, an HTTP 2xx status code is returned and the gateway route table is modified.
         self.dry_run = dry_run
         # The ID of the gateway route table to be modified.
@@ -51,15 +51,15 @@ class UpdateGatewayRouteTableEntryAttributeRequest(DaraModel):
         # The instance ID of the next hop to be modified.
         # 
         # - If **NextHopType** is set to **Instance**, **NextHopId** is the ID of the ECS instance.
-        # - If **NextHopType** is set to **NetworkInterface**, **NextHopId** is the ID of the elastic network interface controller (NIC) instance.
+        # - If **NextHopType** is set to **NetworkInterface**, **NextHopId** is the ID of the elastic network interface controller (NIC).
         # - If **NextHopType** is set to **Local**, **NextHopId** is empty, which indicates local.
         # 
-        # > To modify the next hop of a route whose next hop type is **Instance** or **NetworkInterface**, you must first change **NextHopType** to **Local**, and then change **NextHopType** back to **Instance** or **NetworkInterface** and specify a new **NextHopId**. You cannot directly change the next hop to other elastic network interface controllers (NICs) or ECS instances.
+        # > If the next hop type of the routing entry is **Instance** or **NetworkInterface** and you want to modify the next hop, you must first change **NextHopType** to **Local**, and then change **NextHopType** back to **Instance** or **NetworkInterface** before modifying the specific **NextHopId**. You cannot directly change the next hop from an elastic network interface controller (NIC) or an ECS instance to another elastic network interface controller (NIC) or ECS instance.
         self.next_hop_id = next_hop_id
-        # The next hop type of the route to be modified. Valid values:
+        # The next hop type of the routing entry to be modified. Valid values:
         # 
         # - **Instance**: an ECS instance.
-        # - **NetworkInterface**: an elastic network interface controller (NIC) instance.
+        # - **NetworkInterface**: an elastic network interface controller (NIC).
         # 
         # - **Local**: local.
         # 
@@ -69,7 +69,7 @@ class UpdateGatewayRouteTableEntryAttributeRequest(DaraModel):
         self.owner_id = owner_id
         # The region ID of the gateway route table to be modified.
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to obtain the region ID.
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id

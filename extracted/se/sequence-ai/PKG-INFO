@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.66.3
+Version: 0.67.0
 Summary: SequenceLink is an open-source framework for serving robot policies from remote GPUs over wide-area networks (WANs).
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
@@ -34,8 +34,9 @@ Requires-Dist: numpy>=1.24
 Requires-Dist: pillow>=10
 Requires-Dist: pydantic>=2; python_version >= '3.10'
 Requires-Dist: sequence-base<0.9,>=0.8.15; python_version >= '3.10'
+Requires-Dist: sequence-cloud~=0.67.0; python_version >= '3.10' and platform_python_implementation == 'CPython' and (sys_platform == 'darwin' or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'win32' and platform_machine == 'AMD64'))
 Requires-Dist: uvicorn<1,>=0.30
-Requires-Dist: zstandard>=0.22
+Requires-Dist: zstandard>=0.22; python_version < '3.15'
 Provides-Extra: data
 Requires-Dist: pyarrow>=14; extra == 'data'
 Provides-Extra: dev
@@ -57,7 +58,7 @@ Requires-Dist: sequence-base<0.9,>=0.8.15; (python_version >= '3.10') and extra 
 Requires-Dist: torch<3,>=2.4; extra == 'dev'
 Requires-Dist: uvicorn<1,>=0.30; extra == 'dev'
 Requires-Dist: websockets<19,>=14; extra == 'dev'
-Requires-Dist: zstandard>=0.22; extra == 'dev'
+Requires-Dist: zstandard>=0.22; (python_version < '3.15') and extra == 'dev'
 Provides-Extra: moq
 Requires-Dist: moq-ffi==0.4.27; (python_version >= '3.10') and extra == 'moq'
 Requires-Dist: moq-rs==0.5.2; (python_version >= '3.10') and extra == 'moq'
@@ -108,13 +109,12 @@ Description-Content-Type: text/markdown
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/General-Sequences/sequence-ai/main/docs/architecture-dark.png">
-    <img alt="How it fits together. On the robot: your control loop over sequence_ai.network (connect, openpi, window, frames, wifi_power). Across the WAN, the observation goes to the GPU and the action chunk comes back. On the GPU: your policy over sequence_ai.engine (serve, optimize, load, batcher, replicas, slack) and sequence_ai.network (one_write, ping, tcp_link). Both ends: msgpack_io and latency_stats. Your own link, measured: bench/." src="https://raw.githubusercontent.com/General-Sequences/sequence-ai/main/docs/architecture-light.png" width="900">
+    <img alt="How it fits together. On the robot: your control loop over sequence_ai.network (connect, window, frames, wifi_power). Across the WAN, the observation goes to the GPU and the action chunk comes back. On the GPU: your policy over sequence_ai.engine (serve, optimize, load, batcher, replicas, slack) and sequence_ai.network (one_write, ping, tcp_link). Both ends: msgpack_io and latency_stats. Your own link, measured: bench/." src="https://raw.githubusercontent.com/General-Sequences/sequence-ai/main/docs/architecture-light.png" width="900">
   </picture>
 </p>
 
 **`sequence_ai.network`** is the connection between a robot and the GPU its policy runs on. On the robot, `connect()`
-applies the client-side components to one connection, and `openpi.keep()` does the same on the connection that openpi's
-own client holds. On the server, `one_write` and `ping` wrap a uvicorn or a WebSocket server. **`sequence_ai.engine`**
+applies the client-side components to one connection. On the server, `one_write` and `ping` wrap a uvicorn or a WebSocket server. **`sequence_ai.engine`**
 is the inference layer on the GPU: `seq serve` serves a policy with the server's side of both layers on, `optimize`
 shortens one inference with the speed-ups that keep its outputs exactly the same, `batcher` and `slack` share a GPU among robots, and `replicas` runs one process per GPU. **`bench/`** measures a link before anything is added to it.
 
@@ -269,7 +269,7 @@ seats_user, over_user = seating_user.seat([("near-1", 30.0), ("near-2", 30.0), (
 | Component | Side | What it does | Requires |
 |---|---|---|---|
 | [`window`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/window.py) | client | Keeps the connection's congestion window across the robot's pauses: BBR on its socket, TCP keepalive, a ping while the connection is idle. | nothing |
-| [`frames`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/frames.py) | both | Resizes a frame to the policy's input size and encodes it as JPEG, and turns it back into its array on the server: what openpi's own client and server carry. | Pillow |
+| [`frames`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/frames.py) | both | Resizes a frame to the policy's input size and encodes it as JPEG, and turns it back into its array on the server. | Pillow |
 | [`wifi_power`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/wifi_power.py) | client | Detects Wi-Fi power saving on the robot's link and reports how to disable it. | Linux |
 | [`one_write`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/one_write.py) | server | Sends each HTTP response of a uvicorn server in one write instead of three. | uvicorn |
 | [`tcp_link`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/tcp_link.py) | server | Reads each client's TCP state from the server's kernel: RTT, retransmitted segments, congestion window. | Linux |
@@ -283,22 +283,12 @@ Combined, and for clients you may already use:
 |---|---|---|---|
 | [`connect`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/__init__.py) | client | `sequence_ai.connect(url)`: the same policy a deployed one's name gives, on the robot's stream to your own server: each observation as it is made, a `sequence_ai.Video` item as video, each act after them. | nothing |
 | [`lines`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/_core/lines_stream.py) | client | `connect(url, lines=["eth0", "wwan0"])`: the robot's stream over each of its uplinks, each line bound to its own network interface, every observation and act on every line and the first answer used. | Linux 5.7 or macOS |
-| [`check`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/check.py) | client | `python -m sequence_ai.check <url>`: which defaults are on between a robot and its server, and what the server is. | httpx |
-| [`openpi`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/openpi.py) | client | The client-side components on the connection held by openpi's own client. | openpi-client |
-| [`lerobot`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/network/lerobot.py) | both | The Zenoh setting that keeps LeRobot's remote-inference connection from going idle. | lerobot 0.7 |
+| [`check`](https://github.com/General-Sequences/sequence-ai/blob/main/sequence_ai/check.py) | client | `seq check <url>`, or a deployment's name on GS's platform (`python -m sequence_ai.check` where `seq` does not run): which defaults are on between a robot and its server, and what the server is. | httpx |
 | [`bench/`](https://github.com/General-Sequences/sequence-ai/tree/main/bench/) | both | Measures your own link: what a pause, a ping and a camera stream cost on it. | nothing |
-
-```python
-from sequence_ai.network import lerobot, openpi
-
-kept_user = openpi.keep(policy_user)                              # openpi: one line on its WebsocketClientPolicy
-path_user = lerobot.keep_alive_file("zenoh-keep-alive.json5")     # LeRobot 0.7: one Zenoh setting, given to both sides
-```
 
 [What does each component do?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/components.md) gives the lines to add, the reason and the measurement for each
 one, and [`examples/components/`](https://github.com/General-Sequences/sequence-ai/tree/main/examples/components/) has a runnable file for each.
-[How do I run π0 (openpi) on a remote GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-run-pi0-openpi-on-a-remote-gpu.md) |
-[How do I reduce the latency of LeRobot remote inference?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-reduce-the-latency-of-lerobot-remote-inference.md)
+[How do I run π0 (openpi) on a remote GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-run-pi0-openpi-on-a-remote-gpu.md)
 | [How do I serve a robot policy from my own GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-serve-a-robot-policy-from-my-own-gpu.md)
 
 ## Language models
@@ -347,9 +337,9 @@ Network layer:
 sequence_ai/
   engine/        inference layer: serve · optimize · load · cuda_graphs · batcher · replicas · slack
   network/       network layer
-                   client: connect · window · frames · wifi_power · openpi
+                   client: connect · window · frames · wifi_power
                    server: one_write · ping · tcp_link
-                   both:   msgpack_io · latency_stats · lerobot
+                   both:   msgpack_io · latency_stats
   chat/          chat() and Conversation: on General Sequences, or at a server of your own (server=)
   check.py       python -m sequence_ai.check: which defaults are on between a robot and its server
 seq/             seq init, seq serve and seq weights get, and the decorators a policy is written with
@@ -377,7 +367,6 @@ tools/           writes llms-full.txt
   - [How do I serve a robot policy from my own GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-serve-a-robot-policy-from-my-own-gpu.md)
   - [How do I run a template on my own GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-run-a-template-on-my-own-gpu.md)
   - [How do I run π0 (openpi) on a remote GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-run-pi0-openpi-on-a-remote-gpu.md)
-  - [How do I reduce the latency of LeRobot remote inference?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-reduce-the-latency-of-lerobot-remote-inference.md)
   - [Why does my robot's upload get slow after a pause?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/why-does-my-robots-upload-get-slow-after-a-pause.md)
   - [How do I measure the link between my robot and my GPU?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-measure-the-link-between-my-robot-and-my-gpu.md)
   - [How do I keep a WebSocket policy server's connection warm?](https://github.com/General-Sequences/sequence-ai/blob/main/docs/how-do-i-keep-a-websocket-policy-servers-connection-warm.md)

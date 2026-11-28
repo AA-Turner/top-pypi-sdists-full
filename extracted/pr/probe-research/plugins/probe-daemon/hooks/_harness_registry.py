@@ -65,7 +65,10 @@ CAPABILITY_KEYS = (
 CAPABILITY_ROOT_SKILLS = "root_skills"
 #: The agent loads skills from its OWN home's `skills/`, so a gated skill (A24, the plugin's
 #: `gated-skills/`, which no manifest names) is copied there while the server's answer allows it.
-#: Claude Code (with its root skills) and Codex (`$CODEX_HOME/skills`, the only gated copy there).
+#: Every agent Probe sets up: Claude Code (beside its root skills), and as the only copy of ours there Codex
+#: (`$CODEX_HOME/skills`), pi (~/.pi/agent/skills), Kimi Code (`$KIMI_CODE_HOME/skills`) and Cursor
+#: (~/.cursor/skills). Never the shared ~/.agents/skills: one agent's uninstall must not take another's
+#: copy. Where each agent loads skills: probe/foundation/skills/DESIGN.md ("Gated skills").
 CAPABILITY_GATED_SKILLS = "gated_skills"
 #: An open session follows a plugin update with no restart: its hooks run the
 #: installed plugin copy (`hooks/dispatch.py installed_root`) and a tap from

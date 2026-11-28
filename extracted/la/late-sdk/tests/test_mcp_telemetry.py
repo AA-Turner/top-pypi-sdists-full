@@ -17,12 +17,17 @@ from fastmcp.server.auth import AccessToken
 from fastmcp.server.transforms.search import BM25SearchTransform
 from sentry_sdk.transport import Transport
 
-from late.client.exceptions import LateAPIError
+from late.client.exceptions import LateAPIError, LateRateLimitError
 from late.mcp import telemetry, user_agent
-from late.mcp.middleware import ToolTelemetryMiddleware, tool_telemetry
+from late.mcp.middleware import (
+    ToolGuidanceMiddleware,
+    ToolTelemetryMiddleware,
+    tool_telemetry,
+)
 from late.mcp.telemetry import (
     ServerErrorAccessLogFilter,
     init_sentry,
+    is_expected_failure,
     quiet_routine_logs,
 )
 from late.models import AccountsListResponse
@@ -123,6 +128,111 @@ async def test_every_tool_call_logs_its_outcome_and_latency(
     assert isinstance(line["duration_ms"], int)
     assert datetime.fromisoformat(line["ts"]).tzinfo is not None
     assert fields.items() <= line.items()
+
+
+async def test_an_api_error_logs_its_machine_code_and_platform(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="late.mcp.tools")
+    server = _server()
+
+    @server.tool
+    def meta_rejected() -> str:
+        raise ToolError("Error: nope") from LateAPIError(
+            "The user is not available",
+            status_code=400,
+            details={
+                "error": "The user is not available",
+                "code": "recipient_unavailable",
+                "param": "conversationId",
+                "platform": "instagram",
+            },
+        )
+
+    async with Client(server) as client:
+        await client.call_tool("meta_rejected", {}, raise_on_error=False)
+
+    [line] = _logged(caplog)
+    assert {
+        "outcome": "error",
+        "error_type": "LateAPIError",
+        "status_code": 400,
+        "error_code": "recipient_unavailable",
+        "error_param": "conversationId",
+        "error_platform": "instagram",
+    }.items() <= line.items()
+    assert "The user is not available" not in json.dumps(line)
+
+
+def test_an_api_error_without_details_adds_no_code_fields() -> None:
+    fields = tool_telemetry._error_fields(LateAPIError("nope", status_code=400))
+
+    assert fields == {"error_type": "LateAPIError", "status_code": 400}
+
+
+def test_an_api_error_logs_the_parameter_it_rejected() -> None:
+    exc = LateAPIError(
+        "Invalid enum value",
+        status_code=400,
+        details={"code": "invalid_enum_value", "param": "metrics.0"},
+    )
+
+    fields = tool_telemetry._error_fields(exc)
+
+    assert fields["error_param"] == "metrics.0"
+    assert "error_platform" not in fields
+
+
+def test_an_api_error_without_a_param_logs_none() -> None:
+    exc = LateAPIError("nope", status_code=400, details={"code": "bad_request"})
+
+    assert "error_param" not in tool_telemetry._error_fields(exc)
+
+
+def test_a_rate_limit_error_logs_its_platform_quota_code() -> None:
+    exc = LateRateLimitError(
+        "Quota exhausted",
+        details={"code": "platform_rate_limited", "platform": "facebook"},
+    )
+
+    fields = tool_telemetry._error_fields(exc)
+
+    assert fields["error_code"] == "platform_rate_limited"
+    assert fields["error_platform"] == "facebook"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        42,
+        None,
+        ["recipient_unavailable"],
+        {"code": "x"},
+        "",
+        "Message text from the user: call me at 555-0100",
+    ],
+)
+def test_error_codes_that_are_not_short_machine_strings_are_dropped(value) -> None:
+    exc = LateAPIError(
+        "nope",
+        status_code=400,
+        details={"code": value, "param": value, "platform": value},
+    )
+
+    fields = tool_telemetry._error_fields(exc)
+
+    assert "error_code" not in fields
+    assert "error_param" not in fields
+    assert "error_platform" not in fields
+
+
+def test_a_huge_error_code_is_truncated() -> None:
+    exc = LateAPIError(
+        "nope", status_code=400, details={"code": "x" * 10_000, "param": "y" * 100}
+    )
+
+    fields = tool_telemetry._error_fields(exc)
+
+    assert fields["error_code"] == "x" * 64
+    assert fields["error_param"] == "y" * 64
 
 
 async def test_rejected_arguments_log_which_fields_failed_without_values(
@@ -400,6 +510,95 @@ async def test_call_tool_failing_before_it_dispatches_is_still_recorded(caplog) 
 
     [line] = _logged(caplog)
     assert (line["tool"], line["outcome"]) == ("call_tool", "error")
+
+
+def _guided_server() -> FastMCP:
+    """call_tool behind ToolGuidanceMiddleware, in the hosted server's order."""
+    server = _proxied_server()
+
+    async def no_closest_tools(_name, _context):
+        return []
+
+    server.middleware.insert(
+        0,
+        ToolGuidanceMiddleware(
+            search_tool="search_tools",
+            call_tool="call_tool",
+            closest_tools=no_closest_tools,
+        ),
+    )
+    return server
+
+
+_NESTED_CALL = {
+    "name": "call_tool",
+    "arguments": {"name": "hidden_tool", "arguments": {}},
+}
+
+
+async def test_call_tool_wrapped_in_itself_opens_no_sentry_issue(
+    sentry_events, quieted_fastmcp_logs, monkeypatch
+) -> None:
+    # ZERNIO-MCP-W: an agent wrapped call_tool in itself.
+    captured: list[BaseException] = []
+    monkeypatch.setattr(tool_telemetry.sentry_sdk, "capture_exception", captured.append)
+
+    async with Client(_guided_server()) as client:
+        result = await client.call_tool("call_tool", _NESTED_CALL, raise_on_error=False)
+
+    assert result.is_error
+    assert "name='hidden_tool'" in result.content[0].text
+    assert captured == []
+    assert sentry_events.payloads("event") == []
+    assert quieted_fastmcp_logs.records == []
+
+
+async def test_call_tool_wrapped_in_itself_is_counted_as_a_misuse(
+    sentry_events, caplog
+) -> None:
+    caplog.set_level(logging.INFO, logger="late.mcp.tools")
+
+    async with Client(_guided_server()) as client:
+        await client.call_tool("call_tool", _NESTED_CALL, raise_on_error=False)
+
+    [line] = _logged(caplog)
+    assert (line["tool"], line["outcome"], line["misuse"]) == (
+        "call_tool",
+        "error",
+        "nested_call_tool",
+    )
+    [transaction] = sentry_events.payloads("transaction")
+    assert transaction["tags"]["mcp.misuse"] == "nested_call_tool"
+
+
+async def test_other_call_tool_failures_record_no_misuse(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="late.mcp.tools")
+
+    async with Client(_guided_server()) as client:
+        await client.call_tool(
+            "call_tool", {"name": "lead_gen_list_forms", "arguments": {}}, raise_on_error=False
+        )
+
+    [line] = _logged(caplog)
+    assert line["outcome"] == "error"
+    assert "misuse" not in line
+
+
+def _wrapped(cause: Exception) -> ToolError:
+    try:
+        raise ToolError(f"Error calling tool 'call_tool': {cause}") from cause
+    except ToolError as exc:
+        return exc
+
+
+def test_only_the_synthetic_tool_refusal_counts_as_an_expected_value_error() -> None:
+    refusal = ValueError(
+        "'call_tool' is a synthetic search tool and cannot be called via the call_tool proxy"
+    )
+
+    assert is_expected_failure(_wrapped(refusal))
+    assert not is_expected_failure(_wrapped(ValueError("invalid literal for int()")))
+    assert not is_expected_failure(ValueError("invalid literal for int()"))
 
 
 @respx.mock

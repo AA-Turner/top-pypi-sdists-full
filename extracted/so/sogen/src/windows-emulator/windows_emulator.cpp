@@ -245,6 +245,17 @@ namespace sogen
             return is_key_down_message(message) || is_key_up_message(message);
         }
 
+        // win32kbase's ProcessKeyboardInputWorker filters each keyboard input before its low-level hooks run, one input at a
+        // time; SendInput's keys skip the filters (win32kfull's xxxInternalKeyEventDirect).
+        void run_accessibility_filters(process_context& process, const ui_event& event)
+        {
+            if (!event.injected && is_keyboard_message(event.message))
+            {
+                const auto key = side_virtual_key(static_cast<uint32_t>(event.wParam & 0xFF), event.lParam);
+                process.accessibility.filter_key(key, is_key_down_message(event.message), process.key_state);
+            }
+        }
+
         // Window button message -> RAWMOUSE usButtonFlags transition bit (winuser.h RI_MOUSE_* values).
         uint16_t raw_mouse_button_flags(const uint32_t message, const uint64_t wparam)
         {
@@ -1653,11 +1664,16 @@ namespace sogen
 
         if (this->uses_instruction_precision())
         {
-            this->emu().hook_memory_execution([&](cpu_interface& cpu, const uint64_t address) {
+            auto* x64 = dynamic_cast<x86_64_emulator*>(this->emu_.get());
+            this->emu().hook_memory_execution([&, x64](cpu_interface& cpu, const uint64_t address) {
                 const std::scoped_lock lock(this->kernel_lock_);
                 auto& vcpu = this->vcpu(cpu.index());
                 const scoped_dispatch dispatch(*this, vcpu);
-                this->on_instruction_execution(vcpu, address); //
+                this->on_instruction_execution(vcpu, address);
+                if (x64 && vcpu.thread().steps_on_branches)
+                {
+                    remember_branch_step(*this, vcpu.thread(), x64->get_cpu(cpu.index()), address);
+                }
             });
         }
         else if (!this->emu().get_guest_cpu(0).is_stop_thread_safe())
@@ -1768,62 +1784,87 @@ namespace sogen
         }
     }
 
+    emulator_hook* windows_emulator::hook_timestamp_counter(x86_64_emulator& emu, const x86_hookable_instructions instruction,
+                                                            const emulator_callbacks::opt_func<void()>& observer)
+    {
+        return emu.hook_instruction(instruction, [this, instruction, &observer](cpu_interface& cpu, uint64_t) {
+            const std::scoped_lock lock(this->kernel_lock_);
+            auto& vcpu = this->vcpu(cpu.index());
+            const scoped_dispatch dispatch(*this, vcpu);
+            auto& acting = vcpu.x64_cpu();
+            observer();
+
+            if (this->use_native_timestamp_counter_)
+            {
+                return instruction_hook_continuation::run_instruction;
+            }
+
+            const auto ticks = this->clock_->timestamp_counter();
+            acting.reg(x86_register::rax, static_cast<uint32_t>(ticks));
+            acting.reg(x86_register::rdx, static_cast<uint32_t>(ticks >> 32));
+
+            if (instruction == x86_hookable_instructions::rdtscp)
+            {
+                // Windows keeps the processor number in IA32_TSC_AUX.
+                acting.reg(x86_register::rcx, static_cast<uint64_t>(vcpu.cpu.index()));
+            }
+
+            return instruction_hook_continuation::skip_instruction;
+        });
+    }
+
+    void windows_emulator::update_timestamp_counter_hooks()
+    {
+        auto* emu = dynamic_cast<x86_64_emulator*>(this->emu_.get());
+        if (!emu)
+        {
+            return;
+        }
+
+        const bool observed = static_cast<bool>(this->callbacks.on_rdtsc) || static_cast<bool>(this->callbacks.on_rdtscp);
+        const bool wanted = !this->use_native_timestamp_counter_ || (this->intercept_rdtsc_ && observed);
+        if (wanted == (this->rdtsc_hook_ != nullptr))
+        {
+            return;
+        }
+
+        if (!wanted)
+        {
+            emu->delete_hook(std::exchange(this->rdtscp_hook_, nullptr));
+            emu->delete_hook(std::exchange(this->rdtsc_hook_, nullptr));
+            return;
+        }
+
+        this->rdtscp_hook_ = this->hook_timestamp_counter(*emu, x86_hookable_instructions::rdtscp, this->callbacks.on_rdtscp);
+        this->rdtsc_hook_ = this->hook_timestamp_counter(*emu, x86_hookable_instructions::rdtsc, this->callbacks.on_rdtsc);
+    }
+
     void windows_emulator::setup_x64_hooks(x86_64_emulator& emu)
     {
         emu.hook_instruction(x86_hookable_instructions::syscall, [&](cpu_interface& cpu, uint64_t) {
             const std::scoped_lock lock(this->kernel_lock_);
             auto& vcpu = this->vcpu(cpu.index());
             const scoped_dispatch dispatch(*this, vcpu);
+
+            // A branch step that remembers another instruction than this system call ended before the call ran (on a
+            // backend that runs it from its own syscall page), so the next one begins where the call returns. The call
+            // can remember an instruction itself, so this is decided before it runs.
+            auto* thread = vcpu.active_thread;
+            const auto syscall_address = vcpu.cpu.read_instruction_pointer();
+            const auto step_ended_before_call = thread && thread->next_branch_step && thread->next_branch_step->address != syscall_address;
+
             this->dispatcher.dispatch(*this, vcpu);
+
+            if (step_ended_before_call && vcpu.active_thread == thread)
+            {
+                const auto resume_address = vcpu.cpu.read_instruction_pointer() + this->abi().syscall_abi().syscall_instruction_size();
+                remember_branch_step(*this, *thread, vcpu.x64_cpu(), resume_address);
+            }
+
             return instruction_hook_continuation::skip_instruction;
         });
 
-        // rdtsc/rdtscp are intercepted only when timing must stay exact (the analyzer). Otherwise the
-        // guest reads the host TSC natively - the WHP backend serves the exit with the real TSC and no
-        // kernel lock - removing a hot VM-exit path for games.
-        if (this->intercept_rdtsc_ || !this->use_native_timestamp_counter_)
-        {
-            emu.hook_instruction(x86_hookable_instructions::rdtscp, [&](cpu_interface& cpu, uint64_t) {
-                const std::scoped_lock lock(this->kernel_lock_);
-                auto& vcpu = this->vcpu(cpu.index());
-                const scoped_dispatch dispatch(*this, vcpu);
-                auto& acting = vcpu.x64_cpu();
-                this->callbacks.on_rdtscp();
-
-                if (this->use_native_timestamp_counter_)
-                {
-                    return instruction_hook_continuation::run_instruction;
-                }
-
-                const auto ticks = this->clock_->timestamp_counter();
-                acting.reg(x86_register::rax, static_cast<uint32_t>(ticks));
-                acting.reg(x86_register::rdx, static_cast<uint32_t>(ticks >> 32));
-
-                // Windows keeps the processor number in IA32_TSC_AUX.
-                acting.reg(x86_register::rcx, static_cast<uint64_t>(vcpu.cpu.index()));
-
-                return instruction_hook_continuation::skip_instruction;
-            });
-
-            emu.hook_instruction(x86_hookable_instructions::rdtsc, [&](cpu_interface& cpu, uint64_t) {
-                const std::scoped_lock lock(this->kernel_lock_);
-                auto& vcpu = this->vcpu(cpu.index());
-                const scoped_dispatch dispatch(*this, vcpu);
-                auto& acting = vcpu.x64_cpu();
-                this->callbacks.on_rdtsc();
-
-                if (this->use_native_timestamp_counter_)
-                {
-                    return instruction_hook_continuation::run_instruction;
-                }
-
-                const auto ticks = this->clock_->timestamp_counter();
-                acting.reg(x86_register::rax, static_cast<uint32_t>(ticks));
-                acting.reg(x86_register::rdx, static_cast<uint32_t>(ticks >> 32));
-
-                return instruction_hook_continuation::skip_instruction;
-            });
-        }
+        this->update_timestamp_counter_hooks();
 
         // TODO: Unicorn needs this - This should be handled in the backend
         emu.hook_instruction(x86_hookable_instructions::invalid, [&](cpu_interface& cpu, uint64_t) {
@@ -1847,13 +1888,18 @@ namespace sogen
                 dispatch_integer_division_by_zero(*this, vcpu);
                 return;
             case 1:
-                if ((eflags & 0x100) != 0)
+                if (continue_branch_step(*this, vcpu))
                 {
-                    acting.reg(x86_register::eflags, eflags & ~0x100);
+                    return;
+                }
+
+                if ((eflags & cpu_context::eflags_trap) != 0)
+                {
+                    acting.reg(x86_register::eflags, eflags & ~cpu_context::eflags_trap);
                 }
 
                 this->callbacks.on_suspicious_activity("Singlestep");
-                dispatch_single_step(*this, vcpu);
+                dispatch_single_step(*this, vcpu, (eflags & cpu_context::eflags_trap) != 0);
                 return;
             case 3:
                 this->callbacks.on_suspicious_activity("Breakpoint");
@@ -2350,6 +2396,11 @@ namespace sogen
             std::ranges::sort(hooks, std::greater{});
         }
 
+        if (pending.empty())
+        {
+            run_accessibility_filters(this->process, event);
+        }
+
         // Input already waiting for hooks keeps everything after it waiting too, so the guest sees it in order.
         if (hooks.empty() && (pending.empty() || !is_input_message(event.message)))
         {
@@ -2446,12 +2497,13 @@ namespace sogen
             {
                 const auto event = front.event;
                 pending.erase(pending.begin());
+                this->deliver_ui_event(event);
                 if (!pending.empty())
                 {
                     pending.front().waiting_since = now;
+                    run_accessibility_filters(this->process, pending.front().event);
                 }
 
-                this->deliver_ui_event(event);
                 continue;
             }
 
@@ -2509,6 +2561,7 @@ namespace sogen
             if (!pending.empty())
             {
                 pending.front().waiting_since = now;
+                run_accessibility_filters(this->process, pending.front().event);
             }
         }
         else if (!front.hooks.empty())
@@ -3061,26 +3114,32 @@ namespace sogen
 
     bool windows_emulator::signal_event(event& e)
     {
-        const auto was_signaled = e.set_signaled(true);
-        for (auto& thread : this->process.threads | std::views::values)
-        {
-            // KeSetEvent ends wait-any waits (single-object waits included) right away. A wait-all waiter is only woken to
-            // check all its objects again when it runs, and the signal stays for that check.
-            if (!thread.await_any)
-            {
-                continue;
-            }
+        const auto shared = e.shared.has_value();
 
-            const auto waits_on_event = std::ranges::any_of(
-                thread.await_objects, [&](const object_reference& awaited) { return this->process.get_object(awaited) == &e; });
-            if (waits_on_event)
+        const auto signal = sogen::signal_event(e);
+
+        if (shared)
+        {
+            for (auto& thread : this->process.threads | std::views::values)
             {
-                (void)thread.is_thread_ready(*this);
+                // KeSetEvent ends wait-any waits (single-object waits included) right away. A wait-all waiter is only woken to
+                // check all its objects again when it runs, and the signal stays for that check.
+                if (!thread.await_any)
+                {
+                    continue;
+                }
+
+                const auto waits_on_event = std::ranges::any_of(
+                    thread.await_objects, [&](const object_reference& awaited) { return this->process.get_object(awaited) == &e; });
+                if (waits_on_event)
+                {
+                    (void)thread.is_thread_ready(*this);
+                }
             }
         }
 
         this->wake_idle_vcpu();
-        return was_signaled;
+        return signal.was_signaled;
     }
 
     void windows_emulator::wake_idle_vcpu()

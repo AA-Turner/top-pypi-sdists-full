@@ -25,23 +25,27 @@ class ModifyVSwitchAttributeRequest(DaraModel):
         # 
         # The description must be 1 to 256 characters in length and cannot start with `http://` or `https://`.
         self.description = description
+        # Specifies whether to enable DNS64 for the vSwitch. Valid values:
+        # 
+        # - **true**: enables DNS64. IPv6 must be enabled for the vSwitch.
+        # - **false**: disables DNS64.
         self.enable_dns_64 = enable_dns_64
         # Specifies whether to enable IPv6 for the vSwitch. Valid values:
         # 
-        # - **true**: Enables IPv6. IPv6 must be enabled for the VPC to which the vSwitch belongs. You must also specify Ipv6CidrBlock to allocate an IPv6 CIDR block to the vSwitch.
-        # - **false** (default): Disables IPv6. Before you disable IPv6 for the vSwitch, make sure that no IPv6 addresses are in use. You cannot specify Ipv6CidrBlock at the same time.
+        # - **true**: enables IPv6. IPv6 must be enabled for the VPC to which the vSwitch belongs, and you must also specify Ipv6CidrBlock to assign an IPv6 CIDR block to the vSwitch.
+        # - **false** (default): disables IPv6. When you disable IPv6 for the vSwitch, make sure that no IPv6 addresses are in use, and do not specify Ipv6CidrBlock at the same time.
         self.enable_ipv_6 = enable_ipv_6
         # The last 8 bits of the IPv6 CIDR block of the vSwitch. Valid values: **0** to **255**.
         # 
-        # You can set this parameter only when IPv6 is enabled for the VPC to which the vSwitch belongs. This parameter allows you to allocate an IPv6 CIDR block to the vSwitch. After the IPv6 CIDR block is allocated, it cannot be changed to another CIDR block. Make sure that the CIDR block does not overlap with those of other vSwitches in the same VPC.
+        # You can specify this parameter to assign an IPv6 CIDR block to the vSwitch only when IPv6 is enabled for the VPC to which the vSwitch belongs. After an IPv6 CIDR block is assigned, it cannot be changed to another CIDR block. Make sure that the IPv6 CIDR block does not overlap with the CIDR blocks of other vSwitches in the same VPC.
         self.ipv_6cidr_block = ipv_6cidr_block
-        # The IPv6 CIDR block mask of the vSwitch. You can set this parameter only when IPv6 is enabled for the VPC to which the vSwitch belongs.
+        # The mask of the IPv6 CIDR block of the vSwitch. You can specify this parameter to assign an IPv6 CIDR block to the vSwitch only when IPv6 is enabled for the VPC to which the vSwitch belongs.
         # 
         # > Only 64 is supported.
         self.ipv_6cidr_mask = ipv_6cidr_mask
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region ID of the vSwitch. You can call [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) to query the most recent region list.
+        # The region ID of the vSwitch. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
@@ -54,7 +58,7 @@ class ModifyVSwitchAttributeRequest(DaraModel):
         # The name must be 1 to 128 characters in length and cannot start with `http://` or `https://`.
         self.v_switch_name = v_switch_name
         # The IPv6 CIDR block of the VPC to which the vSwitch belongs.
-        # If the VPC has multiple IPv6 CIDR blocks, you can specify this parameter to indicate the IPv6 CIDR block range for the vSwitch. If you do not specify this parameter, the IPv6 CIDR block assigned when IPv6 was enabled for the VPC is used.
+        # If the VPC has multiple IPv6 CIDR blocks, you can specify this parameter to specify the IPv6 CIDR block range to which the vSwitch belongs. If you do not specify this parameter, the IPv6 CIDR block assigned when IPv6 is enabled for the VPC is selected.
         self.vpc_ipv_6cidr_block = vpc_ipv_6cidr_block
 
     def validate(self):

@@ -1,11 +1,12 @@
 import os
 import sys
-from test.util import calculate_frame_tree_times, dummy_session
 
 from pytest import approx
 
 from pyinstrument import processors
 from pyinstrument.frame import SELF_TIME_FRAME_IDENTIFIER, Frame
+from pyinstrument.frame_ops import build_frame_tree
+from test.util import calculate_frame_tree_times, dummy_session
 
 ALL_PROCESSORS = [
     processors.aggregate_repeated_calls,
@@ -166,6 +167,33 @@ def test_merge_consecutive_self_time():
     assert frame.children[2].time == approx(0.1)
     assert frame.children[3].time == approx(0.05)
     assert frame.children[3].identifier == SELF_TIME_FRAME_IDENTIFIER
+
+
+def test_build_frame_tree_self_time():
+    root = "<module>\x00/app/main.py\x001"
+    work = "work\x00/app/main.py\x005"
+    frame_records = [
+        ([root, work], 0.1),
+        ([root, work], 0.2),
+        ([root], 0.3),
+        ([root], 0.4),
+        ([root, work], 0.5),
+        ([root], 0.6),
+    ]
+
+    tree = build_frame_tree(frame_records, context=dummy_session())
+    assert tree
+
+    # consecutive samples share one self-time frame, the order of calls is kept
+    assert [(c.identifier, c.time) for c in tree.children] == [
+        (work, approx(0.3)),
+        (SELF_TIME_FRAME_IDENTIFIER, approx(0.7)),
+        (work, approx(0.5)),
+        (SELF_TIME_FRAME_IDENTIFIER, approx(0.6)),
+    ]
+    assert [(c.identifier, c.time) for c in tree.children[0].children] == [
+        (SELF_TIME_FRAME_IDENTIFIER, approx(0.3))
+    ]
 
 
 def test_aggregate_repeated_calls():
@@ -360,3 +388,15 @@ def test_group_library_frames_processor(monkeypatch):
     assert group_root.children[0].children[0] in group.frames
     assert group_root.children[0].children[0] in group.exit_frames
     assert group_root.children[0].children[0].children[0] not in group.frames
+
+
+def test_frame_remove_children():
+    parent = Frame(identifier_or_frame_info="parent\x00file.py\x001")
+    a, b, c = (Frame(identifier_or_frame_info=f"{n}\x00file.py\x001") for n in "abc")
+    parent.add_children([a, b, c])
+
+    parent.remove_children([a, c])
+
+    assert parent.children == (b,)
+    assert a.parent is None and c.parent is None
+    assert b.parent is parent

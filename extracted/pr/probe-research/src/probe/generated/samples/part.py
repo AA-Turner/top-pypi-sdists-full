@@ -62,7 +62,7 @@ _GENERATOR, _TRAINER, _SCORER, _HARBOR, _ATTEMPT, _REREAD = (PartRole.GENERATOR,
 _TASK = ("task_key", "scenario")
 _CONTENT = ("group_key", "segment", "segment_count", "split", "scheduled_step", "generated_by", "response",
             "response_blob", "finish_reason", "prompt_tokens", "response_tokens", "timing", "engine_stats", "sampling",
-            "tokens", "events")
+            "tokens", "events", "evidence_ref")
 #: The turns: the generator's, else a Harbor trial's read from its folder after Harbor's secret scrub (T27), else a
 #: later reread's. `turns`, `turns_blob` and `turns_source` merge as one conversation (`CONVERSATION_FIELDS`).
 _TURNS = ("turns", "turns_blob", "turns_source", "turn_count", "tool_call_count", "tools")

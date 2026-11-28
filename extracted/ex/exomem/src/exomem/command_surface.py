@@ -394,6 +394,12 @@ class Command:
     #: step or a credential must not run later than its caller expects. Within a declaring command,
     #: `commands.busy_intake_applies` decides per operation (`OperationEntry.queues_when_busy`).
     busy_intake: bool = False
+    #: A queueable save (`busy_intake`) that can set any frontmatter field of an existing page it names,
+    #: a collection manifest's declared fields included. Queued, it can change what a collection declares
+    #: before a later save replays, so `commands.declared_refusal_before_queueing` refuses nothing behind
+    #: it. A save that writes only fixed fields of its own, such as a supersession's `status` and
+    #: `superseded_by`, leaves it unset.
+    sets_any_frontmatter_field: bool = False
     #: Resolve read-only handles before writer admission; the leaf revalidates the bound guards.
     prepare_arguments: Callable[..., dict[str, typing.Any]] | None = field(
         default=None, compare=False, hash=False
@@ -1087,6 +1093,14 @@ def bind_vault(
                     except Exception:  # noqa: BLE001 - telemetry must not change the response
                         pass
                 if isinstance(result, dict):
+                    if (
+                        current_rendering() == "query_records"
+                        and kwargs.get("output_format") is None
+                        and "rendered" in result
+                    ):
+                        # The structured reply already carries the released rows. An explicit
+                        # export keeps its rendering, as do calls through the grouped command.
+                        result = {key: value for key, value in result.items() if key != "rendered"}
                     # The leaves author a route as a grouped call; the host calls the tool its surface lists.
                     result = capabilities.project_call_routes(result, strict=False)
                 if getattr(command, "names_pages", False) and isinstance(result, dict):
@@ -1344,6 +1358,57 @@ def mcp_caller_identity() -> dict[str, str | None]:
     except (LookupError, RuntimeError):
         identity["transport"] = identity["transport"] or "stdio"
     return identity
+
+
+def mcp_protocol_features() -> dict[str, typing.Any]:
+    """The protocol revision, declared capabilities and declared extensions of the active MCP call.
+
+    `client_capabilities` names the capabilities the client set (`roots`, `sampling`, `tasks`,
+    and `elicitation.<mode>` for each elicitation mode). Every name is a field of the SDK's own
+    typed model, so the set is closed. `client_extensions` is the sorted identifiers of the
+    extensions the client declared, which the client chooses. `None` means the request does
+    not say, which is not the same as `[]`, a client that declares nothing: stateless HTTP on
+    a revision before 2026-07-28 keeps no handshake. The SDK fills `client_capabilities` from
+    the initialize exchange, or on 2026-07-28 from each request's own envelope. Protocol
+    identifiers only: no request content.
+
+    Never raises. Outside an MCP call every value is `None`.
+    """
+    features: dict[str, typing.Any] = {
+        "protocol_version": None, "client_capabilities": None, "client_extensions": None,
+    }
+    dependencies = _request_dependencies()
+    if dependencies is None:
+        return features
+    version = capabilities = None
+    try:
+        context = dependencies.get_context()
+        version = getattr(context.request_context, "protocol_version", None)
+        # Raises RuntimeError on a server-side call that no client session carries.
+        session = context.session
+        version = version or session.protocol_version
+        capabilities = session.client_capabilities
+    except (AttributeError, LookupError, RuntimeError, ValueError):
+        pass
+    if isinstance(version, str) and version:
+        features["protocol_version"] = version
+    if capabilities is None:
+        return features
+    names: list[str] = []
+    for capability in type(capabilities).model_fields:
+        value = getattr(capabilities, capability)
+        if value is None or capability == "extensions":
+            continue
+        if capability == "elicitation":
+            # The modes are the typed model's own fields, which drops any mode the client invented.
+            # An empty object is the 2025-06-18 spelling of form mode, which 2025-11-25 keeps.
+            modes = [mode for mode in type(value).model_fields if getattr(value, mode) is not None]
+            names.extend(f"elicitation.{mode}" for mode in modes or ["form"])
+        else:
+            names.append(capability)
+    features["client_capabilities"] = sorted(names)
+    features["client_extensions"] = sorted(capabilities.extensions or ())
+    return features
 
 
 def gateway_client_context() -> str | None:

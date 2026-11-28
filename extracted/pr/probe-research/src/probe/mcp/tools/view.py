@@ -155,6 +155,8 @@ _VIEWS: dict[tuple[str, str], str] = {
     (EntityType.PROJECT, View.DECISIONS): "_build_project_decisions_view",
     (EntityType.EXPERIMENT, View.DECISIONS): "_build_experiment_decisions_view",
     (EntityType.RUN, View.DECISIONS): "_build_run_decisions_view",
+    # A project's plan stages (plan stages R21). Read-only; `probe plan save|update` write.
+    (EntityType.PROJECT, View.PLAN): "_build_project_plan_view",
     (EntityType.GROUP, View.CARD): "_view_card",
     # One rollout as an entity (0135). NO `notes` view or card excerpt, unlike every other entity: a
     # Trial has no notes document. A rollout ran once and is immutable, so `description` holds what
@@ -178,6 +180,9 @@ _VIEWS: dict[tuple[str, str], str] = {
     # One titled SUB-NOTE (0146). Like the team note its card IS the document (`notes` shows 700-char
     # excerpts; the rest lives here). Card only: see the RECORD note below.
     (EntityType.SUB_NOTE, View.CARD): "_view_sub_note_card",
+    # One SAVED paper (0152) by its Probe id: the row plus its digest, each text capped. Card only,
+    # like a sub-note: the contract declares no other view, and the card is the whole bounded record.
+    (EntityType.PAPER, View.CARD): "_build_paper_card_view",
     # The TEAM NOTE (research-os 0125). Its `card` IS the document: excerpting would send an agent
     # asking for the briefing on a second call. The bounded excerpt lives on `browse_research`. No
     # `versions` view: the team note keeps no history, by design.
@@ -200,13 +205,13 @@ _VIEWS: dict[tuple[str, str], str] = {
     (EntityType.SOURCE, View.CARD): "_view_card",
     (EntityType.SOURCE, View.LINEAGE): "_view_catalog_lineage",
 }
-# Every kind with a card gets the raw record, except a sub-note (its card IS the record, and
-# `VIEW_MATRIX` declares it card-only). Serving a pair the matrix lacks would invent a word.
+# Every kind with a card gets the raw record, except a sub-note and a paper (each card IS the
+# record, and `VIEW_MATRIX` declares both card-only). Serving a pair the matrix lacks would invent a word.
 _VIEWS.update(
     {
         (kind, View.RECORD): "_view_record"
         for kind, view in _VIEWS
-        if view == View.CARD and kind != EntityType.SUB_NOTE
+        if view == View.CARD and kind not in (EntityType.SUB_NOTE, EntityType.PAPER)
     }
 )
 

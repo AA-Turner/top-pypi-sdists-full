@@ -39,6 +39,9 @@ class ChatResult:
 
     logprobs: dict[str, Any] | None = None
 
+
+    decision: dict[str, Any] | None = None
+
     @property
     def content(self) -> str | list[dict[str, Any]] | None:
         """The reply text (or content blocks). None when the turn ended in a tool call."""
@@ -91,7 +94,7 @@ def result_from_wire(r: dict[str, Any], model_id: str) -> ChatResult:
         id=env["id"], model=env["model"], message=r.get("message") or {},
         finish_reason=r.get("finish_reason", ""), usage=env["usage"],
         perf=env["perf"], warnings=env["warnings"], cost_usd=float(r.get("cost_usd") or 0.0),
-        logprobs=r.get("logprobs"),
+        logprobs=r.get("logprobs"), decision=r.get("decision"),
     )
 
 

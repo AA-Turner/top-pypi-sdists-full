@@ -32,8 +32,11 @@ from datamodel_code_generator.model._decisions.union_assembly import FLATTENED, 
 from datamodel_code_generator.model._render_plan import RENDER_READY
 from datamodel_code_generator.model.base import (
     DataModel,
+    _class_body_fields,
     _default_state,
     _effective_field_owners,
+    _hint_body_named_types,
+    _hint_types_beyond_fields,
     _model_key_of_model,
     _model_of_reference,
     ordering_constructor_fields,
@@ -66,8 +69,8 @@ from datamodel_code_generator.parser._passes._shared import (
     assignment_facts_of,
     constructor_base_models,
     definition_reads,
+    get_constructor_conflicts,
     get_constructor_field_adjustment,
-    get_constructor_ordering_conflicts,
     get_inherited_constructor_info,
     has_import_override,
     module_member_keys,
@@ -107,6 +110,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator.model.base import DataModelFieldBase
     from datamodel_code_generator.parser._field_rows import FieldCopyFacts, FieldIdentity
     from datamodel_code_generator.parser._passes._shared import (
+        ConstructorPlaces,
         UnusedModelsHolder,
         _ConstructorFieldAdjustment,
         _InheritedConstructorInfo,
@@ -792,7 +796,13 @@ def fix_tag_opt_out_field_ordering(
             name: (field, owner, None)
             for name, (owner, field) in _effective_field_owners(model, ancestors, class_vars="no-place").items()
         }
-        if get_constructor_ordering_conflicts(model, effective_fields, set(), assignment_facts_of(model)).own:
+        if get_constructor_conflicts(
+            model,
+            effective_fields,
+            set(),
+            assignment_facts_of(model),
+            placed_bases=(ancestors, {}),
+        ).own:
             model.enable_model_keyword_only()
 
 
@@ -844,6 +854,7 @@ def fix_constructor_field_ordering_of(
 ) -> None:
     """Fix the constructor field ordering of ``models`` (``fix_constructor_field_ordering``)."""
     written = {} if copies is None else {id(model): ctx for ctx in copies.contexts for model in ctx.models}
+    places: ConstructorPlaces = "collected" if early else "legacy-struct-conflicts-at-collected-places"
     for model in models:
         restored_inherited_state = False
         for field in model.fields:
@@ -851,7 +862,7 @@ def fix_constructor_field_ordering_of(
                 parser._graph_builder.restore_required_inherited_field(model, field) or restored_inherited_state
             )
 
-        if (inherited := get_inherited_constructor_info(parser, model, early=early)) is None:
+        if (inherited := get_inherited_constructor_info(parser, model, early=early, places=places)) is None:
             if (order_key := get_local_constructor_ordering_key(model)) is not None:
                 parser._graph_builder.set_fields(model, sorted(model.fields, key=order_key))
             continue
@@ -861,7 +872,7 @@ def fix_constructor_field_ordering_of(
             and (copied := copy_inherited_conflicts(parser, model, inherited, ctx, written, copies))
         ):
             parser._graph_builder.set_fields(model, [*copied, *model.fields])
-            inherited = cast("_InheritedConstructorInfo", get_inherited_constructor_info(parser, model))
+            inherited = cast("_InheritedConstructorInfo", get_inherited_constructor_info(parser, model, places=places))
         field_adjustments: Iterator[tuple[DataModelFieldBase, _ConstructorFieldAdjustment]] = (
             (field, adjustment)
             for field in model.fields
@@ -1395,6 +1406,39 @@ def collect_live_models(state: _PreparedModule[Any]) -> None:
     state.live_models = UnusedModels(unused_models).written(state.model_list)
 
 
+def finalize_type_alias_users(parser: RenderPrepHost, state: _FinalizeState[ModuleContextView]) -> None:
+    """Let the backend configure its models from their final patterns, then import what the hints it writes name.
+
+    The model hook (``DataModel.finalize_type_alias_users``) may make a model write copies of inherited fields
+    (``_redeclared_fields``), whose types name the models of the module of their base, and hints that write the body
+    of a type alias in its place, whose types name the models of the alias's module: each field keeps its own copy of
+    those (``GenerationStore.record_hint_body_types``). The model names them all from its own module
+    (``_hint_types_beyond_fields``), importing those of others.
+    """
+    parser.data_model_type.finalize_type_alias_users(state.all_models)
+    record_hint_body_types = parser.generation_store.builder().record_hint_body_types
+    for field in (field for model in state.all_models for field in _class_body_fields(model)):
+        if named := _hint_body_named_types(field):
+            record_hint_body_types(field, named)
+    holders = [
+        (ctx, model, written)
+        for ctx in state.contexts
+        for model in ctx.models
+        if (written := list(_hint_types_beyond_fields(model)))
+    ]
+    if not holders:
+        return
+    for ctx, model, written in holders:
+        import_references(
+            parser,
+            ModuleImportTarget.of(parser.imports, ctx, state),
+            model,
+            written,
+            members=module_member_keys(parser, ctx.models, row="members"),
+            producer=ImportProducer("redeclared-python-rejected-copies", model),
+        )
+
+
 def prepare_type_alias_fields(parser: RenderPrepHost, state: _FinalizeState[Any]) -> None:
     """Prepare alias bodies once every module has collapsed its roots.
 
@@ -1405,7 +1449,7 @@ def prepare_type_alias_fields(parser: RenderPrepHost, state: _FinalizeState[Any]
     prepare_field = cast("Callable[..., bool]", parser.data_model_field_type.PREPARE_TYPE_ALIAS_FIELD)
     prepared_patterns: dict[str, PythonRuntimeExpression] = {}
     unused = run_unused_models(parser, state)
-    replace_field_type = parser._graph_builder.replace_field_type
+    replace_field_type = parser.generation_store.builder().replace_field_type
     for ctx in state.contexts:
         for model in ctx.models:
             if not isinstance(model, TypeAliasBase) or model in unused or not model.fields:

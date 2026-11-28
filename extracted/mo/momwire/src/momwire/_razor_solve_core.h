@@ -1,0 +1,274 @@
+// razor2p's whole k-dependent solve in C++: every row window of the fill
+// (seg_moments -> assemble_t1 -> t2_rows, real sources and, over a perfect
+// ground, the mirrored ones folded in) written straight into Z, then the LU
+// factorisation and the solve for the port columns. No Python anywhere, so a
+// standalone program can drive it; `_accel_razor_solve.cpp` binds it.
+//
+// It is the SAME arithmetic as the Python route, not a second copy of it:
+// each window calls the three kernels of `_razor_core.h` that
+// `RazorSolver._source_block_rows` calls, on the same arguments, and the LU
+// is whatever zgetrf/zgetrs the caller hands in (the binding passes SciPy's
+// own, from `scipy.linalg.cython_lapack`, so it is the routine `lu_factor` /
+// `lu_solve` reach). What the C++ chain removes is the Python and numpy work
+// between the calls, and the per-window allocations: buffers live in the
+// `SolveContext` and are reused across windows and across solves.
+//
+// Scope (the binding's caller, `RazorSolver._cxx_port_solution`, routes only
+// these): real k; the NEC-5 path rule (n_path = 2) with T1 sharing the
+// centroid moments (`t1_on_centroids`); free space, a PERFECT ground (the
+// unweighted image fold, grounded rows included) or the composing Sommerfeld
+// ground (GN 0 / GN 2, momwire#1479 S3: the C2-weighted image plus the
+// smooth remainder Q, `C2 img + Q` folded with the one minus); with or without the
+// extended kernel's labels; no loading, no chop, no
+// row restriction.
+#pragma once
+
+#include "_mw_core.h"
+#include "_razor_pair_reuse_core.h"
+
+#include <chrono>
+#include <functional>
+#include <stdexcept>
+#include <utility>
+
+namespace somm_proj {
+struct GridView;
+}
+
+namespace mw {
+namespace razor {
+
+// Fortran LAPACK, by pointer: the caller decides which library.
+typedef void (*zgetrf_fn)(int *m, int *n, cd *a, int *lda, int *ipiv, int *info);
+typedef void (*zgetrs_fn)(char *trans, int *n, int *nrhs, cd *a, int *lda,
+                          int *ipiv, cd *b, int *ldb, int *info);
+
+// `scipy.linalg.qr(..., pivoting=True)`'s column-pivoted QR (the
+// Sinusoidal-Galerkin crossing node's constrained solve, momwire#1718 S11b)
+typedef void (*zgeqp3_fn)(int *m, int *n, cd *a, int *lda, int *jpvt, cd *tau, cd *work, int *lwork,
+                          double *rwork, int *info);
+
+struct Lapack {
+    zgetrf_fn getrf = nullptr;
+    zgetrs_fn getrs = nullptr;
+    zgeqp3_fn geqp3 = nullptr;  // null: a constrained solve declines
+};
+
+// One source set's arguments: the real segments or their mirror images. The
+// observers (centroids) and everything per basis are shared.
+struct SourceSet {
+    view<const double, 2> seg_p0;   // (n_seg, 3)
+    view<const double, 2> seg_t;    // (n_seg, 3)
+    view<const int64_t, 1> group_j; // EK source labels (n_seg) or empty
+    view<const double, 1> a_ek;     // (n_seg) or empty
+    view<const double, 2> td_a;     // (3, n_basis): sigma-folded tangents
+    view<const double, 2> td_b;
+};
+
+// The composing ground's image block (`_source_block_rows` with a ground
+// whose `fused_window_rule` is WINDOW_RULE_CONSTANT_MIRROR and whose
+// `remainder` is present): what the weighted assembler, the scaled T2 and
+// the remainder's `field_windows` read, all built by the caller.
+struct Compose {
+    cd eps_t, c2;  // the ground's eps~ and C2 = (eps~ - 1) / (eps~ + 1)
+    double ground_z = 0.0;
+    view<const double, 2> obs_pts, obs_tans;  // (n_basis * n_path, 3): the path
+    view<const double, 2> src_c, src_t;       // (n_seg, 3): centroids, tangents
+    view<const double, 1> sig_a, sig_b;       // (n_basis): the wing signs
+    // The remainder: the grid's view (`grid_cpp_args`), the source nodes and
+    // their tangents (n_seg * n_qp, 3), and the moment weights W (2, n_seg,
+    // n_qp), C-contiguous.
+    const somm_proj::GridView *grid = nullptr;
+    size_t n_reg = 0;
+    view<const double, 2> rem_src, rem_t_src;
+    const double *W = nullptr;
+    ptrdiff_t n_qp = 0;
+    // momwire#1688: when set, the nodes are ragged, segment-major, segment j
+    // at [rem_off[j], rem_off[j + 1]) and W is (2, rem_off[n_seg]);
+    // `n_qp` is then unread.
+    const int64_t *rem_off = nullptr;
+    // The below medium's remainder (momwire#1512 B2, `RemainderBelow`): when
+    // set, the projection of m observers (points and tangents, (m, 3) row
+    // major) against the remainder's source nodes, (m, n_src) row-major into
+    // `out`, in place of the above grid's `field_proj_batch` (`grid` then
+    // unused). The window hands it the bit-distinct (point, tangent) rows of
+    // its path, as `RemainderBelow.field_windows(distinct=True)` projects.
+    std::function<void(const double *pts, const double *tans, ptrdiff_t m, cd *out)> proj;
+};
+
+struct SolveInputs {
+    // The centroid observers (n_seg, 3), with their EK labels and tubes.
+    view<const double, 2> cent;
+    view<const int64_t, 1> group_i; // (n_seg) or empty
+    view<const double, 1> b_obs;    // (n_seg) or empty
+    // The source columns shared by both sets.
+    view<const double, 1> seg_h, a, xg, wg;
+    // Per basis.
+    view<const int64_t, 1> s_a, s_b;
+    view<const double, 1> h_a, h_b, q_a, q_b;
+    view<const bool, 1> fall_a, fall_b;
+    view<const double, 2> tans;  // (n_basis * n_path, 3)
+    view<const double, 1> wts;   // (n_basis * n_path)
+    size_t n_path = 2;
+    view<const int64_t, 1> grounded;  // sorted basis rows, or empty
+    double k = 0.0, c_a_imag = 0.0, c_phi_imag = 0.0;
+    // A lossy medium (the below medium, momwire#1512 B2): the kernel's
+    // wavenumber is complex (`razor_seg_moments_cplx`) and c_Phi = j omega
+    // eps_m has a real part, so T2 is not fused: `c_A * T1 - T2 / c_Phi`,
+    // numpy's fused product and Smith division. `k` is then unused.
+    bool k_complex = false;
+    cd k_c;
+    bool unfused = false;
+    cd c_a, c_phi;
+    SourceSet real;
+    bool has_image = false;
+    SourceSet image;
+    bool compose = false;  // the image block is the composing ground's
+    Compose comp;
+    ptrdiff_t window_rows = 0;  // basis rows per window (>= 1)
+    uintptr_t cancel_flag = 0;
+    // CHOPPED rows (momwire#813 unit 2, a buried medium's front): sorted
+    // basis rows whose T2 endpoint is the KNOT, which half survives
+    // (keep_a: centroid(A) -> knot), and the knots (n_chop, 3). Empty: none.
+    view<const int64_t, 1> chop_rows;
+    view<const bool, 1> chop_keep_a;
+    view<const double, 2> chop_pts;
+    // Fill-pair reuse (momwire#1971, `_razor_pair_reuse_core.h`): 0 is the
+    // fill as it always was; 1 takes every window's moments (and, over the
+    // composing ground above the plane, its remainder rows) from the plan's
+    // class values; 2 does that and checks each window against the shipped
+    // fill (`verify`), throwing past `reuse::VERIFY_TOL`. A fill it does not
+    // serve (complex k, an unfused medium, chopped rows) runs as 0, counted.
+    int pair_reuse = 0;
+};
+
+// What ran, for tests to read (the "green gate that measures nothing" rule:
+// count the branch before believing an agreement).
+struct Counters {
+    uint64_t solves = 0, windows = 0, image_windows = 0;
+    uint64_t seg_moments_calls = 0, assemble_t1_calls = 0, t2_rows_calls = 0;
+    uint64_t lu_calls = 0, pool_grows = 0;
+    uint64_t compose_windows = 0;
+    // momwire#1971: fills that took the reuse plan, ones it declined, and the
+    // windows whose moments / remainder rows came from it.
+    uint64_t reuse_fills = 0, reuse_declined = 0, reuse_windows = 0, reuse_q_windows = 0;
+    uint64_t reuse_q_declined = 0;
+    // momwire#2144: the reused windows assembled straight from the class
+    // values (`reuse::assemble_rows`), with no moment planes.
+    uint64_t reuse_row_windows = 0;
+    double reuse_verify_worst = 0.0, reuse_seconds = 0.0;
+    double fill_seconds = 0.0, lu_seconds = 0.0;
+};
+
+class SolveContext {
+  public:
+    Counters counters;
+
+    // Z (n_basis, n_basis) is written column-major into the context's own
+    // buffer, which survives until the next fill; `z()` reads it.
+    void fill(const SolveInputs &in);
+    // The same, with `between(Z)` run once on the free block before the
+    // image folds in: razor's `Z = free; Z += exact correction; Z -= image`
+    // (`_assemble_Z`). Each element sees the same operations in the same
+    // order as `fill` when `between` adds nothing.
+    void fill(const SolveInputs &in, const std::function<void(cd *)> &between);
+
+    // Factor the context's Z in place and solve Z X = B for B's columns,
+    // overwriting `b` (n_basis, n_rhs, column-major, ld = n_basis) with X.
+    // Returns 0, or i > 0 when U(i, i) is exactly zero (the caller raises
+    // its singular-matrix error; X is then not written).
+    int lu_solve(const Lapack &lp, cd *b, int n_rhs);
+    // `np.add.at(Z, (rows, cols), vals)`: unbuffered, in order, onto the
+    // filled matrix (column-major), before `lu_solve`.
+    void add_at(const int64_t *rows, const int64_t *cols, const cd *vals, size_t n);
+    // Z (n, n) column-major, filled elsewhere (the buried fill), copied in.
+    void set_z(const cd *z, ptrdiff_t n);
+    // The same, MOVED in: the context takes the caller's buffer (n * n
+    // entries) instead of holding a second copy of it, which on a large
+    // deck is a whole n_basis^2 matrix of peak memory.
+    // Inline here, not in the .cpp, so razor's own translation unit is not
+    // touched (a .cpp edit can move unrelated results through inlining).
+    void take_z(std::vector<cd> &&z, ptrdiff_t n) {
+        if (z.size() != static_cast<size_t>(n) * static_cast<size_t>(n))
+            throw std::invalid_argument("razor_solve: take_z needs an n x n buffer");
+        n_ = n;
+        z_ = std::move(z);
+    }
+
+    // Z's buffer moved OUT (the context then holds none): the filled
+    // matrix, column-major with leading dimension n_basis(), in its first
+    // n_basis()^2 entries of a buffer at least that long (momwire#1541).
+    // Inline here for take_z's reason.
+    std::vector<cd> give_z() {
+        std::vector<cd> z;
+        z.swap(z_);
+        return z;
+    }
+
+    // Free Z and the window pool (a big solve's buffers are not held until
+    // the next one); the counters are kept.
+    void release();
+
+    const cd *z() const { return z_.data(); }
+    ptrdiff_t n_basis() const { return n_; }
+
+  private:
+    ptrdiff_t n_ = 0;
+    std::vector<cd> z_;
+    // The window pool: grown, never shrunk, reused across windows and solves.
+    std::vector<cd> m0_, m1_, t1_, img_;
+    // The composing ground's: the C2-scaled M0, the projected remainder, its
+    // arc moments and the Q rows.
+    std::vector<cd> m0c_, proj_, mom_, q_;
+    std::vector<int64_t> q_row_;
+    std::vector<double> obs_;
+    std::vector<double> dpt_, dtan_;  // the window's distinct path rows (below)
+    std::vector<int64_t> need_dist_;
+    std::vector<int64_t> need_, gi_, obs_row_, plus_, minus_, mark_;
+    std::vector<double> bo_;
+    std::vector<int> ipiv_;
+    std::vector<cd> m0k_;      // the chopped rows' knot moments, per source set
+    std::vector<cd> m0k_img_;
+    // momwire#1971: this fill's plan and class values, when it reuses.
+    std::shared_ptr<const reuse::Plan> plan_;
+    reuse::Values vals_;
+    bool reuse_ = false, reuse_q_ = false;
+    std::vector<cd> vm0_, vm1_;        // verify: the shipped moments
+    std::vector<int64_t> q_seg_;       // the remainder rows' segments and signs
+    std::vector<double> q_sign_;
+    std::string reuse_declined_reason_;  // the last fill's, or empty
+    // The last fill's plan for the fill report (momwire#2016): held weakly,
+    // so the report keeps no plan the process's cache has dropped.
+    std::weak_ptr<const reuse::Plan> last_plan_;
+    bool last_plan_built_ = false, last_plan_q_ = false;
+    void reuse_begin(const SolveInputs &in);
+
+  public:
+    // Why the last fill asked for reuse and did not take it, or empty.
+    const std::string &reuse_declined_reason() const { return reuse_declined_reason_; }
+    // The plan the last fill read, whether that fill's census built it, and
+    // whether the composing ground's remainder was planned.
+    const std::weak_ptr<const reuse::Plan> &last_plan() const { return last_plan_; }
+    bool last_plan_built() const { return last_plan_built_; }
+    bool last_plan_q() const { return last_plan_q_; }
+
+  private:
+    void knot_moments(const SolveInputs &in, const SourceSet &src, bool image,
+                      std::vector<cd> &out);
+
+    template <class T>
+    void reserve(std::vector<T> &v, size_t n) {
+        if (v.size() < n) {
+            v.resize(n);
+            counters.pool_grows++;
+        }
+    }
+    void window(const SolveInputs &in, const SourceSet &src, ptrdiff_t lo,
+                ptrdiff_t hi, bool image);
+    void planes(const SolveInputs &in, const SourceSet &src, ptrdiff_t lo, ptrdiff_t hi,
+                bool image, view<cd, 2> dst);
+    void compose_rows(const SolveInputs &in, ptrdiff_t lo, ptrdiff_t hi);
+};
+
+}  // namespace razor
+}  // namespace mw

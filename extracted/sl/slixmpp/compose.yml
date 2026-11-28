@@ -4,7 +4,7 @@
 services:
   test:
     build:
-      target: woodpecker
+      target: ci
     environment:
       CI_ACCOUNT1: slix-ci-1@prosody
       CI_ACCOUNT1_PASSWORD: slix-ci-1-pass
